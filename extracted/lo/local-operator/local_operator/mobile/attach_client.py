@@ -1,0 +1,2535 @@
+"""The attach client: a follower terminal's half of the control socket.
+
+Every interactive ``lop`` process hosts a session runtime
+(:class:`~local_operator.session.runtime.server.RuntimeServer`)
+whose loopback socket is the phone's window onto the session. This module is
+the SAME socket seen from a second terminal: ``/resume`` of a session another
+process owns dials that owner and renders its projection repaints, steering
+through the same ops the phone uses. One socket, N front ends — a second
+protocol would drift from the first, so there is none.
+
+Design constraints baked in:
+
+- **No auto-reconnect.** Owner death (socket EOF) is terminal for the
+  CONNECTION — never papered over by redialing a pid that may have been
+  reused. The callback fires once and the client is dead. What the HOST does
+  next changed in v4: ``AttachedSession`` runs a silent reattach-or-takeover
+  loop (re-discover the owner, or become it through the normal resume
+  factory) instead of showing a decision card, but each loop iteration still
+  builds a FRESH client against a freshly discovered record.
+- **Identity over pid trust.** ``live_runtime_pid`` cannot probe pids on
+  Windows, and a recycled pid anywhere defeats pid trust. After auth the
+  registrant sends a full projection unprompted; the client requires that
+  projection's ``session_id`` to match the one the user asked for before
+  declaring the attach good. A mismatch means the owner rebound away — the
+  caller surfaces the graceful refusal copy.
+- **Protocol gate before dialing.** A v1 registrant treats ANY authenticated
+  dial as THE daemon and evicts the real one; requiring ``record.protocol
+  >= 2`` turns that hazard into the graceful degradation path instead.
+
+Stdlib-only plus the mobile wire types: the CLI imports this lazily on the
+owned-resume branch only, keeping ``resume.py`` and the startup path light.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import uuid
+from contextvars import ContextVar
+from pathlib import Path
+from typing import Any, Callable, NamedTuple, Sequence
+
+from local_operator.harness.approval import (
+    frame_authority,
+    handshake_proof,
+    handshake_proof_ok,
+    is_wire_hex,
+    operator_cap_for,
+    operator_nonce,
+    request_proof,
+    signature_target,
+)
+from local_operator.mobile.types import (
+    PROTOCOL_VERSION,
+    ContinuationCommand,
+    SessionProjection,
+    SessionRecord,
+    _projection_from_json,
+)
+from local_operator.operator.keychain import KeyBackendError
+from local_operator.operator.sign import effect_copy, sign_challenge
+from local_operator.paths import config_dir
+from local_operator.session.runtime.registry import scan
+from local_operator.session.runtime.types import (
+    DESKTOP_WATCH_CAPABILITY,
+    EVENT_MUTE_CAPABILITY,
+    EXCLUSIVE_MOVE_CAPABILITY,
+    OPERATOR_SIGNATURE_CAPABILITY,
+    drain_phrase_for_frame,
+)
+
+try:
+    # The carriage capability token (mobile STT). cf9f's PR adds it beside the
+    # other record-capability tokens; on a tree that predates it the name is
+    # absent and this client fails CLOSED — it never sends the annotation —
+    # which is the same rule the relay's strip-gate (``MobileDaemon.request``)
+    # follows.
+    from local_operator.session.runtime.types import INPUT_MODE_CAPABILITY
+except ImportError:  # pragma: no cover — only on a pre-carriage tree
+    INPUT_MODE_CAPABILITY = ""
+
+#: How long to wait for an ack/error matching a request id. Mirrors the
+#: daemon's ``request`` timeout: long enough for a turn-boundary op (prompt
+#: acquires the turn lock) on a busy owner, short enough that a wedged owner
+#: surfaces as an error rather than a hang.
+ACK_TIMEOUT_S = 15.0
+
+#: The whole viewer-side budget for one §6 redaction forward (viewer → owner,
+#: ``register_secret_redaction``). Sized well under the broker's
+#: ``NOTIFY_ACK_TIMEOUT_S`` (2 s) on purpose: the broker denies the child when
+#: the session does not acknowledge in time, so a hop that stalls must give up
+#: and fail closed BEFORE that deadline rather than eating it and turning the
+#: denial into an ambiguous timeout. The TUI's notice thread bounds its wait on
+#: this same constant, so both sides of the hop share one budget.
+REDACTION_FORWARD_TIMEOUT_S = 1.0
+
+#: How long to wait for ``complete_aside`` — a full provider round trip, not a
+#: control-plane op. Matched to ``providers/clients.py`` ``STREAM_READ_TIMEOUT_S
+#: = 180.0``, the layer below's own budget for silence from a stream in flight:
+#: shorter and this client kills requests that layer still considers healthy;
+#: much longer and a genuinely wedged owner stops surfacing at all. Raising it
+#: does NOT lengthen the owner's head-of-line block: the owner stays parked on
+#: the whole provider call either way, so today's 15 s buys no unblocking and
+#: only guarantees a false error while the block continues. See
+#: docs/design-aside-deadline.md §3, and §1.1 for that socket defect — still
+#: present, deliberately not fixed here.
+ASIDE_DEADLINE_S = 180.0
+
+#: Disconnect reason marking a DELIBERATE stop, as opposed to owner death.
+#: Consumers compare against this exact string to decide whether to recover.
+STOPPED_REASON = "owner stopped the session"
+
+#: Disconnect reason for a PLANNED refresh: the owner retired itself because
+#: ``lop-update`` put a newer build on disk, and the next engage should spawn
+#: from it. Distinct from :data:`STOPPED_REASON` on purpose — a stop parks the
+#: viewer in the stopped state (``/resume`` reopens it); a refresh means "a
+#: fresh runtime is owed, engage one now". Nothing was interrupted: the owner
+#: retires only when idle (``ServingSessionHandle.may_refresh``).
+RETIRING_REASON = "owner retired for a newer build"
+
+#: Disconnect reason for a MOVE: the owner retired because the conversation
+#: is being handed to another device — a queued move's safe point. Distinct
+#: from :data:`RETIRING_REASON` on purpose, and the distinction is load-bearing:
+#: a refresh means "a fresh runtime is owed, engage one NOW, here"; a move means
+#: the conversation is LEAVING, and a viewer that reacted like a refresh would
+#: spawn a local runtime for a session mid-handoff — the second-writer window
+#: INV-1 exists to close. A host that hears this reason goes cold WITHOUT
+#: re-engaging and surfaces the device the retiring frame named (the client
+#: remembers it as :attr:`AttachClient.moved_to`).
+#:
+#: NEVER PRINTED RAW (design delta D5). The constant is a classification token
+#: — consumers compare it by EQUALITY (``attached.py``'s reason switch), so its
+#: bytes stay stable — and it names no destination, while §5.4 requires the
+#: disconnect sentence to say where the conversation now lives. Whoever renders
+#: that sentence (the UI slice; the core only remembers ``moved_to``) builds it
+#: from that name — e.g. "This conversation moved to <name>; it is no longer
+#: running here." — avoiding "owner" (reads as the account owner, i.e. the
+#: reader) and "device" as the object of "moved" (say where it went).
+MOVED_REASON = "owner moved this conversation to another device"
+
+#: Disconnect reason for a connection the owner could not BIND — its canonical
+#: ``frontend_sync`` never arrived and the runtime closed this one connection.
+#:
+#: The third member of the reason class above, and the one whose absence was a
+#: lie: with no frame carrying it, the closed socket fell through to
+#: :data:`_pump`'s default (``"owner exited"``), so a viewer told the person
+#: their SESSION had died when the truth was that the process was alive, the
+#: session untouched, and one connection unbound. The frame that carries it
+#: (``bind_failed``) is additive — an older client ignores an unknown op and
+#: reports exactly what it reported before.
+#:
+#: THE SENTENCE CARRIES THE TWO THINGS THE OTHER REASONS LEAVE IMPLICIT, and it
+#: has to, because this one is the only reason whose truth is the OPPOSITE of
+#: what the neighbouring string says: ``"owner exited"`` is the default this
+#: replaces, so a reader who has learned that class of sentence will assume the
+#: session is gone unless told otherwise. Hence the liveness clause, and hence a
+#: remedy in the shape this module's refusal copy uses (``"owner returned no
+#: fork; retry /fork"``): a bare cause leaves the person with a dead socket and
+#: nothing to do. Review round 3, UX U3.
+BIND_FAILED_REASON = "owner could not prepare this view; the session is alive — reconnect to retry"
+
+#: Maximum bytes in one frame. Must equal the server's ``_MAX_LINE_BYTES``:
+#: the writer refuses to exceed it and the reader refuses to read past it, so
+#: two different numbers would mean a frame the owner considers sendable is one
+#: this client cannot read.
+_READ_LIMIT_BYTES = 1 << 20
+
+#: Disconnect reason for a frame too large to read. Distinct from owner death
+#: because the remedy is different in kind: the owner is alive and healthy, and
+#: what failed is our ability to parse what it sent. Kept a named constant so a
+#: host can tell the two apart rather than matching on prose.
+OVERSIZED_FRAME_REASON = "owner sent a frame too large to read"
+
+logger = logging.getLogger(__name__)
+
+
+class _OversizedFrame(Exception):
+    """A readline overrun, re-raised under its own type so the pump's outer
+    handler cannot confuse it with a ``ValueError`` a frame CALLBACK raised —
+    the two mean opposite things (owner sent too much vs. this side refused
+    what it sent) and were logged as the same overrun before this existed."""
+
+
+class OversizedRequest(ValueError):
+    """This side refused to SEND a frame the owner could not have read.
+
+    The outbound twin of :class:`_OversizedFrame`, and the whole point is that
+    it is raised INSTEAD of a write. Writing an over-limit line does not fail:
+    it succeeds, the owner's ``readline`` raises on the far side, and the
+    connection dies — so the caller's request is answered by a dead socket
+    rather than an error, which is exactly the session death this guards
+    (pasting a large screenshot exited ``lop`` and forced ``lop --resume``).
+
+    A ``ValueError`` and not a ``ConnectionError``, deliberately: the socket is
+    healthy and redialling fixes nothing. The TUI's prompt worker surfaces the
+    message as a notice and puts the draft back in the composer, which is what
+    makes the refusal actionable rather than a loss.
+    """
+
+
+class UnreadableImageRequest(OversizedRequest):
+    """The refusal for an attachment that is not a decodable image AT ALL.
+
+    A SUBCLASS so every existing handler keeps working unchanged — the TUI's
+    prompt worker matches on ``isinstance(error, OversizedRequest)`` and the
+    relay's 422 path on ``ValueError``, and both still catch this.
+
+    It exists because the two refusals have DIFFERENT REMEDIES, and one place
+    in :func:`fit_request_frame` rewrites a refusal's sentence: when the text
+    has eaten the frame's budget, a SIZE failure is re-blamed on the text,
+    which is the copy call review round 2 (MAJOR-4) argued for. That rewrite
+    used to catch this one too, so a corrupt attachment on a text-heavy frame
+    told the user to "shorten the text or send the images on their own" —
+    advice that cannot work, because these bytes are not an image at any size
+    and no amount of shortening makes them one. The remedy here is always
+    "remove it", whatever the budget looks like (review round 3, NIT-1).
+
+    Narrow, and deliberately still fixed: no in-tree producer emits an
+    undecodable payload today (the owner content-sniffs and drops unusable
+    blocks on the far side), but a truncated paste or a file that is not
+    really a PNG reaches ``refit_image_to_budget`` from the client side first,
+    and a sentence that sends the user off fixing the wrong thing is the exact
+    defect ``ImageUnreadable`` was split out from ``None`` to prevent.
+    """
+
+
+class OwnerAckTimeout(ConnectionError, TimeoutError):
+    """The owner is alive; it did not answer THIS request in time.
+
+    Both bases are load-bearing. ``ConnectionError`` preserves every existing
+    caller: ``session/attached.py``'s ``route_shared_slash`` and ``compact_now``
+    catch ``ConnectionError`` ALONE, so a plain ``TimeoutError`` would escape
+    ``compact_now`` as a raw exception instead of a ``CompactionOutcome``.
+    ``TimeoutError`` lets code
+    that wants to tell a slow owner from a dead one ask, rather than parse the
+    message. See docs/design-aside-deadline.md §2.
+
+    ``owner_alive`` is the DISPOSITION, and it is a class attribute rather than a
+    sentence for the same reason ``RuntimeUnresponsiveError`` carries
+    ``runtime_alive`` (``session/attached.py``): the control ladder classifies a
+    bare ``ConnectionError`` as unreachable (dial refused, socket died) and must
+    not do that for an owner that ACCEPTED the socket and is merely slow — that
+    case is retryable, and a duck check on a class attribute is what lets the
+    ladder say so without importing this module (``mobile.projects`` reaches the
+    server package, so a module-scope import there would close an import cycle).
+
+    DELIBERATELY NOT ``runtime_alive``, which is the name the TUI duck-checks
+    (``tui/app.py``) and whose comments state it "is set only by
+    ``RuntimeUnresponsiveError``" — a sync expiry. Borrowing the name made two
+    TUI notices change register silently for a failure they cannot even see (a
+    lost ACK needs a socket client; the TUI is the owner), so this class owns its
+    own marker and the ladder reads both (agent review round 1, MINOR-2).
+    """
+
+    #: The owner holds a live connection; an unacknowledged request is worth
+    #: resending. Read through ``getattr`` by ``server/routes/desktop_sessions.py``.
+    owner_alive = True
+
+
+class _RefitReport(NamedTuple):
+    """What the wire refit did to ONE image, for the surface that must say so.
+
+    ``marker`` is the number the USER sees on their composer chip, not the
+    image's wire position \u2014 see :func:`_refit_images` for why the two differ.
+
+    ``downscaled`` is the only field that decides whether anything is said at
+    all. The refit's common outcome is a codec swap that keeps every pixel
+    (the composer already bounds a paste to 1024px, so the descending rungs are
+    unreachable for ordinary messages), and a notice on that would be pure
+    noise on a routine gesture. Losing pixels is different in kind: measured at
+    the 768px rung it costs ~40% edge energy and makes digits misread, which is
+    exactly the failure a user pastes a screenshot to avoid (design round 1,
+    D2). So the dimensions are carried to be shown, and the codec is not.
+    """
+
+    marker: int
+    width: int
+    height: int
+    source_width: int
+    source_height: int
+
+    @property
+    def downscaled(self) -> bool:
+        """Did the refit cost PIXELS, as opposed to merely changing codec?
+
+        Pixel counts rather than the ``WxH`` strings, matching
+        ``editor._was_downscaled``: the mark is a claim about fidelity and has
+        to be tested as one.
+        """
+        if not all((self.width, self.height, self.source_width, self.source_height)):
+            return False
+        return self.width * self.height < self.source_width * self.source_height
+
+
+#: Slack left over the MEASURED frame overhead, to absorb the difference
+#: between the empty-image frame and the encoded one.
+#:
+#: The overhead itself is no longer guessed — :func:`_frame_overhead_bytes`
+#: serialises the real frame with its images emptied, so the op name, the
+#: ``req`` id, any command id and the user's ACTUAL text are counted rather
+#: than bounded. A fixed 64 KiB reserve was the bug: ``clipboard.py`` admits
+#: pastes up to ``MAX_CLIPBOARD_TEXT_BYTES`` (1 MiB), so any prompt whose text
+#: passed ~64 KiB had its images fitted against a budget that was never
+#: available, the post-refit re-measure caught the overflow, and the whole
+#: message was refused — including the ~780 KB screenshot this module's
+#: docstring names as the motivating bug (review round 1, MAJOR-1).
+#:
+#: What remains is per-image JSON punctuation the emptied frame does not carry:
+#: the ``data_b64``/``mime_type`` keys, quotes, braces and commas, ~40 bytes an
+#: image plus base64's own padding. 4 KiB covers a 16-attachment message an
+#: order of magnitude over, and the exact frame is still measured again after
+#: the refit — so this only has to be non-negative, not precise.
+_FRAME_ENCODING_SLACK_BYTES = 4 * 1024
+
+
+#: Below this much room for ALL the images, blame the TEXT rather than an
+#: attachment — a COPY decision, and only that.
+#:
+#: NOT A PREDICTION THAT THE REFIT WOULD FAIL, and the earlier version of this
+#: constant made exactly that claim: it short-circuited to a refusal before the
+#: refit ran, on the premise that the tightest rung "lands around 20-30 KB of
+#: base64" so a smaller budget guaranteed a per-image refusal. That premise
+#: holds for continuous-tone photographs and is false for the two shapes an
+#: operator most often pastes. A flat terminal screenshot compresses to ~6.6 KB
+#: of base64 and fits a quarter of this figure; line art is exempt from the
+#: JPEG rung by design and a 1024x1024 bilevel grid is ~1.4 KB. Measured, three
+#: smooth-gradient sends were refused here while the refit produced a fitting
+#: image and a frame under the limit (review round 2, MAJOR-4) — the same class
+#: of defect MAJOR-1 filed against the old fixed reserve, one layer up.
+#:
+#: So the refit ALWAYS runs, and this only decides which sentence a failure
+#: gets. Below this much room the per-image refusal would quote a share
+#: rounding to ``0.0 MB`` and point the user at a screenshot when only
+#: shortening the prompt can help; the frame-level refusal names the text
+#: instead. The cost of being wrong is now one re-encode rather than a message
+#: the user was told they could not send.
+_MIN_VIABLE_IMAGE_BUDGET_BYTES = 32 * 1024
+
+
+#: The refit that the CURRENT task performed, published for the caller that has
+#: to tell the user about it. See :func:`taken_refit_report`.
+#:
+#: A context variable rather than a return value because the refit happens four
+#: call frames below the surface that renders transcripts — ``fit_request_frame``
+#: is reached through ``AttachClient._request_frame`` → ``send_command`` →
+#: ``AttachedSession.prompt``, each of which returns a receipt string with no room
+#: for a second value, and widening all four signatures to carry a UI detail
+#: through the transport would put presentation concerns in three layers that
+#: currently have none.
+#:
+#: Context propagates the RIGHT way for this: a value set in a coroutine is
+#: visible to the task that awaited it, while a task spawned with
+#: ``create_task`` gets a COPY — so two concurrent sends can never read each
+#: other's report. Verified, not assumed. The reader consumes it, so a stale
+#: report cannot outlive the send that produced it.
+_REFIT_REPORT: ContextVar[tuple[_RefitReport, ...] | None] = ContextVar(
+    "local_operator_attach_refit_report", default=None
+)
+
+
+async def fit_request_frame(frame: dict[str, Any]) -> dict[str, Any]:
+    """Return ``frame`` sized to fit the socket, refitting its images if needed.
+
+    THE BUG THIS CLOSES. The owner's control socket reads one JSON line per
+    frame with ``limit=_MAX_LINE_BYTES``; a line over that makes its
+    ``readline`` raise and (before the sibling fix in ``RuntimeServer``) killed
+    the reader loop and the connection. Nothing on this side checked, so
+    ``prompt``/``steer``/``slash`` put the user's images on the wire fully
+    base64-encoded and unguarded, and ONE pasted screenshot over ~780 KB of
+    source severed the socket at the moment of sending. Measured on this
+    machine: a 1672x941 render is 1.23 MB of base64 after the composer's own
+    ingest bound, and two ordinary screenshots together are 1.1 MB, so the
+    frames that break it are ordinary rather than pathological.
+
+    WHY REFIT RATHER THAN REFUSE. Pasting screenshots is a routine gesture, and
+    the sizes above are routine too — a hard rejection would break the feature
+    to protect the transport. So each image is re-encoded to fit
+    (:func:`~local_operator.imaging.refit_image_to_budget`, JPEG at full
+    resolution first, downscale only if that is not enough). Only an image that
+    cannot fit even at its tightest rung is refused, named by the MARKER NUMBER
+    on the user's own composer chip so they know which attachment to drop.
+
+    WHY THE BUDGET IS SHARED ACROSS THE IMAGES. The line limit applies to the
+    whole frame, so N images have to fit TOGETHER; refitting each against the
+    full limit would pass N times and still overflow. What is left after the
+    frame's MEASURED overhead is therefore split between them — see
+    :func:`_refit_images` for why the split reclaims rather than divides flat.
+
+    A COROUTINE because the refit decodes and re-encodes images — ~315 ms for a
+    20 MP frame — and every caller is on an event loop. The work goes to a
+    thread; a frame with no images (the overwhelming majority: every ack, every
+    watch, every projection request) returns after one length check without
+    ever reaching it.
+
+    Publishes what the refit COST to :data:`_REFIT_REPORT` for the front end to
+    render — see :func:`taken_refit_report`. Always, including the empty tuple
+    when nothing was resized, so a reader cannot mistake a previous send's
+    report for this one's.
+
+    Raises :class:`OversizedRequest` when the frame cannot be made to fit,
+    which is strictly better than the alternative: the caller learns its
+    request was not sent while the connection is still alive.
+    """
+    images = frame.get("images")
+    encoded_size = len(json.dumps(frame).encode()) + 1  # the socket writes a "\n" too
+    if encoded_size <= _READ_LIMIT_BYTES:
+        # The common path, and the ONLY one that leaves the report untouched:
+        # nothing was refitted, so there is nothing for a caller to consume and
+        # a `set` here would cost every ack and projection request a context
+        # write. `taken_refit_report` treats "absent" as "nothing happened".
+        return frame
+    if not isinstance(images, list) or not images:
+        # Nothing bulky to shrink, so the text itself is over the limit. Say so
+        # with both numbers rather than truncating: a prompt silently cut in
+        # half is worse than one that was not sent, because the damage is
+        # invisible until the model answers about the wrong thing.
+        raise OversizedRequest(
+            f"this message is {_megabytes(encoded_size)} and the limit is "
+            f"{_megabytes(_READ_LIMIT_BYTES)}; shorten it and send again"
+        )
+    # MEASURED, not reserved. Serialising the frame with its images emptied
+    # counts the op, the ``req``, any command id and the user's real text, so a
+    # 100 KiB prompt beside a screenshot is budgeted for instead of being
+    # refused against a 64 KiB constant that was never checked against it
+    # (review round 1, MAJOR-1).
+    overhead = _frame_overhead_bytes(frame)
+    budget = max(0, _READ_LIMIT_BYTES - overhead - _FRAME_ENCODING_SLACK_BYTES)
+    # THE REFIT ALWAYS RUNS, even on a budget this small. Whether an image fits
+    # is a question only the encoder can answer — a flat screenshot or line art
+    # fits a budget that no photograph would (see
+    # `_MIN_VIABLE_IMAGE_BUDGET_BYTES`), and predicting the answer here refused
+    # messages that would have sent (review round 2, MAJOR-4).
+    #
+    # `text_is_the_bulk` decides only which SENTENCE a genuine failure gets, so
+    # a refusal on a budget the text has eaten blames the text rather than
+    # quoting a per-image share that rounds to `0.0 MB`.
+    text_is_the_bulk = budget < _MIN_VIABLE_IMAGE_BUDGET_BYTES
+    try:
+        fitted, report = await asyncio.to_thread(_refit_images, images, budget)
+    except UnreadableImageRequest:
+        # NOT a size failure, so the text-is-the-bulk rewrite below must not
+        # replace it: the remedy is removing the attachment, and shortening the
+        # text cannot make an undecodable payload decodable (review round 3,
+        # NIT-1). Caught before `OversizedRequest` because it subclasses it.
+        raise
+    except OversizedRequest:
+        if not text_is_the_bulk:
+            raise
+        raise _text_is_the_bulk_refusal(overhead, budget) from None
+    candidate = {**frame, "images": fitted}
+    refitted_size = len(json.dumps(candidate).encode()) + 1
+    if refitted_size > _READ_LIMIT_BYTES:
+        # Every image reached its tightest rung and the frame is STILL over, so
+        # the text is the bulk. Measured on the real frame rather than assumed,
+        # so the refusal names the size the user can actually act on.
+        if text_is_the_bulk:
+            # "send fewer attachments" is not the move when the text alone has
+            # eaten the frame — the same copy call the pre-refit gate used to
+            # make, now made where the failure is real.
+            raise _text_is_the_bulk_refusal(overhead, budget)
+        raise OversizedRequest(
+            f"this message is {_megabytes(refitted_size)} even after its images were "
+            f"resized, and the limit is {_megabytes(_READ_LIMIT_BYTES)}; shorten the "
+            "text or send fewer attachments"
+        )
+    _REFIT_REPORT.set(report)
+    logger.warning(
+        "attach client: %s frame was %d bytes, over the %d-byte line limit; "
+        "resized %d image(s) to %d bytes of image payload and the frame is now "
+        "%d bytes; %d of them lost pixels",
+        frame.get("op", "request"),
+        encoded_size,
+        _READ_LIMIT_BYTES,
+        len(images),
+        # THE IMAGES, summed from what was actually fitted. This said
+        # `refitted_size` — the WHOLE frame — inside a clause reading as the
+        # images, which was within ~6% while the reserve was a fixed 64 KiB and
+        # became an overstatement of 3.25x-16.75x once the overhead was measured
+        # and up to 1 MiB of the user's own text sat inside a number attributed
+        # to the attachments (QA round 2, Q3). Both quantities are named now,
+        # because the frame size is the one that explains the limit and the
+        # payload size is the one that explains the resize.
+        sum(len(_image_payload(image)) for image in fitted),
+        refitted_size,
+        sum(1 for entry in report if entry.downscaled),
+    )
+    return candidate
+
+
+def _text_is_the_bulk_refusal(overhead: int, budget: int) -> OversizedRequest:
+    """The refusal for a frame whose TEXT left no usable room for attachments.
+
+    A copy decision rather than a diagnosis: raised only where the refit has
+    already tried and failed, so the sentence blames the quantity the user can
+    actually act on. The per-image refusal would name a share rounding to
+    ``0.0 MB`` and point at a screenshot when only shortening the prompt can
+    help (review round 2, MAJOR-4).
+
+    "no room" rather than a figure once the remainder rounds away: a sentence
+    ending "leaving only 0 KB" reads as a bug in the message.
+    """
+    room = f"only {_megabytes(budget)}" if budget >= 1024 else "no room"
+    # The text figure in the LIMIT'S scale rather than the honest-for-its-size
+    # scale, because the mixed scale broke comparability: "fills 1000 KB of the
+    # 1.0 MB limit" asked the user to convert units mid-sentence between the
+    # two figures the sentence exists to compare (design round 3, D17).
+    #
+    # Safe ONLY because of where this sentence fires: the budget precondition
+    # (under `_MIN_VIABLE_IMAGE_BUDGET_BYTES`) puts the overhead within a few
+    # KB of the whole limit, so its MB figure can never round below 0.9 and the
+    # "0.0 MB" class `_megabytes` exists to avoid is unreachable HERE. The ROOM
+    # figure keeps `_megabytes`' own scale because it is genuinely small — KB
+    # is the honest unit for a few KB, and "no room" covers a sub-KB remainder.
+    return OversizedRequest(
+        f"this message's text alone fills {overhead / (1024 * 1024):.1f} MB of "
+        f"the {_megabytes(_READ_LIMIT_BYTES)} limit, leaving {room} for its "
+        "attachments; shorten the text or send the images on their own"
+    )
+
+
+def taken_refit_report() -> tuple[_RefitReport, ...]:
+    """CONSUME what the last refit on this task cost, for the surface showing it.
+
+    Taken rather than read, so one report is rendered exactly once: the front
+    end asks after a send returns, and a later send that refits nothing must not
+    find this one still sitting there and mark an untouched image as resized.
+
+    Empty when the send needed no refit at all, which is the overwhelmingly
+    common case — callers can treat empty as "say nothing".
+    """
+    report = _REFIT_REPORT.get()
+    _REFIT_REPORT.set(None)
+    return report or ()
+
+
+def _frame_overhead_bytes(frame: dict[str, Any]) -> int:
+    """Bytes this frame costs with its images emptied — everything but payloads.
+
+    The images are replaced by EMPTY BLOCKS rather than dropped, so the keys and
+    punctuation of the list itself are counted; only the base64 the refit is
+    about to resize is excluded. Serialising the real frame is what makes the
+    budget track the user's actual text instead of a constant that a 100 KiB
+    paste silently invalidates.
+
+    Falls back to the emptied-list encoding if a block is not a dict — those are
+    passed through untouched by the refit, so counting them as empty would
+    under-budget by their own size; they are kept verbatim here for that reason.
+    """
+    images = frame.get("images")
+    if not isinstance(images, list):
+        return len(json.dumps(frame).encode()) + 1
+    hollow = [{**image, "data_b64": ""} if isinstance(image, dict) else image for image in images]
+    return len(json.dumps({**frame, "images": hollow}).encode()) + 1
+
+
+def _megabytes(size_bytes: int) -> str:
+    """``size_bytes`` in the scale a person reads sizes in.
+
+    ONE unit system across the whole sentence family. The text refusal printed
+    raw byte counts (``1,341,208 bytes``) while the image one printed MB, so two
+    refusals raised from the same function asked the user to compare figures in
+    different scales (design round 1, D1).
+
+    MB at and above a full megabyte, KB below it, and the raw byte count below
+    one KB. The KB floor is there because a one-decimal MB renders every small
+    figure as ``0.0 MB`` — and the figures that go small here are exactly the
+    per-image budgets a refusal is trying to explain. A budget the sentence
+    prints as zero tells the user their image did not fit in nothing, which is
+    not a fact they can act on; the same applies one scale down, where a
+    ``1023 B`` share must not read ``0 KB``: the split walks smallest-first, so
+    the LAST image of a many-attachment message can face a sub-KB share while
+    its tightest rung is still over a KB, and that sentence has to state a
+    budget the user can act on (review round 3, NIT-2 — previously only the
+    exact-zero case had been noticed, which is unreachable; the share path is
+    not).
+
+    THE SWITCH IS AT 1024 KB, not at 0.1 MB, so the two scales cannot cross.
+    Keyed on the rounded MB figure the sentence would actually print, the
+    boundary sat mid-KB: ``104,857`` read ``102 KB`` and ``104,858`` read
+    ``0.1 MB``, so a one-byte step moved the number DOWN while moving the unit
+    up, and a user comparing two refusals a minute apart saw the smaller figure
+    in the larger unit (review round 2, NIT-2). Below a full megabyte the
+    KB figure is the honest one; at or above it the MB figure is.
+    """
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    kilobytes = size_bytes / 1024
+    if kilobytes < 1024:
+        return f"{kilobytes:.0f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _refit_images(
+    images: list[Any], budget_bytes: int
+) -> tuple[list[Any], tuple[_RefitReport, ...]]:
+    """Fit every image block into ``budget_bytes`` of base64 TOTAL, or refuse by name.
+
+    Runs in a thread (see :func:`fit_request_frame`). A block that is not a
+    dict, or carries no ``data_b64``, is passed through untouched: the owner
+    already drops unusable blocks (``_images_from_wire``), and inventing a
+    refusal for one here would fail a send over something the owner would have
+    ignored. Its bytes still count against the budget, because they still ride
+    the frame.
+
+    THE BUDGET IS RECLAIMED, NOT DIVIDED FLAT. An equal ``budget // len(images)``
+    share is the obvious split and it wastes the frame: a 32x32 icon reserved
+    the same share as a 1600x1000 screenshot and handed nothing back, so the
+    screenshot lost half its pixels while 59% of the frame went unspent (review
+    round 1, MINOR-2). Images are therefore fitted SMALLEST FIRST, each against
+    an equal share of what REMAINS divided by the images still to come, and
+    whatever a small image does not spend is immediately available to the
+    larger ones behind it. Smallest-first is what makes the reclaim monotone:
+    an image under its share always passes untouched, so the leftover only ever
+    grows as the walk proceeds.
+
+    This keeps the property the flat split was chosen for \u2014 a message shrinks
+    evenly rather than refusing its last attachment \u2014 because an image that
+    genuinely needs more than its share still only gets its share when every
+    other image is equally hungry.
+
+    Returns the fitted blocks in their ORIGINAL order (the wire order the owner
+    binds to markers), plus one :class:`_RefitReport` per image that was
+    actually re-encoded.
+    """
+    from local_operator.imaging import (
+        ImageUnreadable,
+        refit_image_to_budget,
+        sniff_image,
+    )
+
+    fitted: dict[int, Any] = {}
+    report: list[_RefitReport] = []
+    # Wire position -> the number on the user's composer chip. They are NOT the
+    # same: marker numbers do not renumber when an attachment is deleted, so
+    # after pasting three images and backspacing two the survivor is `[Image
+    # #3]` while its wire position is 1 \u2014 and the refusal said "image 1",
+    # pointing at a chip that is not on screen (design round 1, D4).
+    #
+    # THE PRODUCER IS `editor.resolve_markers`, which stamps the chip number on
+    # each `ImageContent`, and `remote._image_to_wire`, which puts it on the
+    # block. Both were added in review round 2: this lookup shipped first with
+    # nothing populating it, so every refusal still fell through to the position
+    # and the fix was the old behaviour renamed (design round 2, D8). A change
+    # that drops either end silently restores that, which is why
+    # `test_a_refusal_quotes_the_marker_a_real_paste_produced` starts at a real
+    # paste rather than at a hand-built wire dict.
+    #
+    # Position stays the fallback for producers with no chips to name - the
+    # phone relay, a tool result - where it is the only number that means
+    # anything.
+    markers = {
+        position: (
+            int(image["marker"])
+            if isinstance(image, dict)
+            and isinstance(image.get("marker"), int)
+            and image["marker"] > 0
+            else position + 1
+        )
+        for position, image in enumerate(images)
+    }
+    # Smallest first, by the bytes each block actually contributes. The ORDER of
+    # the walk only; `fitted` is re-assembled by wire position below.
+    order = sorted(
+        range(len(images)),
+        key=lambda position: len(_image_payload(images[position])),
+    )
+    remaining = budget_bytes
+    for walked, position in enumerate(order):
+        image = images[position]
+        data_b64 = _image_payload(image)
+        # Everything still to fit, this one included, shares what is left.
+        share = max(0, remaining) // max(1, len(order) - walked)
+        if not isinstance(image, dict) or not data_b64:
+            # Passed through, but still charged: these bytes ride the frame
+            # whether or not this function can do anything about them.
+            fitted[position] = image
+            remaining -= len(data_b64)
+            continue
+        mime_type = str(image.get("mime_type") or "image/png")
+        try:
+            result = refit_image_to_budget(data_b64, mime_type, share)
+        except ImageUnreadable as exc:
+            # A DIFFERENT SENTENCE FROM "too large", deliberately: these bytes
+            # would not have been sendable at any size, so telling the user to
+            # shrink them sends them off fixing the wrong thing. A distinct
+            # CLASS too, so `fit_request_frame` cannot rewrite this sentence
+            # into the text-blaming one — see `UnreadableImageRequest`.
+            raise UnreadableImageRequest(
+                f"image {markers[position]} could not be sent because {exc}; "
+                "remove it and send again"
+            ) from exc
+        if result is None:
+            # NAMES THE CEILING THAT ACTUALLY APPLIED, and measures the IMAGE.
+            # `len(data_b64)` is the base64, which inflates 4/3 \u2014 reporting it
+            # told a user their 2.4 MB screenshot was "3.2 MB", overstating by a
+            # third against the number their file manager shows. And a size with
+            # no scale beside it answers nothing: "remove it" is the only move
+            # the sentence leaves, when the real ceiling is a per-image share
+            # that says whether cropping or sending it alone would work (design
+            # round 1, D1).
+            detail = (
+                f"this message's {_megabytes(share)} per-image budget "
+                f"({len(images)} attachments)"
+                if len(images) > 1
+                else f"this message's {_megabytes(share)} budget"
+            )
+            raise OversizedRequest(
+                f"image {markers[position]} is {_megabytes(_decoded_size(data_b64))} and will "
+                f"not fit in {detail} even at its smallest size; remove it and send again"
+            )
+        refitted_b64, refitted_mime = result
+        fitted[position] = {**image, "data_b64": refitted_b64, "mime_type": refitted_mime}
+        remaining -= len(refitted_b64)
+        if refitted_b64 != data_b64:
+            # Only a block that actually changed is reported, and only its
+            # DIMENSIONS decide whether the user is told (see `_RefitReport`).
+            # Sniffed from the bytes on both sides rather than trusting the
+            # rung: the ladder's first rung re-encodes at unchanged dimensions,
+            # so the codec-only case must measure as "not downscaled".
+            source = sniff_image(_decode_quietly(data_b64))
+            delivered = sniff_image(_decode_quietly(refitted_b64))
+            if source is not None and delivered is not None:
+                report.append(
+                    _RefitReport(
+                        marker=markers[position],
+                        width=delivered.width or 0,
+                        height=delivered.height or 0,
+                        source_width=source.width or 0,
+                        source_height=source.height or 0,
+                    )
+                )
+    return [fitted[position] for position in range(len(images))], tuple(report)
+
+
+def _image_payload(image: Any) -> str:
+    """The base64 an image block contributes to the frame, or ``""``."""
+    if not isinstance(image, dict):
+        return ""
+    data_b64 = image.get("data_b64") or ""
+    return data_b64 if isinstance(data_b64, str) else ""
+
+
+def _decoded_size(data_b64: str) -> int:
+    """The IMAGE's size in bytes, from its base64 length, without decoding it.
+
+    Base64 is 4 characters per 3 bytes plus padding, so the decoded size is
+    what the user recognises as their file and the encoded length is a third
+    larger. Arithmetic rather than a decode because this runs on a refusal
+    path holding megabytes that are about to be discarded.
+    """
+    padding = data_b64[-2:].count("=") if data_b64 else 0
+    return max(0, (len(data_b64) * 3) // 4 - padding)
+
+
+def _decode_quietly(data_b64: str) -> bytes:
+    """``data_b64`` decoded, or empty bytes \u2014 a sniff failure is never fatal.
+
+    Only feeds :func:`~local_operator.imaging.sniff_image` for the report, and
+    a report is a convenience: bytes that will not decode here have already
+    been through the refit successfully, so the right outcome is one less
+    caption, never a failed send.
+    """
+    try:
+        return base64.b64decode(data_b64, validate=True)
+    except Exception:  # noqa: BLE001 \u2014 a missing caption must never fail a send
+        return b""
+
+
+def find_runtime_record(
+    config_dir: Path, session_id: str, *, check_zombie: bool = True
+) -> tuple[SessionRecord | None, int | None]:
+    """Locate the discovery record of the live process hosting ``session_id``.
+
+    Returns ``(record, owner_pid)``. The normal case matches a record whose
+    ``session_id`` equals the ask. The rebind-race fallback: the record's
+    session_id is re-stamped only every heartbeat (15s), so when no record
+    matches but the claim marker names a live pid, that pid's record is
+    returned anyway and the welcome projection's identity check (in
+    :meth:`AttachClient.connect`) arbitrates — a stale match costs one refused
+    dial, never a wrong attach.
+
+    ``(None, pid)`` means an owner exists but no usable record does (old
+    binary, registrant failed to start): the caller degrades gracefully.
+    ``(None, None)`` means no owner at all.
+
+    ``check_zombie`` is forwarded to :func:`resume.live_runtime_pid`, which owns
+    the decision and documents both modes. It is a parameter because this
+    function is on the engage loop's dense 10 ms path as well as on every attach
+    path, and only the former can afford to defer the proof: there the owner
+    answer can only cause a wait, while an attach turns it into a refusal the
+    user sees.
+    """
+    from local_operator.resume import live_runtime_pid
+
+    owner = live_runtime_pid(config_dir, session_id, check_zombie=check_zombie)
+    if owner is None:
+        return None, None
+    best: SessionRecord | None = None
+    fallback: SessionRecord | None = None
+    try:
+        for record, state in scan(config_dir):
+            if state != "live":
+                continue
+            if record.pid == owner and record.session_id == session_id:
+                best = record
+                break
+            if record.pid == owner:
+                fallback = record
+    except OSError:
+        return None, owner
+    if best is not None and best.protocol >= 2:
+        return best, owner
+    # A v1 record is not dialable (see module docstring) — report the owner so
+    # the caller can print the refusal naming it.
+    if best is not None or fallback is not None:
+        return None, owner
+    return None, owner
+
+
+def dialable_owner_record(config_dir: Path, pid: int) -> SessionRecord | None:
+    """``pid``'s own record in the LIVE **or** WEDGED state, else ``None``.
+
+    ``find_runtime_record`` selects on the ``live`` state alone, and that is
+    right for what it is for: an ordinary attach wants an owner that is
+    answering. It is wrong for a caller whose question is "is this pid hosting
+    this session" — for which the ``wedged`` state (pid alive, heartbeat older
+    than ``HEARTBEAT_TIMEOUT_S``) is neither ``live`` nor absent. It is a
+    stuck owner, and ``dialable_record_exists`` below already records why that
+    record is kept: "a stuck owner may recover on its own, which is the
+    transient the budget is sized to outlast". Collapsing it into "no runtime"
+    is a claim the registry has not made.
+
+    So this is the second reading of the same scan, offered to a caller that
+    lets the welcome projection's identity check arbitrate
+    (``AttachClient.connect``). The record is returned whatever ``session_id``
+    it is stamped with, deliberately: the rebind race is exactly a record for
+    the live pid still carrying the previous conversation, and one refused dial
+    is its whole cost — the same arbitration ``find_runtime_record``'s own
+    fallback relies on.
+
+    ``None`` means the pid publishes no record this build could dial at all (an
+    older binary, or a registrant that failed to start): a fact the caller may
+    report, and the one state where "there is no runtime here" is true.
+    """
+    try:
+        for record, state in scan(config_dir):
+            if state in ("live", "wedged") and record.pid == pid and record.protocol >= 2:
+                return record
+    except OSError:
+        return None
+    return None
+
+
+def dialable_record_exists(config_dir: Path, pid: int) -> bool | None:
+    """Whether ``pid`` publishes a record this build could dial.
+
+    `find_runtime_record` collapses two very different states into
+    ``(None, pid)``: an owner that publishes no usable record at all (an older
+    binary, or a registrant that failed to start), and the rebind race — a
+    record for that pid that is dialable but is still stamped with the
+    PREVIOUS ``session_id``, which that function's own docstring describes as a
+    state whose record "is returned anyway and the welcome projection's
+    identity check ... arbitrates". A caller about to tell the user the process
+    is an old one must therefore ask this rather than infer it from the tuple;
+    otherwise it reports a cause the code has not established and skips the
+    pacing the race asks for (review m3).
+
+    A WEDGED RECORD ANSWERS ``True``, because that is the whole of "could this
+    pid's record be dialled" (review round 3, MINOR-2). The registry has a
+    third state — the pid is alive and the heartbeat is older than
+    ``HEARTBEAT_TIMEOUT_S``, i.e. the owner is stuck — and `scan` keeps that
+    record for exactly the reason the redial exists: a stuck owner may recover
+    on its own, which is the transient the budget is sized to outlast. Asking
+    only for ``live`` made a wedged owner answer ``False``, so it earned the
+    older-process sentence AND skipped the pacing: a cause the code had not
+    established, on the one state a redial could have healed. ``stale`` (the
+    pid is gone) is the state that is genuinely absent, and it stays ``False``.
+
+    The threshold is ``2``, the same floor `find_runtime_record` uses to decide
+    a record is usable — deliberately NOT `FRONTEND_ATTACH_MIN_PROTOCOL`: the
+    question here is only "could this pid's record be dialled at all", and a
+    record below the frontend attach protocol is a case
+    `frontend_attach_refusal` already answers with its own sentence.
+
+    ``None`` when the registry could not be read at all. Not a plain bool on
+    purpose: a failed read is not evidence of absence, so the caller must pace
+    rather than refuse on it.
+    """
+    try:
+        for record, state in scan(config_dir):
+            if state in ("live", "wedged") and record.pid == pid and record.protocol >= 2:
+                return True
+    except OSError:
+        return None
+    return False
+
+
+class AttachClient:
+    """One authenticated ``attach`` connection to a live session's registrant.
+
+    The host supplies projection/disconnect callbacks (and, in v4 events mode,
+    raw event + sync callbacks). All fire on the client's reader task, so a UI
+    host must marshal widget work onto its message pump. The client is
+    single-use: after ``on_disconnected`` it is dead by design.
+    """
+
+    def __init__(
+        self,
+        on_projection: Callable[[SessionProjection], None],
+        on_disconnected: Callable[[str], None],
+        *,
+        events: bool = False,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+        frontend_state: bool = False,
+        display_window: bool = False,
+        locality: str = "local",
+        slash_consumers: Sequence[str] | None = None,
+        on_frontend_sync: Callable[[dict[str, Any]], None] | None = None,
+        on_frontend_update: Callable[[dict[str, Any]], None] | None = None,
+        on_retiring: Callable[[dict[str, Any]], None] | None = None,
+        on_move_pending: Callable[[dict[str, Any]], None] | None = None,
+        surface: str = "terminal",
+        on_operator_prompt: Callable[[str], None] | None = None,
+    ) -> None:
+        self._surface = surface
+        self._on_projection = on_projection
+        self._on_disconnected = on_disconnected
+        if locality not in ("local", "remote"):
+            raise ValueError("attach locality must be local or remote")
+        # A phone viewer reaches this loopback socket through a relay. Keep
+        # the physical user's locality explicit; a local socket is not proof
+        # that browser-opening or desktop-only actions are appropriate.
+        self._locality = locality
+        # v4 events mode: subscribe to the owner's raw AgentEvent relay. The
+        # callbacks receive the WIRE dicts — deserialization back into concrete
+        # AgentEvent subclasses is AttachedSession's job, so this transport stays
+        # pydantic-free and cheap to import (module docstring contract).
+        self._events = events
+        self._on_event = on_event
+        self._frontend_state = frontend_state
+        self._display_window = display_window
+        # Which action-carrying slash receipts THIS client renders itself (see
+        # ``SLASH_ACTION_RECEIPTS``). Declaring them is what stops the runtime
+        # from also submitting the request: a client that says nothing is
+        # treated as one built before the field, whose request the runtime
+        # completes on its behalf. ``None`` is therefore meaningfully
+        # different from ``[]`` only to a reader of the frame -- both mean the
+        # type was not declared, which is the one rule the runtime applies.
+        self._slash_consumers = list(slash_consumers) if slash_consumers is not None else None
+        #: The operator capability for the runtime this connection dials, or
+        #: ``None`` when ANOTHER process started it (issue #1310). Resolved at
+        #: ``connect`` from the record's pid against the capabilities THIS
+        #: process minted (`harness/approval.operator_cap_for`) — which is what
+        #: makes "works iff this process started the session" the rule rather
+        #: than a per-surface special case. It rides the frame only for the ops
+        #: that increase authority; every ordinary op is byte-identical to what
+        #: this client sent before the field existed, which is why no
+        #: ``PROTOCOL_VERSION`` moves.
+        #:
+        #: THE VALUE NEVER GOES ON THE WIRE (agent review round 1, R1-1). What
+        #: rides a frame is a per-connection PROOF of it — see
+        #: ``harness/approval._proof`` for the record-rewriting attack that
+        #: ended the earlier value-sending shape — and it is only sent to an
+        #: endpoint that has already proved it holds the same value.
+        self._operator_cap: bytes | None = None
+        #: This connection's nonce (ours), salt (the runtime's) and whether the
+        #: runtime PROVED possession of the capability. ``_authority_bearing`` is
+        #: the only flag the presentation path reads: a capability we hold is not
+        #: enough to present anything to an endpoint that did not prove itself.
+        self._operator_nonce = ""
+        self._operator_salt = ""
+        self._authority_bearing = False
+        #: Whether the OWNER advertises ``operator-signature-v1`` (revision 2),
+        #: captured from the record at dial. One read at connect is complete: a
+        #: runtime's capabilities cannot change while it lives.
+        self._operator_signature_supported = False
+        #: Signatures already obtained for an action, so one user gesture raises
+        #: ONE presence prompt even when more than one code path sends the frame.
+        #: Keyed by ``(action, request_id)`` — the same tuple the runtime binds a
+        #: challenge to — and POPPED by the first frame that carries it, because
+        #: the runtime single-uses the challenge behind it: handing the same
+        #: signature to a second frame would present a spent challenge and be
+        #: refused as a replay. See ``_operator_signature``.
+        self._operator_signatures: dict[tuple[str, str], Any] = {}
+        #: Told, in the operator's words, what a signature is about to authorise.
+        #: The OS prompt cannot carry custom copy, so THIS is where "name the
+        #: session and the effect" happens for the in-process surfaces; a host that
+        #: supplies no callback still gets the line in the log rather than no line
+        #: anywhere.
+        self._on_operator_prompt = on_operator_prompt
+        self._on_frontend_sync = on_frontend_sync
+        self._on_frontend_update = on_frontend_update
+        #: Fired when a ``move_pending`` frame arrives: the owner is about to
+        #: pause and retire for a QUEUED move to the device the frame names
+        #: (design note §5.4). The window for a host to convert to a remote
+        #: viewer or detach cleanly is the owner's to hold, and it has already
+        #: begun when this fires — so a host does work here, not a reply.
+        self._on_move_pending = on_move_pending
+        #: Fired the moment a ``retiring`` frame ARRIVES, with the frame itself.
+        #: The op also sets the disconnect reason below, and that was the whole
+        #: of its original job — but the reason is only read when the socket
+        #: CLOSES, and on the drain rung the socket stays open until the
+        #: in-flight work is done (measured 26 s). A host that wants to say
+        #: anything to the operator before then has to hear it here; the frame's
+        #: ``draining`` field is the runtime's own verdict on whether refusals
+        #: are in force, and is the only honest source for that (QA round 3,
+        #: Q-1). Deliberately separate from ``on_disconnected`` for the same
+        #: reason: they are the start and the end of a handover, not one event.
+        self._on_retiring = on_retiring
+        #: The device a ``retiring`` frame with ``reason == "moved"`` named —
+        #: where the conversation went. Read by the disconnect handler through
+        #: the ``MOVED_REASON`` token (the reason is the only thing
+        #: ``_on_disconnected`` receives) and by a host that wants to say it.
+        self.moved_to = ""
+        #: The phrase THIS connection's drain published — ``LEAVING_ON_SIGNAL`` or
+        #: ``LEAVING_FOR_BUILD`` — or ``""`` while no draining frame has been
+        #: heard on it. Kept because the REFUSAL this connection is about to hand
+        #: back is decoded on this same client, and a runtime built before
+        #: ``error_trigger`` cannot say in the refusal which departure it is: the
+        #: only witness to that is the frame it published moments earlier, on
+        #: this socket. Without it the far side fell back to the build sentence
+        #: under a signal notice (agent review round 5, MINOR-1; UX round 5, U14;
+        #: design round 5, D11). Set from the frame and from nothing else, and only
+        #: from a frame that says ``draining`` — the same gate the host's notice
+        #: uses, so what the refusal quotes is what the operator was told. A
+        #: non-draining handover paints no notice and its phrase is therefore not
+        #: evidence for a refusal here; an idle handover CAN still race one, and
+        #: the raiser's own token (or the sentence that names no departure) is the
+        #: honest answer for it.
+        self._drain_phrase = ""
+        self._frontend_epoch: str | None = None
+        self._frontend_sequence: int | None = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
+        self._reader_task: asyncio.Task[None] | None = None
+        self._pending: dict[Any, asyncio.Future[dict[str, Any]]] = {}
+        #: Per-request delta sinks, keyed by the SAME ``req`` id as ``_pending``.
+        #: A streaming op (``complete_aside``) registers one so the delta frames
+        #: it receives between the request and its receipt can be delivered AS
+        #: THEY ARRIVE rather than only as the settled answer; see
+        #: :meth:`_request_frame` and the ``aside_delta`` branch of the pump.
+        self._delta_sinks: dict[Any, Callable[[str], None]] = {}
+        self._req_seq = 0
+        self._session_id = ""
+        self._attention_supported = False
+        self._event_mute_supported = False
+        self._exclusive_move_supported = False
+        self._connected = False
+
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    @property
+    def supports_completion_ack(self) -> bool:
+        return self.connected and self._attention_supported
+
+    @property
+    def supports_event_mute(self) -> bool:
+        """Whether this owner advertised ``EVENT_MUTE_CAPABILITY``.
+
+        Read from the RECORD, at dial, the way ``_attention_supported`` is:
+        the owner's build cannot change while it lives, and a record is
+        rewritten on every start, so one read at connect is complete. An
+        owner without the string is exactly the pre-mute behaviour — it keeps
+        sending every frame and the parked controller keeps discarding them —
+        so the caller must gate the send on this and never send blind.
+        """
+        return self.connected and self._event_mute_supported
+
+    @property
+    def supports_exclusive_move(self) -> bool:
+        """Whether this owner advertised ``EXCLUSIVE_MOVE_CAPABILITY``.
+
+        Read from the RECORD at dial, like ``supports_event_mute``: the owner's
+        build cannot change while it lives. An owner without the string is one
+        that would IGNORE the ``exclusive`` field on ``retire_now`` and retire
+        unguarded — so the caller must gate the send on this and refuse instead,
+        which is what makes the desktop move fail CLOSED against old owners
+        rather than silently running without the sibling-viewer guarantee.
+        """
+        return self.connected and self._exclusive_move_supported
+
+    async def set_event_muted(self, muted: bool) -> bool:
+        """Ask the owner to stop (``True``) or resume delta-grade event frames.
+
+        Best-effort by contract: the mute is an optimisation over the parked
+        controller's app-side discard, so a refusal or a dead connection here
+        costs delivery, never correctness. Returns whether the owner acked;
+        callers that cannot wait (a synchronous park toggle) run this in a
+        task and ignore the result. The op is idempotent, which is what makes
+        the reconnect re-assert legal rather than a special case.
+        """
+        if not self.supports_event_mute:
+            return False
+        await self._request("event_mute" if muted else "event_unmute")
+        return True
+
+    async def connect(self, record: SessionRecord, session_id: str) -> None:
+        """Dial, authenticate as an attach client, and verify identity.
+
+        Raises on any failure (dial refused, auth rejected, welcome identity
+        mismatch, protocol too old): the caller collapses every one to the
+        graceful refusal copy — a user re-running the command is the only
+        retry mechanism, by design.
+        """
+        if self._surface == "desktop" and DESKTOP_WATCH_CAPABILITY not in record.capabilities:
+            raise ConnectionError("This session needs a runtime update before desktop attachment.")
+        if record.protocol < 2:
+            raise ConnectionError(f"owner runs protocol v{record.protocol}; attach needs >= 2")
+        self._session_id = session_id
+        # THE CAPABILITY IS RESOLVED PER DIAL, from the pid in the record being
+        # dialled, because "may I loosen this session's gate" is a property of
+        # the pairing (this process, that runtime) and not of this client. A
+        # reconnect to a SUCCESSOR runtime re-resolves it: a successor this
+        # process spawned carries its own capability, and a successor someone
+        # else started resolves to ``None``, which is the honest answer.
+        self._operator_cap = operator_cap_for(record.pid)
+        # THE HANDSHAKE'S FIRST HALF. A nonce is not a secret, and it is offered
+        # only when this process actually holds a capability for the runtime
+        # behind this record: it exists so the runtime can prove, in its
+        # welcome, that it holds the same one. A record rewritten to point at an
+        # impostor therefore produces no proof, and this client presents nothing
+        # (see the verification below).
+        self._operator_nonce = operator_nonce() if self._operator_cap is not None else ""
+        self._operator_salt = ""
+        self._authority_bearing = False
+        # The owner's own word on whether it can verify a signature at all. Read
+        # here rather than inferred from the operator key's presence: a runtime
+        # with no anchor installed still verifies (and refuses), and a client that
+        # treated that as "unsupported" would never ask for a challenge and so
+        # never learn why (revision 2, §2.3).
+        self._operator_signature_supported = OPERATOR_SIGNATURE_CAPABILITY in record.capabilities
+        # Signatures do not survive a reconnect: the challenge they were minted
+        # against belonged to the OLD connection, and a signature presented on a
+        # new one has no live challenge behind it and would be refused as a
+        # replay. Clearing is therefore correctness, not hygiene.
+        self._operator_signatures.clear()
+        # A reconnect dials what may be a different conversation (the welcome
+        # below fails the identity check when it is), so no phrase the previous
+        # one published may survive into this one's refusals.
+        self._drain_phrase = ""
+        self._attention_supported = "completion-ack-v1" in record.capabilities
+        self._event_mute_supported = EVENT_MUTE_CAPABILITY in record.capabilities
+        # MAY THIS OWNER STORE THE INPUT ANNOTATION, resolved per dial exactly
+        # like the mute flag beside it: the fields ride only to a record that
+        # advertised input-mode-v1, and an older/unadvertised owner gets frames
+        # byte-identical to today's — absence is the legacy reading.
+        self._input_mode_supported = bool(INPUT_MODE_CAPABILITY) and (
+            INPUT_MODE_CAPABILITY in record.capabilities
+        )
+        self._exclusive_move_supported = EXCLUSIVE_MOVE_CAPABILITY in record.capabilities
+        try:
+            reader, writer = await asyncio.open_connection(
+                "127.0.0.1", record.control_port, limit=_READ_LIMIT_BYTES
+            )
+        except OSError as exc:
+            raise ConnectionError(f"owner socket unreachable: {exc}") from exc
+        self._reader = reader
+        self._writer = writer
+        # The owner needs both facts and they answer different questions:
+        # ``locality`` (upstream) says where the client physically is, while
+        # ``surface`` says which interface it presents — a desktop watcher
+        # negotiates notification/visibility leases that a plain attach does not.
+        auth: dict[str, Any] = {
+            "key": record.control_key,
+            "client": "attach",
+            "locality": self._locality,
+        }
+        if self._surface == "desktop":
+            auth["surface"] = "desktop"
+        if self._events:
+            # v4 capability flag. A v3 owner ignores unknown auth fields and
+            # simply never sends event frames — the caller gates on
+            # ``record.protocol >= 4`` before relying on the relay.
+            auth["events"] = True
+        if self._frontend_state:
+            auth["frontend_state"] = True
+        if self._display_window and "display-history-window-v1" in record.capabilities:
+            auth["display_window"] = True
+            # Declared separately from the window itself: this build can READ
+            # the audit fields, and an owner that does not advertise the
+            # capability simply never sends them. Announcing it is what makes
+            # the owner's strip decision a negotiation rather than a guess.
+            if "display-history-audit-v1" in record.capabilities:
+                auth["display_history_audit"] = True
+        if self._operator_nonce:
+            auth["operator_nonce"] = self._operator_nonce
+        if self._slash_consumers is not None:
+            # Additive and advisory, exactly the shape ``events`` and
+            # ``frontend_state`` are: an older owner ignores the unknown auth
+            # field and behaves as it always did, and no PROTOCOL_VERSION bump
+            # is warranted for a field nobody is required to read.
+            auth["slash_consumers"] = list(self._slash_consumers)
+        writer.write(json.dumps(auth).encode() + b"\n")
+        await writer.drain()
+        # The welcome projection doubles as the identity check: it names the
+        # conversation the OWNER is actually hosting right now, which is the
+        # fact the user cares about and the one a pid cannot prove.
+        try:
+            first = await asyncio.wait_for(reader.readline(), timeout=ACK_TIMEOUT_S)
+        except TimeoutError as exc:
+            raise ConnectionError("owner did not send its state") from exc
+        except ValueError as exc:
+            # The same overrun the pump handles, on the WELCOME frame — the one
+            # read that happens before the pump exists. Named rather than left
+            # to surface as a bare ValueError from a connect() call, because
+            # every caller of connect() already collapses ConnectionError into
+            # its refusal copy.
+            raise ConnectionError(OVERSIZED_FRAME_REASON) from exc
+        if not first:
+            raise ConnectionError("owner closed the connection")
+        try:
+            frame = json.loads(first.decode("utf-8", "replace"))
+        except ValueError as exc:
+            raise ConnectionError("owner sent a malformed frame") from exc
+        if frame.get("op") not in ("projection", "welcome"):
+            raise ConnectionError(f"owner replied {frame.get('op')!r}, not its state")
+        self._adopt_handshake(frame)
+        projection = _projection_from_json(frame.get("data") or {}, record)
+        if projection.session_id != session_id:
+            raise ConnectionError(f"owner moved to another conversation ({projection.session_id})")
+        self._connected = True
+        self._reader_task = asyncio.get_running_loop().create_task(self._pump())
+        # Deliver the welcome synchronously so the host paints before any
+        # later repaint can race it.
+        self._on_projection(projection)
+
+    async def _pump(self) -> None:
+        """Read frames until EOF; route projections and match acks by req id."""
+        reader = self._reader
+        assert reader is not None
+        reason = "owner exited"
+        try:
+            while True:
+                try:
+                    line = await reader.readline()
+                except ValueError as exc:
+                    # ``StreamReader.readline`` raises ValueError (via
+                    # LimitOverrunError) when one frame exceeds the connection's
+                    # ``limit``. It is NOT a transport failure, and it is not
+                    # recoverable by SKIPPING: the raise DOES consume the
+                    # offending bytes (``readline`` drains through the
+                    # separator when it found one and clears the buffer when it
+                    # did not — CPython ``asyncio/streams.py``; the runtime's own
+                    # inbound guard relies on exactly that), so later reads would
+                    # continue, but the frame it dropped is one this client
+                    # cannot reconstruct: a projection carries the session's
+                    # identity, a sync its canonical state, and a delta its
+                    # sequence. Continuing on state known to be incomplete is
+                    # drift by this client's own contract, so the overrun is
+                    # reported and the pump ends.
+                    #
+                    # Before this it fell through as an unhandled task exception
+                    # that killed the pump silently, and the host — which only
+                    # ever learns about a dead connection through
+                    # ``on_disconnected`` — kept waiting for a sync that could
+                    # never arrive, timed out after 15 s, and degraded to a
+                    # runtime-less cold session. A hard bug that presented as a
+                    # slow owner. Report it as its own reason so the host can
+                    # say what actually happened instead of blaming the owner's
+                    # liveness.
+                    #
+                    # Caught HERE, around the read alone, and not around the
+                    # whole loop: the frame callbacks below raise ValueError
+                    # too (a follower store refusing an update as "not the next
+                    # state sequence", pydantic validation of a frame), and
+                    # when the outer handler owned every ValueError those were
+                    # logged as "owner sent a frame larger than the limit" — a
+                    # 104 KB frame reported as an overrun (#573's viewer).
+                    raise _OversizedFrame() from exc
+                if not line:
+                    break
+                try:
+                    frame = json.loads(line.decode("utf-8", "replace"))
+                except ValueError:
+                    continue
+                op = frame.get("op")
+                if op in ("projection", "welcome"):
+                    try:
+                        # pid=0 record: the attach screen keys nothing on the
+                        # record's pid (it reads the projection's own), and
+                        # building a fake record per repaint would imply the
+                        # record carries truth it does not.
+                        self._on_projection(
+                            _projection_from_json(
+                                frame.get("data") or {},
+                                SessionRecord(
+                                    pid=0,
+                                    kind="tui",
+                                    session_id="",
+                                    conversation_name="",
+                                    cwd="",
+                                    model_label="",
+                                    control_port=0,
+                                    control_key="",
+                                    protocol=PROTOCOL_VERSION,
+                                ),
+                            )
+                        )
+                    except Exception:  # noqa: BLE001 — a malformed push must not kill the pump
+                        continue
+                elif op == "event":
+                    # v4 relay frame. Deliver the raw dict; a callback failure
+                    # must not kill the pump (same contract as projections).
+                    if self._on_event is not None:
+                        try:
+                            self._on_event(frame.get("data") or {})
+                        except Exception:  # noqa: BLE001
+                            continue
+                elif op == "frontend_sync":
+                    data = frame.get("data") or {}
+                    epoch = data.get("epoch")
+                    sequence = data.get("sequence")
+                    if not isinstance(epoch, str) or not isinstance(sequence, int):
+                        raise ConnectionError("malformed frontend sync")
+                    self._frontend_epoch = epoch
+                    self._frontend_sequence = sequence
+                    if self._on_frontend_sync is not None:
+                        self._on_frontend_sync(data)
+                elif op == "frontend_update":
+                    data = frame.get("data") or {}
+                    epoch = data.get("epoch")
+                    sequence = data.get("sequence")
+                    expected = (
+                        (self._frontend_sequence + 1)
+                        if self._frontend_sequence is not None
+                        else None
+                    )
+                    if epoch != self._frontend_epoch or sequence != expected:
+                        # Deltas are not replacement-safe: every sequence must
+                        # arrive. Closing forces a fresh v5 snapshot rather than
+                        # continuing with silently incomplete canonical state.
+                        raise ConnectionError(
+                            f"frontend state gap: expected {self._frontend_epoch}/{expected}, "
+                            f"got {epoch}/{sequence}"
+                        )
+                    self._frontend_sequence = sequence
+                    if self._on_frontend_update is not None:
+                        self._on_frontend_update(data)
+                elif op == "move_pending":
+                    # THE QUEUED MOVE'S ANNOUNCE (design note §5.4): the owner has
+                    # reached a safe point and is about to pause; the frame names
+                    # the device the conversation is going to. A callback failure
+                    # must not kill the pump (same contract as every callback
+                    # above). An owner older than this frame never sends it, and
+                    # an older CLIENT ignores an unknown op — the additive-read
+                    # contract both directions.
+                    if self._on_move_pending is not None:
+                        try:
+                            self._on_move_pending(frame)
+                        except Exception:  # noqa: BLE001
+                            continue
+                elif op == "stopping":
+                    # The owner is ending this session ON PURPOSE (a /stop
+                    # anywhere: this viewer, another TUI's /stop all, a shell
+                    # lop stop). Carried in the disconnect reason rather than a
+                    # new callback because every consumer already reads that
+                    # string, and the EOF it precedes is moments away — a
+                    # viewer that mistakes it for owner death takes over a
+                    # session the user just ended (U2-4).
+                    reason = STOPPED_REASON
+                elif op == "retiring":
+                    # A planned refresh (design-runtime-autorefresh §3.2). Same
+                    # carrier as ``stopping`` — the disconnect reason — and for
+                    # the same reason: the EOF is moments away and every host
+                    # already reads that string. The host goes cold at once
+                    # and re-engages rather than chasing a record for 8 s.
+                    reason = RETIRING_REASON
+                    if str(frame.get("reason") or "") == "moved":
+                        # A MOVE'S RETIREMENT, told apart from a build refresh by
+                        # the reason the owner sent (the frame is additive: an
+                        # owner older than the key sends no such reason, and an
+                        # old client reads the frame exactly as before). The
+                        # destination rides on the client so the disconnect
+                        # handler — which sees only the reason token — can send
+                        # a host that wants to say where the conversation went.
+                        self.moved_to = str(frame.get("to") or "")
+                        reason = MOVED_REASON
+                    # AND the frame is an event in its own right, straight away:
+                    # on the drain rung the EOF is NOT moments away (the runtime
+                    # stays until its work is done), and a host that only heard
+                    # the reason at the close learned of the handover after it
+                    # was over. A callback failure must not kill the pump, same
+                    # contract as the event relay above.
+                    #
+                    # REMEMBERED BEFORE IT IS ANNOUNCED, because every refusal
+                    # this connection hands back arrives after this frame and
+                    # some of them cannot name their own departure: the phrase is
+                    # the far side's evidence for the trigger (see
+                    # ``_raise_for_reply_error``).
+                    if frame.get("draining"):
+                        self._drain_phrase = drain_phrase_for_frame(frame)
+                    if self._on_retiring is not None:
+                        try:
+                            self._on_retiring(frame)
+                        except Exception:  # noqa: BLE001
+                            continue
+                elif op == "bind_failed":
+                    # The owner could not prepare THIS connection (its canonical
+                    # state never arrived and the socket is about to close).
+                    # Carried in the disconnect reason like ``stopping`` and
+                    # ``retiring`` above, and for the same reason: the EOF is
+                    # moments away and every consumer already reads that string.
+                    # What it buys is the truth — without it the close fell
+                    # through to the pump's default and the person was told
+                    # their session had died.
+                    reason = BIND_FAILED_REASON
+                elif op == "aside_delta":
+                    # One chunk of an off-record aside's answer, streamed while the
+                    # request that asked for it is still in flight. LIVE ONLY by
+                    # contract: the owner never replays these and the receipt is
+                    # what the caller keeps, so this is progress, not result.
+                    #
+                    # The sink is keyed by ``req``, so a chunk this connection is
+                    # not waiting on (a lost race, a card the user already closed)
+                    # is DROPPED rather than treated as an error — the pump must
+                    # survive a stray frame. A sink that raises does not kill the
+                    # pump either: same contract as the event relay and the
+                    # ``retiring`` callback above.
+                    sink = self._delta_sinks.get(frame.get("req"))
+                    if sink is not None:
+                        chunk = (frame.get("data") or {}).get("delta")
+                        if isinstance(chunk, str) and chunk:
+                            try:
+                                sink(chunk)
+                            except Exception:  # noqa: BLE001 — never kill the pump
+                                logger.debug(
+                                    "attach client: aside delta callback failed", exc_info=True
+                                )
+                elif op in ("ack", "error", "result"):
+                    req = frame.get("req")
+                    future = self._pending.pop(req, None)
+                    if future is None:
+                        # A paid-for answer arriving after its waiter gave up
+                        # (or after the user closed the card). Dropping it is
+                        # correct; dropping it SILENTLY is not — this is the
+                        # only trace that the owner did the work.
+                        logger.warning(
+                            "attach client: reply for unknown request %s (op %s) discarded",
+                            req,
+                            op,
+                        )
+                    elif not future.done():
+                        future.set_result(frame)
+        except _OversizedFrame:
+            reason = OVERSIZED_FRAME_REASON
+            logger.error(
+                "attach client: owner sent a frame larger than the %d-byte line limit; "
+                "the connection cannot continue",
+                _READ_LIMIT_BYTES,
+            )
+        except (ConnectionResetError, BrokenPipeError):
+            reason = "owner connection reset"
+        except ConnectionError as exc:
+            # A frame the owner sent was refused by this side — malformed, a
+            # sequence gap, or a sync a host callback rejected. The socket is
+            # healthy; the STATE is not, and the host's disconnect handler is
+            # the one place that can decide between redialling for a fresh
+            # snapshot and giving up. Named so the log says which. Ordered
+            # BEFORE the bare ``OSError`` clause below because
+            # ``ConnectionError`` is one, and the two resets above are
+            # ``ConnectionError`` subclasses in turn.
+            reason = str(exc) or "owner sent a frame this client refused"
+            logger.warning("attach client: %s; the connection cannot continue", reason)
+        except OSError:
+            reason = "owner connection reset"
+        except Exception as exc:  # noqa: BLE001 — a callback failure must still report
+            # A host callback raised something else (a store rejecting an
+            # update, a validation error). Same treatment: the pump cannot
+            # continue past a frame it could not apply, and silence here is
+            # the "slow owner" bug shape above wearing a different exception.
+            reason = f"owner frame could not be applied: {exc}"
+            logger.warning("attach client: %s; the connection cannot continue", reason)
+        finally:
+            self._connected = False
+            for future in self._pending.values():
+                if not future.done():
+                    future.set_exception(ConnectionError(reason))
+            self._pending.clear()
+            try:
+                self._writer.close()  # type: ignore[union-attr]
+            except Exception:  # noqa: BLE001
+                pass
+            self._on_disconnected(reason)
+
+    # -- requests ---------------------------------------------------------------
+
+    def _raise_for_reply_error(self, reply: dict[str, Any]) -> None:
+        """Turn an error frame into the exception this client raises for it.
+
+        Shared by every op reader, because the mapping is a protocol fact (an
+        admission refusal is a typed error, anything else is the owner's own
+        sentence) and a second copy of it is a second place to forget one.
+
+        AN INSTANCE METHOD BECAUSE ONE ARGUMENT IS THIS CONNECTION'S OWN: a
+        retirement refusal from a runtime older than ``error_trigger`` names no
+        departure in the frame, and the phrase this client heard on the draining
+        frame is the only thing that can place it. Passed as evidence, never as
+        text — it keys a table in ``session.errors``.
+        """
+        if reply.get("op") != "error":
+            return
+        from local_operator.session.errors import admission_error
+
+        # ``getattr``, because this decoder's callers include CONSTRUCTION-FREE
+        # doubles: three cells drive a real op over ``object.__new__(AttachClient)``
+        # with ``_request_frame`` stubbed, so the phrase this connection would
+        # have heard is absent rather than empty. Absent evidence and "this
+        # frame named no trigger" are the same thing to the decoder, and a
+        # double must not have to know the member exists to exercise the path.
+        known = admission_error(
+            str(reply.get("error_code", "")),
+            reply.get("error_count"),
+            reply.get("error_trigger"),
+            getattr(self, "_drain_phrase", ""),
+            # The audio refusal's facts (agent review round 1, m2): the model
+            # label, the reason clause and the format flag ride as their own
+            # bounded fields so the rebuilt refusal NAMES the model and the
+            # report on this side too; a frame without them (an older runtime)
+            # rebuilds the bare sentence exactly as before.
+            model=reply.get("error_model"),
+            report=reply.get("error_report"),
+            format_unsupported=reply.get("error_format"),
+        )
+        if known is not None:
+            raise known
+        raise RuntimeError(str(reply.get("message", "request failed")))
+
+    def _adopt_handshake(self, welcome: dict[str, Any]) -> None:
+        """Verify the runtime's proof that it holds OUR capability (issue #1310).
+
+        THE HALF THAT CLOSES THE HARVEST. The discovery record is writable by
+        anything under this uid, so ``control_port`` is not trustworthy: an
+        impostor can rewrite it and receive whatever this client sends. It
+        cannot, however, compute the proof this method checks — it does not hold
+        the capability — so a console presents nothing to it, not even a proof.
+
+        A failed or missing proof is NOT a connection failure: ordinary control
+        keeps working exactly as it did (the record key is the whole
+        authorization story for ordinary operations), and only the
+        authority-increasing class is withheld. Holding a capability and hearing
+        no proof is the one case worth a warning, because it means this process
+        started a runtime for this pid and something else answered.
+        """
+        self._operator_salt = ""
+        self._authority_bearing = False
+        if self._operator_cap is None or not self._operator_nonce:
+            return
+        salt = welcome.get("operator_salt")
+        if is_wire_hex(salt) and handshake_proof_ok(
+            supplied=welcome.get("operator_proof"),
+            held=self._operator_cap,
+            client_nonce=self._operator_nonce,
+            server_salt=str(salt),
+        ):
+            self._operator_salt = str(salt)
+            self._authority_bearing = True
+            return
+        logger.warning(
+            "attach: %s holds the operator capability for pid %s but the endpoint answering did "
+            "not prove it holds the same one; authority-increasing requests will be withheld",
+            self._surface,
+            getattr(self, "_runtime_pid", None),
+        )
+
+    def authority_proof(self, op: str, fields: dict[str, Any]) -> str | None:
+        """The proof for an authority-increasing frame, or ``None`` for any other.
+
+        THE SINGLE ENTRY POINT for every producer of control frames THIS client
+        owns, including the phone relay's own writer (``mobile/daemon.request``),
+        which writes frames by hand rather than through ``_request_frame`` and
+        would otherwise be a surface that can never loosen. Returns ``None``
+        when the op is ordinary (leaving the frame byte-identical to what an
+        older runtime served, which is why no ``PROTOCOL_VERSION`` moves), when
+        this process holds no capability, and when the runtime never proved it
+        holds the same one.
+
+        ``getattr`` for the three members: three cells drive a real op over
+        ``object.__new__(AttachClient)`` with ``_request_frame`` stubbed, so a
+        double must not have to know they exist to exercise an ordinary path.
+        """
+        if not getattr(self, "_authority_bearing", False):
+            return None
+        cap = getattr(self, "_operator_cap", None)
+        if cap is None:
+            return None
+        if frame_authority({"op": op, **fields}) != "authority-increasing":
+            return None
+        return request_proof(
+            cap,
+            client_nonce=self._operator_nonce,
+            server_salt=self._operator_salt,
+        )
+
+    async def _present_operator_signature(self, frame: dict[str, Any]) -> dict[str, Any]:
+        """Attach an OPERATOR SIGNATURE to an increasing frame, when one is needed.
+
+        THE CAPABILITY RESTORATION, CLIENT SIDE (revision 2, §2.4). Three frames
+        reach the runtime that increase authority — ``slash``, ``slash_result``
+        and ``approval_answer`` — and this client used to answer all three with a
+        spawn capability it only has when THIS process started the runtime. Every
+        other surface (an attached pane, the desktop backend for a session it did
+        not engage, the CLI on a background-started run, the phone) could not
+        loosen at all, which is the capability loss the operator will not accept.
+
+        So when the capability is not available and the owner advertises
+        ``operator-signature-v1``, the client asks the runtime for a per-action
+        challenge and signs it with the operator key. The signature costs a
+        human gesture, which is the entire boundary: the runtime does not care
+        who the caller is, only that a person answered an OS prompt naming the
+        session and the effect.
+
+        ORDER MATTERS. The capability is presented FIRST and this returns the
+        frame untouched when it was: a console that spawned the runtime must stay
+        prompt-free (design §3), and prompting it would be a regression in the
+        one surface that already worked.
+
+        A frame the runtime advertises no support for, an ORDINARY frame, and a
+        failed prompt all return the frame unchanged — the runtime then answers
+        with its typed refusal, which is the copy that names the real levers. A
+        client that silently dropped the request would leave the reader with no
+        answer at all.
+        """
+        if getattr(self, "_authority_bearing", False):
+            return frame
+        if not getattr(self, "_operator_signature_supported", False):
+            return frame
+        target = signature_target(frame)
+        if target is None:
+            return frame
+        action, request_id = target
+        signature = await self._operator_signature(action, request_id)
+        if signature is None:
+            return frame
+        return {**frame, "operator_sig": signature.sig, "operator_key_id": signature.key_id}
+
+    async def _operator_signature(self, action: str, request_id: str) -> Any | None:
+        """One signature for one action, or ``None`` when none could be obtained.
+
+        ``None`` is a supported answer rather than an error: the reader then gets
+        the runtime's typed refusal, whose copy names the levers that DO work
+        here (this machine's presence store, a paired phone, ``--yolo``), which is
+        strictly more useful than a client-side sentence that cannot know what
+        went wrong.
+
+        THE MEMO IS POPPED, not read, and that is the single-use rule reaching
+        the client: the challenge behind a signature is spent the moment the
+        runtime uses it, so a signature handed to two frames is a replay on the
+        second one. Popping means one prompt per ACTION (the normal case: one
+        user gesture, one frame) while a retry after a failure prompts again —
+        which is correct, because a retry after a failure needs a new challenge
+        anyway.
+
+        RUN OFF THE EVENT LOOP, deliberately: the signing call raises the OS
+        presence prompt (Touch ID, or CNG's consent dialog), which blocks until a
+        human answers it or it times out. Awaiting it inline would freeze this
+        connection's reader task — and every other session multiplexed onto the
+        same TUI — for as long as the prompt is on screen.
+        """
+        cached = self._operator_signatures.pop((action, request_id), None)
+        if cached is not None:
+            return cached
+        if getattr(self, "_requesting_challenge", False):
+            # A challenge request must never try to sign itself: it is ordinary,
+            # so ``signature_target`` already refuses it, and this guard exists so
+            # that a future reclassification cannot turn this into a recursion.
+            return None
+        self._requesting_challenge = True
+        try:
+            reply = await self._request_frame(
+                "operator_challenge", action=action, request_id=request_id
+            )
+        except Exception as exc:  # noqa: BLE001 — an owner that predates the op
+            # An OLDER owner answers this with its generic unknown-op error frame,
+            # which is exactly the "predates the feature" signal the design
+            # relies on (a capability string, not a PROTOCOL_VERSION bump, so the
+            # rest of control keeps working). Logged at debug because on an old
+            # owner it is the expected outcome rather than a fault.
+            logger.debug("attach: no operator challenge from this owner: %s", exc)
+            return None
+        finally:
+            self._requesting_challenge = False
+        challenge = reply.get("challenge")
+        if reply.get("op") == "error":
+            # An owner that does not know the op, or that refused it. Both are the
+            # "cannot sign here" answer, and the reader gets the runtime's own
+            # typed refusal for the frame that needed the signature.
+            logger.debug("attach: the owner refused an operator challenge: %s", reply)
+            return None
+        if not isinstance(challenge, str) or not is_wire_hex(challenge):
+            logger.warning("attach: the owner sent no usable operator challenge")
+            return None
+        copy = effect_copy(
+            purpose=action, session_id=getattr(self, "_session_id", "") or "", request_id=request_id
+        )
+        if self._on_operator_prompt is not None:
+            self._on_operator_prompt(copy)
+        else:
+            logger.info("attach: %s", copy)
+        try:
+            return await asyncio.to_thread(
+                sign_challenge,
+                challenge=challenge,
+                purpose=action,
+                config_root=config_dir(),
+                session_id=getattr(self, "_session_id", "") or "",
+                request_id=request_id,
+            )
+        except KeyBackendError as exc:
+            logger.info("attach: could not sign the operator challenge: %s", exc)
+            return None
+
+    def _present_authority(self, frame: dict[str, Any]) -> dict[str, Any]:
+        """Add this connection's proof to a frame that INCREASES authority.
+
+        The console's half of the rule in ``harness/approval.frame_authority``:
+        the runtime demands the proof on exactly the frames this adds it to, and
+        both sides read the one classification.
+
+        Attached HERE, at the single outbound chokepoint, rather than in each
+        caller: ``slash``, ``slash_result`` and ``approval_answer`` are reached
+        from the TUI's routed slash path, the desktop command route, the phone
+        relay and the peer paths, and a per-caller field would be a field some
+        future caller forgets.
+        """
+        op = str(frame.get("op", ""))
+        proof = self.authority_proof(op, frame)
+        out = {**frame, "operator_cap": proof} if proof is not None else dict(frame)
+        # THE SENTENCE HALF. ``slash_result`` returns REPORTS that name remedies,
+        # and whether this connection may loosen decides which remedy is true —
+        # so the runtime is given the one thing it can verify about us (agent
+        # review round 3, R3-1 = UX U10: without this the runtime could only
+        # answer "not proved", and told a console that had just loosened the gate
+        # that loosening belonged to another window). The value is the HANDSHAKE
+        # proof, not the capability: it is the same value this connection was
+        # already sent, it is bound to this connection's nonce and salt, and it
+        # authorises nothing on its own — a frame that needed authority would
+        # still have to carry ``operator_cap`` for that frame.
+        if op == "slash_result" and self._authority_bearing and self._operator_cap is not None:
+            out["operator_handshake"] = handshake_proof(
+                self._operator_cap,
+                client_nonce=self._operator_nonce,
+                server_salt=self._operator_salt,
+            )
+        return out
+
+    async def _request(
+        self,
+        op: str,
+        *,
+        deadline_s: float = ACK_TIMEOUT_S,
+        on_delta: Callable[[str], None] | None = None,
+        **fields: Any,
+    ) -> str:
+        """Send one op and await its ack detail (or raise its error message).
+
+        ``on_delta`` is for a STREAMING op (``complete_aside``): the chunk sink
+        is registered for this request's ``req`` id and fed by the pump until the
+        receipt lands (success, error or timeout), which is what makes a
+        streamed chunk reachable while the request is still in flight. ``None``
+        — every other op — registers nothing and behaves exactly as before.
+        """
+        reply = await self._request_frame(op, deadline_s=deadline_s, on_delta=on_delta, **fields)
+        self._raise_for_reply_error(reply)
+        return str(reply.get("detail", ""))
+
+    async def request_ack_with_duplicate(self, op: str, **fields: Any) -> tuple[str, bool]:
+        """Send one op and report ``(detail, duplicate)`` from its ack.
+
+        The idempotency seam for :func:`session.runtime.launch.engage_runtime`.
+        A retried errand (the sender crashed after the runtime admitted its
+        row, a supervisor re-fired a wake) must not append a second copy, so
+        the runtime answers ``duplicate: true`` for a ``command_id`` its
+        transcript already owns and the caller reports "already delivered"
+        rather than delivering again. An older runtime simply omits the field,
+        which reads as False — the pre-idempotency behaviour.
+        """
+        reply = await self._request_frame(op, **fields)
+        self._raise_for_reply_error(reply)
+        return str(reply.get("detail", "")), bool(reply.get("duplicate", False))
+
+    async def _request_frame(
+        self,
+        op: str,
+        *,
+        deadline_s: float = ACK_TIMEOUT_S,
+        on_delta: Callable[[str], None] | None = None,
+        **fields: Any,
+    ) -> dict[str, Any]:
+        """Send one op and return its whole reply frame.
+
+        The shared body of :meth:`_request` and
+        :meth:`request_ack_with_duplicate`, which differ only in how much of
+        the reply they keep.
+
+        ``on_delta`` registers a per-``req`` chunk sink for a streaming op, and
+        the ``finally`` below is what DEREGISTERS it — on the timeout and
+        connection-loss paths as well as the clean one, so a closed card cannot
+        leave a sink behind that the pump would keep feeding (the same discipline
+        ``_pending`` already follows).
+        """
+        if not self._connected or self._writer is None:
+            raise ConnectionError("not attached")
+        self._req_seq += 1
+        req = self._req_seq
+        # THE CARRIAGE GATE'S LAST MILE — see _strip_unsupported_annotation.
+        # Applied HERE, not only in the builders, because the wake path calls
+        # request_ack_with_duplicate directly and never passes through them:
+        # an owner that did not advertise ``input-mode-v1`` must receive
+        # byte-identical frames on EVERY path (agent review round 1, R1-1).
+        fields = self._strip_unsupported_annotation(fields)
+        # FITTED BEFORE THE FUTURE IS REGISTERED, because this can raise
+        # `OversizedRequest` and a future parked in `_pending` for a request
+        # that was never written is never resolved by anything: it sits there
+        # until the connection closes, then takes the teardown's
+        # `ConnectionError` with nobody awaiting it — an "exception was never
+        # retrieved" log for a refusal the caller had already handled cleanly.
+        frame = await self._present_operator_signature(
+            self._present_authority({"op": op, "req": req, **fields})
+        )
+        frame = await fit_request_frame(frame)
+        future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[req] = future
+        # Registered BEFORE the write: a fast owner can stream its first chunk
+        # in the same read the receipt would arrive on, so a sink registered
+        # after the write can miss the head of the answer.
+        if on_delta is not None:
+            self._delta_sinks[req] = on_delta
+        try:
+            self._writer.write(json.dumps(frame).encode() + b"\n")
+            await self._writer.drain()
+            return await asyncio.wait_for(future, timeout=deadline_s)
+        except TimeoutError as exc:
+            # MUST stay above the OSError arm. On 3.11+ TimeoutError subclasses
+            # OSError and str(TimeoutError()) is '', so an OSError arm placed
+            # first swallows every ack timeout and renders it as the dangling
+            # "owner connection lost:" this fix exists to remove.
+            raise OwnerAckTimeout(f"owner did not answer {op!r} within {deadline_s:g}s") from exc
+        except (ConnectionResetError, BrokenPipeError, OSError) as exc:
+            raise ConnectionError(f"owner connection lost: {exc}") from exc
+        finally:
+            self._pending.pop(req, None)
+            self._delta_sinks.pop(req, None)
+
+    async def _request_payload(
+        self, op: str, *, deadline_s: float = ACK_TIMEOUT_S, **fields: Any
+    ) -> Any:
+        """Send one op and await its structured ``result`` payload.
+
+        The sibling of :meth:`_request` for ops whose answer is data rather
+        than a receipt line. The registrant replies with ``{"op": "result",
+        "data": ...}``; an error frame raises the same way.
+        """
+        if not self._connected or self._writer is None:
+            raise ConnectionError("not attached")
+        self._req_seq += 1
+        req = self._req_seq
+        # Fitted before the future is registered, for the reason spelled out in
+        # :meth:`_request_frame`: a refusal must leave nothing parked in
+        # ``_pending``.
+        frame = await self._present_operator_signature(
+            self._present_authority({"op": op, "req": req, **fields})
+        )
+        frame = await fit_request_frame(frame)
+        future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[req] = future
+        try:
+            self._writer.write(json.dumps(frame).encode() + b"\n")
+            await self._writer.drain()
+            reply = await asyncio.wait_for(future, timeout=deadline_s)
+        except TimeoutError as exc:
+            # See _request_frame: this arm MUST precede the OSError one.
+            raise OwnerAckTimeout(f"owner did not answer {op!r} within {deadline_s:g}s") from exc
+        except (ConnectionResetError, BrokenPipeError, OSError) as exc:
+            # No `_pending.pop` here: the `finally` below runs on this path too,
+            # so the second call was always a no-op on an already-popped id
+            # (review round 1, MINOR-3).
+            raise ConnectionError(f"owner connection lost: {exc}") from exc
+        finally:
+            self._pending.pop(req, None)
+        if reply.get("op") == "error":
+            # The shared reader, so the phrase this connection heard is applied
+            # here too rather than only on the ops that call it as a method.
+            self._raise_for_reply_error(reply)
+        return reply.get("data")
+
+    def _strip_unsupported_annotation(self, fields: dict[str, Any]) -> dict[str, Any]:
+        """Drop ``input_mode``/``input_path`` unless the owner advertised the capability.
+
+        THE CLIENT'S HALF OF THE CARRIAGE GATE — the relay's strip in
+        ``MobileDaemon.request`` is the sibling — and this is the copy that a
+        frame cannot route around, because it runs at the one point every
+        annotation-carrying frame is written (:meth:`_request_frame`).
+        ``_request_payload`` is a second frame write point and does not strip;
+        no live path carries the annotation through it today, so every current
+        door is covered — a future op that gives it an annotation field must
+        route the pair through this strip as well. The pair reaches the wire
+        through more than one door: ``prompt``/``steer``/
+        ``send_command`` build it in :meth:`_annotation_fields`, but the wake
+        path (``launch._deliver``) and the desktop admit path
+        (``attached.admit_prompt``) hand it straight to
+        ``request_ack_with_duplicate``, which never passes that builder. A
+        frame to an owner that never advertised ``input-mode-v1`` must be the
+        frame that owner would have seen before this feature existed, on every
+        path — absence is the legacy reading. Fail-closed as everywhere else:
+        ``_input_mode_supported`` is False when the constant is absent or the
+        record did not advertise it, and ``getattr`` reads it because
+        construction-free doubles (``object.__new__(AttachClient)``) drive the
+        request paths without ever having connected — the same courtesy
+        ``authority_proof`` extends to its members, and False is the fail-closed
+        answer for a client that never saw a record.
+        """
+        if getattr(self, "_input_mode_supported", False):
+            return fields
+        if "input_mode" not in fields and "input_path" not in fields:
+            return fields
+        return {
+            key: value for key, value in fields.items() if key not in ("input_mode", "input_path")
+        }
+
+    def _annotation_fields(self, input_mode: str, input_path: str) -> dict[str, Any]:
+        """The builder-side carriage fields, empty values and old owners omitted.
+
+        ``prompt``/``steer``/``send_command`` construct their envelope here.
+        The capability half of the rule lives in
+        :meth:`_strip_unsupported_annotation` (called below) and is re-applied
+        at the write point for the doors that never build through here; empty
+        values are omitted because absence is the legacy reading and an
+        explicit empty is nothing a consumer should have to interpret.
+
+        The declared value type is ``Any``, not ``str``, because every caller
+        SPREADS the result into a frame builder's ``**fields`` beside declared
+        keyword parameters (``_request``'s ``deadline_s: float`` /
+        ``on_delta``): pyright checks a ``dict[str, str]`` spread against THOSE
+        parameters and refuses the frame on paper only — the values are the
+        annotation pair, and the cast semantics it wants are the payload
+        catch-all's.
+        """
+        fields: dict[str, str] = {}
+        if input_mode:
+            fields["input_mode"] = input_mode
+        if input_path:
+            fields["input_path"] = input_path
+        return self._strip_unsupported_annotation(fields)
+
+    async def prompt(
+        self,
+        text: str,
+        *,
+        command_id: str | None = None,
+        images: list[dict[str, str]] | None = None,
+        input_mode: str = "",
+        input_path: str = "",
+    ) -> str:
+        return await self._request(
+            "prompt",
+            command_id=command_id or str(uuid.uuid4()),
+            text=text,
+            images=list(images or []),
+            **self._annotation_fields(input_mode, input_path),
+        )
+
+    async def send_command(self, command: ContinuationCommand, *, streaming: bool = False) -> str:
+        """Submit natural text using the latest owner projection.
+
+        The retained command id rides both paths. If an idle projection races a
+        turn start, the owner's busy rejection is reconciled once as steering;
+        no second prompt is created and reconnect retries keep one identity.
+        """
+        if command.session_id != self._session_id:
+            raise ValueError("command belongs to another conversation")
+        if streaming:
+            return await self.steer(
+                command.text,
+                command_id=command.command_id,
+                images=command.images,
+                input_mode=command.input_mode,
+                input_path=command.input_path,
+            )
+        try:
+            return await self.prompt(
+                command.text,
+                command_id=command.command_id,
+                images=command.images,
+                input_mode=command.input_mode,
+                input_path=command.input_path,
+            )
+        except RuntimeError as exc:
+            # Local import, matching this module's other `session.errors` use:
+            # the check is a TYPE when this build raised it and the old sentence
+            # when the producer is a build that has never heard of the class.
+            from local_operator.session.errors import TurnInFlight
+
+            if not isinstance(exc, TurnInFlight) and "already streaming" not in str(exc):
+                raise
+            return await self.steer(
+                command.text,
+                command_id=command.command_id,
+                images=command.images,
+                input_mode=command.input_mode,
+                input_path=command.input_path,
+            )
+
+    async def steer(
+        self,
+        text: str,
+        *,
+        command_id: str | None = None,
+        images: list[dict[str, str]] | None = None,
+        input_mode: str = "",
+        input_path: str = "",
+    ) -> str:
+        return await self._request(
+            "steer",
+            command_id=command_id or str(uuid.uuid4()),
+            text=text,
+            images=list(images or []),
+            **self._annotation_fields(input_mode, input_path),
+        )
+
+    async def desktop_watch(self, *, visible: bool, can_notify: bool) -> str:
+        """Renew this attach connection's desktop lease, not the phone counter."""
+        return await self._request("desktop_watch", visible=visible, can_notify=can_notify)
+
+    async def desktop_withdraw(self) -> str:
+        """Withdraw this attach connection's desktop lease: the pane has left.
+
+        THE ONE FRAME THAT CLEARS THE RUNTIME'S SESSION-SCOPED ATTACH MEMORY.
+        Not a pair of booleans on ``desktop_watch``, deliberately: a transient
+        renderer stream end and a hidden pane on a host with no notification
+        channel both beat ``(False, False)``, and both MUST keep the memory
+        alive. The op exists so "the attachment is over" is expressible at all;
+        the bridge sends it once the last live watch lease has run out, and
+        replays it on a re-dial so a successor does not resurrect the lease.
+        """
+        return await self._request("desktop_withdraw")
+
+    async def viewer_watch(self, *, displaying: bool) -> str:
+        """Tell the owner whether this terminal is still SHOWING its session.
+
+        A multiplexing TUI keeps a switched-away session's connection open, so
+        the owner cannot infer "on screen" from "connected" and a parked gate
+        behind a retained attach never notified anybody. Sent on the switch
+        edge, not on a timer: this is state, not a lease.
+
+        Best-effort by contract. An owner too old to know the op answers with
+        an error frame, which is the correct outcome -- that build counted
+        every attach anyway, so nothing regresses when the call fails.
+        """
+        return await self._request("viewer_watch", displaying=displaying)
+
+    async def abort(self) -> str:
+        return await self._request("abort")
+
+    async def acknowledge_attention_state(self, token: str) -> dict[str, Any]:
+        """Acknowledge a completion and return the state the OWNER computed.
+
+        The follower's own projection cannot answer "did my receipt land?": the
+        owner publishes it on the event queue while this ack is written
+        directly, so the ack is resolved a whole writer ahead of the state it
+        produced and an honest receipt reads as a lost one (agent review round
+        1, R4). The owner therefore hands the state back ON the ack (see
+        ``AckDetail`` in ``session.runtime.server``); an owner older than that
+        field sends none, and an empty mapping is the honest answer -- the
+        caller must treat it as INCONCLUSIVE rather than as a verdict.
+        """
+        if not self._attention_supported:
+            raise RuntimeError("update the owner to acknowledge completions")
+        reply = await self._request_frame("acknowledge_attention", completion_token=token)
+        self._raise_for_reply_error(reply)
+        attention = reply.get("attention")
+        return dict(attention) if isinstance(attention, dict) else {}
+
+    async def request_stop(self) -> str:
+        """Ask the owner to stop itself — the follower's bare ``/stop``.
+
+        The graceful rung of the kill switch, dialled from the viewer that
+        is looking at the session rather than by a third party: the owner's
+        runtime runs deny-gates → dispose → unpublish → exit. An owner too
+        old to know the op answers the standard unknown-op error, which the
+        caller surfaces as the upgrade hint — the follower never escalates
+        to a signal against its own owner (that decision belongs to the
+        owner's machine, through ``lop stop`` or ``/stop <target>``).
+        """
+        return await self._request("stop")
+
+    async def retire_if_pristine(self) -> str:
+        """Offer the owner back when this viewer never used it.
+
+        The counterpart to the eager engage a viewer performs at mount. The
+        answer is the RUNTIME's, not ours: it retires only if nothing durable
+        ever happened in the session and no other viewer is still attached
+        (see ``RuntimeServer._retire_if_pristine``). We ask; it decides.
+
+        The returned detail says which branch ran ("retired", or "kept: …")
+        and is logged rather than shown — a viewer shutting down has no
+        surface left to paint on, and a refusal is a normal outcome rather
+        than an error. An owner too old to know the op answers the standard
+        unknown-op error, which the caller treats the same way: leave it to
+        the ordinary residency drain.
+        """
+        return await self._request("retire_if_pristine")
+
+    async def record_shell(self, command: str, result: dict[str, Any]) -> str:
+        return str(await self._request_payload("record_shell", command=command, result=result))
+
+    async def frontend_sync(self) -> Any:
+        """Refresh the canonical cut without abandoning admitted RPCs."""
+        return await self._request_payload("frontend_sync")
+
+    async def history_page(self, before: str, anchor: str = "") -> Any:
+        """Read a signed canonical display page on the authenticated socket."""
+        return await self._request_payload("history_page", before=before, anchor=anchor)
+
+    async def request_refresh(self) -> str:
+        """Ask a STALE owner to retire now if it is idle, so the next engage
+        runs the build on disk.
+
+        The viewer-side belt for the runtime's own reaper-driven refresh: a
+        resume in the seconds after ``lop-update`` binds before the runtime
+        has noticed the change, and without this the viewer would either wait
+        for it or warn. As with ``retire_if_pristine`` the answer is the
+        runtime's (``retiring`` — optionally followed by the label of the build
+        it is leaving FOR, which a caller may quote back — or ``kept: …``); an
+        owner too old to know the op answers the unknown-op error, which the
+        caller reads as kept.
+        """
+        return await self._request("refresh_if_idle")
+
+    async def retire_now(self, *, exclusive: bool = False) -> str:
+        """Ask an IDLE owner to retire so a successor can start elsewhere.
+
+        ``/move``'s transport. The session's working directory is fixed when
+        its runtime is spawned, so changing it means retiring the current
+        runtime and engaging one at the new path — and the runtime leaves by
+        the ``retiring`` route rather than the ``stopping`` one, which is the
+        whole reason this is a distinct op. A stop tells the viewer the SESSION
+        ended (it parks, and ``/resume`` is the way back); ``retiring`` tells it
+        a successor is owed and it should engage one, which is exactly what a
+        move wants and what the build-refresh path already does.
+
+        As with ``retire_if_pristine`` and ``request_refresh`` the answer is the
+        runtime's own ("retiring", or "kept: …"): it re-asks its idle predicate
+        and refuses if work arrived. An owner too old to know the op answers the
+        standard unknown-op error, which the caller surfaces as a refusal to
+        move rather than moving anyway.
+
+        ``exclusive`` (default OFF, so every existing caller keeps the exact
+        legacy byte shape) asks the owner to honour the move only while no other
+        ACTUAL attach is registered, under its own admission fence. The caller
+        MUST gate this on :attr:`supports_exclusive_move` first: an old owner
+        ignores the unknown field and retires anyway, so sending it blind would
+        buy the sibling-viewer guarantee without the owner enforcing it.
+        """
+        if exclusive:
+            return await self._request("retire_now", exclusive=True)
+        return await self._request("retire_now")
+
+    async def queue_move(self, *, to_device: str = "", to_name: str = "") -> dict[str, Any]:
+        """Install (or refresh) a QUEUED MOVE intent on the owner.
+
+        ``network/move_queue.py``'s delivery half. The owner holds the intent —
+        a flag, deliberately NOT the exclusivity fence, which would block
+        attach admission — and watches for the turn boundary itself; at the
+        safe point it announces ``move_pending`` to every attached client, holds
+        the bounded attach window, and retires with ``reason: "moved"`` so
+        attached clients go cold without re-engaging locally. Idempotent:
+        sending it again to the same owner is the same intent, which is what
+        makes the driver's re-delivery after a runtime restart safe.
+
+        The reply's ``stage`` names where the owner is in that sequence:
+        ``queued`` (accepted, boundary not yet reached), ``paused`` (latched;
+        clients announced), ``retiring`` (leaving now), or ``cancelled`` (the
+        queue record ended under it — a cancel or a fold; the intent is gone).
+
+        ``to_device``/``to_name`` travel WITH the intent because the announce
+        (``move_pending``) must name where the conversation is going, and the
+        sender is the one holding the record that says it. They are carried
+        rather than re-read on the owner: the owner's config root is the same
+        one, but a re-read would make the frame's target a second read of a
+        file the sender already parsed, and the wire is where this one lives.
+        """
+        reply = await self._request_frame("queue_move", to_device=to_device, to_name=to_name)
+        self._raise_for_reply_error(reply)
+        detail = reply.get("detail")
+        return dict(detail) if isinstance(detail, dict) else {}
+
+    async def job_trajectory(self, job_id: str, offset: int = 0, limit: int = 120) -> Any:
+        """Fetch one page of a child job's retained events from the owner.
+
+        The attach snapshot carries no trajectories — a busy session's retained
+        events do not fit the socket's 1 MiB line limit — so the subagent page
+        pulls its own rows when a reader opens it.
+        """
+        return await self._request_payload(
+            "job_trajectory", job_id=job_id, offset=offset, limit=limit
+        )
+
+    async def watch_job(self, job_id: str) -> str:
+        """Subscribe this connection to one job's live trajectory appends.
+
+        Per-connection by design: deltas for jobs nobody is looking at are
+        dropped at the owner, which is what keeps a 100-child roster's event
+        stream bounded for a viewer reading one page.
+        """
+        return await self._request("watch_job", job_id=job_id)
+
+    async def unwatch_job(self, job_id: str) -> str:
+        """Stop receiving one job's trajectory appends (the page closed)."""
+        return await self._request("unwatch_job", job_id=job_id)
+
+    async def slash(
+        self,
+        command: str,
+        args: str,
+        images: list[dict[str, str]] | None = None,
+    ) -> str:
+        return await self._request("slash", command=command, args=args, images=images or [])
+
+    async def slash_result(
+        self,
+        command: str,
+        args: str,
+        images: list[dict[str, str]] | None = None,
+    ) -> Any:
+        """Run one shared slash command on the owner; return its typed outcome.
+
+        The ``result`` frame carries a :class:`SlashResult` payload the invoker
+        renders locally, replacing the synthetic ``ran /…`` receipt that left
+        the follower's terminal with a transport message while the real answer
+        painted in the owner's.
+        """
+        return await self._request_payload(
+            "slash_result", command=command, args=args, images=images or []
+        )
+
+    async def fork_snapshot(self, message: str = "") -> dict[str, Any]:
+        """Copy the authenticated owner's committed history, without interrupting it."""
+        result = await self._request_payload("fork_snapshot", message=message)
+        if not isinstance(result, dict) or not result.get("fork_id"):
+            raise ValueError("owner returned no fork; retry /fork")
+        return result
+
+    async def credential(self, action: str, key: str = "", value: str = "") -> Any:
+        """Run one ``/credential`` verb against the owner's variable store.
+
+        ``value`` carries a SECRET for the ``store`` action and is empty for
+        every other verb. It has its own named field rather than riding the
+        generic ``args`` string of ``slash_result`` so that the one place a
+        secret appears on the wire is the one place that must handle it
+        carefully — nothing echoes, logs, or transcribes this field.
+        """
+        return await self._request_payload("credential", action=action, key=key, value=value)
+
+    async def mcp_credentials(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Dedicated value transport: never a slash/receipt payload."""
+        return await self._request_payload("mcp_credentials", body=body)
+
+    async def variables(
+        self, action: str, key: str = "", value: str = "", value_type: str = ""
+    ) -> Any:
+        """Run one code-memory verb on the OWNER's live eval kernel.
+
+        A payload op like ``credential``, and for the same reason: the answer is
+        the data itself (a variable list, a refusal with its own code) rather
+        than a receipt line, and the ``busy``/``unsupported`` states must reach
+        the panel as states — a receipt-shaped reply would have to encode them in
+        prose the front end then parses.
+
+        The session is not named on the wire: the owner answers for the session
+        it IS, so naming it here could only ever address a DIFFERENT namespace
+        than the one this viewer is attached to.
+        """
+        return await self._request_payload(
+            "variables", action=action, key=key, value=value, type=value_type
+        )
+
+    async def register_secret_redaction(self, value: str) -> None:
+        """Ask the owner to register ONE §6 value with its own redactor.
+
+        This is the attached viewer's half of §6: the broker's notice reaches
+        the nearest REGISTERED session above the retrieving child, which is
+        normally the runtime itself (``ServingSessionHandle``) — but not when
+        the runtime registered nothing (it booted before a store existed at its
+        config root, §13). There the viewer's own registration is the one that
+        answers, and the ``VariableStore`` the value must reach is the owner's,
+        not this process's — so the value is forwarded over the same
+        viewer→runtime control route ``credential`` already rides, in its own
+        named field with a single consumer. It is deliberately NOT a
+        ``/credential`` verb: the owner registers a redaction, it does not
+        store a credential, and the op must stay out of that verb table.
+
+        ``value`` never appears in any log, journal, announcement, audit row
+        or event stream on either side of the wire; the owner's handler writes
+        it only into its ``VariableStore`` redaction set.
+        """
+        await self._request_payload(
+            "register_secret_redaction", value=value, deadline_s=REDACTION_FORWARD_TIMEOUT_S
+        )
+
+    async def adopt_aside(self, messages: list[dict[str, Any]]) -> str:
+        """Fork an aside exchange into the conversation on the authoritative owner."""
+        return await self._request("adopt_aside", messages=messages)
+
+    async def cancel_subagents(self) -> int:
+        """Cancel every running subagent on the owner; return the REAL count."""
+        value = await self._request_payload("cancel_subagents")
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return -1
+
+    async def complete_aside(
+        self,
+        turns: list[dict[str, Any]],
+        *,
+        aside_instruction: bool = True,
+        on_delta: Callable[[str], None] | None = None,
+    ) -> str:
+        """Ask the owner for an off-record answer, streaming its chunks.
+
+        ``on_delta`` receives each ``aside_delta`` chunk AS IT ARRIVES; the
+        returned string is still the authoritative answer (the receipt's
+        ``detail``). The two are deliberately not the same thing to a caller: a
+        chunk the pump never delivered is cosmetic, a receipt the owner never
+        sent is a failure.
+
+        ``aside_instruction`` IS SENT ONLY WHEN IT IS FALSE, so the frame stays
+        byte-identical for the default the owner has always applied. An owner
+        that predates the field knows neither the parameter nor this body key,
+        and it does not wrap the turns either — the seam wrap and
+        ``session/aside.py`` arrive with the same change as this key — so it
+        answers the raw turns exactly as it always has, which is the compatible
+        direction. The idempotency belt (an already-wrapped turn is returned
+        unchanged) therefore covers only peers built from this change onward.
+        Sending ``True`` explicitly would put a value on the wire that means no
+        more than its absence, so the key is omitted instead of sent as
+        ``True``.
+        """
+        fields: dict[str, Any] = {"on_delta": on_delta, "turns": turns}
+        if aside_instruction is False:
+            fields["aside_instruction"] = False
+        return await self._request(
+            "complete_aside",
+            deadline_s=ASIDE_DEADLINE_S,
+            **fields,
+        )
+
+    async def set_model(self, provider: str, model_id: str, effort: str | None = None) -> str:
+        """Select a model on the owner, at ``effort`` when one was chosen.
+
+        The key is OMITTED when no level was chosen rather than sent as null, so
+        to an owner that predates it the frame is byte-identical to the one it
+        has always received (the dispatch reads the key it knows and ignores
+        the rest, and there is no protocol bump for an optional field).
+        """
+        fields: dict[str, Any] = {"provider": provider, "model_id": model_id}
+        if effort:
+            fields["effort"] = effort
+        return await self._request("set_model", **fields)
+
+    async def set_effort(self, effort: str) -> str:
+        return await self._request("set_effort", effort=effort)
+
+    async def approval_answer(
+        self, request_id: str, approved: bool, *, deadline_s: float = ACK_TIMEOUT_S
+    ) -> str:
+        """``deadline_s`` is the caller's own budget for this acknowledgement.
+
+        The default is this client's full envelope, and it is what every
+        pre-existing caller gets. The desktop answer path passes something
+        SHORTER when its remaining control budget is smaller: an answer that is
+        retried must fit inside the renderer's per-op deadline, so the two
+        attempts have to share one window rather than spend one each (agent
+        review round 1, MAJOR-1).
+        """
+        return await self._request(
+            "approval_answer",
+            request_id=request_id,
+            approved=approved,
+            remember=False,
+            deadline_s=deadline_s,
+        )
+
+    async def ask_answer(
+        self,
+        request_id: str,
+        value: str,
+        *,
+        question_index: int | None = None,
+        deadline_s: float = ACK_TIMEOUT_S,
+    ) -> str:
+        """See :meth:`approval_answer` for what ``deadline_s`` is for."""
+        fields: dict[str, Any] = {"request_id": request_id, "value": value}
+        if question_index is not None:
+            # The stale-answer guard (U8): name the question that was on
+            # screen when the user answered, so an advanced picker refuses it.
+            fields["question_index"] = question_index
+        return await self._request("ask_answer", deadline_s=deadline_s, **fields)
+
+    async def ask_respond(self, ask_id: str, answers: dict[str, list[str]], *, by: str = "") -> str:
+        """Answer a QUEUED ask, ATOMIC per ask (design §2.4).
+
+        One body for all of the ask's questions, so there is no per-question wire
+        race to lose: the blocking path answered one question at a time and a
+        client that died mid-way left the ask half-settled.
+        """
+        fields: dict[str, Any] = {"ask_id": ask_id, "answers": answers}
+        if by:
+            fields["by"] = by
+        return await self._request("ask_respond", **fields)
+
+    async def ask_decline(self, ask_id: str, *, by: str = "") -> str:
+        """Decline a queued ask: explicit "no answer, decide yourself"."""
+        fields: dict[str, Any] = {"ask_id": ask_id}
+        if by:
+            fields["by"] = by
+        return await self._request("ask_decline", **fields)
+
+    async def ask_dismiss(self, ask_id: str, *, by: str = "") -> str:
+        """Dismiss a TIMED-OUT ask from the view. Injects nothing, ever."""
+        fields: dict[str, Any] = {"ask_id": ask_id}
+        if by:
+            fields["by"] = by
+        return await self._request("ask_dismiss", **fields)
+
+    async def recall_steer(self, command_id: str) -> str:
+        """Unsend the queued steer submitted under ``command_id`` (v4)."""
+        return await self._request("recall_steer", command_id=command_id)
+
+    async def detach(self) -> None:
+        """Close the connection from our side. ``on_disconnected`` still fires
+        (the pump observes EOF) so the host's teardown runs one path."""
+        self._connected = False
+        if self._writer is not None:
+            try:
+                self._writer.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    def abandon(self) -> None:
+        """Close WITHOUT reporting the closure as a disconnect.
+
+        Both ``detach`` and ``close`` still end in ``on_disconnected`` (the
+        pump observes EOF or its cancellation) — right for a host that is
+        exiting or leaving, whose teardown runs one path, and wrong for a host
+        that is ABANDONING a connection it judged unusable and intends to keep
+        running: there the callback reads as owner loss and starts a recovery
+        that redials the same runtime. The refused-sync path in
+        ``AttachedSession`` is that case.
+        """
+        self._on_disconnected = lambda _reason: None
+        # The frame hook is dropped with it: an abandoned connection's frames
+        # are not this host's to hear, and a late ``retiring`` from the socket
+        # it refused to keep would paint a handover it is no longer part of.
+        self._on_retiring = None
+        self.close()
+
+    def close(self) -> None:
+        """Synchronous teardown for hosts without a loop (app exit paths)."""
+        self._connected = False
+        if self._reader_task is not None:
+            self._reader_task.cancel()
+            self._reader_task = None
+        if self._writer is not None:
+            try:
+                self._writer.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+async def continue_command(
+    config_dir: Path,
+    command: ContinuationCommand,
+    *,
+    deadline_s: float = ACK_TIMEOUT_S,
+    on_projection: Callable[[SessionProjection], None] | None = None,
+) -> tuple[AttachClient, str]:
+    """Deliver one retained command to whichever host wins the session lease.
+
+    Every contender may start a candidate. The atomic transcript lease, never
+    a check before spawning, decides authority. Losing candidates exit and the
+    producer redials the published winner with the unchanged command id.
+
+    That arbitration now lives in :func:`session.runtime.launch.engage_runtime`,
+    which is the ONE place any caller starts a runtime — this function's own
+    spawn-and-poll loop was the prototype for it and has been deleted rather
+    than left as a second implementation that could drift. The phone keeps its
+    connected :class:`AttachClient` (it streams the reply), so the dial happens
+    here after the engage guarantees a runtime exists.
+    """
+    from local_operator.session.runtime.launch import PromptErrand, engage_runtime
+
+    outcome = await engage_runtime(
+        command.session_id,
+        str(Path.home()),
+        PromptErrand(
+            text=command.text,
+            images=list(command.images),
+            command_id=command.command_id,
+            input_mode=command.input_mode,
+            input_path=command.input_path,
+        ),
+        config_dir=config_dir,
+        deadline_s=deadline_s,
+    )
+    # The command is admitted; what remains is the phone's live view of the
+    # turn it started. A record must exist now (engage_runtime only returns
+    # once one answered), so a miss here is a runtime that died in the gap and
+    # is reported as the same timeout the caller already handles.
+    #
+    # THE RECEIPT IS THE ENGAGE'S OWN DETAIL, never a hardcoded sentence. On a
+    # draining owner the runtime spools the message for the build that replaces
+    # it, and its answer is ``inbox.SPOOL_RECEIPT_PROMPT`` — a deferral. This
+    # used to return the literal "prompt admitted" over whatever the runtime
+    # said, so the phone was told the owner had the message and waited for a
+    # reply only another process would produce, after this one exited (agent
+    # review round 1, R2).
+    admitted_detail = outcome.detail or "prompt admitted"
+    record, _ = await asyncio.to_thread(find_runtime_record, config_dir, command.session_id)
+    if record is None:
+        raise TimeoutError("Couldn’t continue this conversation. Try again.")
+    client = AttachClient(
+        on_projection or (lambda projection: None),
+        lambda reason: None,
+    )
+    try:
+        await client.connect(record, command.session_id)
+    except (ConnectionError, RuntimeError, TimeoutError) as exc:
+        client.close()
+        raise TimeoutError("Couldn’t continue this conversation. Try again.") from exc
+    return client, admitted_detail

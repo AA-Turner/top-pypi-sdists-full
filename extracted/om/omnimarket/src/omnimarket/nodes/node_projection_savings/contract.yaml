@@ -1,0 +1,317 @@
+---
+name: projection_savings
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+# OMN-17985: this contract is owned by its OWN standalone writer Deployment
+# (RUNTIME_PROFILE=projection-writer-savings on onex-dev), not by the shared main runtime it
+# fell to while it declared nothing. The name became declarable when
+# omnibase_core 0.47.5 registered it in REGISTERED_RUNTIME_PROFILES and
+# CONSUMER_ATTACHED_RUNTIME_PROFILES; the writer is consumer-attached as
+# measured fact -- it joined its group and the coordinator issued it
+# partitions. Declaring it here is what makes ownership single-valued.
+runtime_profiles:
+  - projection-writer-savings
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_projection_savings.handlers.handler_projection_savings.ModelSavingsEstimatedEvent
+description: >
+  Projects savings-estimated events into the savings_estimates table.
+  Source topics include omnibase-infra savings estimates and omnimarket
+  delegate-skill terminal events that already carry measured token/cost
+  savings metrics.
+
+handler:
+  module: omnimarket.nodes.node_projection_savings.handlers.handler_projection_savings
+  class: HandlerProjectionSavings
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: projection_savings
+      handler:
+        name: HandlerProjectionSavings
+        module: omnimarket.nodes.node_projection_savings.handlers.handler_projection_savings
+      handler_module: omnimarket.nodes.node_projection_savings.handlers.handler_projection_savings
+      event_model: omnimarket.nodes.node_projection_savings.handlers.handler_projection_savings.ModelSavingsEstimatedEvent
+    - operation: savings_projection_runner
+      handler:
+        name: SavingsProjectionRunner
+        module: omnimarket.nodes.node_projection_savings.handlers.handler_savings
+      handler_module: omnimarket.nodes.node_projection_savings.handlers.handler_savings
+
+terminal_event: onex.evt.omnimarket.projection-savings-applied.v1
+
+db_io:
+  db_tables:
+    - name: savings_estimates
+      database_ref: application
+      schema: public
+      migration: "075_add_savings_estimates_updated_at.sql"
+      # OMN-20303: both writers READ the run's stored identity before they
+      # write, so one delegation run keeps one row. `access: write` is refused
+      # fail-closed at the read seam (ProjectionTableOperation
+      # ._assert_read_declared); the declaration covers what the handler does.
+      access: read_write
+      role: estimates
+    # OMN-15583: READ-ONLY resolution of the producer-recorded tenant identity.
+    # node_projection_tenant_registry owns and writes this relation; this node
+    # asks it a question and never answers one -- the same declaration, the same
+    # schema and the same reasoning as node_projection_delegation's, which is
+    # where the resolver this writer now shares already reads it. Declared
+    # because the runtime's read seam (ProjectionTableOperation
+    # ._assert_read_declared) refuses an undeclared table fail-closed and
+    # quarantines the event.
+    #
+    # NOT `tenant`, and that is load-bearing: the mirror is a cross-tenant
+    # registry index holding only the slug<->uuid correspondence the platform
+    # already exposes at signup. Classified `tenant` it would sit behind RLS and
+    # be invisible to a reader whose app.tenant_id is not yet known -- which is
+    # precisely this reader, whose whole job is to resolve that tenant.
+    - name: tenant_registry_mirror
+      database_ref: application
+      schema: omninode_internal
+      migration: "0000_create_tenant_registry_mirror.sql"
+      access: read
+      role: tenant_registry_mirror
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnibase-infra.savings-estimated.v1
+    - onex.evt.omnimarket.delegate-skill-completed.v1
+    - onex.evt.omnimarket.delegate-skill-failed.v1
+    # OMN-13629 (WS-F Phase 1): repointed from the legacy compat
+    # onex.evt.omniclaude.task-delegated.v1 to the canonical delegation terminal
+    # pair. The orchestrator now emits a SINGLE canonical terminal
+    # (ModelDelegationResult on delegation-{completed,failed}.v1); the savings
+    # runner materializes savings_estimates from that same stream that drives
+    # delegation_events, so savings is a measurement, not an estimate. The
+    # Delegation Savings widget stays truthful-empty when a real delegation with
+    # a derivable counterfactual lands. (OMN-12494 origin; OMN-13598 stopgap on
+    # task-delegated.v1 superseded architecturally.)
+    - onex.evt.omnibase-infra.delegation-completed.v1
+    - onex.evt.omnibase-infra.delegation-failed.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-savings-applied.v1
+    - onex.snapshot.projection.cost.savings-overview.v1  # onex-topic-allow: projection snapshot topic
+    # OMN-17426: published by this node's own writer as of the aggregate
+    # republish below. Declared here because the flag and the publish site
+    # land together (OMN-15864) -- a bus_backed exposure whose topic no node
+    # declares it publishes serves a confident empty page.
+    - onex.snapshot.projection.delegation.savings.v1  # onex-topic-allow: projection snapshot topic
+  # OMN-13548 (D-03): malformed inbound events (ValidationError / failed
+  # required-field check) are routed here as a DURABLE failure signal carrying the
+  # offending envelope + correlation_id, instead of being logged + dropped silently.
+  dlq_topics:
+    - onex.dlq.omnimarket.projection-savings-malformed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.projection-savings-applied.v1
+  - onex.snapshot.projection.cost.savings-overview.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.savings.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.savings-series.v1  # onex-topic-allow: projection snapshot topic
+
+projection_api:
+  expose: true
+  exposures:
+    - topic: onex.snapshot.projection.savings.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: savings_estimates
+      schema: public
+      columns:
+        - id
+        - session_id
+        - event_timestamp
+        - model_local
+        - model_cloud_baseline
+        - local_cost_usd
+        - cloud_cost_usd
+        - savings_usd
+        - repo_name
+        - machine_id
+        # OMN-15533: the task class, the served token counts, and the
+        # provenance the source event stated about its own saving. Every one of
+        # these was materialized on the table but surfaced by no exposure —
+        # dropped silently at the projection boundary, which is the exact
+        # cost_tier_name failure this gate exists to catch (OMN-13649). The
+        # provenance pair is a RENDERED surface, not an internal flag: omnidash
+        # DelegationCostComparisonWidget reads `usage_source ?? savings_method`
+        # straight into its ProvenanceBadge, so a consumer that cannot see them
+        # cannot tell a measured saving from an estimated one.
+        - task_type
+        - prompt_tokens
+        - completion_tokens
+        - savings_method
+        - usage_source
+        - pricing_manifest_version
+        - created_at
+        - updated_at
+      order_by: created_at DESC
+      freshness_column: updated_at
+      limit: 500
+      # OMN-15800 corrective round (2026-08-10): NOT bus_backed.
+      # savings_estimates is a real 3-tenant table (verified live: a 3-tenant
+      # probe against the bus-backed SnapshotCache returned every tenant's
+      # rows to one unscoped caller — SnapshotCache.get_rows() has no tenant
+      # filter and publish_snapshot_delta() defaults tenant_id="omninode"
+      # with no real caller-supplied value). Per the 2026-08-09 addressing
+      # ruling, real scoping requires the reducer's envelope to carry actual
+      # per-event tenant context — verified absent: the wire envelope this
+      # reducer consumes (omnibase_core ModelEventEnvelope, and its nested
+      # ModelSecurityContext / ModelEnvelopeMetadata) has NO tenant_id field
+      # anywhere in its schema, so there is no real tenant to read at the
+      # publish call site today. That is the OMN-14208 / OMN-15425
+      # tenant-authority write path, not a mechanical fix inside this
+      # ticket's scope. Falling back to the not_yet_bus_backed / SQL-served
+      # path (explicit 503 for callers that request bus_backed serving) per
+      # OMN-15800's own strangler design, rather than shipping a
+      # cross-tenant-exposure defect. Re-flip to true once OMN-15425 lands a
+      # real per-event tenant identity this reducer can read.
+      bus_backed: false
+      # CodeRabbit (OMN-15800): savings_estimates permits multiple rows per
+      # session_id (writers upsert on the composite
+      # (session_id, event_timestamp, model_local, model_cloud_baseline);
+      # `id` is the actual primary key). key_columns: [session_id] would
+      # collapse distinct rows for the same session onto one cache entry.
+      key_columns:
+        - id
+    - topic: onex.snapshot.projection.delegation.savings.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_savings
+      schema: public
+      columns:
+        - cumulative_savings_usd
+        - cumulative_local_cost_usd
+        - cumulative_cloud_cost_usd
+        - baseline_model
+        - pricing_manifest_version
+        - session_count
+        - sessions
+        - captured_at
+        - provisioned
+        - latest_projection_updated_at
+        # OMN-15533 (AC4): cumulative_cloud_cost_usd above does NOT hold cloud
+        # spend — it holds the pinned premium counterfactual (what the baseline
+        # model WOULD have cost). Migration 083 appends this correctly-named
+        # column carrying the same value; the legacy name is retained only
+        # because CREATE OR REPLACE VIEW cannot rename a column in place and
+        # omnidash still reads it.
+        - cumulative_counterfactual_baseline_usd
+        # OMN-17426: the view is grouped on tenant_id as of migration 089, so
+        # the published row carries the tenant whose savings these are.
+        # Declared as `tenant_column` at the foot of this exposure.
+        - tenant_id
+      json_columns:
+        - sessions
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17426 (successor to OMN-15800, whose body deferred this family to
+      # "a follow-up ticket" that was never filed). Bus-backed as a SINGLETON
+      # AGGREGATE, following node_projection_delegation's OMN-17773/18139/18159
+      # shape exactly: a limit-1 SQL view has no per-row upsert for
+      # publish_snapshot_delta to hook, so the writer re-reads the whole view
+      # after every successful apply and republishes it.
+      #
+      # The compaction key is `snapshot_grain` -- a constant the re-read query
+      # itself produces (`SELECT $1::text AS snapshot_grain, agg.*`), bound to
+      # the topic name -- plus the tenant. It is deliberately NOT a column of
+      # the view: the view's grain IS "the whole projection for one tenant",
+      # and every column it has changes on every write, so keying on one would
+      # mint a new compaction key per apply (the OMN-17345 unbounded-log shape
+      # consumer-flow is in, at 9.09M records). Grain plus tenant means this
+      # topic holds exactly one live record per tenant, forever.
+      #
+      # Flag and writer land together (OMN-15864): SavingsProjectionRunner
+      # refuses to construct if a bus_backed exposure on this contract is an
+      # aggregate keyed on anything but the grain-plus-tenant pair, because it
+      # would have no publish site and would serve a confident empty page
+      # instead of an honest refusal.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        - tenant_id
+      # THIS is what makes the exposure tenant-scoped: `tenant_scoped` is
+      # derived from `tenant_column is not None`, so the serving path now
+      # refuses to answer this topic without a resolved tenant (OMN-15797)
+      # rather than handing one tenant's aggregate to whoever asked. It is the
+      # serving-side counterpart of the tenant in the key above -- the writer
+      # publishes per tenant, and this makes the reader read per tenant. It is
+      # also the half migration 088 recorded as unlandable while the exposure
+      # was not bus-backed; both halves land together, as 088 said they would.
+      tenant_column: tenant_id
+    # OMN-13648 (G1): time-bucketed savings-over-time series for the new omnidash
+    # delegation dashboard depth view (OMN-13602). Aggregates the same bus-fed
+    # savings_estimates + delegation_events source as the delegation.savings.v1
+    # exposure into one row per UTC day (view migration 078).
+    # OMN-13661 (T2): tier-mix percentages (local_pct/cheap_pct/prem_pct) added
+    # per bucket from the authoritative delegation_events.cost_tier_name (view
+    # migration 079). Each pct is over LLM-tier-routed rows only; not_tier_routed
+    # rows (savings_estimates source / empty tier) are excluded from the
+    # denominator but still counted in task_count.
+    - topic: onex.snapshot.projection.delegation.savings-series.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_savings_series
+      schema: public
+      columns:
+        - bucket
+        - actual_cost_usd
+        - baseline_cost_usd
+        - savings_usd
+        - task_count
+        - local_pct
+        - cheap_pct
+        - prem_pct
+      order_by: bucket ASC
+      freshness_column: bucket
+      limit: 365
+    - topic: onex.snapshot.projection.cost.savings-overview.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_cost_savings_overview
+      schema: public
+      columns:
+        - "window"
+        - total_cost_usd
+        - total_baseline_cost_usd
+        - total_savings_usd
+        - savings_rate
+        - tokens_total
+        - tokens_to_compliance
+        - local_token_pct
+        - captured_at
+        - rows
+        - recent_runs
+        - measured_run_count
+        - zero_token_run_count
+        - warnings
+        - provisioned
+        - latest_projection_updated_at
+        # OMN-17426: grouped on tenant_id as of migration 089; declared as
+        # `tenant_column` at the foot of this exposure.
+        - tenant_id
+      json_columns:
+        - rows
+        - recent_runs
+        - warnings
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17426. Same singleton-aggregate conversion, same writer, same key
+      # shape and the same reasoning as delegation.savings.v1 above -- see that
+      # exposure's block for why the key is grain-plus-tenant and why the flag
+      # cannot outrun the publish site.
+      #
+      # What is specific to THIS exposure is its `recent_runs` payload, which
+      # is the Recent runs table on the customer arrival page. As of migration
+      # 089 each element carries the run's `correlation_id` and its
+      # `cost_savings_usd` beside the keys it already carried, composed from
+      # `savings_estimates` and `delegation_events` under the SAME precedence
+      # onex-api's `GET /v1/tenants/me/delegations` uses. Before that a reader
+      # could not identify the run it had just performed, and a run with no
+      # derivable counterfactual -- which writes no savings_estimates row at
+      # all -- was absent from the page while the API happily returned it.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        - tenant_id
+      tenant_column: tenant_id
+
+metadata:
+  transport_type: kafka
+  delegate_skill_baseline_model_source: pricing_manifest

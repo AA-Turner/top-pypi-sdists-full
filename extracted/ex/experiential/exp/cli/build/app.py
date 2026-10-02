@@ -1,0 +1,926 @@
+"""Named project build from local traces to grounded world-model artifacts."""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+
+import typer
+from rich.console import Console
+
+from exp.cli.build.checkpoints import (
+    reuse_completed_grounded_artifacts as _reuse_completed_grounded_artifacts,
+)
+from exp.cli.build.checkpoints import (
+    save_grounded_checkpoint,
+)
+from exp.cli.build.providers import configure_build_providers
+from exp.cli.build.source import load_stored_build_import, project_for_build
+from exp.cli.build.traces import load_build_traces
+from exp.cli.providers.provider_picker import resolve_setup_providers
+from exp.cli.providers.setup import provider_setup_json_examples
+from exp.cli.shared.consent import SpendBudget, can_prompt, require_spend_consent
+from exp.cli.shared.options import ROOT_OPTION, usage_error
+from exp.cli.shared.progress import progress_display, qualified
+from exp.cli.shared.theme import EXP_THEME
+from exp.common.core.money import exact_usd
+from exp.common.models import (
+    ModelCapabilities,
+    ModelCatalog,
+    ModelCatalogError,
+    ModelSnapshot,
+    load_model_catalog,
+)
+from exp.common.observability.telemetry import BuildTelemetryStats, capture_build_completed
+from exp.common.progress import ProgressHook, report
+from exp.common.project import (
+    ArtifactStoreError,
+    ProjectBudgetConfiguration,
+    ProjectBuildArtifacts,
+    ProjectConfig,
+    ProjectModelConfiguration,
+    ProjectRetrievalConfiguration,
+    ProjectStore,
+    ProjectStoreError,
+    artifact_input,
+)
+from exp.common.release_revision import installed_release_revision
+from exp.common.traces.ingest.sources import CANONICAL_TRACE_SOURCES
+from exp.runtime.gateway.local_capture import local_capture_path
+from exp.runtime.models import (
+    CapabilityRequirement,
+    ModelCapabilityError,
+    ModelConnectionError,
+    ResolvedModel,
+    RuntimeModelCatalog,
+)
+from exp.runtime.models.preflight import preflight_capabilities
+from exp.runtime.models.providers.transport import ProviderTransportError, RetryPolicy
+from exp.simulation.build import ProjectBuild, TaskSetBuild, build_project, select_completed_build
+from exp.simulation.engines.text.errors import SimulationContentionError
+from exp.simulation.retrieval import (
+    RAGEmbedderBinding,
+    RAGLineageBinding,
+    load_rag_index,
+    persist_trace_rag,
+)
+from exp.simulation.retrieval.embedding import RAGEmbeddingCache
+from exp.simulation.retrieval.embedding_inputs import (
+    embedding_chunk_bytes,
+    plan_rag_embedding_inputs,
+)
+from exp.simulation.retrieval.transitions import extract_real_transitions
+from exp.simulation.world_model.artifact import (
+    persist_grounded_world_model,
+)
+
+_console = Console(theme=EXP_THEME)
+_PROJECT_ARGUMENT = typer.Argument(..., metavar="PROJECT", help="Local project name.")
+_LEGACY_TRACE_ARGUMENT = typer.Argument(None, metavar="TRACES", hidden=True)
+_TRACE_FILE_OPTION = typer.Option(
+    None,
+    "--traces",
+    "-t",
+    metavar="PATH",
+    help=(
+        "Local trace export in the declared --source format. Omit it only when bare "
+        "`exp build PROJECT` should launch the interactive end-to-end build."
+    ),
+)
+_PROVIDER_OPTION = typer.Option(
+    None,
+    "--provider",
+    help=(
+        "Repeatable provider to configure during first-build setup. "
+        "Supported values: experiential-cloud, openai, anthropic, gemini, openrouter, "
+        "openai-compatible, azure, bedrock."
+    ),
+)
+
+
+@dataclass(frozen=True)
+class GroundedBuildCompletion:
+    """One selected grounded build and whether provider work was replayed."""
+
+    artifacts: ProjectBuildArtifacts
+    reused: bool
+
+
+def build(
+    project: str = _PROJECT_ARGUMENT,
+    legacy_trace_file: Path | None = _LEGACY_TRACE_ARGUMENT,
+    trace_file: Path | None = _TRACE_FILE_OPTION,
+    import_id: str | None = typer.Option(
+        None, "--import-id", help="Exact stored trace import to build without rereading its source."
+    ),
+    source: str | None = typer.Option(
+        None,
+        "--source",
+        help=f"Trace source format: {', '.join(sorted((*CANONICAL_TRACE_SOURCES, 'gateway')))}.",
+    ),
+    root: Path = ROOT_OPTION,
+    identity: str | None = typer.Option(
+        None, "--identity", help="Identity whose local gateway traffic supplies the build."
+    ),
+    world_model: str | None = typer.Option(None, "--world-model", help="World-model alias."),
+    judge: str | None = typer.Option(None, "--judge", help="Judge alias."),
+    embedder: str | None = typer.Option(None, "--embedder", help="Embedding-capable alias."),
+    top_k: int = typer.Option(5, "--top-k", min=1, help="Serving retrieval result limit."),
+    maximum_build_cost_usd: float = typer.Option(
+        5.0,
+        "--max-build-cost-usd",
+        min=0.01,
+        help="Embedding budget in USD; ask before exceeding it.",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Confirm the estimate, including any budget warning.",
+    ),
+    maximum_router_cost_usd: float | None = typer.Option(
+        None,
+        "--max-router-cost-usd",
+        min=0.01,
+        help=(
+            "Optional router warning budget for the interactive build; omitted uses "
+            "the exact conservative schedule reservation."
+        ),
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show the complete preflight without credentials, provider calls, or selection.",
+    ),
+    no_interactive: bool = typer.Option(
+        False,
+        "--non-interactive",
+        "--no-interactive",
+        help="Require complete model flags and never ask setup or cost questions.",
+    ),
+    provider: list[str] | None = _PROVIDER_OPTION,
+) -> None:
+    """Build a reusable grounded world model and immutable fit evidence.
+
+    Shared spend consent covers provider embedding calls and any configured budget overrun.
+    Model setup runs first when required catalog state is absent and both terminal streams are
+    interactive. The shared catalog commits before project creation. Noninteractive missing state
+    fails before any project or artifact write. Configured builds compute and display a complete
+    provider-free preflight before reading credentials or constructing provider clients.
+
+    Args:
+        project: Safe local project identifier below ``<root>/projects``.
+        legacy_trace_file: Active positional trace-path compatibility for packaged examples.
+        trace_file: Explicit local canonical trace export, or ``None`` for the interactive wizard.
+        import_id: Immutable stored import selected explicitly for this build.
+        source: Declared format; guided builds detect it, explicit file builds default to OTLP.
+        root: Local ``.exp`` artifact root.
+        identity: Required local identity when using ``--source gateway``.
+        world_model: Optional configured alias override for this project.
+        judge: Optional configured alias override for this project.
+        embedder: Optional configured alias override for this project.
+        top_k: Positive serving retrieval result limit.
+        maximum_build_cost_usd: Embedding budget requiring confirmation when exceeded.
+        yes: Explicit confirmation for the estimate, including any budget warning.
+        maximum_router_cost_usd: Optional router budget requiring confirmation when exceeded.
+        dry_run: Print the complete preflight and stop before credentials or selection.
+        no_interactive: Disable inline setup and cost questions even at a terminal.
+        provider: Repeatable provider names that skip the opening list during setup.
+
+    Raises:
+        typer.BadParameter: Input, setup, role, cost, project, or artifact validation fails.
+    """
+    if legacy_trace_file is not None:
+        if trace_file is not None:
+            raise typer.BadParameter("provide traces once, using -t/--traces or the trace path")
+        trace_file = legacy_trace_file
+    if import_id is not None and (
+        trace_file is not None or identity is not None or source is not None
+    ):
+        raise typer.BadParameter("--import-id cannot be combined with traces, source, or identity")
+    if source is not None and source.strip().casefold() == "gateway":
+        if identity is None:
+            raise typer.BadParameter("--source gateway requires --identity ID")
+        trace_file = trace_file or local_capture_path(root)
+    elif identity is not None:
+        raise typer.BadParameter("--identity requires --source gateway")
+    if trace_file is None and import_id is None:
+        if dry_run or no_interactive or not can_prompt(_console):
+            raise typer.BadParameter(
+                "automation and dry runs require -t/--traces PATH or --import-id ID; bare "
+                "`exp build PROJECT` is the interactive end-to-end build"
+            )
+        from exp.cli.build.wizard import run_build_wizard
+
+        try:
+            run_build_wizard(
+                project,
+                source=source,
+                root=root,
+                world_model=world_model,
+                judge=judge,
+                embedder=embedder,
+                top_k=top_k,
+                maximum_build_cost_usd=maximum_build_cost_usd,
+                maximum_router_cost_usd=maximum_router_cost_usd,
+                providers=tuple(provider or ()),
+                console=_console,
+            )
+        except ArtifactStoreError as exc:
+            raise typer.BadParameter(
+                f"could not save build evidence: {exc}; check the trace file and rerun exp build"
+            ) from exc
+        except (
+            ModelCapabilityError,
+            ModelCatalogError,
+            ModelConnectionError,
+            ProjectStoreError,
+            ValueError,
+        ) as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        except ProviderTransportError as exc:
+            _console.print(f"[red]error[/red] a provider request failed: {exc}")
+            _console.print(
+                "Completed embedding batches and finished steps are saved. Run exp build again "
+                "to resume; an interrupted request may be retried."
+            )
+            raise typer.Exit(code=1) from exc
+        except SimulationContentionError as exc:
+            _console.print(f"[red]error[/red] {exc}")
+            _console.print(
+                "Another process owns in-flight paid work. Completed paid work is saved; "
+                "run exp build again to resume once that process finishes."
+            )
+            raise typer.Exit(code=1) from exc
+        return
+    source = source or "otlp"
+    started = time.monotonic()
+    with usage_error(
+        ArtifactStoreError,
+        ModelCapabilityError,
+        ModelCatalogError,
+        ModelConnectionError,
+        ProjectStoreError,
+        ValueError,
+    ):
+        code_revision = installed_release_revision()
+        ProjectStore(root, project)
+        interactive = not (no_interactive or dry_run) and can_prompt(_console)
+        catalog = _load_or_setup_catalog(
+            root,
+            project=project,
+            no_interactive=not interactive,
+            providers=tuple(provider or ()),
+            world_model=world_model,
+            judge=judge,
+            embedder=embedder,
+        )
+        selected = _selected_roles(
+            catalog,
+            world_model=None if interactive else world_model,
+            judge=None if interactive else judge,
+            embedder=None if interactive else embedder,
+        )
+        runtime_catalog = RuntimeModelCatalog(catalog)
+        world_snapshot, embedder_snapshot, embedder_capabilities = _validated_role_snapshots(
+            runtime_catalog,
+            selected,
+        )
+        _console.print("[dim]loading[/dim] Import trace evidence and mine scenarios")
+        with progress_display(_console) as progress:
+            report(progress, "normalization")
+            if import_id is not None:
+                source, normalized = load_stored_build_import(root, project, import_id)
+            else:
+                assert trace_file is not None
+                path = _resolve_trace_file(trace_file)
+                normalized, import_id = load_build_traces(
+                    project, root=root, path=path, source=source, identity=identity, dry_run=dry_run
+                )
+            record_count = len(normalized.traces) + len(normalized.issues)
+            report(
+                progress,
+                "normalization",
+                completed=len(normalized.traces),
+                total=record_count,
+                detail="valid traces",
+            )
+            store = project_for_build(
+                root,
+                ProjectConfig(
+                    project_id=project,
+                    trace_source=source.strip().casefold(),
+                    trace_import_id=import_id,
+                    models=selected,
+                    retrieval=ProjectRetrievalConfiguration(top_k=top_k),
+                    budgets=ProjectBudgetConfiguration(
+                        maximum_build_cost_usd=exact_usd(maximum_build_cost_usd)
+                    ),
+                ),
+            )
+            report(progress, "task construction")
+            completed = build_project(
+                normalized,
+                store,
+                created_at=datetime.now(UTC),
+                code_revision=code_revision,
+            )
+            task_count = len(completed.artifacts.mining.tasks)
+            report(
+                progress,
+                "task construction",
+                completed=task_count,
+                total=task_count,
+                detail="representative tasks",
+            )
+        tasks = completed.artifacts.mining.tasks
+        fit_count = sum(task.partition == "fit" for task in tasks)
+        held_out_count = sum(task.partition == "held_out" for task in tasks)
+        estimate = _embedding_cost_ceiling(completed, embedder_capabilities)
+        built = _reuse_completed_grounded_artifacts(
+            store,
+            completed,
+            world_alias=selected.world_model,
+            world_snapshot=world_snapshot,
+            embedder_snapshot=embedder_snapshot,
+            top_k=top_k,
+        )
+        reused = built is not None
+        _render_preflight(
+            accepted=len(completed.artifacts.trace_dataset.dataset.trace_ids),
+            invalid=completed.artifacts.trace_dataset.dataset.invalid_trace_count,
+            fit_count=fit_count,
+            held_out_count=held_out_count,
+            world_alias=selected.world_model,
+            world_model_id=world_snapshot.model_id,
+            embedder_alias=selected.embedder,
+            embedder_model_id=embedder_snapshot.model_id,
+            estimate=estimate,
+            ceiling=maximum_build_cost_usd,
+            reused=reused,
+        )
+        if dry_run:
+            _console.print("[green]dry run complete[/green] No provider calls or build selection.")
+            return
+        remaining_estimate = 0.0 if reused else estimate
+        if not require_spend_consent(
+            _console,
+            root=root,
+            yes=yes,
+            estimated_cost_usd=remaining_estimate,
+            command=(
+                f"exp build {project} --import-id {import_id}"
+                if import_id is not None
+                else f"exp build {project} {trace_file}"
+            ),
+            non_interactive=no_interactive,
+            additional_budgets=(
+                SpendBudget("embedding", remaining_estimate, maximum_build_cost_usd),
+            ),
+        ):
+            return
+        with progress_display(_console) as progress:
+            completion = _complete_grounded_build(
+                store,
+                completed,
+                selected=selected,
+                runtime_catalog=runtime_catalog,
+                world_snapshot=world_snapshot,
+                embedder_snapshot=embedder_snapshot,
+                top_k=top_k,
+                estimate=estimate,
+                maximum_build_cost_usd=max(maximum_build_cost_usd, estimate or 0.0),
+                provider_spend_authorized=True,
+                trace_import_id=import_id,
+                progress=progress,
+            )
+        built = completion.artifacts
+    _capture_local_build_telemetry(
+        completed.artifacts,
+        root=root,
+        indexed_steps=_rag_transition_count(store, built.serving_rag.artifact_id),
+        duration_seconds=time.monotonic() - started,
+    )
+    _render_completed_build(completed, project=project)
+
+
+def _load_or_setup_catalog(
+    root: Path,
+    *,
+    project: str,
+    no_interactive: bool,
+    providers: tuple[str, ...] = (),
+    world_model: str | None = None,
+    judge: str | None = None,
+    embedder: str | None = None,
+) -> ModelCatalog:
+    """Confirm provider and model choices at a terminal, or load them for automation.
+
+    Args:
+        root: Local EXP root containing the shared model catalog.
+        project: Project whose saved role choices are the interactive defaults.
+        no_interactive: Whether inline provider setup is forbidden.
+        providers: Repeatable ``--provider`` values that skip the opening list.
+        world_model: Optional initial world-model choice.
+        judge: Optional initial judge choice.
+        embedder: Optional initial embedder choice.
+
+    Returns:
+        A complete model catalog with all required build roles.
+
+    Raises:
+        ValueError: Required configuration is missing outside an interactive terminal.
+    """
+    resolved_providers = resolve_setup_providers(providers)
+    path = root / "models.toml"
+    catalog = load_model_catalog(path) if path.exists() else None
+    missing = _missing_build_configuration(catalog)
+    if not no_interactive and can_prompt(_console):
+        if missing:
+            _console.print(f"Model setup is required: {', '.join(missing)}.")
+        return configure_build_providers(
+            root,
+            project,
+            providers=resolved_providers,
+            world_model=world_model,
+            judge=judge,
+            embedder=embedder,
+            console=_console,
+        )
+    if not missing:
+        assert catalog is not None
+        return catalog
+    connection_example, model_example = provider_setup_json_examples()
+    raise ValueError(
+        "model configuration is incomplete before build: "
+        + ", ".join(missing)
+        + ". Run `exp config providers` interactively, or configure automation with "
+        f"`exp config providers --non-interactive --connection-json '{connection_example}' "
+        f"--model-json '{model_example}' --world-model model --judge model --embedder model`. "
+        "Replace the example model ID and zero price with the provider's exact values."
+    )
+
+
+def _missing_build_configuration(catalog: ModelCatalog | None) -> tuple[str, ...]:
+    """List every absent connection, model, and required build role.
+
+    Args:
+        catalog: Existing catalog, or ``None`` when no catalog file exists.
+
+    Returns:
+        Complete ordered labels for missing first-build configuration.
+    """
+    if catalog is None:
+        return (
+            "models.toml",
+            "provider connections",
+            "model aliases",
+            "world_model",
+            "judge",
+            "embedder",
+        )
+    missing = []
+    if not catalog.connections:
+        missing.append("provider connections")
+    if not catalog.models:
+        missing.append("model aliases")
+    for role in ("world_model", "judge", "embedder"):
+        if getattr(catalog.roles, role) is None:
+            missing.append(role)
+    return tuple(missing)
+
+
+def _selected_roles(
+    catalog: ModelCatalog,
+    *,
+    world_model: str | None,
+    judge: str | None,
+    embedder: str | None,
+) -> ProjectModelConfiguration:
+    """Validate independent project overrides against available model aliases.
+
+    Args:
+        catalog: Complete shared model catalog.
+        world_model: Optional project-specific world-model alias.
+        judge: Optional project-specific judge alias.
+        embedder: Optional project-specific embedder alias.
+
+    Returns:
+        Frozen role selections for the project build.
+
+    Raises:
+        ValueError: A required role is absent or names an unknown alias.
+    """
+    selected = {
+        "world_model": world_model or catalog.roles.world_model,
+        "judge": judge or catalog.roles.judge,
+        "embedder": embedder or catalog.roles.embedder,
+    }
+    missing = tuple(name for name, alias in selected.items() if alias is None)
+    if missing:
+        raise ValueError("missing required build roles: " + ", ".join(missing))
+    unknown = tuple(
+        f"{name}={alias}" for name, alias in selected.items() if alias not in catalog.models
+    )
+    if unknown:
+        raise ValueError("build roles name unknown aliases: " + ", ".join(unknown))
+    return ProjectModelConfiguration(
+        world_model=str(selected["world_model"]),
+        judge=str(selected["judge"]),
+        embedder=str(selected["embedder"]),
+        candidates=(),
+    )
+
+
+def _validated_role_snapshots(
+    runtime_catalog: RuntimeModelCatalog,
+    selected: ProjectModelConfiguration,
+) -> tuple[ModelSnapshot, ModelSnapshot, ModelCapabilities]:
+    """Validate build roles from catalog metadata without reading credentials.
+
+    Args:
+        runtime_catalog: Resolver used only for static model snapshots.
+        selected: Frozen world-model, judge, and embedder aliases.
+
+    Returns:
+        World-model snapshot, embedder snapshot, and embedder capabilities.
+
+    Raises:
+        ModelCapabilityError: The embedder explicitly declares no embedding support.
+        ModelConnectionError: A selected alias or provider is unsupported.
+    """
+    world_snapshot, _world_capabilities = runtime_catalog.snapshot(selected.world_model)
+    runtime_catalog.snapshot(selected.judge)
+    embedder_snapshot, embedder_capabilities = runtime_catalog.snapshot(selected.embedder)
+    preflight_capabilities(
+        selected.embedder,
+        embedder_capabilities,
+        CapabilityRequirement(requires_embeddings=True),
+    )
+    return world_snapshot, embedder_snapshot, embedder_capabilities
+
+
+def _embedding_cost_ceiling(
+    completed: ProjectBuild,
+    capabilities: ModelCapabilities,
+) -> float | None:
+    """Bound retry-inclusive embedding spend from the exact rendered retrieval inputs.
+
+    Args:
+        completed: Persisted trace and task build whose transitions will be embedded.
+        capabilities: Static embedder capabilities and price metadata.
+
+    Returns:
+        Conservative USD ceiling across serving and fit-only index construction, or ``None``
+        when the embedder has no catalog input price and the spend cannot be estimated.
+    """
+    price = capabilities.input_cost_per_million_tokens_usd
+    if price is None:
+        return None
+    bindings = _lineage_bindings(completed)
+    traces = completed.artifacts.trace_dataset.traces
+    serving = extract_real_transitions(
+        traces,
+        bindings,
+        included_partitions=frozenset({"fit", "held_out"}),
+    )
+    # Fit is a strict subset of serving. The same invocation reuses exact text vectors across
+    # indexes, without sharing transition membership or observations between partitions.
+    plan = plan_rag_embedding_inputs(
+        tuple(transition.key_text for transition in serving),
+        maximum_chunk_bytes=embedding_chunk_bytes(capabilities.context_window_tokens),
+    )
+    maximum_input_tokens = plan.maximum_input_tokens * RetryPolicy().maximum_attempts
+    return maximum_input_tokens * price / 1_000_000
+
+
+def _build_grounded_artifacts(
+    store: ProjectStore,
+    completed: ProjectBuild,
+    *,
+    world_alias: str,
+    world_snapshot: ModelSnapshot,
+    resolved_embedder: ResolvedModel,
+    top_k: int,
+    progress: ProgressHook | None = None,
+) -> ProjectBuildArtifacts:
+    """Build serving and fit-only RAG plus the executable world-model binding.
+
+    Args:
+        store: Project artifact store receiving immutable outputs.
+        completed: Persisted trace and task build.
+        world_alias: Configured world-model alias persisted on the artifact.
+        world_snapshot: Secret-free world-model identity.
+        resolved_embedder: Exact provider embedding binding.
+        top_k: Default number of retrieved transitions.
+        progress: Optional observer of embedding, RAG, and grounded-model stages.
+
+    Returns:
+        Exact manifest pointers for every completed build output.
+
+    An embedder without a catalog input price binds at a zero reservation price: the operator
+    already accepted the undefined cost at the consent boundary, so the internal embedding
+    ledger tracks tokens without enforcing a spend ceiling.
+    """
+    created_at = completed.artifacts.trace_dataset.dataset.created_at
+    revision = completed.review.code_revision
+    trace_input = artifact_input(completed.artifacts.trace_dataset.manifest)
+    task_input = artifact_input(
+        store.artifacts.read(completed.artifacts.task_set.task_set_id).manifest
+    )
+    bindings = _lineage_bindings(completed)
+    assert resolved_embedder.embedding_client is not None
+    embedding_price = resolved_embedder.capabilities.input_cost_per_million_tokens_usd
+    rag_embedder = RAGEmbedderBinding(
+        client=resolved_embedder.embedding_client,
+        snapshot=resolved_embedder.snapshot,
+        maximum_attempts=RetryPolicy().maximum_attempts,
+        input_usd_per_million_tokens=0.0 if embedding_price is None else embedding_price,
+        maximum_input_tokens=resolved_embedder.capabilities.context_window_tokens,
+    )
+    embedding_cache = RAGEmbeddingCache(
+        rag_embedder,
+        maximum_chunk_bytes=embedding_chunk_bytes(rag_embedder.maximum_input_tokens),
+    )
+    serving = persist_trace_rag(
+        store.artifacts,
+        (trace_input,),
+        bindings,
+        created_at=created_at,
+        code_revision=revision,
+        embedder=rag_embedder,
+        default_top_k=top_k,
+        included_partitions=frozenset({"fit", "held_out"}),
+        progress=qualified(progress, "serving index"),
+        embedding_cache=embedding_cache,
+    )
+    fit = persist_trace_rag(
+        store.artifacts,
+        (trace_input,),
+        bindings,
+        created_at=created_at,
+        code_revision=revision,
+        embedder=rag_embedder,
+        default_top_k=top_k,
+        included_partitions=frozenset({"fit"}),
+        progress=qualified(progress, "fit-only index"),
+        embedding_cache=embedding_cache,
+    )
+    report(progress, "grounded model")
+    world = persist_grounded_world_model(
+        store.artifacts,
+        artifact_input(serving.manifest),
+        model_alias=world_alias,
+        model=world_snapshot,
+        created_at=created_at,
+        code_revision=revision,
+        top_k=top_k,
+    )
+    return ProjectBuildArtifacts(
+        trace_dataset=trace_input,
+        task_set=task_input,
+        serving_rag=artifact_input(serving.manifest),
+        fit_rag=artifact_input(fit.manifest),
+        world_model=artifact_input(world.manifest),
+    )
+
+
+def _complete_grounded_build(
+    store: ProjectStore,
+    completed: ProjectBuild,
+    *,
+    selected: ProjectModelConfiguration,
+    runtime_catalog: RuntimeModelCatalog,
+    world_snapshot: ModelSnapshot,
+    embedder_snapshot: ModelSnapshot,
+    top_k: int,
+    estimate: float | None,
+    maximum_build_cost_usd: float,
+    provider_spend_authorized: bool,
+    progress: ProgressHook | None = None,
+    trace_import_id: str | None = None,
+) -> GroundedBuildCompletion:
+    """Select matching grounded artifacts or execute their bounded embedding work.
+
+    Args:
+        store: Project receiving or replaying the completed build selection.
+        completed: Deterministic trace and representative-task evidence.
+        selected: Exact project role aliases.
+        runtime_catalog: Catalog that can resolve the selected embedder after authorization.
+        world_snapshot: Exact provider-free world-model identity.
+        embedder_snapshot: Exact provider-free embedder identity.
+        top_k: Frozen retrieval result count.
+        estimate: Conservative retry-inclusive embedding cost, or ``None`` when undefined.
+        maximum_build_cost_usd: Invocation ceiling covering the explicitly approved estimate.
+        provider_spend_authorized: Whether new embedding calls are authorized.
+        trace_import_id: Exact stored corpus selected atomically with the completed graph.
+        progress: Optional observer of embedding, RAG, and finalization stages.
+
+    Returns:
+        Exact selected build artifacts and whether they were replayed.
+
+    Raises:
+        ValueError: New provider work is unapproved or exceeds its strict ceiling.
+    """
+    built = _reuse_completed_grounded_artifacts(
+        store,
+        completed,
+        world_alias=selected.world_model,
+        world_snapshot=world_snapshot,
+        embedder_snapshot=embedder_snapshot,
+        top_k=top_k,
+    )
+    reused = built is not None
+    if built is not None:
+        report(progress, "serving index", detail="reused")
+        report(progress, "fit-only index", detail="reused")
+    if built is None and not provider_spend_authorized:
+        raise ValueError("grounded build provider work requires explicit authorization")
+    if built is None:
+        if estimate is not None and estimate > maximum_build_cost_usd:
+            raise ValueError(
+                f"grounded build requires ${estimate:.6f}, above the configured "
+                f"${maximum_build_cost_usd:.6f} ceiling"
+            )
+        resolved_embedder = runtime_catalog.preflight(
+            selected.embedder,
+            CapabilityRequirement(requires_embeddings=True),
+        )
+        built = _build_grounded_artifacts(
+            store,
+            completed,
+            world_alias=selected.world_model,
+            world_snapshot=world_snapshot,
+            resolved_embedder=resolved_embedder,
+            top_k=top_k,
+            progress=progress,
+        )
+    save_grounded_checkpoint(store, built)
+    report(progress, "finalization")
+    select_completed_build(store, built, completed.review, trace_import_id=trace_import_id)
+    return GroundedBuildCompletion(artifacts=built, reused=reused)
+
+
+def _lineage_bindings(completed: ProjectBuild) -> tuple[RAGLineageBinding, ...]:
+    """Convert frozen duplicate groups into complete RAG lineage partition bindings.
+
+    Args:
+        completed: Persisted mining output with leakage groups and split assignments.
+
+    Returns:
+        Deterministically ordered trace-to-lineage partition bindings.
+    """
+    mining = completed.artifacts.mining
+    result = []
+    for group in mining.analysis.leakage_groups:
+        partition = mining.partition.partition_for(group.lineage_group_id)
+        result.extend(
+            RAGLineageBinding(
+                trace_id=trace_id,
+                lineage_id=group.lineage_group_id,
+                partition=partition,
+            )
+            for trace_id in group.source_trace_ids
+        )
+    return tuple(sorted(result, key=lambda item: item.trace_id))
+
+
+def _resolve_trace_file(trace_file: Path) -> Path:
+    """Validate one explicit local trace-file selection without opening its content.
+
+    Args:
+        trace_file: User-selected local trace export.
+
+    Returns:
+        The validated file path.
+
+    Raises:
+        typer.BadParameter: The path is absent or is not a regular file.
+    """
+    if not trace_file.exists():
+        raise typer.BadParameter(f"trace file not found: {trace_file}")
+    if not trace_file.is_file():
+        raise typer.BadParameter(
+            f"--traces must name a trace export, not a directory: {trace_file}"
+        )
+    return trace_file
+
+
+def _capture_local_build_telemetry(
+    completed: TaskSetBuild,
+    *,
+    root: Path,
+    indexed_steps: int,
+    duration_seconds: float,
+) -> None:
+    """Emit anonymous aggregate local build counts after completed persistence.
+
+    Args:
+        completed: Persisted task-set build used only for aggregate counts.
+        root: Local EXP root holding telemetry preference state.
+        indexed_steps: Count of indexed real transitions.
+        duration_seconds: Completed build wall-clock duration.
+    """
+    tasks = completed.mining.tasks
+    capture_build_completed(
+        completion_id=completed.task_set.task_set_id,
+        stats=BuildTelemetryStats(
+            input_trace_count=len(completed.trace_dataset.traces),
+            input_step_count=sum(len(trace.spans) for trace in completed.trace_dataset.traces),
+            train_trace_count=sum(task.partition == "fit" for task in tasks),
+            val_trace_count=0,
+            heldout_trace_count=sum(task.partition == "held_out" for task in tasks),
+            indexed_step_count=indexed_steps,
+            duration_seconds=max(duration_seconds, 0.0),
+        ),
+        root=root,
+    )
+
+
+def _rag_transition_count(store: ProjectStore, artifact_id: str) -> int:
+    """Read the completed RAG transition count for telemetry only.
+
+    Args:
+        store: Project store containing the immutable index.
+        artifact_id: Exact RAG artifact identifier.
+
+    Returns:
+        Count of persisted real transitions.
+    """
+    return load_rag_index(store.artifacts, artifact_id).index.transition_count
+
+
+def _render_preflight(
+    *,
+    accepted: int,
+    invalid: int,
+    fit_count: int,
+    held_out_count: int,
+    world_alias: str,
+    world_model_id: str,
+    embedder_alias: str,
+    embedder_model_id: str,
+    estimate: float | None,
+    ceiling: float,
+    reused: bool,
+) -> None:
+    """Print the complete build preflight before credentials or provider dispatch.
+
+    Args:
+        accepted: Count of valid normalized traces.
+        invalid: Count of rejected input traces.
+        fit_count: Representative fit-task count.
+        held_out_count: Representative held-out task count.
+        world_alias: Selected world-model catalog alias.
+        world_model_id: Provider model ID bound to that alias.
+        embedder_alias: Selected embedder catalog alias.
+        embedder_model_id: Provider embedding model ID bound to that alias.
+        estimate: Conservative maximum embedding cost in USD, or ``None`` when undefined.
+        ceiling: Configured ``--max-build-cost-usd`` value.
+        reused: Whether an exact completed grounded build already exists.
+    """
+    _console.print("[bold]Build preflight[/bold]")
+    _console.print(f"  [dim]traces[/dim]       {accepted} accepted, {invalid} invalid")
+    _console.print(f"  [dim]split[/dim]        {fit_count} fit, {held_out_count} held out")
+    _console.print(f"  [dim]world model[/dim]  {world_alias} [dim]({world_model_id})[/dim]")
+    _console.print(f"  [dim]embedder[/dim]     {embedder_alias} [dim]({embedder_model_id})[/dim]")
+    if reused:
+        _console.print(
+            "  [dim]embedding[/dim]    reuse exact completed indexes, $0.000000 new spend"
+        )
+    elif estimate is None:
+        _console.print(
+            "  [dim]embedding[/dim]    [yellow]undefined[/yellow] (embedder has no catalog price)"
+        )
+    else:
+        _console.print(f"  [dim]embedding[/dim]    at most ${estimate:.6f}")
+    _console.print(f"  [dim]budget[/dim]       ${ceiling:.6f}")
+
+
+def _render_completed_build(
+    completed: ProjectBuild,
+    *,
+    project: str,
+) -> None:
+    """Present the compact accepted, excluded, and split summary with the next command.
+
+    Args:
+        completed: Persisted project build and mining results.
+        project: Local project identifier used in the next recommended command.
+    """
+    dataset = completed.artifacts.trace_dataset.dataset
+    tasks = completed.artifacts.mining.tasks
+    duplicate_count = len(dataset.trace_ids) - len(completed.artifacts.mining.analysis.candidates)
+    _console.print(
+        f"[green]\u2713[/green] ingested {len(dataset.trace_ids)} traces "
+        f"[dim]({dataset.invalid_trace_count} invalid, {duplicate_count} duplicate)[/dim]"
+    )
+    if len(dataset.trace_ids) < 100 or len(dataset.trace_ids) > 1_000:
+        _console.print("[yellow]guidance[/yellow] 100 to 1,000 traces is the usual starting range")
+    _console.print(
+        f"[green]\u2713[/green] split {sum(task.partition == 'fit' for task in tasks)} fit / "
+        f"{sum(task.partition == 'held_out' for task in tasks)} held out"
+    )
+    _console.print("[green]Complete[/green]")
+    _console.print(f"next: exp optimize router {project}")

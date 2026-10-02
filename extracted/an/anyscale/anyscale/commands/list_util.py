@@ -57,9 +57,7 @@ def validate_page_size(ctx, param, value):
     return value
 
 
-def create_table(
-    columns: List[tuple[str, Optional[str], bool]], is_first: bool = True
-) -> Table:
+def create_table(columns: List[tuple[str, Optional[str], bool]], is_first: bool = True) -> Table:
     """Create a Rich table with specified columns.
 
     Args:
@@ -117,9 +115,7 @@ def _render_page(
     return len(page)
 
 
-def _should_continue_pagination(
-    page_size: int, current_page_size: int, console: Console
-) -> bool:
+def _should_continue_pagination(page_size: int, current_page_size: int, console: Console) -> bool:
     """Prompt user to continue pagination if needed."""
     if current_page_size < page_size:
         return False  # Last page, no need to prompt
@@ -130,9 +126,7 @@ def _should_continue_pagination(
         return False
 
     console.print()
-    console.print(
-        "[dim]Press [bold]Enter[/bold] to continue, [bold]q[/bold] to quit…[/]"
-    )
+    console.print("[dim]Press [bold]Enter[/bold] to continue, [bold]q[/bold] to quit…[/]")
     return input("> ").strip().lower() != "q"
 
 
@@ -182,9 +176,7 @@ def display_list(  # noqa: PLR0913, PLR0912
             else list(iterator)
         )
         rows = [item_formatter(item) for item in items]
-        print(
-            render_output(rows, OutputFormat.JSON.value), file=console.file, flush=True
-        )
+        print(render_output(rows, OutputFormat.JSON.value), file=console.file, flush=True)
         return len(rows)
 
     total_count = 0
@@ -209,9 +201,7 @@ def display_list(  # noqa: PLR0913, PLR0912
             first_page = []
 
     if first_page:
-        total_count += _render_page(
-            first_page, item_formatter, table_creator, True, 1, console
-        )
+        total_count += _render_page(first_page, item_formatter, table_creator, True, 1, console)
 
     # For interactive commands, mark when command logic completes
     if interactive:
@@ -252,9 +242,7 @@ def display_list(  # noqa: PLR0913, PLR0912
             break
 
         # Render the page
-        total_count += _render_page(
-            page, item_formatter, table_creator, False, page_num, console
-        )
+        total_count += _render_page(page, item_formatter, table_creator, False, page_num, console)
 
         # Complete page fetch telemetry
         try:

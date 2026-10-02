@@ -1,0 +1,41 @@
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import orloge as ol
+
+DATADIR = os.path.join(os.path.dirname(__file__), "data")
+ALMOST_KEYS = ["best_solution", "best_bound"]
+
+
+class SolverTest(unittest.TestCase):
+    def test_new_log(self):
+        class MyLog(ol.LogFile):
+            def __init__(self, path, **options):
+                super().__init__(path, **options)
+                self.name = "my_solver"
+
+            def get_stats(self):
+                # get status, objective, bound, gap_rel
+                return None, None, None, None
+
+            def get_status_codes(self, status, obj):
+                # get status codes of the solver and solution
+                return None, None
+
+            def get_version(self):
+                # implement some logic to parse the version
+                return ""
+
+            def get_progress(self):
+                # implement some logic to parse the progress and return a list of rows
+                return []
+
+        my_log = MyLog(path=None, content="PATH_TO_MY_LOG_FILE")
+        my_log.get_log_info()
+
+
+if __name__ == "__main__":
+    unittest.main()

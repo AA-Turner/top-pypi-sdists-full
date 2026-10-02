@@ -1,1 +1,0 @@
-from supervisely.project.versioning.schema_fields import VersionSchemaField

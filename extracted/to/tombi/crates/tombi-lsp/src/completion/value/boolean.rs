@@ -14,15 +14,16 @@ use crate::{
 impl FindCompletionContents for tombi_document_tree_syntax::Boolean {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
-        log::trace!("position = {:?}", position);
+        log::trace!("offset = {:?}", offset);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
         log::trace!("current_schema = {:?}", current_schema);
@@ -33,7 +34,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Boolean {
                 get_key_table_value_comment_directive_content_and_schema_uri::<
                     BooleanCommonFormatRules,
                     BooleanCommonLintRules,
-                >(self.comment_directives(), position, accessors)
+                >(self.comment_directives(), offset, accessors)
                 && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
@@ -52,15 +53,16 @@ impl FindCompletionContents for tombi_document_tree_syntax::Boolean {
 impl FindCompletionContents for BooleanSchema {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
-        log::trace!("position = {:?}", position);
+        log::trace!("offset = {:?}", offset);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
         log::trace!("current_schema = {:?}", current_schema);
@@ -72,7 +74,7 @@ impl FindCompletionContents for BooleanSchema {
 
             if let Some(const_value) = &self.const_value {
                 let label = const_value.to_string();
-                let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                 completion_items.push(CompletionContent::new_const_value(
                     label,
                     self.title.clone(),
@@ -83,7 +85,7 @@ impl FindCompletionContents for BooleanSchema {
                 ));
 
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     current_schema,
@@ -100,7 +102,7 @@ impl FindCompletionContents for BooleanSchema {
             if let Some(r#enum) = &self.r#enum {
                 completion_items.extend(r#enum.iter().map(|value| {
                     let label = value.to_string();
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     CompletionContent::new_enum_value(
                         value.to_string(),
                         self.title.clone(),
@@ -112,7 +114,7 @@ impl FindCompletionContents for BooleanSchema {
                 }));
 
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     current_schema,
@@ -132,7 +134,7 @@ impl FindCompletionContents for BooleanSchema {
                     if completion_items.iter().any(|item| item.label == label) {
                         continue;
                     }
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     completion_items.push(CompletionContent::new_example_value(
                         label,
                         self.title.clone(),
@@ -145,11 +147,11 @@ impl FindCompletionContents for BooleanSchema {
             }
 
             if completion_items.is_empty() {
-                completion_items = type_hint_boolean(position, schema_base_uri, completion_hint);
+                completion_items = type_hint_boolean(offset, schema_base_uri, completion_hint);
             }
 
             merge_adjacent_schema_completion_items(
-                position,
+                cursor,
                 keys,
                 accessors,
                 current_schema,
@@ -167,7 +169,7 @@ impl FindCompletionContents for BooleanSchema {
 }
 
 pub fn type_hint_boolean(
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
@@ -176,7 +178,7 @@ pub fn type_hint_boolean(
         .map(|value| {
             CompletionContent::new_type_hint_boolean(
                 value,
-                CompletionEdit::new_literal(&value.to_string(), position, completion_hint),
+                CompletionEdit::new_literal(&value.to_string(), offset, completion_hint),
                 schema_base_uri,
             )
         })

@@ -43,11 +43,15 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_mapping import ERROR_MAPPINGS_JSON
 
 
-class UnsupportedCharsetException(PySparkException):
+class UnsupportedCharsetException(IllegalArgumentException):
     """
     Exception raised when an unsupported charset is specified.
 
-    This mimics Java's java.nio.charset.UnsupportedCharsetException for Spark compatibility.
+    This mimics Java's ``java.nio.charset.UnsupportedCharsetException``, which
+    extends ``IllegalArgumentException``. The Connect client only reconstructs
+    classes in its error factory; including the illegal-argument supertype
+    makes the client raise ``SparkIllegalArgumentException``. Raised for
+    CSV, JSON, and XML charset validation, not XML alone.
     """
 
     def __init__(self, charset_name: str) -> None:
@@ -137,7 +141,13 @@ CREATE_TABLE_PATTERN = re.compile(r"create\s+table", re.IGNORECASE)
 NSS_SANDBOX_SQL_ERROR_CODE = 210007
 _NSS_SANDBOX_QUERY_MARKERS = ("STAGE_FILE_READER(", "INFER_STAGE_FILE_SCHEMA(")
 
-# Only AnalysisException is unwrapped. Two broader generalizations were tried and rejected
+# AnalysisException is unwrapped after live A/B testing against COPY v1.
+# UnsupportedCharsetException is unwrapped for any STAGE_FILE_READER format:
+# Java ``Charset.forName`` (spark-xml and Spark CSV/JSON) raises it for bad names.
+# SCOS-side validation via ``validate_charset_name`` is the primary path for
+# CSV, JSON, and XML. NSS unwrap is only a fallback if an unknown name still
+# reaches ``STAGE_FILE_READER``.
+# Two broader generalizations were tried and rejected
 # after live A/B testing against COPY v1's own baseline behavior for the same input:
 #   - SparkRuntimeException: COPY v1's own baseline for that case is already the generic
 #     QueryExecutionException wrapper, so unwrapping it would make NSS diverge from COPY
@@ -149,6 +159,10 @@ _NSS_SANDBOX_QUERY_MARKERS = ("STAGE_FILE_READER(", "INFER_STAGE_FILE_SCHEMA(")
 # Do not re-add either without redoing the same live A/B verification.
 _NSS_SANDBOX_RECOVERABLE_EXCEPTIONS: dict[str, type[PySparkException]] = {
     "org.apache.spark.sql.AnalysisException": AnalysisException,
+    # spark-xml / Charset.forName raises this for names like "1-9588-osi".
+    # Prefer SCOS-side validation (XmlReaderConfig); this unwraps the NSS
+    # sandbox wrapper if the name still reaches STAGE_FILE_READER.
+    "java.nio.charset.UnsupportedCharsetException": UnsupportedCharsetException,
 }
 _NSS_SANDBOX_EXCEPTION_PATTERN = re.compile(
     r"(?:^|Caused by:\s*)("
@@ -508,6 +522,8 @@ def build_grpc_error_response(ex: Exception) -> status_pb2.Status:
                 ):
                     fqcn, recovered_ex = recovered
                     spark_java_classes.append(fqcn)
+                    if isinstance(recovered_ex, IllegalArgumentException):
+                        spark_java_classes.append("java.lang.IllegalArgumentException")
                     ex = recovered_ex
                 else:
                     if ex.sql_error_code == 100357:

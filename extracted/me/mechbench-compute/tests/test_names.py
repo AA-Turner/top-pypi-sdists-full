@@ -1,0 +1,264 @@
+from __future__ import annotations
+
+import ast
+import re
+import warnings
+from dataclasses import dataclass, field
+from functools import cache
+from pathlib import Path
+
+from mechbench_compute.conformance.names import KEEP_NAMES, PREDICATES, VERBS, normalize_name
+
+ROOT = Path(__file__).resolve().parent.parent
+PKG = ROOT / "mechbench_compute"
+
+SOURCES = ("mechbench_compute", "tests", "scripts")
+
+KEEP_DIRS = ("lexicon/",)
+
+PATCHY = re.compile(r"setattr|getattr|patch|delattr|hasattr")
+
+
+def read_tree(path: Path) -> ast.Module:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return ast.parse(path.read_text())
+
+
+def find_module(dotted: str) -> str | None:
+    if dotted == "mechbench_compute":
+        return "__init__.py"
+    if not dotted.startswith("mechbench_compute."):
+        return None
+    stem = dotted[len("mechbench_compute."):].replace(".", "/")
+    if (PKG / f"{stem}.py").is_file():
+        return f"{stem}.py"
+    if (PKG / stem / "__init__.py").is_file():
+        return f"{stem}/__init__.py"
+    return None
+
+
+def read_bindings(tree: ast.AST) -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
+    imports: dict[str, tuple[str, str]] = {}
+    modules: dict[str, str] = {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.ImportFrom) and n.level == 0 and n.module:
+            if not (n.module == "mechbench_compute"
+                    or n.module.startswith("mechbench_compute.")):
+                continue
+            for a in n.names:
+                bound = a.asname or a.name
+                if find_module(f"{n.module}.{a.name}"):
+                    modules[bound] = f"{n.module}.{a.name}"
+                imports[bound] = (n.module, a.name)
+        elif isinstance(n, ast.Import):
+            for a in n.names:
+                if not a.name.startswith("mechbench_compute"):
+                    continue
+                modules[a.asname or a.name] = a.name
+    return imports, modules
+
+
+def read_attr_chain(node: ast.Attribute) -> list[str] | None:
+    parts: list[str] = []
+    cur: ast.expr = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if not isinstance(cur, ast.Name):
+        return None
+    parts.append(cur.id)
+    parts.reverse()
+    return parts
+
+
+@dataclass
+class Def:
+    file: str
+    name: str
+    kind: str
+    line: int
+    refs: set[str] = field(default_factory=set)
+    outside: set[str] = field(default_factory=set)
+
+    @property
+    def crosses(self) -> bool:
+        return bool(self.refs)
+
+
+class Mod:
+    def __init__(self, rel: str) -> None:
+        self.rel = rel
+        self.tree = read_tree(PKG / rel)
+        self.defs: dict[str, Def] = {}
+        for node in self.tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                self.defs[node.name] = Def(rel, node.name, "function", node.lineno)
+            elif isinstance(node, ast.ClassDef):
+                self.defs[node.name] = Def(rel, node.name, "class", node.lineno)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for t in targets:
+                    if isinstance(t, ast.Name):
+                        self.defs[t.id] = Def(rel, t.id, "constant", node.lineno)
+        self.imports, self.modules = read_bindings(self.tree)
+
+
+class Inventory:
+    def __init__(self) -> None:
+        self.mods: dict[str, Mod] = {}
+        for path in sorted(PKG.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            self.mods[str(path.relative_to(PKG))] = Mod(str(path.relative_to(PKG)))
+        self.defs = {(m.rel, name): d
+                     for m in self.mods.values() for name, d in m.defs.items()}
+        for base in SOURCES:
+            for path in sorted((ROOT / base).rglob("*.py")):
+                if "__pycache__" in path.parts:
+                    continue
+                self.scan(path)
+
+    def resolve(self, dotted: str, name: str, seen: tuple = ()) -> tuple[str, str] | None:
+        rel = find_module(dotted)
+        if rel is None or rel not in self.mods:
+            return None
+        mod = self.mods[rel]
+        if name in mod.defs:
+            return (rel, name)
+        if name in mod.imports and (dotted, name) not in seen:
+            nxt, orig = mod.imports[name]
+            return self.resolve(nxt, orig, seen + ((dotted, name),))
+        return None
+
+    def find_module_at(self, dotted: str, name: str) -> str | None:
+        if find_module(f"{dotted}.{name}"):
+            return f"{dotted}.{name}"
+        rel = find_module(dotted)
+        if rel is None or rel not in self.mods:
+            return None
+        return self.mods[rel].modules.get(name)
+
+    def walk_modules(self, start: str, parts: list[str]) -> str | None:
+        cur: str | None = start
+        for p in parts:
+            cur = self.find_module_at(cur, p) if cur else None
+        return cur
+
+    def hit(self, target: tuple[str, str] | None, source: str) -> None:
+        if target is None:
+            return
+        d = self.defs.get(target)
+        if d is None or d.file == source:
+            return
+        home = (d.file.rsplit("/", 1)[0] + "/__init__.py"
+                if "/" in d.file else "__init__.py")
+        if source == home:
+            return
+        if source.startswith(("tests/", "scripts/")):
+            d.outside.add(source)
+        else:
+            d.refs.add(source)
+
+    def scan(self, path: Path) -> None:
+        rel_root = str(path.relative_to(ROOT))
+        source = (str(path.relative_to(PKG))
+                  if rel_root.startswith("mechbench_compute/") else rel_root)
+        tree = read_tree(path)
+        imports, modules = read_bindings(tree)
+        for module, orig in imports.values():
+            self.hit(self.resolve(module, orig), source)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Attribute):
+                parts = read_attr_chain(n)
+                if not parts or len(parts) < 2:
+                    continue
+                base = modules.get(parts[0])
+                if base is None:
+                    continue
+                dotted = self.walk_modules(base, parts[1:-1])
+                if dotted:
+                    self.hit(self.resolve(dotted, parts[-1]), source)
+            elif isinstance(n, ast.Call) and PATCHY.search(ast.unparse(n.func)):
+                self.scan_patch(n, modules, source)
+
+    def scan_patch(self, call: ast.Call, modules: dict[str, str], source: str) -> None:
+        for arg in call.args:
+            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                continue
+            text = arg.value
+            if "." in text and text.startswith("mechbench_compute"):
+                dotted, _, name = text.rpartition(".")
+                self.hit(self.resolve(dotted, name), source)
+                continue
+            for other in call.args:
+                base = other.id if isinstance(other, ast.Name) else None
+                chain = read_attr_chain(other) if isinstance(other, ast.Attribute) else None
+                dotted = modules.get(base) if base else None
+                if dotted is None and chain and chain[0] in modules:
+                    dotted = ".".join([modules[chain[0]]] + chain[1:])
+                if dotted is None:
+                    continue
+                self.hit(self.resolve(dotted, text), source)
+
+
+@cache
+def take_inventory() -> Inventory:
+    return Inventory()
+
+
+def classify_name(d: Def) -> str:
+    if d.kind != "function":
+        return "-"
+    head = normalize_name(d.name).split("_")[0]
+    if head in VERBS:
+        return "verb"
+    if head in PREDICATES:
+        return "predicate"
+    return "not-a-verb"
+
+
+def is_helper_file(inv: Inventory, rel: str) -> bool:
+    if rel.endswith("__init__.py") or "/" not in rel or rel.startswith("ops/"):
+        return False
+    stem = rel[:-3].rsplit("/", 1)[1]
+    made = [d for d in inv.mods[rel].defs.values() if d.kind in ("function", "class")]
+    return len(made) <= 2 and any(normalize_name(d.name) == stem for d in made)
+
+
+def is_exempt(rel: str, name: str) -> bool:
+    return name in KEEP_NAMES or name.startswith("__") or rel.startswith(KEEP_DIRS)
+
+
+class TestAnUnderscoreMeansMineAlone:
+    def test_no_private_name_crosses_a_file(self):
+        offences = []
+        for (rel, name), d in sorted(take_inventory().defs.items()):
+            if is_exempt(rel, name) or not name.startswith("_") or not d.crosses:
+                continue
+            offences.append(f"{rel}:{d.line} {name} — read by "
+                            + ", ".join(sorted(d.refs)))
+        assert not offences, (
+            f"{len(offences)} name(s) say they are private and are not "
+            f"(docs/NAMES.md):\n" + "\n".join(offences)
+            + "\nDrop the underscore, or move the definition to the one "
+            "file that uses it.")
+
+
+class TestAFunctionSaysWhatItDoes:
+    def test_every_operation_and_helper_function_starts_with_a_verb(self):
+        inv = take_inventory()
+        offences = []
+        for (rel, name), d in sorted(inv.defs.items()):
+            if is_exempt(rel, name) or classify_name(d) != "not-a-verb":
+                continue
+            if not (rel.startswith("ops/") or is_helper_file(inv, rel)):
+                continue
+            head = normalize_name(name).split("_")[0]
+            offences.append(f"{rel}:{d.line} {name} — {head!r} is not a verb")
+        assert not offences, (
+            f"{len(offences)} function name(s) do not start with a verb "
+            f"(docs/NAMES.md):\n" + "\n".join(offences)
+            + "\nName it for what it does. If the first word is a verb this "
+            "gate has not met, add it to VERBS above.")

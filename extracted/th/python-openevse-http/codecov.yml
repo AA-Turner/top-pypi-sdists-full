@@ -1,7 +1,0 @@
-comment: false
-coverage:
-  status:
-    project:
-      default:
-        target: 90
-        threshold: 0.09

@@ -15,8 +15,8 @@ use uv_fs::normalize_path;
 use uv_normalize::{DEV_DEPENDENCIES, DefaultExtras, PackageName};
 use uv_preview::{Preview, PreviewFeature};
 use uv_python::{
-    ConfigDiscovery, EnvironmentPreference, PythonDownloads, PythonEnvironment, PythonInstallation,
-    PythonPreference, PythonRequest,
+    ConfigDiscovery, EnvironmentPreference, PythonArchitecture, PythonDownloads, PythonEnvironment,
+    PythonInstallation, PythonPreference, PythonRequest,
 };
 use uv_scripts::Pep723Script;
 use uv_settings::{MalwareCheckSettings, PythonInstallMirrors};
@@ -31,8 +31,8 @@ use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
     LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectInterpreter,
-    ScriptEnvironment, ScriptInterpreter, UniversalState, WorkspacePython,
-    validate_project_requires_python,
+    PythonRequirementSource, ScriptEnvironment, ScriptInterpreter, UniversalState, WorkspacePython,
+    validate_python_requirement,
 };
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::{ExitStatus, UvError, project};
@@ -65,6 +65,7 @@ pub(crate) async fn check(
     script: Option<Pep723Script>,
     client_builder: BaseClientBuilder<'_>,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads: PythonDownloads,
     installer_metadata: bool,
     concurrency: Concurrency,
@@ -298,6 +299,7 @@ pub(crate) async fn check(
                 python.as_deref().map(PythonRequest::parse),
                 &client_builder,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &install_mirrors,
                 false,
@@ -313,7 +315,7 @@ pub(crate) async fn check(
             let WorkspacePython {
                 source,
                 python_request,
-                requires_python,
+                requirement,
             } = WorkspacePython::from_request(
                 python.as_deref().map(PythonRequest::parse),
                 workspace,
@@ -328,6 +330,7 @@ pub(crate) async fn check(
                 python_request.as_ref(),
                 EnvironmentPreference::Any,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &client_builder,
                 cache,
@@ -339,13 +342,12 @@ pub(crate) async fn check(
             .await?
             .into_interpreter();
 
-            if let Some(requires_python) = requires_python.as_ref() {
-                validate_project_requires_python(
+            if let Some(requirement) = requirement.as_ref() {
+                validate_python_requirement(
                     &interpreter,
-                    workspace,
-                    &groups,
-                    requires_python,
+                    &requirement.requires_python,
                     &source,
+                    PythonRequirementSource::Workspace(workspace, &groups),
                 )?;
             }
             interpreter
@@ -378,6 +380,7 @@ pub(crate) async fn check(
                 python.as_deref().map(PythonRequest::parse),
                 &client_builder,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &install_mirrors,
                 no_sync,
@@ -510,11 +513,13 @@ pub(crate) async fn check(
         } else {
             ProjectEnvironment::get_or_init(
                 project.workspace(),
+                None,
                 &groups,
                 python.as_deref().map(PythonRequest::parse),
                 &install_mirrors,
                 &client_builder,
                 python_preference,
+                python_arch,
                 python_downloads,
                 no_sync,
                 config_discovery,
@@ -546,6 +551,7 @@ pub(crate) async fn check(
                     workspace_python,
                     &client_builder,
                     python_preference,
+                    python_arch,
                     python_downloads,
                     &install_mirrors,
                     ProjectEnvironmentPolicy::Optional,
@@ -724,7 +730,9 @@ pub(crate) async fn check(
     let python_version = if let Some(python) = python {
         let request = PythonRequest::parse(&python);
         if let Some(venv) = venv.as_ref()
-            && request.satisfied(venv.interpreter(), cache)
+            && request
+                .with_default_arch(python_arch.map(PythonArchitecture::into_inner))
+                .satisfied(venv.interpreter(), cache)
         {
             Some(venv.interpreter().python_minor_version())
         } else {
@@ -734,6 +742,7 @@ pub(crate) async fn check(
                 Some(&request),
                 EnvironmentPreference::Any,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &client_builder,
                 cache,

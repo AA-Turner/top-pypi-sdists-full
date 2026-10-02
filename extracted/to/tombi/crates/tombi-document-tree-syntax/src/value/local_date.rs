@@ -8,7 +8,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocalDate {
     value: tombi_date_time::LocalDate,
-    range: tombi_text::Range,
+    span: tombi_text::Span,
     pub(crate) comment_directives: Option<Vec<TombiValueCommentDirective>>,
 }
 
@@ -19,8 +19,8 @@ impl LocalDate {
     }
 
     #[inline]
-    pub fn range(&self) -> tombi_text::Range {
-        self.range
+    pub fn span(&self) -> tombi_text::Span {
+        self.span
     }
 
     #[inline]
@@ -42,8 +42,8 @@ impl ValueImpl for LocalDate {
         ValueType::LocalDate
     }
 
-    fn range(&self) -> tombi_text::Range {
-        self.range
+    fn span(&self) -> tombi_text::Span {
+        self.span
     }
 }
 
@@ -53,19 +53,19 @@ impl From<crate::LocalDate> for tombi_date_time::LocalDate {
     }
 }
 
-impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::LocalDate {
+impl<'t> IntoDocumentTreeWithContext<'t, crate::Value<'t>> for tombi_ast_syntax::LocalDate<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<crate::Value> {
-        let range = self.range();
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<crate::Value<'t>> {
+        let span = self.span();
         let (comment_directives, mut errors) = collect_comment_directives_and_errors(&self);
 
         let Some(token) = self.token() else {
-            errors.push(crate::Error::IncompleteNode { range });
+            errors.push(crate::Error::IncompleteNode { span });
 
             return DocumentTreeAndErrors {
-                tree: crate::Value::Incomplete { range },
+                tree: crate::Value::Incomplete { span },
                 errors,
             };
         };
@@ -74,7 +74,7 @@ impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::LocalDate {
             Ok(value) => DocumentTreeAndErrors {
                 tree: crate::Value::LocalDate(crate::LocalDate {
                     value,
-                    range: token.range(),
+                    span: token.span(),
                     comment_directives,
                 }),
                 errors,
@@ -83,7 +83,7 @@ impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::LocalDate {
                 errors.push(error);
 
                 DocumentTreeAndErrors {
-                    tree: crate::Value::Incomplete { range },
+                    tree: crate::Value::Incomplete { span },
                     errors,
                 }
             }

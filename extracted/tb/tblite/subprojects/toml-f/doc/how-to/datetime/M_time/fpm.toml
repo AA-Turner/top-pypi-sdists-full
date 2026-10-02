@@ -1,5 +1,0 @@
-name = "demo"
-
-[dependencies]
-toml-f.path = "../../../.."
-M_time.git = "https://github.com/urbanjost/M_time.git"

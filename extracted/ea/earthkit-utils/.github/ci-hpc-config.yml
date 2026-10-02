@@ -1,0 +1,3 @@
+build:
+  python: 3.11
+  parallel: 1

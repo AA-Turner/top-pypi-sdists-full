@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling >= 1.16"]
+build-backend = "hatchling.build"
+
+[project]
+dynamic = [ "version" ]
+name = "sqlalchemy_monetdb"
+description = "SQLAlchemy dialect for MonetDB"
+readme = "README.rst"
+authors = [
+    { name = "Gijs Molenaar", email = "gijsmolenaar@gmail.com" }
+]
+license = "MIT"
+keywords = ["MonetDB", "SQLAlchemy"]
+classifiers = [
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Database :: Database Engines/Servers",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    # we never test this: "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+requires-python = ">=3.8.1"
+dependencies = [
+    "pymonetdb>=1.8.2",
+    "sqlalchemy>=1.4.54",
+]
+
+[project.urls]
+Homepage = "https://github.com/MonetDB/sqlalchemy-monetdb"
+Repository = "https://github.com/MonetDB/sqlalchemy-monetdb"
+Issues = "https://github.com/MonetDB/sqlalchemy-monetdb/issues"
+Changelog = "https://github.com/me/spam/blob/master/CHANGES"
+
+
+[project.optional-dependencies]
+# The 'test' dependencies are development dependencies, not end user dependencies.
+# They should really be a dependency group but that has only
+# recently been added to pip so we leave them as optional dependencies.
+# Dependency group 'dev' below automatically includes them.
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "coverage>=7.3.0",
+    "mypy>=1.5.1",
+    "flake8>=6.1.0",
+]
+
+[project.entry-points."sqlalchemy.dialects"]
+monetdb = "sqlalchemy_monetdb.dialect:MonetDialect"
+"monetdb.pymonetdb" = "sqlalchemy_monetdb.dialect:MonetDialect"
+
+[dependency-groups]
+# 'dev' refers to the optional dependencies listed above.
+dev = [ "sqlalchemy_monetdb[test] >=2.0.0" ]
+
+[tool.hatch.build.targets.sdist]
+#include =
+exclude = [ ".jj" ]
+
+[tool.hatch.version]
+path = "sqlalchemy_monetdb/__init__.py"
+
+[tool.pytest]
+addopts = ["--tb", "auto", "-r", "fxX", "-p", "no:warnings"]
+# addopts = "--tb native -v -r fxX --maxfail=25 -p no:warnings"
+python_files = ["test/*test_*.py"]
+
+[tool.flake8]
+max-line-length = 120
+
+# [options.package_data]
+# sqlalchemy_monetdb = py.typed

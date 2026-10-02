@@ -1,0 +1,384 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: "node_bus_forwarder_effect"
+contract_name: "node_bus_forwarder_effect"
+node_name: "node_bus_forwarder_effect"
+node_type: "EFFECT_GENERIC"
+contract_version:
+  major: 0
+  minor: 1
+  patch: 8
+node_version:
+  major: 0
+  minor: 1
+  patch: 8
+description: >
+  Trust-boundary effect node that mirrors contract-declared tenant gateway topics between a local runtime bus and the hosted cloud Kafka edge. The node owns all publishes; handlers only validate and return transformed envelopes. OMN-15792: the outbound handler resolves its physical wire topic through the single runtime topic resolver (resolve_physical_topic) instead of calling the prefix_topic primitive directly -- internal implementation change, wire format and behavior unchanged. OMN-16459 adds the contract-declared OUTBOUND https_ingest leg; the INBOUND leg remains a cloud-broker pull, so this does not retire the existing bastion on its own. OMN-16979 declares all seven capture classes outbound behind fail-closed egress_redaction admission. A governed record without an admitted upstream redaction_state is dropped at this boundary, never forwarded. The declaration alone does not activate runtime delivery; it keeps missing or regressed producer provenance fail-closed. OMN-18691 (phase 3, option B): the three cloud fields (`cloud_bus`, `mirror_topics`, `canary`) become optional and travel together -- a resolved config declares either all three (a tenant-edge deployment, byte-unchanged) or none (a mirror-only deployment carrying only the lane_mirror leg below), and a partial declaration or a config with neither the cloud legs nor a lane_mirror is refused at construction. The two handlers now read the two `declared_inbound_topics` / `declared_outbound_topics` properties, which return the mirror_topics sets when a cloud bus is declared and an empty set otherwise -- the "not declared for mirroring" refusal is unchanged in either case, it just has nothing to admit when there is no trust boundary to cross. No publisher is repointed by this contract change; deploying a mirror-only instance is a separate, consent-gated step.
+
+runtime_profiles:
+  - canary
+input_model:
+  name: "ModelGatewayEnvelope"
+  module: "omnibase_infra.nodes.node_bus_forwarder_effect.models.model_gateway_envelope"
+  description: >
+    Canonical gateway envelope with tenant binding and topic transform fields. Runtime dispatch may wrap this payload in a ModelEventEnvelope instance or its serialized dict form; handlers normalize that outer envelope before reading payload.
+
+output_model:
+  name: "ModelGatewayEnvelope"
+  module: "omnibase_infra.nodes.node_bus_forwarder_effect.models.model_gateway_envelope"
+  description: "Validated gateway envelope after prefix add/strip transformation."
+config:
+  name: "ModelGatewayForwarderConfig"
+  module: "omnibase_infra.nodes.node_bus_forwarder_effect.models.model_gateway_forwarder_config"
+  description: "Frozen gateway forwarder configuration resolved from contract and secret refs."
+  gateway_forwarder:
+    cloud_leg:
+      transport: "kafka"
+      broker_provider_id: "22222222-2222-2222-2222-222222222222"
+      cloud_broker_ref: "gateway.cloud.kafka.broker"
+      cloud_auth_ref: "gateway.cloud.kafka.msk_iam"
+      acl_provisioner_ref: "gateway.cloud.kafka.authorization"
+      msk_region_ref: "gateway.cloud.kafka.msk_region"
+      security_protocol: "SASL_SSL"
+      sasl_mechanism: "AWS_MSK_IAM"
+    local_leg:
+      supported_flavors:
+        - "containerized"
+        - "lightweight"
+    # OMN-17201: this set declares what CROSSES the boundary; it does not
+    # create anything. The physical tenant-prefixed wire topic is minted by
+    # omninode_infra docker/onex-api/kafka_topic_provisioner.py over
+    # topic_constants.py::DEFAULT_TENANT_CANONICAL_TOPICS, and
+    # `omninode-dev-msk` runs auto.create.topics.enable=false, so a topic
+    # declared here but absent there is not created late -- its subscriber
+    # crash-loops on UnknownTopicOrPartitionError. That is exactly what
+    # happened to the cloud hook-ledger writer on 2026-09-05 after the
+    # OMN-16204/OMN-16979 widenings below landed without the matching
+    # provisioning change. The two surfaces are now pinned to each other from
+    # both sides: tests/unit/nodes/node_bus_forwarder_effect/
+    # test_provisioning_sync_omn17201.py here, FORWARDER_MIRROR_TOPIC_UNION
+    # there. Widening this set REQUIRES the omninode_infra half in the same
+    # change, plus a tenant_topics_backfill run for tenants that already exist.
+    mirror_topics:
+      inbound:
+        - "onex.cmd.omnibase-infra.delegation-inference-request.v1"
+        - "onex.cmd.omnibase-infra.delegation-request.v1"
+        - "onex.evt.omnibase-infra.gateway-heartbeat.v1"
+        # OMN-19593 / OMN-14375: signed GitHub webhook deliveries, published
+        # by the onex-api door (POST /v1/github/webhook, OMN-19592) and
+        # consumed on the lab by node_github_webhook_ingress_effect.
+        - "onex.cmd.github.webhook-delivery.v1"
+      outbound:
+        - "onex.evt.omnibase-infra.inference-response.v1"
+        - "onex.evt.omnibase-infra.delegation-completed.v1"
+        - "onex.evt.omnibase-infra.delegation-failed.v1"
+        - "onex.evt.omniintelligence.llm-call-completed.v1"
+        - "onex.evt.omnibase-infra.llm-call-completed.v1"
+        - "onex.evt.omnibase-infra.gateway-heartbeat.v1"
+        # OMN-16979: all seven declared capture classes cross only while the
+        # egress_redaction policy below admits their upstream provenance. This
+        # is a contract arming change, not runtime activation; absent or raw
+        # provenance remains a boundary drop.
+        - "onex.evt.omniclaude.session-started.v1"
+        - "onex.evt.omniclaude.session-ended.v1"
+        - "onex.evt.omniclaude.tool-executed.v1"
+        - "onex.evt.omniclaude.prompt-submitted.v1"
+        - "onex.evt.omniclaude.skill-started.v1"
+        - "onex.evt.omniclaude.skill-completed.v1"
+        - "onex.evt.omnimarket.tool-output-captured.v1"
+        # OMN-19439 (MD-42): the two delegate-skill terminals cross ONLY as the
+        # metadata allowlist declared by egress_metadata_scrub below. Their
+        # payload carries the delegated prompt and the model's answer; neither
+        # crosses. The cloud half (FORWARDER_MIRROR_TOPIC_UNION and the
+        # provisioner) lands in omninode_infra in the same change.
+        - "onex.evt.omnimarket.delegate-skill-completed.v1"
+        - "onex.evt.omnimarket.delegate-skill-failed.v1"
+    # ------------------------------------------------------------------
+    # OMN-16979: fail-closed egress redaction for the widened hook classes.
+    # ------------------------------------------------------------------
+    # OMN-17209's framing is why the widening above is not bare: "widening the
+    # payload without landing this contract first ships a credential
+    # pipeline."
+    #
+    # WHERE THE REDACTION ACTUALLY HAPPENS: upstream, at omnimarket's emit
+    # seam. `node_event_emit_effect`'s per-topic transform (the OMN-16019
+    # seam) applies `capture_redaction.yaml` (OMN-17209) and stamps a
+    # `redaction_state` on every governed record. That is the only place that
+    # knows tool semantics -- which field of a `Bash` record is a command name
+    # and which is its output. This node cannot re-derive that judgement and
+    # deliberately does not try; re-implementing it here would be the second
+    # transform OMN-17209 explicitly forbids.
+    #
+    # WHAT THIS BOUNDARY OWNS: refusing to cross anything not provably
+    # redacted. A record on a governed topic whose payload carries no admitted
+    # state is DROPPED with a warning -- never forwarded, and never raised
+    # (see below).
+    #
+    # WHY THAT MAKES THE WIDENING SAFE TO LAND FIRST: until the upstream seam
+    # deploys and starts stamping, all seven capture topics admit NOTHING. Merging
+    # this ahead of the producer opens no hole. And in the other direction, if
+    # that seam is ever removed, bypassed or silently regresses, those topics
+    # STOP crossing rather than start leaking -- the failure mode is loss of
+    # telemetry, not disclosure.
+    #
+    # `raw` is not admissible and the model refuses it structurally rather
+    # than by configuration: it is ArtifactStore's default state (OMN-13152),
+    # carried by 27 of 27 artifact-captured records in the local spool, so a
+    # policy admitting it would read exactly like a working one while gating
+    # nothing. `secret_detected` IS admissible on purpose -- it means the
+    # upstream scrub fired and replaced the value, a stronger guarantee than
+    # `redacted`, not a weaker one.
+    #
+    # A REFUSAL IS A DROP, NEVER AN EXCEPTION. OMN-17382 is the live proof:
+    # on 2026-09-05 a single foreign-tenant probe record raised out of
+    # `_prepare_outbound` and wedged this same outbound leg for 7h45m across
+    # 925 consecutive retries, with 177 real records stuck behind it. A
+    # per-record policy decision must not be able to stop the bridge.
+    egress_redaction:
+      state_field: "redaction_state"
+      admitted_states:
+        - "redacted"
+        - "restricted"
+        - "secret_detected"
+      governed_topics:
+        - "onex.evt.omniclaude.session-started.v1"
+        - "onex.evt.omniclaude.session-ended.v1"
+        - "onex.evt.omniclaude.tool-executed.v1"
+        - "onex.evt.omniclaude.prompt-submitted.v1"
+        - "onex.evt.omniclaude.skill-started.v1"
+        - "onex.evt.omniclaude.skill-completed.v1"
+        - "onex.evt.omnimarket.tool-output-captured.v1"
+    # ------------------------------------------------------------------
+    # OMN-19439: metadata-only egress scrub for the delegate-skill terminals.
+    # ------------------------------------------------------------------
+    # The cloud needs delegation OUTCOMES (MD-42), never what was asked or
+    # answered. A delegate-skill terminal carries `prompt_text` and `response`
+    # at the top level and model text again inside `attempts[*]`,
+    # `error_message`, `response_contract_evidence`, `budget_evidence` and
+    # the per-gate diagnostics in `quality_gates_failed` (which can quote the
+    # response). So this is an ALLOWLIST of top-level payload keys, applied
+    # at the boundary before the content-addressed event_id is computed:
+    # every key not named here is dropped, including any key a producer adds
+    # later. The model refuses, structurally, to retain a known text field.
+    # A delegate-skill topic mirrored outbound without this scrub fails
+    # config validation.
+    egress_metadata_scrub:
+      scrubbed_topics:
+        - "onex.evt.omnimarket.delegate-skill-completed.v1"
+        - "onex.evt.omnimarket.delegate-skill-failed.v1"
+      retained_payload_fields:
+        - "status"
+        - "correlation_id"
+        - "task_type"
+        - "tenant_id"
+        - "provider"
+        - "model_name"
+        - "model_cloud_baseline"
+        - "pricing_manifest_version"
+        - "quality_gate_passed"
+        - "quality_score"
+        - "required_quality_bar"
+        - "score_vs_required_bar"
+        - "terminal_failure_cause"
+        # A consume-boundary failure terminal (payload_type
+        # ModelBoundaryFailureTerminal) rides the failed topic; the
+        # cloud closes the workflow with its class and ONEX code. Both are
+        # grammar-checked codes, never text; failure_reason is text and
+        # does not cross.
+        - "failure_class"
+        - "failure_code"
+        - "preamble_chars"
+        - "metrics"
+        - "escalation_count"
+        - "attempts_count"
+        - "queue_wait_ms"
+        - "execution_duration_ms"
+    # ------------------------------------------------------------------
+    # OMN-17034: the lane-mirror leg.
+    # ------------------------------------------------------------------
+    # Operator ruling 2026-09-04, paraphrased: BOTH lanes, not either. The
+    # forwarder consumes the hook topics on the lane the hook edge actually
+    # publishes to and mirrors them to the dev lane; nothing is repointed.
+    #
+    # The measured defect this closes: omniclaude's hook edge publishes to
+    # the STABILITY lane (declared by
+    # omniclaude/plugins/onex/hooks/contracts/hook_edge_lane.yaml, OMN-17204,
+    # `lane: stability-test`), while `omninode-gateway-forwarder` was attached
+    # only to `omnibase-infra-network` (dev). A container cannot see a record
+    # on a lane network it is not joined to, so every hook event was invisible
+    # to this node -- 16,616 hook rows on stability against 2 on dev
+    # (measured 2026-09-04).
+    #
+    # WHY A THIRD LEG RATHER THAN REPOINTING `local_bus`:
+    # `local_bus` is the trust-boundary leg. Its OUTBOUND direction carries
+    # delegation/inference results to cloud and its INBOUND direction
+    # republishes cloud delegation commands to the local runtime, whose
+    # consumers live on DEV. Repointing it to stability would move those
+    # commands off the lane their consumers run on -- a regression traded for
+    # a fix. So `local_bus` stays on dev, unchanged, and this is an additive
+    # leg with its own consumer group.
+    #
+    # HOW THE CLOUD ARM OF THE RULING IS SATISFIED WITH NO NEW CLOUD CODE:
+    # this leg republishes each stability hook record onto the DEV broker
+    # under the same canonical topic name. The pre-existing trust-boundary
+    # outbound leg already consumes `mirror_topics.outbound` on dev, and that
+    # set already contains the OD-9-approved session-started/session-ended
+    # pair (OMN-16204). So the composed path is
+    #   stability --(this leg)--> dev --(existing outbound leg)--> cloud
+    # and the forwarder mirrors to dev AND onward to the cloud leg it already
+    # has. `mirror_topics.outbound` is deliberately NOT widened here --
+    # widening the cloud set to tool-executed/prompt-submitted is OMN-16979,
+    # gated behind the OMN-17209 redaction contract, and actual cloud
+    # delivery is still gated behind OMN-14323 gate 1 (MSK network/IAM) and
+    # OMN-16459 (HTTPS ingest replacing the direct-MSK leg).
+    #
+    # `topics` is the four `governed_topics` of hook_edge_lane.yaml. This is
+    # a LOCAL lane-to-lane mirror inside one trusted host, not a trust-boundary
+    # crossing, so the OD-9 content restriction that scopes the cloud set does
+    # not apply to it; the OD-9 scope is still enforced, unchanged, at the
+    # cloud boundary by `mirror_topics.outbound`.
+    #
+    # Lanes are named, never addressed. The resolved deployment YAML supplies
+    # the per-lane broker endpoint (`lane_mirror_source_bus` /
+    # `lane_mirror_buses`), the same authority split `local_bus` already uses:
+    # this contract owns the topic set and the lane names, the resolved tenant
+    # file owns this deployment's broker addresses.
+    lane_mirror:
+      source_lane: "stability-test"
+      mirror_lanes:
+        - "dev"
+      topics:
+        - "onex.evt.omniclaude.session-started.v1"
+        - "onex.evt.omniclaude.session-ended.v1"
+        - "onex.evt.omniclaude.tool-executed.v1"
+        - "onex.evt.omniclaude.prompt-submitted.v1"
+      # Poll batch size and the source-commit deadline for one drain pass.
+      max_messages_per_poll: 50
+      poll_timeout_ms: 1000
+    # OMN-16459: the OUTBOUND HTTPS ingest leg that replaces the direct-MSK
+    # cloud publish. Operator ruling 2026-08-24 (verbatim, via team-lead):
+    # "the gateway on the cloud should be configurable to point at whatever env
+    # we want. we can use the forwarder to accelerate moving our work to the
+    # cloud, but it should be replaced with the https doors as soon as
+    # possible." Operator scope ruling 2026-08-30 (verbatim): "the cloud leg
+    # shouldn't need anything new. all we need is one ingress for all calls
+    # right?" -- hence ONE route with a batch bound, never a per-event-class
+    # endpoint map, and idempotency asserted BY THE CALLER on that route keyed
+    # on the content-addressed envelope id.
+    #
+    # Both refs resolve at the effect boundary, never as literals here or in the
+    # resolved deployment YAML: ingest_url_ref resolves from the same
+    # operator-supplied ref map that already carries cloud_broker_ref (mounted
+    # at GATEWAY_BROKER_REF_MAP_FILE -- no new mount, no new env var), and
+    # ingest_auth_ref names the forwarder's own verified actor credential, whose
+    # VALUE lives only in the secret store.
+    #
+    # SCOPE: this is the OUTBOUND leg only. mirror_topics.inbound is still a
+    # Kafka pull from the cloud broker, so declaring this block does not by
+    # itself make the OMN-16449 dnsmasq bastion deletable -- the runtime config
+    # refuses an empty inbound set precisely so that claim cannot be made by
+    # accident. Widening what FLOWS through this route is OMN-16979, gated
+    # behind OMN-17209 / OMN-16019; this ticket changes transport only.
+    https_ingest:
+      ingest_url_ref: "gateway.cloud.https.ingest_url"
+      ingest_auth_ref: "gateway.cloud.https.gateway_token"
+      idempotency_key: "event_id"
+      max_batch_records: 100
+      request_timeout_seconds: 15
+      retry_initial_seconds: 1
+      retry_max_seconds: 30
+    canary:
+      # OMN-15741 (G1): dedicated topic for the path-verifying healthcheck probe.
+      # Never mirrored, never carries tenant traffic -- the probe produces a tiny
+      # record here and reads it back across each leg using the same transport
+      # and credentials as real traffic, so the healthcheck can tell "connected
+      # and forwarding" apart from "started once, now silently broken" (the
+      # 2026-08-04 failure: ready-file present, forwarding 0% for 4 days).
+      topic: "onex.evt.omnibase-infra.gateway-canary.v1"
+      cadence_seconds: 30
+      # OMN-16557: was 8s. check_canary_leg() spends this deadline TWICE in
+      # sequence (connect via transport.start(), then produce via
+      # transport.send()) before the separate readback wait below -- so the
+      # real worst-case single-leg budget is 2x this value + readback, not
+      # this value + readback (see ModelGatewayCanaryConfig.total_deadline_seconds).
+      # A live manual run on .201 (2026-08-25T20:42Z) measured the cloud
+      # leg's normal (non-wedged) cold-start OAUTHBEARER handshake landing
+      # almost exactly on the old 8s connect deadline -- the wait_for lost
+      # that race and raised an (empty-message) TimeoutError even though the
+      # handshake was about to succeed a fraction of a second later. 15s
+      # gives real margin over that measured ~8.1s. The Docker healthcheck
+      # `timeout` in docker-compose.gateway.yml must stay >= this model's
+      # total_deadline_seconds (2*15 + 12 = 42s); kept in manual sync there
+      # since the compose YAML cannot reference this contract at build time
+      # (see OMN-15762 for the broader numeric-config-triplication gap).
+      produce_deadline_seconds: 15
+      readback_deadline_seconds: 12
+    liveness:
+      heartbeat_interval_seconds: 15
+      max_silence_window_seconds: 60
+      lag_threshold_messages: 500
+      lag_threshold_seconds: 120
+      drain_deadline_seconds: 30
+      reconnect_backoff_initial_seconds: 1
+      reconnect_backoff_max_seconds: 30
+      reconnect_backoff_jitter_seconds: 0.5
+      degraded_after_seconds: 60
+      # OMN-15629: a cloud-inbound topic the broker refuses (not authorized or
+      # missing) is peeled off the subscription with a WARNING and retried at
+      # this interval, so one refused topic never stops the others.
+      inbound_topic_retry_seconds: 300
+    dedupe:
+      key: "envelope_id"
+      store: "sqlite"
+      store_path_required: true
+      retention_hours: 24
+    delivery:
+      semantics: "at_least_once"
+      source_offset_acknowledgement: "after_destination_ack_and_durable_marker"
+      auto_commit: false
+      retry_initial_seconds: 1
+      retry_max_seconds: 30
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "gateway.forward_outbound"
+      handler:
+        name: "HandlerForwardOutbound"
+        module: "omnibase_infra.nodes.node_bus_forwarder_effect.handlers.handler_forward_outbound"
+        handler_type: "COMPUTE"
+      description: >
+        Pure transform entrypoint for validating a local canonical envelope and attaching the configured tenant wire prefix. The dedicated gateway process owns transport subscriptions and publishing.
+
+    - operation: "gateway.consume_inbound"
+      handler:
+        name: "HandlerConsumeInbound"
+        module: "omnibase_infra.nodes.node_bus_forwarder_effect.handlers.handler_consume_inbound"
+        handler_type: "COMPUTE"
+      description: >
+        Pure transform entrypoint for validating an attached cloud tenant, stripping the wire prefix, and stamping the verified tenant slug. The dedicated gateway process owns transport subscriptions and publishing.
+
+capabilities:
+  - name: "tenant_prefix_transform"
+    description: "Adds and strips tenant wire prefixes with envelope validation."
+  - name: "contract_declared_mirror_topics_only"
+    description: "Rejects any canonical topic not declared in mirror topic sets."
+  - name: "node_owned_publish"
+    description: "Handlers never publish; the effect node owns both bus legs."
+  - name: "durable_source_acknowledgement"
+    description: "Source offsets commit only after destination broker acknowledgement and a durable envelope_id marker; acknowledged redelivery is suppressed across restarts."
+  - name: "raw_dispatch_envelope_normalization"
+    description: "Handlers deserialize serialized outer event envelopes before reading payload."
+  - name: "contract_declared_lane_mirror"
+    description: "Mirrors the contract-declared hook topic set from the declared source lane's broker to every declared mirror lane's broker, at-least-once with a durable per-envelope marker, and never mirrors a topic outside that set."
+  - name: "verified_inbound_payload_tenant_stamp"
+    description: "Inbound gateway consumption overwrites payload[\"tenant_id\"] with the config-bound gateway tenant slug (canonical shared-helper shape; no separate tenant_slug key) before local republish."
+metadata:
+  description: "Hybrid gateway local runtime bus forwarder"
+  author: "OmniNode Team"
+  created: "2026-06-10"
+  updated: "2026-09-23"
+  tags:
+    - gateway
+    - event-bus
+    - tenant-isolation
+    - trust-boundary

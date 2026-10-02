@@ -1,6 +1,3 @@
-use itertools::Itertools;
-use tombi_text::IntoLsp;
-
 use crate::{Backend, remote_file::open_remote_file};
 
 pub async fn into_lsp_locations(
@@ -18,27 +15,26 @@ pub async fn into_lsp_locations(
         }
     }
 
-    let document_sources = backend.document_sources.try_read().ok();
+    let mut lsp_locations = Vec::with_capacity(locations.len());
+    for mut location in locations {
+        if let Some(remote_uri) = uri_set.get(&location.uri) {
+            location.uri = remote_uri.clone();
+        }
+        let range = match location.range {
+            // The extension converted the range with the text it was built from,
+            // even if the file is open with unsaved changes.
+            Some(range) => tower_lsp::lsp_types::Range::new(
+                tower_lsp::lsp_types::Position::new(range.start.line, range.start.column),
+                tower_lsp::lsp_types::Position::new(range.end.line, range.end.column),
+            ),
+            // A file that is not parsed is opened at its start.
+            None => tower_lsp::lsp_types::Range::default(),
+        };
+        lsp_locations.push(tower_lsp::lsp_types::Location {
+            uri: location.uri.into(),
+            range,
+        });
+    }
 
-    let locations = locations
-        .into_iter()
-        .map(|mut location| {
-            if let Some(remote_uri) = uri_set.get(&location.uri) {
-                location.uri = remote_uri.clone();
-            }
-            let range = match document_sources
-                .as_ref()
-                .and_then(|ds| ds.get(&location.uri))
-            {
-                Some(document_source) => location.range.into_lsp(document_source.line_index()),
-                None => tombi_text::convert_range_to_lsp(location.range),
-            };
-            tower_lsp::lsp_types::Location {
-                uri: location.uri.into(),
-                range,
-            }
-        })
-        .collect_vec();
-
-    Ok(locations)
+    Ok(lsp_locations)
 }

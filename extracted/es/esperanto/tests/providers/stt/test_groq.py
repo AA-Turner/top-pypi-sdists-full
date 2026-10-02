@@ -1,0 +1,257 @@
+"""Tests for Groq speech-to-text provider."""
+
+import os
+
+import pytest
+
+from esperanto.common_types import TranscriptionResponse
+from esperanto.factory import AIFactory
+from esperanto.providers.stt.groq import GroqSpeechToTextModel
+
+
+@pytest.fixture
+def audio_file(tmp_path):
+    """Create a temporary audio file for testing."""
+    audio_file = tmp_path / "test.wav"
+    audio_file.write_bytes(b"mock audio content")
+    return str(audio_file)
+
+
+
+
+def test_factory_creates_groq_stt():
+    """Test that AIFactory creates Groq STT model."""
+    from unittest.mock import patch
+
+    # Mock the environment variable to provide an API key
+    with patch.dict(os.environ, {'GROQ_API_KEY': 'test-key'}):
+        model = AIFactory.create_speech_to_text("groq")
+        assert isinstance(model, GroqSpeechToTextModel)
+
+
+def test_initialization_with_api_key():
+    """Test initialization with api_key parameter."""
+    model = GroqSpeechToTextModel(api_key="test-key")
+    assert model.api_key == "test-key"
+    assert model.base_url == "https://api.groq.com/openai/v1"
+
+
+def test_initialization_with_api_key_in_config():
+    """Test that api_key can be passed via config dict (GitHub issue #68)."""
+    model = GroqSpeechToTextModel(config={"api_key": "config-test-key"})
+    assert model.api_key == "config-test-key"
+    assert model.base_url == "https://api.groq.com/openai/v1"
+
+
+def test_initialization_with_base_url_in_config():
+    """Test that base_url can be passed via config dict."""
+    model = GroqSpeechToTextModel(
+        api_key="test-key",
+        config={"base_url": "https://custom.groq.com/v1"}
+    )
+    assert model.base_url == "https://custom.groq.com/v1"
+
+
+def test_initialization_with_api_key_and_base_url_in_config():
+    """Test that both api_key and base_url can be passed via config dict."""
+    model = GroqSpeechToTextModel(
+        config={
+            "api_key": "config-test-key",
+            "base_url": "https://custom.groq.com/v1"
+        }
+    )
+    assert model.api_key == "config-test-key"
+    assert model.base_url == "https://custom.groq.com/v1"
+
+
+def test_groq_transcribe(audio_file):
+    """Test Groq transcribe method with httpx mocking."""
+    from unittest.mock import Mock
+    
+    # Create fresh model instance
+    model = GroqSpeechToTextModel(api_key="test-key")
+    
+    # Mock OpenAI API response data
+    mock_response_data = {
+        "text": "This is a test transcription"
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    response = model.transcribe(audio_file)
+    assert isinstance(response, TranscriptionResponse)
+    assert response.text == "This is a test transcription"
+
+
+@pytest.mark.asyncio
+async def test_groq_atranscribe(audio_file):
+    """Test Groq async transcribe method with httpx mocking."""
+    from unittest.mock import AsyncMock, Mock
+    
+    # Create fresh model instance
+    model = GroqSpeechToTextModel(api_key="test-key")
+    
+    # Mock OpenAI API response data
+    mock_response_data = {
+        "text": "This is a test transcription"
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the async client
+    mock_async_client = AsyncMock()
+    mock_async_client.post.return_value = mock_response
+    model.async_client = mock_async_client
+
+    response = await model.atranscribe(audio_file)
+    assert isinstance(response, TranscriptionResponse)
+    assert response.text == "This is a test transcription"
+
+
+def test_groq_transcribe_with_options(audio_file):
+    """Test Groq transcribe with language and prompt using httpx mocking."""
+    from unittest.mock import Mock
+    
+    # Create fresh model instance
+    model = GroqSpeechToTextModel(api_key="test-key")
+    
+    # Mock OpenAI API response data
+    mock_response_data = {
+        "text": "This is a test transcription"
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    response = model.transcribe(
+        audio_file,
+        language="en",
+        prompt="This is a podcast about AI",
+    )
+    assert isinstance(response, TranscriptionResponse)
+    assert response.text == "This is a test transcription"
+
+
+def test_groq_transcribe_file_object():
+    """Test Groq transcribe with file object using httpx mocking."""
+    from unittest.mock import Mock
+    
+    # Create fresh model instance
+    model = GroqSpeechToTextModel(api_key="test-key")
+    
+    # Mock OpenAI API response data
+    mock_response_data = {
+        "text": "This is a test transcription"
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    with open(__file__, "rb") as f:
+        response = model.transcribe(f)
+    assert isinstance(response, TranscriptionResponse)
+    assert response.text == "This is a test transcription"
+
+
+# ---------------------------------------------------------------------------
+# verbose_json / segments tests (inherited from OpenAISpeechToTextModel)
+# ---------------------------------------------------------------------------
+
+
+def test_groq_transcribe_requests_verbose_json(audio_file):
+    """Groq inherits OpenAI's auto-opt-in to response_format=verbose_json."""
+    from unittest.mock import Mock
+
+    model = GroqSpeechToTextModel(api_key="test-key")
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"text": "hi"}
+
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    model.transcribe(audio_file)
+
+    call_args = mock_client.post.call_args
+    # The provider posts to the Groq OpenAI-compatible /audio/transcriptions endpoint.
+    assert call_args[0][0] == "https://api.groq.com/openai/v1/audio/transcriptions"
+    assert call_args[1]["data"]["model"] == "whisper-large-v3"
+    assert call_args[1]["data"]["response_format"] == "verbose_json"
+
+
+def test_groq_transcribe_maps_segments(audio_file):
+    """Groq inherits segment mapping from OpenAISpeechToTextModel._build_response."""
+    from unittest.mock import Mock
+
+    model = GroqSpeechToTextModel(api_key="test-key")
+
+    verbose_payload = {
+        "task": "transcribe",
+        "language": "english",
+        "duration": 1.75,
+        "text": "Hello world.",
+        "segments": [
+            {
+                "id": 0,
+                "seek": 0,
+                "start": 0.0,
+                "end": 1.75,
+                "text": "Hello world.",
+                "tokens": [50364, 2425, 1002, 13],
+                "temperature": 0.0,
+                "avg_logprob": -0.3,
+                "compression_ratio": 1.0,
+                "no_speech_prob": 0.02,
+            }
+        ],
+    }
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = verbose_payload
+
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    response = model.transcribe(audio_file)
+
+    assert response.segments is not None
+    assert len(response.segments) == 1
+    assert response.segments[0].text == "Hello world."
+    assert response.segments[0].start == 0.0
+    assert response.segments[0].end == 1.75
+    assert response.segments[0].metadata is not None
+    assert response.segments[0].metadata["avg_logprob"] == -0.3
+    assert response.duration == pytest.approx(1.75)
+    assert response.language == "english"
+    assert response.usage is None
+    assert response.provider == "groq"
+

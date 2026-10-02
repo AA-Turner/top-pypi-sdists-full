@@ -75,15 +75,23 @@ def _init_repo(path: Path) -> Path:
     return path
 
 
-def _make_server(tmp_path: Path, argv: list[str] | None = None):
+def _make_server(
+    tmp_path: Path,
+    argv: list[str] | None = None,
+    *,
+    capabilities: list[str] | None = None,
+    repos: list[str] | None = None,
+    health_config: object = None,
+):
     repo = _init_repo(tmp_path / "repo")
     server = AgentServer(
         machine_name="test",
-        capabilities=["python"],
-        repos=["api"],
+        capabilities=capabilities if capabilities is not None else ["python"],
+        repos=repos if repos is not None else ["api"],
         state_dir=tmp_path / "state",
         worker_command=lambda spec: argv or ["/bin/sh", "-c", "echo ok"],
         repo_paths={"api": str(repo)},
+        health_config=health_config,
     )
     return server, repo
 
@@ -92,8 +100,14 @@ def _make_client(
     tmp_path: Path,
     argv: list[str] | None = None,
     exec_restart: object = None,
+    *,
+    capabilities: list[str] | None = None,
+    repos: list[str] | None = None,
+    health_config: object = None,
 ) -> tuple[TestClient, AgentServer]:
-    server, _ = _make_server(tmp_path, argv)
+    server, _ = _make_server(
+        tmp_path, argv, capabilities=capabilities, repos=repos, health_config=health_config,
+    )
     # Default no-op restart so tests never replace the test process.
     noop_restart = exec_restart if exec_restart is not None else (lambda _argv: None)
     app = build_app(server, exec_restart=noop_restart)
@@ -582,6 +596,237 @@ class TestUpdateEndpoint:
         assert not restarted, "exec_restart must not fire when perform_update raises"
         assert last["result"] == "failed"
         assert "FileNotFoundError" in (last.get("error") or "")
+        server.shutdown()
+
+
+# ── /update: #3515 lane extras ──────────────────────────────────────────────
+
+
+class TestUpdateLaneExtras:
+    """#3515: `/update` must ask pip for whichever Tier-2 lane extras this
+    agent's own `capabilities`/`repos` (or an explicit caller override) say
+    it needs — before this, `_agent_pkg_spec()` always returned a bare
+    `[server]`, so no fleet roll or agent update ever installed a lane
+    driver's Python deps at all."""
+
+    def test_default_capabilities_yield_server_only(self, tmp_path: Path) -> None:
+        """`capabilities=["python"]` (the `_make_server` default) has no
+        native lane capability, so this is unchanged pre-#3515 behaviour —
+        the exact spec `test_update_pkg_spec_prefers_code_coordinator_when_
+        installed` already asserts."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ) as mock_perform,
+        ):
+            client, server = _make_client(tmp_path)
+            client.post("/update")
+            assert _wait_until(lambda: mock_perform.called)
+
+        args, _kwargs = mock_perform.call_args
+        assert args[1] == "code-coordinator[server]"
+        server.shutdown()
+
+    def test_gtk_capability_adds_gtk_native_and_tui_pty(self, tmp_path: Path) -> None:
+        """#3515's own incident table: a `gtk` machine (precision) needs
+        `gi` (gtk-native) AND `pyte` (tui-pty) — and with no
+        `acceptance.drivers` picture in hand (`health_config=None` here),
+        the conservative "native lane implies tui-pty" fallback fires."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ) as mock_perform,
+        ):
+            client, server = _make_client(tmp_path, capabilities=["gtk"])
+            client.post("/update")
+            assert _wait_until(lambda: mock_perform.called)
+
+        args, _kwargs = mock_perform.call_args
+        assert args[1] == "code-coordinator[server,gtk-native,tui-pty]"
+        server.shutdown()
+
+    def test_tui_pty_resolved_from_health_config_acceptance_drivers(
+        self, tmp_path: Path
+    ) -> None:
+        """A `python`-only machine serving a repo whose `acceptance.drivers`
+        declares a `tui-pty`-kind driver must get `tui-pty` even with NO
+        native capability at all — the one shape the native-lane fallback
+        alone could never produce, proving the `_health_config` lookup
+        (not just the fallback) is actually wired in."""
+
+        class _FakeDriver:
+            def __init__(self, kind: str) -> None:
+                self.kind = kind
+                self.routes: list = []
+
+        class _FakeAcceptance:
+            drivers = {"api": _FakeDriver(kind="tui-pty")}
+
+        class _FakeConfig:
+            acceptance = _FakeAcceptance()
+
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ) as mock_perform,
+        ):
+            client, server = _make_client(
+                tmp_path, capabilities=["python"], repos=["api"],
+                health_config=_FakeConfig(),
+            )
+            client.post("/update")
+            assert _wait_until(lambda: mock_perform.called)
+
+        args, _kwargs = mock_perform.call_args
+        assert args[1] == "code-coordinator[server,tui-pty]"
+        server.shutdown()
+
+    def test_explicit_extras_override_self_derived_ones(self, tmp_path: Path) -> None:
+        """A caller that already resolved the fleet-wide picture
+        (`coord.release_propagate.lane_extras_for_host`, via `coord release
+        propagate`) can pass `extras` explicitly — overriding whatever this
+        agent's own capabilities/repos would have self-derived."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ) as mock_perform,
+        ):
+            # Self-derivation would yield `[server]` (no lane capability) —
+            # the explicit override below must win instead.
+            client, server = _make_client(tmp_path, capabilities=["python"])
+            client.post("/update", json={"extras": ["win-native"]})
+            assert _wait_until(lambda: mock_perform.called)
+
+        args, _kwargs = mock_perform.call_args
+        assert args[1] == "code-coordinator[server,win-native]"
+        server.shutdown()
+
+    def test_win_native_extra_on_wsl_bootstraps_the_bridge_venv(
+        self, tmp_path: Path
+    ) -> None:
+        """#3515 review iteration 1 (Change item #4): a successful update
+        that asked for `win-native` on a WSL-hosted agent must ALSO
+        bootstrap the real Windows-side bridge venv — this is the install
+        half of "make win-native on dell64 install ... without hand
+        steps", wired into the one place every self-update AND fleet-roll
+        `/update` call already goes through."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ),
+            patch("coord.win_native_bridge.is_wsl_host", return_value=True),
+            patch(
+                "coord.win_native_bridge.ensure_windows_win_native_venv",
+                return_value="C:\\coord-win-native-venv\\Scripts\\python.exe",
+            ) as mock_ensure,
+        ):
+            client, server = _make_client(tmp_path, capabilities=["python"])
+            client.post("/update", json={"extras": ["win-native"]})
+            assert _wait_until(lambda: mock_ensure.called)
+        payload = _wait_for_last_update(server)
+        assert payload["result"] == "upgraded"
+        server.shutdown()
+
+    def test_non_wsl_host_never_touches_the_bridge(self, tmp_path: Path) -> None:
+        """The ordinary case (native Windows, or every other host in the
+        fleet): `is_wsl_host()` false means the bridge bootstrap must never
+        even be attempted, `win-native` extra or not."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ),
+            patch("coord.win_native_bridge.is_wsl_host", return_value=False),
+            patch(
+                "coord.win_native_bridge.ensure_windows_win_native_venv",
+            ) as mock_ensure,
+        ):
+            client, server = _make_client(tmp_path, capabilities=["python"])
+            client.post("/update", json={"extras": ["win-native"]})
+            payload = _wait_for_last_update(server)
+        assert payload["result"] == "upgraded"
+        mock_ensure.assert_not_called()
+        server.shutdown()
+
+    def test_no_win_native_extra_never_touches_the_bridge(self, tmp_path: Path) -> None:
+        """A plain `[server]`-only (or other-lane) update must not even ask
+        whether this is a WSL host — the bridge bootstrap is scoped
+        strictly to a `win-native` extra actually being requested."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ),
+            patch("coord.win_native_bridge.is_wsl_host") as mock_is_wsl,
+        ):
+            client, server = _make_client(tmp_path, capabilities=["python"])
+            client.post("/update")
+            payload = _wait_for_last_update(server)
+        assert payload["result"] == "upgraded"
+        mock_is_wsl.assert_not_called()
+        server.shutdown()
+
+    def test_bridge_bootstrap_failure_does_not_fail_the_update(
+        self, tmp_path: Path
+    ) -> None:
+        """A Windows-side provisioning failure (no interop reachable yet,
+        `powershell.exe` missing) must never turn an otherwise-successful
+        swap into a reported update failure — `coord doctor`'s `comtypes`
+        prereq is the durable signal for this gap, not `last_update.json`
+        (mirrors `install-agent.sh`'s own non-fatal posture for the same
+        bootstrap step)."""
+        from coord.win_native_bridge import WinNativeBridgeError
+
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ),
+            patch("coord.win_native_bridge.is_wsl_host", return_value=True),
+            patch(
+                "coord.win_native_bridge.ensure_windows_win_native_venv",
+                side_effect=WinNativeBridgeError("no Windows-side Python found"),
+            ),
+        ):
+            client, server = _make_client(tmp_path, capabilities=["python"])
+            client.post("/update", json={"extras": ["win-native"]})
+            payload = _wait_for_last_update(server)
+        assert payload["result"] == "upgraded"
+        assert payload["error"] is None
+        server.shutdown()
+
+    def test_empty_explicit_extras_list_falls_back_to_self_derivation(
+        self, tmp_path: Path
+    ) -> None:
+        """An empty `extras: []` is NOT a meaningful override (indistinguishable
+        from "field omitted" over the wire) — must behave exactly like no
+        `extras` key at all, not force a bare `[server]`."""
+        with (
+            patch("coord.agent_app._detect_install_mode", return_value=(False, None)),
+            patch(
+                "coord.agent_app.agent_update.perform_update",
+                return_value=UpdateResult(ok=True, swapped=True, new_version="9.9.9"),
+            ) as mock_perform,
+        ):
+            client, server = _make_client(tmp_path, capabilities=["gtk"])
+            client.post("/update", json={"extras": []})
+            assert _wait_until(lambda: mock_perform.called)
+
+        args, _kwargs = mock_perform.call_args
+        assert args[1] == "code-coordinator[server,gtk-native,tui-pty]"
         server.shutdown()
 
 

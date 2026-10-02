@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: bithuman
+Version: 2.11.20
+Summary: bitHuman avatar runtime SDK (binary wheels only; this sdist refuses on unsupported platforms)
+Home-page: https://bithuman.ai
+Author: bitHuman
+Author-email: hello@bithuman.ai
+License: Commercial
+Requires-Python: >=3.10,<3.15
+Description-Content-Type: text/plain
+
+This source distribution does not build. `bithuman` ships pre-compiled
+wheels for Linux x86_64, Linux aarch64 and macOS 14+ arm64. On any other
+platform this sdist is what pip finds, and it refuses with an explicit
+message naming your platform and the supported set -- so that a
+`pip install bithuman` on an unsupported platform FAILS instead of quietly
+resolving a months-old release whose wheel happens to match your tags.

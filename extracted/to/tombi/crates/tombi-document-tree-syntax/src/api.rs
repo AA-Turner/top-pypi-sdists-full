@@ -3,10 +3,10 @@ use tombi_document_tree as api;
 macro_rules! impl_node {
     ($($ty:ty),+ $(,)?) => {
         $(
-            impl api::Node for $ty {
+            impl<'t> api::Node for $ty {
                 #[inline]
-                fn range(&self) -> tombi_text::Range {
-                    <$ty>::range(self)
+                fn span(&self) -> tombi_text::Span {
+                    <$ty>::span(self)
                 }
 
             }
@@ -18,42 +18,42 @@ impl_node!(
     crate::Boolean,
     crate::Integer,
     crate::Float,
-    crate::String,
+    crate::String<'t>,
     crate::OffsetDateTime,
     crate::LocalDateTime,
     crate::LocalDate,
     crate::LocalTime,
 );
 
-macro_rules! impl_node_with_symbol_range {
-    ($($ty:ty),+ $(,)?) => {
+macro_rules! impl_node_with_symbol_span {
+    ($($ty:ident),+ $(,)?) => {
         $(
-            impl api::Node for $ty {
+            impl api::Node for crate::$ty<'_> {
                 #[inline]
-                fn range(&self) -> tombi_text::Range {
-                    <$ty>::range(self)
+                fn span(&self) -> tombi_text::Span {
+                    crate::$ty::span(self)
                 }
 
                 #[inline]
-                fn symbol_range(&self) -> tombi_text::Range {
-                    <$ty>::symbol_range(self)
+                fn symbol_span(&self) -> tombi_text::Span {
+                    crate::$ty::symbol_span(self)
                 }
             }
         )+
     };
 }
 
-impl_node_with_symbol_range!(crate::Array, crate::Table, crate::Value);
+impl_node_with_symbol_span!(Array, Table, Value);
 
-impl api::Node for crate::Key {
+impl api::Node for crate::Key<'_> {
     #[inline]
-    fn range(&self) -> tombi_text::Range {
-        self.range()
+    fn span(&self) -> tombi_text::Span {
+        self.span()
     }
 }
 
-impl api::DocumentTree for crate::DocumentTree {
-    type Table = crate::Table;
+impl<'t> api::DocumentTree for crate::DocumentTree<'t> {
+    type Table = crate::Table<'t>;
 
     #[inline]
     fn root(&self) -> &Self::Table {
@@ -61,7 +61,7 @@ impl api::DocumentTree for crate::DocumentTree {
     }
 }
 
-impl api::Key for crate::Key {
+impl api::Key for crate::Key<'_> {
     #[inline]
     fn kind(&self) -> api::KeyKind {
         self.kind()
@@ -73,13 +73,13 @@ impl api::Key for crate::Key {
     }
 
     #[inline]
-    fn unquoted_range(&self) -> tombi_text::Range {
-        self.unquoted_range()
+    fn unquoted_span(&self) -> tombi_text::Span {
+        self.unquoted_span()
     }
 }
 
-impl api::Array for crate::Array {
-    type Value = crate::Value;
+impl<'t> api::Array for crate::Array<'t> {
+    type Value = crate::Value<'t>;
 
     #[inline]
     fn kind(&self) -> api::ArrayKind {
@@ -97,9 +97,9 @@ impl api::Array for crate::Array {
     }
 }
 
-impl api::Table for crate::Table {
-    type Key = crate::Key;
-    type Value = crate::Value;
+impl<'t> api::Table for crate::Table<'t> {
+    type Key = crate::Key<'t>;
+    type Value = crate::Value<'t>;
 
     #[inline]
     fn kind(&self) -> api::TableKind {
@@ -122,44 +122,44 @@ impl api::Table for crate::Table {
     }
 }
 
-impl api::ValueNode for crate::Value {
-    type Array = crate::Array;
-    type Table = crate::Table;
+impl<'t> api::ValueNode for crate::Value<'t> {
+    type Array = crate::Array<'t>;
+    type Table = crate::Table<'t>;
 
     #[inline]
-    fn value(&self) -> api::Value<'_, crate::Array, crate::Table> {
+    fn value(&self) -> api::Value<'_, crate::Array<'t>, crate::Table<'t>> {
         match self {
             crate::Value::Boolean(value) => {
-                api::Value::Boolean(api::BooleanValue::new(value.value(), value.range()))
+                api::Value::Boolean(api::BooleanValue::new(value.value(), value.span()))
             }
             crate::Value::Integer(value) => api::Value::Integer(api::IntegerValue::new(
                 value.kind(),
                 value.value(),
-                value.range(),
+                value.span(),
             )),
             crate::Value::Float(value) => {
-                api::Value::Float(api::FloatValue::new(value.value(), value.range()))
+                api::Value::Float(api::FloatValue::new(value.value(), value.span()))
             }
             crate::Value::String(value) => api::Value::String(api::StringValue::new(
                 value.kind(),
                 value.value(),
-                value.range(),
+                value.span(),
             )),
             crate::Value::OffsetDateTime(value) => api::Value::OffsetDateTime(
-                api::OffsetDateTimeValue::new(value.value(), value.range()),
+                api::OffsetDateTimeValue::new(value.value(), value.span()),
             ),
-            crate::Value::LocalDateTime(value) => api::Value::LocalDateTime(
-                api::LocalDateTimeValue::new(value.value(), value.range()),
-            ),
+            crate::Value::LocalDateTime(value) => {
+                api::Value::LocalDateTime(api::LocalDateTimeValue::new(value.value(), value.span()))
+            }
             crate::Value::LocalDate(value) => {
-                api::Value::LocalDate(api::LocalDateValue::new(value.value(), value.range()))
+                api::Value::LocalDate(api::LocalDateValue::new(value.value(), value.span()))
             }
             crate::Value::LocalTime(value) => {
-                api::Value::LocalTime(api::LocalTimeValue::new(value.value(), value.range()))
+                api::Value::LocalTime(api::LocalTimeValue::new(value.value(), value.span()))
             }
             crate::Value::Array(value) => api::Value::Array(value),
             crate::Value::Table(value) => api::Value::Table(value),
-            crate::Value::Incomplete { range } => api::Value::Incomplete { range: *range },
+            crate::Value::Incomplete { span } => api::Value::Incomplete { span: *span },
         }
     }
 }

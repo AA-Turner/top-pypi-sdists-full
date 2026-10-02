@@ -77,6 +77,17 @@ def _convert_contents_summary_schema(options: Dict[str, Any]) -> None:
         summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
 
+def _merge_search_body(
+    body: Dict[str, Any], extra_body: Optional[Dict[str, Any]], *, streaming: bool = False
+) -> Dict[str, Any]:
+    body = {**body, **(extra_body or {})}
+    if streaming:
+        body["stream"] = True
+    else:
+        body.pop("stream", None)
+    return body
+
+
 def snake_to_camel(snake_str: str) -> str:
     """Convert snake_case string to camelCase.
 
@@ -363,6 +374,7 @@ SEARCH_OPTIONS_TYPES = {
     ],  # Alternative query formulations for deep search variants (max 5). Only used when type is deep-lite/deep/deep-reasoning.
     "system_prompt": [str],  # Instructions for search planning and final synthesis across all search types.
     "output_schema": [dict],  # Search output schema: {"type":"text"} or {"type":"object", ...}
+    "objective": [str],  # The broader goal the search serves, beyond the query itself (max 4096 chars).
     "stream": [bool],  # If true, stream back OpenAI-style chat completion chunks.
 }
 
@@ -1634,7 +1646,9 @@ class Exa:
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
+        objective: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> SearchResponse[Result]:
         """Perform a search.
 
@@ -1651,6 +1665,7 @@ class Exa:
         max characters by default.
 
         Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             stream (bool, optional): If True, stream the synthesized search response.
                 Use ``stream_search(...)`` instead of ``search(..., stream=True)``.
@@ -1689,6 +1704,11 @@ class Exa:
                 ``{"type": "object", "properties": ..., "required": ...}`` for structured JSON.
                 For object schemas, max nesting depth is 2 and max total properties is 10.
                 Supported for all search types.
+            objective (str, optional): The broader goal this search serves: the task the
+                caller is working on, beyond the query itself. When an agent picks the query
+                as one step of a larger task, pass the goal of that step: which documents
+                should rank first, which should be excluded, and what to pull from them.
+                Up to 4096 characters.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
 
@@ -1722,7 +1742,11 @@ class Exa:
                 "Please use `stream_search(...)` for streaming."
             )
 
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in ("self", "extra_body") and v is not None
+        }
         options.pop("stream", None)
         options.pop("betas", None)
 
@@ -1740,6 +1764,7 @@ class Exa:
         _convert_contents_summary_schema(options)
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema", "schema"])
+        options = _merge_search_body(options, extra_body)
         data = self.request("/search", options, headers=headers_for_betas(betas))
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
@@ -1798,10 +1823,13 @@ class Exa:
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
+        objective: Optional[str] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> StreamSearchResponse:
         """Generate a streaming search response.
 
         Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
@@ -1825,6 +1853,8 @@ class Exa:
             additional_queries (List[str], optional): Alternative query formulations for deep search.
             system_prompt (str, optional): Instructions that guide the search process and streamed synthesis.
             output_schema (DeepOutputSchema, optional): Search output schema for structured synthesis.
+            objective (str, optional): The broader goal this search serves: the task the caller
+                is working on, beyond the query itself.
 
         Returns:
             StreamSearchResponse: An iterator yielding OpenAI-style streaming chunks with
@@ -1840,7 +1870,11 @@ class Exa:
                 if chunk.content:
                     print(chunk.content, end="", flush=True)
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in ("self", "extra_body") and v is not None
+        }
 
         if contents is False:
             options.pop("contents", None)
@@ -1851,7 +1885,7 @@ class Exa:
 
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema"])
-        options["stream"] = True
+        options = _merge_search_body(options, extra_body, streaming=True)
         raw_response = self.request("/search", options)
         return StreamSearchResponse(raw_response)
 
@@ -1859,9 +1893,18 @@ class Exa:
         "search_and_contents() is deprecated. Use search() instead; "
         "search() returns text contents by default."
     )
-    def search_and_contents(self, query: str, **kwargs):
+    def search_and_contents(
+        self,
+        query: str,
+        *,
+        extra_body: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> SearchResponse[Result]:
         """
         DEPRECATED: Use search() instead. The search() method now returns text contents by default.
+
+        Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
 
         Migration:
         - search_and_contents(query) → search(query)
@@ -1912,6 +1955,7 @@ class Exa:
             "contents",
         )
         options = to_camel_case(options, skip_keys=["schema"])
+        options = _merge_search_body(options, extra_body)
         data = self.request("/search", options)
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
@@ -2892,7 +2936,9 @@ class AsyncExa(Exa):
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
+        objective: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> SearchResponse[Result]:
         """Perform a search with a prompt-engineered query to retrieve relevant results.
 
@@ -2909,6 +2955,7 @@ class AsyncExa(Exa):
         max characters by default.
 
         Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             stream (bool, optional): If True, stream the synthesized search response.
                 Use ``stream_search(...)`` instead of ``search(..., stream=True)``.
@@ -2947,6 +2994,11 @@ class AsyncExa(Exa):
                 ``{"type": "object", "properties": ..., "required": ...}`` for structured JSON.
                 For object schemas, max nesting depth is 2 and max total properties is 10.
                 Supported for all search types.
+            objective (str, optional): The broader goal this search serves: the task the
+                caller is working on, beyond the query itself. When an agent picks the query
+                as one step of a larger task, pass the goal of that step: which documents
+                should rank first, which should be excluded, and what to pull from them.
+                Up to 4096 characters.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
 
@@ -2977,7 +3029,11 @@ class AsyncExa(Exa):
                 "Please use `stream_search(...)` for streaming."
             )
 
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in ("self", "extra_body") and v is not None
+        }
         options.pop("stream", None)
         options.pop("betas", None)
 
@@ -2995,6 +3051,7 @@ class AsyncExa(Exa):
         _convert_contents_summary_schema(options)
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema", "schema"])
+        options = _merge_search_body(options, extra_body)
         data = await self.async_request("/search", options, headers=headers_for_betas(betas))
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
@@ -3053,10 +3110,13 @@ class AsyncExa(Exa):
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
+        objective: Optional[str] = None,
+        extra_body: Optional[Dict[str, Any]] = None,
     ) -> AsyncStreamSearchResponse:
         """Generate a streaming search response asynchronously.
 
         Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
@@ -3080,6 +3140,8 @@ class AsyncExa(Exa):
             additional_queries (List[str], optional): Alternative query formulations for deep search.
             system_prompt (str, optional): Instructions that guide the search process and streamed synthesis.
             output_schema (DeepOutputSchema, optional): Search output schema for structured synthesis.
+            objective (str, optional): The broader goal this search serves: the task the caller
+                is working on, beyond the query itself.
 
         Returns:
             AsyncStreamSearchResponse: An async iterator yielding OpenAI-style streaming chunks.
@@ -3094,7 +3156,11 @@ class AsyncExa(Exa):
             ...     if chunk.content:
             ...         print(chunk.content, end="", flush=True)
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in ("self", "extra_body") and v is not None
+        }
 
         if contents is False:
             options.pop("contents", None)
@@ -3105,7 +3171,7 @@ class AsyncExa(Exa):
 
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema"])
-        options["stream"] = True
+        options = _merge_search_body(options, extra_body, streaming=True)
         raw_response = await self.async_request("/search", options)
         return AsyncStreamSearchResponse(raw_response)
 
@@ -3113,9 +3179,18 @@ class AsyncExa(Exa):
         "search_and_contents() is deprecated. Use search() instead; "
         "search() returns text contents by default."
     )
-    async def search_and_contents(self, query: str, **kwargs):
+    async def search_and_contents(
+        self,
+        query: str,
+        *,
+        extra_body: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> SearchResponse[Result]:
         """
         DEPRECATED: Use search() instead. The search() method now returns text contents by default.
+
+        Args:
+            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
 
         Migration:
         - search_and_contents(query) → search(query)
@@ -3166,6 +3241,7 @@ class AsyncExa(Exa):
             "contents",
         )
         options = to_camel_case(options, skip_keys=["schema"])
+        options = _merge_search_body(options, extra_body)
         data = await self.async_request("/search", options)
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []

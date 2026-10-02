@@ -1,3 +1,0 @@
-publishers:
-  - influx-db:
-      selected-target: selectedtarget

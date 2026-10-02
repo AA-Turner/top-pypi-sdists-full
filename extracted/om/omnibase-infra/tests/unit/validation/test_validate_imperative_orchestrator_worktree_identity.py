@@ -1,0 +1,293 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Regression coverage for ARCH-004 baseline identity in descriptive worktrees."""
+
+from __future__ import annotations
+
+import importlib.util
+import inspect
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from omnibase_infra.nodes.node_architecture_validator.validators.scanner_imperative_orchestrator_ratchet import (
+    BASELINE_RELATIVE_PATH,
+    load_baseline,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_VALIDATE_PATH = _REPO_ROOT / "scripts/validate.py"
+
+# OMN-17427 took the merge-sweep, routing, rsd and scope orchestrators off the
+# ARCH-004 baseline: their completion handlers were deleted, so none hard-fails.
+_ACCEPTED_H2_NODES = {
+    "node_chain_orchestrator",
+    "node_registration_orchestrator",
+    "node_runner_fleet_maintain_orchestrator",
+}
+
+
+@pytest.fixture
+def validate_module(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Load the script without leaking module or import-path state between tests."""
+    spec = importlib.util.spec_from_file_location(
+        "omnibase_infra_validate", _VALIDATE_PATH
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load validator from {_VALIDATE_PATH}")
+
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setitem(sys.modules, "omnibase_infra_validate", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "declared_name", ["omnibase_infra", "OmniBase-Infra", "omnibase.infra"]
+)
+def test_pep503_identity_recognizes_accepted_arch004_entries(
+    validate_module: Any, tmp_path: Path, declared_name: str
+) -> None:
+    """PEP 503 package spellings must map to the underscore baseline keys."""
+    descriptive_worktree = tmp_path / "linked-checkout-with-descriptive-name"
+    descriptive_worktree.mkdir()
+    (descriptive_worktree / "pyproject.toml").write_text(
+        f"[project]\nname = {declared_name!r}\n", encoding="utf-8"
+    )
+
+    repo_name = validate_module._canonical_repository_name(descriptive_worktree)
+
+    assert repo_name == "omnibase_infra"
+
+    baseline = load_baseline(_REPO_ROOT / BASELINE_RELATIVE_PATH)
+    assert {f"{repo_name}::{node}" for node in _ACCEPTED_H2_NODES}.issubset(baseline)
+
+
+@pytest.mark.unit
+def test_arch004_identity_uses_script_owned_root_from_nested_directory(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ARCH-004 accepts a nested directory in the script-owned worktree."""
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "untrusted-git-dir"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "untrusted-work-tree"))
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    monkeypatch.chdir(_REPO_ROOT / "scripts")
+
+    assert validate_module._repository_root(Path.cwd()) == _REPO_ROOT.resolve()
+
+    assert validate_module.run_imperative_orchestrators(
+        files=[
+            "src/omnibase_infra/nodes/node_chain_orchestrator/handlers/"
+            "handler_chain_retrieval_complete.py"
+        ]
+    )
+
+
+@pytest.mark.unit
+def test_arch004_identity_accepts_a_normal_nested_directory(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A normal nested directory resolves to the script-owned root."""
+    expected_root = tmp_path / "expected-root"
+    (expected_root / ".git").mkdir(parents=True)
+    (expected_root / ".git" / "HEAD").write_text("ref: refs/heads/dev\n")
+    nested = expected_root / "nested" / "directory"
+    nested.mkdir(parents=True)
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) == expected_root
+
+
+@pytest.mark.unit
+def test_arch004_identity_accepts_a_linked_worktree_with_matching_backlink(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A linked-worktree gitfile must be confirmed by its admin backlink."""
+    expected_root = tmp_path / "linked-worktree"
+    expected_root.mkdir()
+    admin_git_dir = tmp_path / "admin" / "worktrees" / "linked-worktree"
+    admin_git_dir.mkdir(parents=True)
+    (admin_git_dir / "HEAD").write_text("ref: refs/heads/dev\n")
+    root_marker = expected_root / ".git"
+    root_marker.write_text(f"gitdir: {admin_git_dir}\n")
+    (admin_git_dir / "gitdir").write_text(f"{root_marker}\n")
+    nested = expected_root / "nested"
+    nested.mkdir()
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) == expected_root
+
+
+@pytest.mark.unit
+def test_arch004_identity_rejects_an_unrelated_linked_worktree_administration(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An admin directory with HEAD cannot attest a different worktree root."""
+    expected_root = tmp_path / "linked-worktree"
+    expected_root.mkdir()
+    admin_git_dir = tmp_path / "admin" / "worktrees" / "unrelated"
+    admin_git_dir.mkdir(parents=True)
+    (admin_git_dir / "HEAD").write_text("ref: refs/heads/dev\n")
+    (expected_root / ".git").write_text(f"gitdir: {admin_git_dir}\n")
+    unrelated_marker = tmp_path / "unrelated-worktree" / ".git"
+    unrelated_marker.parent.mkdir()
+    unrelated_marker.write_text("gitdir: elsewhere\n")
+    (admin_git_dir / "gitdir").write_text(f"{unrelated_marker}\n")
+    nested = expected_root / "nested"
+    nested.mkdir()
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) is None
+
+
+@pytest.mark.unit
+def test_arch004_identity_fails_closed_without_a_root_marker(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A script root without a Git marker cannot establish a worktree."""
+    expected_root = tmp_path / "expected-root"
+    nested = expected_root / "nested"
+    nested.mkdir(parents=True)
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("marker_contents", ["", "not-a-gitdir", "gitdir: "])
+def test_arch004_identity_fails_closed_for_a_malformed_root_marker(
+    validate_module: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    marker_contents: str,
+) -> None:
+    """Malformed gitfile markers cannot establish repository identity."""
+    expected_root = tmp_path / "expected-root"
+    expected_root.mkdir()
+    (expected_root / ".git").write_text(marker_contents)
+    nested = expected_root / "nested"
+    nested.mkdir()
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) is None
+
+
+@pytest.mark.unit
+def test_arch004_identity_fails_closed_for_an_outside_cwd(
+    validate_module: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A caller outside the script-owned checkout cannot select its baseline."""
+    expected_root = tmp_path / "expected-root"
+    (expected_root / ".git").mkdir(parents=True)
+    (expected_root / ".git" / "HEAD").write_text("ref: refs/heads/dev\n")
+    outside_cwd = tmp_path / "outside"
+    outside_cwd.mkdir()
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(outside_cwd) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("marker_kind", ["file", "directory"])
+def test_arch004_identity_fails_closed_for_a_nested_git_marker(
+    validate_module: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    marker_kind: str,
+) -> None:
+    """A nested Git file or directory cannot replace the script-owned root."""
+    expected_root = tmp_path / "expected-root"
+    (expected_root / ".git").mkdir(parents=True)
+    (expected_root / ".git" / "HEAD").write_text("ref: refs/heads/dev\n")
+    nested = expected_root / "nested"
+    nested.mkdir()
+    marker = nested / ".git"
+    if marker_kind == "file":
+        marker.write_text("gitdir: /foreign/worktree\n")
+    else:
+        marker.mkdir()
+    script_path = expected_root / "scripts" / "validate.py"
+    script_path.parent.mkdir()
+    script_path.touch()
+    monkeypatch.setattr(validate_module, "__file__", str(script_path))
+
+    assert validate_module._repository_root(nested) is None
+
+
+@pytest.mark.unit
+def test_arch004_identity_never_uses_a_git_process_or_fhs_git_path(
+    validate_module: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Repository containment is independent of executables and PATH."""
+    monkeypatch.setenv("PATH", str(tmp_path / "attacker-bin"))
+
+    source = inspect.getsource(validate_module._repository_root)
+
+    assert "subprocess" not in source
+    assert "os." not in source
+    assert "/usr/" not in source
+    assert "/opt/" not in source
+
+
+@pytest.mark.unit
+def test_arch004_identity_fails_closed_without_project_name(
+    validate_module: Any, tmp_path: Path
+) -> None:
+    """No worktree basename fallback is allowed when repository metadata is absent."""
+    descriptive_worktree = tmp_path / "omnibase_infra-ticket-description"
+    descriptive_worktree.mkdir()
+    (descriptive_worktree / "pyproject.toml").write_text(
+        "[project]\nversion = '0.0.0'\n", encoding="utf-8"
+    )
+
+    assert validate_module._canonical_repository_name(descriptive_worktree) is None
+
+
+@pytest.mark.unit
+def test_arch004_identity_fails_closed_for_malformed_metadata(
+    validate_module: Any, tmp_path: Path
+) -> None:
+    """Malformed TOML must not produce a guessed architecture baseline key."""
+    descriptive_worktree = tmp_path / "malformed-metadata-worktree"
+    descriptive_worktree.mkdir()
+    (descriptive_worktree / "pyproject.toml").write_text(
+        "[project\nname = 'omnibase_infra'\n", encoding="utf-8"
+    )
+
+    assert validate_module._canonical_repository_name(descriptive_worktree) is None
+
+
+@pytest.mark.unit
+def test_arch004_identity_fails_closed_for_unreadable_metadata(
+    validate_module: Any, tmp_path: Path
+) -> None:
+    """An unreadable metadata path must not fall back to a directory basename."""
+    descriptive_worktree = tmp_path / "unreadable-metadata-worktree"
+    descriptive_worktree.mkdir()
+    (descriptive_worktree / "pyproject.toml").mkdir()
+
+    assert validate_module._canonical_repository_name(descriptive_worktree) is None

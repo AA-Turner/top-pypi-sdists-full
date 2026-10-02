@@ -5,7 +5,7 @@ use tombi_schema_store::get_tombi_schemastore_content;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DocumentLink {
     pub target: tombi_uri::Uri,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
     pub tooltip: Cow<'static, str>,
 }
 

@@ -1,0 +1,188 @@
+# Bug with PyTorch source code makes torch.tensor as not callable for pylint.
+# pylint: disable=not-callable, too-many-public-methods, too-many-arguments
+
+# Pylint error for TemporaryDirectory ask for with statement
+# pylint: disable=consider-using-with
+
+import os
+from tempfile import TemporaryDirectory
+from unittest import TestCase, skipIf
+
+from deepparse.dataset_container import DatasetContainer, ListDatasetContainer
+from deepparse.parser import (
+    AddressParser,
+    FormattedParsedAddress,
+    formatted_parsed_address,
+)
+
+
+@skipIf(os.environ["TEST_LEVEL"] == "unit", "Cannot run test without a proper GPU or RAM.")
+# We skip it even if it is CPU since the downloading is too long
+class AddressParserPredictNewTagsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.an_address_to_parse = "350 rue des lilas o"
+        cls.temp_dir_obj = TemporaryDirectory()
+        cls.a_data_saving_dir = os.path.join(cls.temp_dir_obj.name, "data")
+        os.makedirs(cls.a_data_saving_dir, exist_ok=True)
+
+        a_list_dataset_with_new_tags = [
+            (
+                '350 rue des Lilas Ouest Quebec city Quebec G1L 1B6',
+                [
+                    'ATag',
+                    'ATag',
+                    'ATag',
+                    'ATag',
+                    'AnotherTag',
+                    'AnotherTag',
+                    'AnotherTag',
+                    'ALastTag',
+                    'ALastTag',
+                    'ALastTag',
+                ],
+            ),
+            (
+                '350 rue des Lilas Ouest Quebec city Quebec G1L 1B6',
+                [
+                    'ATag',
+                    'ATag',
+                    'ATag',
+                    'ATag',
+                    'AnotherTag',
+                    'AnotherTag',
+                    'AnotherTag',
+                    'ALastTag',
+                    'ALastTag',
+                    'ALastTag',
+                ],
+            ),
+        ]
+        cls.training_container = ListDatasetContainer(a_list_dataset_with_new_tags)
+
+        cls.a_fasttext_model_type = "fasttext"
+        cls.a_bpemb_model_type = "bpemb"
+
+        cls.verbose = False
+
+        # training constant
+        cls.a_single_epoch = 1
+        cls.a_train_ratio = 0.8
+        cls.a_batch_size = 128
+        cls.a_number_of_workers = 2
+        cls.a_learning_rate = 0.001
+
+        cls.a_cpu_device = "cpu"
+
+        cls.with_new_prediction_tags = {
+            "ALastTag": 0,
+            "ATag": 1,
+            "AnotherTag": 2,
+            "EOS": 3,
+        }
+        cls.seq2seq_params = {"encoder_hidden_size": 512, "decoder_hidden_size": 512}
+
+        cls.retrain_file_name_format = "retrained_{}_address_parser"
+
+    def setUp(self) -> None:
+        self.training_temp_dir_obj = TemporaryDirectory()
+        self.a_checkpoints_saving_dir = os.path.join(self.training_temp_dir_obj.name, "checkpoints")
+        self.a_fasttext_retrain_model_path = os.path.join(
+            self.a_checkpoints_saving_dir,
+            self.retrain_file_name_format.format("fasttext") + ".ckpt",
+        )
+        self.a_bpemb_retrain_model_path = os.path.join(
+            self.a_checkpoints_saving_dir,
+            self.retrain_file_name_format.format("bpemb") + ".ckpt",
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temp_dir_obj.cleanup()
+
+    def tearDown(self) -> None:
+        self.training_temp_dir_obj.cleanup()
+
+    def training(
+        self,
+        address_parser: AddressParser,
+        train_data_container: DatasetContainer,
+        num_workers: int = 1,
+        prediction_tags=None,
+        seq2seq_params=None,
+    ):
+        address_parser.retrain(
+            train_data_container,
+            val_dataset_container=None,
+            train_ratio=self.a_train_ratio,
+            epochs=self.a_single_epoch,
+            batch_size=self.a_batch_size,
+            num_workers=num_workers,
+            logging_path=self.a_checkpoints_saving_dir,
+            prediction_tags=prediction_tags,
+            seq2seq_params=seq2seq_params,
+        )
+
+    def test_givenAAddress_whenParseNewParamsNewTagsBPEmb_thenParseAddressProperly(
+        self,
+    ):
+        # Training setup
+        bpemb_address_parser = AddressParser(
+            model_type=self.a_bpemb_model_type,
+            device=self.a_cpu_device,
+            verbose=self.verbose,
+        )
+        self.training(
+            bpemb_address_parser,
+            self.training_container,
+            num_workers=self.a_number_of_workers,
+            seq2seq_params=self.seq2seq_params,
+            prediction_tags=self.with_new_prediction_tags,
+        )
+
+        # Test
+        bpemb_address_parser = AddressParser(
+            model_type=self.a_bpemb_model_type,
+            device=self.a_cpu_device,
+            verbose=self.verbose,
+            path_to_retrained_model=self.a_bpemb_retrain_model_path,
+        )
+
+        # Since we train a smaller model, it sometime return EOS, so we manage it by adding the EOS tag
+        formatted_parsed_address.FIELDS = self.with_new_prediction_tags.keys()
+
+        # We validate that the new settings are loaded
+        parse_address = bpemb_address_parser(self.an_address_to_parse)
+        self.assertIsInstance(parse_address, FormattedParsedAddress)
+
+    def test_givenAAddress_whenParseNewParamsNewTagsFastText_thenParseAddressProperly(
+        self,
+    ):
+        # Training setup
+        fasttext_address_parser = AddressParser(
+            model_type=self.a_fasttext_model_type,
+            device=self.a_cpu_device,
+            verbose=self.verbose,
+        )
+        self.training(
+            fasttext_address_parser,
+            self.training_container,
+            num_workers=self.a_number_of_workers,
+            seq2seq_params=self.seq2seq_params,
+            prediction_tags=self.with_new_prediction_tags,
+        )
+
+        # Test
+        fasttext_address_parser = AddressParser(
+            model_type=self.a_fasttext_model_type,
+            device=self.a_cpu_device,
+            verbose=self.verbose,
+            path_to_retrained_model=self.a_fasttext_retrain_model_path,
+        )
+
+        # Since we train a smaller model, it sometime return EOS, so we manage it by adding the EOS tag
+        formatted_parsed_address.FIELDS = self.with_new_prediction_tags.keys()
+
+        # We validate that the new settings are loaded
+        parse_address = fasttext_address_parser(self.an_address_to_parse)
+        self.assertIsInstance(parse_address, FormattedParsedAddress)

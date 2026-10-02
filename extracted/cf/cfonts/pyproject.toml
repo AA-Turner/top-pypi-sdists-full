@@ -1,0 +1,69 @@
+[build-system]
+requires = [
+    "pdm-pep517",
+]
+build-backend = "pdm.pep517.api"
+
+[project]
+authors = [
+    { name = "ZULFIQOR MAMADALIYEV", email = "zulfiqorjonmamadaliev@gmail.com" },
+]
+dynamic = []
+requires-python = ">=3.6"
+dependencies = [
+    "colorama",
+]
+name = "cfonts"
+description = "Sexy fonts for the console"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+version = "1.5.2"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+homepage = "https://github.com/frostming/python-cfonts"
+Documentation = "https://python-cfonts.readthedocs.io/"
+
+[project.scripts]
+cfonts = "cfonts.cli:main"
+
+[tool.pdm.version]
+from = "cfonts/__version__.py"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest",
+    "flake8",
+    "sphinx",
+]
+
+[tool.isort]
+profile = "black"
+atomic = true
+skip_glob = [
+    "*/setup.py",
+    "pdm/_vendor/*",
+]
+filter_files = true
+known_first_party = [
+    "pdm",
+]
+known_third_party = [
+    "appdirs",
+    "atoml",
+    "click",
+    "cfonts",
+    "distlib",
+    "halo",
+    "packaging",
+    "pip_shims",
+    "pytest",
+    "pythonfinder",
+]

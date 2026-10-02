@@ -21,6 +21,7 @@ MANIFEST_SCHEMA_VERSION: int = ...  # From models
 MIN_CONFIRM_FRAMES: int = ...  # From models
 PipelineStage: Any = ...  # From models
 SeverityLiteral: Any = ...  # From models
+VERIFY_MAX_FRAMES: int = ...  # From models
 logger: Any = ...  # From models
 
 # Functions
@@ -1093,6 +1094,36 @@ class VelocityStateConfig:
         """
         ...
 
+
+# From models
+class VerificationConfig:
+    # ``verification`` — hold an alert candidate until the VSS VLM confirms it.
+    #
+    #     Non-blocking: the stage submits to the engine-owned worker (``engine/verify``) on a candidate
+    #     frame and applies the verdict on a later one. ``source`` is ``<stage>.<value>`` of an
+    #     **earlier** stage, checked in :meth:`AppManifest._check_ordering`.
+
+    ...
+
+# From models
+class VerificationFrames:
+    # ``verification.frames`` — which recorded frames the verifier looks at.
+    #
+    #     Mirrors the server's model field for field so a bad block fails at load, not as a 422 that
+    #     the worker can only log (a 422 is never retried).
+
+    def count(self: Any) -> int:
+        """
+        ``floor(window / spacing) + 1`` — the server's formula, so the two cannot disagree.
+        """
+        ...
+
+
+# From models
+class VerificationVote:
+    # ``verification.vote`` — how per-frame answers combine into one verdict.
+
+    ...
 
 # From models
 class ZoneOccupancyConfig:

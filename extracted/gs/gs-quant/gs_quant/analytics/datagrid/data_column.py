@@ -27,6 +27,7 @@ class RenderType:
     HEATMAP = 'heatmap'
     BOXPLOT = 'boxplot'
     SCALE = 'scale'
+    SPARKLINE = 'sparkline'
     DATE_MMM_YY = 'dateMmmYy'
     TIME_HH_MM = 'timeHhMm'
 

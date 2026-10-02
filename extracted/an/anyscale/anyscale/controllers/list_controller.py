@@ -20,9 +20,7 @@ from anyscale.util import get_endpoint, humanize_timestamp
 
 
 class ListController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -32,9 +30,7 @@ class ListController(BaseController):
 
     def list_clouds(self, json_format: bool) -> str:
         clouds = self.api_client.list_clouds_api_v2_clouds_get().results
-        output = clouds_formatter.format_clouds_output(
-            clouds=clouds, json_format=json_format
-        )
+        output = clouds_formatter.format_clouds_output(clouds=clouds, json_format=json_format)
 
         return str(output)
 
@@ -74,7 +70,9 @@ class ListController(BaseController):
             return json.dumps(project_json)
         else:
             table = tabulate.tabulate(
-                project_table, headers=["NAME", "URL", "DESCRIPTION"], tablefmt="plain",
+                project_table,
+                headers=["NAME", "URL", "DESCRIPTION"],
+                tablefmt="plain",
             )
             return f"Projects:\n{table}"
 
@@ -124,17 +122,13 @@ class ListController(BaseController):
                         # the session is not in the "Running" state.
                         idle_time_remaining_message = ""
 
-                    idle_timeout_message = "Enabled{}".format(
-                        idle_time_remaining_message
-                    )
+                    idle_timeout_message = "Enabled{}".format(idle_time_remaining_message)
                 else:
                     idle_timeout_message = "Disabled"
 
                 record = [
                     session.name,
-                    " {}".format(
-                        self.get_session_status_and_commands(session=session)[0]
-                    ),
+                    " {}".format(self.get_session_status_and_commands(session=session)[0]),
                     created_at,
                     idle_timeout_message,
                 ]
@@ -186,7 +180,10 @@ class ListController(BaseController):
                 session_output_strings.append(
                     tabulate.tabulate(
                         snapshot_table,
-                        headers=[f"SNAPSHOT applied to {session.name}", "APPLIED",],
+                        headers=[
+                            f"SNAPSHOT applied to {session.name}",
+                            "APPLIED",
+                        ],
                         tablefmt="plain",
                     )
                 )
@@ -198,10 +195,7 @@ class ListController(BaseController):
                         [
                             " ".join(
                                 [command.name]
-                                + [
-                                    f"{key}={val}"
-                                    for key, val in command.params.items()
-                                ]
+                                + [f"{key}={val}" for key, val in command.params.items()]
                             ),
                             command.id,
                             created_at,
@@ -229,12 +223,8 @@ class ListController(BaseController):
             status, commands = self.get_session_status_and_commands(session=session)
             record = {"name": session.name}
             record["status"] = status
-            record["startup_error"] = (
-                session.state_data.startup if session.state_data else {}
-            )
-            record["stop_error"] = (
-                session.state_data.stopping if session.state_data else {}
-            )
+            record["startup_error"] = session.state_data.startup if session.state_data else {}
+            record["stop_error"] = session.state_data.stopping if session.state_data else {}
 
             record["created_at"] = time.mktime(session.created_at.timetuple())
             record["connect_url"] = session.connect_url
@@ -247,9 +237,7 @@ class ListController(BaseController):
                 record["tensorboard_url"] = None
 
             record["session_idle_timeout_minutes"] = session.idle_timeout
-            record[
-                "session_idle_time_remaining_seconds"
-            ] = session.idle_time_remaining_seconds
+            record["session_idle_time_remaining_seconds"] = session.idle_time_remaining_seconds
 
             record["commands"] = commands
 
@@ -260,9 +248,7 @@ class ListController(BaseController):
 
         return json.dumps(output)
 
-    def get_session_status_and_commands(
-        self, session: Any
-    ) -> Tuple[str, List[Dict[str, Any]]]:
+    def get_session_status_and_commands(self, session: Any) -> Tuple[str, List[Dict[str, Any]]]:
         resp = self.api_client.get_session_commands_history_api_v2_session_commands_get(
             session_id=session.id
         )

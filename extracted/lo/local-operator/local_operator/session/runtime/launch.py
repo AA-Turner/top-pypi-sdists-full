@@ -1,0 +1,1516 @@
+"""``engage_runtime``: the one way work reaches a session, running or not.
+
+Every path that has something for a session to do — a viewer's first message, a
+peer note, a scheduled wake, a phone continuation — calls this. It answers one
+question ("is there a runtime for this session, and if not, whose job is it to
+start one?") in one place, because the answer involves a race that is easy to
+get wrong in each caller separately and impossible to get wrong once here.
+
+**The invariant: at most one runtime per session, ever.** Two runtimes on one
+transcript is a forked trajectory — both append, neither sees the other's rows,
+and the conversation silently splits. The arbiter is the transcript LEASE, not
+a check before spawning: a check-then-spawn has a window between the check and
+the spawn, and that window is exactly as wide as session construction (~1.2 s),
+which is long enough for ten contenders to walk through it together.
+
+So every contender is allowed to spawn a candidate, and the lease decides.
+Losers exit 0 — they lost a race that was designed to be lost, not encountered
+an error (``process.py`` logs the loss and returns 0 for that reason).
+
+**The loop** (design §11.3), in order, until the deadline:
+
+1. **A live record?** Deliver over its socket and return. The common case.
+2. **A lease naming a live pid?** Someone is CONSTRUCTING a runtime right now
+   — it has claimed the transcript but has not published a record yet, a
+   window about as long as session construction. Wait and re-loop rather than
+   spawning a second candidate that is doomed to lose. This is what keeps the
+   spawn count at one for N simultaneous engagements.
+3. **Neither?** Spawn once, then re-loop. Only once per call: a second spawn
+   from the same caller cannot help — if the first is still constructing, (2)
+   now covers it — and would just be another loser to reap.
+
+**What the parent's dead time is NOT.** Two other suspects were measured and
+acquitted, so nobody re-derives them. (1) The first ``find_runtime_record``
+scan is a guaranteed miss for a freshly minted ``/new`` session, which looks
+like serialized latency ahead of the spawn — but in the warm parent that
+actually runs ``/new`` (a long-lived TUI) engage-entry to fork measures a
+median of 2.1 ms. The ~24 ms a cold process shows is function-local import
+cost the TUI has already paid, so skipping the scan would buy single-digit
+milliseconds while weakening the lease arbitration this module exists to
+protect. (2) The child's import graph is dominated by
+``local_operator.harness.jobs`` at 99 ms cumulative, but that is a SHARED
+subtree: given ``session_factory`` (the composition root the child imports
+regardless), its marginal cost is 2.2 ms. Deferring it would move ~2 ms.
+
+**The poll shape has two regimes, because the loop has two waits.** When a
+construction is KNOWN to be in flight — no record exists yet, AND either a
+candidate we spawned is still alive or a contender holds the lease — we have
+a strong prior on when a record will appear (~0.4 s for a deferred warm
+start, ~1.2 s for a full cold session; both measured on an M-series dev box
+via ``scripts/bench_runtime_attach.py``), so the grid is DENSE and flat.
+When nothing is known to be constructing the wait is open-ended and the
+exponential backoff takes over — and that includes retrying a record which
+already exists but will not answer the dial, a slow path that must stay one.
+See :func:`_poll_delay` for the measurements behind the constants.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Union, cast
+
+from local_operator.harness.approval import (
+    mint_operator_cap,
+    open_operator_cap_handoff,
+    remember_operator_cap,
+)
+from local_operator.interpreter import SAFE_PATH_FLAG
+from local_operator.procstate import detached_popen_kwargs
+from local_operator.session.runtime.types import ENGAGED_ENV, RUNTIME_MODULE
+
+logger = logging.getLogger(__name__)
+
+#: How long an engagement will keep trying before giving up. Sized for the
+#: worst realistic cold start (session construction plus MCP settling) with
+#: room to spare, because the alternative to waiting is telling a user their
+#: message went nowhere.
+DEFAULT_DEADLINE_S = 30.0
+
+#: Poll shape for an OPEN-ENDED wait — nothing is known to be constructing, so
+#: there is no prior on when a record might appear and a spin would be pure
+#: waste against a 30-second deadline.
+_POLL_INITIAL_S = 0.05
+_POLL_FACTOR = 1.7
+_POLL_CAP_S = 1.0
+
+#: Poll interval while a construction is KNOWN to be in flight. Flat, not
+#: exponential: see :func:`_poll_delay` for why the two waits get two shapes.
+_CONSTRUCTING_POLL_S = 0.01
+
+#: How long the dense regime may last before the open-ended backoff takes over.
+#: A construction still unfinished after this is not "about to publish" — it is
+#: wedged, slow, or a contender doing something we cannot see — and continuing
+#: to poll it 100 times a second for the rest of a 30-second deadline would be
+#: a spin. Sized at ~2.5x the ~1.2 s a full cold session construction takes
+#: **as measured on an M-series dev box**.
+#:
+#: The one-sidedness of that calibration was MEASURED, not argued: modelling a
+#: slower host by lengthening the construction, dead time is 11.1/11.7/7.4 ms
+#: at 0.4/1.2/2.5 s (window covers it), 67.0 ms at 3.5 s (window lapses
+#: mid-construction), and 716.3 vs 726.2 ms at 5.0 s and 726.1 vs 778.6 ms at
+#: 8.0 s (fully degraded). Past the window the new shape CONVERGES to the old
+#: one and never exceeds it, because the fallback restarts the exponential
+#: from ``_POLL_INITIAL_S`` rather than from a value that decayed while we
+#: were watching (QA round 1, Q2). So a host 3x slower than this one gets
+#: today's behaviour, not a regression.
+#:
+#: Deliberately NOT structural. Deriving it from an observed construction time
+#: needs a measurement the loop does not have on a process's first ``/new``,
+#: and buys nothing over a heuristic whose worst case is the status quo.
+#: Nothing asserts on this value — it is a poll-frequency heuristic, not a
+#: correctness bound.
+_CONSTRUCTING_WINDOW_S = 3.0
+#: How many runtimes one engage may spawn before it stops trying. Only the
+#: FIRST spawn is ordinary; the rest are respawns after a candidate proved to
+#: have died during construction. Three is enough to ride out a transient
+#: (a momentarily unreadable credential file, a port in TIME_WAIT) while
+#: keeping a genuinely unconstructable session from respawning for the whole
+#: deadline and burying its real error under a crash loop.
+_MAX_SPAWNS = 3
+
+
+@dataclass(frozen=True, slots=True)
+class PromptErrand:
+    """A user turn. The reason a session usually starts.
+
+    ``input_mode``/``input_path`` are the reserved annotation (mobile STT,
+    input-mode-v1): how the text was produced (typed / dictated / mixed) and
+    which voice path dictated the part that was. They ride the errand so the
+    WAKE path (a cold session's first prompt) carries exactly what the live
+    path carries; ``_deliver`` hands them to the attach client, which strips
+    them at its frame-write point for an owner that did not advertise the
+    capability — the same gate the live path passes, applied at the wire
+    rather than at the builder (agent review round 1, R1-1). EMPTY (the
+    default) is the legacy reading, so every existing producer is unchanged.
+    """
+
+    text: str
+    images: list[dict[str, str]] = field(default_factory=list)
+    command_id: str = ""
+    input_mode: str = ""
+    input_path: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SteerErrand:
+    """A mid-turn injection into a session that is already working.
+
+    Carries the same annotation fields as :class:`PromptErrand`, for the same
+    reason and with the same empty-means-legacy rule.
+    """
+
+    text: str
+    images: list[dict[str, str]] = field(default_factory=list)
+    command_id: str = ""
+    input_mode: str = ""
+    input_path: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class PeerMessageErrand:
+    """A message from another local lop session (``lop send``)."""
+
+    text: str
+    mode: str = "mailbox"
+    wake: bool = False
+    sender: dict[str, Any] = field(default_factory=dict)
+    command_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class WakeErrand:
+    """Start a cold session because one of its wakes is due.
+
+    **It delivers nothing, and that is the whole design.** The obvious shape —
+    a ``wake_fire`` op telling the runtime which occurrence to deliver — fires
+    every wake TWICE, because a session already delivers its own overdue wakes
+    on load: ``WakeScheduler.load`` re-arms anything whose ``next_due_at`` has
+    passed to ``now + LOAD_GRACE_MS`` and records it for the resume catch-up
+    (``harness/wake.py``), so the mere existence of the runtime is what fires
+    the wake. An op on top of that would append the occurrence a second time.
+
+    So the supervisor's job is strictly to make a runtime EXIST for a session
+    whose wake is due; the session then does what it would have done had a
+    terminal been open. ``schedule_id`` and ``occurrence_ms`` are carried for
+    the log line and for a derived ``command_id``.
+
+    **The ``command_id`` is not what dedupes a wake**, and believing it was
+    obscured where the real guarantee lives. :func:`_deliver` returns early
+    for a ``WakeErrand`` without sending any op, so the id never reaches a
+    runtime and no duplicate-command check ever sees it. What actually keeps a
+    supervisor retry from producing two SERVING runtimes for one occurrence is
+    the engage loop itself: an engage that finds a live record reuses it, and
+    the transcript lease admits only one serving runtime however many
+    candidate processes were spawned.
+    """
+
+    schedule_id: str
+    occurrence_ms: int
+    command_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class AskErrand:
+    """Start a cold session because a queued ask's deadline is due.
+
+    **It delivers nothing, for exactly the ``WakeErrand`` reason** (design
+    ``docs/design/ask-nonblocking.md`` §2.3): the ask queue is durable and the
+    deadline row rides the wake engine, so a runtime that merely EXISTS runs
+    ``AskQueue.reconcile`` at boot and delivers whatever is owed — the timeout
+    notice if the ask is still unanswered, the response if it was answered while
+    nothing was running. Carrying a payload would need a ``CustomMessage`` on the
+    wire and would double-deliver against that reconcile.
+
+    It is therefore SESSION-AGNOSTIC, which is the property the design is built
+    on: whether the runtime was engaged by a wake fire, a monitor fire, a
+    supervisor sweep or a user reopening the session, the boot path it runs is
+    the same one. ``ask_id`` is carried for the log line and the derived
+    ``command_id`` only — no code branches on it.
+
+    **It has no constructor call site yet, and the DEADLINE path will never need
+    one** (review round 1, NIT 10). A due ``ask_timeout`` row IS a wake row, so the
+    supervisor engages a runtime with :class:`WakeErrand` and the boot reconcile
+    does the delivering — wiring an errand into that path would be the second
+    timer substrate the design's D10 exists to avoid. The caller this exists for is
+    the COLD ANSWER: a surface that records an answer while no runtime is running
+    and then engages one so the response is delivered, which is the desktop/relay
+    route's cold arm in A2/B (§6). Declared here so that call site passes a legal
+    payload instead of inventing one, and stated in the PR body so its absence is
+    read as deliberate rather than unwired.
+    """
+
+    ask_id: str = ""
+    command_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class WarmErrand:
+    """Start the runtime, deliver nothing.
+
+    The speculative engage: the viewer fires this on the first keystroke so
+    that by the time a message is actually submitted the runtime is already
+    constructed, turning a ~1.2 s wait into no wait at all. It returns as soon
+    as the record is live — there is nothing to deliver — and the runtime it
+    starts defers materialising the session directory until real work arrives,
+    so an abandoned draft leaves nothing behind.
+    """
+
+    command_id: str = ""
+    # Memory-only birth sample; meaningful only if this engagement has to
+    # create an owner. An already-running owner retains its own selection.
+    initial_model: Any = None
+    model_selection_override: bool = False
+
+
+Errand = Union[PromptErrand, SteerErrand, PeerMessageErrand, WakeErrand, AskErrand, WarmErrand]
+
+
+@dataclass(frozen=True, slots=True)
+class EngageOutcome:
+    """What the engagement did, for the caller's receipt and for metrics."""
+
+    session_id: str
+    #: The ack line the runtime returned, or a short local description for a
+    #: warm engage that delivered nothing.
+    detail: str
+    #: True when this call started the runtime rather than finding one.
+    spawned: bool = False
+    #: True when the runtime recognised the ``command_id`` as already admitted
+    #: and did nothing — a retry that correctly declined to double-deliver.
+    duplicate: bool = False
+
+
+def new_command_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _session_dir(config_dir: Path, session_id: str) -> Path:
+    return config_dir / "sessions" / session_id
+
+
+def _lease_holder(config_dir: Path, session_id: str, *, check_zombie: bool = True) -> int | None:
+    """Pid currently holding the transcript lease, if it is alive AND still its writer.
+
+    Read directly rather than through ``acquire_session_lease``: this is a
+    PROBE, and acquiring in order to find out would take the very lease the
+    runtime needs. Uses the lease's own claim reader so both agree on the
+    format — including the claim's BIRTH fields, which is the difference between
+    "a process holds this pid" and "the process that wrote this claim holds this
+    pid".
+
+    **WHY THE BIRTH FIELDS MATTER HERE, at the user's expense.** A claim whose
+    pid was recycled by an unrelated live process used to read as a live holder,
+    so this function returned that stranger and the engage loop took its
+    "a contender holds the transcript but has not published yet" branch — for the
+    full ``DEFAULT_DEADLINE_S``, spawning NOTHING, and the operator was shown
+    ``the runtime is reconnecting`` (session bfbc971ef537, 2026-09-21). With the
+    identity test this returns ``None`` for a recycled pid, so the loop spawns.
+
+    ``check_zombie=False`` is for the engage loop's dense grid, and it skips the
+    IDENTITY proof with the corpse proof, for the same reason and with the same
+    bound. That proof costs a ``ps`` fork (2.4-4.6 ms across runs on an M-series
+    box, against the 23-30 µs budget published for one dense poll iteration at
+    ``_poll_delay``), so paying it every 10 ms pass would stretch that period by
+    24-46% and eat the dead time the grid exists to remove. The loop therefore
+    passes False only while that grid is in force and True on every coarser
+    pass — see the cadence note at the top of the loop.
+
+    **A wrong "live" in the grid costs waiting, never arbitration, and cannot
+    reintroduce the wedge.** The grid is only reachable on the strength of a
+    holder this probe already reported (``constructing_since`` is set from
+    ``holder is not None``, and the first pass of every engage has it ``None``,
+    so pass one is coarse). A recycled pid therefore cannot *create* the grid: on
+    pass one the full proof runs, the token mismatch proves the owner gone, this
+    returns ``None``, and the loop spawns. Inside a grid the cheap answer can
+    only delay by the remainder of ``_CONSTRUCTING_WINDOW_S``, after which the
+    loop is coarse again and the proof lands. Keep the flag symmetric across
+    platforms too — Linux samples identity for free, and a safety property that
+    differs by platform is worse than a few milliseconds.
+    """
+    from local_operator.session_lease import LEASE_NAME, _pid_state, _read_claim
+
+    path = _session_dir(config_dir, session_id) / LEASE_NAME
+    if not path.exists():
+        return None
+    claim = _read_claim(path)
+    if claim.pid is None:
+        return None
+    if _pid_state(claim.pid, check_zombie=check_zombie, expected_birth=claim.birth) != "live":
+        return None
+    return claim.pid
+
+
+def _spawn_interpreter() -> str:
+    """The interpreter a newly engaged runtime should run.
+
+    THE CURRENT GENERATION'S, and this is what makes a mixed-generation fleet
+    converge without anyone waiting for anything: a runtime that goes idle
+    retires on its own (design-runtime-autorefresh §3.2), and the engage that
+    replaces it constructs on the build the pointer names — so the fleet walks
+    onto the new build one session at a time instead of a fence or a drain.
+
+    CONCRETE, never through the pointer: ``update.current_interpreter`` resolves
+    ``current`` once and hands back the generation's own path. Spawning
+    ``<pointer>/bin/python3`` instead would leave the child importing through
+    the mutable symlink, so a second install could redirect its ``sys.path``
+    mid-run — the failure the generation layout exists to remove.
+
+    Falls back to ``sys.executable`` whenever the pointer cannot be resolved
+    (a source checkout, a pip/pipx machine, an interrupted flip). That is not a
+    degraded mode: for those processes ``sys.executable`` IS the only correct
+    answer, and it is the pre-generation behaviour exactly.
+    """
+    from local_operator import update
+
+    try:
+        candidate = update.current_interpreter()
+    except Exception:  # noqa: BLE001 — an unresolvable install must not fail a spawn
+        logger.debug("current install interpreter unreadable", exc_info=True)
+        return sys.executable
+    return str(candidate) if candidate is not None else sys.executable
+
+
+def _spawn_runtime(
+    session_id: str,
+    cwd: str,
+    *,
+    defer_materialise: bool,
+    warm: bool = False,
+    initial_model: Any = None,
+    model_selection_override: bool = False,
+) -> "subprocess.Popen[bytes]":
+    """Start one detached runtime candidate for ``session_id``.
+
+    Returns the ``Popen`` so the engage loop can tell a candidate that is
+    still CONSTRUCTING from one that died: the lease is acquired a few
+    hundred milliseconds after the exec, and in that window (no record) and
+    (no lease) is true of a perfectly healthy candidate — so liveness of the
+    process we spawned is the only sound death signal (round 2, Q8).
+
+    Its stdio is CAPTURED to a file, recorded on the returned object as
+    ``lop_capture_path``. Both streams used to go
+    to ``DEVNULL``, which made a candidate that died before
+    ``logging.basicConfig`` ran completely silent — the failure had no
+    traceback, no message and no exit reason anywhere on the system, so a
+    session that could never start looked identical to a slow one. That
+    silence is what turned a clear "hosting is not configured" into a
+    30-second wait and an unexplained 503 (QA Q1).
+
+    The path rides on the Popen rather than widening the return type, so every
+    existing caller and test double keeps working with a plain process object.
+    The file is small, per-candidate, created 0600, and unlinked as soon as it
+    is read.
+
+    Only routing data enters the environment — prompt text, images and command
+    identity travel over the authenticated loopback socket, never through
+    ``ps``-readable state. Alongside identity and deferred-materialisation,
+    the optional birth model is routing data: it seeds only a new owner,
+    never an already-running session or a saved selection on resume. The birth
+    EFFORT rides the same channel and for the same reason (see
+    ``LOP_MOBILE_CHILD_EFFORT`` in ``process.amain``): the owner must be
+    CONSTRUCTED on the level the user chose, so its first frontend snapshot, its
+    first provider call and the selection row it journals at admission all
+    carry that level. Applying it afterwards over the model RPC would leave the
+    child briefly on the model's own default and would lose the level
+    altogether if the owner was already running.
+
+    ONE VALUE HERE IS NOT ROUTING DATA: the engage claim
+    (``types.ENGAGED_ENV``). It has to travel in the environment because it is a
+    fact about the SPAWN — a warm engage delivers no frame by design (see
+    ``engage_runtime``'s ``WarmErrand`` arm), so there is no socket it could
+    arrive on, and the child's reaper needs it before the first dial. It rides
+    the ``warm`` argument rather than ``defer_materialise`` beside it: the two
+    coincide at today's call sites and NOTHING makes that equivalence hold for
+    the next caller, and a window bought by a deferral nobody engaged for is
+    exactly the leak the scrub below exists to prevent (review round 1, M4).
+    """
+    env = dict(os.environ)
+    env["LOP_MOBILE_CHILD_CWD"] = cwd
+    env["LOP_MOBILE_CHILD_RESUME"] = session_id
+    # A viewer's birth sample seeds only a new conversation. It is NOT a
+    # resume override, and inherited spawn flags must not leak into siblings.
+    for key in (
+        "LOP_MOBILE_CHILD_PROVIDER",
+        "LOP_MOBILE_CHILD_MODEL",
+        "LOP_MOBILE_CHILD_EFFORT",
+        "LOP_MODEL_SELECTION_OVERRIDE",
+    ):
+        env.pop(key, None)
+    if initial_model is not None:
+        env["LOP_MOBILE_CHILD_PROVIDER"] = initial_model.provider
+        env["LOP_MOBILE_CHILD_MODEL"] = initial_model.model_id
+        # ``getattr``, not an attribute read: this is a birth sample read off a
+        # duck-typed spec, and callers outside the desktop plane (the CLI's
+        # ``--model`` birth, tests) pass objects that carry no level.
+        effort = getattr(initial_model, "reasoning_effort", None)
+        if effort:
+            env["LOP_MOBILE_CHILD_EFFORT"] = str(effort)
+    if model_selection_override:
+        env["LOP_MODEL_SELECTION_OVERRIDE"] = "1"
+    if defer_materialise:
+        env["LOP_RUNTIME_DEFER_MATERIALISE"] = "1"
+    else:
+        # A parent that set this for an earlier speculative engage must not leak
+        # it into a runtime that has real work to do.
+        env.pop("LOP_RUNTIME_DEFER_MATERIALISE", None)
+    if warm:
+        # THE SPAWN'S OWN WORD, and the one place the runtime can still hear it:
+        # a warm is the speculative engage itself — a runtime started for
+        # somebody who has not arrived (``engage_runtime``'s ``WarmErrand`` arm,
+        # which is where this argument is passed). Without it the child's own
+        # reaper has no way to know that, treats it as a runtime nobody is
+        # involved with, and retires it on the ordinary 3 s drain — measured on a
+        # two-device rig: the peer's ``--engage`` answered ``runtime joining`` and
+        # the runtime was gone ~3 s later, so the wait that warm existed to
+        # remove was paid in full AND the answer named a runtime that had already
+        # left. The claim it sets is bounded and capped like the viewer one it
+        # joins (``process``'s ``DEFAULT_KEEP_ALIVE_SECONDS`` /
+        # ``_keep_alive_victim``).
+        #
+        # KEYED ON THE ERRAND AND NOT ON THE DEFERRAL. ``defer_materialise`` is
+        # ``isinstance(work, WarmErrand)`` at both call sites today, and that is
+        # the reason this is a separate argument: the two facts agree only by
+        # coincidence of the callers, so a caller that defers materialisation for
+        # another reason (the generation probe in
+        # ``tests/e2e/test_install_generations_e2e.py`` is one already) would
+        # otherwise buy a five-minute window it never asked for, silently. With
+        # the fact passed in, that caller says what it means and gets the ordinary
+        # drain (review round 1, M4).
+        env[ENGAGED_ENV] = "1"
+    else:
+        # A parent that engaged something earlier must not hand its claim to a
+        # runtime that has real work to do — including its own descendants, which
+        # is why the scrub belongs to every runtime spawn path and not just this
+        # one (``mobile/daemon.py``'s hand-built child environment is the other).
+        env.pop(ENGAGED_ENV, None)
+    # 0600 at CREATION, via mkstemp. `Path.open("wb")` takes the process umask
+    # (measured 0o644 here), leaving the child's entire stdout+stderr --
+    # tracebacks, provider error bodies, config echoes -- world-readable in a
+    # shared /tmp. mkstemp also generates the random suffix itself, so the
+    # session id no longer has to carry the uniqueness and a directory listing
+    # stops disclosing live session ids to other local users. The prefix keeps
+    # these recognisable as this project's spawn captures.
+    handle_fd, capture_path = tempfile.mkstemp(prefix="lop-runtime-", suffix=".log")
+    capture = Path(capture_path)
+    handle = os.fdopen(handle_fd, "wb")
+    # THE OPERATOR CAPABILITY'S ONE HANDOFF (issue #1310). MINTED HERE, in the
+    # process the operator's keyboard is attached to, and handed to the child on
+    # an inherited descriptor whose NUMBER — not value — rides in argv. The
+    # child needs it because an authority-INCREASING control request (`/approvals
+    # auto`, an approved card) must be refused to anything that merely read the
+    # session record, and the model's own `bash` tool runs as this uid and can
+    # read it. See ``harness/approval.py`` for why no file, no environment and
+    # no log may carry it, and ``session/runtime/process.main`` for the far end.
+    #
+    # The value is registered against the CHILD'S pid so that a later
+    # ``AttachClient`` in THIS process — the one that will route the console's
+    # typed commands — presents it, while every other process on the machine
+    # (a peer's terminal, the desktop app, the phone relay when it is not the
+    # one that engaged) has nothing to present and is refused.
+    #
+    # MINTED ONCE, HANDED OVER ONCE. Whichever route below is taken (adoption or
+    # a cold fork) sends this value into the one process that becomes the
+    # session's runtime; the handoff OBJECT is per-route, because a failed
+    # adoption attempt may already have duplicated its descriptor into the
+    # standby — see the comment at the attempt.
+    operator_cap = mint_operator_cap()
+    # Name the detached runtime in the OS process listing. A machine has many of
+    # these at once (one per live session), and until now every one of them was
+    # an indistinguishable `python3.x` row in Activity Monitor. The session id is
+    # already a hex handle the user sees in `lop sessions`, and it is truncated
+    # to 8 so `ps -o ucomm`'s 16-char window still separates two sessions.
+    #
+    # WHICH BUILD THE CHILD RUNS is the interpreter, and it is decided HERE
+    # rather than inherited: `_spawn_interpreter` resolves the CURRENT
+    # generation's, because that is what makes a mixed-generation fleet
+    # converge one session at a time. The NAME then has to be asked for from
+    # that SAME interpreter's tree — one call per branch, so the two axes can
+    # never disagree:
+    #
+    #  - same tree as this process: `spawn_identity` (the link beside our own
+    #    `python`);
+    #  - another generation's tree: `spawn_identity_for_interpreter`, which
+    #    plants the link BESIDE THAT interpreter and returns the pair, or rung
+    #    2 (the bare path, label deliberately withheld). Patching `executable`
+    #    after `spawn_identity` is exactly what this replaced, and it produced
+    #    a LABELLED argv[0] on a `python3.x` image — the row an EDR killed 1079
+    #    times on 2026-09-19, and a labelled `argv[0]` also empties the child's
+    #    `sys.executable` on Linux (see `procname.spawn_identity`).
+    from local_operator import procname
+
+    interpreter = _spawn_interpreter()
+    # A WARMED STANDBY FIRST (``session/runtime/standby.py``): the same spawn —
+    # this exact environment, this capture file, the child end of a handoff this
+    # console made — handed to an interpreter that has already paid the runtime's
+    # ~1.1 s of import CPU, which at this host's load is most of a cold engage's
+    # 3-4 s. ``None`` means this console has no standby, or one that refused (a
+    # moved build, generation, config or environment); the cold spawn below then
+    # runs exactly as before.
+    #
+    # A FRESH HANDOFF FOR EACH ROUTE (agent review round 1, R1-4). An adoption
+    # that times out may already have duplicated this handoff's child end into the
+    # standby, so reusing that handoff for the cold child would leave TWO processes
+    # holding one socketpair: whichever reads the 32 bytes first wins, and lease
+    # arbitration then decides which SURVIVES — so the survivor can be the one
+    # without the capability. The attempt therefore gets its own handoff, and the
+    # cold path mints another; the value is written only into the one that is used.
+    # ``adoption_possible`` first so a console with no standby never mints one.
+    from local_operator.paths import config_dir as _config_dir
+    from local_operator.session.runtime import standby
+
+    if standby.adoption_possible():
+        adopt_handoff = open_operator_cap_handoff()
+        # ``try_adopt`` never raises, so the descriptors it was given stay ours to
+        # close on every path below.
+        adopted = standby.try_adopt(
+            Path(env.get("LOCAL_OPERATOR_CONFIG_DIR") or _config_dir()),
+            interpreter,
+            env,
+            capture,
+            adopt_handoff.pass_fds[0] if adopt_handoff.pass_fds else None,
+        )
+        if adopted is not None:
+            try:
+                # SCM_RIGHTS gave the standby its OWN duplicate of the child end,
+                # so delivering and closing here is the sequence a fork uses.
+                adopt_handoff.deliver(operator_cap)
+                remember_operator_cap(adopted.pid, operator_cap)
+            finally:
+                adopt_handoff.close()
+                handle.close()
+            return cast("subprocess.Popen[bytes]", adopted)
+        # NOT ADOPTED: close the attempt's handoff WITHOUT delivering, so no copy
+        # of this session's capability is left in a descriptor nobody will read.
+        adopt_handoff.close()
+    handoff = open_operator_cap_handoff()
+    if interpreter != sys.executable:
+        argv0, executable = procname.spawn_identity_for_interpreter(
+            procname.LABEL_SESSION_ANON, interpreter, id=str(session_id)[:8]
+        )
+    else:
+        argv0, executable = procname.spawn_identity(
+            procname.LABEL_SESSION_ANON, id=str(session_id)[:8]
+        )
+    try:
+        process = subprocess.Popen(  # noqa: S603 — fixed argv, no shell
+            # TWO INDEPENDENT PROPERTIES ON ONE SPAWN, both required.
+            # ``SAFE_PATH_FLAG`` supplies import isolation: this spawn passes
+            # no ``cwd=``, so the child inherits the viewer's directory, and
+            # ``-m`` would put that directory on ``sys.path`` ahead of
+            # site-packages. A session whose cwd is a checkout of this project
+            # then runs the CHECKOUT rather than the install — which is how live
+            # runtimes ended up pinned to a superseded build. See
+            # :mod:`local_operator.interpreter`.
+            # ``argv0``/``executable`` supply the process NAME (see
+            # :mod:`local_operator.procname`). They are orthogonal: the label
+            # replaces argv[0] only, and the flag must stay at index 1, because
+            # interpreter options are recognised only before ``-m``.
+            # ``executable`` may name the CURRENT generation's interpreter
+            # rather than this process's; see :func:`_spawn_interpreter`.
+            # ``RUNTIME_MODULE`` is imported from ``session.runtime.types`` rather
+            # than written here, because the SWEEP identifies a runtime by this
+            # exact ``-m`` word in an argv (``reclaim.runtime_processes``) and a
+            # drift between the two is silent in the worst direction: the census
+            # matches nothing, every store reads as having no runtimes, and the
+            # residency bound goes inert with no failing test. It sits in ``types``
+            # (the runtime's shared vocabulary, no local imports) rather than in
+            # ``reclaim`` because this module must not import the sweep to write an
+            # argv — ``reclaim`` pulls in ``registry`` and ``viewers``, and this is
+            # the file the engage path loads.
+            #
+            # ``handoff.argv`` is APPENDED AFTER IT, so the interpreter still sees
+            # ``-m RUNTIME_MODULE`` in the position it always did (which is what
+            # the sweep matches) and the operator-descriptor flag lands in the
+            # child module's own ``sys.argv``. The two changes are orthogonal: one
+            # names the module, the other carries a descriptor number.
+            [argv0, SAFE_PATH_FLAG, "-m", RUNTIME_MODULE, *handoff.argv],
+            executable=executable,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            # The capture file is opened "wb", and `text=False` keeps the
+            # Popen's own generic at `bytes` where the runtime's readers expect
+            # it. (Default is False; stated because the platform kwargs below
+            # are spread from a map the analyzer cannot see through.)
+            text=False,
+            # Detachment is platform-spelled: `start_new_session=True` is a
+            # POSIX-only flag that Windows accepts and ignores, so the runtime
+            # this spawns would keep the viewer's console and die with a Ctrl-C
+            # or a console close — the opposite of the owned, attachable runtime
+            # this function exists to leave behind. See
+            # procstate.detached_popen_kwargs.
+            #
+            # KEPT BESIDE THE HANDOFF'S FILE-DESCRIPTOR KWARGS (merge of
+            # ``origin/main``): the two answer different questions and neither
+            # replaces the other — detachment is about which CONSOLE and process
+            # group the child joins, while ``pass_fds``/``close_fds`` are about
+            # which DESCRIPTOR it inherits. ``detached_popen_kwargs`` sets no
+            # ``close_fds`` (POSIX: ``start_new_session``; Windows:
+            # ``creationflags``), so there is no duplicate keyword here.
+            **detached_popen_kwargs(),
+            # ``pass_fds``/``close_fds`` come from the handoff: POSIX passes
+            # exactly the one descriptor and keeps ``close_fds=True`` (the
+            # hardening this file already relied on); Windows cannot use
+            # ``pass_fds`` at all, so it passes an inheritable handle and turns
+            # ``close_fds`` off. The runtime reports which boundary it got.
+            pass_fds=handoff.pass_fds,
+            close_fds=handoff.close_fds,
+        )
+        # AFTER the fork, and it cannot block: 32 bytes into an empty kernel
+        # buffer. ``deliver`` closes BOTH ends, so the descriptor is gone from
+        # this process before any turn can run — which is what keeps it out of
+        # every tool subprocess's table.
+        handoff.deliver(operator_cap)
+        pid = getattr(process, "pid", None)
+        if isinstance(pid, int):
+            # Keyed on the CHILD'S pid, which is the identity the console
+            # resolves later (``AttachClient.connect`` reads it off the record).
+            # A process object that cannot name its pid — a reduced double in a
+            # test — leaves the capability unkeyed, which is the fail-closed
+            # reading: a console with nothing to present is refused, and the
+            # child still holds the only copy that could have been matched.
+            remember_operator_cap(pid, operator_cap)
+    finally:
+        # The child holds its own duplicated descriptor; this one is ours to
+        # drop so the file is not kept open for the life of the server. The
+        # handoff is closed here too, so a Popen that raised leaves no
+        # descriptor behind either.
+        handoff.close()
+        handle.close()
+    setattr(process, "lop_capture_path", capture)
+    _harvest_on_exit(process)
+    return process
+
+
+def _harvest_on_exit(process: "subprocess.Popen[bytes]") -> None:
+    """Wait on the child on a daemon thread, so its exit does not leave a zombie.
+
+    THE CHILD IS DETACHED AND NOBODY OWNED ITS EXIT. ``detached_popen_kwargs``
+    gives it its own session, and the engage loop only ever calls ``poll()`` — so a
+    runtime that exits (a loser leaving without the lease, a ``/stop``, an
+    idle-exit, a move's retirement) stayed in the process table as ``<defunct>``
+    under whoever spawned it until THAT process exited. Measured on a real relay
+    across two EC2 peers: three ``Zs`` children of the relay on one device and one
+    on the other, alive as corpses for 18-47 minutes, one per remote engage
+    (cross-host QA, Q-XH-5). A relay is the spawner that lives for weeks, so that is
+    where they piled up.
+
+    WHY A WAITING THREAD RATHER THAN ``SIGCHLD`` OR ``waitpid(-1)``.
+    ``SIGCHLD`` ignored would reap at the kernel, but it is process-wide and this
+    spawner is also every ``lop exec`` and the desktop server: it would change what
+    ``subprocess`` sees for every OTHER child in the process, and a reduced exit
+    status is exactly the shape of a masked failure. ``waitpid(-1)`` has the same
+    reach — it can steal a status some other thread is waiting on. This reaps the
+    ONE child this call created, by pid, and touches nothing else. ``Popen.wait``
+    is safe to run beside the engage loop's ``poll()``: CPython serialises both on
+    the object's own ``_waitpid_lock``, so the loop still reads the true status.
+
+    The thread is a daemon and it blocks until the child exits, so a spawner that
+    exits first (a CLI one-shot) leaves nothing behind and the cost on a long-lived
+    relay is one parked thread per runtime it has started.
+
+    A REDUCED DOUBLE IS NOT A CHILD. Tests pass stand-in process objects through this
+    path (``_Popen`` in test_launch_arbitration has no ``wait``), and this file's own
+    ``remember_operator_cap`` call guards the same way for the same reason: a spawn
+    that cannot name a pid, or a process object that cannot be waited on, is not
+    something this process can reap, and inventing a child here would be the fake
+    driving the product.
+    """
+    wait = getattr(process, "wait", None)
+    pid = getattr(process, "pid", None)
+    if not callable(wait) or not isinstance(pid, int):
+        return
+    thread = threading.Thread(target=wait, name=f"reap-{pid}", daemon=True)
+    thread.start()
+
+
+#: Upper bound on captured child output quoted back to a caller. Enough for a
+#: traceback's final frames, small enough that a runaway child cannot turn an
+#: error message into a memory problem.
+_CAPTURE_TAIL_BYTES = 4096
+
+#: Startup conditions whose cause is CONFIGURATION the user can act on, mapped
+#: to the sentence to show them. A curated map rather than the child's raw text
+#: because a construction failure can quote a provider endpoint or a filesystem
+#: path, and an error surface is not the place to discover that. Anything not
+#: listed stays generic; the full traceback is in the runtime log either way.
+_ACTIONABLE_STARTUP_REASONS = {
+    "HostingNotConfiguredError": (
+        "No model provider is configured yet. Connect one in Settings > Providers, "
+        "then send the message again."
+    ),
+    "HostingUnknownError": (
+        "This session's model provider is not recognised. Choose a provider in "
+        "Settings > Providers, then send the message again."
+    ),
+    "ModelNotConfiguredError": (
+        "No model is selected for this session. Pick one with /model, then send "
+        "the message again."
+    ),
+}
+
+
+class RuntimeStartupError(RuntimeError):
+    """No runtime could be started, with a reason worth showing a person.
+
+    Distinct from ``TimeoutError`` (nothing answered in time) because the two
+    call for opposite responses: a timeout invites a retry, whereas this says
+    retrying changes nothing until something is configured.
+    """
+
+    def __init__(self, message: str, *, actionable: str = "") -> None:
+        super().__init__(message)
+        #: A vetted, user-facing sentence, or "" when the cause was not one of
+        #: the known configuration conditions.
+        self.actionable = actionable
+
+
+class ActionableConnectionError(ConnectionError):
+    """A ``ConnectionError`` whose MESSAGE is a vetted, user-facing sentence.
+
+    The type is the permission slip. Callers that relay owner failures to a user
+    surface (the desktop HTTP routes) may echo ``str(error)`` for this class and
+    must fall back to a generic sentence for every other ``ConnectionError``.
+
+    That distinction cannot be recovered from the message text, and the previous
+    round proved it: the relay echoed EVERY ``ConnectionError`` verbatim on the
+    strength of a docstring claiming they were limited to the vetted set, and
+    shipped ``owner socket unreachable: [Errno 61] Connect call failed
+    ('127.0.0.1', 54321)`` (an internal control port) and ``owner moved to
+    another conversation (abc123secretsession)`` (another session's id) into the
+    renderer. ``attach_client`` raises bare ``ConnectionError`` from a dozen
+    places carrying socket errors, peer ids and provider text; only the
+    configuration reasons curated in :data:`_ACTIONABLE_STARTUP_REASONS` are
+    fit to show, so only they get this type.
+    """
+
+    #: Marks this error's message as vetted for display. An attribute rather
+    #: than a bare `isinstance` so a caller reads as "is this actionable?"
+    #: rather than having to know the class hierarchy.
+    actionable = True
+
+
+def _spawn_failure_reason(capture: Path) -> tuple[str, str]:
+    """The child's last words: ``(log_detail, user_facing)``.
+
+    ``log_detail`` is the traceback's terminal line, for the server log. The
+    second element is filled only when that line names one of the known
+    configuration conditions, so nothing unvetted reaches a user surface.
+    """
+    try:
+        raw = capture.read_bytes()[-_CAPTURE_TAIL_BYTES:].decode("utf-8", "replace")
+    except OSError:
+        return "", ""
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    for line in reversed(lines):
+        # A traceback's terminal line is "module.QualifiedError: message".
+        if line.startswith(("Traceback", "  ", "File ")) or ": " not in line:
+            continue
+        qualified, _, _message = line.partition(": ")
+        name = qualified.rsplit(".", 1)[-1].strip()
+        return line, _ACTIONABLE_STARTUP_REASONS.get(name, "")
+    return (lines[-1] if lines else ""), ""
+
+
+#: What an engage reports for a record whose runtime has COMMITTED TO LEAVING.
+#:
+#: NOT ``"runtime ready"``, because that errand is not completed: the runtime
+#: will run nothing new. NOT an error either, and that second half is the whole
+#: reason this is a detail rather than a raise: the record is LIVE and dialable,
+#: and the caller's bind must reach it — a joiner lands on the runtime that
+#: holds the transcript, which is the property the session is joinable by
+#: (memo §4.2, and ``attached.py``'s read path already names the same state
+#: ``owner-leaving``). Measured consequence of getting this wrong: raising here
+#: instead made a cold viewer unable to join a live, draining session at all —
+#: zero dials, ``ConnectionError("the runtime is reconnecting")``, which is the
+#: exact axis this change exists to fix (agent review round 1, R1).
+LEAVING_DETAIL = "owner-leaving"
+
+
+async def _deliver(record: Any, session_id: str, work: Errand) -> tuple[str, bool]:
+    """Hand one errand to a live runtime. Returns ``(detail, duplicate)``."""
+    from local_operator.mobile.peer_client import send_peer_message
+
+    if isinstance(work, (WarmErrand, WakeErrand, AskErrand)):
+        # None of these delivers anything: a warm engage exists to pay the
+        # start-up cost early, a wake is delivered by the session's own
+        # scheduler the moment it loads (see WakeErrand), and a queued ask's
+        # deadline/response is delivered by the boot ``AskQueue.reconcile`` (see
+        # AskErrand). Reaching a live runtime IS the completed errand for all
+        # three.
+        #
+        # AND THAT IS WHY A LEAVING RUNTIME MUST NOT ANSWER ``runtime ready``.
+        # The record stays published and the heartbeat stays fresh for the whole
+        # drain (measured: 1 h 40 m, 21 sessions at once), so the unqualified
+        # answer made the warm re-bind every front end performs on the
+        # ``retiring`` frame report a completed errand against a runtime that
+        # will run nothing — the bind then set ``_warm_engage_started`` and
+        # nothing ever started a successor.
+        #
+        # The answer is the STATE, not a failure: ``LEAVING_DETAIL`` tells the
+        # caller the record is live and leaving, so its bind dials it (the
+        # joiner lands on the runtime holding the transcript) while nothing here
+        # claims the errand was delivered. A successor is started by whichever
+        # engage runs after this runtime's dispose releases the claim — see
+        # ``_lease_holder`` in the loop below.
+        leaving = str(getattr(record, "leaving", "") or "")
+        if leaving:
+            logger.debug("engage: %s is leaving (%s); not reporting it ready", session_id, leaving)
+            return LEAVING_DETAIL, False
+        return "runtime ready", False
+    if isinstance(work, PeerMessageErrand):
+        # THE CARRIAGE RIDES THE ERRAND'S OWN ``command_id`` (design note §C:
+        # "put it on the wire there too"). Without it the id never left this
+        # process, so an engaged send's disk probe could never hit (the receiver
+        # names its row with its own id), its verdict claimed "not in its
+        # transcript" from a probe that could not have found anything, and -- the
+        # part that matters -- a re-run of this errand after a ``ConnectionError``
+        # had no id for the receiver to dedupe on, which appended the message a
+        # second time (agent review round 1, MAJOR).
+        #
+        # ``None`` rather than ``""`` when there is no id: the client omits the
+        # key entirely, so a sender with nothing to offer keeps the frame
+        # byte-identical to the pre-carriage one.
+        detail = await send_peer_message(
+            record,
+            text=work.text,
+            mode=work.mode,
+            wake=work.wake,
+            sender=work.sender,
+            message_id=work.command_id or None,
+        )
+        return detail, False
+
+    from local_operator.mobile.attach_client import AttachClient
+
+    # NO `on_operator_prompt`: this client exists to deliver one dequeued errand and
+    # has no operator-facing surface at all — an errand that needed a signature
+    # would be answered by the runtime's own refusal, and `AttachClient`'s fallback
+    # logs the effect sentence rather than losing it (UX round 6, U3 = design round
+    # 6, D3, which is about the surfaces a human is actually looking at).
+    client = AttachClient(lambda _projection: None, lambda _reason: None)
+    try:
+        await client.connect(record, session_id)
+        op = "prompt" if isinstance(work, PromptErrand) else "steer"
+        # THE RECEIPT IS RETURNED AS ITSELF, deferral and all. A draining
+        # runtime answers a prompt with ``inbox.SPOOL_RECEIPT_PROMPT`` — the
+        # message is on the successor's spool, not in this runtime's history —
+        # and this detail is what the caller renders. Collapsing it into the
+        # success shape (or letting a caller hardcode "prompt admitted" over
+        # it) would report a stronger fact than the one established, which is
+        # the same defect the warm/wake arm above refuses (agent review round
+        # 1, R2). ``duplicate`` stays the runtime's own, so the idempotency
+        # seam is unchanged.
+        #
+        # The annotation rides UNCONDITIONALLY from here: the CLIENT is the one
+        # that drops it for an owner which did not advertise the capability,
+        # at its single frame-write point (``AttachClient._request_frame`` →
+        # ``_strip_unsupported_annotation``), so the wake path and the
+        # follower path apply one rule in one place rather than two gates that
+        # could disagree — and neither can route around it by not calling
+        # ``prompt``/``steer``, which is exactly what this path used to do
+        # (agent review round 1, R1-1).
+        annotation: dict[str, str] = {}
+        for name in ("input_mode", "input_path"):
+            value = getattr(work, name, "")
+            if value:
+                annotation[name] = value
+        return await client.request_ack_with_duplicate(
+            op,
+            text=work.text,
+            images=work.images,
+            command_id=work.command_id,
+            **annotation,
+        )
+    finally:
+        client.close()
+
+
+def recover_stale_handoff(config_dir: Path, session_id: str) -> list[dict[str, Any]]:
+    """Apply the move's crash recovery to ``session_id``, if nobody live owns the entry.
+
+    THE AUTOMATIC TRIGGER, AND WHY IT HAS TO EXIST IN THE PRODUCT. ``reconcile`` was
+    correct and complete and NOTHING CALLED IT: the crash tests passed only because
+    they invoked it by hand, so a stale ``prepared`` entry left by a relay that died
+    blocked the owner's own conversation until a human happened to run another move
+    of the same id, and a destination stopped just after its ``os.replace`` could
+    not be opened (review round 1, M-3). Recovery now runs on three automatic
+    points: a relay STARTING on this root (``mobility.recover_on_start``), the first
+    ENGAGE of the id (here), and the first MOVE attempt (``local_move_handler``,
+    which already reconciled).
+
+    THE INSTANCE RULE IS THE SAFETY PROPERTY, and it is why this reads the journal
+    before it does anything. An entry is not evidence of a crash: ``prepared`` is
+    the normal state of a move whose copy is being made right now. So an entry
+    written by the relay CURRENTLY running on this root — or one that names no
+    writer at all while a relay is running, where the writer cannot be established
+    — is skipped, because recovering it could roll a live handoff back. Only an
+    entry whose writer is provably not this root's relay is applied, and with no
+    live relay there can be no live move (every phase of one is driven from a
+    relay), so an entry is then a leftover by definition.
+
+    BEST EFFORT BY CONTRACT: it swallows its own failures and reports ``[]``, and the
+    launch guard still refuses afterwards. Refusing is the fail-closed direction;
+    recovering is the convenience, so a recovery that cannot run must never turn a
+    refusal into a spawn.
+    """
+    from local_operator.session.placement import handoff_in_flight
+
+    try:
+        entry = handoff_in_flight(config_dir, session_id)
+    except Exception:  # noqa: BLE001 — an unreadable journal is the guard's refusal
+        return []
+    if not entry:
+        return []
+    # A HANDOFF THAT ALREADY ARRIVED IS NOT IN FLIGHT (review round 2's ``p1c``): ...
+    # asked BEFORE the instance rule, because a promote that landed and raised leaves an
+    # entry owned by the relay that is still running, which every rule below deliberately
+    # skips — and then the conversation sits on this device with an engage refused.
+    try:
+        from local_operator.network import mobility as _mobility
+
+        if _mobility.settle_promoted_handoff(config_dir, session_id):
+            return [{"session_id": session_id, "action": "settled", "phase": "committed"}]
+    except Exception:  # noqa: BLE001 — best effort by contract; the guard still refuses
+        logger.debug("runtime: could not settle a finished handoff for %s", session_id)
+    try:
+        own_instance = _live_relay_instance(config_dir)
+        wrote = str(entry.get("instance_id") or "")
+        if own_instance and (not wrote or wrote == own_instance):
+            # EITHER THIS RELAY'S OWN IN-FLIGHT MOVE, OR AN ENTRY WHOSE WRITER CANNOT
+            # BE ESTABLISHED while a relay is running. Both are skipped, and the
+            # second is the fail-closed direction: with a live relay on this root an
+            # entry that names no instance could be a handoff it is driving right
+            # now (an older build's entry, or one written by hand), and rolling that
+            # back is the sabotage the instance rule exists to prevent. The guard
+            # still refuses an engage, which is the safe answer.
+            return []
+        from local_operator.network import mobility
+
+        return mobility.reconcile(config_dir, only=session_id, own_instance=own_instance)
+    except Exception:  # noqa: BLE001 — see the docstring
+        logger.debug("runtime: stale-handoff recovery failed for %s", session_id, exc_info=True)
+        return []
+
+
+def _live_relay_instance(config_dir: Path) -> str:
+    """The instance id of the relay running on this root, or ``""`` if none is.
+
+    ``find_own_relay`` answers "is there a relay to TALK to" — a record whose owner
+    has stopped heartbeating is excluded — and that is exactly the question here:
+    a wedged relay is not driving a live handoff, and treating it as absent lets
+    recovery proceed on an entry it can no longer settle.
+    """
+    from local_operator.network import store
+
+    record = store.find_own_relay(config_dir)
+    return str(getattr(record, "instance_id", "") or "")
+
+
+async def engage_runtime(
+    session_id: str,
+    cwd: str,
+    work: Errand,
+    *,
+    config_dir: Path,
+    deadline_s: float = DEFAULT_DEADLINE_S,
+    preempt: asyncio.Event | None = None,
+    preempt_budget_s: float = 0.0,
+) -> EngageOutcome:
+    """Ensure a runtime exists for ``session_id`` and give it ``work``.
+
+    The single arbitration point; see the module docstring for the loop and
+    why the lease rather than a pre-spawn check decides who runs.
+
+    Raises ``TimeoutError`` if no runtime could be reached within the
+    deadline, and ``RuntimeError`` — carrying the child's own reason — as soon
+    as every candidate it is allowed to start has died. Every other failure (a
+    refused op, a dead socket) surfaces as the underlying error from the
+    delivery attempt, since those are the caller's to report.
+
+    PREEMPTION (``preempt`` + ``preempt_budget_s``, set together or not at
+    all). An engage started on behalf of nobody — ``AttachedSession``'s
+    background bind — runs while holding a lock that a *foreground* caller
+    must queue on, so its generous ``deadline_s`` is only defensible while
+    nobody is waiting. When the caller passes an event, this loop treats it
+    the way ``AttachedSession._await_frontend_preemptible`` treats the same
+    signal: on the first pass that observes it set, the deadline is cut to
+    ``now + preempt_budget_s``.
+
+    ``min`` on ABSOLUTE deadlines, so a preemption arriving near the end can
+    only shorten the wait and never extend it. The cut is latched on first
+    observation rather than recomputed per pass, so repeated passes cannot
+    keep pushing the shortened deadline forward while the event stays set.
+
+    Giving up this way is not the same as discarding the work. A candidate
+    this engage spawned keeps constructing and publishes its record as usual;
+    the foreground caller's own engage finds it. What is surrendered is the
+    *waiting*, not the runtime — the same trade the sync-wait yield makes, and
+    the reason this is a shortened deadline rather than a cancellation: the
+    existing expiry path unlinks the capture file and reports the child's own
+    reason, where a cancelled task would leak that tempfile and lose it.
+    """
+    from local_operator.mobile.attach_client import find_runtime_record
+
+    # -----------------------------------------------------------------
+    # INV-1, GUARD 1: A SESSION BEING HANDED AWAY MUST NOT GET A RUNTIME.
+    # -----------------------------------------------------------------
+    # If this id has a move in flight, a runtime started here is the second writer
+    # the whole mobility design exists to make impossible: the destination is about
+    # to own the transcript, and a successor here would append to the same
+    # conversation from a directory that is about to be deleted — two trajectories,
+    # neither aware of the other. This is the SINGLE entry point every engage path
+    # uses (a local viewer's first message, the phone daemon, a scheduled wake,
+    # `lop exec`, and the relay's own `net_session_engage`), so one guard here
+    # covers all of them, and a second guard at any one caller would be a guard
+    # that the others do not have.
+    #
+    # The check is a read of one small JSON file, and it is a READ-ONLY dependency
+    # on a stdlib-only leaf (`session/placement.py`) so it costs nothing on the
+    # boot path. It FAILS CLOSED: a journal that exists but cannot be parsed
+    # refuses, because the two candidate answers are not symmetric — refusing costs
+    # a sentence and a file deletion, while proceeding can spawn a second runtime
+    # for a session mid-handoff.
+    #
+    # A session with NO journal reads as "not in transit", so the ordinary case is
+    # one `stat` — which is why this is a plain call and not `asyncio.to_thread`.
+    # The hand-off is off, the file is absent, and a thread hand-off to answer it
+    # costs more than the answer: this is on the path of every engage, including
+    # every message a user sends to a cold session.
+    from local_operator.session.placement import handoff_guard_refusal
+
+    # RECOVERY FIRST, REFUSAL SECOND (review round 1, M-3). A journal entry left by
+    # a relay that died is not a live handoff, and the guard cannot tell the two
+    # apart — so before it is consulted, any entry whose writer is not a relay still
+    # running on this root gets the §6.5 table applied to it. Without this, a stale
+    # ``prepared`` blocked the owner's own conversation after a restart until
+    # somebody happened to run another move of the same id, and a destination that
+    # died just after its ``os.replace`` stayed stuck with an engage that named the
+    # wrong device. The recovery is best effort by construction: it swallows its own
+    # failures and the guard still refuses afterwards, which is the fail-closed
+    # direction.
+    recover_stale_handoff(config_dir, session_id)
+    handed_off = handoff_guard_refusal(config_dir, session_id)
+    if handed_off:
+        raise RuntimeStartupError(handed_off)
+
+    if not getattr(work, "command_id", ""):
+        # Identity is what makes a retry safe. A caller that did not supply one
+        # gets one here rather than being silently non-idempotent.
+        work = type(work)(**{**_fields(work), "command_id": new_command_id()})
+
+    deadline = time.monotonic() + deadline_s
+    # Latched on the first pass that OBSERVES the preemption, not recomputed
+    # per pass: re-deriving `now + budget` on every iteration while the event
+    # stays set would walk the shortened deadline forward indefinitely, which
+    # is the monotonicity bug `min` on absolute deadlines exists to prevent.
+    preempted = False
+
+    def _deadline() -> float:
+        """``deadline``, cut once to the yield budget when preemption fires."""
+        nonlocal deadline, preempted
+        if not preempted and preempt is not None and preempt.is_set():
+            preempted = True
+            deadline = min(deadline, time.monotonic() + preempt_budget_s)
+        return deadline
+
+    # The open-ended wait's exponential state. ``delay`` is what we actually
+    # sleep on a given pass, which the dense regime overrides without
+    # disturbing ``backoff``.
+    backoff = _POLL_INITIAL_S
+    delay = _POLL_INITIAL_S
+    spawned = False
+    # The Popen of the most recent candidate, so the respawn branch can tell
+    # a live constructor from a dead one without reading the lease.
+    candidate: "subprocess.Popen[bytes] | None" = None
+    # Where the current candidate's stdio is being captured, so a death can be
+    # reported with the child's own reason instead of a generic timeout.
+    capture: Path | None = None
+    # The child's terminal traceback line (for the log) and, when the cause was
+    # a known configuration condition, the sentence to show the user.
+    spawn_reason = ""
+    spawn_actionable = ""
+    # Counted separately from ``spawned`` because a respawn after a candidate
+    # died mid-construction is a different event from the first spawn, and
+    # only the retries need a cap. See the respawn branch below.
+    spawns = 0
+    last_error: Exception | None = None
+    # When the current construction episode was first OBSERVED, which is what
+    # selects the dense poll regime (see ``_poll_delay``). Reset to None the
+    # moment nothing is known to be constructing, so a respawned candidate
+    # gets its own fresh dense window rather than inheriting a spent one.
+    constructing_since: float | None = None
+    # Deferred materialisation is exactly the speculative case: a warm engage
+    # must not create a session directory for a draft the user may abandon.
+    # A wake engage is NOT speculative — the session already exists on disk.
+    #
+    # The keep-alive CLAIM is deliberately not derived from this flag: it is
+    # passed as ``warm`` at the spawn, so the two facts stay separable and a
+    # later caller that wants deferral for its own reason cannot buy a window
+    # nobody engaged for (review round 1, M4).
+    defer = isinstance(work, WarmErrand)
+
+    while time.monotonic() < _deadline():
+        # Whether this pass may spend the CORPSE PROOF, or only the cheap probe.
+        #
+        # Two probes in this loop ask whether a holder is a live process rather
+        # than a pid signal 0 accepts: the owner lookup inside
+        # ``find_runtime_record`` and ``_lease_holder``. Proving a corpse costs a
+        # `ps` fork (2.4-4.6 ms measured across runs on this host) against the
+        # 23-30 µs budget published for one DENSE iteration, so the grid asks
+        # only the cheap question -- it already believes something is
+        # constructing, and neither cheap answer can change ARBITRATION: only the
+        # spawned child's ``acquire_session_lease`` may take a claim, and that one
+        # always demands the proof.
+        #
+        # They are not equally harmless, and the difference is worth keeping
+        # straight. A cheap ``_lease_holder`` can only make this loop wait. A
+        # cheap ``find_runtime_record`` can also hand back a corpse's RECORD, and
+        # the two errands that deliver nothing (``WarmErrand``, ``WakeErrand`` —
+        # and ``AskErrand``, which joined them for the same reason)
+        # treat reaching a record as the completed errand -- so on the one pass
+        # where an owner published and died between two dense polls, that errand
+        # is reported ready against a corpse. One pass later the proof lands and
+        # the loop corrects itself; a wake is retried rather than lost, and the
+        # pre-branch behaviour read such a record as live for as long as its
+        # heartbeat stayed fresh (~45 s). Bounded, documented, and the reason the
+        # proof is spent on every coarser pass.
+        #
+        # Outside the dense grid the passes are at least 50 ms apart (the
+        # open-ended backoff, up to 1 s), where a fork or two per pass is a
+        # fraction of a percent of a core -- and it is what lets a corpse's
+        # session be recovered on this very pass instead of waited on. So the
+        # deferral is deliberately tied to the CADENCE and not to elapsed time:
+        # a claim that reads "live" on pass one is proven on pass one, and the
+        # deferral only ever applies once the loop is already inside its dense
+        # belief that a contender is mid-construction.
+        #
+        # The condition mirrors ``_poll_delay``'s dense branch exactly, so
+        # "cheap" here is the same grid the budget above is quoted for.
+        dense_regime = (
+            constructing_since is not None
+            and time.monotonic() - constructing_since < _CONSTRUCTING_WINDOW_S
+        )
+        check_zombie = not dense_regime
+        record, _owner = await asyncio.to_thread(
+            find_runtime_record, config_dir, session_id, check_zombie=check_zombie
+        )
+        if record is not None:
+            try:
+                detail, duplicate = await _deliver(record, session_id, work)
+                if capture is not None:
+                    # The candidate became the owner (or someone else's did);
+                    # its captured stdio has served its purpose.
+                    capture.unlink(missing_ok=True)
+                    capture = None
+                return EngageOutcome(
+                    session_id=session_id,
+                    detail=detail,
+                    spawned=spawned,
+                    duplicate=duplicate,
+                )
+            except (ConnectionError, TimeoutError) as exc:
+                # The runtime died between the scan and the dial. Re-loop: the
+                # record will be gone next pass and we spawn a fresh one.
+                last_error = exc
+                logger.debug("engage: dial failed for %s; retrying", session_id, exc_info=True)
+
+        holder: int | None = None
+        if not spawned or spawns < _MAX_SPAWNS:
+            # The same probe mode the discovery call above used, on the same
+            # pass and for the same reason: see the cadence note at the top of
+            # the loop. Deferring the proof is safe here because this branch can
+            # only ever decide to WAIT, and the spawn it defers to still has to
+            # win the lease against every other contender.
+            holder = await asyncio.to_thread(
+                _lease_holder, config_dir, session_id, check_zombie=check_zombie
+            )
+            if holder is not None:
+                # STARTING: a contender holds the transcript but has not
+                # published yet. Spawning here would create a doomed candidate,
+                # so wait for its record instead. This is the whole reason the
+                # loop looks at the lease at all.
+                logger.debug("engage: %s is starting under pid %s; waiting", session_id, holder)
+            elif not spawned:
+                logger.debug("engage: spawning a runtime for %s", session_id)
+                candidate = await asyncio.to_thread(
+                    _spawn_runtime,
+                    session_id,
+                    cwd,
+                    defer_materialise=defer,
+                    warm=isinstance(work, WarmErrand),
+                    initial_model=work.initial_model if isinstance(work, WarmErrand) else None,
+                    model_selection_override=(
+                        work.model_selection_override if isinstance(work, WarmErrand) else False
+                    ),
+                )
+                capture = getattr(candidate, "lop_capture_path", None)
+                spawned = True
+                spawns += 1
+                # The standby this spawn may just have consumed is replaced
+                # BEHIND it: the spare supervisor is nudged after the candidate
+                # exists, so its fork never sits ahead of the user's own engage.
+                # The supervisor owns every fork and every retry (invariant P in
+                # ``standby``'s module docstring), so this call is a wake-up and
+                # never blocks. A no-op outside a host that enabled warming (see
+                # ``standby.enable_warming``).
+                from local_operator.session.runtime import standby
+
+                standby.notify_engage()
+            elif candidate is not None and candidate.poll() is not None:
+                # THE CANDIDATE WE SPAWNED IS GONE. It exited while no record
+                # exists and nobody holds the lease — a winner dying DURING
+                # construction (`process.py`'s own `return 2`, an OOM kill, a
+                # bad credential, an MCP hang taking the process down). This
+                # is not the designed-loser path: a loser exits 0 without ever
+                # holding the lease, and the winner it lost to still holds it,
+                # so this branch cannot fire for one.
+                #
+                # ``poll() is not None`` is the death signal, not the absence
+                # of a lease: the lease is acquired a few hundred milliseconds
+                # after the exec, and in that window (no record) and (no
+                # lease) is true of a perfectly healthy candidate. Round 1's
+                # R1 fix read that window as death and respawned on EVERY
+                # engage — three processes per first message, two of them
+                # doomed (round 2, Q8). A LIVE candidate is by definition
+                # still constructing, so the loop waits for its record like
+                # any other contender.
+                #
+                # Bounded because a session that cannot construct at all
+                # (missing credential, unreadable transcript) would otherwise
+                # respawn until the deadline, turning one clear failure into a
+                # crash loop. Past the cap the loop STOPS rather than waiting
+                # out the deadline: see the fast-fail below.
+                if capture is not None:
+                    reason, actionable = await asyncio.to_thread(_spawn_failure_reason, capture)
+                    spawn_reason = reason or spawn_reason
+                    spawn_actionable = actionable or spawn_actionable
+                    capture.unlink(missing_ok=True)
+                logger.info(
+                    "engage: the candidate for %s died during construction (rc=%s): %s",
+                    session_id,
+                    candidate.returncode,
+                    spawn_reason or "no output captured",
+                )
+                candidate = await asyncio.to_thread(
+                    _spawn_runtime,
+                    session_id,
+                    cwd,
+                    defer_materialise=defer,
+                    warm=isinstance(work, WarmErrand),
+                    initial_model=work.initial_model if isinstance(work, WarmErrand) else None,
+                    model_selection_override=(
+                        work.model_selection_override if isinstance(work, WarmErrand) else False
+                    ),
+                )
+                capture = getattr(candidate, "lop_capture_path", None)
+                spawns += 1
+
+        if (
+            spawned
+            and spawns >= _MAX_SPAWNS
+            and candidate is not None
+            and candidate.poll() is not None
+        ):
+            # FAIL FAST. Every candidate we are allowed to start has died, and
+            # nobody else holds the lease, so no amount of further waiting can
+            # produce a runtime. Blocking out the rest of the deadline turned a
+            # diagnosable startup failure into ~30 s of apparent hang followed
+            # by a generic 503 (QA Q1); the caller can now say WHAT failed,
+            # immediately, using the child's own message.
+            if capture is not None:
+                reason, actionable = await asyncio.to_thread(_spawn_failure_reason, capture)
+                spawn_reason = reason or spawn_reason
+                spawn_actionable = actionable or spawn_actionable
+                capture.unlink(missing_ok=True)
+                capture = None
+            raise RuntimeStartupError(
+                f"could not start a runtime for session {session_id}"
+                + (f": {spawn_reason}" if spawn_reason else ""),
+                actionable=spawn_actionable,
+            ) from last_error
+
+        # Is a construction KNOWN to be in flight? It requires BOTH that no
+        # record exists yet AND that someone is working on one — a contender
+        # holding the lease, or the candidate we spawned still being alive.
+        #
+        # ``record is None`` is load-bearing, not belt-and-braces. The lease is
+        # NOT a construction signal on its own: ``session_factory`` registers
+        # its release as a dispose hook, so a fully constructed, happily
+        # serving runtime holds its lease for its entire life. Without this
+        # term, a runtime that has published a record but refuses the dial
+        # (wedged control socket, port exhaustion) takes the ``ConnectionError``
+        # retry path above and is read as "constructing" on every pass — which
+        # turned a slow retry into a hot spin: measured at 301 dial attempts in
+        # a 3 s window against 8 under the open-ended grid (review round 1,
+        # MAJOR-1). A record that already exists means construction is over,
+        # whatever the lease says, so the wait for that runtime to become
+        # dialable is open-ended and belongs on the backoff.
+        #
+        # It also bounds the scan cost the dense interval assumes. A quiet
+        # record makes `scan()` fork `ps`, but `find_runtime_record` only reaches
+        # `scan()` once an owner marker exists; requiring `record is None`
+        # keeps the dense regime off the marker-plus-record case entirely. See
+        # `_poll_delay` for the measured table and the one overlap that
+        # remains.
+        constructing = record is None and (
+            holder is not None or (candidate is not None and candidate.poll() is None)
+        )
+        now = time.monotonic()
+        if constructing:
+            if constructing_since is None:
+                constructing_since = now
+        else:
+            constructing_since = None
+
+        delay, backoff = _poll_delay(
+            backoff, None if constructing_since is None else now - constructing_since
+        )
+        # Re-read through `_deadline()` so a preemption that arrives while
+        # this loop is between polls shortens the very next sleep, rather than
+        # only being noticed at the top of the following pass.
+        await asyncio.sleep(min(delay, max(0.0, _deadline() - time.monotonic())))
+
+    if capture is not None:
+        capture.unlink(missing_ok=True)
+    raise TimeoutError(
+        f"could not reach a runtime for session {session_id} within {deadline_s:.0f}s"
+    ) from last_error
+
+
+def _poll_delay(backoff: float, constructing_for_s: float | None) -> tuple[float, float]:
+    """Pick the next poll interval, and the backoff to carry forward.
+
+    ``constructing_for_s`` is how long a construction has been KNOWN to be in
+    flight — no record has been published yet, and either a candidate we
+    spawned is alive or a contender holds the lease — or ``None`` when nothing
+    is known to be constructing. Returns ``(sleep_for, next_backoff)``.
+
+    The "no record yet" half is not redundant: a held lease alone does not mean
+    construction, because it is released only on session disposal. See the
+    caller's comment on ``constructing`` for the retry storm that omitting it
+    caused.
+
+    WHY TWO REGIMES
+    ===============
+    The single exponential grid this replaces served both of the loop's waits,
+    but they are not the same wait and the shape that suits one is wrong for
+    the other:
+
+    * **Known construction.** No record exists yet, and we have a live
+      ``Popen`` (or a lease naming a live pid) plus a good prior on when the
+      record lands — measured at ~0.4 s for a deferred warm start and ~1.2 s
+      for a full cold session, on an M-series dev box. The record's arrival is
+      an EVENT we are already close to; the only question is how soon after it
+      we look. A flat, dense grid answers within one interval.
+    * **Open-ended wait.** Nothing is known to be constructing. There is no
+      prior at all, the wait may run the whole 30-second deadline, and
+      polling it densely is a spin that buys nothing. That is the wait the
+      exponential backoff was written for, and it keeps it unchanged. A
+      published record that refuses the dial lives HERE, not above.
+
+    THE MEASUREMENT THAT FORCED THIS
+    ================================
+    Under one grid (``0.05 → ×1.7 → cap 1.0``) the polls fire at 50, 135,
+    280, 525, 943 ms. A warm ``/new`` child publishes its record at ~400 ms,
+    which falls between the 280 ms and 525 ms wakes — so the parent slept
+    ~145 ms past a runtime that was already serving, and a child landing just
+    after 525 ms waited until 943 ms. Measured over 7 isolated runs
+    (``scripts/bench_runtime_attach.py``): child ready at a median of 401 ms,
+    parent noticed at 538 ms, **144 ms median dead time and 318 ms at worst**.
+    The totals clustered bimodally at ~540 ms and ~990 ms precisely because
+    they were quantized to that grid.
+
+    **What this change controls is the dead time, and only that.** An
+    independent QA round reproduced the collapse in every one of three
+    interleaved A/B runs (~94-136 ms down to ~10-16 ms) but measured the
+    TOTAL attach improving by 2.1%, 15.0% and 16.6% \u2014 not the 34.9% an idle
+    box shows. The child's own construction dominates the total and varies far
+    more than the dead time removed here, so the percentage is a property of
+    how loaded the machine is, not of this code. State the dead time when
+    quoting this change; the total is a consequence, and a variable one.
+
+    WHY DENSE POLLING IS AFFORDABLE HERE
+    ====================================
+    The backoff was protecting against a cost that does not exist at these
+    timescales. One full poll iteration — ``find_runtime_record`` (a miss scan),
+    ``_lease_holder``, and ``Popen.poll`` — measures 23-30 µs against a run
+    directory of 200 real records, and is FLAT from 0 to 200 because
+    ``find_runtime_record`` returns before ``scan()`` when there is no owner
+    marker (QA round 1, Q3; an earlier author estimate of 339 µs on an
+    11-record dir was pessimistic). At a 10 ms interval that is a 0.2-0.3%
+    duty cycle on one thread, for at most ``_CONSTRUCTING_WINDOW_S``, and only
+    while a session is genuinely starting.
+
+    The nominal 100 Hz is also not what the loop achieves: real work per
+    iteration plus scheduling put the measured rate at ~42 Hz (126 dense wakes
+    in 3033 ms), so "10 ms" overstates how often the parent actually looks.
+
+    The dense window is bounded rather than open-ended for exactly the reason
+    the backoff exists: a construction still unfinished after 3 s is not about
+    to publish, so the loop stops guessing and falls back to the open-ended
+    shape.
+
+    **That 339 µs assumes a tidy run directory, and record COUNT is not what
+    threatens it.** ``scan()`` forks ``ps`` for any record whose heartbeat is
+    older than ``HEARTBEAT_INTERVAL_S * 1.5``, and such a record is not reaped,
+    so it pays that fork on every scan (review round 1, MINOR-1).
+
+    **The other two `ps` forks on this path are deferred INSIDE the grid rather
+    than paid.** Two probes in a dense iteration ask whether a holder is a live
+    process rather than a pid signal 0 accepts: the owner lookup this loop's
+    ``find_runtime_record`` makes, and ``_lease_holder``. Proving a corpse costs
+    that same fork (2.4-4.6 ms across runs here) against the 23-30 µs budget
+    above, and asking every pass would have stretched the dense period by 24-46%
+    straight out of the dead time this grid exists to remove. So the grid asks
+    only the cheap question, keyed to the CADENCE rather than to elapsed time:
+    past the grid the passes are 50 ms-1 s apart, where one or two forks is a
+    fraction of a percent of a core, and there the proof is what recovers a
+    corpse's session on that very pass. The 23-30 µs iteration figure above is
+    therefore restored for the tidy store it was measured on, and the `ps` fork a
+    dense iteration may still pay is the one this paragraph names above: the scan
+    overlap. The two corpse proofs are no longer among them — they are deferred to
+    every coarser pass, where the fork costs a fraction of a percent of a core and
+    is what recovers a corpse's session. See the cadence note at the top of the
+    engage loop.
+
+    Where that lands is narrower than it first appears, because
+    ``find_runtime_record`` returns BEFORE ``scan()`` when the session has no
+    ``.session.pid`` owner marker. Measured on this host, 8 fresh records plus
+    N quiet ones:
+
+    ====================  ===========  ===========  ===========
+    owner marker          0 quiet      1 quiet      3 quiet
+    ====================  ===========  ===========  ===========
+    absent (no owner)     0.01 ms      0.01 ms      0.01 ms
+    present               0.48 ms      14.02 ms     32.13 ms
+    ====================  ===========  ===========  ===========
+
+    So the expensive column needs an owner marker, and the cheap row is the
+    ordinary ``/new`` dense window — a freshly minted session has no owner, so
+    it never reaches ``scan()`` at all and the 339 µs figure holds.
+
+    The requirement that no record exists retires the WORST case (a marker
+    plus a dialable record is now always coarse), but one reachable overlap
+    remains and is stated here rather than glossed: a marker present with no
+    usable record yet — the genuine pre-publish window — can pay ~14 ms per
+    poll against a 10 ms interval. That is accepted rather than floored,
+    because it is SELF-LIMITING: the scans run sequentially on a ``to_thread``
+    worker, so a scan slower than its interval simply yields fewer scans
+    instead of a growing backlog, and the loop degrades toward the coarse
+    grid's own frequency. A minimum-interval floor would not help — the cost
+    is in the scan, not in the sleep — and the window is bounded by
+    ``_CONSTRUCTING_WINDOW_S`` regardless.
+    """
+    if constructing_for_s is not None and constructing_for_s < _CONSTRUCTING_WINDOW_S:
+        # Hold the backoff where it is: if the dense window expires, the
+        # open-ended wait starts from the top rather than from a value that
+        # decayed while we were watching a healthy construction.
+        return _CONSTRUCTING_POLL_S, backoff
+    return backoff, min(backoff * _POLL_FACTOR, _POLL_CAP_S)
+
+
+def _fields(work: Errand) -> dict[str, Any]:
+    """Field values of one errand, for rebuilding it with an id attached."""
+    return {name: getattr(work, name) for name in work.__slots__}

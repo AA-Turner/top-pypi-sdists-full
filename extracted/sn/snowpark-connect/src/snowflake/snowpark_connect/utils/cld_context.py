@@ -24,8 +24,10 @@ Decision Logic (from design doc):
         Else:
             UPPERCASE
 """
+import json
+import re
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from threading import Lock
 from typing import TYPE_CHECKING
 
@@ -48,6 +50,188 @@ class CLDInfo:
         None  # "CASE_SENSITIVE" or "CASE_INSENSITIVE"
     )
     database_name: str | None = None
+    # External catalog provider label for telemetry. "managed" for a non-CLD
+    # (Snowflake-managed) session; for a CLD, one of the values produced by
+    # `_classify_catalog_provider` (glue / unity / horizon / other), or
+    # "unknown" when the integration lookup fails.
+    catalog_provider: str | None = None
+
+
+# Telemetry catalog-provider labels. Non-CLD sessions report MANAGED; CLD
+# sessions resolve their catalog integration's CATALOG_SOURCE (+ REST config)
+# to one of the external providers. UNKNOWN is the safe fallback when the
+# integration can't be resolved.
+CATALOG_PROVIDER_MANAGED = "managed"
+CATALOG_PROVIDER_GLUE = "glue"
+CATALOG_PROVIDER_UNITY = "unity"
+CATALOG_PROVIDER_HORIZON = (
+    "horizon"  # emitted for CATALOG_SOURCE = POLARIS (Open Catalog / Horizon)
+)
+# Any resolved external catalog that isn't glue / unity / horizon (object store,
+# S3 Tables, a generic Iceberg REST endpoint, ...). Only the three above are
+# broken out; everything else is deliberately collapsed here.
+CATALOG_PROVIDER_OTHER = "other"
+CATALOG_PROVIDER_UNKNOWN = "unknown"
+
+# Canonical telemetry catalog_kind vocabulary. Docstrings that enumerate the
+# values should point here so they can't drift from the classifier.
+CATALOG_PROVIDERS = frozenset(
+    {
+        CATALOG_PROVIDER_MANAGED,
+        CATALOG_PROVIDER_GLUE,
+        CATALOG_PROVIDER_UNITY,
+        CATALOG_PROVIDER_HORIZON,
+        CATALOG_PROVIDER_OTHER,
+        CATALOG_PROVIDER_UNKNOWN,
+    }
+)
+
+
+def _classify_catalog_provider(
+    catalog_source: str | None,
+    catalog_api_type: str | None = None,
+    catalog_uri: str | None = None,
+) -> str:
+    """Map a catalog integration's DESCRIBE output to a telemetry provider label.
+
+    Only glue / unity / horizon are broken out; every other resolved catalog
+    source (object store, S3 Tables, a generic Iceberg REST endpoint, or an
+    unmapped source) collapses to ``"other"``. ``catalog_source`` is the
+    CATALOG_SOURCE property (GLUE / POLARIS / OBJECT_STORE / AWS_S3_TABLES /
+    ICEBERG_REST); glue and unity can both arrive as ICEBERG_REST, so they're
+    split by the REST config (``catalog_api_type`` first, then the
+    ``catalog_uri`` host). ``"unknown"`` is reserved for "couldn't resolve the
+    source at all" (empty source / lookup failed).
+    """
+    src = (catalog_source or "").strip().upper()
+    api = (catalog_api_type or "").strip().upper()
+    uri = (catalog_uri or "").strip().lower()
+
+    if not src:
+        return CATALOG_PROVIDER_UNKNOWN
+    if src == "GLUE":
+        return CATALOG_PROVIDER_GLUE
+    if src == "POLARIS":
+        return CATALOG_PROVIDER_HORIZON
+    if src == "UNITY":
+        return CATALOG_PROVIDER_UNITY
+    if src == "ICEBERG_REST":
+        if api in ("AWS_GLUE", "AWS_PRIVATE_GLUE") or "glue." in uri:
+            return CATALOG_PROVIDER_GLUE
+        if (
+            api in ("UNITY", "DATABRICKS")
+            or "databricks" in uri
+            or "/unity-catalog" in uri
+        ):
+            return CATALOG_PROVIDER_UNITY
+        return CATALOG_PROVIDER_OTHER
+    # OBJECT_STORE, AWS_S3_TABLES, and any other resolved-but-uninteresting source.
+    return CATALOG_PROVIDER_OTHER
+
+
+def _extract_config_value(raw: str, key: str) -> str | None:
+    """Pull ``key`` from a config blob that may be JSON or SQL-ish key=value text.
+
+    DESCRIBE CATALOG INTEGRATION's ``REST_CONFIG`` property_value has been seen as
+    both a JSON object and a parenthesized ``KEY = 'value'`` string, so try JSON
+    first and fall back to a case-insensitive ``key=value`` scan. None on any miss.
+    """
+    if not raw:
+        return None
+    try:
+        obj = json.loads(raw)
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if str(k).upper() == key.upper() and v is not None:
+                    return str(v)
+    except (ValueError, TypeError):
+        pass
+    match = re.search(
+        rf"{re.escape(key)}\s*=\s*'?([A-Za-z0-9_.:/\-]+)'?", raw, re.IGNORECASE
+    )
+    return match.group(1) if match else None
+
+
+def _get_cld_catalog_integration(
+    session: "snowpark.Session", database_cache_key: str
+) -> str | None:
+    """Return the catalog-integration name a CLD is linked to, or None.
+
+    ``SYSTEM$GET_CATALOG_LINKED_DATABASE_CONFIG`` returns JSON with the documented
+    keys ``catalog_integration`` (the integration name) and ``catalog_name`` (the
+    external catalog *namespace* -- never the integration identifier, so it is not
+    used here). We read ``catalog_integration`` (accepting a camelCase spelling
+    defensively) and ignore everything else.
+    """
+    escaped = database_cache_key.replace("'", "''")
+    try:
+        rows = collect_without_telemetry(
+            session.sql(
+                f"SELECT SYSTEM$GET_CATALOG_LINKED_DATABASE_CONFIG('{escaped}')"
+            )
+        )
+    except Exception as e:
+        logger.debug(
+            "GET_CATALOG_LINKED_DATABASE_CONFIG %r failed: %s", database_cache_key, e
+        )
+        return None
+    if not rows or rows[0] is None or rows[0][0] is None:
+        return None
+    try:
+        cfg = json.loads(str(rows[0][0]))
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(cfg, dict):
+        return None
+    for candidate in ("catalog_integration", "catalogIntegration"):
+        val = cfg.get(candidate)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
+def _resolve_catalog_provider(
+    session: "snowpark.Session", database_cache_key: str
+) -> str:
+    """Resolve a CLD's external catalog provider label (best-effort, never raises).
+
+    CLD -> linked catalog integration -> ``DESCRIBE CATALOG INTEGRATION`` ->
+    CATALOG_SOURCE (+ REST config) -> provider label. Any failure degrades to
+    ``"unknown"`` so telemetry resolution never breaks a request.
+    """
+    integration_name = _get_cld_catalog_integration(session, database_cache_key)
+    if not integration_name:
+        return CATALOG_PROVIDER_UNKNOWN
+    safe = integration_name.replace('"', '""')
+    try:
+        rows = collect_without_telemetry(
+            session.sql(f'DESCRIBE CATALOG INTEGRATION "{safe}"')
+        )
+    except Exception as e:
+        logger.debug("DESCRIBE CATALOG INTEGRATION %r failed: %s", integration_name, e)
+        return CATALOG_PROVIDER_UNKNOWN
+
+    # DESCRIBE CATALOG INTEGRATION columns: property, property_type,
+    # property_value, property_default. Value is at index 2.
+    catalog_source = catalog_api_type = catalog_uri = None
+    for r in rows:
+        try:
+            prop = str(r[0]).upper()
+            val = str(r[2])
+        except (IndexError, TypeError):
+            continue
+        if prop == "CATALOG_SOURCE":
+            catalog_source = val
+        elif prop == "CATALOG_API_TYPE":
+            catalog_api_type = val
+        elif prop == "CATALOG_URI":
+            catalog_uri = val
+        elif prop == "REST_CONFIG":
+            catalog_api_type = catalog_api_type or _extract_config_value(
+                val, "CATALOG_API_TYPE"
+            )
+            catalog_uri = catalog_uri or _extract_config_value(val, "CATALOG_URI")
+    return _classify_catalog_provider(catalog_source, catalog_api_type, catalog_uri)
 
 
 # Session-level CLD context cache
@@ -57,6 +241,48 @@ _cld_cache_lock = Lock()
 
 # Warning tracking to avoid repeated warnings
 _case_sensitivity_warnings_logged: set[str] = set()
+
+# CLDs whose catalog provider couldn't be resolved yet (logged once each).
+_provider_resolution_warned: set[str] = set()
+
+# Bounded provider-resolution retries for a cached CLD still labeled unknown, so a
+# missing USAGE grant doesn't cost DESCRIBE CATALOG INTEGRATION on every RPC forever.
+_PROVIDER_MAX_RETRIES = 3
+_provider_retry_counts: dict[str, int] = {}
+
+
+def _maybe_retry_provider(session: "snowpark.Session", cache_key: str) -> str | None:
+    """Retry provider resolution for a cached-unknown CLD, up to a bounded count.
+
+    Returns the resolved provider label, or None to signal "keep the cached
+    unknown" (either the retry didn't resolve it, or the budget is exhausted and
+    we pin unknown to stop querying).
+    """
+    with _cld_cache_lock:
+        if _provider_retry_counts.get(cache_key, 0) >= _PROVIDER_MAX_RETRIES:
+            return None
+        _provider_retry_counts[cache_key] = _provider_retry_counts.get(cache_key, 0) + 1
+    provider = _resolve_catalog_provider(session, cache_key)
+    if provider and provider != CATALOG_PROVIDER_UNKNOWN:
+        with _cld_cache_lock:
+            _provider_retry_counts.pop(cache_key, None)
+        return provider
+    return None
+
+
+def _warn_provider_unresolved_once(database_name: str) -> None:
+    """Warn once per database when a CLD's catalog provider can't be resolved."""
+    with _cld_cache_lock:
+        if database_name in _provider_resolution_warned:
+            return
+        _provider_resolution_warned.add(database_name)
+    logger.warning(
+        "Could not resolve catalog provider for CLD %r; telemetry catalog_kind will "
+        "report 'unknown' until the lookup succeeds (check USAGE on the catalog "
+        "integration).",
+        database_name,
+    )
+
 
 # Session-level CLD hint, carried via a ContextVar so identifier
 # transformation helpers (`spark_to_sf_single_id`, `_spark_field_to_sql`, ...)
@@ -112,6 +338,22 @@ def set_current_cld_context(info: CLDInfo) -> None:
 def is_in_cld_context() -> bool:
     """Check if the current request is in a CLD context."""
     return _current_cld_context.get().is_cld
+
+
+def catalog_kind() -> str:
+    """Return the telemetry catalog-provider label for the current session.
+
+    ``"managed"`` for a non-CLD (Snowflake-managed) session; for a CLD, the
+    resolved external provider (glue / unity / horizon / other) or ``"unknown"`` when the integration couldn't be classified.
+
+    Replaces the old inline ``"cld" if is_in_cld_context() else "managed"``
+    idiom at the Iceberg telemetry call sites so the emitted ``catalog_kind``
+    carries the actual provider.
+    """
+    ctx = _current_cld_context.get()
+    if ctx.catalog_provider:
+        return ctx.catalog_provider
+    return CATALOG_PROVIDER_UNKNOWN if ctx.is_cld else CATALOG_PROVIDER_MANAGED
 
 
 def should_use_cld_identifier_rules(is_cld: bool | None = None) -> bool:
@@ -270,6 +512,19 @@ def get_cld_info(session: "snowpark.Session", database_name: str | None) -> CLDI
     # every session fetch across all gRPC worker threads.
     cached = _cld_cache.get(cache_key)
     if cached is not None:
+        # CLD-ness and case-sensitivity are cached write-once. Only the provider
+        # is retried (bounded): if a cached CLD is still unresolved, re-attempt
+        # resolution without re-running SHOW DATABASES / DESCRIBE DATABASE.
+        if cached.is_cld and cached.catalog_provider in (
+            None,
+            CATALOG_PROVIDER_UNKNOWN,
+        ):
+            provider = _maybe_retry_provider(session, cache_key)
+            if provider:
+                updated = replace(cached, catalog_provider=provider)
+                with _cld_cache_lock:
+                    _cld_cache[cache_key] = updated
+                return updated
         return cached
 
     # Slow path: query Snowflake outside the lock so a slow `SHOW DATABASES`
@@ -291,6 +546,7 @@ def get_cld_info(session: "snowpark.Session", database_name: str | None) -> CLDI
 
             # Try to get CATALOG_CASE_SENSITIVITY if available
             catalog_case_sensitivity = None
+            catalog_provider = CATALOG_PROVIDER_MANAGED
             if is_cld:
                 try:
                     # Use quoted identifier for DESCRIBE (defensive against SQL injection)
@@ -310,12 +566,25 @@ def get_cld_info(session: "snowpark.Session", database_name: str | None) -> CLDI
                         cache_key,
                         e,
                     )
+                # Resolve the external catalog provider (glue / unity / horizon /
+                # ...). Best-effort and self-contained; degrades to "unknown".
+                catalog_provider = _resolve_catalog_provider(session, cache_key)
 
             info = CLDInfo(
                 is_cld=is_cld,
                 catalog_case_sensitivity=catalog_case_sensitivity,
                 database_name=cache_key,
+                catalog_provider=catalog_provider,
             )
+
+            # Always cache CLD-ness + case-sensitivity (both stable and worth not
+            # re-querying). If the provider came back "unknown" (missing USAGE on
+            # the catalog integration, or a transient DESCRIBE failure) it stays
+            # retryable: subsequent cache hits re-attempt only the provider lookup
+            # (bounded), so we never re-run SHOW DATABASES / DESCRIBE DATABASE just
+            # to retry the provider.
+            if is_cld and catalog_provider == CATALOG_PROVIDER_UNKNOWN:
+                _warn_provider_unresolved_once(cache_key)
 
             with _cld_cache_lock:
                 # Double-check: another thread may have written between our
@@ -439,7 +708,9 @@ def transform_identifier_for_snowflake(
 
 def clear_cld_cache() -> None:
     """Clear the CLD cache. Useful for testing or session reset."""
-    global _cld_cache, _case_sensitivity_warnings_logged
+    global _cld_cache, _case_sensitivity_warnings_logged, _provider_resolution_warned
     with _cld_cache_lock:
         _cld_cache.clear()
+        _provider_retry_counts.clear()
     _case_sensitivity_warnings_logged.clear()
+    _provider_resolution_warned.clear()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: exa-py
-Version: 2.23.0
+Version: 2.25.0
 Summary: Python SDK for Exa API.
 License: MIT
 License-File: LICENSE
@@ -119,6 +119,14 @@ Deep search variants that also support `additional_queries`:
 - `deep-lite`
 - `deep`
 - `deep-reasoning`
+
+### Raw body fields
+
+Use `extra_body` for per-call search body overrides.
+
+```python
+result = exa.search("AI research", extra_body={"futureField": True})
+```
 
 ## Contents
 

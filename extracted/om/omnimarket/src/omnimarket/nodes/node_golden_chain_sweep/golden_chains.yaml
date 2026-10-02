@@ -1,0 +1,226 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Registry of golden chains for end-to-end Kafka-to-DB-projection validation.
+# Add new chains here — the sweep tool picks them up automatically.
+
+chains:
+  - name: registration
+    head_topic: onex.evt.omniclaude.routing-decision.v1
+    tail_table: agent_routing_decisions
+    expected_fields:
+      - correlation_id
+      - selected_agent
+
+  - name: pattern_learning
+    head_topic: onex.evt.omniintelligence.pattern-stored.v1
+    tail_table: pattern_learning_artifacts
+    # OMN-13639: recency assertion. Field-presence alone reads green on a
+    # weeks-old fixture row even when the producer is idle. A row older than
+    # this window downgrades the chain to STALE (a distinct non-PASS tri-state),
+    # so green requires recent flow. 86400s == 24h: a healthy producer projects
+    # at least daily.
+    # OMN-14536: the recency column is the projection's `projected_at` stamp —
+    # the pattern_learning_artifacts row has no `created_at` column, so the old
+    # `created_at` value made this check perpetually STALE against any real row
+    # (decorative). `projected_at` is set to the projection clock on every write.
+    timestamp_field: projected_at
+    max_row_age_seconds: 86400
+    expected_fields:
+      - correlation_id
+
+  - name: delegation
+    head_topic: onex.evt.omniclaude.task-delegated.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+      - tokens_to_compliance
+      - compliance_attempts
+
+  - name: routing
+    head_topic: onex.evt.omniclaude.llm-routing-decision.v1
+    tail_table: llm_routing_decisions
+    expected_fields:
+      - correlation_id
+
+  - name: evaluation
+    head_topic: onex.evt.omniclaude.session-outcome.v1
+    tail_table: session_outcomes
+    # OMN-13639: recency assertion (see pattern_learning above). The session_id
+    # fixture row (sess-001) is ~4 weeks old; without this a green verdict masks
+    # an idle session-outcome producer. 86400s == 24h freshness window.
+    # OMN-14536: the recency column is the projection's `ingested_at` stamp — the
+    # session_outcomes row has no `created_at` column (it writes emitted_at +
+    # ingested_at), so the old `created_at` value made this check perpetually
+    # STALE against any real row. `ingested_at` is the projection clock.
+    timestamp_field: ingested_at
+    max_row_age_seconds: 86400
+    expected_fields:
+      - session_id
+
+  # OMN-12660: WS-G — SEA acceptance chain (happy path)
+  - name: sea_acceptance
+    head_topic: onex.cmd.omnibase-infra.delegation-request.v1
+    tail_table: delegation_events
+    proof_classification: diagnostic
+    replay_status: replay-not-applicable
+    expected_fields:
+      - correlation_id
+      - task_type
+      - delegated_to
+    stages:
+      - name: routing_decision
+        handler: node_delegation_routing_reducer.HandlerRoutingIntent
+        topic: onex.evt.omnibase-infra.routing-decision.v1
+      - name: inference_response
+        handler: node_llm_delegation_call_effect.HandlerInferenceIntent
+        topic: onex.evt.omnibase-infra.inference-response.v1
+      - name: terminal_projection
+        handler: node_projection_delegation.HandlerProjectionDelegation
+        topic: onex.evt.omnibase-infra.delegation-completed.v1
+
+  # OMN-12660: WS-G — Error chain D3 (cloud tier routing regression guard)
+  # OMN-13544: base_url/model never existed as delegation_events columns; the
+  # resolved model lands in the projection column model_name.
+  - name: d3_local_routing
+    head_topic: onex.cmd.omnibase-infra.delegation-inference-request.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+      - model_name
+
+  # OMN-12660: WS-G — Error chain D1/D2 (scaffold stub / registration truth regression guard)
+  # OMN-13544: node_name/contract_passed/content never existed as columns; the
+  # contract-pass signal is quality_gate_passed and the body is response_text.
+  - name: d1_d2_scaffold
+    head_topic: onex.evt.omnibase-infra.delegation-completed.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+      - quality_gate_passed
+      - response_text
+
+  # OMN-12660: WS-G — Error chain D4 (blank content as success regression guard)
+  # OMN-13544: content/model_used never existed as columns; the projected body
+  # is response_text and the model column is model_name.
+  - name: d4_blank_content
+    head_topic: onex.evt.omnibase-infra.inference-response.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+      - response_text
+      - model_name
+
+  # OMN-12660: WS-G — Error chain D9 (missing wheel module regression guard)
+  # OMN-13544: node_startup_ok never existed as a column; presence of the
+  # projected row keyed on correlation_id is the real terminal-projection guard.
+  - name: d9_wheel_module
+    head_topic: onex.cmd.omnibase-infra.delegation-request.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+
+  # OMN-12660: WS-G — Error chain F1 (publish_and_wait from running loop regression guard)
+  # OMN-13544: published_at never existed as a column; the projected event time
+  # column is timestamp.
+  - name: f1_publish_loop
+    head_topic: onex.cmd.omnibase-infra.delegation-request.v1
+    tail_table: delegation_events
+    expected_fields:
+      - correlation_id
+      - timestamp
+
+  # OMN-12687: WS I-A — inference request/response behavioral chain
+  - name: delegation_inference_round_trip
+    head_topic: onex.cmd.omnibase-infra.delegation-inference-request.v1
+    tail_table: event_bus:onex.evt.omnibase-infra.inference-response.v1
+    proof_classification: diagnostic
+    replay_status: replay-not-applicable
+    expected_fields:
+      - correlation_id
+      - content
+      - model_used
+      - llm_call_id
+      - prompt_tokens
+      - completion_tokens
+      - total_tokens
+    stages:
+      - name: inference_request
+        handler: node_llm_delegation_call_effect.HandlerInferenceIntent
+        topic: onex.cmd.omnibase-infra.delegation-inference-request.v1
+      - name: inference_response
+        handler: node_llm_delegation_call_effect.HandlerInferenceIntent
+        topic: onex.evt.omnibase-infra.inference-response.v1
+
+  # OMN-15147: cloud ops-mirror canary — push-validation golden chain,
+  # cloned from the sea_acceptance shape (diagnostic/replay-not-applicable).
+  # SCOPE NARROWING (named explicitly, not silently substituted): the ticket's
+  # literal ask (items 3/4) is a dedicated push-validation-specific cloud
+  # projection table (an omnimarket-projection-api cloud equivalent). That
+  # does not exist tonight, so this chain's terminal stage instead tails
+  # public.gateway_workflows (omninode_infra, already live — written by
+  # apply_workflow_terminal_generic / workflow_terminal_consumer.py) filtered
+  # to workflow_type='push-validation'. This is a real, non-omnimarket table:
+  # the reachability oracle (reachability.py) can find no in-repo projection
+  # writing it, so this chain is automatically routed to Group B
+  # (omnibase_infra CI), never Group A — no census-collector fixture needed
+  # here. Follow-up (honest_stop, not filed as a ticket this session): build
+  # the dedicated push-validation cloud projection table/service and swap
+  # this chain's tail_table to it.
+  #
+  # head_topic MUST stay byte-for-byte equal to
+  # omninode_infra/docker/onex-api/topic_constants.py::PUSH_VALIDATION_REQUEST_TOPIC
+  # and to node_push_validation_effect/contract.yaml's runtime_dispatch.command_topic
+  # (both independently verified equal at authoring time).
+  #
+  # UNVERIFIED THIS SESSION (named, not assumed): whether golden_chain_sweep /
+  # census_collector can target the onex-dev k8s Postgres/broker at all, vs.
+  # being .201-lab-lane-only by construction (collect_census has no DB/broker
+  # dial-out in this repo — projected_rows are caller-supplied, so a future
+  # cloud-targeting caller is plausible but does not exist yet). This
+  # registration is therefore code-only/dev-verifiable tonight, not
+  # cloud-sweep-runnable.
+  - name: push_validation
+    head_topic: onex.cmd.omnimarket.push-validation-requested.v1
+    tail_table: gateway_workflows
+    proof_classification: diagnostic
+    replay_status: replay-not-applicable
+    expected_fields:
+      - correlation_id
+      - workflow_type
+      - status
+    stages:
+      - name: push_validation_requested
+        topic: onex.cmd.omnimarket.push-validation-requested.v1
+      - name: push_validation_completed
+        handler: node_push_validation_effect.HandlerPushValidationEffect
+        topic: onex.evt.omnimarket.push-validation-completed.v1
+      - name: push_validation_failed
+        handler: node_push_validation_effect.HandlerPushValidationEffect
+        topic: onex.evt.omnimarket.push-validation-failed.v1
+      - name: terminal_projection
+        table: gateway_workflows
+
+  # OMN-12687: WS I-A — terminal reducer materialization chain
+  - name: delegation_projection_materialization
+    head_topic: onex.evt.omnibase-infra.delegation-completed.v1
+    tail_table: delegation_events
+    proof_classification: diagnostic
+    replay_status: replay-proven
+    expected_fields:
+      - correlation_id
+      - task_type
+      - delegated_to
+      - model_name
+      - quality_gate_passed
+      - response_text
+      - tokens_input
+      - tokens_output
+      - tokens_to_compliance
+      - compliance_attempts
+    stages:
+      - name: delegation_completed
+        handler: node_projection_delegation.HandlerProjectionDelegation
+        topic: onex.evt.omnibase-infra.delegation-completed.v1
+      - name: delegation_events_row
+        handler: node_projection_delegation.HandlerProjectionDelegation
+        table: delegation_events

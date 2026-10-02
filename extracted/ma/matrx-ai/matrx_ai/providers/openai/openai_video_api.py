@@ -21,7 +21,7 @@ from matrx_ai.providers.base_media import (
     BaseMediaGeneration,
     GeneratedAsset,
 )
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import make_capture_http_client
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 
@@ -37,6 +37,7 @@ class OpenAIVideoGeneration(BaseMediaGeneration):
         "OPENAI_API_KEY",
         factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )

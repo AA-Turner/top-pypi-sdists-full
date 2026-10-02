@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pytest-recording
-Version: 0.13.4
+Version: 0.14.0
 Summary: A pytest plugin powered by VCR.py to record and replay HTTP traffic
 Project-URL: Documentation, https://github.com/kiwicom/pytest-recording
 Project-URL: Changelog, https://github.com/kiwicom/pytest-recording/blob/master/docs/changelog.rst
@@ -19,28 +19,29 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: pytest>=3.5.0
 Requires-Dist: vcrpy>=2.0.1
 Provides-Extra: dev
 Requires-Dist: pytest-httpbin; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
-Requires-Dist: werkzeug==3.1.3; extra == 'dev'
+Requires-Dist: werkzeug==3.1.8; extra == 'dev'
 Provides-Extra: tests
 Requires-Dist: pytest-httpbin; extra == 'tests'
 Requires-Dist: pytest-mock; extra == 'tests'
 Requires-Dist: requests; extra == 'tests'
-Requires-Dist: werkzeug==3.1.3; extra == 'tests'
+Requires-Dist: werkzeug==3.1.8; extra == 'tests'
 Description-Content-Type: text/x-rst
 
 pytest-recording
@@ -163,6 +164,20 @@ Resulting VCR configs for each test:
 
 - ``test_one`` - ``{"ignore_localhost": True, "filter_headers": []}``
 - ``test_two`` - ``{"ignore_localhost": True, "filter_headers": ["authorization"], "filter_query_parameters": ["api_key"]}``
+
+The ``vcr_config`` fixture forwards any keyword argument to vcrpy, so ``ignore_hosts``
+and other VCR.py options work directly:
+
+.. code:: python
+
+    import pytest
+
+    @pytest.fixture(scope="module")
+    def vcr_config():
+        return {
+            "filter_headers": ["authorization"],
+            "ignore_hosts": ["169.254.169.254", "metadata.google.internal"],
+        }
 
 You can get access to the used ``VCR`` instance via ``pytest_recording_configure`` hook. It might be useful for registering
 custom matchers, persisters, etc.:
@@ -317,8 +332,8 @@ Python support
 
 Pytest-recording supports:
 
-- CPython 3.9, 3.10, 3.11, 3.12, and 3.13
-- PyPy 7.3 (3.10)
+- CPython 3.10, 3.11, 3.12, 3.13, 3.14 and 3.15
+- PyPy 7.3 (3.11)
 
 License
 -------

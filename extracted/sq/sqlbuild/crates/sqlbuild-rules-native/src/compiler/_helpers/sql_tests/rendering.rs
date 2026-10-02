@@ -1,0 +1,702 @@
+//! Deterministic comparison SQL rendering for planned SQL-native tests.
+
+use std::collections::{HashMap, HashSet};
+
+use polyglot_sql::{Dialect, DialectType};
+
+use crate::compiler::_helpers::sql_tests::cte_rename::{CteRename, rename_ctes};
+use crate::compiler::_helpers::sql_tests::cte_slices::{
+    SliceDialect, WithSlices, identifier_keys, split_top_level_with, strip_statement_terminators,
+    used_ctes,
+};
+use crate::compiler::_helpers::sql_tests::cte_sql::{
+    cte_definition_sql, leading_with_prefix_end, with_leading_ctes,
+};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
+
+const DEFAULT_WORKERS: usize = 4;
+const MAX_WORKERS: usize = 4;
+const WORKER_STACK_BYTES: usize = 16 * 1024 * 1024;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RenderBatchRequest {
+    requests: Vec<RenderRequest>,
+    #[serde(default = "default_workers")]
+    workers: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DifferenceSampleRequest {
+    step: ChainStep,
+    #[serde(default = "default_true")]
+    sql_analysis_enabled: bool,
+    #[serde(default = "default_set_difference")]
+    set_difference_operator: String,
+    #[serde(default)]
+    sql_analysis_dialect: Option<String>,
+    direction: DifferenceDirection,
+    sample_limit: usize,
+    #[serde(default)]
+    use_top_clause: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum DifferenceDirection {
+    Unexpected,
+    Missing,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RenderRequest {
+    #[serde(default)]
+    pub(crate) chain: Vec<ChainStep>,
+    #[serde(default)]
+    pub(crate) assertions: Vec<AssertionStep>,
+    #[serde(default = "default_true")]
+    pub(crate) sql_analysis_enabled: bool,
+    #[serde(default = "default_set_difference")]
+    pub(crate) set_difference_operator: String,
+    #[serde(default)]
+    pub(crate) sql_analysis_dialect: Option<String>,
+    #[serde(default)]
+    pub(crate) probe_step_index: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChainStep {
+    pub(crate) model_name: String,
+    pub(crate) resolved_sql: String,
+    #[serde(default)]
+    pub(crate) expected_cte_sql: Option<String>,
+    #[serde(default)]
+    pub(crate) expected_lifted_ctes: Vec<(String, String)>,
+    #[serde(default)]
+    pub(crate) lifted_ctes: Vec<(String, String)>,
+    #[serde(default)]
+    pub(crate) comparison_body_sql: Option<String>,
+    #[serde(default)]
+    pub(crate) expected_columns: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssertionStep {
+    pub(crate) name: String,
+    pub(crate) resolved_sql: String,
+    #[serde(default)]
+    pub(crate) lifted_ctes: Vec<(String, String)>,
+    #[serde(default)]
+    pub(crate) comparison_body_sql: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RenderResponse {
+    sql: String,
+}
+
+/// One CTE placed in the shared top-level WITH, keeping its authored header and body text.
+struct LiftedCte {
+    key: String,
+    header: String,
+    body: String,
+    authored: String,
+    origin: String,
+}
+
+impl LiftedCte {
+    fn conflicts(&self, key: &str, header: &str, authored: &str) -> bool {
+        self.key == key
+            && (!same_header(&self.header, header) || self.authored.trim() != authored.trim())
+    }
+}
+
+/// Headers name the same CTE when equal, or equal up to case when nothing in them is quoted.
+fn same_header(left: &str, right: &str) -> bool {
+    left == right || (left.eq_ignore_ascii_case(right) && !left.contains(['"', '`', '[', '\'']))
+}
+
+struct RenderCteState {
+    dialect: SliceDialect,
+    lifted: Vec<LiftedCte>,
+    name_counts: CteSuffixCounter,
+    renamed_ctes: usize,
+}
+
+impl RenderCteState {
+    fn new(dialect: SliceDialect) -> Self {
+        Self {
+            dialect,
+            lifted: Vec::new(),
+            name_counts: CteSuffixCounter::default(),
+            renamed_ctes: 0,
+        }
+    }
+
+    /// Lift a query's CTEs verbatim and return its body, nesting it unchanged on a name clash.
+    fn lift(&mut self, sql: &str, enabled: bool, origin: &str) -> Result<String, String> {
+        let sql = strip_statement_terminators(sql, self.dialect);
+        if !enabled || leading_with_prefix_end(sql).is_none() {
+            return Ok(sql.to_string());
+        }
+        let split = match split_top_level_with(sql, self.dialect) {
+            Ok(Some(split)) => split,
+            Ok(None) | Err(_) => return self.nested(sql, enabled, origin, &[]),
+        };
+        let colliding = self.colliding_indices(&split, &vec![true; split.ctes.len()]);
+        if !colliding.is_empty() {
+            if let Some(renamed) = self.rename_colliding(sql, &split, &colliding) {
+                return self.lift(&renamed, enabled, origin);
+            }
+            let message = self.collision_description(origin, &split, &colliding);
+            return self.nested(sql, enabled, origin, &[message]);
+        }
+        if has_duplicate_keys(split.ctes.iter().map(|cte| cte.key.as_str())) {
+            return self.nested(sql, enabled, origin, &[]);
+        }
+        for cte in &split.ctes {
+            self.push(cte.key.clone(), cte.header, cte.body, origin);
+        }
+        Ok(split.body.to_string())
+    }
+
+    /// Return SQL that cannot be lifted, refusing it where the dialect rejects a nested WITH.
+    fn nested(
+        &self,
+        sql: &str,
+        enabled: bool,
+        origin: &str,
+        collisions: &[String],
+    ) -> Result<String, String> {
+        let sql = strip_statement_terminators(sql, self.dialect);
+        if !(enabled
+            && self.dialect.rejects_nested_with()
+            && leading_with_prefix_end(sql).is_some())
+        {
+            return Ok(sql.to_string());
+        }
+        if collisions.is_empty() {
+            return Err(format!(
+                "the WITH clause of {origin} cannot be lifted into the test query, and T-SQL \
+                 does not allow a nested WITH; use plain `name AS (...)` CTEs without RECURSIVE \
+                 or MATERIALIZED"
+            ));
+        }
+        Err(format!(
+            "{}; T-SQL does not allow a nested WITH, so rename the CTE in the model or the \
+             fixture so the names are unique",
+            collisions.join("; ")
+        ))
+    }
+
+    /// Place a chain step's generated CTEs at top level and return its comparison body.
+    fn actual_step_sql(&mut self, step: &ChainStep, enabled: bool) -> Result<String, String> {
+        let origin = format!("model '{}'", step.model_name);
+        if step.lifted_ctes.is_empty() {
+            return self.lift(&step.resolved_sql, enabled, &origin);
+        }
+        if let Some(collisions) = self.merge(&step.lifted_ctes, enabled, &origin)? {
+            return self.nested(&step.resolved_sql, enabled, &origin, &[collisions]);
+        }
+        self.lift(
+            step.comparison_body_sql
+                .as_deref()
+                .unwrap_or(&step.resolved_sql),
+            enabled,
+            &origin,
+        )
+    }
+
+    /// Place an expected step's helper CTEs at top level and return its comparison body.
+    fn expected_step_sql(
+        &mut self,
+        step: &ChainStep,
+        expected_sql: &str,
+        enabled: bool,
+    ) -> Result<String, String> {
+        let origin = format!("the expected rows of model '{}'", step.model_name);
+        if step.expected_lifted_ctes.is_empty() {
+            return self.lift(expected_sql, enabled, &origin);
+        }
+        if let Some(collisions) = self.merge(&step.expected_lifted_ctes, enabled, &origin)? {
+            return self.nested(
+                &with_leading_ctes(&step.expected_lifted_ctes, expected_sql),
+                enabled,
+                &origin,
+                &[collisions],
+            );
+        }
+        self.lift(expected_sql, enabled, &origin)
+    }
+
+    /// Place an assertion's helper CTEs at top level and return its comparison body.
+    fn assertion_sql(
+        &mut self,
+        assertion: &AssertionStep,
+        enabled: bool,
+    ) -> Result<String, String> {
+        let origin = format!("assertion '{}'", assertion.name);
+        if !assertion.lifted_ctes.is_empty()
+            && let Some(collisions) = self.merge(&assertion.lifted_ctes, enabled, &origin)?
+        {
+            return self.nested(&assertion.resolved_sql, enabled, &origin, &[collisions]);
+        }
+        self.lift(
+            assertion
+                .comparison_body_sql
+                .as_deref()
+                .unwrap_or(&assertion.resolved_sql),
+            enabled,
+            &origin,
+        )
+    }
+
+    /// Add generated CTEs verbatim, describing any name already lifted with different text.
+    fn merge(
+        &mut self,
+        ctes: &[(String, String)],
+        enabled: bool,
+        step_origin: &str,
+    ) -> Result<Option<String>, String> {
+        let keys: Vec<String> = ctes.iter().map(|(name, _)| cte_key(name)).collect();
+        let mut collisions: Vec<(&str, &LiftedCte)> = Vec::new();
+        for ((name, sql), key) in ctes.iter().zip(&keys) {
+            if let Some(existing) = self.conflict(key, name, sql) {
+                collisions.push((name.as_str(), existing));
+            }
+        }
+        if !collisions.is_empty() {
+            return Ok(Some(collision_message(step_origin, &collisions)));
+        }
+        for ((name, sql), key) in ctes.iter().zip(keys) {
+            if self.lifted.iter().any(|existing| existing.key == key) {
+                continue;
+            }
+            let origin = generated_cte_origin(name);
+            let body = if enabled && self.dialect.rejects_nested_with() {
+                self.flatten(sql, &origin)?
+            } else {
+                sql.clone()
+            };
+            if let Some(existing) = self.conflict(&key, name, sql) {
+                let message = collision_message(&origin, &[(name.as_str(), existing)]);
+                self.nested(sql, enabled, &origin, std::slice::from_ref(&message))?;
+                return Ok(Some(message));
+            }
+            self.lifted.push(LiftedCte {
+                key,
+                header: name.clone(),
+                body,
+                authored: sql.clone(),
+                origin,
+            });
+        }
+        Ok(None)
+    }
+
+    /// Lift the CTEs a generated body reads ahead of it; unread CTEs are dead and left out.
+    fn flatten(&mut self, sql: &str, origin: &str) -> Result<String, String> {
+        if leading_with_prefix_end(sql).is_none() {
+            return Ok(sql.to_string());
+        }
+        let split = match split_top_level_with(sql, self.dialect) {
+            Ok(Some(split)) => split,
+            Ok(None) | Err(_) => return self.nested(sql, true, origin, &[]),
+        };
+        let used = used_ctes(&split, self.dialect);
+        let colliding = self.colliding_indices(&split, &used);
+        if !colliding.is_empty() {
+            if let Some(renamed) = self.rename_colliding(sql, &split, &colliding) {
+                return self.flatten(&renamed, origin);
+            }
+            let message = self.collision_description(origin, &split, &colliding);
+            return self.nested(sql, true, origin, &[message]);
+        }
+        for (cte, _) in split.ctes.iter().zip(used).filter(|(_, used)| *used) {
+            self.push(cte.key.clone(), cte.header, cte.body, origin);
+        }
+        Ok(split.body.to_string())
+    }
+
+    /// Indices of the selected CTEs whose names are already lifted with different text.
+    fn colliding_indices(&self, split: &WithSlices<'_>, selected: &[bool]) -> Vec<usize> {
+        let mut indices: Vec<usize> = Vec::new();
+        for (index, (cte, selected)) in split.ctes.iter().zip(selected).enumerate() {
+            if *selected && self.conflict(&cte.key, cte.header, cte.body).is_some() {
+                indices.push(index);
+            }
+        }
+        indices
+    }
+
+    fn collision_description(
+        &self,
+        origin: &str,
+        split: &WithSlices<'_>,
+        indices: &[usize],
+    ) -> String {
+        let mut collisions: Vec<(&str, &LiftedCte)> = Vec::new();
+        for cte in indices.iter().filter_map(|index| split.ctes.get(*index)) {
+            if let Some(existing) = self.conflict(&cte.key, cte.header, cte.body) {
+                collisions.push((cte.header, existing));
+            }
+        }
+        collision_message(origin, &collisions)
+    }
+
+    /// Where a nested WITH is rejected, rename colliding CTEs by token span to fresh names.
+    fn rename_colliding(
+        &mut self,
+        sql: &str,
+        split: &WithSlices<'_>,
+        indices: &[usize],
+    ) -> Option<String> {
+        if !self.dialect.rejects_nested_with() {
+            return None;
+        }
+        let taken = identifier_keys(sql, self.dialect);
+        let names: Vec<String> = indices.iter().map(|_| self.fresh_name(&taken)).collect();
+        let renames: Vec<CteRename<'_>> = indices
+            .iter()
+            .zip(&names)
+            .map(|(index, name)| CteRename {
+                index: *index,
+                name,
+            })
+            .collect();
+        rename_ctes(sql, split, &renames, self.dialect)
+    }
+
+    fn fresh_name(&mut self, taken: &HashSet<String>) -> String {
+        loop {
+            let name = format!("__sqb_cte_{}", self.renamed_ctes);
+            self.renamed_ctes += 1;
+            if !taken.contains(&name) && !self.lifted.iter().any(|cte| cte.key == name) {
+                return name;
+            }
+        }
+    }
+
+    fn conflict(&self, key: &str, header: &str, body: &str) -> Option<&LiftedCte> {
+        self.lifted
+            .iter()
+            .find(|existing| existing.conflicts(key, header, body))
+    }
+
+    fn push(&mut self, key: String, header: &str, body: &str, origin: &str) {
+        if self.lifted.iter().any(|existing| existing.key == key) {
+            return;
+        }
+        self.lifted.push(LiftedCte {
+            key,
+            header: header.to_string(),
+            body: body.to_string(),
+            authored: body.to_string(),
+            origin: origin.to_string(),
+        });
+    }
+
+    fn unique_suffix(&mut self, model_name: &str) -> String {
+        self.name_counts.next(model_name)
+    }
+
+    fn definitions(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.lifted)
+            .iter()
+            .map(|cte| cte_definition_sql(&cte.header, &cte.body))
+            .collect()
+    }
+}
+
+fn collision_message(origin: &str, collisions: &[(&str, &LiftedCte)]) -> String {
+    collisions
+        .iter()
+        .map(|(header, existing)| {
+            format!(
+                "CTE '{header}' of {origin} collides with CTE '{}' of {}",
+                existing.header, existing.origin
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// Describe a generated CTE by what it stands in for: an upstream model, source or seed.
+fn generated_cte_origin(name: &str) -> String {
+    for (prefix, kind) in [
+        ("__ref__", "model"),
+        ("__source__", "source"),
+        ("__seed__", "seed"),
+    ] {
+        if let Some(rest) = name.strip_prefix(prefix) {
+            return format!("{kind} '{rest}'");
+        }
+    }
+    format!("CTE '{name}'")
+}
+
+fn has_duplicate_keys<'k>(keys: impl Iterator<Item = &'k str>) -> bool {
+    let mut seen: HashSet<&str> = HashSet::new();
+    keys.into_iter().any(|key| !seen.insert(key))
+}
+
+/// Case-insensitive CTE identity with identifier quotes removed.
+fn cte_key(name: &str) -> String {
+    let trimmed = name.trim();
+    [('"', '"'), ('`', '`'), ('[', ']')]
+        .iter()
+        .find_map(|(open, close)| trimmed.strip_prefix(*open)?.strip_suffix(*close))
+        .unwrap_or(trimmed)
+        .to_lowercase()
+}
+
+/// Readable, collision-free comparison CTE suffixes in step order.
+#[derive(Default)]
+struct CteSuffixCounter {
+    counts: HashMap<String, usize>,
+}
+
+impl CteSuffixCounter {
+    fn next(&mut self, model_name: &str) -> String {
+        let base = sanitize_cte_suffix(model_name);
+        let count = self.counts.entry(base.clone()).or_default();
+        *count += 1;
+        if *count == 1 {
+            base
+        } else {
+            format!("{base}_{count}")
+        }
+    }
+}
+
+/// Mark the chain steps whose actual SQL the comparison renderer emits.
+pub(crate) fn rendered_chain_steps(chain: &[ChainStep], assertions: &[AssertionStep]) -> Vec<bool> {
+    let mut suffixes = CteSuffixCounter::default();
+    chain
+        .iter()
+        .map(|step| {
+            let actual_cte = format!("__actual__{}", suffixes.next(&step.model_name));
+            step.expected_cte_sql.is_some() || assertions_use_actual(assertions, &actual_cte)
+        })
+        .collect()
+}
+
+pub(crate) fn render_json(request_json: &str) -> Result<String, String> {
+    let request: RenderBatchRequest =
+        serde_json::from_str(request_json).map_err(|error| error.to_string())?;
+    let workers = request.workers.clamp(1, MAX_WORKERS);
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers.min(request.requests.len().max(1)))
+        .stack_size(WORKER_STACK_BYTES)
+        .build()
+        .map_err(|error| error.to_string())?;
+    let responses: Vec<RenderResponse> = pool.install(|| {
+        request
+            .requests
+            .into_par_iter()
+            .map(render_response)
+            .collect::<Result<_, _>>()
+    })?;
+    serde_json::to_string(&responses).map_err(|error| error.to_string())
+}
+
+fn render_response(request: RenderRequest) -> Result<RenderResponse, String> {
+    Ok(RenderResponse {
+        sql: render_comparison_sql(&request)?,
+    })
+}
+
+/// Resolve the SQL-analysis dialect used to read expected-row columns.
+pub(crate) fn render_dialect(name: Option<&str>) -> Dialect {
+    name.and_then(Dialect::get_by_name)
+        .unwrap_or_else(|| Dialect::get(DialectType::Generic))
+}
+
+pub(crate) fn render_difference_sample_json(request_json: &str) -> Result<String, String> {
+    let request: DifferenceSampleRequest =
+        serde_json::from_str(request_json).map_err(|error| error.to_string())?;
+    serde_json::to_string(&RenderResponse {
+        sql: render_difference_sample_sql(&request)?,
+    })
+    .map_err(|error| error.to_string())
+}
+
+fn render_difference_sample_sql(request: &DifferenceSampleRequest) -> Result<String, String> {
+    let step = &request.step;
+    let Some(expected_input) = step.expected_cte_sql.as_deref() else {
+        return Ok(String::new());
+    };
+    let enabled = request.sql_analysis_enabled;
+    let mut cte_state =
+        RenderCteState::new(SliceDialect::new(request.sql_analysis_dialect.as_deref()));
+    let actual_sql = cte_state.actual_step_sql(step, enabled)?;
+    let expected_sql = cte_state.expected_step_sql(step, expected_input, enabled)?;
+    let mut cte_parts = cte_state.definitions();
+    cte_parts.push(cte_definition_sql("__actual", &actual_sql));
+    cte_parts.push(cte_definition_sql("__expected", &expected_sql));
+    let (left, right) = match request.direction {
+        DifferenceDirection::Unexpected => ("__actual", "__expected"),
+        DifferenceDirection::Missing => ("__expected", "__actual"),
+    };
+    let (bounded_select, limit_clause) = if request.use_top_clause {
+        (
+            format!("SELECT TOP {} *", request.sample_limit),
+            String::new(),
+        )
+    } else {
+        (
+            "SELECT *".to_string(),
+            format!(" LIMIT {}", request.sample_limit),
+        )
+    };
+    let projection = compared_projection(step);
+    Ok(format!(
+        "WITH {}\n{bounded_select} FROM (SELECT {projection} FROM {left} {} SELECT {projection} FROM {right}) AS __sqlbuild_difference{limit_clause}",
+        cte_parts.join(",\n"),
+        request.set_difference_operator,
+    ))
+}
+
+/// Columns compared for an expected-output step: the listed expected columns, else every column.
+fn compared_projection(step: &ChainStep) -> String {
+    step.expected_columns
+        .as_ref()
+        .map_or_else(|| "*".to_string(), |columns| columns.join(", "))
+}
+
+/// Render one planned test's comparison query, lifting authored CTE text verbatim.
+pub(crate) fn render_comparison_sql(request: &RenderRequest) -> Result<String, String> {
+    if request.chain.is_empty() && request.assertions.is_empty() {
+        return Ok(String::new());
+    }
+    let enabled = request.sql_analysis_enabled;
+    let mut cte_state =
+        RenderCteState::new(SliceDialect::new(request.sql_analysis_dialect.as_deref()));
+    let mut comparison_ctes: Vec<String> = Vec::new();
+    let mut select_parts: Vec<String> = Vec::new();
+    let rendered_steps = rendered_chain_steps(&request.chain, &request.assertions);
+    let mut probe_actual_cte: Option<String> = None;
+
+    for (step_index, step) in request.chain.iter().enumerate() {
+        let suffix = cte_state.unique_suffix(&step.model_name);
+        let actual_cte = format!("__actual__{suffix}");
+        let expected_cte = format!("__expected__{suffix}");
+        if !rendered_steps[step_index] {
+            continue;
+        }
+        let actual_sql = cte_state.actual_step_sql(step, enabled)?;
+        comparison_ctes.push(cte_definition_sql(&actual_cte, &actual_sql));
+        if request.probe_step_index == Some(step_index) {
+            probe_actual_cte = Some(actual_cte.clone());
+        }
+        let Some(expected_input) = step.expected_cte_sql.as_deref() else {
+            continue;
+        };
+        let expected_sql = cte_state.expected_step_sql(step, expected_input, enabled)?;
+        comparison_ctes.push(cte_definition_sql(&expected_cte, &expected_sql));
+        let projection = compared_projection(step);
+        select_parts.push(format!(
+            "SELECT {step_index} AS step_index, '{}' AS model_name, \
+             (SELECT COUNT(*) FROM {actual_cte}) AS actual_count, \
+             (SELECT COUNT(*) FROM {expected_cte}) AS expected_count, \
+             (SELECT COUNT(*) FROM (SELECT {projection} FROM {actual_cte} {} SELECT {projection} FROM {expected_cte}) AS __sqlbuild_mismatch) AS unexpected_count, \
+             (SELECT COUNT(*) FROM (SELECT {projection} FROM {expected_cte} {} SELECT {projection} FROM {actual_cte}) AS __sqlbuild_missing) AS missing_count",
+            escape_sql_string(&step.model_name),
+            request.set_difference_operator,
+            request.set_difference_operator,
+        ));
+    }
+
+    for (assertion_index, assertion) in request
+        .assertions
+        .iter()
+        .enumerate()
+        .map(|(index, assertion)| (index + request.chain.len(), assertion))
+    {
+        let suffix = cte_state.unique_suffix(&assertion.name);
+        let assertion_cte = format!("__assert__{suffix}");
+        let assertion_sql = cte_state.assertion_sql(assertion, enabled)?;
+        comparison_ctes.push(cte_definition_sql(&assertion_cte, &assertion_sql));
+        select_parts.push(format!(
+            "SELECT {assertion_index} AS step_index, 'assertion {}' AS model_name, \
+             (SELECT COUNT(*) FROM {assertion_cte}) AS actual_count, \
+             0 AS expected_count, \
+             (SELECT COUNT(*) FROM {assertion_cte}) AS unexpected_count, \
+             0 AS missing_count",
+            escape_sql_string(&assertion.name),
+        ));
+    }
+
+    if select_parts.is_empty() {
+        return Ok(String::new());
+    }
+    let mut cte_parts = cte_state.definitions();
+    cte_parts.extend(comparison_ctes);
+    if request.probe_step_index.is_some() {
+        return Ok(probe_actual_cte.map_or_else(String::new, |actual_cte| {
+            format!(
+                "WITH {}\nSELECT * FROM {actual_cte} WHERE 1 = 0",
+                cte_parts.join(",\n")
+            )
+        }));
+    }
+    Ok(format!(
+        "WITH {}\n{}",
+        cte_parts.join(",\n"),
+        select_parts.join("\nUNION ALL\n")
+    ))
+}
+
+fn sanitize_cte_suffix(model_name: &str) -> String {
+    let mut suffix = String::with_capacity(model_name.len());
+    let mut previous_separator = false;
+    for character in model_name.chars() {
+        if character.is_ascii_alphanumeric() || character == '_' {
+            suffix.push(character.to_ascii_lowercase());
+            previous_separator = false;
+        } else if !previous_separator {
+            suffix.push('_');
+            previous_separator = true;
+        }
+    }
+    let suffix = suffix.trim_matches('_');
+    if suffix.is_empty() {
+        "model".to_string()
+    } else if suffix.as_bytes()[0].is_ascii_digit() {
+        format!("model_{suffix}")
+    } else {
+        suffix.to_string()
+    }
+}
+
+fn assertions_use_actual(assertions: &[AssertionStep], actual_cte: &str) -> bool {
+    let needle = actual_cte.to_ascii_lowercase();
+    assertions.iter().any(|assertion| {
+        assertion
+            .resolved_sql
+            .to_ascii_lowercase()
+            .contains(&needle)
+    })
+}
+
+fn escape_sql_string(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+fn default_workers() -> usize {
+    DEFAULT_WORKERS
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_set_difference() -> String {
+    "EXCEPT".to_string()
+}

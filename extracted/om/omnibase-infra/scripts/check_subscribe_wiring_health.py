@@ -1,0 +1,565 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Subscribe-topic wiring health check.
+
+Static analysis that verifies every contract-declared subscribe_topic has
+at least one matching publish_topic from another contract. Detects "dead
+letter" subscriptions where a node declares it consumes from a topic but
+no node in the system publishes to it.
+
+Also checks the reverse: every publish_topic should have at least one
+subscriber (warning only, not blocking).
+
+This catches the exact class of bug where:
+- A contract.yaml declares subscribe_topics
+- But no consumer runtime wiring exists (no publisher feeds the topic)
+- Messages are silently lost or the subscription is purely aspirational
+
+Uses the existing ContractTopicExtractor for YAML parsing.
+
+Usage::
+
+    uv run python scripts/check_subscribe_wiring_health.py
+    uv run python scripts/check_subscribe_wiring_health.py --verbose
+    uv run python scripts/check_subscribe_wiring_health.py --contracts-dir src/omnibase_infra/nodes
+    uv run python scripts/check_subscribe_wiring_health.py --extra-contracts-dir ../omniclaude/src/omniclaude/nodes
+
+Exit codes:
+    0 = all subscribe topics have at least one publisher (or are allowlisted)
+    1 = one or more dead-letter subscribe topics found
+
+[OMN-7385]
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from collections import defaultdict
+from datetime import UTC, date, datetime
+from pathlib import Path
+
+# Allow running as a standalone script
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _REPO_ROOT / "src"
+if _SRC_DIR.is_dir() and str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from omnibase_infra.topics.contract_topic_extractor import ContractTopicExtractor
+
+# ---------------------------------------------------------------------------
+# Allowlist: subscribe topics that are intentionally consumed from external
+# sources (webhooks, CLI triggers, cross-repo publishers not in this scan).
+# Format: "topic": "reason | owner | expiry"
+# ---------------------------------------------------------------------------
+
+_EXTERNAL_PUBLISHER_ALLOWLIST: dict[str, str] = {
+    # omniclaude publishes these via hook scripts, not contract.yaml
+    "onex.evt.omniclaude.phase-metrics.v1": "Published by omniclaude emit-daemon hooks, not contract-declared | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.omniclaude.notification-blocked.v1": "Published by omniclaude emit-daemon hooks, not contract-declared | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.omniclaude.notification-completed.v1": "Published by omniclaude emit-daemon hooks, not contract-declared | owner: jonah | expiry: 2026-12-01",
+    # GitHub webhooks are external triggers
+    "onex.evt.github.pr-webhook.v1": "Published by GitHub webhook relay, not a node | owner: jonah | expiry: 2026-12-01",
+    # OMN-19492: signed GitHub App webhook deliveries. The publisher is the
+    # onex-api door (omninode_infra docker/onex-api, POST /v1/github/webhook,
+    # OMN-19592) on the dev-system cluster, carried to the lab by the gateway
+    # forwarder's inbound leg (OMN-19593) -- a gateway route, not a node.
+    "onex.cmd.github.webhook-delivery.v1": "Published by the onex-api GitHub webhook door (omninode_infra, OMN-19592) via the gateway forwarder inbound leg, not a node | owner: jonah | expiry: 2026-12-31",
+    # Runner usage events are produced by self-hosted runner telemetry outside
+    # contract-declared node publishers.
+    "onex.evt.omninode.runner-usage-recorded.v1": "Published by runner telemetry outside node contracts | owner: jonah | expiry: 2026-12-01",
+    # omnimarket build-loop orchestrator publishes the workflow terminal event;
+    # node_build_loop_projection_compute (this repo) consumes it. Cross-repo
+    # publisher lives in omnimarket and is not visible to this scan.
+    "onex.evt.omnimarket.build-loop-orchestrator-completed.v1": "Published by omnimarket node_build_loop_orchestrator (cross-repo) | owner: jonah | expiry: 2026-12-01",
+    # OMN-16964: the delegation terminal is published by omnimarket's
+    # node_delegate_skill_orchestrator. The infra chain-ledger writer consumes
+    # it as the caller for chain-canary link 5; this repository scan cannot see
+    # the producer contract.
+    "onex.evt.omnimarket.delegate-skill-completed.v1": "Published by omnimarket node_delegate_skill_orchestrator (cross-repo); consumed by the OMN-16964 infra chain-ledger writer | owner: lakshman | expiry: 2026-12-01",
+    # OMN-18937: the OTHER terminal, from the same producer and the same
+    # declaration. node_delegate_skill_orchestrator declares BOTH under
+    # `runtime_dispatch.terminal_events` (success/failure) and publishes both;
+    # the in-repo producer mirror is src/omnibase_infra/runtime/topics.yaml
+    # (OMN-13202). This entry exists for the same cross-repo reason as the
+    # success terminal above and for no other: the publisher is real and
+    # declared, just not in a contract this scan can read. It is NOT a gap
+    # being tolerated. Both infra consumers now subscribe -- the ledger
+    # projection, which is the only writer of public.event_ledger, and the
+    # chain-ledger writer, which is dispatched BY the terminal.
+    "onex.evt.omnimarket.delegate-skill-failed.v1": "Published by omnimarket node_delegate_skill_orchestrator as its failure terminal (runtime_dispatch.terminal_events.failure), cross-repo; consumed by the OMN-18937 ledger projection and chain-ledger writer | owner: jonah | expiry: 2026-12-01",
+    # Pattern B dispatch commands enter through local runtime transport / skill clients;
+    # RuntimePatternBBroker consumes them but no contract-declared node publishes them.
+    "onex.cmd.omnibase-infra.pattern-b-dispatch.v1": "Published by local runtime transport / runtime-backed skill clients | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.omnibase-infra.runtime-manifest-published.v1": "Published by runtime startup self-report, not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    # Baselines batch compute — triggered by scripts/run_baselines_batch_compute.py CLI publisher,
+    # not a contract-declared node publisher. The script publishes to this topic to trigger the
+    # node_baselines_batch_compute effect node. (OMN-11177)
+    "onex.cmd.omnibase-infra.baselines-batch-compute.v1": "Published by scripts/run_baselines_batch_compute.py CLI trigger, not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    # Savings correlation batch compute — same self-only-command-topic shape as
+    # baselines-batch-compute above, but triggered directly by an in-process
+    # asyncio loop in service_kernel.py (HandlerSavingsCorrelation.
+    # run_correlation_batch), never published to over Kafka at all. Declared
+    # purely so operation_match auto-wiring resolves a real handler for the
+    # node's savings.correlation_batch_compute capability. (OMN-16293)
+    "onex.cmd.omnibase-infra.savings-correlation-batch-compute.v1": "Triggered directly by an in-process periodic asyncio loop in service_kernel.py (HandlerSavingsCorrelation), never published over Kafka | owner: jonah | expiry: 2026-12-01",
+    # Gateway attach control-plane command topics (OMN-15750) — published by the
+    # edge-side dialer (customer-premise / .201 test-lane connector,
+    # docker/docker-compose.gateway-attach-test-lane.yml +
+    # scripts/proof/gateway_attach_e2e_proof.py), never by another
+    # contract-declared node. Same external-CLI-publisher shape as the
+    # baselines-batch-compute entry above.
+    "onex.cmd.omnibase-infra.gateway-attach-request.v1": "Published by the edge-side attach dialer (customer-premise/.201 test-lane connector), not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.gateway-heartbeat-request.v1": "Published by the edge-side attach dialer (customer-premise/.201 test-lane connector), not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.gateway-detach-request.v1": "Published by the edge-side attach dialer (customer-premise/.201 test-lane connector), not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    # Runner-fleet-maintain tick — triggered by the reused OMN-13915
+    # runner-fleet-canary 15-min GitHub-hosted schedule (OMN-13942 Increment 1),
+    # not a contract-declared Kafka publisher.
+    "onex.cmd.omnibase-infra.runner-fleet-maintain-start.v1": "Triggered by the reused OMN-13915 runner-fleet-canary GHA schedule, not Kafka | owner: jonah | expiry: 2026-12-01",
+    # OMN-15006: node_ledger_projection_compute widened subscribe_topics to
+    # OCC governance + omnimarket-redeploy topics whose canonical publisher
+    # contracts live in onex_change_control / omnimarket (cross-repo, not
+    # visible to this scan). Topic strings are onex_change_control's own
+    # GovernanceTopic registry (OMN-8635).
+    "onex.evt.occ.nightly-promotion.v1": "Published by onex_change_control nightly dev-to-main promotion pipeline (GovernanceTopic.NIGHTLY_PROMOTION), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.onex-change-control.governance-check-completed.v1": "Published by onex_change_control governance check pipeline (GovernanceTopic.GOVERNANCE_CHECK_COMPLETED), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.onex-change-control.contract-drift-detected.v1": "Published by onex_change_control drift detection (GovernanceTopic.CONTRACT_DRIFT_DETECTED), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.onex-change-control.cosmetic-compliance-scored.v1": "Published by onex_change_control cosmetic lint tooling (GovernanceTopic.COSMETIC_COMPLIANCE_SCORED), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnimarket.redeploy-start.v1": "Published by onex_change_control promotion tooling, consumed by omnimarket node_redeploy (GovernanceTopic.RUNTIME_DEPLOYMENT_REQUEST, OMN-12576), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.omnimarket.runtime-deployment-proof.v1": "Published by omnimarket node_redeploy per-lane probe (GovernanceTopic.RUNTIME_DEPLOYMENT_PROOF, OMN-12576), cross-repo | owner: jonah | expiry: 2026-12-01",
+    # OMN-15168 (epic OMN-15154): node_ledger_projection_compute widened
+    # subscribe_topics to steel_onslaught's forwarded terminal-match topic
+    # whose canonical publisher lives in the private steel_onslaught repo
+    # (cross-repo, not visible to this scan; infra ↛ steel forbids importing
+    # it). Topic string is steel_onslaught's own STEEL_MATCH_TERMINAL_TOPIC
+    # (kafka_forwarder.py, OMN-15167, merged f378cd48).
+    "onex.evt.steel-onslaught.match-terminal.v1": "Published by steel_onslaught's KafkaTerminalEventForwarder (STEEL_MATCH_TERMINAL_TOPIC, OMN-15167), cross-repo (private personal repo) | owner: jonah | expiry: 2026-12-01",
+    # OMN-16265: node_fault_inject_fixture_compute's command topic is
+    # deliberately published only by an external fault-injection caller
+    # (a manual run per knowledge-base:runbooks/fault-inject-fixture-dlq-offset-withholding.md,
+    # or a future automated boundary-regression script), never by another
+    # contract-declared node — same external-CLI-trigger shape as the
+    # baselines-batch-compute entry above.
+    "onex.cmd.omnibase-infra.fault-inject-fixture.v1": "Published by an external fault-injection caller (manual run or future regression script per the fixture's runbook), not a contract-declared node | owner: jonah | expiry: 2026-12-01",
+    # OMN-18398: node_ledger_projection_compute widened subscribe_topics to the
+    # four delegation-chain topics declared as `chain_topology` by
+    # node_delegation_chain_ledger_effect, so that public.event_ledger actually
+    # carries the evidence that writer reads back (it held none of them, so
+    # public.ledger_chain stayed at zero rows while the writer reported
+    # success). Three of the four have publishers in omnimarket and are not
+    # visible to this repository's scan -- the same cross-repo shape as the
+    # OMN-15006 OCC/omnimarket entries above. The fourth,
+    # onex.evt.omnimarket.delegate-skill-completed.v1, is already allowlisted
+    # above for the OMN-16964 writer's own subscription. Note the
+    # `omnibase-infra` segment on two of these topic names is a NAMESPACE, not
+    # a statement about which repository publishes them.
+    "onex.cmd.omnimarket.delegate-skill.v1": "Published by omnimarket node_delegate_skill_orchestrator (command_topic, contract.yaml:220), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.delegation-routing-request.v1": "Published by omnimarket node_delegation_orchestrator (contract.yaml:148), cross-repo | owner: jonah | expiry: 2026-12-01",
+    "onex.evt.omnibase-infra.routing-decision.v1": "Published by omnimarket node_delegation_routing_reducer as its success terminal (contract.yaml:87), cross-repo | owner: jonah | expiry: 2026-12-01",
+    # OMN-18419: the fifth delegation-chain hop. Unlike the four above it is
+    # published from THIS repository, but not by a contract-declared publisher
+    # a scan of `publish_topics` can see: RuntimePatternBBroker publishes it as
+    # `route.command_topic`, and the route is DISCOVERED at runtime from
+    # omnimarket node_delegation_orchestrator's own subscribe_topics
+    # (service_delegation_dispatch_port.py). The topic string appears in no
+    # publish_topics list anywhere, which is why it needs an entry here rather
+    # than a contract fix.
+    "onex.cmd.omnibase-infra.delegation-request.v1": "Published by RuntimePatternBBroker as the runtime-discovered route.command_topic for node_delegation_orchestrator (service_delegation_dispatch_port.py), never declared in a publish_topics list | owner: jonah | expiry: 2026-12-01",
+    # OMN-18964: a delegation RE-ROUTE's parent. A re-routed delegation's
+    # repeat routing request records the quality-gate-result envelope as its
+    # parent, so node_ledger_projection_compute now projects it and
+    # node_delegation_chain_ledger_effect declares it as `reroute_parents`.
+    # Same cross-repo shape as the OMN-18398 entries above. The other re-route
+    # parent, inference-response.v1, has an in-repo publisher
+    # (node_llm_inference_effect) and needs no entry.
+    "onex.evt.omnibase-infra.quality-gate-result.v1": "Published by omnimarket node_delegation_quality_gate_reducer as its success terminal (contract.yaml:51), cross-repo; consumed by the OMN-18964 ledger projection | owner: jonah | expiry: 2026-12-01",
+    # OMN-17427: seven command topics whose only publisher is the runtime's own
+    # Pattern B broker. RuntimePatternBBroker publishes `route.command_topic`
+    # (service_pattern_b_broker.py, `_publish_worker_command`) for every node
+    # runtime_local_ingress.discover_runtime_local_ingress_routes discovers, and
+    # discovery takes each node's first `.cmd.` subscribe topic as its command
+    # topic. So `onex run-node <node>` and every runtime-backed skill client reach
+    # these nodes over the bus, with no publish_topics entry for this scan to read:
+    # the same shape as delegation-request (OMN-18419) and pattern-b-dispatch
+    # above. Each entry replaced an OMN-16795 short-leash baseline entry whose
+    # stated publisher ("intent routing", "not yet wired") was never confirmed.
+    # tests/unit/scripts/test_check_subscribe_wiring_health.py::
+    # TestPatternBRouteEntries re-derives the routes, so an entry whose node stops
+    # being a local-ingress route fails a test instead of waiting for its date.
+    "onex.cmd.omnibase-infra.pr-state-upsert.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_pr_state_write_effect (runtime_local_ingress discovery, OMN-17427); the in-process write path routes by intent | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.chain-learn.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_chain_orchestrator and node_chain_retrieval_effect (runtime_local_ingress discovery, OMN-17427) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.llm-completion-request.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_llm_completion_effect (runtime_local_ingress discovery, OMN-17427) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.llm-embedding-request.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_llm_embedding_effect (runtime_local_ingress discovery, OMN-17427) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.llm-inference-request.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_llm_inference_effect (runtime_local_ingress discovery, OMN-17427) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.vector-store-request.v1": "Published by RuntimePatternBBroker as the local-ingress route.command_topic of node_vector_store_effect (runtime_local_ingress discovery, OMN-17427) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.remote-agent-invoke.v1": "Published by omnimarket node_delegation_orchestrator (publish_topics, contract.yaml:149), cross-repo, and by RuntimePatternBBroker as the local-ingress route.command_topic of node_remote_agent_invoke_effect (OMN-17427) | owner: jonah | expiry: 2026-12-01",
+}
+
+# ---------------------------------------------------------------------------
+# Baseline allowlist: pre-existing dead-letter subscriptions (OMN-7385).
+# These topics have subscribe_topics declared in contracts but no matching
+# publish_topics in any contract. Each entry represents a known gap.
+# New entries are tech debt. Removing entries (by adding publisher contracts)
+# is the goal.
+#
+# Format: "topic": "reason | owner | expiry"
+# Current baseline: 2026-04-10 (45 entries)
+# Target: 0 entries
+# ---------------------------------------------------------------------------
+# fmt: off
+_BASELINE_DEAD_LETTER_ALLOWLIST: dict[str, str] = {
+    # OMN-18013 removed THREE entries here (contract-resolve-requested,
+    # router.routing-outcome, rsd.scores-stored). Each exempted a topic whose only
+    # subscriber was a declaration no handler_routing entry could ever be assigned,
+    # and all three carried the OMN-16795 short leash "prove the publisher or
+    # delete the subscribe declaration". The subscribe declarations are deleted in
+    # the same commit, so the exemptions became dead weight and this file's own
+    # rule applies ("STALE ... delete the entry").
+    #
+    # THREE further entries were removed and then RESTORED in the same change,
+    # which is worth recording so the next reader does not re-delete them. Their
+    # subscriptions look identical to the three above — declared, with no
+    # handler_routing — but they are NOT dead: the runtime never auto-subscribed
+    # them (a contract with no handler_routing is SKIPPED before the subscribe
+    # decision), and each topic has a real consumer outside auto-wiring: the
+    # kernel's ContractRegistrationEventRouter for the two contract-lifecycle
+    # topics, ContextAuditConsumer for the context-audit DLQ topic. Deleting them
+    # de-provisioned live topics and dropped generated enum members that
+    # models/projection/projection_contract_registry.py imports. "No dispatcher"
+    # and "no consumer" are different claims; only the second justifies deletion.
+    #
+    # OMN-17427 (2026-10-01) cleared the 22 entries whose OMN-16795 short leash
+    # ("prove the publisher or delete the subscribe declaration") lapsed that day.
+    # FIFTEEN event topics had no publisher anywhere in the fleet (every omni_home
+    # clone grepped): their subscribe declarations, and the handler_routing
+    # entries that owned them, are deleted from node_merge_sweep_workflow_orchestrator,
+    # node_scope_workflow_orchestrator, node_rsd_orchestrator,
+    # node_routing_orchestrator, node_chain_orchestrator, node_chain_store_effect and
+    # node_event_forward_effect, and the entries go with them. SEVEN command topics
+    # DO have a publisher, so they moved to _EXTERNAL_PUBLISHER_ALLOWLIST with the
+    # publisher named: RuntimePatternBBroker, through the node's discovered
+    # local-ingress route (and, for remote-agent-invoke, omnimarket too).
+    # Coding-agent workflow external entrypoint — published by workflow clients
+    # (the coding-agent CLI thin-publisher), not a contract-declared node (OMN-13247).
+    "onex.cmd.omnibase-infra.coding-agent-invoke.v1": "Published by coding-agent workflow clients as the external entrypoint | owner: jonah | expiry: 2026-12-01",
+    # Build loop cmd topics — triggered by CLI (claude -p), not Kafka publisher
+    "onex.cmd.omnibase-infra.build-loop-append.v1": "Routed via intent from node_build_loop_projection_compute, not Kafka publish | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    "onex.cmd.omnibase-infra.gateway-link-health-upsert.v1": "Routed via intent from node_gateway_link_health_projection_compute, not Kafka publish (OMN-15570) | owner: jonah | expiry: 2026-12-01",
+    # Gateway heartbeat — published imperatively by ServiceGatewayForwarder.publish_heartbeat
+    # (node_bus_forwarder_effect/services/service_gateway_forwarder.py), not via a
+    # contract-declared event_bus.publish_topics entry -- node_bus_forwarder_effect's
+    # own contract only declares mirror_topics (this checker reads publish_topics
+    # only), which the 2026-08-08 gateway lift architecture assessment already flags
+    # as a gap in that node's own contract, not something OMN-15570 introduces.
+    "onex.evt.omnibase-infra.gateway-heartbeat.v1": "Published imperatively by ServiceGatewayForwarder.publish_heartbeat, not via contract publish_topics (OMN-15570 adds the first contract-declared consumer) | owner: jonah | expiry: 2026-12-01",
+    "onex.cmd.omnibase-infra.validation-ledger-append.v1": "Routed via intent from node_validation_ledger_projection_compute, not Kafka publish | owner: jonah | expiry: 2026-12-01",
+    # Topic migration — command issued by operator/runtime, not a contract-declared publisher (OMN-12623)
+    "onex.cmd.omnibase-infra.topic-migration-execute.v1": "Migration command issued by operator/runtime (node_topic_migration_executor_effect), not Kafka publisher | owner: jonah | expiry: 2026-12-01",
+    # Delegation — request comes from omniclaude hooks, not contract-declared
+    # Artifact reconciliation — triggered externally
+    "onex.cmd.artifact.reconcile.v1": "Triggered by CI/webhook, not Kafka publisher | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    # Contract resolution — triggered by runtime, not Kafka publisher
+    # Intent storage queries — internal runtime queries, not event-sourced
+    # Ledger operations — internal runtime
+    "onex.cmd.platform.ledger-append.v1": "Internal runtime ledger operation | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    "onex.cmd.platform.ledger-query.v1": "Internal runtime ledger query | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    # Router — request comes from omniclaude hooks
+    "onex.cmd.router.route-request.v1": "Route request from omniclaude hooks | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    # RSD scoring — triggered externally
+    "onex.cmd.rsd.score.v1": "RSD scoring triggered externally | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    # Skill commands — triggered by Claude skill invocations, not Kafka
+    "onex.cmd.skill.merge-sweep.v1": "Triggered by /merge-sweep skill, not Kafka | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    "onex.cmd.skill.scope-check.v1": "Triggered by /scope-check skill | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    # Build loop events — classify and fill phases not yet publishing
+    # Infrastructure monitoring — published by runtime internals
+    "onex.evt.omnibase-infra.consumer-health.v1": "Published by runtime health monitor, not contract | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    "onex.evt.omnibase-infra.db-error.v1": "Published by DB error handler, not contract | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    "onex.evt.omnibase-infra.runtime-error.v1": "Published by runtime error handler | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference]",
+    # Context audit DLQ — published by omniclaude hooks
+    "onex.evt.omniclaude.context-audit-dlq.v1": "Published by omniclaude context audit | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis] [OMN-18013 2026-09-07: subscribe declaration KEPT — ContextAuditConsumer consumes this topic outside auto-wiring and this contract is where TopicProvisioner owns it]",
+    # Contract lifecycle — published by contract management runtime, not contract-declared
+    "onex.evt.platform.contract-deregistered.v1": "Published by contract management runtime | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference] [OMN-18013 2026-09-07: subscribe declaration KEPT — service_kernel subscribes this topic to ContractRegistrationEventRouter with required_for_readiness=True]",
+    "onex.evt.platform.contract-registered.v1": "Published by contract management runtime | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: stated in-repo publisher confirmed by non-enum source reference] [OMN-18013 2026-09-07: subscribe declaration KEPT — service_kernel subscribes this topic to ContractRegistrationEventRouter with required_for_readiness=True]",
+    # Intent classification — published by omniintelligence, not in this scan
+    # Merge gate — decision published by CI integration, not contract
+    "onex.evt.platform.merge-gate-decision.v1": "Published by CI merge gate integration | owner: jonah | expiry: 2026-12-01 [OMN-16795 re-verified 2026-08-27: publisher is outside omnibase_infra, so this claim is NOT falsifiable from this repo; exemption kept on that basis]",
+    # Runtime tick — published by runtime scheduler, not contract
+    # Gmail archive cleanup — runtime tick published by scheduler
+    # Onboarding — triggered by omniclaude /onboarding skill, not Kafka publisher
+    "onex.cmd.omnibase-infra.onboarding-start.v1": "Triggered by /onboarding skill via claude -p, not Kafka | owner: jonah | expiry: 2026-12-01",
+}
+# fmt: on
+
+# DLQ and broadcast topics are infrastructure-scoped, skip them
+_INFRASTRUCTURE_PREFIXES = (".dlq.", ".broadcast.")
+
+
+def _is_infrastructure_topic(topic: str) -> bool:
+    """Check if a topic is infrastructure-scoped (DLQ, broadcast)."""
+    return any(prefix in topic for prefix in _INFRASTRUCTURE_PREFIXES)
+
+
+# ---------------------------------------------------------------------------
+# Allowlist hygiene (OMN-16795)
+#
+# Until now the ``expiry:`` in every allowlist reason was decoration: nothing
+# read it. That is what let a 45-entry baseline accumulate with dates already
+# lapsing — an exemption list nobody can be forced off is not a baseline, it is
+# a permanent amnesty with a date-shaped comment attached.
+#
+# Three failure modes, all previously silent:
+#   EXPIRED   the owner's own stated deadline has passed (inclusive: on the
+#             stated day the exemption is over).
+#   MALFORMED no parseable ``expiry:``, so the entry could never expire.
+#   STALE     no contract subscribes to the topic any more, so the entry is
+#             dead weight inflating the list and hiding its real size.
+#
+# STALE matters as much as EXPIRED: an allowlist that keeps entries for topics
+# nobody consumes reports a debt number that is mostly fiction, and the fiction
+# is what makes the real entries easy to ignore.
+# ---------------------------------------------------------------------------
+
+_EXPIRY_RE = re.compile(r"expiry:\s*(\d{4})-(\d{2})-(\d{2})")
+_OWNER_RE = re.compile(r"owner:\s*([^|]+)")
+
+
+def _parse_allowlist_expiry(reason: str) -> date | None:
+    """Extract the ``expiry: YYYY-MM-DD`` date from an allowlist reason.
+
+    Returns ``None`` when the field is absent or not a real calendar date —
+    both of which the hygiene check treats as MALFORMED rather than as
+    "no expiry, therefore fine".
+    """
+    match = _EXPIRY_RE.search(reason)
+    if match is None:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    except ValueError:
+        return None
+
+
+def _parse_allowlist_owner(reason: str) -> str:
+    match = _OWNER_RE.search(reason)
+    return match.group(1).strip() if match else "unowned"
+
+
+def collect_subscribed_topics(contracts_dirs: list[Path]) -> set[str]:
+    """Every non-infrastructure topic some contract in these dirs subscribes to."""
+    extractor = ContractTopicExtractor()
+    subscribed: set[str] = set()
+    for contracts_dir in contracts_dirs:
+        if not contracts_dir.exists():
+            continue
+        manifest = extractor.scan(contracts_dir)
+        for node_topics in manifest.nodes.values():
+            for topic in node_topics.subscribe_topics:
+                if not _is_infrastructure_topic(topic):
+                    subscribed.add(topic)
+    return subscribed
+
+
+def check_allowlist_hygiene(
+    allowlists: dict[str, str],
+    subscribed_topics: set[str],
+    today: date,
+) -> list[str]:
+    """Return one error per expired, malformed, or stale allowlist entry.
+
+    Args:
+        allowlists: merged ``topic -> "reason | owner: X | expiry: YYYY-MM-DD"``.
+        subscribed_topics: topics some contract actually subscribes to.
+        today: the clock, injected so the enforcement itself is testable.
+    """
+    errors: list[str] = []
+    for topic, reason in sorted(allowlists.items()):
+        owner = _parse_allowlist_owner(reason)
+        expiry = _parse_allowlist_expiry(reason)
+
+        if topic not in subscribed_topics:
+            errors.append(
+                f"STALE: {topic} is allowlisted but NO contract subscribes to it "
+                f"(owner: {owner}). The exemption is dead weight — delete the entry."
+            )
+            continue
+
+        if expiry is None:
+            errors.append(
+                f"MALFORMED: {topic} has no parseable 'expiry: YYYY-MM-DD' "
+                f"(owner: {owner}). An entry that cannot expire is a permanent "
+                f"amnesty; give it a real date."
+            )
+            continue
+
+        if expiry <= today:
+            errors.append(
+                f"EXPIRED: {topic} exemption lapsed on {expiry.isoformat()} "
+                f"(owner: {owner}). Either fix the gap (add a contract publisher) "
+                f"or renew with a FRESH reason and expiry that says what changed."
+            )
+    return errors
+
+
+def check_wiring_health(
+    contracts_dirs: list[Path],
+    verbose: bool = False,
+) -> tuple[list[str], list[str]]:
+    """Check subscribe/publish topic wiring across all contracts.
+
+    Allowlist hygiene (OMN-16795) is deliberately NOT checked here — see
+    :func:`check_allowlist_hygiene`, which ``main()`` runs against the real
+    contract tree. Folding it in here would make every caller that scans a
+    partial or synthetic directory report the entire allowlist as stale.
+
+    Args:
+        contracts_dirs: Directories to scan for contract.yaml files.
+        verbose: Print detailed output.
+
+    Returns:
+        Tuple of (errors, warnings).
+        errors: Dead-letter subscribe topics (no publisher exists).
+        warnings: Orphan publish topics (no subscriber exists).
+    """
+    extractor = ContractTopicExtractor()
+
+    # Collect all topics across all directories
+    all_subscribe: dict[str, list[str]] = defaultdict(list)  # topic -> [node_names]
+    all_publish: dict[str, list[str]] = defaultdict(list)  # topic -> [node_names]
+
+    for contracts_dir in contracts_dirs:
+        if not contracts_dir.exists():
+            if verbose:
+                print(f"SKIP: Directory not found: {contracts_dir}")
+            continue
+
+        manifest = extractor.scan(contracts_dir)
+
+        for node_name, node_topics in manifest.nodes.items():
+            for topic in node_topics.subscribe_topics:
+                if not _is_infrastructure_topic(topic):
+                    all_subscribe[topic].append(node_name)
+            for topic in node_topics.publish_topics:
+                if not _is_infrastructure_topic(topic):
+                    all_publish[topic].append(node_name)
+
+    if verbose:
+        print(f"Scanned: {sum(1 for d in contracts_dirs if d.exists())} directories")
+        print(f"Subscribe topics: {len(all_subscribe)}")
+        print(f"Publish topics: {len(all_publish)}")
+        print()
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # Check: every subscribe topic should have a publisher
+    for topic, subscribers in sorted(all_subscribe.items()):
+        if topic in _EXTERNAL_PUBLISHER_ALLOWLIST:
+            if verbose:
+                print(
+                    f"  ALLOWLISTED (external): {topic} (subscribed by {', '.join(subscribers)})"
+                )
+            continue
+
+        if topic in _BASELINE_DEAD_LETTER_ALLOWLIST:
+            if verbose:
+                print(
+                    f"  ALLOWLISTED (baseline): {topic} (subscribed by {', '.join(subscribers)})"
+                )
+            continue
+
+        if topic not in all_publish:
+            errors.append(
+                f"DEAD_LETTER: {topic} subscribed by [{', '.join(subscribers)}] "
+                f"but no contract publishes to it"
+            )
+        elif verbose:
+            publishers = all_publish[topic]
+            print(
+                f"  OK: {topic} "
+                f"(pub: {', '.join(publishers)} -> sub: {', '.join(subscribers)})"
+            )
+
+    # Check: every publish topic should have a subscriber (warning only)
+    for topic, publishers in sorted(all_publish.items()):
+        if _is_infrastructure_topic(topic):
+            continue
+        if topic not in all_subscribe and topic not in _EXTERNAL_PUBLISHER_ALLOWLIST:
+            warnings.append(
+                f"NO_SUBSCRIBER: {topic} published by [{', '.join(publishers)}] "
+                f"but no contract subscribes to it"
+            )
+
+    return errors, warnings
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Check subscribe-topic wiring health across contracts"
+    )
+    parser.add_argument(
+        "--contracts-dir",
+        type=Path,
+        default=_REPO_ROOT / "src" / "omnibase_infra" / "nodes",
+        help="Primary contracts directory to scan",
+    )
+    parser.add_argument(
+        "--extra-contracts-dir",
+        type=Path,
+        action="append",
+        default=[],
+        help="Additional contract directories (e.g., cross-repo nodes)",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print detailed wiring status",
+    )
+    args = parser.parse_args()
+
+    dirs = [args.contracts_dir] + args.extra_contracts_dir
+    errors, warnings = check_wiring_health(dirs, verbose=args.verbose)
+
+    # OMN-16795: the allowlists themselves must stay honest. Run this only here,
+    # against the REAL contract tree — a caller scanning a partial/synthetic
+    # directory has no business being told the whole allowlist is stale.
+    errors.extend(
+        check_allowlist_hygiene(
+            allowlists={
+                **_EXTERNAL_PUBLISHER_ALLOWLIST,
+                **_BASELINE_DEAD_LETTER_ALLOWLIST,
+            },
+            subscribed_topics=collect_subscribed_topics(dirs),
+            today=datetime.now(UTC).date(),
+        )
+    )
+
+    if warnings:
+        print(f"\nWARNINGS ({len(warnings)} orphan publish topics):")
+        for w in warnings:
+            print(f"  - {w}")
+
+    if errors:
+        print(f"\n{'=' * 60}")
+        print(f"WIRING HEALTH: FAIL ({len(errors)} problems)")
+        print(f"{'=' * 60}")
+        for e in errors:
+            print(f"  - {e}")
+        print("\nDEAD_LETTER: a contract declares a subscription but no contract in")
+        print("the system publishes to that topic. Fix: add the topic to a")
+        print("publisher's publish_topics, or allowlist it if the publisher is")
+        print("external (webhook, CLI, cross-repo).")
+        print("\nEXPIRED / MALFORMED / STALE: an allowlist entry is no longer honest")
+        print("(OMN-16795). Fix the underlying gap, renew with a FRESH reason and")
+        print("expiry saying what changed, or delete the entry. Do NOT bulk-extend:")
+        print("a date nobody re-verified is what made this list unbounded.")
+        return 1
+
+    print("WIRING HEALTH: PASS (no dead-letter subscriptions, allowlists clean)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

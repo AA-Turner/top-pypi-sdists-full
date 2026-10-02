@@ -16,13 +16,10 @@ fn set_schema_link_uri(
     completion_items: &mut [CompletionContent],
     current_schema: &CurrentSchema<'_>,
 ) {
-    let schema_uri = tombi_extension::get_schema_link_uri(
-        current_schema.schema_document_uri.as_ref(),
-        current_schema.schema_view.range().start,
-    );
+    let schema_uri = crate::hover::schema_view_link_uri(current_schema);
     for item in completion_items {
         if item.schema_base_uri.as_ref() == Some(current_schema.schema_base_uri.as_ref()) {
-            item.schema_base_uri = Some(schema_uri.clone().into());
+            item.schema_base_uri = Some(schema_uri.clone());
         }
     }
 }
@@ -37,8 +34,8 @@ pub struct InstanceSchemaCompletion(pub tombi_schema_store::SchemaType);
 impl FindCompletionContents for InstanceSchemaCompletion {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
@@ -53,7 +50,7 @@ impl FindCompletionContents for InstanceSchemaCompletion {
             projected_schema.semantic_schema = None;
             SchemaCompletion
                 .find_completion_contents(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     Some(&projected_schema),
@@ -69,13 +66,14 @@ impl FindCompletionContents for InstanceSchemaCompletion {
 impl FindCompletionContents for SchemaCompletion {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("accessors = {:?}", accessors);
         log::trace!("keys = {:?}", keys);
         log::trace!("current_schema = {:?}", current_schema);
@@ -108,7 +106,7 @@ impl FindCompletionContents for SchemaCompletion {
                     .filter_map(|value| {
                         tombi_json_value_to_completion_enum_item(
                             value,
-                            position,
+                            offset,
                             detail.clone(),
                             documentation.clone(),
                             Some(current_schema.schema_base_uri.as_ref()),
@@ -127,7 +125,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::Boolean(boolean_schema) => {
                     boolean_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -139,7 +137,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::Integer(integer_schema) => {
                     integer_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -151,7 +149,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::Float(float_schema) => {
                     float_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -163,7 +161,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::String(string_schema) => {
                     string_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -175,7 +173,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::OffsetDateTime(offset_date_time_schema) => {
                     offset_date_time_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -187,7 +185,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::LocalDateTime(local_date_time_schema) => {
                     local_date_time_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -199,7 +197,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::LocalDate(local_date_schema) => {
                     local_date_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -211,7 +209,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::LocalTime(local_time_schema) => {
                     local_time_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -223,7 +221,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::Array(array_schema) => {
                     array_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -235,7 +233,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::Table(table_schema) => {
                     let base_completion_items = table_schema
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -244,7 +242,7 @@ impl FindCompletionContents for SchemaCompletion {
                         )
                         .await;
                     merge_adjacent_schema_completion_items(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(current_schema),
@@ -260,7 +258,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::OneOf(one_of_schema) => {
                     find_one_of_completion_items(
                         self,
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         one_of_schema,
@@ -273,7 +271,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::AnyOf(any_of_schema) => {
                     find_any_of_completion_items(
                         self,
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         any_of_schema,
@@ -286,7 +284,7 @@ impl FindCompletionContents for SchemaCompletion {
                 SchemaView::AllOf(all_of_schema) => {
                     find_all_of_completion_items(
                         self,
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         all_of_schema,

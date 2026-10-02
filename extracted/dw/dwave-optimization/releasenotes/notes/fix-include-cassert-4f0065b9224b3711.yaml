@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Include ``<cassert>`` in the ``state.hpp`` header.

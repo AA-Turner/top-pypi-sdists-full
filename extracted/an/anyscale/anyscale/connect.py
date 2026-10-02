@@ -186,14 +186,13 @@ class ClientBuilder:
         else:
             self._credentials = auth_api_client.credentials
             self._log.debug(
-                "Using host {}".format(
-                    anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST
-                )
+                "Using host {}".format(anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST)
             )
             redacted_token = _redact_token(self._credentials)
             self._log.debug(f"Using credentials {redacted_token}")
             self._anyscale_sdk = AnyscaleSDK(
-                self._credentials, anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST,
+                self._credentials,
+                anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST,
             )
             configure_open_api_client_headers(self._anyscale_sdk.api_client, "connect")
         api_client = auth_api_client.api_client
@@ -270,9 +269,7 @@ class ClientBuilder:
         # Override default run mode.
         if "ANYSCALE_LOCAL_DOCKER" in os.environ:
             self._run_mode = "local_docker"
-            self._log.debug(
-                "Using `run_mode=local_docker` since ANYSCALE_LOCAL_DOCKER is set"
-            )
+            self._log.debug("Using `run_mode=local_docker` since ANYSCALE_LOCAL_DOCKER is set")
 
         # Whether to update the cluster when connecting to a fixed cluster.
         self._needs_update: bool = True
@@ -388,13 +385,11 @@ class ClientBuilder:
             # user confused with `request_cpus` and `request_gpus`
             elif arg_name == "num_cpus":
                 raise RuntimeError(
-                    "Invalid argument `num_cpus` for anyscale client. Did "
-                    "you mean `request_cpus`?"
+                    "Invalid argument `num_cpus` for anyscale client. Did you mean `request_cpus`?"
                 )
             elif arg_name == "num_gpus":
                 raise RuntimeError(
-                    "Invalid argument `num_gpus` for anyscale client. Did "
-                    "you mean `request_gpus`?"
+                    "Invalid argument `num_gpus` for anyscale client. Did you mean `request_gpus`?"
                 )
             elif arg_name == "allow_public_internet_traffic":
                 if not isinstance(value, bool):
@@ -416,11 +411,7 @@ class ClientBuilder:
                 "or checking if this is a valid argument."
             )
 
-        if (
-            request_resources_cpus
-            or request_resources_gpus
-            or request_resources_bundles
-        ):
+        if request_resources_cpus or request_resources_gpus or request_resources_bundles:
             self.request_resources(
                 num_cpus=request_resources_cpus,
                 num_gpus=request_resources_gpus,
@@ -434,10 +425,7 @@ class ClientBuilder:
                 force_rebuild=force_rebuild,
             )
 
-        if (
-            self._user_runtime_env is None
-            or self._user_runtime_env.get("working_dir") is None
-        ):
+        if self._user_runtime_env is None or self._user_runtime_env.get("working_dir") is None:
             # This needs to be a warning message to not break users current usecases.
             # https://groups.google.com/a/anyscale.com/g/field-eng/c/4dAdqw4ORwU/m/eLYCCWZICAAJ?utm_medium=email&utm_source=footer&pli=1
             self._log.warning(
@@ -612,9 +600,7 @@ class ClientBuilder:
                 except Exception as e:  # noqa: BLE001
                     raise ValueError(f"Failed to read conda file {yaml_file}: {e}.")
 
-    def _pin_protobuf_in_runtime_env_if_needed(
-        self, runtime_env: Dict[str, Any]
-    ) -> None:
+    def _pin_protobuf_in_runtime_env_if_needed(self, runtime_env: Dict[str, Any]) -> None:
         """Pins protobuf to 3.20.1 in the "pip" and "conda" field for affected Ray versions.
 
         See https://github.com/anyscale/product/issues/12007 for details.
@@ -636,11 +622,7 @@ class ClientBuilder:
                 and "dependencies" in runtime_env["conda"]
             ):
                 for dep in runtime_env["conda"]["dependencies"]:
-                    if (
-                        isinstance(dep, dict)
-                        and "pip" in dep
-                        and isinstance(dep["pip"], list)
-                    ):
+                    if isinstance(dep, dict) and "pip" in dep and isinstance(dep["pip"], list):
                         dep["pip"].append("protobuf==3.20.1")
 
     def _set_runtime_env_in_job_config(self, project_dir: Optional[str]) -> None:
@@ -653,9 +635,7 @@ class ClientBuilder:
         # There's no need to exclude files like ".anyscale.yaml"
         # if using the default project.
         project_dir_excludes = (
-            [os.path.join(project_dir, path) for path in EXCLUDE_PATHS]
-            if project_dir
-            else []
+            [os.path.join(project_dir, path) for path in EXCLUDE_PATHS] if project_dir else []
         )
 
         if "working_dir" not in runtime_env and project_dir:
@@ -663,9 +643,7 @@ class ClientBuilder:
             runtime_env["working_dir"] = project_dir
         if "excludes" not in runtime_env:
             runtime_env["excludes"] = []
-        runtime_env["excludes"] = (
-            EXCLUDE_DIRS + runtime_env["excludes"] + project_dir_excludes
-        )
+        runtime_env["excludes"] = EXCLUDE_DIRS + runtime_env["excludes"] + project_dir_excludes
 
         # Patch for https://github.com/ray-project/ray/issues/20876
         # If local pip or conda files are specified, read them here and rewrite
@@ -730,9 +708,7 @@ class ClientBuilder:
             self._fill_config_from_env("cluster_compute")
 
         # Only fill cluster_env if neither a name nor a dict was passed
-        cluster_env_unset = (
-            self._cluster_env_name is None and self._cluster_env_dict is None
-        )
+        cluster_env_unset = self._cluster_env_name is None and self._cluster_env_dict is None
         if cluster_env_unset:
             self._fill_config_from_env("cluster_env")
 
@@ -797,9 +773,11 @@ class ClientBuilder:
             >>> ray.init("anyscale://cluster_name?update=True")
         """
 
-        feature_flag_on = self._api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
-            "anyscale_connect_enabled_cli"
-        ).result.is_on
+        feature_flag_on = (
+            self._api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
+                "anyscale_connect_enabled_cli"
+            ).result.is_on
+        )
 
         if not feature_flag_on:
             raise RuntimeError(
@@ -813,9 +791,7 @@ class ClientBuilder:
                 "https://docs.anyscale.com/development instead."
             )
 
-        _allow_multiple_clients = (
-            os.environ.get("ANYSCALE_ALLOW_MULTIPLE_CLIENTS") != "0"
-        )
+        _allow_multiple_clients = os.environ.get("ANYSCALE_ALLOW_MULTIPLE_CLIENTS") != "0"
         self._log.info("Finished parsing arguments.", block_label="ParseArgs")
         self._log.close_block("ParseArgs")
 
@@ -932,9 +908,7 @@ class ClientBuilder:
         self._cloud_name = cloud_name
         return self
 
-    def project_dir(
-        self, local_dir: str, name: Optional[str] = None
-    ) -> "ClientBuilder":
+    def project_dir(self, local_dir: str, name: Optional[str] = None) -> "ClientBuilder":
         """DEPRECATED. project_dir should not be set by an argument,
         but it's okay for it to be set within this class for other reasons.
 
@@ -1066,14 +1040,10 @@ class ClientBuilder:
         elif isinstance(cluster_compute, dict):
             self._cluster_compute_dict = copy.deepcopy(cluster_compute)  # type: ignore
         else:
-            raise TypeError(
-                "cluster_compute should either be Dict[str, Any] or a string."
-            )
+            raise TypeError("cluster_compute should either be Dict[str, Any] or a string.")
         return self
 
-    def cluster_env(
-        self, cluster_env: Union[str, CLUSTER_ENV_DICT_TYPE]
-    ) -> "ClientBuilder":
+    def cluster_env(self, cluster_env: Union[str, CLUSTER_ENV_DICT_TYPE]) -> "ClientBuilder":
         """TODO(ameer): remove app_config below after a few releases.
         Set the Anyscale cluster environment to use for the cluster.
 
@@ -1104,7 +1074,8 @@ class ClientBuilder:
         return self
 
     def app_config(
-        self, cluster_env: Union[str, CLUSTER_ENV_DICT_TYPE],
+        self,
+        cluster_env: Union[str, CLUSTER_ENV_DICT_TYPE],
     ) -> "ClientBuilder":
         """Set the Anyscale app config to use for the session.
 
@@ -1140,7 +1111,10 @@ class ClientBuilder:
         return self
 
     def download_results(
-        self, *, remote_dir: str, local_dir: str  # NOQA: ARG002
+        self,
+        *,
+        remote_dir: str,  # noqa: ARG002
+        local_dir: str,  # NOQA: ARG002
     ) -> None:
         """Specify a directory to sync down from the cluster head node.
 
@@ -1310,9 +1284,7 @@ class ClientBuilder:
             "docker",
             "run",
             "--env",
-            "ANYSCALE_HOST={}".format(
-                anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST
-            ),
+            "ANYSCALE_HOST={}".format(anyscale.shared_anyscale_utils.conf.ANYSCALE_HOST),
             "--env",
             f"ANYSCALE_CLI_TOKEN={self._credentials}",
             "-v",
@@ -1320,9 +1292,7 @@ class ClientBuilder:
             "--entrypoint=/bin/bash",
             docker_image,
             "-c",
-            "python /user_main.py {}".format(
-                " ".join([shlex.quote(x) for x in sys.argv[1:]])
-            ),
+            "python /user_main.py {}".format(" ".join([shlex.quote(x) for x in sys.argv[1:]])),
         ]
         self._log.debug("Running", command)
         self._subprocess.check_call(command)

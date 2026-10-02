@@ -1,0 +1,214 @@
+Metadata-Version: 2.4
+Name: django-pgware
+Version: 1.0.0
+Summary: PostgreSQL utilities for Django: advisory locks, GUC management, and logging suppression
+Project-URL: Homepage, https://github.com/Xof/django-pgware
+Project-URL: Repository, https://github.com/Xof/django-pgware
+Project-URL: Issues, https://github.com/Xof/django-pgware/issues
+Author-email: Christophe Pettus <xof@thebuild.com>
+License-Expression: PostgreSQL
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: django>=4.2
+Provides-Extra: psycopg2
+Requires-Dist: psycopg2; extra == 'psycopg2'
+Provides-Extra: psycopg3
+Requires-Dist: psycopg[binary]; extra == 'psycopg3'
+Description-Content-Type: text/markdown
+
+# django-pgware
+
+PostgreSQL utilities for Django: advisory locks, GUC management, and logging suppression.
+
+## What it is
+
+A small, dependency-light toolkit of three independent PostgreSQL utilities for Django. Each is a context manager (and, where it makes sense, a decorator) that borrows Django's database connection, performs a session-scoped action, and reliably undoes it on exit: **advisory locks** (sync + async), **GUC setting** (`pg_set` / `atomic_set`), and **logging suppression** (`hush`, for keeping sensitive query parameters out of the logs).
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the internals and invariants, and [THEORY.md](THEORY.md) for the design rationale.
+
+## Status
+
+Beta (1.0.x). The public API is stable; see [CHANGELOG.md](CHANGELOG.md) for recent changes.
+
+## Installation
+
+```bash
+pip install django-pgware
+```
+
+You'll also need a PostgreSQL database adapter — either `psycopg2` or `psycopg` (v3):
+
+```bash
+pip install django-pgware[psycopg2]
+# or
+pip install django-pgware[psycopg3]
+```
+
+## Advisory Locks
+
+Context managers for PostgreSQL advisory locks — synchronous and asynchronous.
+
+```python
+from django_pg_utils import advisory_lock
+
+# Exclusive lock (blocks until acquired):
+with advisory_lock("my-task") as acquired:
+    assert acquired is True
+    do_exclusive_work()
+
+# Shared lock:
+with advisory_lock("my-task", shared=True):
+    do_shared_work()
+
+# Non-blocking:
+with advisory_lock("my-task", wait=False) as acquired:
+    if acquired:
+        do_work()
+```
+
+### Async
+
+```python
+from django_pg_utils import async_advisory_lock
+
+async with async_advisory_lock("my-task") as acquired:
+    await do_work()
+```
+
+### Lock ID Types
+
+| Type | Example | Notes |
+|------|---------|-------|
+| `str` | `"my-lock"` | Hashed to 64-bit via SHA-256 |
+| `int` | `12345` | Used directly as bigint |
+| `tuple[int, int]` | `(5, 9)` | Two-argument advisory lock |
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `lock_id` | required | String, int, or (int, int) tuple |
+| `shared` | `False` | Shared lock (vs exclusive) |
+| `wait` | `True` | Block until acquired |
+| `comment` | `None` | Toggle the auto-generated `file:line` SQL comment. If `None`, resolves to `settings.ADVISORY_LOCK_COMMENT` if set, else `settings.DEBUG` |
+| `using` | `None` | Django database alias |
+
+## GUC Management
+
+Temporarily SET PostgreSQL GUCs within a scope, with automatic cleanup.
+
+### `pg_set` — session-level SET / RESET
+
+```python
+from django_pg_utils import pg_set
+
+with pg_set("work_mem", "256MB"):
+    MyModel.objects.complex_query()
+
+# Multiple GUCs:
+with pg_set([("work_mem", "256MB"), ("statement_timeout", "30s")]):
+    ...
+
+# As a decorator:
+@pg_set("work_mem", "256MB")
+def my_view(request):
+    ...
+```
+
+### `atomic_set` — transaction-level SET LOCAL
+
+```python
+from django_pg_utils import atomic_set
+
+with atomic_set("work_mem", "256MB"):
+    MyModel.objects.complex_query()
+```
+
+Wraps the scope in `atomic()` and uses `SET LOCAL` — settings revert automatically when the transaction ends.
+
+### When to use which
+
+| | `pg_set` | `atomic_set` |
+|---|---|---|
+| **Mechanism** | `SET` / `RESET` | `SET LOCAL` inside `atomic()` |
+| **Scope** | Session (connection) | Transaction |
+| **Cleanup** | Explicit `RESET` on exit | Automatic on `COMMIT` / `ROLLBACK` |
+
+## Logging Suppression (`hush`)
+
+Suppress PostgreSQL server logging and Django query logging within a scope — useful for protecting sensitive data (PCI cardholder data, credentials, tokens).
+
+```python
+from django_pg_utils import hush
+
+# Context manager:
+with hush() as result:
+    cursor.execute("SELECT decrypt_card(%s)", [card_token])
+
+# Decorator:
+@hush
+def process_payment(card_token):
+    ...
+
+# Parameterized:
+@hush(strict=True, database="payments")
+def process_payment(card_token):
+    ...
+```
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `database` | default connection | Django database alias. Pass `"*"` to suppress on **every** configured connection |
+| `settings` | all 5 defaults | List of PG setting names to suppress |
+| `strict` | `False` | Raise `HushError` if suppression incomplete |
+
+> `hush()` targets only the default connection unless you pass an explicit
+> alias or `database="*"`. (Earlier behavior suppressed on every configured
+> connection by default, which would dial replicas/analytics DBs as a side
+> effect.)
+
+### Django Settings
+
+| Setting | Description |
+|---------|-------------|
+| `HUSH_DATABASE` | Default database alias |
+| `HUSH_SETTINGS` | Default settings list |
+| `HUSH_STRICT` | Default strict mode |
+| `HUSH_PG_SETTINGS_REGISTRY` | Dict replacing default PG settings |
+
+## Running the tests
+
+The project uses [uv](https://docs.astral.sh/uv/). Tests require a **live PostgreSQL** — there is no sqlite fallback.
+
+```bash
+uv sync                # install the dev environment
+docker compose up -d   # throwaway PostgreSQL on localhost:5432
+uv run pytest          # run the suite
+```
+
+`PG_VERSION` selects the PostgreSQL image (default 17); `POSTGRES_HOST`/`PORT`/`USER`/`PASSWORD`/`DB` override the connection. Lint and types: `uv run ruff check && uv run ruff format --check && uv run mypy`.
+
+## Requirements
+
+- Python 3.10+
+- Django 4.2+
+- PostgreSQL 14+ with psycopg2 or psycopg3
+
+## License
+
+PostgreSQL License. See [LICENSE](LICENSE) for details.

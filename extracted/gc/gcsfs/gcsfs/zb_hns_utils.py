@@ -5,10 +5,12 @@ import contextlib
 import ctypes
 import logging
 import os
+import sys
 import threading
 import weakref
 from io import BytesIO
 
+from fsspec.asyn import FSTimeoutError
 from google.api_core.exceptions import NotFound
 from google.cloud.storage.asyncio.async_appendable_object_writer import (
     _DEFAULT_FLUSH_INTERVAL_BYTES,
@@ -42,14 +44,32 @@ except Exception:
     HAS_CPYTHON_API = False
 
 
-async def init_mrd(grpc_client, bucket_name, object_name, generation=None):
+async def init_mrd(
+    grpc_client,
+    bucket_name,
+    object_name,
+    generation=None,
+    cache_type=None,
+    cache_source=None,
+):
     """
     Creates the AsyncMultiRangeDownloader using an existing client.
     Wraps Google API errors into standard Python exceptions.
     """
+    from gcsfs.core import _get_cache_type_header_value
+
+    metadata = None
+    cache_val = _get_cache_type_header_value(cache_type, cache_source)
+    if cache_val:
+        metadata = [("x-goog-api-client", cache_val)]
+
+    kwargs = {}
+    if metadata:
+        kwargs["metadata"] = metadata
+
     try:
         return await AsyncMultiRangeDownloader.create_mrd(
-            grpc_client, bucket_name, object_name, generation
+            grpc_client, bucket_name, object_name, generation, **kwargs
         )
     except NotFound:
         # We wrap the error here to match standard Python error handling
@@ -188,6 +208,107 @@ async def close_aaow(aaow, finalize_on_close=False):
             logger.warning(
                 f"Error closing AsyncAppendableObjectWriter for {aaow.bucket_name}/{aaow.object_name}: {e}"
             )
+
+
+# Default timeout for synchronous teardowns when no explicit timeout is configured.
+DEFAULT_TEARDOWN_TIMEOUT_SECONDS = 60.0
+
+# Strong references for background tasks scheduled via loop.create_task().
+# Without holding external references, Python's asyncio event loop may allow
+# pending tasks to be garbage-collected mid-execution ("Task was destroyed but
+# it is pending").
+_deferred_close_tasks = set()
+_deferred_close_lock = threading.Lock()
+
+
+def _on_loop_thread(loop):
+    """Returns True if the current thread is servicing the given event loop."""
+    if loop is None:
+        return False
+    try:
+        return asyncio.get_running_loop() is loop
+    except RuntimeError:
+        return False
+
+
+def _defer_task(
+    loop,
+    coro,
+    description="deferred task",
+    logger=None,
+    log_level=logging.WARNING,
+):
+    """Schedules a coroutine as a tracked background task on ``loop``.
+
+    Retains a strong reference in ``_deferred_close_tasks`` until completion to
+    prevent asyncio garbage collection from discarding pending tasks mid-flight,
+    and ensures unhandled task exceptions are retrieved and logged.
+    """
+    task = loop.create_task(coro)
+    with _deferred_close_lock:
+        _deferred_close_tasks.add(task)
+
+    def _on_done(t):
+        with _deferred_close_lock:
+            _deferred_close_tasks.discard(t)
+        if not t.cancelled():
+            exc = t.exception()
+            if exc:
+                log = logger or logging.getLogger("gcsfs")
+                log.log(
+                    log_level,
+                    "%s failed during asynchronous execution: %s",
+                    description,
+                    exc,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                )
+
+    task.add_done_callback(_on_done)
+    return task
+
+
+def sync_teardown(
+    loop,
+    func_or_coro,
+    *args,
+    timeout=None,
+    description="teardown",
+    **kwargs,
+):
+    """Safely runs an async teardown coroutine on ``loop`` from synchronous context.
+
+    Schedules via :func:`asyncio.run_coroutine_threadsafe` or defers on the loop
+    thread to prevent deadlocks.
+    """
+    coro = func_or_coro(*args, **kwargs) if callable(func_or_coro) else func_or_coro
+    if not asyncio.iscoroutine(coro):
+        return
+
+    if sys.is_finalizing():
+        coro.close()
+        return
+
+    if loop is None or not loop.is_running() or loop.is_closed():
+        coro.close()
+        raise RuntimeError(f"Skipping {description}: no usable IO loop available.")
+
+    if _on_loop_thread(loop):
+        _defer_task(loop, coro, description=description, log_level=logging.ERROR)
+        return
+
+    try:
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+    except RuntimeError:
+        coro.close()
+        raise RuntimeError(f"Skipping {description}: event loop is closed.")
+
+    if timeout is not None and timeout <= 0:
+        return
+
+    try:
+        return future.result(timeout)
+    except concurrent.futures.TimeoutError:
+        raise FSTimeoutError(f"{description} did not complete within {timeout}s.")
 
 
 class PartialView:
@@ -497,13 +618,21 @@ class MRDPool:
         finalized,
         pool_size,
         cache=None,
+        cache_type=None,
+        cache_source=None,
     ):
         self.gcsfs = gcsfs
         self.bucket_name = bucket_name
         self.object_name = object_name
         self.generation = generation
         self._cache = cache
-        self._key = (bucket_name, object_name, generation)
+        self.cache_type = cache_type
+        # Note: MRDPool is shared across requests with different cache configs.
+        # self.cache_source reflects the originator of the pool. Dynamic scale-up
+        # operations (_create_mrd) will emit this initial cache_source telemetry,
+        # even if triggered by a request with a different cache_source.
+        self.cache_source = cache_source
+        self._key = (bucket_name, object_name, generation, cache_type)
         self.pool_size = pool_size
         self._free_mrds = asyncio.Queue(maxsize=pool_size)
         self._active_count = 0
@@ -545,7 +674,12 @@ class MRDPool:
     async def _create_mrd(self):
         await self.gcsfs._get_grpc_client()
         mrd = await init_mrd(
-            self.gcsfs.grpc_client, self.bucket_name, self.object_name, self.generation
+            self.gcsfs.grpc_client,
+            self.bucket_name,
+            self.object_name,
+            self.generation,
+            cache_type=self.cache_type,
+            cache_source=self.cache_source,
         )
         return mrd
 
@@ -743,7 +877,15 @@ class MRDPoolCache:
             mrds_to_close.extend(_drain_queue(self._mrd_queues.pop(evict_key, None)))
         return mrds_to_close
 
-    async def get(self, bucket_name, object_name, generation, pool_size):
+    async def get(
+        self,
+        bucket_name,
+        object_name,
+        generation,
+        pool_size,
+        cache_type=None,
+        cache_source=None,
+    ):
         """
         Gets an MRDPool for the specified object.
 
@@ -752,6 +894,8 @@ class MRDPoolCache:
             object_name (str): Name of the object.
             generation (int): Object generation.
             pool_size (int): Requested pool size.
+            cache_type (str, optional): The cache type string.
+            cache_source (str, optional): The cache source string.
 
         Returns:
             MRDPool: An initialized MRDPool instance.
@@ -765,7 +909,7 @@ class MRDPoolCache:
         info = await fs._info(f"{bucket_name}/{object_name}", generation=generation)
         if generation is None:
             generation = info.get("generation")
-        key = (bucket_name, object_name, generation)
+        key = (bucket_name, object_name, generation, cache_type)
         finalized = info.get("timeFinalized") is not None
 
         self._incref(key)
@@ -777,6 +921,8 @@ class MRDPoolCache:
             finalized,
             pool_size,
             cache=self,
+            cache_type=cache_type,
+            cache_source=cache_source,
         )
         if info is not None:
             mrd_pool.details = info

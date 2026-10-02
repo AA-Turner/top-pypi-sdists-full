@@ -78,9 +78,9 @@ jobs:
       metadata: ${{ steps.metadata.outputs.metadata }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.12.12"
+          version: "0.12.17"
       - name: Run repomatic show-metadata
         id: metadata
         # The `--exclude-newer-package` flag is not optional: the workflow-level
@@ -103,9 +103,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.12.12"
+          version: "0.12.17"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
       - name: Install project
@@ -166,9 +166,9 @@ jobs:
       # on a throwaway runner. See claude.md.
       UV_EXCLUDE_NEWER: P0D
     steps:
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.12.12"
+          version: "0.12.17"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
 
@@ -249,9 +249,9 @@ jobs:
     continue-on-error: ${{ matrix.state == 'unstable' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.12.12"
+          version: "0.12.17"
       - name: Force native ARM64 Python on Windows ARM64
         # Workaround for https://github.com/astral-sh/uv/issues/12906: uv defaults to x86_64 Python on ARM64 Windows,
         # relying on transparent emulation, so an ARM64 Windows cell would silently test emulated x86_64 Python

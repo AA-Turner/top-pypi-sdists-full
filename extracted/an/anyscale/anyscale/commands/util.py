@@ -73,9 +73,7 @@ class AnyscaleCommand(click.Command):
 
     def format_options(self, ctx, formatter) -> None:
         """Render options, prefixing help with status markers from option_docs."""
-        option_docs = (getattr(self, "doc_metadata", None) or {}).get(
-            "option_docs"
-        ) or {}
+        option_docs = (getattr(self, "doc_metadata", None) or {}).get("option_docs") or {}
         records: List[Tuple[str, str]] = []
         for param in self.get_params(ctx):
             record = param.get_help_record(ctx)
@@ -170,11 +168,7 @@ class OptionPromptNull(click.Option):
                 default = super().get_default(ctx, **kwargs)
             else:
                 arg = ctx.params.get(self.default_option)
-                default = (
-                    self.type_cast_value(ctx, self.default(arg))
-                    if arg is not None
-                    else None
-                )
+                default = self.type_cast_value(ctx, self.default(arg)) if arg is not None else None
             setattr(self, self._value_key, default)
         return getattr(self, self._value_key)
 
@@ -190,8 +184,7 @@ class NotRequiredIf(click.Option):
         assert self.not_required_if, "'not_required_if' parameter required"
         kwargs["help"] = (
             kwargs.get("help", "")
-            + " NOTE: This argument is mutually exclusive with %s"
-            % self.not_required_if
+            + " NOTE: This argument is mutually exclusive with %s" % self.not_required_if
         ).strip()
         super().__init__(*args, **kwargs)
 
@@ -212,16 +205,28 @@ class NotRequiredIf(click.Option):
         return super().handle_parse_result(ctx, opts, args)
 
 
-def convert_kv_strings_to_dict(strings: Tuple[str]) -> Dict[str, str]:
+def convert_kv_strings_to_dict(
+    strings: Tuple[str], *, allow_empty_values: bool = False
+) -> Dict[str, str]:
     """Convert args/env_vars of the form "key=val" into a dictionary of {key: val}.
 
-    NOTE(edoakes): this mimics the functionality of the `serve run` CLI and should be
-    kept in sync with it.
+    Env vars pass allow_empty_values=True: "FOO=" is a legitimate set-but-empty
+    variable, but an unnamed one ("=val") is unusable downstream, so a blank key is
+    rejected instead.
+
+    NOTE(edoakes): the default contract mimics the functionality of the `serve run`
+    CLI and should be kept in sync with it.
     """
     ret_dict = {}
     for s in strings:
         split = s.split("=", maxsplit=1)
-        if len(split) != 2 or len(split[1]) == 0:
+        # Allowing an empty value swaps the non-empty-value check for a
+        # non-blank-key one. The default contract has no key check at all, so
+        # "=val" still parses there as {"": "val"}, matching `serve run`.
+        is_invalid = len(split) != 2 or (
+            not split[0].strip() if allow_empty_values else len(split[1]) == 0
+        )
+        if is_invalid:
             raise click.ClickException(
                 f"Invalid key-value string '{s}'. Must be of the form 'key=value'."
             )
@@ -291,9 +296,7 @@ def normalize_tags_to_api_list(strings: Iterable[str]) -> List[str]:
     return flattened
 
 
-def flatten_tag_dict_to_api_list(
-    tags: Optional[Dict[str, List[str]]]
-) -> Optional[List[str]]:
+def flatten_tag_dict_to_api_list(tags: Optional[Dict[str, List[str]]]) -> Optional[List[str]]:
     """Flatten dict[key] -> list[values] into list[str] "key:value" for API.
 
     Returns None if input is None or empty after normalization.
@@ -361,13 +364,9 @@ def parse_connection_string(connection_str: str) -> ConnectionConfig:
 
     # Validate required fields
     if "type" not in conn_dict:
-        raise click.ClickException(
-            "Connection must specify 'type' (e.g., type=databricks)."
-        )
+        raise click.ClickException("Connection must specify 'type' (e.g., type=databricks).")
     if "name" not in conn_dict:
-        raise click.ClickException(
-            "Connection must specify 'name' (e.g., name=my-conn)."
-        )
+        raise click.ClickException("Connection must specify 'name' (e.g., name=my-conn).")
 
     # Validate and convert connection type
     try:
@@ -375,7 +374,10 @@ def parse_connection_string(connection_str: str) -> ConnectionConfig:
     except ValueError as e:
         raise click.ClickException(str(e)) from None
 
-    return ConnectionConfig(type=connection_type, name=conn_dict["name"],)
+    return ConnectionConfig(
+        type=connection_type,
+        name=conn_dict["name"],
+    )
 
 
 def parse_connections(connections: Tuple[str, ...]) -> List[ConnectionConfig]:
@@ -392,9 +394,7 @@ def parse_connections(connections: Tuple[str, ...]) -> List[ConnectionConfig]:
     return [parse_connection_string(conn) for conn in connections]
 
 
-def build_kv_table(
-    pairs: Iterable[Tuple[str, str]], *, title: Optional[str] = None
-) -> Table:
+def build_kv_table(pairs: Iterable[Tuple[str, str]], *, title: Optional[str] = None) -> Table:
     """Build a Rich table for key/value pairs.
 
     - Sorts rows by key then value for stable output

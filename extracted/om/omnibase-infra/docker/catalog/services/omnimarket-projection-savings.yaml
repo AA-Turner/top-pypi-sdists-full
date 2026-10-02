@@ -1,0 +1,41 @@
+name: omnimarket-projection-savings
+description: Kafka-to-DB projection consumer for savings events (OMN-7610)
+image: omnimarket-projection:latest
+layer: runtime
+container_name: omnimarket-projection-savings
+required_env:
+  # OMN-15425: this service binds the `tenant_projection` topology binding,
+  # whose principal is tenant_projection_writer. That binding has its own DSN
+  # env because OMN-16911 attests current_user per binding and one DSN cannot
+  # read back as two principals. OMNIDASH_ANALYTICS_DB_URL is retained for the
+  # dashboard-facing settings fallback this change did not re-scope.
+  - OMNIDASH_ANALYTICS_DB_URL
+  - ONEX_TENANT_DB_URL
+hardcoded_env:
+  KAFKA_BROKERS: redpanda:9092
+  PYTHONUNBUFFERED: "1"
+operational_defaults:
+  KAFKA_CONSUMER_GROUP: omnimarket-projections-v1
+  ONEX_LOG_LEVEL: INFO
+ports: null
+healthcheck: null
+volumes: []
+depends_on:
+  - service: redpanda
+    condition: service_healthy
+  - service: postgres
+    condition: service_healthy
+restart: unless-stopped
+resources:
+  cpus: "0.5"
+  memory: 256M
+  cpus_reservation: "0.1"
+  memory_reservation: 64M
+stop_grace_period: 30s
+command:
+  - python
+  - -m
+  - omnimarket.nodes.node_projection_savings.handlers.handler_savings
+labels:
+  com.omninode.service: omnimarket-projection-savings
+  com.omninode.layer: runtime

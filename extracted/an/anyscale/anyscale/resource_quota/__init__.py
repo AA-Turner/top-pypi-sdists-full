@@ -33,22 +33,22 @@ class ResourceQuotaSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateResourceQuotaSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateResourceQuotaSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_DOCSTRINGS,
+        doc_py_example=_CREATE_EXAMPLE,
+        arg_docstrings=_CREATE_DOCSTRINGS,
     )
     def create(  # noqa: F811
-        self, create_resource_quota: CreateResourceQuota,
+        self,
+        create_resource_quota: CreateResourceQuota,
     ) -> ResourceQuota:
-        """Create a resource quota.
-        """
+        """Create a resource quota."""
         return self._private_sdk.create(create_resource_quota)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_DOCSTRINGS,
     )
     def list(  # noqa: F811
         self,
@@ -58,8 +58,7 @@ class ResourceQuotaSDK:
         is_enabled: Optional[bool] = None,
         max_items: int = 20,
     ) -> List[ResourceQuota]:
-        """List resource quotas.
-        """
+        """List resource quotas."""
         return self._private_sdk.list(
             name=name,
             cloud=cloud,
@@ -69,31 +68,34 @@ class ResourceQuotaSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_DOCSTRINGS,
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_DOCSTRINGS,
     )
     def delete(  # noqa: F811
-        self, resource_quota_id: str,
+        self,
+        resource_quota_id: str,
     ):
-        """Delete a resource quota.
-        """
+        """Delete a resource quota."""
         return self._private_sdk.delete(resource_quota_id)
 
     @sdk_docs(
-        doc_py_example=_ENABLE_EXAMPLE, arg_docstrings=_ENABLE_DOCSTRINGS,
+        doc_py_example=_ENABLE_EXAMPLE,
+        arg_docstrings=_ENABLE_DOCSTRINGS,
     )
     def enable(  # noqa: F811
-        self, resource_quota_id: str,
+        self,
+        resource_quota_id: str,
     ):
-        """Enable a resource quota.
-        """
+        """Enable a resource quota."""
         return self._private_sdk.set_status(resource_quota_id, True)
 
     @sdk_docs(
-        doc_py_example=_DISABLE_EXAMPLE, arg_docstrings=_DISABLE_DOCSTRINGS,
+        doc_py_example=_DISABLE_EXAMPLE,
+        arg_docstrings=_DISABLE_DOCSTRINGS,
     )
     def disable(  # noqa: F811
-        self, resource_quota_id: str,
+        self,
+        resource_quota_id: str,
     ):
-        """Disable a resource quota.
-        """
+        """Disable a resource quota."""
         return self._private_sdk.set_status(resource_quota_id, False)

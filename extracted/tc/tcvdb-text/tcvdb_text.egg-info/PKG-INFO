@@ -1,0 +1,10 @@
+Metadata-Version: 1.2
+Name: tcvdb-text
+Version: 1.1.2
+Summary: Tencent VectorDB Sparse Vector SDK
+Home-page: UNKNOWN
+Author: tencent vdb team
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3

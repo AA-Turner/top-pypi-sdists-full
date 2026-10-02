@@ -29,6 +29,11 @@ an `<a name="…">` companion holding the `make_id` spelling. That HTML anchor
 is invisible to Sphinx (it renders no `id`, so the page keeps one id per
 section) and authoritative for GitHub and lychee.
 
+Docstrings take a third path to the site. `click_extra.sphinx.myst_docstrings`
+passes their link targets to reST unchanged. A `page.md#anchor` target, which
+myst-parser resolves in a page, thus ships as written, and the site serves no
+`.md` file. So a docstring links a page with `{doc}` and a section with `{ref}`.
+
 The check runs on text alone: no build, no network, no platform floor. Its
 counterpart on the built HTML is `test_sphinx_crossrefs.py`, which is skipped
 off Linux, and the `check-broken-links` CI job, which files an issue instead
@@ -37,8 +42,10 @@ of failing a run. Both let a broken anchor sit for a full cycle.
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -56,6 +63,9 @@ MARKDOWN_FILES = (
     *sorted((PROJECT_ROOT / "docs").glob("*.md")),
 )
 
+# The modules whose docstrings autodoc renders into the API pages.
+PACKAGE_SOURCES = tuple(sorted((PROJECT_ROOT / "click_extra").rglob("*.py")))
+
 # A fence closes only on its own marker character, repeated at least as many
 # times as it was opened with, and followed by nothing. That is what lets this
 # documentation nest a ``` example inside a ```` block, and a MyST ``` fence
@@ -71,6 +81,18 @@ HTML_ANCHOR = re.compile(r"""<a\s[^>]*\b(?:name|id)\s*=\s*["'](?P<anchor>[^"']+)
 # An inline link whose target carries a fragment: `](page.md#frag)` or `](#frag)`.
 # Angle-bracket and title forms are unused in this tree, so they are not parsed.
 FRAGMENT_LINK = re.compile(r"]\((?P<page>[^()\s#]*)#(?P<fragment>[^()\s]+)\)")
+
+# An inline link to a page named by its source file: `](page.md)` or
+# `](page.md#frag)`. A URL carries a scheme, so its colon keeps it from matching.
+PAGE_LINK = re.compile(r"]\((?P<target>[^()\s:#]+\.md(?:#[^()\s]*)?)\)")
+
+# A `#:` comment, which autodoc renders as the docstring of the name below it.
+SHARP_COLON = re.compile(r"^\s*#:\s?(?P<text>.*)$")
+
+# A code span: a run of backticks, closed by the next run of the same length.
+# lychee reads no link and no anchor inside one. A span broken across two lines
+# is left as it is.
+INLINE_CODE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`).+?(?<!`)(?P=ticks)(?!`)")
 
 
 def lychee_excludes() -> tuple[re.Pattern[str], ...]:
@@ -88,19 +110,32 @@ def lychee_excludes() -> tuple[re.Pattern[str], ...]:
     )
 
 
-def uncoded_lines(content: str) -> list[tuple[int, str]]:
+def closes_fence(marker: str, opening: str) -> bool:
+    """Tell whether a line's fence `marker` closes the block `opening` started."""
+    return marker.startswith(opening[0]) and len(marker) >= len(opening)
+
+
+def uncoded_lines(
+    content: str, keep_directive_bodies: bool = False
+) -> list[tuple[int, str]]:
     """Number and return the lines sitting outside a code fence.
 
-    lychee ignores fenced content, so a link in an example is not a link.
+    lychee ignores fenced content, so a link in an example is not a link. The
+    docstring converter renders the body of a directive fence like `{note}`, so
+    `keep_directive_bodies` returns those lines, without the fence markers.
     """
     lines: list[tuple[int, str]] = []
     opening = ""
+    directives: list[str] = []
     for number, line in enumerate(content.splitlines(), 1):
+        close = FENCE_CLOSE.match(line)
+        marker = close.group("marker") if close else ""
         if opening:
-            close = FENCE_CLOSE.match(line)
-            marker = close.group("marker") if close else ""
-            if marker.startswith(opening[0]) and len(marker) >= len(opening):
+            if closes_fence(marker, opening):
                 opening = ""
+            continue
+        if directives and closes_fence(marker, directives[-1]):
+            directives.pop()
             continue
         fence = FENCE_OPEN.match(line)
         # A backtick fence's info string may not itself hold a backtick, which
@@ -108,10 +143,22 @@ def uncoded_lines(content: str) -> list[tuple[int, str]]:
         if fence and not (
             fence.group("marker")[0] == "`" and "`" in fence.group("info")
         ):
-            opening = fence.group("marker")
+            if keep_directive_bodies and fence.group("info").startswith("{"):
+                directives.append(fence.group("marker"))
+            else:
+                opening = fence.group("marker")
             continue
         lines.append((number, line))
     return lines
+
+
+def uncoded_spans(line: str) -> str:
+    """Drop a line's code spans, so a link or anchor quoted in prose is not read.
+
+    Headings are slugged from the raw line instead: GitHub keeps the text of a
+    code span in a heading's slug.
+    """
+    return INLINE_CODE.sub("", line)
 
 
 def github_slug(heading: str) -> str:
@@ -135,7 +182,7 @@ def readable_anchors(path: Path) -> set[str]:
     anchors: set[str] = set()
     seen: dict[str, int] = {}
     for _number, line in uncoded_lines(path.read_text(encoding="utf-8")):
-        anchors.update(HTML_ANCHOR.findall(line))
+        anchors.update(HTML_ANCHOR.findall(uncoded_spans(line)))
         heading = ATX_HEADING.match(line)
         if not heading:
             continue
@@ -157,7 +204,7 @@ def unresolved_fragments(paths=MARKDOWN_FILES) -> list[str]:
     misses = []
     for path in paths:
         for number, line in uncoded_lines(path.read_text(encoding="utf-8")):
-            for link in FRAGMENT_LINK.finditer(line):
+            for link in FRAGMENT_LINK.finditer(uncoded_spans(line)):
                 page, fragment = link.group("page"), link.group("fragment")
                 target = (path.parent / page).resolve() if page else path
                 # Only Markdown pages of this repository are checked: a URL or
@@ -173,6 +220,42 @@ def unresolved_fragments(paths=MARKDOWN_FILES) -> list[str]:
                     name = target.relative_to(PROJECT_ROOT)
                     misses.append(f"{source}:{number} -> {name}#{fragment}")
     return misses
+
+
+def rendered_prose(path: Path) -> list[tuple[int, str]]:
+    """Collect the prose autodoc renders from a module, with the line it starts on.
+
+    Every bare string statement counts, so attribute docstrings join the module,
+    class and function ones, and so does every `#:` comment. A docstring loses
+    its indentation after the first line, so a fence opens at the margin as it
+    does in a page.
+    """
+    source = path.read_text(encoding="utf-8")
+    prose = [
+        (number, comment.group("text"))
+        for number, line in enumerate(source.splitlines(), 1)
+        if (comment := SHARP_COLON.match(line))
+    ]
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            first, _, rest = node.value.value.partition("\n")
+            prose.append((node.lineno, f"{first}\n{textwrap.dedent(rest)}"))
+    return sorted(prose)
+
+
+def docstring_page_links(paths=PACKAGE_SOURCES) -> list[tuple[Path, int, str]]:
+    """Report every docstring link that names a page by its `.md` file."""
+    links = []
+    for path in paths:
+        for start, text in rendered_prose(path):
+            for number, line in uncoded_lines(text, keep_directive_bodies=True):
+                for link in PAGE_LINK.finditer(uncoded_spans(line)):
+                    links.append((path, start + number - 1, link.group("target")))
+    return links
 
 
 def test_markdown_files_are_collected():
@@ -213,3 +296,81 @@ def test_github_slug(heading, expected):
     which is what makes its `<a name="…">` companion necessary.
     """
     assert github_slug(heading) == expected
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    (
+        ("Write `[text](#walled-garden)` to link it.", "Write  to link it."),
+        ("``a ` b`` and `c`", " and "),
+        ("[`pond`](water.md#the-pond)", "[](water.md#the-pond)"),
+        ("A lone ` backtick stays.", "A lone ` backtick stays."),
+    ),
+)
+def test_uncoded_spans(line, expected):
+    """A span goes whatever its backtick count, and a lone backtick stays."""
+    assert uncoded_spans(line) == expected
+
+
+def test_code_spans_hold_no_link_and_no_anchor(tmp_path):
+    """A link or an anchor quoted in a code span is prose, as lychee reads it."""
+    page = tmp_path / "pond.md"
+    page.write_text(
+        "# Pond\n\n"
+        'Quote `<a name="lily"></a>` or `[the reeds](#reeds)` in prose.\n'
+        "Then [go back up](#pond).\n",
+        encoding="utf-8",
+    )
+    assert readable_anchors(page) == {"pond"}
+    assert unresolved_fragments([page]) == []
+
+
+def test_package_sources_are_collected():
+    """The glob feeding the docstring check still finds the package."""
+    assert len(PACKAGE_SOURCES) > 50, "package modules went missing"
+
+
+def test_docstrings_link_pages_by_role():
+    """No docstring links a documentation page by its `.md` file.
+
+    A failure names a link that ships dead. Link the page with `{doc}`, or its
+    section with `{ref}` after adding a `(label)=` target above the heading.
+    """
+    misses = [
+        f"{path.relative_to(PROJECT_ROOT)}:{number} -> {target}"
+        for path, number, target in docstring_page_links()
+    ]
+    assert not misses, "docstring links to .md files:\n  " + "\n  ".join(misses)
+
+
+def test_docstring_page_links_are_found(tmp_path):
+    """The scan reads every docstring autodoc renders, and only their prose."""
+    module = tmp_path / "pond.py"
+    module.write_text(
+        '"""Frogs live in the [pond](pond.md#frogs)."""\n'
+        "\n"
+        "#: Counted on the [lily page](lilies.md).\n"
+        "LILIES = 3\n"
+        '"""Each one floats: see [floating](lilies.md#floating)."""\n'
+        "\n"
+        "\n"
+        "def croak():\n"
+        '    """Quote `[the reeds](reeds.md)`, or read about the\n'
+        "    [heron](https://example.com/heron.md).\n"
+        "\n"
+        "    ```{note}\n"
+        "    Herons [eat frogs](herons.md#diet).\n"
+        "    ```\n"
+        "\n"
+        "    ```markdown\n"
+        "    [a duck](ducks.md)\n"
+        "    ```\n"
+        '    """\n',
+        encoding="utf-8",
+    )
+    assert docstring_page_links([module]) == [
+        (module, 1, "pond.md#frogs"),
+        (module, 3, "lilies.md"),
+        (module, 5, "lilies.md#floating"),
+        (module, 13, "herons.md#diet"),
+    ]

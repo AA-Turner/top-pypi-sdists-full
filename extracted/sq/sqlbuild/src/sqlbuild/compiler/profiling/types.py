@@ -1,0 +1,27 @@
+"""Compile profiling type aliases."""
+
+from typing import Literal
+
+type CompileTimingPhase = Literal[
+    "attachment_ms",
+    "model_analysis_ms",
+    "analysis_preparation_ms",
+    "analysis_native_ms",
+    "analysis_projection_ms",
+    "binding_validation_ms",
+    "test_input_compile_ms",
+    "test_planning_ms",
+    "comparison_render_ms",
+    "cache_publication_ms",
+    "physical_write_ms",
+    "stale_traversal_ms",
+]
+
+type CompileMetric = Literal[
+    "analysis_batch_cache_hits",
+    "analysis_entry_cache_hits",
+    "analysis_cache_misses",
+    "analysis_cache_bypasses",
+    "fact_cache_hits",
+    "fact_cache_misses",
+]

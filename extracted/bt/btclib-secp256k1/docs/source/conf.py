@@ -1,0 +1,190 @@
+# Copyright (c) The btclib developers
+# Distributed under the MIT software license, see the accompanying
+# LICENSE file or https://opensource.org/license/mit for the full text.
+
+"""Configuration file for the Sphinx documentation builder.
+
+For the full list of built-in configuration values, see the
+documentation: https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""
+
+import posixpath
+import re
+import tomllib
+from pathlib import Path
+from typing import Any
+
+from docutils import nodes
+from sphinx.addnodes import pending_xref
+from sphinx.application import Sphinx
+from sphinx.transforms.post_transforms import SphinxPostTransform
+
+# the repository root, two levels up from this file, and the one place
+# below that is allowed to name it
+ROOT = Path(__file__).parents[2].resolve()
+# read once and read twice from: the version below and the github url the
+# transform at the bottom builds its links on
+PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+# -- Project information -----------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+project = "btclib_secp256k1"
+# no __copyright__ in this package to read back: LICENSE is the only
+# place the holder is declared, so this reads that file instead, minus
+# the "Copyright (c) " sphinx prepends itself.
+# What comes out carries no year, section 14 of the organization standard
+# having LICENSE name the holder and no range, so the footer dates nothing
+project_copyright = re.search(
+    r"^Copyright \(c\) (.+)$",
+    (ROOT / "LICENSE").read_text(encoding="utf-8"),
+    re.MULTILINE,
+).group(1)
+author = "The btclib developers"
+# read from pyproject.toml, the one place the version is declared, rather
+# than from importlib.metadata, so the value does not depend on whether
+# this package happens to be installed in the environment building the
+# documentation (btclib-org/.github#1098)
+release = PYPROJECT["project"]["version"]
+
+# -- General configuration ---------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+
+extensions = [
+    "sphinx.ext.intersphinx",
+    "myst_parser",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
+    "sphinx.ext.coverage",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.viewcode",
+]
+
+# no sphinx.ext.todo, for the reason a sibling repository's own conf.py
+# gives: a ``.. todo::`` left at the default renders as nothing at all,
+# and without the extension it is an unknown directive that -W turns
+# into a failed build instead
+
+source_suffix = [".rst", ".md"]
+
+# -n on the build (CONTRIBUTING.md's documented command, and docs.yml)
+# turns an unresolved cross-reference into a warning for -W to fail on.
+# Without an inventory to resolve against, a name from outside this tree
+# -- collections.abc.Sequence, collections.abc.Mapping, types.TracebackType,
+# the stdlib names this package's own annotations reach -- reports as
+# this tree's own broken link; sphinx's own domain answers for the
+# builtins (int, bytes, str), so no mapping is needed for those. cffi's
+# own ffi and lib are out of scope of intersphinx, cffi publishing no
+# inventory to map them against, but neither draws a reference here:
+# CData, the boundary's own name for cffi's cdata objects, is declared in
+# this package (__init__.py) rather than imported from cffi
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
+
+# CONTRIBUTING.md links to "README.md#build", an anchor into a markdown
+# heading rather than a whole file, and myst generates no heading ids at
+# all unless told to. 6 is every level a markdown heading reaches, which
+# section 2 of the organization standard makes the value here: a depth
+# read off the headings a root file links to is re-derived every time one
+# of them moves, and part of what it would read belongs to no one tree --
+# section 14 ports CONTRIBUTING.md's shared half into every repository,
+# so a heading added there moves the number in each of them at once
+myst_heading_anchors = 6
+
+# no suppress_warnings, matching a sibling repository's own choice: the
+# transform at the bottom resolves every link the included root files
+# carry, so a myst target still missing is a link with nowhere to go
+# and -W is what says so
+
+exclude_patterns: list[str] = []
+
+# -- Options for HTML output -------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+
+html_theme = "furo"
+
+# no html_static_path, matching a sibling repository's own conf.py and
+# for the same reason: neither an overridden stylesheet nor a shipped
+# image exists here, and sphinx warns about a declared "_static"
+# directory that has never existed
+
+# -- Links out of the included root markdown files ----------------------------
+
+# Some of the toctree's pages are this repository's own root markdown,
+# each pulled into a *_link.md shim by a myst {include}. Which ones is
+# `ls docs/source/*_link.md`, and that glob is also what INCLUDED reads
+# below, so the set is derived in one place and this comment does not
+# become a second copy of it the next time a shim is added or dropped.
+# What is not shimmed is a root file no page renders, which is a fact
+# about this repository rather than a rule.
+# Those root files are written for the three places that read them
+# unrendered -- the GitHub file view, the PyPI long description, and (for
+# this repository) nothing else, there being no website served from it --
+# so a bare "SECURITY.md" is the correct spelling there, and myst resolves
+# not one of those links once the file is lifted into this tree.
+#
+# What it emits instead is the reason this needs code rather than a
+# warning filter, exactly as a sibling repository's own conf.py
+# explains: a target myst cannot resolve becomes an anchor on the page
+# it is already on, href="#SECURITY.md", an id nothing has. The
+# transform below answers
+# each link from the repository rather than from a table that would have
+# to be kept in step with this directory: a path a *_link.md shim
+# includes becomes a reference to that page, any other path that exists
+# in the tree becomes a link to the file on GitHub, and a path that
+# exists nowhere is left to myst -- which reports it, and -W then fails.
+
+INCLUDE = re.compile(r"^```\{include\}\s+(.+?)\s*$", re.MULTILINE)
+
+
+def included(shim: Path) -> tuple[str, str]:
+    """Map the file a *_link.md shim renders to the shim's own docname."""
+    paths = INCLUDE.findall(shim.read_text(encoding="utf-8"))
+    if len(paths) != 1:
+        err_msg = f"{shim.name}: {len(paths)} include fences, expected one"
+        raise ValueError(err_msg)
+    return str((shim.parent / paths[0]).resolve().relative_to(ROOT)), shim.stem
+
+
+# repository-relative path -> the docname whose page renders it
+INCLUDED = dict(map(included, sorted(Path(__file__).parent.glob("*_link.md"))))
+# the branch, not a permalink pinned to a commit: these are navigation
+# links to files that keep changing, and a reader following one wants the
+# file as it stands
+BLOB = f"{PYPROJECT['project']['urls']['repository']}/blob/main/"
+
+
+class RootFileLinks(SphinxPostTransform):
+    """Resolve the repository-relative links of the included root files."""
+
+    default_priority = 5
+
+    # kwargs is unused: this overrides SphinxPostTransform.run, whose
+    # signature sphinx itself calls with, not this method's to narrow
+    def run(self, **kwargs: Any) -> None:  # noqa: ARG002
+        """Rewrite every myst xref naming a file of this repository."""
+        for node in list(self.document.findall(pending_xref)):
+            if node.get("reftype") != "myst" or node.get("refdomain") is not None:
+                continue
+            if node.get("refdoc", self.env.docname) not in INCLUDED.values():
+                continue
+            target, _, anchor = node["reftarget"].partition("#")
+            target = posixpath.normpath(target)
+            if target.startswith(".."):
+                continue
+            if target in INCLUDED:
+                node["refdomain"] = "doc"
+                node["reftarget"] = INCLUDED[target]
+                node["reftargetid"] = anchor or None
+            elif (ROOT / target).is_file():
+                fragment = f"#{anchor}" if anchor else ""
+                reference = nodes.reference(
+                    "", "", refuri=f"{BLOB}{target}{fragment}", internal=False
+                )
+                reference.extend(node.children)
+                node.replace_self(reference)
+
+
+def setup(app: Sphinx) -> None:
+    """Register the transform above; sphinx calls this."""
+    app.add_post_transform(RootFileLinks)

@@ -39,7 +39,8 @@ class UserGroup(object):
         'created_at': 'datetime',
         'updated_at': 'datetime',
         'deleted_at': 'datetime',
-        'organization_permissions': 'UserGroupOrganizationPermissions'
+        'organization_permissions': 'UserGroupOrganizationPermissions',
+        'source': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class UserGroup(object):
         'created_at': 'created_at',
         'updated_at': 'updated_at',
         'deleted_at': 'deleted_at',
-        'organization_permissions': 'organization_permissions'
+        'organization_permissions': 'organization_permissions',
+        'source': 'source'
     }
 
-    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, deleted_at=None, organization_permissions=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, deleted_at=None, organization_permissions=None, source=None, local_vars_configuration=None):  # noqa: E501
         """UserGroup - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class UserGroup(object):
         self._updated_at = None
         self._deleted_at = None
         self._organization_permissions = None
+        self._source = None
         self.discriminator = None
 
         self.id = id
@@ -76,6 +79,8 @@ class UserGroup(object):
             self.deleted_at = deleted_at
         if organization_permissions is not None:
             self.organization_permissions = organization_permissions
+        if source is not None:
+            self.source = source
 
     @property
     def id(self):
@@ -233,6 +238,35 @@ class UserGroup(object):
         """
 
         self._organization_permissions = organization_permissions
+
+    @property
+    def source(self):
+        """Gets the source of this UserGroup.  # noqa: E501
+
+        Where the group came from: created in the console ('user') or synced from an identity provider directory ('scim').  # noqa: E501
+
+        :return: The source of this UserGroup.  # noqa: E501
+        :rtype: str
+        """
+        return self._source
+
+    @source.setter
+    def source(self, source):
+        """Sets the source of this UserGroup.
+
+        Where the group came from: created in the console ('user') or synced from an identity provider directory ('scim').  # noqa: E501
+
+        :param source: The source of this UserGroup.  # noqa: E501
+        :type: str
+        """
+        allowed_values = ["user", "scim"]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and source not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `source` ({0}), must be one of {1}"  # noqa: E501
+                .format(source, allowed_values)
+            )
+
+        self._source = source
 
     def to_dict(self):
         """Returns the model properties as a dict"""

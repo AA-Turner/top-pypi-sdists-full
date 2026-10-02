@@ -15,6 +15,7 @@ Zendesk API docs: https://developer.zendesk.com/api-reference/ticketing/tickets/
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -38,6 +39,7 @@ _REQUEST_TIMEOUT_SECONDS = 30
 _COMMENTS_PER_PAGE = 100
 _SEARCH_PER_PAGE = 100
 _MAX_SEARCH_RESULTS = 1000
+_SAFE_ERROR_SUMMARY_TOKEN = re.compile(r"[A-Za-z0-9_.]+")
 
 
 class ZendeskAPIError(Exception):
@@ -101,6 +103,52 @@ def _zendesk_headers() -> dict[str, str]:
     }
 
 
+def _safe_error_summary(response: requests.Response) -> str:
+    """Return only safe Zendesk error codes and field names from a response."""
+    try:
+        body = response.json()
+    except Exception:
+        return ""
+
+    if not isinstance(body, dict):
+        return ""
+    details = body.get("details")
+    if not isinstance(details, dict):
+        return ""
+
+    summary_parts: list[str] = []
+    error = body.get("error")
+    if isinstance(error, str) and _SAFE_ERROR_SUMMARY_TOKEN.fullmatch(error):
+        summary_parts.append(f"Error: {error}.")
+
+    safe_details = [
+        (field_name, entries)
+        for field_name, entries in details.items()
+        if isinstance(field_name, str)
+        and _SAFE_ERROR_SUMMARY_TOKEN.fullmatch(field_name)
+    ]
+    fields: list[str] = []
+    for field_name, entries in sorted(safe_details, key=lambda item: item[0]):
+        error_codes: set[str] = set()
+        if isinstance(entries, list):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                error_code = entry.get("error")
+                if isinstance(error_code, str) and _SAFE_ERROR_SUMMARY_TOKEN.fullmatch(
+                    error_code
+                ):
+                    error_codes.add(error_code)
+        if error_codes:
+            fields.append(f"{field_name} ({', '.join(sorted(error_codes))})")
+        else:
+            fields.append(field_name)
+    if fields:
+        summary_parts.append(f"Fields: {', '.join(fields)}.")
+
+    return f" {' '.join(summary_parts)}" if summary_parts else ""
+
+
 def _request(
     credentials: ZendeskCredentials,
     method: str,
@@ -136,10 +184,11 @@ def _request(
             "Check ZENDESK_EMAIL / ZENDESK_API_TOKEN."
         )
     if not 200 <= response.status_code < 300:
-        # Do not include the response body: it can contain customer/PII data
-        # and this message is surfaced to the MCP caller.
+        # Include only safe field names and error codes, never descriptions or
+        # values, because the message is surfaced to the MCP caller.
         raise ZendeskAPIError(
             f"Zendesk {method} {path} failed with status {response.status_code}."
+            f"{_safe_error_summary(response)}"
         )
 
     try:

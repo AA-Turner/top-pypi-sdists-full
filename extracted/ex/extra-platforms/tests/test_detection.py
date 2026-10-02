@@ -529,12 +529,40 @@ def test_tree_from_ps(monkeypatch):
         lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
     )
     monkeypatch.setattr(os, "getpid", lambda: 300)
+    # Keep the real procfs of an illumos host out of these made-up processes.
+    monkeypatch.setattr(detection_module, "_system_v_executable", lambda pid: "")
     # Ordered nearest-first. The login shell's argv[0] (-zsh) yields no path, and
     # "-m pytest" must not be mistaken for an interpreter-hosted shell.
     assert detection_module._tree_from_ps() == (
         ("python3", "/usr/bin/python3"),
         ("zsh", ""),
         ("launchd", "/sbin/launchd"),
+    )
+
+
+def test_tree_from_ps_reads_system_v_executable(monkeypatch):
+    """System V procfs names the binary a bare ``argv[0]`` hides, as on illumos."""
+    table = (
+        "  100     1 /usr/lib/ssh/sshd\n"
+        "  200   100 sh probe.sh\n"
+        "  300   200 /usr/bin/python3.14 report.py\n"
+    )
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
+    )
+    monkeypatch.setattr(os, "getpid", lambda: 300)
+    links = {200: "/usr/bin/i86/ksh93", 300: "/usr/bin/python3.14"}
+    monkeypatch.setattr(
+        detection_module, "_system_v_executable", lambda pid: links.get(pid, "")
+    )
+    assert detection_module._tree_from_ps() == (
+        ("python3", "/usr/bin/python3.14"),
+        ("python3", "/usr/bin/python3.14"),
+        ("ksh93", "/usr/bin/i86/ksh93"),
+        ("sh", ""),
+        ("sshd", "/usr/lib/ssh/sshd"),
     )
 
 
@@ -622,9 +650,9 @@ def test_tree_from_ps_uses_portable_flags(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run)
     detection_module._tree_from_ps()
     # `args` (POSIX), not `command` (absent on Solaris/AIX); no `-ww` (rejected
-    # by the System V ps on Solaris and AIX).
-    assert "pid=,ppid=,args=" in captured["args"]
-    assert "-ww" not in captured["args"]
+    # by the System V ps on Solaris and AIX). One `-o` per field: FreeBSD reads
+    # `-o pid=,ppid=,args=` as a single `pid` column with a `,ppid=,args=` header.
+    assert captured["args"] == ("ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "args=")
 
 
 @pytest.mark.parametrize(
@@ -645,6 +673,33 @@ def test_tree_from_ps_uses_portable_flags(monkeypatch):
 )
 def test_unwrap_emulator(argv, expected):
     assert detection_module._unwrap_emulator(argv) == expected
+
+
+@pytest.mark.parametrize(
+    ("executable", "argv", "expected"),
+    (
+        # BusyBox called by its own name runs the applet its argument names.
+        ("", ["/usr/bin/busybox", "sh", "-c", "x"], [("ash", "")]),
+        ("", ["busybox", "ash"], [("ash", "")]),
+        ("", ["busybox", "hush", "-c", "x"], [("hush", "")]),
+        # BusyBox called through a link, as its resolved executable reveals.
+        (
+            "/bin/busybox",
+            ["/bin/sh", "script.sh"],
+            [("busybox", "/bin/busybox"), ("ash", "/bin/sh")],
+        ),
+        ("/bin/busybox", ["-sh"], [("busybox", "/bin/busybox"), ("ash", "")]),
+        # Any other sh keeps its name.
+        (
+            "/usr/bin/dash",
+            ["/bin/sh", "script.sh"],
+            [("dash", "/usr/bin/dash"), ("sh", "/bin/sh")],
+        ),
+    ),
+)
+def test_pairs_from_process_busybox(executable, argv, expected):
+    """BusyBox's sh and ash applets both run its Almquist shell."""
+    assert detection_module._pairs_from_process(executable, argv) == expected
 
 
 def test_tree_from_ps_unwraps_emulator(monkeypatch):
@@ -778,7 +833,7 @@ def test_running_shell_path(monkeypatch):
     assert running(frozenset({"launchd"})) == "/sbin/launchd"
     assert running(frozenset({"fish"})) is None
 
-    # A non-absolute name (truncated BSD comm, login dash) is not a path.
+    # A non-absolute name (a bare argv[0], a login dash) is not a path.
     monkeypatch.setattr(
         detection_module, "_parent_process_tree", lambda: (("zsh", "zsh"),)
     )
@@ -814,6 +869,35 @@ def unset_shell_startup_vars(monkeypatch) -> None:
         if shell.version_env_var:
             monkeypatch.delenv(shell.version_env_var, raising=False)
     monkeypatch.delenv("PSModulePath", raising=False)
+
+
+@pytest.mark.parametrize(
+    ("shell", "executable"),
+    [
+        pytest.param(shell, name, id=name)
+        for shell in ALL_SHELLS
+        if isinstance(shell, Shell)
+        for name in shell.executables
+    ],
+)
+@pytest.mark.parametrize("source", ["SHELL", "process tree"])
+def test_shell_detected_by_every_executable_name(
+    monkeypatch, shell, executable, source
+):
+    """Each file name a shell's binary goes by detects it, as its ID does."""
+    path = f"/nonexistent/bin/{executable}"
+    unset_shell_startup_vars(monkeypatch)
+    if source == "SHELL":
+        monkeypatch.setattr(detection_module, "_parent_process_tree", lambda: ())
+        monkeypatch.setenv("SHELL", path)
+    else:
+        monkeypatch.setattr(
+            detection_module, "_parent_process_tree", lambda: ((executable, path),)
+        )
+        monkeypatch.delenv("SHELL", raising=False)
+    invalidate_caches()
+    assert shell.current
+    invalidate_caches()
 
 
 def test_current_shell_prefers_a_running_pwsh_over_configured_shell(monkeypatch):
@@ -864,6 +948,26 @@ def test_shell_from_path_resolves_symlinks(tmp_path):
     assert shell_from_path(link) is BASH
 
 
+@skip_windows
+@pytest.mark.parametrize(
+    ("target", "link", "expected_id"),
+    [
+        # Alpine links both to BusyBox, whose sh applet is its ash.
+        ("busybox", "ash", "ash"),
+        ("busybox", "sh", "ash"),
+        # A link to a binary going by no shell's name keeps its own name.
+        ("multicall", "sh", "sh"),
+    ],
+)
+def test_shell_from_path_resolves_multicall_binary(tmp_path, target, link, expected_id):
+    """A link to a multi-call binary names the program the link name picks."""
+    from extra_platforms import shell_from_path
+
+    (tmp_path / target).touch()
+    (tmp_path / link).symlink_to(tmp_path / target)
+    assert shell_from_path(tmp_path / link).id == expected_id
+
+
 def test_current_shell_path(monkeypatch):
     """current_shell_path() prefers the running binary, then falls back to SHELL."""
     from extra_platforms import ZSH, current_shell_path
@@ -876,16 +980,41 @@ def test_current_shell_path(monkeypatch):
     invalidate_caches()
     assert current_shell_path() == "/bin/zsh"
 
-    # No running path: fall back to the configured login shell.
+    # No running path: fall back to the configured login shell, when it names
+    # the current shell. A path that does not exist here is read as text.
     monkeypatch.setattr(detection_module, "_running_shell_path", lambda _: None)
+    monkeypatch.setenv("SHELL", "/nonexistent/bin/zsh")
     invalidate_caches()
-    assert current_shell_path() == "/bin/sh"
+    assert current_shell_path() == "/nonexistent/bin/zsh"
+
+    # A login shell of another kind is no fallback: illumos runs the suite from
+    # a bare `sh` under a bash login, and must not report bash's path for it.
+    monkeypatch.setenv("SHELL", "/nonexistent/bin/bash")
+    invalidate_caches()
+    assert current_shell_path() is None
 
     # Neither source available.
     monkeypatch.delenv("SHELL", raising=False)
     invalidate_caches()
     assert current_shell_path() is None
 
+    invalidate_caches()
+
+
+def test_shell_info_path_ignores_another_login_shell(monkeypatch):
+    """``Shell.info()`` reports no path rather than the path of another shell."""
+    from extra_platforms import SH
+
+    monkeypatch.setitem(detection_module._detection_registry, "is_sh", lambda: True)
+    # The running sh shows as a bare argv[0], the way illumos' ps reports it.
+    monkeypatch.setattr(detection_module, "_parent_process_tree", lambda: (("sh", ""),))
+    monkeypatch.setenv("SHELL", "/nonexistent/bin/bash")
+    invalidate_caches()
+    assert SH.info()["path"] is None
+
+    monkeypatch.setenv("SHELL", "/nonexistent/bin/sh")
+    invalidate_caches()
+    assert SH.info()["path"] == "/nonexistent/bin/sh"
     invalidate_caches()
 
 
@@ -944,4 +1073,55 @@ def test_nested_ancestor_shells_all_detected(monkeypatch):
     assert is_bash()
     assert is_fish()
     assert current_shell() is BASH
+    invalidate_caches()
+
+
+@pytest.mark.parametrize(
+    ("tree", "login_shell", "expected_id"),
+    [
+        # A bash script run from a zsh session.
+        (
+            (
+                ("python3", "/usr/bin/python3"),
+                ("bash", "/bin/bash"),
+                ("zsh", "/bin/zsh"),
+            ),
+            "/bin/zsh",
+            "bash",
+        ),
+        # Dash invoked as sh from a bash session: the /proc walk yields the
+        # resolved binary and the argv[0] of the same process.
+        (
+            (
+                ("python3", "/usr/bin/python3.14"),
+                ("dash", "/usr/bin/dash"),
+                ("sh", ""),
+                ("bash", "/usr/bin/bash"),
+            ),
+            "/bin/bash",
+            "dash",
+        ),
+        # SH stays the fallback: a zsh session running `sh -c` reports zsh.
+        (
+            (
+                ("python3", "/usr/bin/python3"),
+                ("sh", "/bin/sh"),
+                ("zsh", "/bin/zsh"),
+            ),
+            "/bin/zsh",
+            "zsh",
+        ),
+    ],
+)
+def test_current_shell_prefers_nearest_running_shell(
+    monkeypatch, tree, login_shell, expected_id
+):
+    """When shells nest, the nearest one wins over the login shell above it."""
+    from extra_platforms import current_shell
+
+    monkeypatch.setattr(detection_module, "_parent_process_tree", lambda: tree)
+    monkeypatch.setenv("SHELL", login_shell)
+    unset_shell_startup_vars(monkeypatch)
+    invalidate_caches()
+    assert current_shell().id == expected_id
     invalidate_caches()

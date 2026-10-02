@@ -8,6 +8,7 @@ from AOT_biomaps.AOT_Medium import Medium
 
 import os
 import numpy as np
+import shutil
 from scipy.io import loadmat as scipy_loadmat
 
 import matplotlib.pyplot as plt
@@ -160,7 +161,7 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in __del__ method: {e}")
             raise
 
-    def generate_field(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName=None, generation_type="envelope_squarred", show_log=False):
+    def generate_field(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName=None, generation_type="envelope_squared", show_log=False, backend=None):
         """
         Generate the acoustic field.
 
@@ -170,8 +171,9 @@ class AcousticField(ABC):
         In both cases self.field has layout (Nt', Nz', Nx') and the effective
         sampling is stored in self.last_decimation.
 
-        tempFieldName is VESTIGIAL (kept for API compatibility): the native
-        pipeline uses no temporary files.
+        backend: None/"python" (default) or "cpp" (compiled binaries, temp
+        h5 files named after tempFieldName -> required for multi-GPU
+        threading; tempFileName must be UNIQUE per concurrent field).
         """
         try:
             if isGPU is None:
@@ -190,7 +192,8 @@ class AcousticField(ABC):
                 if self.params.acoustic["dim"] == Dim.D2.value:
                     self.field = self._generate_acoustic_field_KWAVE_2D(
                         burst=burst, isGPU=isGPU, GPUdevice=GPUdevice,
-                        generation_type=generation_type, show_log=show_log)
+                        generation_type=generation_type, show_log=show_log,
+                        backend=backend, tempFileName=tempFieldName)
                 elif self.params.acoustic["dim"] == Dim.D3.value:
                     raise NotImplementedError("[AOT-biomaps] 3D k-Wave generation is not implemented yet.")
             elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
@@ -462,109 +465,236 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in _generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None,
-                                          generation_type="envelope_squarred",
-                                          show_log=True, keep_on_gpu=False, free_vram=False,
-                                          target_dt=None, target_dx=None, target_dz=None):
+    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None, generation_type="envelope_squared", show_log=True, keep_on_gpu=False, free_vram=True, target_dt=None, target_dx=None, target_dz=None, backend=None, tempFileName=None):
         """
-        k-Wave native simulation + post-processing, all on GPU, in one pass:
+        k-Wave simulation + post-processing, all on GPU, in one pass:
             1. simulation on the SIMULATION grid (medium.kgrid),
-            2. envelope / envelope squared (Hilbert, time axis),
+            2. envelope / envelope squared (Hilbert, time axis, FULL rate),
             3. band-limited resampling to the TARGET resolutions
                (defaults: medium.dx_save/dz_save/dt_save, i.e. the schema).
 
-        Returns the field in pipeline layout (Nt', Nz', Nx').
-        The effective sampling is stored in self.last_decimation.
+        Backends:
+            - "python": Native kwave-python solver, in-memory, single-GPU/GIL-bound.
+            - "cpp": Compiled binary via subprocess (releases GIL, enables multi-GPU scaling).
+                     HDF5 scratch files are placed in /dev/shm and cleaned up immediately.
+
+        Returns:
+            Acoustic field in pipeline layout (Nt', Nz', Nx').
         """
         if target_dt is None:
-            target_dt = getattr(self.medium, 'dt_save', None)
+            target_dt = getattr(self.medium, "dt_save", None)
         if target_dx is None:
-            target_dx = getattr(self.medium, 'dx_save', None)
+            target_dx = getattr(self.medium, "dx_save", None)
         if target_dz is None:
-            target_dz = getattr(self.medium, 'dz_save', None)
+            target_dz = getattr(self.medium, "dz_save", None)
         if target_dz is None:
             target_dz = target_dx
 
+        if backend is None:
+            backend = "python"
+        if backend == "cpp" and not KWAVE_BINARIES_AVAILABLE:
+            print(
+                "[AOT-biomaps] Warning: k-Wave binaries unavailable. Falling back to python backend."
+            )
+            backend = "python"
+
+        data_path = None
+        if backend == "cpp":
+            # Fix kwave-python 0.6.2 issue where unspecified source mode maps to 2 (invalid for C++)
+            try:
+                import kwave.solvers.cpp_simulation as cs
+
+                for key in (None, "", "default"):
+                    if key not in cs._SOURCE_MODE_MAP:
+                        cs._SOURCE_MODE_MAP[key] = 0
+            except Exception:
+                pass
+
+            # Unique scratch directory per worker in RAM (/dev/shm)
+            base_tmp = "/dev/shm" if os.path.isdir("/dev/shm") else gettempdir()
+            unique = tempFileName if tempFileName else uuid.uuid4().hex
+            data_path = os.path.join(base_tmp, f"AOT_kwave_{unique}")
+            
+            if os.path.exists(data_path):
+                shutil.rmtree(data_path, ignore_errors=True)
+                
+            os.makedirs(data_path, exist_ok=True)
+
         try:
             if isGPU is None:
-                isGPU = True if config.get_process() == 'gpu' else False
+                isGPU = True if config.get_process() == "gpu" else False
             if GPUdevice is None:
                 GPUdevice = config.select_best_gpu()
 
-            # --- 1. Source & sensor (SIMULATION grid) ---------------------
-            source = kSource()
-            source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
-            source = self._set_up_source(source, burst=burst)
-            sensor = kSensor()
-            sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
-
-            pml_val = self.params.acoustic['medium'].get('pml_size', 0)
-            pml_size = [pml_val, pml_val] if isinstance(pml_val, int) else list(pml_val)
-
             if isGPU and not CUPY_AVAILABLE:
-                print("[AOT-biomaps] Warning: CuPy not available -> CPU fallback.")
+                print(
+                    "[AOT-biomaps] Warning: CuPy not available -> CPU fallback."
+                )
                 isGPU = False
             if isGPU and CUPY_AVAILABLE:
                 cp.cuda.Device(GPUdevice).use()
+            xp = cp if (isGPU and CUPY_AVAILABLE) else np
+
+            # --- 1. Source and sensor setup (simulation grid) ------------
+            source = kSource()
+            source.p_mask = np.zeros(
+                (self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool
+            )
+            source = self._set_up_source(source, burst=burst)
+
+            sensor = kSensor()
+            sensor.mask = np.ones(
+                (self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool
+            )
+
+            pml_val = self.params.acoustic["medium"].get("pml_size", 0)
+            pml_size = (
+                [pml_val, pml_val]
+                if isinstance(pml_val, int)
+                else list(pml_val)
+            )
 
             medium_copy = copy.deepcopy(self.medium)
 
-            # --- 2. Simulation (native backend, no temp files) ------------
-            sensor_data = kspaceFirstOrder(
-                medium_copy.kgrid, medium_copy.kmedium, source, sensor,
-                pml_size=pml_size, pml_inside=False, use_sg=False,
-                use_kspace=True, smooth_p0=True,
-                backend="python", device="gpu" if isGPU else "cpu",
-                dtype=np.float32, device_num=GPUdevice,
+            # =============================================================
+            # FIX 1: Exact C++ source normalization by 2*c0^2
+            # =============================================================
+            if backend == "cpp" and getattr(source, "p", None) is not None:
+                c0_val = getattr(medium_copy.kmedium, "sound_speed", None)
+                if c0_val is None:
+                    c0_val = getattr(medium_copy.kmedium, "c0", 1480.0)
+                c_ref = float(np.max(np.asarray(c0_val)))
+
+                G = 2.0 * (c_ref**2)
+                source.p = (source.p / G).astype(np.float32)
+
+                if show_log:
+                    print(
+                        f"[AOT-biomaps] C++ scaling applied: source divided by 2*c0^2 (G={G:.4e})"
+                    )
+
+            # =============================================================
+            # FIX EXPERT : Neutraliser alpha_mode='no_absorption' pour le C++
+            # Le binaire C++ bloque bêtement là-dessus alors qu'il gère les zéros nativement.
+            # =============================================================
+            if backend == "cpp" and hasattr(medium_copy, "kmedium") and medium_copy.kmedium is not None:
+                if getattr(medium_copy.kmedium, "alpha_mode", None) is not None:
+                    medium_copy.kmedium.alpha_mode = None
+
+            # --- 2. Simulation execution ---------------------------------
+            sim_kwargs = dict(
+                pml_size=pml_size,
+                use_sg=False,
+                use_kspace=True,
+                smooth_p0=True,
+                backend=backend,
+                device="gpu" if isGPU else "cpu",
                 quiet=not show_log,
             )
+            if isGPU:
+                sim_kwargs["device_num"] = GPUdevice
+            if backend == "python":
+                sim_kwargs["dtype"] = np.float32
+            else:
+                sim_kwargs["data_path"] = data_path
 
-            # --- 3. Post-processing chain (envelope + resample) -----------
+            sensor_data = kspaceFirstOrder(
+                medium_copy.kgrid,
+                medium_copy.kmedium,
+                source,
+                sensor,
+                **sim_kwargs,
+            )
+
+            # =============================================================
+            # FIX 2: Early NaN detection guard
+            # =============================================================
+            p_raw = sensor_data["p"]
+            if CUPY_AVAILABLE and isinstance(p_raw, cp.ndarray):
+                n_nan = int(cp.count_nonzero(cp.isnan(p_raw)))
+            else:
+                n_nan = int(np.count_nonzero(np.isnan(p_raw)))
+
+            if n_nan > 0:
+                raise ValueError(
+                    f"[AOT-biomaps] k-Wave ({backend}) returned {n_nan} NaNs. "
+                    f"Simulation diverged -- field {tempFileName} was not saved."
+                )
+
+            # --- 3. Layout reconstruction and memory cleanup -------------
             Nx, Nz = self.medium.Nx_reshaped, self.medium.Nz_reshaped
-            g = sensor_data_to_grid(sensor_data['p'], Nx, Nz)
-            Nt = g.shape[-1]
 
-            dx = float(self.medium.dx_reshaped)          # SIMULATION step
-            dz = float(self.medium.dz_reshaped)
+            # =============================================================
+            # FIX 3: Backend-specific layout handling (C-order vs Fortran)
+            # =============================================================
+            g = sensor_data_to_grid(
+                sensor_data["p"], Nx, Nz, backend=backend, xp=xp
+            )
+            Nt = g.shape[-1]
+            del sensor_data
+
+            if data_path is not None:
+                shutil.rmtree(data_path, ignore_errors=True)
+                data_path = None
+
+            # --- 4. Post-processing (Envelope and Resampling) -------------
+            dx = float(self.medium.dx_reshaped)
+            dz = float(getattr(self.medium, "dz_reshaped", dx))
             dt = float(medium_copy.kgrid.dt)
 
-            sizes, steps = compute_target_sizes(Nx, Nz, Nt, dx, dz, dt,
-                                                target_dt, target_dx, target_dz)
-            self.last_decimation = dict(zip(('Nt', 'Nz', 'Nx'), sizes)) | \
-                                    dict(zip(('dt', 'dz', 'dx'), steps))
-            if show_log:
-                print(f"resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | "
-                      f"dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, "
-                      f"dx {dx*1e6:.0f}->{steps[2]*1e6:.1f} um, "
-                      f"dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um")
+            sizes, steps = compute_target_sizes(
+                Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz
+            )
+            self.last_decimation = dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(
+                zip(("dt", "dz", "dx"), steps)
+            )
 
-            if generation_type == "envelope_squarred":
-                out = calculate_envelope_squared(g)
+            if show_log:
+                print(
+                    f"Resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | "
+                    f"dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, "
+                    f"dx {dx*1e6:.0f}->{steps[2]*1e6:.1f} um, "
+                    f"dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um"
+                )
+
+            if generation_type == "envelope_squared":
+                out = calculate_envelope_squared(g, xp=xp)
             elif generation_type == "envelope":
-                out = calculate_envelope(g)
+                out = calculate_envelope(g, xp=xp)
             elif generation_type == "field":
                 out = g
             else:
-                raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. "
-                                 f"Supported types are: 'envelope_squarred', 'envelope', 'field'.")
+                raise ValueError(
+                    f"[AOT-biomaps] Invalid generation_type: {generation_type}. "
+                    "Supported: 'envelope_squared', 'envelope', 'field'."
+                )
+
             if generation_type != "field":
                 del g
 
-            out = resample_field(out, sizes)
-            out = to_pipeline_layout(out)            # (Nt', Nz', Nx')
+            out = resample_field(out, sizes, xp=xp)
+            out = to_pipeline_layout(out, xp=xp)
 
             if keep_on_gpu:
                 return out
-            out_np = cp.asnumpy(out) if CUPY_AVAILABLE else np.asarray(out)
+
+            if CUPY_AVAILABLE and isinstance(out, cp.ndarray):
+                out_np = cp.asnumpy(out)
+            else:
+                out_np = np.asarray(out)
             del out
-            if free_vram and CUPY_AVAILABLE:
+
+            if free_vram and CUPY_AVAILABLE and isGPU:
                 cp.get_default_memory_pool().free_all_blocks()
+
             return out_np
 
         except Exception as e:
+            if data_path is not None:
+                shutil.rmtree(data_path, ignore_errors=True)
             print(f"[AOT-biomaps] Error in _generate_acoustic_field_KWAVE_2D: {e}")
             raise
- 
+
     @abstractmethod
     def _set_up_source(self, source, burst=None):
         """

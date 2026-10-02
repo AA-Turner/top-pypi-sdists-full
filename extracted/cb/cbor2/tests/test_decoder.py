@@ -202,6 +202,13 @@ class TestAllowDuplicateKeys:
         with pytest.raises(CBORDecodeError, match="Duplicate map key: 'a'"):
             loads(unhexlify(payload), allow_duplicate_keys=False, immutable=immutable)
 
+    @pytest.mark.parametrize("immutable", [False, True])
+    def test_raises_on_duplicate_int_and_simple_value(self, immutable: bool) -> None:
+        # {5: 1, simple(5): 2}: the integer 5 and simple value 5 compare equal, so this is a
+        # duplicate key and must be rejected rather than kept as two distinct entries
+        with pytest.raises(CBORDecodeError, match="Duplicate map key"):
+            loads(unhexlify("a20501e502"), allow_duplicate_keys=False, immutable=immutable)
+
 
 def test_readonly_attributes() -> None:
     decoder = CBORDecoder(BytesIO())
@@ -398,7 +405,7 @@ def test_string_invalid_utf8(payload: str) -> None:
 
 def test_string_oversized() -> None:
     with pytest.raises(CBORDecodeEOF, match="premature end of stream"):
-        loads(unhexlify("aeaeaeaeaeaeaeaeae0108c29843d90100d8249f0000aeaeffc26ca799"))
+        loads(unhexlify("aeaeaeaeaeaeaeaeae0108c29843d90100d8249f0000aeae00c26ca799"))
 
 
 def test_string_issue_264_multiple_chunks_utf8_boundary() -> None:
@@ -549,6 +556,28 @@ def test_indefinite_map_missing_value(payload: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "payload, allow_indefinite",
+    [
+        pytest.param("ff", True, id="top-level"),
+        pytest.param("ff", False, id="top-level/indefinite-disabled"),
+        pytest.param("8301ff02", True, id="definite-array"),
+        pytest.param("a101ff", True, id="definite-map-value"),
+        pytest.param("da000186a0ff", True, id="tag"),
+        pytest.param("d9010aff", True, id="set"),
+        pytest.param("d90100ff", True, id="string-namespace"),
+    ],
+)
+def test_misplaced_break(payload: str, allow_indefinite: bool) -> None:
+    # RFC 8949 section 3.2.1: a break stop code appearing where a data item is expected makes the
+    # enclosing item ill-formed. It must never surface as the internal break marker sentinel.
+    with pytest.raises(
+        CBORDecodeError,
+        match="break code encountered where a data item was expected",
+    ):
+        loads(unhexlify(payload), allow_indefinite=allow_indefinite)
+
+
+@pytest.mark.parametrize(
     "payload, value",
     [
         ("e0", 0),
@@ -598,6 +627,15 @@ def test_invalid_simple_value(payload: str) -> None:
 def test_date(payload: str, expected: date) -> None:
     decoded = loads(unhexlify(payload))
     assert decoded == expected
+
+
+def test_date_epoch_out_of_range() -> None:
+    # A tag 100 payload of i32::MAX days used to overflow the internal "+ 719163" addition
+    # (panicking under overflow-checked builds); it should raise a clean decode error instead.
+    with pytest.raises(CBORDecodeError, match="error decoding epoch-form date") as excinfo:
+        loads(unhexlify("d8641a7fffffff"))
+
+    assert isinstance(excinfo.value.__cause__, (ValueError, OverflowError))
 
 
 @pytest.mark.parametrize(
@@ -685,6 +723,20 @@ def test_datetime_invalid_string() -> None:
 
     assert isinstance(excinfo.value.__cause__, ValueError)
     assert str(excinfo.value.__cause__) == "Invalid isoformat string: '0000-123-01'"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(b"\xc0\x732020-01-01T00:00:00", id="no-offset"),
+        pytest.param(b"\xc0\x6a2020-01-01", id="date-only"),
+    ],
+)
+def test_datetime_string_without_offset(payload: bytes) -> None:
+    # RFC 3339 makes the UTC offset mandatory, so a tag 0 string that omits it must be
+    # rejected rather than decoded as a naive datetime
+    with pytest.raises(CBORDecodeError, match="missing UTC offset"):
+        loads(payload)
 
 
 def test_datetime_overflow() -> None:
@@ -1032,6 +1084,33 @@ class TestSharedReference:
         decoded = loads(unhexlify("82d81c82d81c61616162d81d00"))
         assert decoded == [["a", "b"], ["a", "b"]]
         assert decoded[0] is decoded[1]
+
+    @pytest.mark.parametrize(
+        "immutable", [pytest.param(False, id="mutable"), pytest.param(True, id="immutable")]
+    )
+    def test_object_hook(self, immutable: bool) -> None:
+        class DummyType:
+            def __init__(self, state: Mapping[Any, Any], immutable: bool) -> None:
+                self.state = state
+
+        # [shareable({"a": 1}), sharedref(0)]
+        payload = unhexlify("82d81ca1616101d81d00")
+        decoded = loads(payload, object_hook=DummyType, immutable=immutable)
+        assert isinstance(decoded[0], DummyType)
+        assert decoded[1] is decoded[0]
+
+    @pytest.mark.parametrize(
+        "immutable", [pytest.param(False, id="mutable"), pytest.param(True, id="immutable")]
+    )
+    def test_tag_hook(self, immutable: bool) -> None:
+        def tag_hook(tag: CBORTag, immutable: bool) -> Any:
+            return [tag.tag, tag.value]
+
+        # [shareable(6000("Hello")), sharedref(0)]
+        payload = unhexlify("82d81cd917706548656c6c6fd81d00")
+        decoded = loads(payload, tag_hook=tag_hook, immutable=immutable)
+        assert decoded[0] == [6000, "Hello"]
+        assert decoded[1] is decoded[0]
 
 
 class TestStringReference:

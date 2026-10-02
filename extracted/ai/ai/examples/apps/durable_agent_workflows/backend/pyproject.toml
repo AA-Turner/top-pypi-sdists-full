@@ -1,0 +1,43 @@
+[project]
+name = "durable-agent-workflows-backend"
+version = "0.1.0"
+description = "Durable AI SDK Python agent using Vercel Workflows"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "vercel>=0.7.2",
+    "ai",
+]
+
+[tool.vercel]
+entrypoint = "app.server:app"
+
+[[tool.vercel.workflows]]
+entrypoint = "app.worker:workflow"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.ty.environment]
+python-version = "3.12"
+root = ["./"]
+
+[tool.ruff]
+target-version = "py312"
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.uv]
+exclude-newer = "2 days"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pydantic>=2.12.5",
+    "ruff>=0.15.5",
+    "ty~=0.0.37",
+]

@@ -29,6 +29,7 @@ __all__ = (
     "DescribeEventTypesPaginatorName",
     "DescribeEventsForOrganizationPaginatorName",
     "DescribeEventsPaginatorName",
+    "DescribeServiceLifecyclePaginatorName",
     "EntityStatusCodeType",
     "EventActionabilityType",
     "EventAggregateFieldType",
@@ -56,6 +57,7 @@ DescribeEventAggregatesPaginatorName = Literal["describe_event_aggregates"]
 DescribeEventTypesPaginatorName = Literal["describe_event_types"]
 DescribeEventsForOrganizationPaginatorName = Literal["describe_events_for_organization"]
 DescribeEventsPaginatorName = Literal["describe_events"]
+DescribeServiceLifecyclePaginatorName = Literal["describe_service_lifecycle"]
 EntityStatusCodeType = Literal["IMPAIRED", "PENDING", "RESOLVED", "UNIMPAIRED", "UNKNOWN"]
 EventActionabilityType = Literal["ACTION_MAY_BE_REQUIRED", "ACTION_REQUIRED", "INFORMATIONAL"]
 EventAggregateFieldType = Literal["eventTypeCategory"]
@@ -219,6 +221,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -293,6 +296,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -512,5 +516,6 @@ PaginatorName = Literal[
     "describe_event_types",
     "describe_events",
     "describe_events_for_organization",
+    "describe_service_lifecycle",
 ]
 RegionName = Literal["us-east-2"]

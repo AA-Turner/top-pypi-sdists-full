@@ -1,12 +1,14 @@
-use itertools::Itertools;
 use nu_ansi_term::{Color, Style};
 use similar::{ChangeTag, TextDiff};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tombi_config::{FormatOptions, TomlVersion};
-use tombi_diagnostic::{Diagnostic, Print};
+use tombi_diagnostic::Print;
 use tombi_glob::{FileInputType, FileSearch, FileSearchEntry};
 
-use crate::app::CommonArgs;
+use crate::app::{
+    CommonArgs,
+    diagnostics::{DiagnosticsArgs, DiagnosticsReporter, FileReport, InputContext},
+};
 
 /// Format TOML files.
 #[derive(clap::Args, Debug)]
@@ -39,6 +41,9 @@ pub struct Args {
     quiet: bool,
 
     #[command(flatten)]
+    diagnostics: DiagnosticsArgs,
+
+    #[command(flatten)]
     common: CommonArgs,
 }
 
@@ -50,22 +55,50 @@ struct FormatRunSummary {
     error_num: usize,
 }
 
-fn record_task_result<P>(
-    result: Result<Result<bool, crate::Error>, tokio::task::JoinError>,
+struct FormattedFile {
+    /// `true` if the file was formatted, `false` if it did not need formatting.
+    result: Result<bool, crate::Error>,
+    report: FileReport,
+}
+
+impl FormattedFile {
+    fn failed(source_path: Option<&std::path::Path>, error: crate::Error) -> Self {
+        Self {
+            result: Err(error),
+            report: FileReport::new(source_path.map(ToOwned::to_owned), None, Vec::new()),
+        }
+    }
+}
+
+fn record_format_result<P>(
+    FormattedFile { result, report }: FormattedFile,
     summary: &mut FormatRunSummary,
-    printer: &mut P,
+    printer: &P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
+) where
+    crate::Error: Print<P>,
+{
+    diagnostics_reporter.record(report, result.as_ref().err(), printer);
+    match result {
+        Ok(true) => summary.success_num += 1,
+        Ok(false) => summary.not_needed_num += 1,
+        Err(_) => summary.error_num += 1,
+    }
+}
+
+fn record_task_result<P>(
+    result: Result<FormattedFile, tokio::task::JoinError>,
+    summary: &mut FormatRunSummary,
+    printer: &P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
 ) where
     crate::Error: Print<P>,
 {
     match result {
-        Ok(Ok(true)) => summary.success_num += 1,
-        Ok(Ok(false)) => summary.not_needed_num += 1,
-        Ok(Err(error)) => {
-            error.print(printer);
-            summary.error_num += 1;
-        }
+        Ok(result) => record_format_result(result, summary, printer, diagnostics_reporter),
         Err(err) => {
             log::error!("task failed {err}");
+            diagnostics_reporter.record_runtime_error();
             summary.error_num += 1;
         }
     }
@@ -73,18 +106,38 @@ fn record_task_result<P>(
 
 pub fn run(args: Args) -> Result<(), crate::Error> {
     let quiet = args.quiet;
-    let FormatRunSummary {
-        success_num,
-        not_needed_num,
-        skipped_num,
-        error_num,
-    } = match inner_run(args, crate::app::printer()) {
-        Ok(summary) => summary,
+
+    // Validate options before reading stdin, which is copied to stdout if the config fails to load.
+    let is_stdin = FileInputType::from(args.files.as_ref()) == FileInputType::Stdin;
+    let mut diagnostics_reporter = match DiagnosticsReporter::open(
+        &args.diagnostics,
+        InputContext {
+            command: <Args as clap::Args>::augment_args(clap::Command::new("tombi format")),
+            stdin_without_filename: is_stdin && args.stdin_filename.is_none(),
+            stdout_in_use: is_stdin,
+        },
+    ) {
+        Ok(diagnostics_reporter) => diagnostics_reporter,
         Err(error) => {
             log::error!("{}", error);
             std::process::exit(1);
         }
     };
+
+    let FormatRunSummary {
+        success_num,
+        not_needed_num,
+        skipped_num,
+        error_num,
+    } = match inner_run(args, crate::app::printer(), &mut diagnostics_reporter) {
+        Ok(summary) => summary,
+        Err(error) => diagnostics_reporter.exit_with_error(&error),
+    };
+
+    if let Err(error) = diagnostics_reporter.finish() {
+        log::error!("failed to write diagnostics: {}", error);
+        std::process::exit(1);
+    }
 
     if !quiet {
         match (success_num, not_needed_num) {
@@ -125,11 +178,13 @@ pub fn run(args: Args) -> Result<(), crate::Error> {
     Ok(())
 }
 
-fn inner_run<P>(args: Args, mut printer: P) -> Result<FormatRunSummary, Box<dyn std::error::Error>>
+fn inner_run<P>(
+    args: Args,
+    printer: P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
+) -> Result<FormatRunSummary, Box<dyn std::error::Error>>
 where
-    Diagnostic: Print<P>,
     crate::Error: Print<P>,
-    P: Clone + Send + 'static,
 {
     let (config, config_path, config_level) = serde_tombi::config::load_with_path_and_level(
         std::env::current_dir().ok(),
@@ -154,12 +209,11 @@ where
             }),
         });
 
-    let Ok(runtime) =
-        super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
-    else {
-        log::error!("failed to create tokio runtime");
-        std::process::exit(1);
-    };
+    let runtime = super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
+        .map_err(|error| format!("failed to create tokio runtime: {error}"))?;
+
+    // The tasks convert the spans of the diagnostics before their sources are dropped.
+    let encoding = diagnostics_reporter.encoding();
 
     runtime.block_on(async {
         // Run schema loading and file discovery concurrently
@@ -168,6 +222,9 @@ where
             FileSearch::new(&args.files, &config, config_path.as_deref(), config_level,)
         );
 
+        // Before `schema_result?`, so that an error does not write to an input file.
+        diagnostics_reporter
+            .reject_input_conflict(super::input_paths(&input, config_path.as_deref()));
         schema_result?;
         let total_num = input.len();
         let mut summary = FormatRunSummary::default();
@@ -188,21 +245,17 @@ where
                     return Ok(summary);
                 };
 
-                match format_stdin(
+                let formatted = format_stdin(
                     FormatFile::from_stdin(stdin_path),
-                    printer,
                     toml_version,
                     args.check,
                     args.diff,
                     &format_options,
                     &schema_store,
+                    encoding,
                 )
-                .await
-                {
-                    Ok(true) => summary.success_num += 1,
-                    Ok(false) => summary.not_needed_num += 1,
-                    Err(_) => summary.error_num += 1,
-                }
+                .await;
+                record_format_result(formatted, &mut summary, &printer, diagnostics_reporter);
             }
             FileSearch::Files(files) => {
                 let mut tasks = tokio::task::JoinSet::new();
@@ -229,45 +282,52 @@ where
 
                             while tasks.len() >= concurrency {
                                 if let Some(result) = tasks.join_next().await {
-                                    record_task_result(result, &mut summary, &mut printer);
+                                    record_task_result(
+                                        result,
+                                        &mut summary,
+                                        &printer,
+                                        diagnostics_reporter,
+                                    );
                                 }
                             }
 
-                            let printer = printer.clone();
                             let schema_store = schema_store.clone();
 
                             tasks.spawn(async move {
-                                let file = FormatFile::from_file(&source_path, args.check)
-                                    .await
-                                    .map_err(|error| {
-                                        super::file_open_error(source_path.clone(), error)
-                                    })?;
-
-                                format_file(
-                                    file,
-                                    printer,
-                                    &source_path,
-                                    toml_version,
-                                    args.check,
-                                    args.diff,
-                                    &format_options,
-                                    &schema_store,
-                                )
-                                .await
+                                match FormatFile::from_file(&source_path, args.check).await {
+                                    Ok(file) => {
+                                        format_file(
+                                            file,
+                                            &source_path,
+                                            toml_version,
+                                            args.check,
+                                            args.diff,
+                                            &format_options,
+                                            &schema_store,
+                                            encoding,
+                                        )
+                                        .await
+                                    }
+                                    Err(error) => FormattedFile::failed(
+                                        Some(source_path.as_ref()),
+                                        super::file_open_error(source_path.clone(), error),
+                                    ),
+                                }
                             });
                         }
                         FileSearchEntry::Skipped(_) => {
                             summary.skipped_num += 1;
                         }
                         FileSearchEntry::Error(err) => {
-                            crate::Error::TombiGlob(err).print(&mut printer);
+                            diagnostics_reporter
+                                .record_error(&crate::Error::TombiGlob(err), &printer);
                             summary.error_num += 1;
                         }
                     }
                 }
 
                 while let Some(result) = tasks.join_next().await {
-                    record_task_result(result, &mut summary, &mut printer);
+                    record_task_result(result, &mut summary, &printer, diagnostics_reporter);
                 }
             }
         };
@@ -282,30 +342,31 @@ where
 }
 
 // For standard input: --check outputs formatted TOML and returns error if different
-async fn format_stdin<P>(
+async fn format_stdin(
     mut file: FormatFile,
-    mut printer: P,
     toml_version: TomlVersion,
     check: bool,
     diff: bool,
     format_options: &FormatOptions,
     schema_store: &tombi_schema_store::SchemaStore,
-) -> Result<bool, crate::Error>
-where
-    Diagnostic: Print<P>,
-    crate::Error: Print<P>,
-{
+    encoding: tombi_text::EncodingKind,
+) -> FormattedFile {
     let mut source = String::new();
-    if let Err(err) = file.read_to_string(&mut source).await {
-        return Err(crate::Error::Io(err));
+    if let Err(error) = file.read_to_string(&mut source).await {
+        return FormattedFile::failed(
+            file.source(),
+            crate::Error::read_failed(file.source(), error),
+        );
     }
-    match tombi_formatter::Formatter::new(
+
+    let parsed = tombi_parser::parse(&source);
+    let (result, diagnostics) = match tombi_formatter::Formatter::new(
         toml_version,
         format_options,
         file.source().map(itertools::Either::Right),
         schema_store,
     )
-    .format(&source)
+    .format_parsed(&parsed)
     .await
     {
         Ok(formatted) => {
@@ -314,7 +375,7 @@ where
                 log::info!("found format changes in stdin");
                 eprint_diff(&source, &formatted);
             }
-            if check {
+            let result = if check {
                 if has_diff {
                     Err(crate::error::NotFormattedError::from(file.source()).into_error())
                 } else {
@@ -323,45 +384,55 @@ where
             } else {
                 print!("{formatted}");
                 Ok(has_diff)
-            }
+            };
+            (result, Vec::new())
         }
         Err(diagnostics) => {
             print!("{source}");
-            diagnostics.print(&mut printer);
-            Err(crate::Error::StdinParseFailed)
+            (Err(crate::Error::StdinParseFailed), diagnostics)
         }
+    };
+
+    FormattedFile {
+        result,
+        report: FileReport::new(
+            file.source().map(ToOwned::to_owned),
+            Some((parsed.line_index(), encoding)),
+            diagnostics,
+        ),
     }
 }
 
-async fn format_file<P>(
+async fn format_file(
     mut file: FormatFile,
-    mut printer: P,
     source_path: &std::path::Path,
     toml_version: TomlVersion,
     check: bool,
     diff: bool,
     format_options: &FormatOptions,
     schema_store: &tombi_schema_store::SchemaStore,
-) -> Result<bool, crate::Error>
-where
-    Diagnostic: Print<P>,
-    crate::Error: Print<P>,
-{
+    encoding: tombi_text::EncodingKind,
+) -> FormattedFile {
     let mut source = String::new();
-    if let Err(err) = file.read_to_string(&mut source).await {
-        return Err(crate::Error::Io(err));
+    if let Err(error) = file.read_to_string(&mut source).await {
+        return FormattedFile::failed(
+            file.source(),
+            crate::Error::read_failed(file.source(), error),
+        );
     }
-    match tombi_formatter::Formatter::new(
+
+    let parsed = tombi_parser::parse(&source);
+    let (result, diagnostics) = match tombi_formatter::Formatter::new(
         toml_version,
         format_options,
         Some(itertools::Either::Right(source_path)),
         schema_store,
     )
-    .format(&source)
+    .format_parsed(&parsed)
     .await
     {
         Ok(formatted) => {
-            if source != formatted {
+            let result = if source != formatted {
                 if diff {
                     log::info!("found format changes in {:?}", source_path);
                     eprint_diff(&source, &formatted);
@@ -369,25 +440,37 @@ where
                 if check {
                     Err(crate::error::NotFormattedError::from(file.source()).into_error())
                 } else if let Err(err) = file.reset().await {
-                    Err(crate::Error::Io(err))
+                    Err(crate::Error::FileWriteFailed {
+                        path: source_path.to_owned(),
+                        source: err,
+                    })
                 } else {
                     match file.write_all(formatted.as_bytes()).await {
                         Ok(_) => Ok(true),
-                        Err(err) => Err(crate::Error::Io(err)),
+                        Err(err) => Err(crate::Error::FileWriteFailed {
+                            path: source_path.to_owned(),
+                            source: err,
+                        }),
                     }
                 }
             } else {
                 Ok(false)
-            }
+            };
+            (result, Vec::new())
         }
-        Err(diagnostics) => {
-            diagnostics
-                .into_iter()
-                .map(|diagnostic| diagnostic.with_source_file(source_path))
-                .collect_vec()
-                .print(&mut printer);
-            Err(crate::Error::FileParseFailed(source_path.to_owned()))
-        }
+        Err(diagnostics) => (
+            Err(crate::Error::FileParseFailed(source_path.to_owned())),
+            diagnostics,
+        ),
+    };
+
+    FormattedFile {
+        result,
+        report: FileReport::new(
+            Some(source_path.to_owned()),
+            Some((parsed.line_index(), encoding)),
+            diagnostics,
+        ),
     }
 }
 

@@ -5,8 +5,6 @@ The Redis-flavoured versions of these tests are marked
 Dragonfly counterparts, so both sides of each divergence stay covered.
 """
 
-from __future__ import annotations
-
 import time
 import uuid
 
@@ -20,7 +18,7 @@ from test.testtools import raw_command, resp_conversion
 pytestmark = []
 pytestmark.extend(
     [
-        pytest.mark.unsupported_server_types("redis", "valkey"),
+        pytest.mark.unsupported_server_types("redis", "valkey", "kividb"),
     ]
 )
 

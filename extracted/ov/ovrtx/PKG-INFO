@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: ovrtx
+Version: 0.5.0.377615
+Summary: Omniverse RTX
+Author: NVIDIA Corporation
+License-Expression: LicenseRef-NvidiaProprietary
+Project-URL: Homepage, https://github.com/NVIDIA-Omniverse/ovrtx
+Project-URL: Documentation, https://nvidia-omniverse.github.io/ovrtx/
+Project-URL: Repository, https://github.com/NVIDIA-Omniverse/ovrtx
+Project-URL: Changelog, https://github.com/NVIDIA-Omniverse/ovrtx/blob/main/CHANGELOG.md
+Keywords: nvidia,omniverse,ovrtx,RTX
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Programming Language :: C
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Environment :: GPU :: NVIDIA CUDA
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Multimedia :: Graphics :: 3D Rendering
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# NVIDIA ovrtx
+
+[![Documentation](https://img.shields.io/badge/docs-ovrtx-blue)](https://nvidia-omniverse.github.io/ovrtx)
+[![Repository](https://img.shields.io/badge/github-NVIDIA--Omniverse%2Fovrtx-181717)](https://github.com/NVIDIA-Omniverse/ovrtx)
+
+**ovrtx** is a C and Python library for embedding NVIDIA Omniverse RTX sensor simulation and visualization directly into applications.
+
+It provides real-time, physically accurate camera, lidar, radar, and other sensor simulation for physical AI applications, including robotics learning, synthetic data generation, and industrial and design workflows. Starting with version 0.4, ovrtx can attach to [ovstage](https://github.com/NVIDIA-Omniverse/ovstage), which manages the runtime scene, ordinal-keyed writes, and change detection. Renderer-owned scene APIs remain available for standalone compatibility in 0.4 but are deprecated.
+
+> **Pre-release:** the API, runtime behavior, and packaging may change.
+
+## Install
+
+Python 3.10 through 3.13 are supported. On Windows, Python 3.11 or newer is recommended because Python 3.10 distributions may bundle an older VC runtime. Install ovrtx and the recommended ovstage integration from PyPI:
+
+```bash
+pip install ovrtx ovstage
+```
+
+Runtime initialization requires a compatible NVIDIA RTX-capable GPU and supported
+NVIDIA driver. See the
+[driver requirements](https://nvidia-omniverse.github.io/ovrtx/driver_requirements.html).
+
+## Documentation
+
+Full C and Python API documentation, guides, and runnable examples are at
+**<https://nvidia-omniverse.github.io/ovrtx>**. Source, examples, skills for AI
+coding agents, and C SDK release archives live at
+<https://github.com/NVIDIA-Omniverse/ovrtx>.
+
+## License
+
+Use of this software is governed by the
+[NVIDIA Software License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/)
+and the
+[Product Specific Terms for NVIDIA AI Products](https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-ai-products/).

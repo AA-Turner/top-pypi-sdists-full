@@ -1,0 +1,302 @@
+"""Validate ``migrate preflight --format json`` outputs against their schemas.
+
+Two shapes are covered:
+* default (no --against): static analysis only, no DB
+* `--against <url>`: static analysis + execution outcomes (mocked here)
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT202012
+from typer.testing import CliRunner
+
+from confiture.cli.main import app
+from confiture.models.results import (
+    PreflightAgainstMigration,
+    PreflightAgainstResult,
+)
+
+PREFLIGHT_SCHEMA = "migrate-preflight.schema.json"
+AGAINST_SCHEMA = "migrate-preflight-against.schema.json"
+
+
+def _load(schemas_dir: Path, name: str) -> dict:
+    return json.loads((schemas_dir / name).read_text())
+
+
+def _build_registry(schemas_dir: Path) -> Registry:
+    """Registry including the preflight $defs + shared issue object (#148)."""
+    registry: Registry = Registry()
+    for filename in (
+        "_common.schema.json",
+        "_preflight_defs.schema.json",
+        "issue-object.schema.json",
+    ):
+        content = _load(schemas_dir, filename)
+        resource = Resource.from_contents(content, default_specification=DRAFT202012)
+        registry = registry.with_resource(uri=filename, resource=resource)
+    return registry
+
+
+def test_preflight_schemas_are_valid_draft_2020_12(schemas_dir):
+    for name in (PREFLIGHT_SCHEMA, AGAINST_SCHEMA, "_preflight_defs.schema.json"):
+        Draft202012Validator.check_schema(_load(schemas_dir, name))
+
+
+def test_preflight_no_against_validates(tmp_path, schemas_dir):
+    """Default preflight — no DB needed."""
+    migs = tmp_path / "db" / "migrations"
+    migs.mkdir(parents=True)
+    (migs / "20260527000000_init.up.sql").write_text("CREATE TABLE x (id INT);\n")
+    (migs / "20260527000000_init.down.sql").write_text("DROP TABLE x;\n")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "migrate",
+            "preflight",
+            "--migrations-dir",
+            str(migs),
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+
+    registry = _build_registry(schemas_dir)
+    Draft202012Validator(_load(schemas_dir, PREFLIGHT_SCHEMA), registry=registry).validate(payload)
+    # #148: structured report shape, not the old flat PreflightResult.to_dict().
+    assert payload["ok"] is True
+    assert payload["summary"]["migrations_checked"] == 1
+    assert payload["issues"] == []
+
+
+def test_preflight_against_validates(tmp_path, schemas_dir):
+    """--against path — mock the session.run_against to return a fixture."""
+    migs = tmp_path / "db" / "migrations"
+    migs.mkdir(parents=True)
+    (migs / "20260527000000_init.up.sql").write_text("CREATE TABLE IF NOT EXISTS x (id INT);\n")
+    (migs / "20260527000000_init.down.sql").write_text("DROP TABLE IF EXISTS x;\n")
+
+    fixture = PreflightAgainstResult(
+        migrations=[
+            PreflightAgainstMigration(
+                version="20260527000000",
+                name="init",
+                success=True,
+                error=None,
+                skipped=False,
+                skipped_reason=None,
+                execution_time_ms=42,
+            )
+        ],
+        against_url="postgresql://user:secret@localhost/preflight",
+        db_consumed=False,
+    )
+
+    mock_session = MagicMock()
+    mock_session.__enter__ = lambda s: mock_session
+    mock_session.__exit__ = MagicMock(return_value=False)
+    mock_session.run_against.return_value = fixture
+
+    runner = CliRunner()
+    with patch(
+        "confiture.cli.commands.migrate.preflight.MigratorSession",
+        autospec=True,
+        return_value=mock_session,
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "migrate",
+                "preflight",
+                "--against",
+                "postgresql://user:secret@localhost/preflight",
+                "--migrations-dir",
+                str(migs),
+                "--format",
+                "json",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+
+    registry = _build_registry(schemas_dir)
+    Draft202012Validator(_load(schemas_dir, AGAINST_SCHEMA), registry=registry).validate(payload)
+
+    # #151: --against now emits the unified {ok, summary, issues[]} envelope —
+    # the same shape as the no---against path. No `static` / `against` / `hints`.
+    assert "against" not in payload
+    assert "static" not in payload
+    assert "hints" not in payload
+    assert payload["ok"] is True
+    assert payload["issues"] == []
+    assert payload["summary"]["migrations_checked"] == 1
+    assert payload["summary"]["db_consumed"] is False
+
+
+def test_preflight_against_replay_failure_validates(tmp_path, schemas_dir):
+    """#151: a failed replay validates as a PFLIGHT_REPLAY_FAILED issue in the envelope."""
+    migs = tmp_path / "db" / "migrations"
+    migs.mkdir(parents=True)
+    (migs / "20260527000000_init.up.sql").write_text("CREATE TABLE x (id INT);\n")
+    (migs / "20260527000000_init.down.sql").write_text("DROP TABLE x;\n")
+
+    fixture = PreflightAgainstResult(
+        migrations=[
+            PreflightAgainstMigration(
+                version="20260527000000",
+                name="init",
+                success=False,
+                error='relation "x" already exists',
+            )
+        ],
+        against_url="postgresql://localhost/preflight",
+    )
+
+    mock_session = MagicMock()
+    mock_session.__enter__ = lambda s: mock_session
+    mock_session.__exit__ = MagicMock(return_value=False)
+    mock_session.run_against.return_value = fixture
+
+    runner = CliRunner()
+    with patch(
+        "confiture.cli.commands.migrate.preflight.MigratorSession",
+        autospec=True,
+        return_value=mock_session,
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "migrate",
+                "preflight",
+                "--against",
+                "postgresql://localhost/preflight",
+                "--migrations-dir",
+                str(migs),
+                "--format",
+                "json",
+            ],
+        )
+    assert result.exit_code == 7, result.output
+    payload = json.loads(result.stdout)
+
+    registry = _build_registry(schemas_dir)
+    Draft202012Validator(_load(schemas_dir, AGAINST_SCHEMA), registry=registry).validate(payload)
+
+    assert payload["ok"] is False
+    (replay,) = [i for i in payload["issues"] if i["code"] == "PFLIGHT_REPLAY_FAILED"]
+    assert replay["severity"] == "error"
+    assert replay["migration"] == "20260527000000"
+    assert replay["details"]["error"] == 'relation "x" already exists'
+
+
+# ---------------------------------------------------------------------------
+# change_set (#197) — the schema must constrain, not merely accept
+# ---------------------------------------------------------------------------
+
+
+def _validator(schemas_dir):
+    return Draft202012Validator(
+        _load(schemas_dir, PREFLIGHT_SCHEMA), registry=_build_registry(schemas_dir)
+    )
+
+
+def _payload_with(change_set) -> dict:
+    return {
+        "ok": True,
+        "window_safe": True,
+        "summary": {"errors": 0, "warnings": 0, "info": 0, "migrations_checked": 1},
+        "issues": [],
+        "change_set": change_set,
+    }
+
+
+def test_a_real_change_set_validates(tmp_path, schemas_dir):
+    """The emitted payload, straight from the CLI."""
+    migs = tmp_path / "db" / "migrations"
+    migs.mkdir(parents=True)
+    (migs / "20260804120100_drop.up.sql").write_text("ALTER TABLE tb_user DROP COLUMN legacy;\n")
+
+    result = CliRunner().invoke(
+        app, ["migrate", "preflight", "--migrations-dir", str(migs), "--format", "json"]
+    )
+    payload = json.loads(result.stdout)
+    _validator(schemas_dir).validate(payload)
+    assert payload["change_set"]["changes"][0]["tier"] == "irreversible"
+
+
+def test_an_absent_change_set_still_validates(schemas_dir):
+    """A payload from confiture < 0.43.0 must stay valid — absence is meaningful."""
+    payload = _payload_with(None)
+    del payload["change_set"]
+    assert _validator(schemas_dir).validate(payload) is None  # jsonschema raises on mismatch
+
+
+@pytest.mark.parametrize(
+    "change_set",
+    [
+        pytest.param([], id="bare array instead of the object wrapper"),
+        pytest.param("additive", id="a string, per the malformed.json fixture"),
+        pytest.param({"changes": []}, id="no contract_version"),
+        pytest.param(
+            {"contract_version": 1, "changes": [{"kind": "drop_column"}]},
+            id="entry without an object",
+        ),
+        pytest.param(
+            {
+                "contract_version": 1,
+                "changes": [{"kind": "entangle", "object": "public.t.c", "tier": "quantum"}],
+            },
+            id="a tier outside the five",
+        ),
+        pytest.param(
+            {
+                "contract_version": 1,
+                "changes": [{"kind": "drop_column", "object": "public.t.c", "risk": "high"}],
+            },
+            id="an undeclared entry field",
+        ),
+    ],
+)
+def test_the_schema_rejects_shapes_confiture_must_never_emit(change_set, schemas_dir):
+    with pytest.raises(ValidationError):
+        _validator(schemas_dir).validate(_payload_with(change_set))
+
+
+def test_large_tables_validates_and_constrains(schemas_dir):
+    """The --against payload's ``large_tables`` (the fold of ``migrate estimate``)."""
+    validator = Draft202012Validator(
+        _load(schemas_dir, AGAINST_SCHEMA), registry=_build_registry(schemas_dir)
+    )
+    payload = {
+        "ok": True,
+        "window_safe": True,
+        "summary": {
+            "errors": 0,
+            "warnings": 0,
+            "info": 0,
+            "migrations_checked": 1,
+            "db_consumed": False,
+        },
+        "issues": [],
+        "large_tables": [
+            {"table": "app.tb_fresh", "estimated_rows": None},
+            {"table": "tenant.tb_stat", "estimated_rows": 196960},
+        ],
+    }
+    validator.validate(payload)
+
+    payload["large_tables"][1]["estimated_rows"] = "196960"
+    with pytest.raises(ValidationError):
+        validator.validate(payload)

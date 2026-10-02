@@ -1,0 +1,987 @@
+---
+name: wheel-reproducibility
+
+# btclib-org/btclib-secp256k1#439's stage 1: does a wheel this project
+# builds reproduce byte for byte, on the platforms the release actually
+# builds one on. #497 and #498 answered that for macOS by building twice
+# in one checkout and diffing the two archives by hand; this runs the
+# same measurement, through .github/scripts/check_wheel_reproducibility.py,
+# on every platform build-cibuildwheel in test.yml builds a wheel on.
+#
+# It asks #439's stage 3 as well, which is #514: two builds in one job
+# share an image, and the exemption in RELEASING.md and in section 12 of
+# the organization standard rests on what happens across two of them --
+# it names the compiler, its version and the toolchain the runner
+# happened to have as inputs nothing pins. So every platform below
+# carries a second image, chosen to differ in the toolchain it carries
+# -- a different OS release for all but the Windows arm64 pair, whose
+# two images share an OS build and differ in Visual Studio alone. Each
+# job keeps the wheel it already built, and across-images downloads the
+# pair and compares them. The second image costs a job and no extra
+# build: the double build each one already does is what makes a
+# difference between two images attributable to the image rather than to
+# either build's own drift.
+#
+# And it asks #515, which is about what the release actually uploads.
+# uv build, which rebuild runs, stops at the archive hatchling writes;
+# cibuildwheel runs the same scripts/cffi_build.py and then repairs the
+# wheel with the tool it defaults to on that platform -- auditwheel on
+# Linux, delocate on macOS, delvewheel on Windows, [tool.cibuildwheel]
+# naming no repair-wheel-command of its own. What that hands back is
+# the repair's own file rather than the build's. The repaired job below
+# builds through cibuildwheel twice and diffs the pair, so the file
+# PyPI receives is the one under measurement.
+#
+# And #540, which is the wheels neither of those two builds. The
+# release uploads what build-dynamic and build-windows in test.yml
+# produce as well: the ABI-mode wheel of the platforms that job
+# names, repaired inside the job by auditwheel or delocate, and the
+# win_amd64 one cross-compiled on a Linux runner with nothing repairing
+# it afterwards. The frontend, the repair and the platform tag are each
+# that job's own rather than uv build's or cibuildwheel's, so the
+# dynamic and cross-windows jobs below run those two builds twice each
+# instead of either job above taking a flag. What they inherit from
+# repaired is its bound: one image per platform, so whether two images
+# agree is not asked of these wheels either.
+#
+# CIBW_BUILD narrows it to one interpreter, and the reason is not the
+# one test.yml's build-cibuildwheel gives for narrowing a pull request:
+# that one turns on the merge afterwards building everything, and
+# nothing here ever does, the variable below being unconditional. The
+# reason is that rebuild has only ever measured one interpreter -- uv
+# build leaves one wheel, for the interpreter uv resolves for the
+# project -- so an unnarrowed job here would answer a question this
+# file asks nowhere else, at a cost that rises with every identifier
+# cibuildwheel selects. What it leaves out is stated rather than
+# covered: whether a wheel of another ABI tag reproduces is not
+# measured, on any trigger.
+#
+# And no test command: what this asks is whether two archives are the
+# same bytes, which running the wheel does not answer.
+#
+# On the release images alone, where rebuild carries two per platform:
+# whether two images agree is the across-images question below, and
+# that job reads rebuild, whose Linux build runs on the runner. The
+# answer it carries is about the runner's own toolchain and not about
+# the container this job compiles a Linux wheel in, which the digest
+# [tool.cibuildwheel.linux] pins is what names. repaired below carries a
+# second image too, on its two Linux platforms alone, reused from
+# rebuild's own pair rather than a third image nothing justifies; a
+# comparison taking a set of wheels per image is what that needs, a
+# Linux cibuildwheel run leaving a manylinux wheel and a musllinux one;
+# and across-images reads both jobs, one directory per family, since an
+# unrepaired uv-build wheel and a cibuildwheel-repaired one of the same
+# interpreter are not the same file and a line saying they disagree
+# would mean nothing (#524).
+#
+# The first image of each pair in rebuild's own matrix below is
+# hand-kept against build-cibuildwheel's list in test.yml, and
+# repaired's own list carries every one of those plus linux-x86-64's and
+# linux-aarch64's second image, reused from the pair above: GitHub
+# Actions gives one workflow no way to read another's strategy.matrix
+# short of workflow_call, which neither file uses and which wiring this
+# sentinel into the gate would defeat the point of. A test holds the
+# three together instead -- tests/wheel_reproducibility_platforms_test.py
+# -- so the files can still drift for a moment but not silently: the
+# suite goes red the moment an image build-cibuildwheel builds on is
+# missing from either job here, which is the direction that matters now
+# that rebuild's list and that job's are no longer equal.
+#
+# Two images of one platform do not compile one extension: rebuild
+# below compiles on the runner, so the container digest
+# [tool.cibuildwheel.linux] pins does not reach its Linux pair, and
+# pinning the Xcode and the MSVC toolset is declined, for the reason
+# RELEASING.md's rebuild section gives. The two images of a pair are
+# chosen to carry different toolchains, and a compiler of another
+# version writes other code. So across-images compares rebuild's pairs
+# with --across-toolchains, which holds every member but the compiled
+# extension to byte equality and the extension's own bytes to nothing
+# (#992): asking those bytes to agree would fail every run for a
+# compiler version nothing on the pull request chose, and a check that
+# cannot pass says nothing about the pull request. repaired's Linux
+# pairs, compiled in the pinned container, are held to the whole
+# archive. Which platform is red is this workflow's own output, on the
+# Actions tab, and not a list kept in this file: a list here would be a
+# line every future fix has to edit, and nothing would fail when it was
+# not edited.
+#
+# The pull_request trigger below is #508: schedule and workflow_dispatch
+# alone would leave a branch's own change to the build unmeasured until
+# somebody remembered to dispatch it by hand, so this measures every
+# pull request instead -- whoever changes the build sees whether it
+# still reproduces before merging it. The changes job below is what keeps
+# every other pull request from paying for a double build on every image:
+# it reads the pull request's own files, and the build jobs run only where
+# one of them is something the builds depend on -- the build scripts, the
+# version and the build backend's own configuration, the vendored library
+# this compiles, the script the steps run, and this workflow's own matrix.
+#
+# That is a job and not a paths filter on the trigger so that
+# wheel-reproducibility: every job passed, the aggregate at the end, can be
+# a required check (#1002). A filter that skips a workflow skips the
+# aggregate with it, and GitHub documents the check of a workflow a path
+# filter skipped as staying Pending, which blocks the merge of every pull
+# request the filter left out. The trigger takes every pull request
+# instead, the changes job costs one API call on it, and the aggregate
+# reports on every one that is not closed -- failing outright rather
+# than skipping while draft, since a skipped required check reads as
+# passing (btclib-org/.github#1327).
+
+on:
+  schedule:
+    # Sunday, hour 02: the day the grid gives to a tree's security, this
+    # asking whether a wheel it builds reproduces byte for byte. The
+    # time is the organization grid -- section 10 of
+    # btclib-org/.github's README.md -- which gives a workflow its day
+    # and its hour and this repository its minute, and is not this
+    # file's to restate. Only the default branch schedules workflows, so
+    # on any other branch this is reachable through the dispatch below,
+    # and through the pull_request trigger further down.
+    - cron: "8 2 * * 0"
+  # the escape hatch, and the way to ask without waiting for the day
+  workflow_dispatch:
+  pull_request:
+    # ready_for_review, so a pull request marked ready gets the run the
+    # draft condition below withheld while it was a draft: the default
+    # types do not include it, and without it a readied pull request
+    # would wait for its next push to be checked at all.
+    # closed joins them for a different reason: merging or closing a pull
+    # request is neither a push nor a synchronize, so a run still held in
+    # this pull request's own concurrency group survives it unless the
+    # closed event's own run also lands there. The concurrency block
+    # below is what decides whether that landing cancels it or only
+    # queues behind it (#523) -- this trigger only supplies the event
+    # the two cases are told apart by. "This pull request's own group"
+    # is the part github.ref alone gets wrong: for a closed, merged pull
+    # request it resolves to the base branch's ref, which this workflow
+    # has no push trigger to collide with, but the weekly schedule and a
+    # workflow_dispatch both also run on the default branch and would
+    # resolve to that same ref. The concurrency block below groups by
+    # the pull request's own number instead, immune to that under any
+    # action
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+    # no paths filter: the header says why, and the changes job below is
+    # what does its work
+
+# least privilege for the GITHUB_TOKEN: everything running in a job can
+# read it, and nothing here writes
+permissions:
+  contents: read
+
+concurrency:
+  # github.event.pull_request.number, not github.ref alone, is what a
+  # pull_request run of any action groups by -- the pull_request
+  # trigger's own comment above has the reasoning. Neither schedule nor
+  # workflow_dispatch carries pull_request context, so github.ref is
+  # still what groups either, unchanged
+  group: wheel-reproducibility-${{ github.event.pull_request.number || github.ref }}
+  # true is right for a new push, and for a pull request closed without
+  # merging: neither leaves anything worth finishing, so superseding
+  # whatever the group already holds is the point. A closed, merged pull
+  # request is the one event this does not hold for -- #523 measured
+  # what a cancel does there: the run in flight was the only measurement
+  # its head was ever going to get before the next scheduled run, a week
+  # away, and it read in the run list as an ordinary superseded run
+  # rather than as a measurement that never happened. So the expression
+  # is false there and true everywhere else: the closed, merged run
+  # still lands in the group and still queues behind whatever is
+  # running, but no longer cancels it, leaving that run free to finish
+  # against the head that landed
+  cancel-in-progress: ${{ !(github.event.action == 'closed' && github.event.pull_request.merged) }}
+
+jobs:
+  # whether the build jobs below have anything to measure: on a pull
+  # request, whether one of its files is one the builds read; on the
+  # schedule and on a dispatch, always. It is written here rather than
+  # called from btclib-org/.github's reusable-changes.yml, which test.yml
+  # calls, because that one takes the pattern of the files nothing reads
+  # and answers true for anything else, where this question is the other
+  # way round: a short list of files the builds read, and false for
+  # anything else.
+  #
+  # A draft and a closed pull request skip it, and every job reading its
+  # output with it: the condition every build job here carries.
+  # reproducibility-passed carries the closed half alone, so a draft
+  # pull request still reaches it -- it is what catches the draft flag
+  # this job declined to (btclib-org/.github#1327)
+  changes:
+    name: Decide whether the pull request touches the build
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    # one paginated API call and a grep; a job past this is hung on the
+    # call
+    timeout-minutes: 5
+    # a job's permissions replace the workflow's rather than adding to
+    # them, so contents: read is named again beside the one scope the
+    # file list needs
+    permissions:
+      contents: read
+      pull-requests: read # the file list of a pull request
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Ask which files the pull request touches
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED: ${{ github.event.pull_request.changed_files }}
+          # what the builds read, one alternative per entry the header
+          # names: scripts/ for the build backend and the extension's
+          # own sources; pyproject.toml for the version and
+          # cibuildwheel's configuration; secp256k1 for the vendored
+          # library, whose gitlink the file list names like any other
+          # path; the script the steps run, so a change to it is
+          # measured on its own pull request; and this file, for the
+          # matrix and the steps. A literal block scalar, for the reason
+          # test.yml's prose-pattern gives: yamllint reads a pattern with
+          # no space in it as one unbreakable word
+          BUILD_PATHS: |-
+            ^(scripts/.*|pyproject\.toml|secp256k1|\.github/scripts/check_wheel_reproducibility\.py|\.github/workflows/wheel-reproducibility\.yml)$
+        run: |
+          # only a pull request has a base to be a diff against, so the
+          # schedule and a dispatch build everything
+          if [ "$EVENT" != pull_request ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "$EVENT has no base to diff against: build is true"
+            exit 0
+          fi
+          # a renamed file is listed under its new path with the old one
+          # beside it, and both are read: a file moved out of scripts/
+          # changes the build as much as one moved into it
+          gh api "repos/$REPO/pulls/$NUMBER/files" --paginate \
+            --jq '.[] | [.filename, .previous_filename // ""] | @tsv' \
+            > files.tsv
+          echo "files changed:"
+          cat files.tsv
+          # the endpoint lists a bounded number of files, and a list
+          # shorter than the count the event carries is a question this
+          # could not answer rather than an answer of false. An empty one
+          # is the same question, so it builds too
+          listed=$(wc -l < files.tsv)
+          if [ "$listed" -eq 0 ] || [ "$listed" -lt "$CHANGED" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "$listed of $CHANGED files listed: build is true"
+          elif tr '\t' '\n' < files.tsv | grep -qE "$BUILD_PATHS"; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "a file the builds read changed: build is true"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "no file the builds read changed: build is false"
+          fi
+
+  rebuild:
+    name: Build the wheel twice on ${{ matrix.os }} and diff them
+    needs: changes
+    # only where the changes job above says the build is touched. A
+    # draft pull request is work in progress and spends no runner here
+    # either: the same condition lint.yml, test.yml and
+    # vendored-vectors.yml carry, and ready_for_review is a trigger type
+    # above for the same reason. A closed pull request spends none
+    # either, merged or not, the changes job being skipped on it -- the
+    # concurrency block above is what stops a merged one's own run from
+    # cancelling the run this condition already let finish (#523). A
+    # double build on every image of every platform is expensive enough
+    # that this is not a convention followed for its own sake here
+    if: ${{ !github.event.pull_request.draft && needs.changes.outputs.build == 'true' }}
+    runs-on: ${{ matrix.os }}
+    # two full builds of the vendored library and the extension, from a
+    # cache that is cold whenever the lock moved: well above what either
+    # build needs, so what this bounds is a hung job rather than a slow
+    # one
+    timeout-minutes: 40
+    strategy:
+      # every image to the end: which platform disagrees is the whole
+      # answer, and stopping at the first one hides the rest
+      fail-fast: false
+      matrix:
+        # each platform build-cibuildwheel in test.yml builds a wheel
+        # on, twice: on the image that job names, and on a second one
+        # GitHub offers for the same platform and architecture. The
+        # first of each pair is the copy of that job's own list, held
+        # against it by tests/wheel_reproducibility_platforms_test.py --
+        # see this file's own header for why it is a copy rather than a
+        # read. The platform key is what pairs them for across-images
+        # below.
+        # The second of each pair is a different OS release rather than
+        # another label for the same one, that being what carries a
+        # different compiler: 22.04 against 24.04 on both Ubuntu
+        # architectures, macOS 15 against macOS 26 on both Apple ones,
+        # Windows Server 2022 against 2025 on x64. The Windows arm64
+        # pair is the one whose two images share an OS build and differ
+        # in the Visual Studio they carry, which is the compiler on its
+        # own with nothing else moving.
+        include:
+          - platform: linux-x86-64
+            os: ubuntu-latest
+          - platform: linux-x86-64
+            os: ubuntu-22.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: linux-aarch64
+            os: ubuntu-22.04-arm
+          - platform: macos-x86-64
+            os: macos-26-intel
+          - platform: macos-x86-64
+            os: macos-15-intel
+          - platform: macos-arm64
+            os: macos-latest
+          - platform: macos-arm64
+            os: macos-15
+          - platform: windows-x86-64
+            os: windows-latest
+          - platform: windows-x86-64
+            os: windows-2022
+          - platform: windows-arm64
+            os: windows-11-arm
+          - platform: windows-arm64
+            os: windows-11-vs2026-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the vendored library is compiled twice here
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # the archive this job diffs carries the timestamps the published
+      # wheel carries: build-cibuildwheel in test.yml pins the same
+      # value the same way, and its comment has the reason. `uv build`
+      # stops before the repair, and hatchling's own fallback would make
+      # this pair agree without the step, so what it buys here is that
+      # this measurement and the build the release runs do not differ in
+      # an exported variable.
+      # shell: bash for the Windows images of this matrix, whose default
+      # shell is PowerShell and reads "$GITHUB_ENV" as a literal
+      - name: Pin the build timestamp to the commit
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # without it the macOS version in the wheel's platform tag, and in
+      # the extension's own minimum, is the runner's, so two images of
+      # one platform tag the wheel apart (#992). The values are the ones
+      # cibuildwheel gives the static release wheels, which build-dynamic
+      # in test.yml exports too, and its comment has the reasoning
+      - name: Set the macOS deployment target
+        if: runner.os == 'macOS'
+        env:
+          TARGET: ${{ matrix.platform == 'macos-x86-64' && '10.13' || '11.0' }}
+        run: echo "MACOSX_DEPLOYMENT_TARGET=$TARGET" >> "$GITHUB_ENV"
+
+      # no project dependency: the script imports only the standard
+      # library and shells out to the very `uv` this step just installed.
+      # shell: bash for the Windows images, whose default is
+      # PowerShell -- see os-windows.yml's own comment on the hazard a
+      # POSIX-only step hits there unnoticed; this step is one plain
+      # command and runs identically under either shell today
+      - name: Build the wheel twice and diff the two archives
+        shell: bash
+        env:
+          # one directory per platform and one per image inside it, which
+          # is the shape --across-images reads once the artifacts are
+          # merged back together; RUNNER_TEMP rather than the workspace
+          # so that check-sdist's own question about untracked files is
+          # never asked of a wheel
+          KEEP_WHEEL: ${{ runner.temp }}/wheel/${{ matrix.platform }}/${{ matrix.os }}
+        run: >
+          uv run --no-project python
+          .github/scripts/check_wheel_reproducibility.py
+          --keep-wheel "$KEEP_WHEEL"
+
+      # !cancelled(), not the default success(): the step above exits
+      # non-zero when this one image's own two builds disagree, and the
+      # wheel it saved before comparing them is still the half
+      # across-images needs. A build that produced no wheel at all
+      # uploads nothing and warns, which across-images reports as a
+      # platform it could not compare rather than as one that agreed
+      - name: Keep this image's wheel for the across-images comparison
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheel-${{ matrix.platform }}-${{ matrix.os }}
+          path: ${{ runner.temp }}/wheel/
+
+  repaired:
+    name: Build the repaired wheel twice on ${{ matrix.os }} and diff them
+    needs: changes
+    # rebuild's own conditions, and for its own reasons
+    if: ${{ !github.event.pull_request.draft && needs.changes.outputs.build == 'true' }}
+    runs-on: ${{ matrix.os }}
+    # two cibuildwheel builds, each of which provisions an interpreter
+    # and, on Linux, pulls a container per libc before compiling
+    # anything: the same bound-a-hung-job ceiling rebuild carries
+    timeout-minutes: 40
+    # the interpreter uv runs cibuildwheel with is the one setup-python
+    # installs below and never one of uv's own: see build-cibuildwheel
+    # in test.yml, whose own env carries this variable and the reason
+    env:
+      UV_PYTHON_DOWNLOADS: never
+      # the one interpreter, and no test run: see this file's header
+      CIBW_BUILD: cp315-*
+      CIBW_TEST_SKIP: "*"
+    strategy:
+      # every image to the end, as in rebuild: which platform disagrees
+      # is the answer
+      fail-fast: false
+      matrix:
+        # build-cibuildwheel's own list in test.yml, copied, and held
+        # against it by tests/wheel_reproducibility_platforms_test.py as
+        # a containment: this job's own images are a superset of the
+        # release ones rather than equal to them, now that the two Linux
+        # entries below carry a second image apiece. macos-x86-64,
+        # macos-arm64, windows-x86-64 and windows-arm64 keep exactly the
+        # one image that uploads a release wheel, unchanged from before
+        # #524 -- a second image there would measure a toolchain the
+        # pinned container says nothing about, which is RELEASING.md's
+        # own reasoning for declining the pin itself on those platforms.
+        # linux-x86-64 and linux-aarch64 each carry rebuild's own second
+        # image besides the release one, reused rather than a third image
+        # nothing justifies: [tool.cibuildwheel.linux]'s pinned digest is
+        # what this second host image is for, so the two builds are meant
+        # to agree on the container even where the host does not
+        include:
+          - platform: linux-x86-64
+            os: ubuntu-latest
+          - platform: linux-x86-64
+            os: ubuntu-22.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: linux-aarch64
+            os: ubuntu-22.04-arm
+          - platform: macos-x86-64
+            os: macos-26-intel
+          - platform: macos-arm64
+            os: macos-latest
+          - platform: windows-x86-64
+            os: windows-latest
+          - platform: windows-arm64
+            os: windows-11-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the vendored library is compiled twice here too
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          # section 1 of the organization standard counts a release
+          # candidate as released, and setup-python matches one only under
+          # this flag, which leaves a version with a final release on that
+          # final. The two setup-python steps below carry it for that reason
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # the repair is what reads this: auditwheel and delocate take the
+      # timestamp of every member they write from the variable, and from
+      # the clock of the moment where it is unset. build-cibuildwheel in
+      # test.yml pins the same value the same way for the wheels the
+      # release uploads, so what this diffs is that build rather than
+      # one differing from it in an exported variable.
+      # shell: bash for the Windows images -- see rebuild's own step
+      - name: Pin the build timestamp to the commit
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # --only-group build, so the environment is cibuildwheel and the
+      # tools it needs and no extension of this project's own; --locked,
+      # so the cibuildwheel deciding the images and the identifiers is
+      # the one uv.lock pins rather than whatever the index holds. The
+      # script finds cibuildwheel on the PATH this sets, which is why it
+      # runs under uv run rather than under --no-project as rebuild's
+      # does. shell: bash for the two Windows images, whose default is
+      # PowerShell -- see rebuild's own step for the hazard.
+      # Only the four single-image platforms take this step: the two
+      # Linux ones need their first build's wheels kept for the
+      # container comparison below, which is the next step instead
+      - name: Build the repaired wheel twice and diff the two archives
+        if: ${{ !startsWith(matrix.platform, 'linux') }}
+        shell: bash
+        run: >
+          uv run --locked --only-group build python
+          .github/scripts/check_wheel_reproducibility.py
+          --repaired
+
+      # the Linux entries' own build: --keep-wheel is what the plain
+      # step above does not pass, so that this image's own set of
+      # wheels -- manylinux and musllinux both, from the one interpreter
+      # -- survives past the comparison against this job's second build,
+      # for across-images below to compare against the other host
+      # image's own set
+      - name: Build the repaired wheel twice, diff them, and keep the first
+        if: startsWith(matrix.platform, 'linux')
+        shell: bash
+        env:
+          KEEP_WHEEL: ${{ runner.temp }}/wheel-repaired/${{ matrix.platform }}/${{ matrix.os }}
+        run: >
+          uv run --locked --only-group build python
+          .github/scripts/check_wheel_reproducibility.py
+          --repaired --keep-wheel "$KEEP_WHEEL"
+
+      # !cancelled(), for rebuild's own reason: a Linux image whose own
+      # two builds disagree still has a set of wheels worth comparing
+      # against the other image's. startsWith(matrix.platform, 'linux'),
+      # since macos-x86-64, macos-arm64, windows-x86-64 and windows-arm64
+      # carry no second image here and so have nothing for across-images
+      # to read on this path
+      - name: Keep this image's repaired wheels for the across-images comparison
+        if: ${{ !cancelled() && startsWith(matrix.platform, 'linux') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repaired-wheel-${{ matrix.platform }}-${{ matrix.os }}
+          path: ${{ runner.temp }}/wheel-repaired/
+
+  dynamic:
+    name: Build the dynamic wheel twice on ${{ matrix.os }} and diff them
+    needs: changes
+    # rebuild's own conditions, and for its own reasons
+    if: ${{ !github.event.pull_request.draft && needs.changes.outputs.build == 'true' }}
+    runs-on: ${{ matrix.os }}
+    # two builds of the vendored library, with no container to pull
+    # before either: the same bound-a-hung-job ceiling the jobs above
+    # carry
+    timeout-minutes: 40
+    # the platform tag of a dynamic wheel is the interpreter's own, so
+    # substituting the interpreter substitutes the tag: the interpreter
+    # here is the one setup-python installs below and never one of uv's,
+    # the way build-dynamic in test.yml pins it and for the reason its
+    # own comment gives
+    env:
+      UV_PYTHON_DOWNLOADS: never
+    strategy:
+      # every image to the end, as in rebuild
+      fail-fast: false
+      matrix:
+        # build-dynamic's own list in test.yml, copied, and held against
+        # it by tests/wheel_reproducibility_platforms_test.py --
+        # equality, as repaired's is and for repaired's reason: this job
+        # asks whether the wheel that job uploads reproduces, so a
+        # second image of a platform would be a wheel measured twice
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-26-intel
+          - macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the vendored library is compiled twice here too
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # the deployment target reaches the platform tag and the vendored
+      # library alike, so a build without it is a different file from
+      # the one the release publishes: build-dynamic in test.yml carries
+      # this step and the reasoning behind both values
+      - name: Set the macOS deployment target
+        if: runner.os == 'macOS'
+        env:
+          TARGET: ${{ matrix.os == 'macos-26-intel' && '10.13' || '11.0' }}
+        run: echo "MACOSX_DEPLOYMENT_TARGET=$TARGET" >> "$GITHUB_ENV"
+
+      # what auditwheel and delocate read for every member they write:
+      # see repaired's own step
+      - name: Pin the build timestamp to the commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # --only-group build carries the frontend and both repair tools,
+      # and --locked pins them: the same group build-dynamic builds and
+      # repairs under. No shell: bash, every image of this matrix being
+      # Linux or macOS
+      - name: Build the dynamic wheel twice and diff the two archives
+        run: >
+          uv run --locked --only-group build python
+          .github/scripts/check_wheel_reproducibility.py
+          --dynamic
+
+  cross-windows:
+    name: Cross-compile the Windows wheel twice and diff them
+    needs: changes
+    # rebuild's own conditions, and for its own reasons
+    if: ${{ !github.event.pull_request.draft && needs.changes.outputs.build == 'true' }}
+    # a Linux host, which is where build-windows in test.yml
+    # cross-compiles this wheel: building it on Windows would measure a
+    # file the release does not publish
+    runs-on: ubuntu-latest
+    # as above
+    timeout-minutes: 40
+    # as above
+    env:
+      UV_PYTHON_DOWNLOADS: never
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the vendored library is cross-compiled twice here
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # the cross toolchain, which is what makes a win_amd64 wheel on a
+      # Linux runner possible at all: build-windows installs the same
+      # package
+      - name: Install dependencies
+        run: sudo apt install -y mingw-w64
+
+      # nothing repairs this wheel, so what the pin buys is that the
+      # archive under measurement carries the release's own instant
+      # rather than hatchling's fallback constant: build-windows in
+      # test.yml carries this step and the reasoning
+      - name: Pin the build timestamp to the commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # --only-group build and --locked, as above: what this needs from
+      # the group is the frontend alone, no repair tool running here
+      - name: Cross-compile the Windows wheel twice and diff the archives
+        run: >
+          uv run --locked --only-group build python
+          .github/scripts/check_wheel_reproducibility.py
+          --cross-windows
+
+  across-images:
+    name: Compare the wheels two images of one platform built
+    # rebuild for the runner-toolchain question on every platform,
+    # repaired for the container question #524 asks on the two Linux
+    # ones -- see the steps below for why the two are never merged into
+    # one comparison
+    # changes as well, since its output is part of the condition below and
+    # an expression reads only the outputs of a job named in needs
+    needs: [changes, rebuild, repaired]
+    # !cancelled() rather than success(), for the same reason the upload
+    # step above carries it: a platform whose images disagree is what
+    # this job exists to name, and one image's red must not take the
+    # comparison with it. The rest is rebuild's own condition -- a
+    # skipped rebuild leaves nothing to download, and this job would go
+    # red for the absence rather than for a difference
+    if: >-
+      ${{ !cancelled() && !github.event.pull_request.draft
+      && needs.changes.outputs.build == 'true' }}
+    runs-on: ubuntu-latest
+    # a download and a member-by-member diff of archives already built:
+    # nothing here compiles
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the script is all this job needs, and it compiles nothing:
+          # the vendored library would be a submodule clone for nothing
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # merge-multiple, so every artifact lands in one tree: each holds
+      # its own platform and image directories already, and the pair of
+      # them under one platform is what the comparison is
+      - name: Download every image's wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/wheels
+
+      # --across-toolchains, since each image compiled with its own
+      # compiler: see this file's header for what it leaves out and why
+      - name: Diff the wheels two images of one platform built, the compiled extension aside
+        env:
+          WHEELS: ${{ runner.temp }}/wheels
+        run: >
+          uv run --no-project python
+          .github/scripts/check_wheel_reproducibility.py
+          --across-toolchains "$WHEELS"
+
+      # a directory of its own rather than a second pattern merged into
+      # the one above: the two families are never one wheel each of the
+      # same platform, an unrepaired uv-build archive and a
+      # cibuildwheel-repaired one of the same interpreter carrying
+      # different names and meaning nothing compared against each other.
+      # !cancelled(), so the runner-toolchain comparison above failing
+      # does not skip the container one
+      - name: Download every Linux image's repaired wheels
+        if: ${{ !cancelled() }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: repaired-wheel-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/wheels-repaired
+
+      # the container question #524 asks: whether the pinned digest,
+      # built on two host images, leaves the host with nothing left to
+      # decide. Only linux-x86-64 and linux-aarch64 reach here, since
+      # repaired uploads a second image nowhere else
+      - name: Diff the repaired wheels two images of one Linux platform built
+        if: ${{ !cancelled() }}
+        env:
+          WHEELS_REPAIRED: ${{ runner.temp }}/wheels-repaired
+        run: >
+          uv run --no-project python
+          .github/scripts/check_wheel_reproducibility.py
+          --across-images "$WHEELS_REPAIRED"
+
+  # the one context a branch rule can name (#1002): every job above is a
+  # matrix whose contexts change with every image, or a job skipped by
+  # design on most pull requests. Whether main's rule asks for it is
+  # REPOSITORY.md's required checks, which reads the endpoint rather than
+  # this file
+  reproducibility-passed:
+    # the name and not the id is what branch protection matches, and it
+    # carries the workflow because a context is keyed by name alone: two
+    # workflows with a job named "every job passed" would produce one
+    # ambiguous check
+    name: "wheel-reproducibility: every job passed"
+    # nothing in this tree calls this workflow, so the step below reads
+    # the run's own job listing rather than `needs.*.result`. `needs`
+    # sequences this job after every other one, and each id's own
+    # `needs.<id>.result` is what the step reads for that job's rows where
+    # the listing still shows them unfinished, and what fails the step on
+    # its own where it is neither success nor skipped
+    needs:
+      - changes
+      - rebuild
+      - repaired
+      - dynamic
+      - cross-windows
+      - across-images
+    # not success(): a job whose dependencies failed is skipped, and a
+    # skipped check reads as satisfied, so the gate has to run to be able
+    # to fail. !cancelled() and not always(), for the reason test.yml's
+    # and codeql.yml's aggregates give: a cancellation of the run is no
+    # evidence either way, and always() would fail this check on a run its
+    # concurrency group superseded. The draft flag is not part of this
+    # condition: a skipped required check reads as passing, and this
+    # job's own check run does not exist until every job above has
+    # settled, so declining it here while draft would leave the draft's
+    # skip as the only check of this name on the sha until a later run's
+    # own aggregate exists. The closed condition stays, the condition
+    # the build jobs also carry: a closed pull request has nothing left
+    # to become ready (btclib-org/.github#1327)
+    if: >-
+      ${{ !cancelled()
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # what asking the API for this run's own jobs takes. The trailing
+      # comment repeats it in one line for the reason
+      # btclib-org/.github#1164 gives: zizmor's undocumented-permissions
+      # audit (persona=auditor) reads the permission's own line and not
+      # the comment above it
+      actions: read # this run's own job listing, which contents: read misses
+    steps:
+      # the run's own job listing rather than `needs.*.result`, which is
+      # section 10 of the organization standard's shape for a workflow
+      # nothing calls: a matrix cell that died in *Set up job* is a
+      # `failure` row in the listing where `needs.<job>.result` does not
+      # carry it (btclib-org/btclib#1001). "skipped" passes beside
+      # "success": the changes job above skips every build job on a pull
+      # request touching nothing the builds read, which is the pass this
+      # check exists to give such a pull request
+      #
+      # a skipped required check reads as passing, so the draft flag
+      # moves from the job's own `if:` above into this first step: the
+      # job still runs while draft, and reports a failure instead of a
+      # skip (btclib-org/.github#1327)
+      - name: Fail while this pull request is a draft
+        if: github.event.pull_request.draft
+        run: |
+          echo "::error::this pull request is a draft"
+          exit 1
+      - name: Fail unless every other job of this run succeeded or was skipped
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # each `needs` id's own result, one line per id
+          NEEDS_RESULTS: |-
+            changes ${{ needs.changes.result }}
+            rebuild ${{ needs.rebuild.result }}
+            repaired ${{ needs.repaired.result }}
+            dynamic ${{ needs.dynamic.result }}
+            cross-windows ${{ needs.cross-windows.result }}
+            across-images ${{ needs.across-images.result }}
+          # every row a `needs` job lists under when it runs, after its id:
+          # a plain job's own name, and a matrix job's once per entry of
+          # its matrix, with matrix.os expanded as GitHub lists it. A
+          # skipped matrix job lists once, unexpanded, and a skipped row
+          # is never unfinished, so it has no line here.
+          # tests/wheel_reproducibility_platforms_test.py holds these lines
+          # against each job's own name: and matrix
+          NEEDS_ROWS: |-
+            changes Decide whether the pull request touches the build
+            rebuild Build the wheel twice on ubuntu-latest and diff them
+            rebuild Build the wheel twice on ubuntu-22.04 and diff them
+            rebuild Build the wheel twice on ubuntu-24.04-arm and diff them
+            rebuild Build the wheel twice on ubuntu-22.04-arm and diff them
+            rebuild Build the wheel twice on macos-26-intel and diff them
+            rebuild Build the wheel twice on macos-15-intel and diff them
+            rebuild Build the wheel twice on macos-latest and diff them
+            rebuild Build the wheel twice on macos-15 and diff them
+            rebuild Build the wheel twice on windows-latest and diff them
+            rebuild Build the wheel twice on windows-2022 and diff them
+            rebuild Build the wheel twice on windows-11-arm and diff them
+            rebuild Build the wheel twice on windows-11-vs2026-arm and diff them
+            repaired Build the repaired wheel twice on ubuntu-latest and diff them
+            repaired Build the repaired wheel twice on ubuntu-22.04 and diff them
+            repaired Build the repaired wheel twice on ubuntu-24.04-arm and diff them
+            repaired Build the repaired wheel twice on ubuntu-22.04-arm and diff them
+            repaired Build the repaired wheel twice on macos-26-intel and diff them
+            repaired Build the repaired wheel twice on macos-latest and diff them
+            repaired Build the repaired wheel twice on windows-latest and diff them
+            repaired Build the repaired wheel twice on windows-11-arm and diff them
+            dynamic Build the dynamic wheel twice on ubuntu-latest and diff them
+            dynamic Build the dynamic wheel twice on ubuntu-24.04-arm and diff them
+            dynamic Build the dynamic wheel twice on macos-26-intel and diff them
+            dynamic Build the dynamic wheel twice on macos-latest and diff them
+            cross-windows Cross-compile the Windows wheel twice and diff them
+            across-images Compare the wheels two images of one platform built
+        run: |
+          set -euo pipefail
+          # a row of a `needs` job that the listing still shows unfinished
+          # is accepted where that job's own result is success or skipped:
+          # `needs` does not let this job start before every one of them
+          # concludes, so such a row is the listing lagging and not the run
+          # (btclib-org/.github#1395). A row is that job's where its name
+          # equals one NEEDS_ROWS gives the job's id, and the id joins it to
+          # NEEDS_RESULTS; a job with any other result accepts no row
+          own='BEGIN {
+            n = split(ENVIRON["NEEDS_RESULTS"], line, "\n")
+            for (i = 1; i <= n; i++) {
+              split(line[i], field, " ")
+              result[field[1]] = field[2]
+            }
+            n = split(ENVIRON["NEEDS_ROWS"], line, "\n")
+            for (i = 1; i <= n; i++) {
+              id = line[i]
+              sub(/ .*/, "", id)
+              row = line[i]
+              sub(/^[^ ]+ /, "", row)
+              if (result[id] == "success" || result[id] == "skipped")
+                accepted[row] = id
+            }
+          }'
+          # such a row is read again, up to three times ten seconds apart,
+          # before it is accepted: a job's result is not the listing's
+          # equal, `needs` having missed matrix cells that died in *Set up
+          # job* (btclib-org/btclib#1001), and a row that concludes between
+          # reads is judged below on its conclusion. Only a row this step
+          # would tolerate is waited for, which is a row whose job's result
+          # is success or skipped; a listing with no such row is read once
+          # (btclib-org/.github#1416)
+          reads=0
+          while :; do
+            # `.status` beside the conclusion so that an unfinished job
+            # says which kind it is: queued and running are one word to
+            # `.conclusion` and two facts to a reader of the log
+            jobs=$(gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+              --jq '.jobs[] | "\(.conclusion // "unfinished")\t\(.status)\t\(.name)"')
+            lagging=$(printf '%s\n' "${jobs}" | awk -F'\t' "${own}"'
+              $1 == "unfinished" && ($3 in accepted) {
+                print accepted[$3] " (" result[accepted[$3]] "): " $3
+              }')
+            if [ -z "${lagging}" ] || [ "${reads}" -eq 3 ]; then
+              break
+            fi
+            reads=$((reads + 1))
+            echo "listed unfinished, read again in 10 s (${reads} of 3):"
+            printf '%s\n' "${lagging}"
+            sleep 10
+          done
+          # printed before it is judged: the job whose purpose is to be
+          # trusted is the one that has to be able to say what it saw
+          printf '%s\n' "${jobs}"
+          # awk and not grep: a tab in a grep pattern is one
+          # implementation's extension and a literal "t" in another's,
+          # where awk's field separator is POSIX
+          bad=$(printf '%s\n' "${jobs}" |
+            awk -F'\t' '$1 != "success" && $1 != "skipped" && $1 != "unfinished"')
+          if [ -n "${lagging}" ]; then
+            echo "still listed unfinished, accepted as a needs job's own:"
+            printf '%s\n' "${lagging}"
+          fi
+          counted=$(printf '%s\n' "${jobs}" | awk -F'\t' "${own}"'
+            $1 == "unfinished" && !($3 in accepted)')
+          unfinished=$(printf '%s' "${counted}" | awk 'END { print NR }')
+          # each annotation names the rows it is about, an annotation
+          # being what the checks page shows without the log being
+          # opened. `%0A` is a newline to one, and the tab goes with it:
+          # the columns line up in a log and not in this
+          annotate() {
+            printf '::error::%s' "$1"
+            printf '%s' "$2" | tr '\t' ' ' | awk '{ printf "%%0A%s", $0 }'
+            printf '\n'
+          }
+          verdict=0
+          # each job's own result is judged beside the listing and not only
+          # through it: a failure `needs` reports with no row of that job's
+          # listed as failed, or with its rows missing, is still a failure
+          # (btclib-org/.github#1424). An empty result is refused with the
+          # rest. This turns a pass into a fail and never the reverse, so
+          # the judgements of the listing below lose nothing
+          refused=$(printf '%s\n' "${NEEDS_RESULTS}" |
+            awk '$2 != "success" && $2 != "skipped"')
+          if [ -n "${refused}" ]; then
+            annotate "these needs jobs' own results are neither success nor skipped:" \
+              "${refused}"
+            verdict=1
+          fi
+          if [ -n "${bad}" ]; then
+            annotate "these jobs of the run did not succeed:" "${bad}"
+            verdict=1
+          fi
+          # beside the accepted rows, exactly one job of the run may be
+          # unfinished, and it is this one. Counted rather than excluded by
+          # name, a name being what goes stale when this job is renamed --
+          # and none unfinished at all is refused too, a listing with no
+          # job running not being a listing of the run this step is
+          # running in
+          if [ "${unfinished}" -ne 1 ]; then
+            annotate \
+              "this check should be the run's one unfinished job; ${unfinished} are" \
+              "${counted}"
+            verdict=1
+          fi
+          exit "${verdict}"

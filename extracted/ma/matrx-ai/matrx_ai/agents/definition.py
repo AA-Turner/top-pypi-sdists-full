@@ -35,6 +35,9 @@ class AgentExecuteResult:
     usage: AggregatedUsage = field(default_factory=AggregatedUsage)
     usage_history: list[TokenUsage] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # The exception that ended a failed run (in memory only; see
+    # CompletedRequest.terminal_exception).
+    exception: BaseException | None = None
 
 
 # ============================================================================
@@ -688,6 +691,7 @@ class Agent:
             usage=response.total_usage,
             usage_history=list(response.request.usage_history),
             metadata=response.metadata,
+            exception=getattr(response, "terminal_exception", None),
         )
 
     def to_dict(self) -> dict[str, Any]:

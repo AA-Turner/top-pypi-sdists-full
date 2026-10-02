@@ -237,3 +237,71 @@ async def test_an_unknown_model_maximum_stays_quiet() -> None:
 
     assert config.max_output_tokens == STORED_CEILING
     assert "document_output_ceiling" not in prep.steps
+
+
+# ---------------------------------------------------------------------------
+# NOTHING FAILS SILENTLY (law 4) — the raise must reach the CALLER, not only the
+# server log. Live 2026-10-01 on the clone: ``POST /ai/agents/{id}`` with
+# ``config_overrides: {"max_output_tokens": 300}`` on an agent whose output
+# schema carries an array went out at the model maximum (request snapshots
+# ``dfcc2189…`` 65,536 and ``5efd32a0…`` 64,000) while every sibling override
+# (model, top_k, thinking_level) landed — and the stream said nothing, so the
+# caller read it as "the override was ignored".
+# ---------------------------------------------------------------------------
+
+
+class _RecordingEmitter:
+    def __init__(self) -> None:
+        self.warnings: list[Any] = []
+
+    async def send_warning(self, payload: Any) -> None:
+        self.warnings.append(payload)
+
+
+@pytest.fixture
+def emitter(monkeypatch) -> _RecordingEmitter:
+    import matrx_connect
+
+    rec = _RecordingEmitter()
+    monkeypatch.setattr(
+        matrx_connect, "get_app_context", lambda: SimpleNamespace(emitter=rec), raising=True
+    )
+    return rec
+
+
+async def _drain() -> None:
+    import asyncio
+
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_the_raise_is_announced_in_the_stream(emitter: _RecordingEmitter) -> None:
+    """The caller asked for 300; the wire carries the model maximum. The stream
+    must say so, naming the key, what was asked and what was sent."""
+    config = _config(ceiling=300, schema=LEDGER_SCHEMA)
+
+    await _send(config)
+    await _drain()
+
+    assert config.max_output_tokens == SONNET_5_MAX
+    assert len(emitter.warnings) == 1
+    warning = emitter.warnings[0]
+    assert warning.code == "setting_adjusted"
+    assert warning.metadata["adjusted"] == [
+        {"key": "max_output_tokens", "requested": 300, "sent": SONNET_5_MAX}
+    ]
+    assert warning.user_message and len(warning.user_message) <= 140
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_announced_when_nothing_moved(emitter: _RecordingEmitter) -> None:
+    """A bounded schema keeps its knob — no repair, no warning noise."""
+    config = _config(ceiling=300, schema=BOUNDED_SCHEMA)
+
+    await _send(config)
+    await _drain()
+
+    assert config.max_output_tokens == 300
+    assert emitter.warnings == []

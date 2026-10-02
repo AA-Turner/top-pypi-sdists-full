@@ -7,43 +7,43 @@ use crate::{
 
 /// A closed, TOML-specific view of a node in source order.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TomlNode {
-    Root(Root),
-    Table(Table),
-    ArrayOfTable(ArrayOfTable),
-    KeyValue(KeyValue),
-    Keys(Keys),
-    Array(Array),
-    InlineTable(InlineTable),
-    BasicString(BasicString),
-    Boolean(Boolean),
-    Float(Float),
-    IntegerBin(IntegerBin),
-    IntegerDec(IntegerDec),
-    IntegerHex(IntegerHex),
-    IntegerOct(IntegerOct),
-    LiteralString(LiteralString),
-    LocalDate(LocalDate),
-    LocalDateTime(LocalDateTime),
-    LocalTime(LocalTime),
-    MultiLineBasicString(MultiLineBasicString),
-    MultiLineLiteralString(MultiLineLiteralString),
-    OffsetDateTime(OffsetDateTime),
-    Invalid(tombi_text::Range),
+pub enum TomlNode<'t> {
+    Root(Root<'t>),
+    Table(Table<'t>),
+    ArrayOfTable(ArrayOfTable<'t>),
+    KeyValue(KeyValue<'t>),
+    Keys(Keys<'t>),
+    Array(Array<'t>),
+    InlineTable(InlineTable<'t>),
+    BasicString(BasicString<'t>),
+    Boolean(Boolean<'t>),
+    Float(Float<'t>),
+    IntegerBin(IntegerBin<'t>),
+    IntegerDec(IntegerDec<'t>),
+    IntegerHex(IntegerHex<'t>),
+    IntegerOct(IntegerOct<'t>),
+    LiteralString(LiteralString<'t>),
+    LocalDate(LocalDate<'t>),
+    LocalDateTime(LocalDateTime<'t>),
+    LocalTime(LocalTime<'t>),
+    MultiLineBasicString(MultiLineBasicString<'t>),
+    MultiLineLiteralString(MultiLineLiteralString<'t>),
+    OffsetDateTime(OffsetDateTime<'t>),
+    Invalid(tombi_text::Span),
 }
 
-/// Commas adjacent to the syntax item at a cursor position.
+/// Commas adjacent to the syntax item at a cursor offset.
 ///
 /// This includes commas recovered inside invalid syntax while the user is
 /// typing an incomplete array or inline table.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct AdjacentCommas {
-    pub before: Option<tombi_text::Range>,
-    pub after: Option<tombi_text::Range>,
+    pub before: Option<tombi_text::Span>,
+    pub after: Option<tombi_text::Span>,
 }
 
-impl TomlNode {
-    pub(crate) fn cast(node: SyntaxNode) -> Option<Self> {
+impl<'t> TomlNode<'t> {
+    pub(crate) fn cast(node: SyntaxNode<'t>) -> Option<Self> {
         Some(match node.kind() {
             SyntaxKind::ROOT => Self::Root(Root::cast(node)?),
             SyntaxKind::TABLE => Self::Table(Table::cast(node)?),
@@ -70,35 +70,35 @@ impl TomlNode {
                 Self::MultiLineLiteralString(MultiLineLiteralString::cast(node)?)
             }
             SyntaxKind::OFFSET_DATE_TIME => Self::OffsetDateTime(OffsetDateTime::cast(node)?),
-            SyntaxKind::INVALID_TOKEN | SyntaxKind::ERROR => Self::Invalid(node.range()),
+            SyntaxKind::INVALID_TOKEN | SyntaxKind::ERROR => Self::Invalid(node.span()),
             _ => return None,
         })
     }
 
-    pub fn range(&self) -> tombi_text::Range {
+    pub fn span(&self) -> tombi_text::Span {
         match self {
-            Self::Root(node) => node.range(),
-            Self::Table(node) => node.range(),
-            Self::ArrayOfTable(node) => node.range(),
-            Self::KeyValue(node) => node.range(),
-            Self::Keys(node) => node.range(),
-            Self::Array(node) => node.range(),
-            Self::InlineTable(node) => node.range(),
-            Self::BasicString(node) => node.range(),
-            Self::Boolean(node) => node.range(),
-            Self::Float(node) => node.range(),
-            Self::IntegerBin(node) => node.range(),
-            Self::IntegerDec(node) => node.range(),
-            Self::IntegerHex(node) => node.range(),
-            Self::IntegerOct(node) => node.range(),
-            Self::LiteralString(node) => node.range(),
-            Self::LocalDate(node) => node.range(),
-            Self::LocalDateTime(node) => node.range(),
-            Self::LocalTime(node) => node.range(),
-            Self::MultiLineBasicString(node) => node.range(),
-            Self::MultiLineLiteralString(node) => node.range(),
-            Self::OffsetDateTime(node) => node.range(),
-            Self::Invalid(range) => *range,
+            Self::Root(node) => node.span(),
+            Self::Table(node) => node.span(),
+            Self::ArrayOfTable(node) => node.span(),
+            Self::KeyValue(node) => node.span(),
+            Self::Keys(node) => node.span(),
+            Self::Array(node) => node.span(),
+            Self::InlineTable(node) => node.span(),
+            Self::BasicString(node) => node.span(),
+            Self::Boolean(node) => node.span(),
+            Self::Float(node) => node.span(),
+            Self::IntegerBin(node) => node.span(),
+            Self::IntegerDec(node) => node.span(),
+            Self::IntegerHex(node) => node.span(),
+            Self::IntegerOct(node) => node.span(),
+            Self::LiteralString(node) => node.span(),
+            Self::LocalDate(node) => node.span(),
+            Self::LocalDateTime(node) => node.span(),
+            Self::LocalTime(node) => node.span(),
+            Self::MultiLineBasicString(node) => node.span(),
+            Self::MultiLineLiteralString(node) => node.span(),
+            Self::OffsetDateTime(node) => node.span(),
+            Self::Invalid(span) => *span,
         }
     }
 }

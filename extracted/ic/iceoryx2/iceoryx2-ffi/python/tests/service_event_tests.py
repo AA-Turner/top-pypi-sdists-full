@@ -1,0 +1,180 @@
+# Copyright (c) 2025 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache Software License 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+# which is available at https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+import iceoryx2 as iox2
+import pytest
+
+service_types = [iox2.ServiceType.Ipc, iox2.ServiceType.Local]
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_notifier_use_default_event_id(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    event_id = iox2.EventId.new(45)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier = service.notifier_builder().default_event_id(event_id).create()
+    listener = service.listener_builder().create()
+
+    notifier.notify()
+    events = listener.try_wait()
+
+    assert len(events) == 1
+    assert events[0].id == event_id
+    assert events[0].count == 1
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_notification_with_custom_event_id_works(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    event_id = iox2.EventId.new(41)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier = service.notifier_builder().create()
+    listener = service.listener_builder().create()
+
+    notifier.notify_with_custom_event_id(event_id)
+    events = listener.try_wait()
+
+    assert len(events) == 1
+    assert events[0].id == event_id
+    assert events[0].count == 1
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_deadline_can_be_acquired_via_ports(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    deadline = iox2.Duration.from_secs(123)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().deadline(deadline).create()
+
+    notifier = service.notifier_builder().create()
+    listener = service.listener_builder().create()
+
+    assert listener.deadline == deadline
+    assert notifier.deadline == deadline
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_listener_try_wait_works(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    event_id_1 = iox2.EventId.new(15)
+    event_id_2 = iox2.EventId.new(51)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier = service.notifier_builder().create()
+    listener = service.listener_builder().create()
+
+    notifier.notify_with_custom_event_id(event_id_1)
+    notifier.notify_with_custom_event_id(event_id_2)
+
+    events = listener.try_wait()
+
+    assert len(events) == 2
+    assert events[0].id == event_id_1
+    assert events[0].count == 1
+    assert events[1].id == event_id_2
+    assert events[1].count == 1
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_listener_timed_wait_works(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    event_id_1 = iox2.EventId.new(16)
+    event_id_2 = iox2.EventId.new(61)
+    timeout = iox2.Duration.from_secs(2)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier = service.notifier_builder().create()
+    listener = service.listener_builder().create()
+
+    notifier.notify_with_custom_event_id(event_id_1)
+    notifier.notify_with_custom_event_id(event_id_2)
+
+    events = listener.timed_wait(timeout)
+
+    assert len(events) == 2
+    assert events[0].id == event_id_1
+    assert events[0].count == 1
+    assert events[1].id == event_id_2
+    assert events[1].count == 1
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_listener_blocking_wait_works(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+    event_id_1 = iox2.EventId.new(17)
+    event_id_2 = iox2.EventId.new(71)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier = service.notifier_builder().create()
+    listener = service.listener_builder().create()
+
+    notifier.notify_with_custom_event_id(event_id_1)
+    notifier.notify_with_custom_event_id(event_id_2)
+
+    events = listener.blocking_wait()
+
+    assert len(events) == 2
+    assert events[0].id == event_id_1
+    assert events[0].count == 1
+    assert events[1].id == event_id_2
+    assert events[1].count == 1
+
+
+@pytest.mark.parametrize("service_type", service_types)
+def test_port_names_can_be_set(
+    service_type: iox2.ServiceType,
+) -> None:
+    config = iox2.testing.generate_isolated_config()
+    node = iox2.NodeBuilder.new().config(config).create(service_type)
+
+    service_name = iox2.testing.generate_service_name()
+    service = node.service_builder(service_name).event().create()
+
+    notifier_name = iox2.PortName.new("yell")
+    listener_name = iox2.PortName.new("wiretap")
+
+    notifier = service.notifier_builder().name(notifier_name).create()
+    listener = service.listener_builder().name(listener_name).create()
+
+    assert notifier.name == notifier_name
+    assert listener.name == listener_name

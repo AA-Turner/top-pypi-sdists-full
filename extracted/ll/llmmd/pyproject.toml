@@ -1,0 +1,19 @@
+[project]
+name = "llmmd"
+version = "0.1.7"
+requires-python = ">=3.14"
+
+[project.scripts]
+llmmd = "llmmd.cli:main"
+
+[build-system]
+requires = ["maturin>=1.14.1"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "llmmd._native"
+python-source = "python"
+features = ["pyo3/extension-module"]
+
+[dependency-groups]
+dev = ["maturin>=1.14.1", "pytest>=8.4.2"]

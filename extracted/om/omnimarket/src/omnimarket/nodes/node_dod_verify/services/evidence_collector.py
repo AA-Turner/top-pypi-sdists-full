@@ -1,0 +1,6910 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Evidence collector — loads contract YAML, runs dod_evidence checks, returns results.
+
+Responsibilities:
+  1. Locate and load a ticket's contract YAML (auto-detect or explicit path).
+  2. Iterate over ``dod_evidence[]`` items.
+  3. For each item's ``checks[]``, execute the check.
+  4. Return a list of ModelEvidenceCheckResult for the handler to tally.
+
+This module is the I/O boundary — it reads files and runs subprocesses.
+The handler itself remains pure (no I/O) and continues to work when callers
+pre-populate evidence_results (tests, event-bus consumers).
+"""
+
+from __future__ import annotations
+
+import ast
+import contextlib
+import fcntl
+import functools
+import glob
+import hashlib
+import importlib.util
+import json
+import logging
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Final, cast
+from uuid import UUID
+
+import yaml
+from omnibase_core.enums.ticket.enum_dod_check_type import EnumDodCheckType
+from omnibase_core.enums.ticket.enum_dod_evidence_execution_scope import (
+    EnumDodEvidenceExecutionScope,
+)
+from omnibase_core.enums.ticket.enum_receipt_status import EnumReceiptStatus
+from omnibase_core.models.contracts.ticket.model_dod_receipt import ModelDodReceipt
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+from omnibase_core.models.ticket.model_contract_dod_item import ModelContractDodItem
+from omnibase_core.validation.validator_receipt_gate import (
+    compute_contract_entry_sha256,
+)
+from pydantic import ValidationError
+
+from omnimarket.delegated_test_loop.must_fail_control import (
+    ProtocolMustFailTreeRunner,
+    diff_derived_binding,
+    evaluate_must_fail_control,
+    shell_route_record,
+)
+from omnimarket.delegated_test_loop.must_fail_local_tree_run import (
+    HandlerMustFailLocalTreeRun,
+)
+from omnimarket.delegated_test_loop.must_fail_models import (
+    EnumMustFailControlOutcome,
+    ModelMustFailControl,
+    ModelPrDiffFacts,
+)
+from omnimarket.enums.enum_check_proof_class import EnumCheckProofClass
+from omnimarket.enums.enum_dod_verify_execution_audience import (
+    EnumDodVerifyExecutionAudience,
+)
+from omnimarket.enums.enum_dod_verify_unresolved_cause import (
+    EnumDodVerifyUnresolvedCause,
+)
+from omnimarket.nodes.node_dod_verify.handlers.handler_dod_evidence_github_effect import (
+    HandlerDodEvidenceGithubEffect,
+    pypi_release_files,
+)
+from omnimarket.nodes.node_dod_verify.models.model_dod_acceptance_summary import (
+    ModelDodAcceptanceSummary,
+)
+from omnimarket.nodes.node_dod_verify.models.model_dod_evidence_github_lookup import (
+    EnumDodEvidenceGithubOperation,
+    ModelDodEvidenceGithubLookupCommand,
+    ModelDodEvidenceGithubLookupResultEvent,
+)
+from omnimarket.nodes.node_dod_verify.models.model_dod_verify_state import (
+    EnumEvidenceCheckStatus,
+    EnumEvidenceUnverifiableCause,
+    EnumOccRefRefreshOutcome,
+    EnumProductCloneFreshness,
+    ModelEvidenceCheckResult,
+    ModelProductClonePin,
+    ModelProductClonePinSet,
+    ModelProductCloneResolution,
+)
+from omnimarket.nodes.node_dod_verify.services.ac_falsifier_checks import (
+    derive_falsifier_items,
+)
+from omnimarket.nodes.node_dod_verify.services.check_proof_class import (
+    classify_item_checks,
+)
+from omnimarket.nodes.node_dod_verify.services.durable_evidence_gate import (
+    apply_supersessions,
+)
+from omnimarket.nodes.node_dod_verify.services.released_evidence import (
+    evaluate_released,
+    parse_released_check_value,
+)
+from omnimarket.occ_evidence_probative_class import (
+    EnumEvidenceProbativeClass,
+    classify_check_value,
+    surrogate_refusal_reason,
+)
+
+logger = logging.getLogger(__name__)
+
+# Default contract search roots (first match wins)
+_DEFAULT_CONTRACT_ROOTS: list[str] = [
+    "${ONEX_CC_REPO_PATH}/contracts",
+    "${OMNI_HOME}/onex_change_control/contracts",
+]
+
+# OMN-13888 (scope 6): OCC governance is dev-targeted — contracts and receipts
+# land on the OCC ``dev`` branch first and are batched to ``main`` later. The
+# canonical omni_home clones track ``main``, so a contract merged only to ``dev``
+# is invisible to a working-tree search (the OMN-13899 "No contract found",
+# correlation 93b4e964). Resolve from this ref instead. Overridable via
+# ``OCC_GOVERNANCE_REF`` for tests / operators. Mirrors
+# ``DurableEvidenceGate.DEFAULT_OCC_GOVERNANCE_REF``.
+_DEFAULT_OCC_GOVERNANCE_REF = "origin/dev"
+
+# OMN-15443: ModelContractDodItem is the authoritative owner of item-level DoD
+# contract fields.  The local Done-gate consumer additionally supports explicit
+# PR bindings used by its live-state verifier; those fields are local execution
+# metadata, not a second evidence-audience schema.  Deriving the base field set
+# and default from the core model prevents this consumer from drifting when the
+# canonical contract evolves.
+_CANONICAL_DOD_ITEM_FIELDS = frozenset(ModelContractDodItem.model_fields)
+# The explicit PR-binding fields this collector's own live-state verifier reads
+# (``_resolve_pr_bindings``). They are this consumer's execution metadata, so
+# this consumer is their authority.
+_LOCAL_PR_BINDING_FIELDS = frozenset({"pr", "repo", "pr_number"})
+_LOCAL_DOD_ITEM_FIELDS = _CANONICAL_DOD_ITEM_FIELDS | _LOCAL_PR_BINDING_FIELDS
+
+# OMN-19428: every OTHER item field an OCC contract may carry is owned by
+# `onex_change_control`'s own evidence item model, which is `extra="forbid"` and
+# is what the OCC compliance and binding gates validate every item against.
+# This collector used to hand-list those fields (`ac_bindings` for OMN-18236),
+# one literal per OCC release, and missed `supersedes_ac_binding` (OMN-18577):
+# every contract that retires a binding was refused wholesale. They are now read
+# from that model, in the OCC tree the contract itself was read from, so a
+# contract and the schema it was written against always come from one revision.
+# `onex_change_control` is not in this repository's dependency set, so the model
+# is read as source (its annotated class fields), never imported or executed.
+_OCC_DOD_ITEM_MODEL_RELPATH = Path("src/onex_change_control/models/model_dod_check.py")
+_OCC_DOD_ITEM_MODEL_CLASS = "ModelDodEvidenceItem"
+_OCC_FIELD_AUTHORITY_UNREADABLE = "OCC_DOD_ITEM_FIELD_AUTHORITY_UNREADABLE"
+
+
+class OccDodItemFieldAuthorityError(Exception):
+    """The OCC evidence item model that owns an item's fields could not be read."""
+
+
+def _annotated_field_names(
+    classes: dict[str, ast.ClassDef], name: str, seen: frozenset[str]
+) -> frozenset[str]:
+    """Pydantic field names of ``name``: its annotated attributes and its bases'.
+
+    ``model_config``, ``ClassVar`` annotations and underscore names are not
+    fields. A base class defined in the same module contributes its fields; a
+    base defined elsewhere (``BaseModel``) contributes none.
+    """
+    node = classes[name]
+    names: set[str] = set()
+    for base in node.bases:
+        if isinstance(base, ast.Name) and base.id in classes and base.id not in seen:
+            names |= _annotated_field_names(classes, base.id, seen | {name})
+    for stmt in node.body:
+        if not isinstance(stmt, ast.AnnAssign) or not isinstance(stmt.target, ast.Name):
+            continue
+        field_name = stmt.target.id
+        if field_name == "model_config" or field_name.startswith("_"):
+            continue
+        if "ClassVar" in ast.unparse(stmt.annotation):
+            continue
+        names.add(field_name)
+    return frozenset(names)
+
+
+@functools.lru_cache(maxsize=32)
+def _occ_dod_item_fields_at(
+    model_path: str, mtime_ns: int, size: int
+) -> frozenset[str]:
+    """Parse the OCC model source once per file revision (mtime and size key it)."""
+    del mtime_ns, size  # cache key only
+    try:
+        tree = ast.parse(Path(model_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+        raise OccDodItemFieldAuthorityError(
+            f"cannot parse {model_path}: {type(exc).__name__}: {exc}"
+        ) from exc
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    if _OCC_DOD_ITEM_MODEL_CLASS not in classes:
+        raise OccDodItemFieldAuthorityError(
+            f"{model_path} defines no class {_OCC_DOD_ITEM_MODEL_CLASS}"
+        )
+    fields = _annotated_field_names(classes, _OCC_DOD_ITEM_MODEL_CLASS, frozenset())
+    if not fields:
+        raise OccDodItemFieldAuthorityError(
+            f"{_OCC_DOD_ITEM_MODEL_CLASS} in {model_path} declares no fields"
+        )
+    return fields
+
+
+def occ_dod_item_fields(occ_root: Path) -> frozenset[str]:
+    """The evidence item fields ``onex_change_control`` declares, read from ``occ_root``.
+
+    Raises :class:`OccDodItemFieldAuthorityError` when the model file is absent,
+    unparseable, or does not define the class. Never falls back to a list.
+    """
+    model_path = occ_root / _OCC_DOD_ITEM_MODEL_RELPATH
+    try:
+        stat = model_path.stat()
+    except OSError as exc:
+        raise OccDodItemFieldAuthorityError(
+            f"cannot read {model_path}: {type(exc).__name__}: {exc}"
+        ) from exc
+    return _occ_dod_item_fields_at(str(model_path), stat.st_mtime_ns, stat.st_size)
+
+
+def _draft_binding_labels(
+    item: dict[str, object], claimed: tuple[str, ...]
+) -> tuple[str, ...]:
+    """OMN-18238. Which of ``claimed`` this item only PROPOSES, never decides.
+
+    A record on ``ac_bindings`` carrying no ``accepted_by`` is a draft: a
+    machine may propose a binding, and a person accepts it. The result is a
+    strict subset of ``claimed`` -- a record naming a label the item does not
+    claim is ignored rather than added, so this can demote a criterion and can
+    never introduce one.
+
+    A record whose label is unreadable is treated as a draft. That direction is
+    deliberate: the failure mode being avoided is a proposal counted as proof,
+    so an unreadable record resolves to the side that holds the flip.
+    """
+    raw = item.get("ac_bindings")
+    if not isinstance(raw, (list, tuple)):
+        return ()
+    claimed_folded = {
+        label.upper().replace("-", "").replace("_", ""): label for label in claimed
+    }
+    drafts: list[str] = []
+    for record in raw:
+        if not isinstance(record, dict):
+            continue
+        if str(record.get("accepted_by") or "").strip():
+            continue
+        folded = (
+            str(record.get("label") or "").upper().replace("-", "").replace("_", "")
+        )
+        claimed_label = claimed_folded.get(folded)
+        if claimed_label is not None and claimed_label not in drafts:
+            drafts.append(claimed_label)
+    return tuple(drafts)
+
+
+_DEFAULT_EXECUTION_SCOPE = cast(
+    EnumDodEvidenceExecutionScope,
+    ModelContractDodItem.model_fields["execution_scope"].default,
+)
+
+# Wall-clock ceiling for the OCC git worktree/fetch subprocesses. A shared OCC
+# clone can hit lock contention under concurrent collect() calls, or a fetch can
+# stall on the network; without a timeout a stuck git op would block the whole
+# collect() with no recovery (CodeRabbit — Stability). Kept generous because a
+# fetch of the OCC repo may transfer real objects.
+#
+# OMN-16787: raised from 60 s on a measurement, not a guess. `git worktree add
+# --detach origin/dev` on the live OCC repo checks out 32,382 files and takes
+# ~34.5 s single-threaded; the beta sweep runs dod_verify 5-way parallel
+# against the SAME clone. A 60 s ceiling therefore tripped on ordinary load,
+# and — before the fail-closed rule below — that trip degraded silently into a
+# stale-working-tree read reported as CONTRACT_MISSING. The ceiling has to sit
+# far enough above a real cold checkout that hitting it means something is
+# genuinely wrong, because hitting it now REFUSES rather than degrades.
+_DEFAULT_GIT_OP_TIMEOUT_S = 300
+
+# Operator override for the ceiling above, for hosts whose OCC clone or disk
+# is slower (or faster) than the machine the default was measured on.
+_GIT_OP_TIMEOUT_ENV = "DOD_VERIFY_GIT_OP_TIMEOUT_S"
+
+# OMN-17816. The shared origin/dev snapshot every concurrent run reads from,
+# instead of one private 32,382-file checkout per run.
+#
+# The ``.occ-dev-wt-`` prefix is load-bearing, not cosmetic: OMN-16826 AC(a)
+# added ``.occ-dev-wt-*/`` to the omni_home .gitignore, and the hygiene tooling
+# keys off the same prefix. A new prefix would put ~32k untracked files back in
+# the omni_home working tree, which is exactly the debris that ticket closed.
+_SHARED_SNAPSHOT_PREFIX = ".occ-dev-wt-shared-"
+
+# Lock files live inside the OCC clone's own .git/, NOT next to the snapshots in
+# OMNI_HOME. A lock file is never deleted (deleting it would let two processes
+# lock two different inodes for one logical resource), so one accumulates per
+# distinct dev SHA — and the OMN-16826 .gitignore rule `.occ-dev-wt-*/` carries a
+# trailing slash, so it matches DIRECTORIES only. Lock files beside the
+# snapshots would therefore be permanently untracked `??` entries in the
+# omni_home working tree: exactly the debris that ticket closed. Everything
+# under .git/ is unreachable by `git add`, and the locks are scoped to the repo
+# they actually guard.
+_SNAPSHOT_LOCK_DIR = "occ-dev-snapshot-locks"
+
+# Appended to a snapshot's lock file name. Held SHARED by every run using that
+# snapshot and taken EXCLUSIVELY (non-blocking) before reaping it, so a
+# superseded snapshot with a live reader is never deleted.
+_SNAPSHOT_LOCK_SUFFIX = ".lock"
+
+# Creation mutex, one per OCC clone. Serializes the checkout itself so N
+# concurrent runs pay for ONE build rather than N racing ones.
+_SNAPSHOT_BUILD_LOCK_NAME = "build.lock"
+
+# A resolved git object name. Guards against handing a ref-resolution failure
+# (which git can report on stdout) to the snapshot path as if it were a SHA.
+_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+# OMN-17796: the two governance-ref refusal codes, named once. Each is both the
+# head of the operator-facing message and the value the handler classifies on,
+# so the string an operator reads and the type a consumer branches on cannot
+# drift apart. They are spelled to match the ``EnumDodVerifyUnresolvedCause``
+# members of the same name, which is what lets ``from_error_code`` map them
+# with no second table.
+_OCC_REF_REFRESH_FAILED_CODE = "OCC_REF_REFRESH_FAILED"
+_OCC_WORKTREE_UNAVAILABLE_CODE = "OCC_WORKTREE_UNAVAILABLE"
+
+
+def _git_op_timeout_s() -> float:
+    """Resolve the git-subprocess ceiling, honouring the operator override.
+
+    Read per call rather than captured at import so a test or an operator can
+    set it without reloading the module. A malformed or negative value falls
+    back to the default rather than disabling the timeout — an unbounded git
+    op is the failure mode the ceiling exists to prevent.
+    """
+    raw = os.environ.get(_GIT_OP_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return float(_DEFAULT_GIT_OP_TIMEOUT_S)
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "%s=%r is not a number; using the %ss default.",
+            _GIT_OP_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_GIT_OP_TIMEOUT_S,
+        )
+        return float(_DEFAULT_GIT_OP_TIMEOUT_S)
+    if value < 0:
+        logger.warning(
+            "%s=%r is negative; using the %ss default.",
+            _GIT_OP_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_GIT_OP_TIMEOUT_S,
+        )
+        return float(_DEFAULT_GIT_OP_TIMEOUT_S)
+    return value
+
+
+# Wall-clock ceiling for a single evidence check's subprocess. Distinct from
+# the OCC git ceiling above: that one bounds the verifier's own plumbing, this
+# one bounds a command the CONTRACT declared.
+#
+# OMN-17795: this ceiling was a hardcoded ``timeout_per_check: int = 30``
+# constructor default with no override, and it was the verifier's largest
+# source of non-reproducibility. Measured over 36 runs (12 tickets x 3
+# back-to-back, 6-way parallel, nothing changed between runs): the OMN-16434
+# auto-minted behaviour-proof check reached VERIFIED exactly once, reading
+# ``OK (19850ms): 16 passed in 1.55s`` — 18.3 s of pytest import/collection
+# overhead against a 30 s ceiling, and 1.55 s of actual product work. The
+# identical command tripped the ceiling on the next two runs of the same
+# ticket. A hand-timed control at load 54 took 77 s wall.
+#
+# The default is unchanged at 30 s deliberately: raising it silently would
+# change every existing verdict's timing envelope on every host at once. What
+# changes is that the bound is now NAMEABLE, so a loaded host can be given a
+# ceiling that matches it instead of manufacturing verdict churn.
+_DEFAULT_CHECK_TIMEOUT_S = 30
+
+# Operator override for the ceiling above, for hosts slower (or more heavily
+# loaded) than the machine a contract's checks were authored on.
+_CHECK_TIMEOUT_ENV = "DOD_VERIFY_CHECK_TIMEOUT_S"
+
+
+def _check_timeout_s() -> float:
+    """Resolve the per-check subprocess ceiling, honouring the operator override.
+
+    Read per call rather than captured at import, and malformed/negative falls
+    back to the default rather than disabling the bound — both for the reasons
+    ``_git_op_timeout_s`` states. An unbounded check subprocess is the failure
+    mode this ceiling exists to prevent, and it is the one this ticket must not
+    introduce while fixing how a trip is RECORDED.
+    """
+    raw = os.environ.get(_CHECK_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return float(_DEFAULT_CHECK_TIMEOUT_S)
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "%s=%r is not a number; using the %ss default.",
+            _CHECK_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_CHECK_TIMEOUT_S,
+        )
+        return float(_DEFAULT_CHECK_TIMEOUT_S)
+    if value <= 0:
+        logger.warning(
+            "%s=%r is not positive; using the %ss default.",
+            _CHECK_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_CHECK_TIMEOUT_S,
+        )
+        return float(_DEFAULT_CHECK_TIMEOUT_S)
+    return value
+
+
+# OMN-15454: a failed OCC ref refresh (git fetch) used to be swallowed at
+# logger.info and the collector proceeded against whatever the local
+# remote-tracking ref already had, while still logging that the run resolved
+# "dev-first" — a fail-open on the ONLY sanctioned Done-flip tool's evidence
+# source. Default behaviour is now fail-closed: FETCH_FAILED refuses the
+# whole collect() rather than silently grounding a verdict in a possibly-stale
+# clone. This named, logged override is the sole documented escape hatch (per
+# the ticket's fix-item 2b) — proceeding under it marks every returned check
+# result un-attributable to a verified-fresh origin/dev rather than pretending
+# nothing happened.
+_ALLOW_STALE_OCC_REF_ENV = "DOD_VERIFY_ALLOW_STALE_OCC_REF"
+
+# Substring git prints for the specific ref-lock race this ticket's fix-item 4
+# calls out: "cannot lock ref 'refs/remotes/origin/dev': is at X but expected
+# Y" under a concurrent fetch/push into the SAME OCC clone (the ordinary state
+# of this repo while the merge controller runs — i.e. precisely when
+# dod_verify is invoked for a Done-flip). Retriable; distinct from an offline
+# host or an absent remote, which a retry cannot fix.
+_REF_LOCK_ERROR_MARKER = "cannot lock ref"
+
+# OMN-16846 D2: the same fail-closed rule as _ALLOW_STALE_OCC_REF_ENV, applied
+# to the PRODUCT clone a check's declared ``cwd`` names. Named and logged; a
+# run under it records every affected check as unverifiable rather than
+# pretending the tree was current.
+_ALLOW_STALE_PRODUCT_CLONE_ENV = "DOD_VERIFY_ALLOW_STALE_PRODUCT_CLONE"
+
+# OMN-18117: path to the pin file whoever materialised this run's product
+# clones wrote — see ``ModelProductClonePinSet``. Unset (the local operator
+# path, and any caller that materialises nothing) leaves the OMN-16846
+# live-fetch comparison exactly as it was.
+_PRODUCT_CLONE_PIN_FILE_ENV = "DOD_VERIFY_PRODUCT_CLONE_PIN_FILE"
+
+# The only pin-file schema this collector can interpret. A file declaring any
+# other version is ignored with a warning rather than read optimistically.
+_PRODUCT_CLONE_PIN_SCHEMA_VERSION = 1
+
+# OMN-16846 D1: the verbatim banner ``tests/conftest.py`` prints via
+# ``pytest.exit()`` when the OMN-15620 gate refuses the venv at
+# ``pytest_configure`` — i.e. before collection, before any test module is
+# imported, before one line of product code runs. Both fragments are required
+# so an ordinary test failure that merely quotes the ticket number cannot be
+# laundered into a skip. Matched on the gate's own output, never on a bare
+# non-zero exit.
+_VENV_PURITY_REFUSAL_MARKERS = (
+    "OMN-15620 venv-purity gate",
+    "Canonical venv is IMPURE",
+)
+
+# ---------------------------------------------------------------------------
+# OMN-16846 D1, LOCAL path: the hermetic behaviour-check environment
+# ---------------------------------------------------------------------------
+#
+# The refusal above is CORRECT and must keep firing; what was wrong is that a
+# behaviour check ever ran in an environment capable of tripping it.
+#
+# Two requirements collide on the operator's machine and neither is wrong:
+#
+#   * ``scripts/reconcile-workspace-venvs.sh`` composes ``omnimarket`` into
+#     ``$OMNI_HOME/omnibase_infra/.venv`` on a <=600s tick (its "layer 2"),
+#     DELIBERATELY, because ``scripts/onex`` execs that venv's entrypoint and
+#     ``node_dod_verify`` itself lives in omnimarket. omnimarket is absent
+#     from infra's ``uv.lock`` on purpose: the layer graph is
+#     compat -> core -> spi -> infra and omnimarket sits ABOVE infra, so
+#     declaring it would publish a dependency cycle.
+#   * ``omnibase_infra/tests/conftest.py`` calls ``assert_venv_purity()`` at
+#     ``pytest_configure`` and refuses any undeclared ``onex.nodes`` provider,
+#     because two providers of one node identity manufacture
+#     DUPLICATE_REGISTRATION false REDs across the suite (OMN-15620: 25
+#     failed / 33 passed vs 58 passed clean, same tree).
+#
+# A ``test_passes`` check is ``uv run pytest ...`` with
+# ``cwd: ${OMNI_HOME}/<repo>``, so it inherits that shared, composed venv and
+# is refused before collection. Measured on this host 2026-09-06, same tree,
+# same command (``uv run pytest tests/unit/gateway/test_gateway_token_minter.py
+# -q``, the OMN-15922 behaviour proof): shared venv -> exit 1, zero tests
+# collected, GATE_VENV_IMPURE; lock-exact ephemeral env -> 19 passed in 1.32s.
+#
+# The fix is neither to declare the composition nor to allowlist the provider
+# --- both keep two node providers in one interpreter, which is the state the
+# 25 manufactured failures were measured in. It is to stop borrowing a shared,
+# composed environment for an adjudication: the check gets its OWN lock-exact
+# environment, built by ``uv sync --frozen`` (exact mode) into a path keyed by
+# the project root and its ``uv.lock`` content, and the shared venv is neither
+# read nor written. This is the same separation ``.github/workflows/
+# evidence-autoclose-sweep.yml`` already proved in CI (``UV_PROJECT_ENVIRONMENT
+# =${RUNNER_TEMP}/dispatch-venv``, OMN-16846 CI half, run 33210339910:
+# behavior_proving 0 -> 3), applied to the check side instead of the dispatch
+# side.
+#
+# The purity gate is NOT weakened by this: it still runs, inside the ephemeral
+# environment, and passes there honestly because that environment contains
+# exactly what ``uv.lock`` declares. Nothing is added to its declared set and
+# no override env var is set.
+_UV_PROJECT_ENVIRONMENT_ENV = "UV_PROJECT_ENVIRONMENT"
+
+# Where the per-project ephemeral environments live. Overridable so a CI job
+# or a constrained host can place them on a chosen volume; this is a PATH
+# setting, never a bypass -- there is no value of it that returns a check to
+# the shared venv.
+_HERMETIC_VENV_ROOT_ENV = "DOD_VERIFY_HERMETIC_VENV_ROOT"
+
+# ``uv sync`` of a cache-warm project is seconds (measured: 3.0s for
+# omnibase_infra's full lock on the operator Mac at load1 60). A COLD uv cache
+# has to download the whole graph, which is minutes, and that must not be
+# charged to the per-check ceiling -- so the build has its own budget and the
+# check itself then runs with ``UV_NO_SYNC=1``.
+_HERMETIC_SYNC_TIMEOUT_ENV = "DOD_VERIFY_HERMETIC_SYNC_TIMEOUT_S"
+_DEFAULT_HERMETIC_SYNC_TIMEOUT_S = 900
+
+# Emitted when the ephemeral environment cannot be built. Recorded SKIPPED
+# with a typed cause, never FAILED: a verifier that could not build its own
+# environment has made no statement about the product. Same rule as
+# GATE_VENV_IMPURE above.
+_HERMETIC_ENV_FAILURE_MARKER = "HERMETIC_ENV_UNAVAILABLE:"
+
+# A command is routed into the hermetic environment only when it actually
+# invokes ``uv`` -- at the start of the string or of a pipeline/list segment.
+# Anything else (``gh api ...``, ``grep``, ``./verify.sh``) is unaffected, so
+# the blast radius of this routing is exactly the commands that resolve a uv
+# project environment.
+_UV_INVOCATION_RE = re.compile(r"(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+)uv\s", re.MULTILINE)
+
+
+def _hermetic_sync_timeout_s() -> float:
+    """Resolve the ceiling for BUILDING an ephemeral environment.
+
+    Separate from ``_check_timeout_s`` on purpose: the build is the verifier's
+    own setup cost, not the product's, and charging a cold uv cache to the
+    30s per-check ceiling would turn a slow download into a fake verdict --
+    exactly the confusion OMN-17795 had to unpick. Malformed or non-positive
+    falls back to the default rather than disabling the bound.
+    """
+    raw = os.environ.get(_HERMETIC_SYNC_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return float(_DEFAULT_HERMETIC_SYNC_TIMEOUT_S)
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "%s=%r is not a number; using the %ss default.",
+            _HERMETIC_SYNC_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_HERMETIC_SYNC_TIMEOUT_S,
+        )
+        return float(_DEFAULT_HERMETIC_SYNC_TIMEOUT_S)
+    if value <= 0:
+        logger.warning(
+            "%s=%r is not positive; using the %ss default.",
+            _HERMETIC_SYNC_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_HERMETIC_SYNC_TIMEOUT_S,
+        )
+        return float(_DEFAULT_HERMETIC_SYNC_TIMEOUT_S)
+    return value
+
+
+def _uv_project_root(start: Path) -> Path | None:
+    """Nearest ancestor of ``start`` (inclusive) that is a locked uv project.
+
+    Both files are required. ``pyproject.toml`` alone is not enough: without a
+    ``uv.lock`` there is no declared set to sync exactly, so there is no such
+    thing as a lock-exact environment for that directory and the routing must
+    not claim one.
+    """
+    try:
+        candidate = start.resolve()
+    except OSError:
+        return None
+    for directory in (candidate, *candidate.parents):
+        if (directory / "uv.lock").is_file() and (
+            directory / "pyproject.toml"
+        ).is_file():
+            return directory
+    return None
+
+
+def _hermetic_venv_root() -> Path:
+    """Directory the per-project ephemeral environments are built under."""
+    raw = os.environ.get(_HERMETIC_VENV_ROOT_ENV, "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    return Path.home() / ".cache" / "onex" / "dod-verify-venvs"
+
+
+def _hermetic_venv_path(project_root: Path) -> Path:
+    """Deterministic environment path for one locked project.
+
+    Keyed by the project's absolute path AND its ``uv.lock`` bytes, so:
+
+    * two projects never share one environment (a check with
+      ``cwd: ${OMNI_HOME}/omnimarket`` cannot borrow omnibase_infra's);
+    * a lock change produces a NEW path rather than mutating a live one out
+      from under a concurrent lane; and
+    * an unchanged lock reuses the environment, which is what makes the
+      steady-state cost a cache-warm no-op instead of a rebuild per check.
+    """
+    digest = hashlib.sha256()
+    digest.update(str(project_root).encode("utf-8"))
+    digest.update((project_root / "uv.lock").read_bytes())
+    return _hermetic_venv_root() / f"{project_root.name}-{digest.hexdigest()[:12]}"
+
+
+# ---------------------------------------------------------------------------
+# OMN-17863: the same mechanism for a JS project
+# ---------------------------------------------------------------------------
+#
+# The uv path above exists because a behaviour check was borrowing a shared,
+# composed environment. A JS behaviour check has the identical problem plus a
+# worse one, and the worse one is what OMN-17863 ran into: there is no Node
+# toolchain on the sweep runner at all, so ``pnpm test:audit-verdict`` is
+# ``command not found`` -> exit 127 -> ``failed=1``. That records the
+# VERIFIER's missing runtime as a PRODUCT defect, and it is indistinguishable
+# in a receipt from the product genuinely failing its own behaviour proof --
+# which is the same conflation OMN-17863 is about one layer up, where an
+# unreachable advisory registry was indistinguishable from an advisory.
+#
+# Locally the failure inverts rather than disappearing: ``pnpm`` IS on PATH,
+# so the check runs -- against whatever ``node_modules`` the shared canonical
+# clone happens to carry, which is whatever the last install on that machine
+# left rather than what ``pnpm-lock.yaml`` declares. An adjudication resolved
+# from undeclared state is not lock-exact and is not a proof.
+#
+# So a pnpm check gets what a uv check gets: its own lock-exact tree, built
+# from the project's own lockfile under the pnpm version the project's own
+# ``packageManager`` field pins, keyed by (project root, lockfile bytes), with
+# the canonical clone neither installed into nor read from.
+#
+# WHY A STAGED COPY rather than a redirected modules directory. pnpm will put
+# its modules anywhere (``--modules-dir``), but Node -- and every bundler-based
+# runner above it -- resolves a bare import by walking UP from the importing
+# file's real path. A ``node_modules`` outside the tree is therefore simply not
+# found: the install succeeds and every import then fails, which is a strictly
+# worse outcome than the bug being fixed because it reads as a product error.
+# Symlinking the source in has the same defect for the same reason (module
+# identity is the realpath). The source is copied into the stage instead and
+# the modules live inside it, so the resolver works and the clone is untouched.
+_HERMETIC_NODE_ROOT_ENV = "DOD_VERIFY_HERMETIC_NODE_ROOT"
+
+# Same budget separation as the uv sync, for the same reason and read from the
+# same variable: a cold pnpm store is a download, and charging a download to
+# the 30s/180s per-check ceiling manufactures a CHECK_BUDGET_EXCEEDED that says
+# nothing about the product (OMN-17795).
+#
+# Routed into the stage only when the command actually invokes ``pnpm`` -- at
+# the start of the string or of a pipeline/list segment. A ``gh api`` or
+# ``./verify.sh`` check has no modules tree to redirect, so staging it would
+# silently move its working directory and re-root every relative path in it.
+_PNPM_INVOCATION_RE = re.compile(
+    r"(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+)pnpm\s", re.MULTILINE
+)
+
+# OMN-18756. The Python sibling of the two routings above, and the narrowest
+# of the three: it re-points nothing but the interpreter a BARE
+# ``python``/``python3`` resolves.
+#
+# Measured on omnibase_infra run 35379376978: OMN-18426's
+# ``ac1-ac2-hook-on-all-fifteen-default-branches`` check -- a heredoc opening
+# ``python3 - <<'PY'`` that imports ``yaml`` -- died in 31 ms with
+# ``ModuleNotFoundError: No module named 'yaml'`` before reading a single
+# repository, and the sweep counted it among the ticket's three failures.
+# The dispatch venv that run composed HAD PyYAML (``+ pyyaml==6.0.3`` in its
+# own log), and this module imports ``yaml`` at line 38. What it did not have
+# was its ``bin`` on ``PATH``: the sweep invokes ``<venv>/bin/onex`` by
+# absolute path -- deliberately, so the verifier's environment is a property
+# of how the sweep was composed -- and invoking an entrypoint never activates
+# its venv. ``python3`` fell through to the runner's system interpreter.
+#
+# So the verdict was a property of the host. On an operator Mac the ambient
+# ``python3`` happens to carry PyYAML and the same check passes, which is why
+# a collaborator's local verifier reported zero failures against the sweep's
+# three. Binding the interpreter to ``sys.executable``'s own makes the
+# adjudication reproducible, by the same argument the absolute-path dispatch
+# above already makes one level up.
+#
+# Matched at the start of the string or of a pipeline/list segment, so the
+# blast radius is exactly the commands that resolve a bare interpreter:
+# ``uv run python`` resolves the project environment on purpose and is not
+# re-pointed, an absolute ``/usr/bin/python3`` names what it names, and a word
+# merely containing "python" is not an invocation of one.
+_BARE_PYTHON_INVOCATION_RE = re.compile(
+    r"(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+)python3?(?=\s|$)", re.MULTILINE
+)
+
+# Emitted when a check ROUTED to this process's interpreter could not import a
+# module that interpreter does not have. Recorded SKIPPED with a typed cause,
+# never FAILED: a module missing from the verifier's own environment is a fact
+# about the verifier, not about the ticket. Same rule as
+# HERMETIC_ENV_UNAVAILABLE and GATE_VENV_IMPURE above.
+_VERIFIER_ENV_FAILURE_MARKER = "VERIFIER_ENVIRONMENT:"
+
+# Reads a candidate module name OUT of a failure. Extraction only -- never the
+# deciding fact. See ``_verifier_environment_reason``.
+_MISSING_MODULE_RE = re.compile(
+    r"ModuleNotFoundError: No module named '([A-Za-z_][A-Za-z0-9_]*)'"
+)
+
+
+def _verifier_environment_reason(detail: str) -> str | None:
+    """Is this failure about THIS process's interpreter? (OMN-18756)
+
+    Returns a reason string when the answer is yes, ``None`` otherwise.
+
+    The enum's docstring forbids grepping a cause out of a subprocess's
+    output, because a command under test can print anything and one that could
+    mint its own cause would launder its own red. That rule is honoured here:
+    the regex extracts a candidate NAME, and the decision is made by this
+    process re-resolving that name in its OWN interpreter with
+    ``importlib.util.find_spec``. A check that prints the words for a module
+    the verifier can plainly import is recorded FAILED, which is the negative
+    control the caller asserts.
+
+    The residual laundering channel -- a check naming a module nothing has --
+    gains it nothing. Like every member of this enum the cause is strictly
+    MORE blocking than the FAILED it replaces: the handler refuses VERIFIED
+    while any cause is present, the check keeps its place in the
+    verdict-bearing denominator, and it is neither ``non_probative`` nor
+    ``behavior_proving``, so the OMN-16821 flip predicate still refuses. The
+    rule's real content -- that a fault must never become a way to PASS -- is
+    preserved exactly.
+
+    Only ever consulted for a command this process ROUTED to its own
+    interpreter. An unrouted check re-pointed nothing, so this frame has no
+    first-hand standing to call its failure environmental.
+    """
+    # The LAST occurrence: a traceback that chains through several imports
+    # names the module that was actually missing at its end.
+    names = _MISSING_MODULE_RE.findall(detail)
+    if not names:
+        return None
+    module = names[-1]
+    try:
+        found = importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):
+        # A parent package that is itself absent or broken. Unresolvable here
+        # is the same fact as absent for this purpose, and reading it as
+        # "present" would silently restore the FAILED this exists to replace.
+        found = False
+    if found:
+        return None
+    return (
+        f"the check was routed to this verifier's own interpreter "
+        f"({sys.executable}), which cannot import '{module}' either — "
+        "confirmed first-hand by re-resolving the name in this process, not "
+        "read off the check's output. The command therefore made no statement "
+        "about the ticket. Install the missing distribution into the "
+        "verifier's environment rather than reading this as a failed check. "
+        "This still blocks a Done-flip."
+    )
+
+
+# Never copied into the stage. ``node_modules`` because the stage builds its
+# own and inheriting the clone's is the exact defect this closes; ``.git``
+# because a 28MB history is pure copy cost for a check that reads a worktree;
+# the build outputs because they are regenerable and large.
+_STAGE_SKIPPED_ENTRIES = frozenset(
+    {
+        "node_modules",
+        ".git",
+        ".next",
+        ".turbo",
+        ".venv",
+        "dist",
+        "coverage",
+        "playwright-report",
+        "test-results",
+    }
+)
+
+# ``packageManager`` is the project's own pin (the field corepack reads), so
+# the version is resolved from the product rather than from this file. A
+# project that does not pin one cannot be given a lock-exact toolchain, which
+# is a typed non-result rather than a licence to use whatever is on PATH.
+_PACKAGE_MANAGER_RE = re.compile(r"^pnpm@(?P<version>[^+\s]+)")
+
+# Directory inside a stage holding the pinned-pnpm shim. Prefixed and kept out
+# of the copy so it can never collide with a real project directory, and
+# preserved across a source refresh because it is keyed to the same lockfile
+# the stage is.
+_STAGE_TOOLCHAIN_BIN = ".onex-toolchain-bin"
+
+# How long a toolchain PROBE may take. corepack may have to download the pinned
+# pnpm on first use, which is a network fetch; it is still bounded so a hung
+# probe cannot consume the whole build budget silently.
+_TOOLCHAIN_PROBE_TIMEOUT_S = 180.0
+
+
+def _pnpm_config_flags() -> list[str]:
+    """Settings EVERY pnpm invocation in a stage must carry, as CLI flags.
+
+    CLI flags rather than ``npm_config_*`` environment variables, and that is a
+    measured choice rather than a stylistic one: pnpm 11 no longer reads the
+    npm-style root keys (omniweb's own ``pnpm-workspace.yaml`` records the same
+    migration), so the environment form is silently ignored. Verified against
+    the real omniweb tree on the operator Mac, 2026-09-06 -- the env form left
+    the failure below unchanged; the flag form ran the suite 16/16.
+
+    Carried by the shim so they reach the CONTRACT's own command line, which
+    this runner must never rewrite:
+
+    * ``verifyDepsBeforeRun=false`` -- pnpm 11 re-derives the modules tree
+      before ``pnpm run`` by spawning its own ``pnpm install``. That nested
+      install resolved the DEFAULT store, judged this tree foreign, and asked
+      to purge it; with no TTY that is
+      ``ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY``, reported as the behaviour
+      check FAILING -- precisely the verifier-defect-as-product-defect this
+      ticket removes. The re-derivation is also redundant: the tree was just
+      built by ``pnpm install --frozen-lockfile`` from this exact lockfile, on
+      the BUILD budget, and re-doing it inside the check would put a
+      registry-touching install under the per-check ceiling.
+    * ``confirmModulesPurge=false`` -- a stage is ephemeral and disposable, and
+      a scheduled run has nobody to answer a prompt.
+    * ``storeDir`` -- one content-addressed store for every stage. A store is
+      immutable and content-keyed, so sharing it is a cache hit rather than
+      shared mutable state; what is keyed per (project, lockfile) is the
+      modules tree materialised FROM it, which is what a verdict resolves
+      against.
+    """
+    store = _hermetic_node_root() / "pnpm-store"
+    return [
+        f"--config.storeDir={store}",
+        "--config.verifyDepsBeforeRun=false",
+        "--config.confirmModulesPurge=false",
+    ]
+
+
+def _resolve_pinned_pnpm(
+    version: str, project_root: Path
+) -> tuple[list[str] | None, str | None]:
+    """Resolve an argv prefix that runs EXACTLY the pinned pnpm.
+
+    Two accepted sources, in order:
+
+    * ``corepack pnpm@<version>`` -- the mechanism the ``packageManager`` field
+      exists for, and the one CI provisions (``actions/setup-node`` +
+      ``corepack enable``). It fetches the pinned version if the host lacks it.
+    * a PATH ``pnpm`` that reports the pinned version WHEN RUN INSIDE THE
+      PROJECT. The cwd is load-bearing rather than incidental: pnpm 10+ honours
+      ``packageManager`` itself (the ``manage-package-manager-versions``
+      setting, on by default) and self-switches to the pinned release, so the
+      same binary reports 10.30.3 outside the project and 11.5.3 inside it.
+      Probing from this process's own cwd measured the wrong thing and rejected
+      a host that could in fact honour the pin -- observed on the operator Mac
+      2026-09-06, where corepack is absent because Node 25 no longer ships it.
+
+    A near-miss is never accepted. "The host has some pnpm" is precisely the
+    undeclared state this mechanism removes, and a lockfile written by one
+    major is not guaranteed to be honoured identically by another.
+
+    Returns ``(argv_prefix, None)`` or ``(None, reason)``.
+    """
+    tried: list[str] = []
+
+    corepack = shutil.which("corepack")
+    if corepack is not None:
+        probe_env = dict(os.environ)
+        probe_env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0"
+        argv = [corepack, f"pnpm@{version}"]
+        try:
+            proc = subprocess.run(
+                [*argv, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=_TOOLCHAIN_PROBE_TIMEOUT_S,
+                env=probe_env,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            tried.append(f"corepack at {corepack} could not run pnpm@{version}: {exc}")
+        else:
+            if proc.returncode == 0 and proc.stdout.strip() == version:
+                try:
+                    ready = subprocess.run(
+                        [
+                            *argv,
+                            *_pnpm_config_flags(),
+                            "exec",
+                            "node",
+                            "-e",
+                            "process.exit(0)",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=_TOOLCHAIN_PROBE_TIMEOUT_S,
+                        cwd=str(project_root),
+                        env=probe_env,
+                    )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    tried.append(
+                        f"corepack at {corepack} reported pnpm {version} but "
+                        f"could not run it inside {project_root}: {exc}"
+                    )
+                else:
+                    if ready.returncode == 0:
+                        return argv, None
+                    ready_detail = (ready.stderr or ready.stdout or "").strip()[:200]
+                    tried.append(
+                        f"corepack at {corepack} reported pnpm {version} but "
+                        f"the pinned runner was not executable inside "
+                        f"{project_root} (exit {ready.returncode}): "
+                        f"{ready_detail}"
+                    )
+            else:
+                detail = (proc.stderr or proc.stdout or "").strip()[:200]
+                tried.append(
+                    f"corepack at {corepack} did not yield pnpm {version} "
+                    f"(exit {proc.returncode}, reported {proc.stdout.strip()!r}): {detail}"
+                )
+    else:
+        tried.append("corepack is not on PATH")
+
+    pnpm = shutil.which("pnpm")
+    if pnpm is not None:
+        try:
+            proc = subprocess.run(
+                [pnpm, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=_TOOLCHAIN_PROBE_TIMEOUT_S,
+                cwd=str(project_root),
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            tried.append(f"pnpm at {pnpm} could not report its version: {exc}")
+        else:
+            found = proc.stdout.strip()
+            if proc.returncode == 0 and found == version:
+                return [pnpm], None
+            tried.append(
+                f"pnpm at {pnpm} reports {found or 'nothing'} inside "
+                f"{project_root}, not the pinned {version}"
+            )
+    else:
+        tried.append("pnpm is not on PATH")
+
+    return None, (
+        f"no resolvable pnpm honours this project's `packageManager` pin "
+        f"pnpm@{version}, so the behaviour check has no lock-exact toolchain "
+        f"to run under and NOTHING was executed against the product. "
+        f"Provision Node + corepack on this host (the sweep does this with "
+        f"actions/setup-node). Tried: " + "; ".join(tried)
+    )
+
+
+def _pnpm_project_root(start: Path) -> Path | None:
+    """Nearest ancestor of ``start`` (inclusive) that is a locked pnpm project.
+
+    Both files are required, for the reason ``_uv_project_root`` requires both
+    of its own: without a lockfile there is no declared set to install exactly,
+    so there is no lock-exact tree for that directory and the routing must not
+    claim one.
+    """
+    try:
+        candidate = start.resolve()
+    except OSError:
+        return None
+    for directory in (candidate, *candidate.parents):
+        if (directory / "pnpm-lock.yaml").is_file() and (
+            directory / "package.json"
+        ).is_file():
+            return directory
+    return None
+
+
+def _hermetic_node_root() -> Path:
+    """Directory the per-project staged trees are built under."""
+    raw = os.environ.get(_HERMETIC_NODE_ROOT_ENV, "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    return Path.home() / ".cache" / "onex" / "dod-verify-node"
+
+
+def _hermetic_node_stage_path(project_root: Path) -> Path:
+    """Deterministic stage path for one locked JS project.
+
+    Keyed by the project's absolute path AND its ``pnpm-lock.yaml`` bytes, so
+    two projects never share a tree, a lock change mints a new path rather than
+    mutating one a concurrent lane is mid-check in, and an unchanged lock
+    reuses the installed tree -- which is what makes the steady-state cost a
+    source copy instead of a reinstall.
+    """
+    digest = hashlib.sha256()
+    digest.update(str(project_root).encode("utf-8"))
+    digest.update((project_root / "pnpm-lock.yaml").read_bytes())
+    return _hermetic_node_root() / f"{project_root.name}-{digest.hexdigest()[:12]}"
+
+
+def _pinned_pnpm_version(project_root: Path) -> tuple[str | None, str | None]:
+    """Read the pnpm version this project pins in ``packageManager``.
+
+    Returns ``(version, None)`` or ``(None, reason)``. A missing or non-pnpm
+    pin is a reason, never a default: silently falling back to whatever pnpm is
+    on PATH would reintroduce the undeclared-state problem this whole mechanism
+    exists to remove.
+    """
+    manifest = project_root / "package.json"
+    try:
+        raw = manifest.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"could not read {manifest}: {exc}"
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        return None, f"{manifest} is not valid JSON: {exc}"
+    if not isinstance(parsed, dict):
+        return None, f"{manifest} does not contain a JSON object"
+    pin = parsed.get("packageManager")
+    if not isinstance(pin, str) or not pin.strip():
+        return None, (
+            f"{manifest} declares no `packageManager` pin, so there is no "
+            "version to honour and no lock-exact toolchain to build"
+        )
+    match = _PACKAGE_MANAGER_RE.match(pin.strip())
+    if match is None:
+        return None, (
+            f"{manifest} pins `packageManager: {pin.strip()}`, which is not a "
+            "pnpm pin; only pnpm projects are staged by this runner"
+        )
+    return match.group("version"), None
+
+
+# OMN-14207: live GitHub PR-state verification.
+#
+# A dod_evidence item that BINDS to a GitHub PR is additionally verified against
+# the LIVE PR state: the PR must be MERGED and all status checks green. This runs
+# ALONGSIDE the contract's declared hash/receipt checks (it never replaces them).
+#
+# It closes a false-positive class: a static receipt can record ``status: PASS``
+# while the product PR is actually unmerged / CI-red, so the grep-the-receipt
+# check passes and dod_verify reports ``verified`` for work that is neither merged
+# nor green. OMN-13996 is the discovery case — ``dod_verify`` said ``verified 3/3``
+# while ``omnibase_infra#2216`` was OPEN with 7 failing required checks.
+#
+# The binding source is authoritative, not heuristic (evidence-item ``id`` slugs
+# are unreliable repo names): an explicit ``pr`` field on the item, else the
+# durable receipt's ``pr_number`` + probed ``--repo owner/repo`` — the SAME fields
+# the DurableEvidenceGate binds against.
+_LIVE_PR_CHECK_ENV = "DOD_VERIFY_LIVE_PR_CHECK"
+_DEFAULT_GITHUB_ORG = "OmniNode-ai"
+# NOTE: the gh-CLI timeout and check-green-state constants formerly declared
+# here (``_GH_PR_TIMEOUT_S``, ``_GH_CHECK_GREEN_STATES``) moved to
+# ``handler_dod_evidence_github_effect.py`` with the subprocess calls that used
+# them (OMN-14400, RSD-1 of OMN-14398).
+
+# OMN-14637: merged-state re-anchoring of a self-referential live-PR-state gate.
+#
+# A contract ``command`` check that asserts its product PR is still live-OPEN —
+# the canonical ``gh pr view <n> --repo <r> --json state,... --jq '.state ==
+# "OPEN" and ...'`` idiom — becomes PERMANENTLY false the moment the PR
+# squash-merges: GitHub flips ``.state`` to ``MERGED`` and deletes the head
+# branch. The sanctioned ``dod_verify`` closeout then fails-closed forever on a
+# normal, successful merge (13/26 checks failed on the OMN-11878 re-run) unless a
+# human hand-authors one more "merged" superseding evidence entry in the same
+# breath as the merge.
+#
+# When an evidence item is authoritatively bound to a CONFIRMED-MERGED PR (the
+# SAME binding + live-probe machinery the OMN-14207 live-state check uses), the
+# collector re-anchors ONLY the ``.state == "OPEN"`` equality to the merged
+# terminal state (``.state == "MERGED"``). Every other predicate in the command
+# (``.headRefOid``, ``.files``, ``.title``, ``.baseRefName``, receipt greps) still
+# runs — all of which ``gh pr view`` still reports for a merged PR — so a
+# genuinely-incomplete ticket (merge commit missing the expected files) STILL
+# FAILS. The relaxation is therefore verification-preserving and non-vacuous, and
+# it never touches an unrelated ``"OPEN"`` literal (e.g. ``.title == "OPEN"``).
+_PR_OPEN_STATE_PREDICATE_RE = re.compile(r"""(\.state\s*==\s*)(["'])OPEN\2""")
+
+# OMN-15382: authoritative (owner/repo, pr_number) extraction from a
+# dod_evidence item's ``id``, when that id follows the OCC Evidence-Source
+# autobind naming convention ``dod-<owner>-<repo>-pr-<number>[-suffix]``
+# (see contracts generated by the OMN-13317 F1 autobind path, e.g.
+# ``dod-OmniNode-ai-omnibase_infra-pr-2536``). This is the SAME binding the
+# autobind tooling stamped into the id at the moment it recorded which PR the
+# item covers — not a guess derived from a description slug — so it is
+# trusted at the same tier as an explicit ``item.pr`` field (see
+# ``_resolve_pr_bindings``). Anchored on the known GitHub org so ``owner``
+# and ``repo`` split unambiguously even though the org name itself contains a
+# hyphen. Returns ``("", "")`` for ids that do not follow the convention
+# (e.g. ``occ-self-bind-pr-5161``, hand-authored ids) — callers MUST fall
+# back to REPO/PR_NUMBER resolution in that case; this is genuinely the only
+# structured per-check repo signal available before any receipt exists, so
+# where it does not match, this fix does not claim to resolve cross-repo
+# ambiguity (see docstring on ``_lookup_repo_for_ticket`` below).
+_EVIDENCE_ID_BINDING_RE = re.compile(
+    rf"^dod-(?P<owner>{re.escape(_DEFAULT_GITHUB_ORG)})-(?P<repo>[A-Za-z0-9_]+)-pr-(?P<num>\d+)(?:-.*)?$"
+)
+
+# OMN-15382 (F2): ``::pr-live-state`` binding derivation for the auto-appended
+# live-PR-state check (see ``_resolve_pr_bindings`` / ``_live_pr_checks_for_item``
+# below). Discovery case: a fully valid, literally-pinned item
+# (``dod-omn-14968-pr-2536-rebind-15382``, check_value ``gh pr view 2536 --repo
+# OmniNode-ai/omnibase_infra ...``) had its live-state check derive
+# ``(OmniNode-ai/omnibase_infra, 5458)`` instead of ``(OmniNode-ai/omnibase_infra,
+# 2536)`` — the receipt's ``pr_number`` field records the TICKET-CARRIER PR (the
+# PR under which the receipt was authored/committed), which is NOT necessarily
+# the PR any given ``check_value``/``probe_command`` field pins; the old
+# repo-extraction regex ignored ``pr_number`` entirely, so it paired whichever
+# ``--repo`` it found first with whatever ``pr_number`` the receipt schema
+# happened to carry — a cross-field mix with no guarantee the two describe the
+# same PR.
+#
+# ``_hardcoded_pr_bindings_in_value`` extracts a (repo, number) pair only when
+# BOTH come from the SAME clause of the SAME string (never a repo from one
+# ``gh pr`` invocation paired with a number from a different one, and never a
+# repo from one field paired with a number from another).
+_HARDCODED_PR_NUM_RE = re.compile(r"gh pr (?:view|checks|diff)\s+(\d+)\b")
+_REPO_FLAG_RE = re.compile(r"--repo(?:=|\s+)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
+_GH_PR_URL_RE = re.compile(r"https://github\.com/([^\s\"')]+/[^\s\"')]+)/pull/(\d+)")
+# OMN-15465: the two URL forms that carry repo AND number adjacent inside a
+# SINGLE token — the ``gh api`` REST path (``repos/<owner>/<repo>/pulls/<N>``)
+# and the github.com web URL (``.../<owner>/<repo>/pull/<N>``). These are a
+# STRICTLY STRONGER same-clause guarantee than the ``--repo`` flag form, whose
+# two halves are merely co-located in one clause: here they are one contiguous
+# path, so they cannot be mixed even in principle. Before this, an item like
+# ``occ-self-bind-pr-5495`` — whose own check_value reads ``gh api repos/
+# OmniNode-ai/onex_change_control/pulls/5495/files ...`` — pinned its PR
+# perfectly and still fell through tier 2 to the receipt-carrier tier, because
+# the extractor only understood ``gh pr view|checks|diff``.
+_PR_PATH_URL_RE = re.compile(
+    r"(?:https://github\.com/|repos/)"
+    r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
+    r"/pulls?/(\d+)\b"
+)
+# Split a check_value into clauses at shell control operators so a --repo
+# belonging to a DIFFERENT gh pr invocation in the same string never pairs
+# with this clause's hardcoded number.
+_SHELL_CLAUSE_SPLIT_RE = re.compile(r"&&|\|\||;|\|")
+
+# OMN-16087: pr-live-state binder must not invert an intentional non-merged
+# PR-state assertion.
+#
+# A dod_evidence item's own ``command`` check_value can legitimately assert
+# that a referenced PR is OPEN (a seam guard: "the pinned lineage deliberately
+# predates unmerged PR #N") or CLOSED (a supersession note: "PR #N was closed,
+# replaced by #M"). The auto-appended ``::pr-live-state`` check
+# (``_live_pr_checks_for_item`` / ``_verify_live_pr``) previously derived its
+# usual "must be MERGED and all required checks green" judgement from the bare
+# PR reference regardless of what the item's own predicate asserted —
+# inverting the entry's declared intent the moment live state disagreed with
+# the binder's blanket assumption. Two live discovery cases: OMN-16077's
+# ``dod-pin-is-0386-head-predating-2736`` (OPEN assertion, inverts to a false
+# FAILURE once the referenced PR merges) and OMN-16142's
+# ``occ-self-bind-pr-6624-superseded-note`` (CLOSED assertion, false FAILURE
+# immediately since the referenced PR is never merged by design).
+#
+# ``_PIPELINE_SPLIT_RE`` deliberately does NOT split on a single ``|`` (unlike
+# ``_SHELL_CLAUSE_SPLIT_RE`` above) — a state assertion is almost always piped
+# from the ``gh pr view`` invocation through ``--jq``/``grep`` in the SAME
+# logical pipeline (e.g. ``gh pr view N --repo R --json state --jq '.state' |
+# grep -qx OPEN``), so keeping single pipes joined is required to see the
+# assertion at all. Splitting only at ``&&``/``||``/``;``/``;;`` still keeps
+# two independent ``gh pr view`` invocations in one check_value (the OMN-16142
+# shape: one clause asserts #6624 CLOSED, a second `&&`-joined clause asserts
+# #6626 MERGED) from being confused with each other.
+_PIPELINE_SPLIT_RE = re.compile(r"&&|\|\||;;|;")
+# ``.state == "OPEN"`` / ``.state == 'CLOSED'`` — the inline jq-predicate
+# shape. Generalizes ``_PR_OPEN_STATE_PREDICATE_RE`` above (OMN-14637, which
+# is deliberately OPEN-only and rewrites rather than detects) to also
+# recognise CLOSED, since this detector only needs to recognise an assertion,
+# never rewrite one.
+_PR_STATE_EQUALITY_RE = re.compile(r"""\.state\s*==\s*(["'])(OPEN|CLOSED)\1""")
+# ``grep -qx OPEN`` / ``grep -qx 'CLOSED'`` / ``grep -q "OPEN"`` — the
+# piped-grep shape. Matches any grep-family invocation (arbitrary short
+# flags, e.g. ``-qx``, ``-Eq``) whose literal argument is exactly OPEN or
+# CLOSED, optionally quoted. Deliberately excludes MERGED: an assertion of
+# MERGED already agrees with the binder's default assumption, so that
+# binding must keep receiving the real live derivation (see
+# ``_asserted_non_merged_pr_states_for_item``).
+_PR_STATE_GREP_RE = re.compile(r"""grep\s+(?:-[A-Za-z]+\s+)*(["']?)(OPEN|CLOSED)\b\1""")
+
+
+def _pr_binding_asserted_state(value: str, repo: str, pr_number: int) -> str | None:
+    """Return ``"OPEN"``/``"CLOSED"`` when ``value`` asserts that state for
+    ``(repo, pr_number)`` in the SAME pipeline segment as the PR reference,
+    else ``None``.
+
+    Same-clause-but-not-same-pipe discipline, mirroring
+    ``_hardcoded_pr_bindings_in_value``'s same-clause guarantee for bindings:
+    the PR reference and the state assertion must sit in one
+    ``&&``/``||``/``;``-delimited pipeline (pipes within that pipeline stay
+    joined — see ``_PIPELINE_SPLIT_RE``), so an assertion belonging to a
+    DIFFERENT PR reference in the same check_value never attaches to this
+    one. ``repo`` must already be normalized (see
+    ``EvidenceCollector._normalize_repo``).
+
+    Recognises two same-clause binding shapes, mirroring
+    ``_hardcoded_pr_bindings_in_value`` (OMN-16087 follow-up: the original cut
+    only recognized the first shape, so a URL-form binding's own state
+    assertion silently fell through to the default merged/green derivation —
+    the exact inversion this ticket exists to fix, just for a binding shape
+    the first cut missed):
+
+    * ``gh pr view <N> --repo <repo>`` — the extracted ``--repo`` flag value
+      is normalized the same way before comparison;
+    * ``repos/<owner>/<repo>/pulls/<N>`` or
+      ``https://github.com/<owner>/<repo>/pull/<N>`` — repo and number are
+      one contiguous path (:data:`_PR_PATH_URL_RE`), so no separate
+      ``--repo`` flag to cross-check.
+
+    Pure function — no I/O.
+    """
+    for segment in _PIPELINE_SPLIT_RE.split(value):
+        matched = False
+
+        num_match = _HARDCODED_PR_NUM_RE.search(segment)
+        if num_match is not None and int(num_match.group(1)) == pr_number:
+            repo_match = _REPO_FLAG_RE.search(segment)
+            if repo_match is not None:
+                extracted_repo = repo_match.group(1).strip()
+                if "/" not in extracted_repo:
+                    extracted_repo = f"{_DEFAULT_GITHUB_ORG}/{extracted_repo}"
+                if extracted_repo == repo:
+                    matched = True
+
+        if not matched:
+            matched = any(
+                str(url_repo) == repo and int(url_num) == pr_number
+                for url_repo, url_num in _PR_PATH_URL_RE.findall(segment)
+            )
+
+        if not matched:
+            continue
+
+        state_match = _PR_STATE_EQUALITY_RE.search(segment) or _PR_STATE_GREP_RE.search(
+            segment
+        )
+        if state_match is not None:
+            return state_match.group(2).upper()
+    return None
+
+
+def _hardcoded_pr_bindings_in_value(value: str) -> list[tuple[str, int]]:
+    """Return every same-clause literal ``(repo, pr_number)`` pin in ``value``.
+
+    Recognises two shapes, both same-clause by construction:
+
+    * ``gh pr view|checks|diff <N> ... --repo <owner>/<repo>`` — number and
+      repo flag co-located within one shell clause;
+    * ``repos/<owner>/<repo>/pulls/<N>`` or
+      ``https://github.com/<owner>/<repo>/pull/<N>`` — number and repo in one
+      contiguous URL path (OMN-15465).
+
+    Pure function — no I/O. See the module comment above
+    ``_HARDCODED_PR_NUM_RE`` for why this must be same-clause, same-string.
+    """
+    bindings: list[tuple[str, int]] = []
+    for clause in _SHELL_CLAUSE_SPLIT_RE.split(value):
+        num_match = _HARDCODED_PR_NUM_RE.search(clause)
+        repo_match = _REPO_FLAG_RE.search(clause)
+        if num_match and repo_match:
+            bindings.append((repo_match.group(1), int(num_match.group(1))))
+        for url_repo, url_num in _PR_PATH_URL_RE.findall(clause):
+            bindings.append((str(url_repo), int(url_num)))
+    return bindings
+
+
+# OMN-15465: PR numbers an evidence item's OWN ``id`` literally pins, e.g.
+# ``occ-self-bind-pr-4711`` -> {4711}, ``dod-omn-14968-pr-2536-rebind-15382``
+# -> {2536}. Ids that name no PR (``dod-deploy-assessment``) yield the empty
+# set and therefore constrain nothing.
+_ID_PINNED_PR_RE = re.compile(r"-pr-(\d+)(?:\b|-)")
+
+
+def _pr_numbers_pinned_by_item_id(item_id: object) -> frozenset[int]:
+    """Return every PR number the item id itself asserts. Pure — no I/O."""
+    if not isinstance(item_id, str) or not item_id:
+        return frozenset()
+    return frozenset(int(n) for n in _ID_PINNED_PR_RE.findall(item_id))
+
+
+def _field_confirms_pair(value: str, repo: str, pr_number: int) -> bool:
+    """Whether ``value`` names BOTH ``repo`` and ``pr_number`` together.
+
+    Used to validate a receipt-derived (repo, pr_number) candidate: the repo
+    and the number must be corroborated by the SAME field text, not merely
+    present somewhere in the receipt (see ``_resolve_pr_bindings``). Pure
+    function — no I/O.
+    """
+    if repo not in value:
+        return False
+    return re.search(rf"\b{re.escape(str(pr_number))}\b", value) is not None
+
+
+# OMN-15382: command-check fail-closed hardening.
+#
+# _run_command_check previously ran check_value verbatim via
+# ``subprocess.run(cmd, shell=True)`` (POSIX ``sh -c``, no ``pipefail``) and
+# judged success on exit code alone. Two failure modes shared one root cause
+# (trusting a shell string blindly):
+#
+#   * ``"Recorded product receipt: docker compose ... | sha256sum"`` exits 0
+#     under plain ``sh -c`` — the first pipeline stage ("Recorded" — not a
+#     command) fails with 127, but a non-pipefail shell's pipeline exit code
+#     is the LAST stage's, and ``sha256sum`` happily hashes empty stdin and
+#     exits 0. Vacuous GREEN.
+#   * The same prose with no pipe ("Recorded product receipt: uv run pytest
+#     x") exits 127 — RED, but for the wrong reason (command-not-found is
+#     indistinguishable from a real check failure).
+#
+# Fixed two ways, deliberately NOT via a blanket "empty stdout is RED" rule
+# (that would break legitimate quiet checks like ``grep -q``):
+#   1. Execute via ``["bash", "-o", "pipefail", "-c", cmd]`` (list form, no
+#      ``shell=True``) so a failing first pipeline stage fails the whole
+#      check, closing the vacuous-GREEN mechanism for genuinely command-shaped
+#      pipelines.
+#   2. A pre-execution shape guard (_invalid_check_value_reason) rejects
+#      prose before it is ever shelled out at all, giving a distinct,
+#      unambiguous reason (INVALID_CHECK_VALUE_NOT_A_COMMAND) instead of a
+#      command-not-found exit code that looks like a real check failure.
+_VAR_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+# Shell control operators that can legitimately separate an assignment (or a
+# preceding pipeline stage) from the command this guard actually judges —
+# e.g. ``body="$(...)" && printf '%s' "$body" | grep -qF '<marker>'`` (the
+# OMN-15170 sigpipe-safe shape, OMN-15430): the first word is the whole
+# ``body=$(...)`` assignment, the next is ``&&``, and only the token after
+# that is a real command name. These are skipped the same way a leading
+# ``VAR=VAL`` assignment is skipped — they are punctuation, not prose and
+# not a command.
+_SHELL_CONTROL_OPERATORS = frozenset({"&&", "||", ";", ";;", "|", "&"})
+
+# Leading modifiers that prefix a real command without being one themselves.
+# ``!`` negates the *following* pipeline and ``(`` opens a subshell, so in
+# both cases the command to judge is the token AFTER them. Both used to sit
+# in _SHELL_KEYWORD_ALLOWLIST, which accepted the whole check_value on sight
+# and therefore let ``! Recorded receipt: ...`` through; skipping instead
+# keeps the prose judgement alive one token deeper.
+_SHELL_LEADING_MODIFIERS = frozenset({"!", "("})
+
+# Shell builtins that CONSUME arbitrary bare words and still exit 0, so a
+# prose check_value leading with one is a VACUOUS GREEN if the guard accepts
+# it on sight (OMN-15597 R2). Measured, not assumed — under both
+# ``bash 3.2.57`` (macOS) and ``bash 5.3.3``, with stdin at ``/dev/null``:
+#
+#     set up the runtime and verified manually   -> 0
+#     export the evidence to the ticket          -> 0
+#     declare victory                            -> 0
+#     unset the flag manually                    -> 0
+#     readonly evidence recorded                 -> 0
+#     let the record show 3                      -> 0   (last operand != 0)
+#     read the receipt                           -> 0   (whenever stdin has a line)
+#
+# These were in _SHELL_KEYWORD_ALLOWLIST, which returns None on sight BEFORE
+# any prose judgement, and ``_run_command_check`` then judges by exit code —
+# so each of the seven strings above flipped from a hard
+# INVALID_CHECK_VALUE_NOT_A_COMMAND to ``status=verified`` on the DoD
+# evidence runner, re-opening the exact class the guard exists to close
+# (OMN-15382).
+#
+# They are handled as PREFIXES instead of as commands, which is what they
+# actually are: none of the seven produces evidence of its own — they set
+# variables, shell options, or read stdin — so a check_value whose only
+# command is one of them proves nothing either way. The scan consumes the
+# builtin and its operands up to the next control operator and keeps
+# judging, exactly like the leading ``VAR=VAL`` assignment it is a longhand
+# for. ``export FOO=bar && gh api ...`` therefore still resolves to ``gh``;
+# ``export the evidence to the ticket`` runs out of tokens and is rejected.
+#
+# The rest of the builtin list below stays terminal-accepting because it was
+# measured NOT to swallow prose (``cd`` -> "too many arguments" 1,
+# ``eval``/``exec``/``command`` -> 127, ``type``/``hash``/``jobs``/``trap``/
+# ``builtin``/``.``/``source``/``popd``/``pushd``/``unalias``/``shift``/
+# ``umask``/``ulimit`` -> 1, ``local``/``return`` -> "can only be used in a
+# function" 1, ``time`` -> 127, structural keywords -> syntax error 2).
+# Residual, deliberately NOT closed here: a BARE ``wait`` / ``jobs`` /
+# ``alias`` / ``hash`` / ``exit`` with no operands exits 0, but a one-word
+# check_value is not prose and is no weaker than the already-resolvable
+# ``true`` — that is the vacuous-but-command-shaped class, not this one.
+_NO_EVIDENCE_BUILTIN_PREFIXES = frozenset(
+    {
+        "declare",
+        "export",
+        "let",
+        "read",
+        "readonly",
+        "set",
+        "unset",
+    }
+)
+
+# The stable marker inside the "the only command is a no-evidence prefix
+# builtin" rejection, and the predicate that recognises it (OMN-15597 G2).
+#
+# SINGLE-SOURCED ON PURPOSE. R2 introduced that rejection by REUSING the older
+# "no resolvable executable token ..." message; R3 then gave it its own
+# wording. One of the two consumers was updated with R3 and the other — the
+# AC5 corpus census, which selected offenders by the substring
+# ``"no resolvable executable token"`` — silently stopped matching its own
+# class and censused nothing. A census that cannot see the class it censuses
+# reports 0 for the wrong reason. Callers that need to recognise this
+# rejection MUST use ``is_no_evidence_builtin_only_reason`` rather than
+# re-typing a substring, so the next wording change cannot re-vacuate them.
+_NO_EVIDENCE_BUILTIN_REASON_MARKER = "no-evidence shell builtin"
+
+
+def is_no_evidence_builtin_only_reason(reason: str | None) -> bool:
+    """True when ``reason`` is the prefix-builtin-only rejection.
+
+    ``reason`` is a return value of :func:`_invalid_check_value_reason`.
+    ``None`` (accepted) and every other rejection class — prose, a trailing
+    ``':'``, an unresolvable first token, an unparseable value — are False.
+    """
+    return reason is not None and _NO_EVIDENCE_BUILTIN_REASON_MARKER in reason
+
+
+# Shell keywords/builtins that are legitimate as the first token of a real
+# command but that ``shutil.which()`` cannot resolve (they are not
+# standalone executables on PATH).
+#
+# ADMISSION RULE (OMN-15597 R2) — a name belongs here only if NO prose-shaped
+# invocation of it exits 0. The allowlist short-circuits the prose judgement,
+# so any name that violates the rule is a false-GREEN path on the DoD
+# evidence runner. ``tests/unit/nodes/node_dod_verify/
+# test_omn_15597_command_substitution_shape_guard.py::TestAllowlistAdmissionRule``
+# enforces it against a REAL shell over this exact frozenset, so a future
+# addition that swallows prose fails CI rather than shipping.
+_SHELL_KEYWORD_ALLOWLIST = frozenset(
+    {
+        "if",
+        "then",
+        "else",
+        "elif",
+        "fi",
+        "for",
+        "while",
+        "until",
+        "do",
+        "done",
+        "case",
+        "esac",
+        "function",
+        "select",
+        "time",
+        "{",
+        "[",
+        "[[",
+        # ``:`` is deliberately ABSENT: ``: the evidence was recorded`` exits
+        # 0 under both bashes, so it violates the admission rule above. It was
+        # unreachable here anyway — the ``first.endswith(":")`` prose branch
+        # in _invalid_check_value_reason fires first — and listing an
+        # unreachable prose-swallower only invites a reordering to make it
+        # live. See TestColonIsRejectedByTheProseBranch.
+        # Shell BUILTINS (OMN-15597). Without these the guard's verdict is
+        # PLATFORM-DEPENDENT: macOS ships /usr/bin/cd so ``shutil.which("cd")``
+        # resolves there, while Linux has no such binary — so ``(cd x && ls)``
+        # passed the guard on a developer Mac and hard-REDed on a Linux CI
+        # runner. 18 checks in the OCC corpus lead with ``cd`` alone. Listed
+        # here are builtins that no POSIX system is required to ship as an
+        # executable; ones that DO exist as binaries everywhere (``test``,
+        # ``echo``, ``printf``, ``pwd``, ``true``, ``false``, ``kill``) are
+        # deliberately omitted — ``shutil.which`` already resolves them, and
+        # a shorter allowlist is a smaller prose-laundering surface.
+        ".",
+        "alias",
+        "builtin",
+        "cd",
+        "command",
+        "eval",
+        "exec",
+        "exit",
+        "hash",
+        "jobs",
+        "local",
+        "popd",
+        "pushd",
+        "return",
+        "shift",
+        "source",
+        "trap",
+        "type",
+        "ulimit",
+        "umask",
+        "unalias",
+        "wait",
+    }
+)
+
+# ---------------------------------------------------------------------------
+# OMN-15597: command-substitution-aware word scanning.
+#
+# The guard used to tokenize with ``shlex.split(cmd_str, posix=True)``.
+# ``shlex`` is a WORD SPLITTER, not a shell parser: it has no notion of
+# command substitution, so the double quotes *inside* a ``$(...)`` are read
+# as the outer string's quotes. On
+#
+#     state="$(gh pr view 239 ... --jq '.state + " " + (.oid // "none")')" \
+#       && test "$state" = "MERGED <sha>"
+#
+# the jq program's ``" "`` closes the outer ``"`` early, shlex splits INSIDE
+# the substitution, and the guard judges the jq fragment
+# ``" + (.oid // none)')"`` as the command name — a hard
+# INVALID_CHECK_VALUE_NOT_A_COMMAND on a string bash runs to exit 0
+# (OMN-15430 residual #2; 59 checks across 33 OCC contracts, census at
+# onex_change_control@1e6b75f8).
+#
+# ``_split_shell_words`` below is the smallest thing that yields the SHELL's
+# own first command word: a single left-to-right scan that tracks quoting
+# with a real nesting discipline. A ``$(...)`` (or backtick) region is
+# copied into the current word VERBATIM and its interior never touches the
+# outer quote state — which is precisely the property shlex lacks. It is not
+# a general shell parser and does not try to be: it produces words and
+# control operators, which is all the shape guard consumes.
+#
+# ``bash -n`` was considered and rejected as the oracle: it exits 0 on
+# ``Recorded product receipt: see PR 123`` too, so parse-validity cannot
+# discriminate prose — which is this guard's entire purpose.
+# ``\n`` is intentionally absent: an unquoted newline is a command SEPARATOR,
+# not blank space, and ``_split_shell_words`` emits it as a ``;`` token
+# (OMN-15597 R2). Treating it as mere whitespace here would silently join two
+# commands into one token run.
+_SHELL_WORD_SEPARATORS = " \t\r"
+
+# bash metacharacters that terminate a word even without surrounding
+# whitespace. Longest-match-first so ``&&`` is not lexed as two ``&``.
+# ``(`` and ``)`` are here because ``(`` is a grouping operator, not part of
+# the following word: without them ``([ "$x" = "OPEN" ] || ...)`` yields a
+# first token of ``([`` — a fragment no author ever wrote as a command
+# (contracts/OMN-9278.yaml dod-001, the last survivor of the OMN-15597
+# corpus census).
+_SHELL_OPERATOR_SEQUENCES: tuple[str, ...] = (
+    "&&",
+    "||",
+    ";;",
+    ";",
+    "|",
+    "&",
+    "(",
+    ")",
+)
+
+# Escapes decoded inside ``$'...'`` (ANSI-C quoting). Only the forms that can
+# plausibly appear in a check_value; anything else keeps its literal
+# character, which is harmless for a shape judgement.
+_ANSI_C_ESCAPES = {
+    "n": "\n",
+    "t": "\t",
+    "r": "\r",
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
+    "v": "\v",
+    "e": "\x1b",
+    "0": "\0",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+}
+
+
+def _scan_command_substitution(s: str, start: int) -> int:
+    """Return the index of the ``)`` closing the ``$(`` / ``(`` at ``start``.
+
+    ``s[start]`` must be the opening ``(``. Nested ``$( ... )``, nested plain
+    ``( ... )``, and quoted regions inside the substitution are all tracked,
+    so a ``)`` that merely sits inside a quoted string (``--jq '(.a // ")")'``)
+    does not close it. Raises ``ValueError`` if the substitution is never
+    closed — fail-closed, exactly as bash refuses the string.
+    """
+    depth = 0
+    i = start
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "'":
+            close = s.find("'", i + 1)
+            if close == -1:
+                raise ValueError("unterminated single quote inside $( ... )")
+            i = close + 1
+            continue
+        if c == '"':
+            i = _scan_double_quoted(s, i)[0]
+            continue
+        if c == "`":
+            i = _scan_backquoted(s, i)[0]
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    raise ValueError("unterminated command substitution '$('")
+
+
+def _scan_backquoted(s: str, start: int) -> tuple[int, str]:
+    """Scan a legacy ```...``` substitution. Returns (index after it, raw text)."""
+    i = start + 1
+    n = len(s)
+    while i < n:
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == "`":
+            return i + 1, s[start : i + 1]
+        i += 1
+    raise ValueError("unterminated backquote substitution '`'")
+
+
+def _scan_double_quoted(s: str, start: int) -> tuple[int, str]:
+    """Scan a ``"..."`` region. Returns (index after the closing quote, content).
+
+    This is the load-bearing half of the OMN-15597 fix: a ``$(`` encountered
+    inside the double quotes is consumed as a whole substitution and copied
+    verbatim, so quotes belonging to the substitution's own interior can
+    never close this string.
+    """
+    out: list[str] = []
+    i = start + 1
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == '"':
+            return i + 1, "".join(out)
+        if c == "\\" and i + 1 < n:
+            nxt = s[i + 1]
+            if nxt == "\n":  # line continuation
+                i += 2
+                continue
+            if nxt in '$`"\\':  # the only escapes bash honors in "..."
+                out.append(nxt)
+                i += 2
+                continue
+            out.append(c)
+            i += 1
+            continue
+        if c == "$" and i + 1 < n and s[i + 1] == "(":
+            close = _scan_command_substitution(s, i + 1)
+            out.append(s[i : close + 1])
+            i = close + 1
+            continue
+        if c == "`":
+            i, raw = _scan_backquoted(s, i)
+            out.append(raw)
+            continue
+        out.append(c)
+        i += 1
+    raise ValueError("unterminated double quote '\"'")
+
+
+def _scan_ansi_c_quoted(s: str, start: int) -> tuple[int, str]:
+    """Scan a ``$'...'`` ANSI-C quoted region. Returns (index after it, value)."""
+    out: list[str] = []
+    i = start + 2
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == "'":
+            return i + 1, "".join(out)
+        if c == "\\" and i + 1 < n:
+            out.append(_ANSI_C_ESCAPES.get(s[i + 1], s[i + 1]))
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    raise ValueError('unterminated ANSI-C quote "$\'"')
+
+
+def _split_shell_words(s: str) -> list[str]:
+    """Split ``s`` into shell words and control operators.
+
+    Quote-removing like ``shlex.split(..., posix=True)``, but correct about
+    command substitution: the text of a ``$(...)`` or ```...``` is kept
+    verbatim in the word that contains it and never alters the surrounding
+    quote state. Control operators (``&&``, ``||``, ``;``, ``;;``, ``|``,
+    ``&``) are emitted as their own tokens so the caller can skip them.
+
+    Raises ``ValueError`` on a string the shell itself could not parse
+    (unbalanced quote, unterminated substitution) — and only on those: a
+    rejection bash would not make is a false RED, which is the defect class
+    this function exists to close.
+    """
+    words: list[str] = []
+    buf: list[str] = []
+    started = False  # distinguishes an empty word ('' / "") from no word
+    i = 0
+    n = len(s)
+
+    def flush() -> None:
+        nonlocal started
+        if started:
+            words.append("".join(buf))
+            buf.clear()
+            started = False
+
+    while i < n:
+        c = s[i]
+        if c == "\n":
+            # An UNQUOTED newline is a command SEPARATOR in shell, not
+            # whitespace (OMN-15597 R2, CodeRabbit). Emitting it as ``;``
+            # matters because the caller skips a
+            # ``_NO_EVIDENCE_BUILTIN_PREFIXES`` builtin's operands only up to
+            # the next control operator: without this,
+            # ``export FOO=bar\ngh api ...`` would have ``gh api ...``
+            # consumed as operands of ``export`` and be rejected as having no
+            # resolvable executable — a NEW false RED of exactly the class
+            # this ticket closes. A newline INSIDE quotes or a ``$(...)`` is
+            # untouched: those regions are consumed by their own scanners
+            # before reaching here, and a backslash-newline continuation is
+            # handled below and is NOT a separator.
+            flush()
+            words.append(";")
+            i += 1
+            continue
+        if c in _SHELL_WORD_SEPARATORS:
+            flush()
+            i += 1
+            continue
+        if c == "\\":
+            if i + 1 >= n:
+                # Line continuation with nothing after it. bash accepts this
+                # (``bash -n -c 'echo hi \'`` exits 0), so refusing it here
+                # would be a new false RED of exactly the class this ticket
+                # closes.
+                break
+            if s[i + 1] == "\n":  # line continuation
+                i += 2
+                continue
+            buf.append(s[i + 1])
+            started = True
+            i += 2
+            continue
+        if c == "'":
+            close = s.find("'", i + 1)
+            if close == -1:
+                raise ValueError('unterminated single quote "\'"')
+            buf.append(s[i + 1 : close])
+            started = True
+            i = close + 1
+            continue
+        if c == '"':
+            i, content = _scan_double_quoted(s, i)
+            buf.append(content)
+            started = True
+            continue
+        if c == "$" and i + 1 < n and s[i + 1] == "'":
+            i, content = _scan_ansi_c_quoted(s, i)
+            buf.append(content)
+            started = True
+            continue
+        if c == "$" and i + 1 < n and s[i + 1] == "(":
+            close = _scan_command_substitution(s, i + 1)
+            buf.append(s[i : close + 1])
+            started = True
+            i = close + 1
+            continue
+        if c == "`":
+            i, raw = _scan_backquoted(s, i)
+            buf.append(raw)
+            started = True
+            continue
+        operator = next(
+            (op for op in _SHELL_OPERATOR_SEQUENCES if s.startswith(op, i)), None
+        )
+        if operator is not None:
+            flush()
+            words.append(operator)
+            i += len(operator)
+            continue
+        buf.append(c)
+        started = True
+        i += 1
+
+    flush()
+    return words
+
+
+def _invalid_check_value_reason(
+    cmd_str: str, *, cwd: str | None = None, path: str | None = None
+) -> str | None:
+    """Return a reason string when ``cmd_str`` looks like prose, not a command.
+
+    ``path`` is the PATH the command will ACTUALLY run with, when the runner is
+    about to supply one the ambient environment does not have (OMN-17863: the
+    staged pnpm shim). Resolving against ``os.environ`` there would reject a
+    perfectly good command because the toolchain that answers it is provisioned
+    by this runner rather than by the host.
+
+    Tokenizes with ``_split_shell_words`` (OMN-15597) — a
+    command-substitution-aware scan that yields the SHELL's own first
+    command word. Its predecessor, ``shlex.split(cmd_str, posix=True)``, is
+    a word splitter with no notion of ``$(...)``: on
+    ``state="$(gh pr view N --jq '.state + " " + (.oid // "none")')" && test
+    ...`` the jq program's inner ``"`` closed the outer quote early and a jq
+    fragment was judged as the command name — a false
+    ``INVALID_CHECK_VALUE_NOT_A_COMMAND`` on a string bash runs to exit 0.
+
+    Strips leading ``VAR=VAL`` assignment tokens, leading shell control
+    operators (``&&``, ``||``, ``;``, ``;;``, ``|``, ``&`` — punctuation
+    that can legitimately separate an assignment from the command this
+    guard judges), a leading ``!`` negation, and any
+    ``_NO_EVIDENCE_BUILTIN_PREFIXES`` builtin together with its operands
+    (``set``/``export``/``declare``/``unset``/``readonly``/``let``/``read``
+    — longhand assignments that produce no evidence and that a shell runs to
+    exit 0 over arbitrary prose words, OMN-15597 R2). It then inspects the
+    first remaining token: if it ends with ``:`` (e.g. a stray
+    ``"Recorded:"`` label) or cannot be resolved and is not a known shell
+    keyword, this is prose that must never be shelled out. Returns ``None``
+    when the shape looks like a real command — this is a pure shape check;
+    it never executes anything and never judges by output content.
+
+    A check_value whose ONLY command is one of those prefix builtins
+    (``unset FOO``, ``read -r a b <<< "$(gh api ...)"``) is therefore
+    rejected — correct, not a regression: such a value proves nothing, and
+    accepting it is indistinguishable from accepting ``unset the flag
+    manually``. The reason names that builtin explicitly rather than
+    blaming "leading VAR=VAL assignments/shell operators", which for those
+    two inputs is a construct that is not present (OMN-15597 R3).
+
+    A first token that *is* or *contains* a command substitution
+    (``$(...)`` / ```...```) is accepted: what it expands to is unknowable
+    statically, but a substitution is command-shaped by construction and no
+    prose sample carries one. Bare ``$VAR`` expansion in command position is
+    deliberately NOT covered here — that is OMN-15267's separate class.
+
+    If ``cmd_str`` cannot be tokenized at all (unbalanced quote,
+    unterminated substitution), ``_split_shell_words`` raises
+    ``ValueError`` — treated as fail-closed INVALID: a check_value
+    bash itself cannot parse is genuinely invalid, never silently passed
+    through. Note the converse does NOT hold, which is why ``bash -n`` is
+    not used as the oracle: prose parses clean under ``bash -n``.
+
+    ``cwd`` is the check's OMN-10078-resolved working directory (or
+    ``None`` to inherit the caller's cwd). A first token containing a path
+    separator (e.g. ``"./verify.sh"``, ``"scripts/run.sh"``) is a
+    relative-script invocation, not a PATH lookup: ``shutil.which`` never
+    resolves those against a caller-supplied ``cwd`` (it only ever inspects
+    this process's actual working directory), so it is checked directly
+    against ``cwd`` (or the process cwd when ``cwd`` is ``None``) instead of
+    going through ``shutil.which``.
+    """
+    stripped = cmd_str.strip()
+    if not stripped:
+        return "empty command"
+    try:
+        tokens = _split_shell_words(stripped)
+    except ValueError as exc:
+        return (
+            f"command could not be parsed as shell syntax ({exc}) — this "
+            "looks like prose, not a command"
+        )
+    if not tokens:
+        return "empty command"
+    idx = 0
+    consumed_builtin: str | None = None
+    while idx < len(tokens):
+        token = tokens[idx]
+        if (
+            _VAR_ASSIGNMENT_RE.match(token)
+            or token in _SHELL_CONTROL_OPERATORS
+            or token in _SHELL_LEADING_MODIFIERS
+        ):
+            idx += 1
+            continue
+        if token in _NO_EVIDENCE_BUILTIN_PREFIXES:
+            # Longhand for a leading VAR=VAL assignment: consume the builtin
+            # AND its operands, then keep judging whatever follows the next
+            # control operator (OMN-15597 R2). Accepting it on sight is what
+            # let ``set up the runtime and verified manually`` reach the
+            # shell and exit 0.
+            consumed_builtin = token
+            idx += 1
+            while idx < len(tokens) and tokens[idx] not in _SHELL_CONTROL_OPERATORS:
+                idx += 1
+            continue
+        break
+    if idx >= len(tokens):
+        # Name the construct that actually ran the tokens out (OMN-15597 R3).
+        # These two cases are reached by DIFFERENT inputs and a single message
+        # misdescribes one of them: ``read -r a b <<< "$(gh api ...)"`` has no
+        # assignment and no operator, so blaming "leading VAR=VAL
+        # assignments/shell operators" names a construct that is not present —
+        # the same misidentification failure this ticket exists to close, just
+        # on the rejection path instead of the acceptance path.
+        if consumed_builtin is not None:
+            return (
+                f"the only command is the {_NO_EVIDENCE_BUILTIN_REASON_MARKER} "
+                f"{consumed_builtin!r} and its operands — its operands, "
+                "including any redirection/herestring/process-substitution "
+                "operands, are consumed with it, and no ';'/'&&'/'||'"
+                "-separated command follows. Such a value proves nothing, and "
+                f"its shape is indistinguishable from prose leading with "
+                f"{consumed_builtin!r}"
+            )
+        return (
+            "command has no resolvable executable token after leading "
+            "VAR=VAL assignments, shell control operators and '!'/'(' "
+            "modifiers"
+        )
+    first = tokens[idx]
+    if "$(" in first or "`" in first:
+        return None
+    if first.endswith(":"):
+        return f"first token {first!r} looks like prose, not a command (ends with ':')"
+    if first in _SHELL_KEYWORD_ALLOWLIST:
+        # OMN-16752 — `[[` is admitted ONLY when its conditional is actually
+        # closed. Every other name in the allowlist earns its place because a
+        # prose-shaped invocation is a syntax error (exit 2) on every bash we
+        # run, which is the admission rule stated above the frozenset. `[[` was
+        # admitted on that same "structural keywords -> syntax error 2" premise,
+        # and the premise is FALSE on bash 5.2:
+        #
+        #   bash 5.3.9 (macOS `.200`):     [[ the evidence was recorded  -> 2
+        #   bash 5.2.15 (Linux .201 gate-  [[ the evidence was recorded  -> 0
+        #     runner container)             (prints "conditional binary
+        #                                    operator expected", exits 0 anyway)
+        #
+        # Measured on both hosts 2026-08-27; `[`, `{`, `if`, `for` and `case`
+        # exit 2 on BOTH, so `[[` is the only affected name. Because
+        # ``_run_command_check`` execs a PATH-resolved bare ``bash``, that made
+        # ``[[ <prose>`` a real vacuous-GREEN path on any host whose bash is
+        # 5.2.x — the exact false-GREEN class this guard exists to close, just
+        # reachable only on some hosts, which is why it survived review.
+        #
+        # Requiring the closing ``]]`` is version-INDEPENDENT (it never consults
+        # the running bash) and strictly stronger than the old behavior: a real
+        # conditional such as ``[[ -f out.txt ]] && grep -q marker out.txt``
+        # still resolves, while an unterminated ``[[`` — which is malformed
+        # shell on every bash, whatever it exits — is judged as the prose it is.
+        if first == "[[" and "]]" not in tokens[idx:]:
+            return (
+                "first token '[[' opens a conditional that is never closed "
+                "with ']]' — this looks like prose, not a command (an "
+                "unterminated '[[' exits 0 under bash 5.2, so accepting it "
+                "would be a vacuous GREEN)"
+            )
+        return None
+    if os.sep in first or (os.altsep and os.altsep in first):
+        base = Path(cwd) if cwd else Path.cwd()
+        candidate = base / first if not os.path.isabs(first) else Path(first)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return None
+        return (
+            f"first token {first!r} is not a resolvable executable relative "
+            f"to cwd {str(base)!r} — this looks like prose, not a command"
+        )
+    if shutil.which(first, path=path) is not None:
+        return None
+    return (
+        f"first token {first!r} is not a resolvable executable or a "
+        "recognized shell keyword — this looks like prose, not a command"
+    )
+
+
+# ---------------------------------------------------------------------------
+# OMN-15382 (runner-supersession follow-up): contract-entry supersession.
+#
+# The runner previously had ZERO handling of the ``evidence_artifact:
+# "supersedes_dod_evidence:<id>"`` marker (the only supersession code,
+# ``durable_evidence_gate.apply_supersessions``, reads a DIFFERENT surface —
+# receipt files, not contract entries). A dod_verify run therefore executed
+# every original item even when a later append-only entry in the SAME
+# contract declared it superseded, and an original whose check_value had
+# been intentionally retired (e.g. the ``occ-self-bind-pr-<n>`` /
+# ``dod-...`` rebind idiom this ticket's own base commit produced) reported
+# a hard FAIL instead of being recognized as superseded.
+#
+# Marker syntax and append-only ("target must already exist") semantics
+# mirror onex_change_control's authoring-time lint (Rule B companion) and
+# CI compliance runner field-for-field — see
+# ``onex_change_control/scripts/lint_contract_check_values.py::_superseded_dod_ids``
+# and
+# ``onex_change_control/src/onex_change_control/scripts/contract_compliance_check.py::_superseded_dod_ids``/``_supersedes_marker``:
+# both key off an item-level (not check-level) string field
+# ``evidence_artifact`` whose value is the literal prefix
+# ``"supersedes_dod_evidence:"`` followed by the superseded item's ``id``.
+#
+# OMN-15390: the ORDERING rule is part of that parity, not an optional
+# refinement. ``_superseded_dod_ids`` supersedes a target only when the
+# target id is already in ``seen`` — i.e. ONLY a LATER item may retire an
+# EARLIER one, which is what makes the idiom append-only. This runner
+# reproduces that rule exactly (see ``_resolve_supersessions``), so the set
+# of superseded ids the two consumers compute is identical for every input;
+# ``tests/fixtures/dod_supersession/parity_corpus.yaml`` is the shared
+# artifact that asserts it case-for-case against OCC's own function.
+# Resolving against the whole-contract id set instead (position-blind) would
+# let a FORWARD marker retire the newest, most-correct entry in the runner
+# while the OCC gate still executed it — a runner-more-permissive-than-gate
+# divergence on the only sanctioned Done-flip path.
+#
+# The parity above is on the superseded SET ONLY, and it is unconditional:
+# the marker is resolved BEFORE any judgement about the CARRYING item's own
+# ``id``, because ``_superseded_dod_ids`` evaluates ``if supersedes in seen``
+# whether or not the carrier has a usable id. An earlier revision of this
+# runner gated on the carrier's id first and so MISSED four non-canonical
+# shapes the gate honours (carrier with no ``id`` key, ``id: ""``, ``id: 7``,
+# ``id: None``) — runner-STRICTER-than-gate, which is this ticket's original
+# bug class re-created, and silent besides. Hence ``superseded`` is keyed to
+# the superseder's INDEX and ``malformed`` to the carrier's INDEX; ids are
+# used for display only.
+#
+# On the shapes where a marker resolves to NOTHING this runner is deliberately
+# STRICTER than the OCC-side scripts. Those scripts simply no-op there (they
+# are advisory lint/compliance surfaces); here supersession DELETES a FAILED
+# verdict, so a marker that silently did nothing would leave an author
+# believing a contract was repaired when it was not. Each of these is a hard
+# RED on the entry CARRYING the marker — never on the target, never a silent
+# skip, and reported even when the carrier has no usable id:
+#   * "dangling" — the target id exists nowhere in the contract (typo, or the
+#     target item was removed);
+#   * "forward" — the target exists but is declared LATER, which supersedes
+#     nothing under the ordering rule above;
+#   * "self-reference" — an item naming its own id.
+# The superseded SET is unaffected by these diagnostics, so set-parity with
+# OCC holds: in every such case both consumers agree nothing was superseded.
+#
+# Resolution itself is a single forward pass, so IT always terminates. The
+# relation it produces, however, is NOT acyclic — do not rely on that. Edges
+# point backwards by INDEX, but ``superseded`` is keyed by ID, and ids are not
+# unique in a contract. When an EARLIER item already declared the carrier's own
+# id, ``target in seen`` is true for the carrier's own id and the recorded edge
+# is an ID-LEVEL SELF-LOOP: ``superseded['dod-0'] == 1`` while
+# ``id_at[1] == 'dod-0'``. Chains (A retired by B, B retired by C) are legal and
+# terminate at C, which is the item that actually proves something — but the
+# chain WALK (``_terminal_superseder``) is what has to cope with the self-loop,
+# and it does so with a visited-set guard that is load-bearing, not decorative.
+# See ``_terminal_superseder``; measurements are in its docstring.
+#
+# This is a consequence of matching the gate exactly (OMN-15390 R1):
+# ``_superseded_dod_ids`` has no self-reference branch, so a self-referential
+# marker on a duplicate id IS an accepted edge there too. Diverging here to keep
+# the relation acyclic would re-create the runner-stricter-than-gate bug class
+# this ticket exists to kill.
+#
+# WELL-FORMED IS NOT SUFFICIENT (OMN-15390 anti-laundering). Resolution says
+# which edges are legal; it does NOT say which ones fire. An edge retires its
+# target only when the item that ultimately carries the verdict is itself
+# VERIFIED — see ``_supersession_is_in_effect``. A superseder that declares
+# ``checks: []``, skips, or fails retires nothing, and its target is executed
+# normally with the rejection stated on the result. Without that condition,
+# appending one evidence-free marker item flips a FAIL receipt to PASS on the
+# only sanctioned Done-flip path.
+#
+# A superseded item's checks are not executed and no ``::pr-live-state``
+# check is appended for it (see ``_collect_impl``).
+# ---------------------------------------------------------------------------
+
+_SUPERSEDES_DOD_EVIDENCE_PREFIX = "supersedes_dod_evidence:"
+
+
+def _supersedes_marker(value: object) -> str | None:
+    """Return the superseded id an ``evidence_artifact`` names, else ``None``.
+
+    Line-for-line mirror of
+    ``contract_compliance_check._supersedes_marker`` (and the identical copy
+    in ``lint_contract_check_values``): a non-string, a string without the
+    exact prefix, or an empty/whitespace-only payload is NOT a marker. Kept
+    as its own function so the parity differential in
+    ``tests/unit/nodes/node_dod_verify/test_omn_15390_contract_entry_supersession.py``
+    can compare it against OCC's directly. Pure — no I/O.
+    """
+    if not isinstance(value, str):
+        return None
+    if not value.startswith(_SUPERSEDES_DOD_EVIDENCE_PREFIX):
+        return None
+    superseded = value[len(_SUPERSEDES_DOD_EVIDENCE_PREFIX) :].strip()
+    return superseded or None
+
+
+@dataclass(frozen=True)
+class _SupersessionResolution:
+    """Result of resolving a contract's ``supersedes_dod_evidence`` markers.
+
+    ``superseded`` maps a superseded item's id -> the INDEX of the LATER item
+    that supersedes it; ``set(superseded)`` is exactly the set
+    ``contract_compliance_check._superseded_dod_ids`` computes, for every
+    input. The value is an index rather than an id because the OCC gate
+    honours a marker regardless of whether its CARRYING item has a usable
+    ``id``, so the superseder is not always nameable — but it must still be
+    identifiable, both for the audit message and for the effectiveness check
+    in ``_collect_impl``.
+
+    ``malformed`` maps an item's INDEX -> a fail-closed reason string for a
+    marker on THAT item that resolved to nothing (dangling target, forward
+    reference, or self-reference). Indexed for the same reason: keying by id
+    made a broken marker on an id-less item a SILENT no-op (OMN-15390
+    remediation). A marker is never both superseding and malformed, since the
+    two outcomes are exclusive branches of the same resolution step.
+    """
+
+    superseded: dict[str, int] = field(default_factory=dict)
+    malformed: dict[int, str] = field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
+# OMN-18010 released-is-Done probe wirings
+#
+# The production I/O behind released_evidence.py's two Protocol probes. It lives
+# HERE, in the node service that already owns this node's subprocess and network
+# reads, rather than beside the pure evaluator: a module holding both would be a
+# freestanding hybrid, which the imperative-contract guard refuses and should.
+# --------------------------------------------------------------------------- #
+
+_DEFAULT_GIT_TIMEOUT_S: Final[float] = 120.0
+
+
+def git_release_tags_containing(
+    clone_root: Path,
+    commit_sha: str,
+    *,
+    timeout_s: float = _DEFAULT_GIT_TIMEOUT_S,
+) -> tuple[str, ...] | None:
+    """``git tag --list 'v*' --contains <sha>`` against a staged clone.
+
+    Returns the containing tag names, ``()`` when the sha is known to the clone
+    but no tag contains it, and ``None`` when the lookup could not be resolved
+    at all — a missing clone, an unknown sha (tags or objects not fetched), a
+    git failure or a timeout. The caller treats ``None`` as INDETERMINATE.
+
+    The distinction is load-bearing: a clone whose tags were never fetched
+    would otherwise report "no containing tag" and be read as
+    merged-unreleased, converting a probe failure into a finding.
+    """
+    if not clone_root.is_dir():
+        return None
+    try:
+        # Prove the object exists in this clone first. Without this an unknown
+        # sha makes ``git tag --contains`` fail, and a caller that only read
+        # stdout would see an empty list.
+        known = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(clone_root),
+                "cat-file",
+                "-e",
+                f"{commit_sha}^{{commit}}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+        )
+        if known.returncode != 0:
+            return None
+        proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(clone_root),
+                "tag",
+                "--list",
+                "v*",
+                "--contains",
+                commit_sha,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return tuple(line.strip() for line in proc.stdout.splitlines() if line.strip())
+
+
+class EvidenceCollector:
+    """Loads a ticket contract and runs dod_evidence checks.
+
+    Usage::
+
+        collector = EvidenceCollector()
+        results = collector.collect("OMN-9414")
+        # results: list[ModelEvidenceCheckResult]
+    """
+
+    def __init__(
+        self, *, must_fail_runner: ProtocolMustFailTreeRunner | None = None
+    ) -> None:
+        # OMN-20032 (GC.9): runs one changed test file against the code before
+        # the PR. None means the local runner, built on first use from this
+        # collector's own lock-exact environments.
+        self._must_fail_runner = must_fail_runner
+        # OMN-17795: the per-check ceiling is resolved per call from
+        # ``_check_timeout_s()``, not captured here. It used to be a
+        # constructor default that no caller ever passed and no operator could
+        # reach, which is why a contended host silently rewrote verdicts.
+        #
+        # OMN-17795: transient, per-check state — True only when THIS process
+        # killed the last check's subprocess at that ceiling. Set inside the
+        # ``TimeoutExpired`` handler and cleared at the top of every
+        # ``_run_command_check``, so the fact is carried by the runner that
+        # observed it rather than re-derived downstream. Mirrors the existing
+        # ``_current_evidence_item_id`` / ``_last_pr_lookup_error`` idiom.
+        #
+        # It exists precisely so the cause is never grepped out of the
+        # subprocess's own output: a check under test can print any banner it
+        # likes, and a product that forged this one would launder its own red.
+        self._last_check_budget_exceeded: bool = False
+        # OMN-16846 D1 (local path): memo of the lock-exact ephemeral
+        # environment built for each uv project root a check's ``cwd`` names.
+        # Per-run rather than module-global so one collector builds each
+        # environment at most once and nothing leaks between runs. Maps the
+        # resolved project root to ``(env_path, error)`` -- exactly one of the
+        # two is non-None, and a failure is remembered so a broken environment
+        # is not re-attempted once per check.
+        self._hermetic_uv_envs: dict[Path, tuple[Path | None, str | None]] = {}
+        # OMN-17863: the JS sibling of the memo above. Same shape, same
+        # per-run-once contract -- a project's stage is built at most once
+        # per collector, and a build FAILURE is memoised too so a second
+        # check in the same project reports the same typed non-result
+        # instead of paying the whole install budget again to fail again.
+        self._hermetic_node_envs: dict[Path, tuple[Path | None, str | None]] = {}
+        # When set (during a dev-resolved collect), an origin/dev worktree of the
+        # OCC repo. Contract-load AND the shell greps run inside it so dev-only
+        # contracts + receipts are visible (OMN-13888 scope 6).
+        self._occ_dev_root: str | None = None
+        # OMN-17816: fd of this run's SHARED lock on the OCC snapshot it is
+        # reading, released by release_occ_dev_snapshot(). None when this run
+        # is not on the shared path (fallback per-run worktree, or no OCC).
+        self._occ_snapshot_lock_fd: int | None = None
+        self._occ_governance_ref = (
+            os.environ.get("OCC_GOVERNANCE_REF", _DEFAULT_OCC_GOVERNANCE_REF).strip()
+            or _DEFAULT_OCC_GOVERNANCE_REF
+        )
+        # OMN-15382: the dod_evidence item id currently being checked, set by
+        # ``_check_evidence_item`` before it runs that item's checks. Read by
+        # ``_lookup_pr_for_ticket`` / ``_lookup_repo_for_ticket`` to recover an
+        # authoritative (owner/repo, pr_number) binding from the id when it
+        # follows the autobind naming convention, instead of guessing via an
+        # unscoped gh search. Transient, per-item state (mirrors the existing
+        # ``_occ_dev_root`` pattern) — never leaks across items or tickets.
+        self._current_evidence_item_id: str | None = None
+        # Set immediately after a failed _lookup_pr_for_ticket /
+        # _lookup_repo_for_ticket call so _resolve_command_placeholders can
+        # surface the specific fail-closed reason (PR_LOOKUP_AMBIGUOUS, etc.)
+        # instead of a generic "cannot resolve" message.
+        self._last_pr_lookup_error: str | None = None
+        self._last_repo_lookup_error: str | None = None
+        # OMN-17022: the two fields above are reset at the top of every lookup,
+        # so by the time ``collect()`` returns they say nothing about a failure
+        # that happened three items ago. This one is STICKY for the life of the
+        # collector: the first lookup failure of the run is retained so the
+        # handler can classify the whole run as UNRESOLVED with a typed cause
+        # rather than reporting it FAILED — the misclassification that made
+        # OMN-14993 (``PR_LOOKUP_FAILED``) look like a substantive red instead
+        # of the credential/resolution defect it is. First-wins, because the
+        # earliest failure is the one that determines what could not be looked
+        # at; later ones are usually its consequence.
+        self._sticky_lookup_failure_code: str | None = None
+        # OMN-17796: the GOVERNANCE-REF counterpart of the sticky code above,
+        # kept as its own field rather than folded into it because the two
+        # carry different scopes and therefore earn different handler policies.
+        # A PR/repo lookup failure is discovered PER ITEM, while checks are
+        # already running, so its arm is guarded by ``verified == 0`` to avoid
+        # stealing a real red that ran beside it. This one is resolved BEFORE
+        # the contract is loaded: if it is set, no evidence item was read at
+        # all and nothing in the run is attributable to the ref the run
+        # reports, so its arm fires unconditionally. Merging the two fields
+        # would force one guard onto both scopes and lose that distinction.
+        self._occ_ref_failure_code: str | None = None
+        # OMN-15382 (F2): set by ``_resolve_pr_bindings`` when it found NO
+        # trustworthy binding but SOME evidence the item is PR-related (a PASS
+        # receipt recording a pr_number that could not be consistently paired
+        # with a repo — see the fail-closed rewrite's module comment above
+        # that method). Read by ``_live_pr_checks_for_item`` to surface a
+        # visible SKIPPED note instead of silently omitting the live-state
+        # check. Reset per item (mirrors ``_current_evidence_item_id``).
+        self._last_binding_note: str | None = None
+        # OMN-16788: set by ``_fetch_pr_checks_green`` from the EFFECT
+        # handler's classification of WHY the required-context set was
+        # unreadable, when that reason is a credential fact (HTTP 403 on the
+        # branch-protection endpoint, or a bare HTTP 404 for a repo outside
+        # the App installation) rather than a substantive one. Read by
+        # ``_verify_live_pr``, which resets it before each fetch.
+        #
+        # A side channel rather than a wider return type because the two
+        # fetch wrappers are the documented seam a dozen existing suites
+        # monkeypatch with two-tuple stubs; a stub that never sets this
+        # attribute leaves it None and therefore keeps its pre-OMN-16788
+        # semantics exactly. Mirrors ``_last_binding_note`` above.
+        self._last_checks_unreachable_cause: EnumEvidenceUnverifiableCause | None = None
+        # OMN-15454 AC2: provenance of the OCC governance ref actually read by
+        # the most recent auto-resolved collect() call. Populated by
+        # ``collect()`` before it returns; read by ``handler_dod_verify`` to
+        # stamp ``ModelDodVerifyState``. None when collect() was called with
+        # an explicit contract_path (no OCC auto-resolution happened at all).
+        self.occ_refresh_outcome: EnumOccRefRefreshOutcome | None = None
+        self.occ_resolved_sha: str | None = None
+        # OMN-16846 D2: product-clone freshness, memoised per repository root
+        # for the lifetime of this collector. One ``git fetch`` per repo per
+        # run, not one per check — a contract with a dozen ``test_passes``
+        # entries all pointed at ``${OMNI_HOME}/omnibase_infra`` must not
+        # fetch it a dozen times.
+        self._product_clone_cache: dict[str, ModelProductCloneResolution] = {}
+        # OMN-18117: the run's frozen comparison targets, keyed by realpath'd
+        # repository root. ``None`` means "the pin file has not been read yet";
+        # an empty dict means "read, and it binds nothing here". Read once per
+        # collector — a sweep adjudicates dozens of candidates and must not
+        # re-open the file for each one.
+        self._product_clone_pins: dict[str, ModelProductClonePin] | None = None
+        # OMN-20153: what the last ticket-contract collect() derived from the
+        # contract's accepted acceptance-criteria falsifiers. None until a
+        # ticket contract has been loaded (and for a goal-scoped inline run,
+        # which has no ticket criteria), so a consumer can tell "no acceptance
+        # checks" from "never looked". Read by ``handler_dod_verify``.
+        self.acceptance_summary: ModelDodAcceptanceSummary | None = None
+
+    @property
+    def occ_governance_ref(self) -> str:
+        """The OCC governance ref this collector resolves against (e.g. ``origin/dev``)."""
+        return self._occ_governance_ref
+
+    @staticmethod
+    def _github_lookup_result(
+        output: ModelHandlerOutput[None],
+    ) -> ModelDodEvidenceGithubLookupResultEvent:
+        """Type-narrow HandlerDodEvidenceGithubEffect's single emitted event.
+
+        ``ModelHandlerOutput.events`` is ``tuple[Any, ...]`` (the generic
+        dispatch-engine shape); this handler always emits exactly one
+        ``ModelDodEvidenceGithubLookupResultEvent`` per call (OMN-14400).
+        """
+        return cast(ModelDodEvidenceGithubLookupResultEvent, output.events[0])
+
+    def collect(
+        self,
+        ticket_id: str,
+        contract_path: str | None = None,
+        execution_audience: EnumDodVerifyExecutionAudience = (
+            EnumDodVerifyExecutionAudience.HOSTED
+        ),
+    ) -> list[ModelEvidenceCheckResult]:
+        """Load contract and run all dod_evidence checks.
+
+        When no explicit ``contract_path`` is given, OCC governance is dev-first
+        (contracts and receipts land on the OCC ``dev`` branch first and are
+        batched to ``main`` later; the canonical clones track ``main``). Per the
+        OMN-13888 scope-6 decision of record, an auto-detected OCC contract is
+        ALWAYS resolved from an ``origin/dev`` worktree when that worktree can be
+        materialised and carries the contract — even when a (possibly STALE) copy
+        exists on the ``main``-tracking working tree. This closes the round-1
+        residual edge where a stale ``main`` copy was used as-is because the
+        contract was merely *present* on the working tree so the rider never
+        fired. The working tree is used only as a fallback when the contract is
+        ABSENT on dev — never when dev could not be READ. The worktree is
+        removed before returning.
+
+        OMN-16787: "could not be read" and "is not there" are different facts
+        and must not share an outcome. ``_materialize_occ_dev_worktree`` has
+        two failure classes; OMN-15454 closed only the fetch one. A failed or
+        timed-out ``git worktree add`` used to fall through to the
+        ``main``-tracking working tree while the run still stamped
+        ``occ_governance_ref: origin/dev`` — and because OCC ``dev`` runs
+        thousands of commits ahead of ``main``, a dev-only contract was then
+        invisible and the run reported ``CONTRACT_MISSING``. Both classes now
+        refuse by default, under the same named override.
+        """
+        if contract_path is not None:
+            return self._collect_impl(ticket_id, contract_path, execution_audience)
+
+        created_worktree: Path | None = None
+        try:
+            dev_root, created_worktree, refresh_outcome, resolved_sha = (
+                self._materialize_occ_dev_worktree()
+            )
+            self.occ_refresh_outcome = refresh_outcome
+            self.occ_resolved_sha = resolved_sha
+
+            # OMN-15454: fail-closed by default. A failed refresh must not
+            # silently yield an "origin/dev-resolved" verdict — the local
+            # clone content at that point is UNKNOWN freshness, and UNKNOWN
+            # must never read as fresh. The only sanctioned continuation is
+            # the named, logged override below, which marks every returned
+            # result un-attributable rather than pretending nothing happened.
+            allow_stale = os.environ.get(
+                _ALLOW_STALE_OCC_REF_ENV, ""
+            ).strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if (
+                refresh_outcome is EnumOccRefRefreshOutcome.FETCH_FAILED
+                and not allow_stale
+            ):
+                logger.error(
+                    "Refusing to resolve %s for %s: OCC ref refresh failed and "
+                    "%s is not set. Set %s=1 to proceed anyway (results will be "
+                    "marked un-attributable to a verified-fresh origin/dev).",
+                    self._occ_governance_ref,
+                    ticket_id,
+                    _ALLOW_STALE_OCC_REF_ENV,
+                    _ALLOW_STALE_OCC_REF_ENV,
+                )
+                self._occ_ref_failure_code = _OCC_REF_REFRESH_FAILED_CODE
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id="occ_ref_refresh",
+                        description=(
+                            f"OCC ref refresh failed for {self._occ_governance_ref}"
+                        ),
+                        # OMN-17796: SKIPPED, not FAILED. See the worktree
+                        # twin below for the full argument; this refusal has
+                        # the same scope and gets the same encoding.
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"{_OCC_REF_REFRESH_FAILED_CODE}: git fetch of "
+                            f"{self._occ_governance_ref} failed (after retrying "
+                            "the ref-lock race once) — the local clone's "
+                            "freshness is UNKNOWN, so this run refuses rather "
+                            f"than resolving evidence against it. Set "
+                            f"{_ALLOW_STALE_OCC_REF_ENV}=1 to override."
+                        ),
+                    )
+                ]
+
+            # OMN-16787: the second failure class, on the same terms. An OCC
+            # root WAS resolvable (a fetch was attempted, so refresh_outcome is
+            # not None) but the worktree could not be materialised — the
+            # `git worktree add` failed or, in production, timed out. Falling
+            # through here reads the `main`-tracking working tree while the
+            # run reports `occ_governance_ref: origin/dev`, which is the lie
+            # this refusal exists to stop.
+            #
+            # The `refresh_outcome is not None` guard is load-bearing: when no
+            # OCC root resolves at all no fetch is attempted, and that is a
+            # legitimate pre-existing shape (the caller's working-tree search)
+            # rather than a fault. It keeps its existing reporting.
+            worktree_unavailable = dev_root is None and refresh_outcome is not None
+            if worktree_unavailable and not allow_stale:
+                logger.error(
+                    "Refusing to resolve %s for %s: the %s worktree could not "
+                    "be materialised (git worktree add failed or timed out at "
+                    "%ss) and %s is not set. Falling back to the working tree "
+                    "would ground the verdict in a clone that tracks main.",
+                    self._occ_governance_ref,
+                    ticket_id,
+                    self._occ_governance_ref,
+                    _git_op_timeout_s(),
+                    _ALLOW_STALE_OCC_REF_ENV,
+                )
+                self._occ_ref_failure_code = _OCC_WORKTREE_UNAVAILABLE_CODE
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id="occ_worktree_unavailable",
+                        description=(
+                            "OCC worktree could not be materialised at "
+                            f"{self._occ_governance_ref}"
+                        ),
+                        # OMN-17796: SKIPPED, not FAILED — and the run-level
+                        # verdict this produces is UNRESOLVED, not FAILED.
+                        #
+                        # FAILED asserted a red about a ticket whose contract
+                        # had not been loaded when this returned. Measured
+                        # 2026-09-03: 12 of 36 runs collapsed here and every
+                        # one emitted the SAME verdict_content_sha256 across
+                        # six unrelated tickets — a verdict that does not
+                        # depend on the ticket is not a verdict about it — and
+                        # the autoclose sweep's gap sentence, whose first
+                        # branch is ``failed_count > 0``, rendered it as "1
+                        # failed — not all ACs are receipt-proven."
+                        #
+                        # This is NOT a relaxation. The entry stays in the
+                        # verdict-bearing denominator (no supersession, no
+                        # unbindable-overlay marker), so the OMN-16821
+                        # equality still fails; nothing verified, so that leg
+                        # fails too; and the handler's OCC arm sets an
+                        # error_message, which RuntimeLocal reads as an
+                        # unambiguous failure. The pre-fix record set NO
+                        # error_message at all, so the fail-closed signal is
+                        # strictly stronger now, not weaker.
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"{_OCC_WORKTREE_UNAVAILABLE_CODE}: git worktree add of "
+                            f"{self._occ_governance_ref} failed or timed out "
+                            f"(ceiling {_git_op_timeout_s()}s, override with "
+                            f"{_GIT_OP_TIMEOUT_ENV}). The only remaining "
+                            "source is the working tree, which tracks main and "
+                            "is therefore NOT the ref this run reports — so "
+                            "this run refuses instead of silently reporting "
+                            "the contract missing. Set "
+                            f"{_ALLOW_STALE_OCC_REF_ENV}=1 to proceed against "
+                            "the working tree anyway (every result is then "
+                            "marked un-attributable)."
+                        ),
+                    )
+                ]
+
+            if dev_root is not None:
+                dev_candidate = Path(dev_root) / "contracts" / f"{ticket_id}.yaml"
+                if dev_candidate.exists():
+                    # dev is authoritative — prefer it over any working-tree copy.
+                    self._occ_dev_root = dev_root
+                    logger.info(
+                        "Resolved OCC contract for %s from %s worktree at %s "
+                        "(dev-first, overrides any main working-tree copy; "
+                        "refresh=%s, resolved_sha=%s)",
+                        ticket_id,
+                        self._occ_governance_ref,
+                        dev_root,
+                        refresh_outcome.value if refresh_outcome else None,
+                        resolved_sha,
+                    )
+                elif self._find_contract(ticket_id) is None:
+                    logger.info(
+                        "Contract %s absent on %s and on the working tree; "
+                        "collect will report it missing",
+                        ticket_id,
+                        self._occ_governance_ref,
+                    )
+            results = self._collect_impl(ticket_id, contract_path, execution_audience)
+            if refresh_outcome is EnumOccRefRefreshOutcome.FETCH_FAILED:
+                # allow_stale is True here (the refusal branch above already
+                # returned otherwise). Disclosed, not buried: every result
+                # this run produced is marked un-attributable, plus a
+                # standalone item names the override explicitly.
+                results = [
+                    result.model_copy(
+                        update={
+                            "message": (
+                                f"{result.message or ''} "
+                                "[OMN-15454: UNATTRIBUTABLE — OCC ref refresh "
+                                f"failed; {_ALLOW_STALE_OCC_REF_ENV} override "
+                                "active, verdict not grounded in a verified-"
+                                "fresh origin/dev]"
+                            ).strip()
+                        }
+                    )
+                    for result in results
+                ]
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id="occ_ref_refresh_override",
+                        description="OCC ref refresh failure — override active",
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"{_ALLOW_STALE_OCC_REF_ENV} was set; every check "
+                            "result above is un-attributable to a verified-"
+                            f"fresh {self._occ_governance_ref}."
+                        ),
+                    )
+                )
+            elif worktree_unavailable:
+                # OMN-16787, same disclosure contract as the fetch-failure
+                # override above: proceeding is allowed, pretending is not.
+                # These results came from the working tree, which tracks main.
+                results = [
+                    result.model_copy(
+                        update={
+                            "message": (
+                                f"{result.message or ''} "
+                                "[OMN-16787: UNATTRIBUTABLE — the "
+                                f"{self._occ_governance_ref} worktree could "
+                                "not be materialised; "
+                                f"{_ALLOW_STALE_OCC_REF_ENV} override active, "
+                                "this result was read from the working tree, "
+                                "which tracks main]"
+                            ).strip()
+                        }
+                    )
+                    for result in results
+                ]
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id="occ_worktree_unavailable_override",
+                        description=(
+                            "OCC worktree materialisation failure — override active"
+                        ),
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"{_ALLOW_STALE_OCC_REF_ENV} was set; every check "
+                            "result above was resolved from the working tree, "
+                            f"not from {self._occ_governance_ref}."
+                        ),
+                    )
+                )
+            return results
+        finally:
+            self._occ_dev_root = None
+            # OMN-17816: drop the reader lock BEFORE the per-run teardown, so a
+            # shared snapshot becomes reapable the moment this run stops using
+            # it. The two are exclusive — a run is either on the shared path
+            # (created_worktree None) or the per-run one (lock fd None).
+            self.release_occ_dev_snapshot()
+            if created_worktree is not None:
+                self._remove_occ_dev_worktree(created_worktree)
+
+    def _resolve_occ_root(self) -> Path | None:
+        """Return the OCC repo root from the environment, or None."""
+        cc_repo_path = os.environ.get("ONEX_CC_REPO_PATH", "").strip()
+        if cc_repo_path and Path(cc_repo_path).is_dir():
+            return Path(cc_repo_path)
+        omni_home = os.environ.get("OMNI_HOME", "").strip()
+        if omni_home:
+            occ = Path(omni_home) / "onex_change_control"
+            if occ.is_dir():
+                return occ
+        return None
+
+    def _materialize_occ_dev_worktree(
+        self,
+    ) -> tuple[str | None, Path | None, EnumOccRefRefreshOutcome | None, str | None]:
+        """Add a detached worktree of the OCC repo at ``self._occ_governance_ref``.
+
+        Returns ``(worktree_path_str, worktree_path, refresh_outcome,
+        resolved_sha)``. ``refresh_outcome`` is ``None`` only when no fetch
+        was even attempted — no OCC root resolvable at all (a legitimate,
+        pre-existing case: the caller falls back to the working-tree contract
+        search) — never as a stand-in for a failed attempt; a real attempt
+        always yields ``FETCHED`` / ``FETCH_FAILED`` / ``NOT_APPLICABLE``. The
+        first two return values are ``(None, None)`` when the worktree could
+        not be materialised at all (the ``git worktree add`` itself
+        failed/timed out) — a different failure class from a refresh outcome
+        of ``FETCH_FAILED``, where the worktree DOES materialise, just against
+        whatever the local remote-tracking ref already had. ``resolved_sha``
+        is the worktree HEAD's 40-char commit SHA (OMN-15454 AC2 provenance)
+        when a worktree was created, else ``None``. The worktree is placed
+        under ``OMNI_HOME`` (when set) so relative ``file_exists`` checks stay
+        inside the containment boundary.
+        """
+        occ = self._resolve_occ_root()
+        if occ is None:
+            return None, None, None, None
+        # Refresh the remote-tracking ref first so a long-lived OMNI_HOME clone
+        # does not materialise a STALE origin/dev and miss the very contract this
+        # rider exists to pick up (CodeRabbit — Data Integrity). The outcome is
+        # now consumed by the caller (OMN-15454) rather than discarded — a
+        # failed refresh no longer silently grounds a verdict in the local
+        # clone as if it were fresh.
+        refresh_outcome = self._refresh_occ_ref(occ)
+        omni_home = os.environ.get("OMNI_HOME", "").strip()
+        parent = Path(omni_home) if omni_home and Path(omni_home).is_dir() else None
+
+        # OMN-17816: prefer ONE snapshot shared by every run at this SHA over a
+        # private full checkout per run. Falls through to the per-run path below
+        # whenever the SHA cannot be resolved or the shared snapshot cannot be
+        # built — the fallback is the pre-existing behaviour, unchanged, so this
+        # can only ever add a way to succeed, never a new way to fail.
+        target_sha = self._resolve_governance_ref_sha(occ)
+        if parent is not None and target_sha is not None:
+            shared = self._materialize_shared_occ_snapshot(occ, parent, target_sha)
+            if shared is not None:
+                # created_worktree is deliberately None: a SHARED snapshot must
+                # outlive the run that happened to build it. collect()'s
+                # `finally` removes created_worktree when non-None, which would
+                # delete the tree a concurrent run is still reading.
+                return str(shared), None, refresh_outcome, target_sha
+
+        try:
+            tmp = Path(tempfile.mkdtemp(prefix=".occ-dev-wt-", dir=parent))
+        except OSError:
+            return None, None, refresh_outcome, None
+        try:
+            proc = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(occ),
+                    "worktree",
+                    "add",
+                    "--detach",
+                    "--force",
+                    str(tmp),
+                    self._occ_governance_ref,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "Timed out materialising %s worktree of OCC after %ss",
+                self._occ_governance_ref,
+                _git_op_timeout_s(),
+            )
+            self._cleanup_failed_occ_worktree_add(occ, tmp)
+            return None, None, refresh_outcome, None
+        if proc.returncode != 0:
+            logger.warning(
+                "Could not materialise %s worktree of OCC: %s",
+                self._occ_governance_ref,
+                proc.stderr.strip(),
+            )
+            self._cleanup_failed_occ_worktree_add(occ, tmp)
+            return None, None, refresh_outcome, None
+        resolved_sha = self._resolve_worktree_head_sha(tmp)
+        return str(tmp), tmp, refresh_outcome, resolved_sha
+
+    def _resolve_governance_ref_sha(self, occ: Path) -> str | None:
+        """Return the 40-char commit the governance ref points at, or None.
+
+        OMN-17816. This is the shared snapshot's key. It is resolved from the
+        clone's ref database (cheap, no checkout) BEFORE any tree is written,
+        which is what makes "has someone already checked this out?" answerable
+        at all — the old code only learned the SHA after paying for the
+        checkout, so it could never reuse one.
+
+        ``None`` on any failure. Every caller treats that as "no shared
+        snapshot" and falls back to the per-run path, so an unresolvable ref
+        cannot turn into a wrong answer here — it turns into the pre-existing
+        behaviour, which then fails closed on its own terms.
+        """
+        try:
+            proc = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(occ),
+                    "rev-parse",
+                    f"{self._occ_governance_ref}^{{commit}}",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        if proc.returncode != 0:
+            return None
+        sha = proc.stdout.strip()
+        return sha if len(sha) == 40 and _SHA_RE.fullmatch(sha) else None
+
+    def _shared_snapshot_path(self, parent: Path, sha: str) -> Path:
+        """Where the snapshot for ``sha`` lives.
+
+        Keeps the ``.occ-dev-wt-`` prefix deliberately. That prefix is already
+        carried by the ``omni_home`` ``.gitignore`` rule ``.occ-dev-wt-*/``
+        (OMN-16826 AC(a)) and by the hygiene tooling built around it; a new
+        prefix would silently reintroduce the untracked-debris problem that
+        ticket closed.
+        """
+        return parent / f"{_SHARED_SNAPSHOT_PREFIX}{sha[:12]}"
+
+    def _snapshot_lock_path(self, occ: Path, name: str) -> Path | None:
+        """Return the path of lock file ``name`` for clone ``occ``, or None.
+
+        ``None`` when the lock directory cannot be created, which puts the
+        caller back on the unchanged per-run path rather than proceeding
+        unsynchronised — an unlocked shared snapshot is worse than no shared
+        snapshot, because two runs could then check out into the same directory
+        at once.
+        """
+        lock_dir = occ / ".git" / _SNAPSHOT_LOCK_DIR
+        try:
+            lock_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return None
+        return lock_dir / name
+
+    def _open_snapshot_lock(
+        self, path: Path, exclusive: bool, blocking: bool
+    ) -> int | None:
+        """Acquire an ``fcntl`` advisory lock on ``path``; return the fd or None.
+
+        Advisory ``fcntl`` locks are the right primitive here for two reasons
+        the alternatives fail on:
+
+        * they are released by the KERNEL when the holder dies, so a run killed
+          mid-checkout (the exact failure this ticket is about — the 300 s
+          ceiling tripping under load) cannot wedge the next run. A
+          "does the lock file exist?" scheme would wedge permanently after one
+          ``kill -9``;
+        * macOS ships no ``flock(1)`` binary (memory
+          ``reference_macos_no_flock_use_fcntl_shim``), so the lock has to be
+          taken in-process rather than shelled out to.
+
+        The lock FILE is never deleted — deleting it would let two processes
+        hold locks on two different inodes for the same logical resource.
+        """
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
+        except OSError:
+            return None
+        flags = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+        if not blocking:
+            flags |= fcntl.LOCK_NB
+        try:
+            fcntl.flock(fd, flags)
+        except OSError:
+            os.close(fd)
+            return None
+        return fd
+
+    def release_occ_dev_snapshot(self) -> None:
+        """Drop this run's reader lock on the shared snapshot.
+
+        Public because ``collect()``'s ``finally`` is not the only caller — the
+        node's own teardown and the tests both need it, and a reader that never
+        releases would block every future prune of that snapshot forever.
+
+        Idempotent: calling it twice, or with no lock held, is a no-op.
+        """
+        fd = self._occ_snapshot_lock_fd
+        self._occ_snapshot_lock_fd = None
+        if fd is None:
+            return
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        with contextlib.suppress(OSError):
+            os.close(fd)
+
+    def _snapshot_is_usable(self, snapshot: Path, sha: str) -> bool:
+        """True only if ``snapshot`` is a real worktree checked out at ``sha``.
+
+        All three conditions matter. A directory alone is the shape a killed
+        checkout leaves (OMN-16826 measured 27 of those holding only
+        ``drift/``); a ``.git`` file alone does not prove WHICH commit is in the
+        tree. Handing back a half-written or wrong-SHA tree would be worse than
+        rebuilding it, because the run would report ``origin/dev`` provenance
+        for content that is not ``origin/dev``.
+        """
+        if not snapshot.is_dir() or not (snapshot / ".git").exists():
+            return False
+        return self._resolve_worktree_head_sha(snapshot) == sha
+
+    def _materialize_shared_occ_snapshot(
+        self, occ: Path, parent: Path, sha: str
+    ) -> Path | None:
+        """Return a snapshot of ``sha`` shared with every concurrent run, or None.
+
+        On success this run holds a SHARED (reader) lock on the snapshot, which
+        it keeps until ``release_occ_dev_snapshot``. That lock is what makes the
+        supersession prune safe: a snapshot with a live reader cannot be
+        acquired exclusively, so it is left alone rather than deleted out from
+        under a running verification.
+
+        Returns ``None`` on any failure, which puts the caller back on the
+        unchanged per-run path. Nothing here can produce a *stale* tree: the SHA
+        is part of the path AND re-verified against the checked-out HEAD.
+        """
+        snapshot = self._shared_snapshot_path(parent, sha)
+
+        reader_lock = self._snapshot_lock_path(
+            occ, f"{snapshot.name}{_SNAPSHOT_LOCK_SUFFIX}"
+        )
+        build_lock = self._snapshot_lock_path(occ, _SNAPSHOT_BUILD_LOCK_NAME)
+        if reader_lock is None or build_lock is None:
+            return None
+
+        # Fast path: already built by someone else. Take the reader lock FIRST,
+        # then validate — validating first would race a concurrent prune.
+        reader_fd = self._open_snapshot_lock(
+            reader_lock, exclusive=False, blocking=True
+        )
+        if reader_fd is not None and self._snapshot_is_usable(snapshot, sha):
+            self._occ_snapshot_lock_fd = reader_fd
+            return snapshot
+        if reader_fd is not None:
+            with contextlib.suppress(OSError):
+                fcntl.flock(reader_fd, fcntl.LOCK_UN)
+                os.close(reader_fd)
+
+        # Slow path: build it. ONE process at a time, host-wide, so N concurrent
+        # runs pay for ONE 32k-file checkout instead of N.
+        build_fd = self._open_snapshot_lock(build_lock, exclusive=True, blocking=True)
+        if build_fd is None:
+            return None
+        try:
+            # Re-check under the lock: whoever held it before us may have built
+            # exactly what we need while we waited.
+            if not self._snapshot_is_usable(snapshot, sha):
+                self._prune_superseded_snapshots(occ, parent, keep=snapshot)
+                if snapshot.exists():
+                    # A half-written tree from a killed run. Clear the
+                    # registration too, via the OMN-16826 unlock-first path —
+                    # a bare prune is a silent no-op on a locked entry.
+                    self._cleanup_failed_occ_worktree_add(occ, snapshot)
+                if not self._add_occ_worktree(occ, snapshot, sha):
+                    return None
+                if not self._snapshot_is_usable(snapshot, sha):
+                    self._cleanup_failed_occ_worktree_add(occ, snapshot)
+                    return None
+        finally:
+            with contextlib.suppress(OSError):
+                fcntl.flock(build_fd, fcntl.LOCK_UN)
+                os.close(build_fd)
+
+        reader_fd = self._open_snapshot_lock(
+            reader_lock, exclusive=False, blocking=True
+        )
+        if reader_fd is None:
+            return None
+        self._occ_snapshot_lock_fd = reader_fd
+        return snapshot
+
+    def _add_occ_worktree(self, occ: Path, target: Path, ref: str) -> bool:
+        """Run one ``git worktree add --detach`` into ``target``. True on success.
+
+        Failure and timeout both route through the OMN-16826 cleanup, so a trip
+        of the ceiling leaves neither a directory nor a locked registration —
+        which is what let the registry reach 292 entries before this ticket.
+        """
+        try:
+            proc = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(occ),
+                    "worktree",
+                    "add",
+                    "--detach",
+                    "--force",
+                    str(target),
+                    ref,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "Timed out materialising the shared OCC snapshot at %s after %ss",
+                target,
+                _git_op_timeout_s(),
+            )
+            self._cleanup_failed_occ_worktree_add(occ, target)
+            return False
+        if proc.returncode != 0:
+            logger.warning(
+                "Could not materialise the shared OCC snapshot at %s: %s",
+                target,
+                proc.stderr.strip(),
+            )
+            self._cleanup_failed_occ_worktree_add(occ, target)
+            return False
+        return True
+
+    def _prune_superseded_snapshots(self, occ: Path, parent: Path, keep: Path) -> None:
+        """Remove shared snapshots for SHAs that are no longer current.
+
+        Without this the registry would still grow — one entry per distinct dev
+        SHA instead of one per run. Slower, same shape of leak.
+
+        A snapshot is removed ONLY if its reader lock can be taken exclusively
+        without blocking. That is the whole safety argument: a run that started
+        at the previous SHA still holds a shared lock, so its tree survives and
+        is reaped by a later pass once it finishes. Best-effort throughout —
+        this is housekeeping on the way to the real work and must never raise
+        over it.
+        """
+        try:
+            candidates = list(parent.glob(f"{_SHARED_SNAPSHOT_PREFIX}*"))
+        except OSError:
+            return
+        for candidate in candidates:
+            if candidate == keep or not candidate.is_dir():
+                continue
+            lock_path = self._snapshot_lock_path(
+                occ, f"{candidate.name}{_SNAPSHOT_LOCK_SUFFIX}"
+            )
+            if lock_path is None:
+                continue
+            fd = self._open_snapshot_lock(lock_path, exclusive=True, blocking=False)
+            if fd is None:
+                logger.info(
+                    "Leaving superseded OCC snapshot %s in place: still in use",
+                    candidate,
+                )
+                continue
+            try:
+                self._remove_occ_dev_worktree(candidate)
+            finally:
+                with contextlib.suppress(OSError):
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                    os.close(fd)
+
+    def _resolve_worktree_head_sha(self, worktree: Path) -> str | None:
+        """Return the 40-char commit SHA the worktree actually checked out.
+
+        OMN-15454 AC2: "attribution must name what was actually read, not
+        what was intended." Best-effort — a failure here does not roll back
+        the worktree add; it only means provenance is unavailable, which the
+        caller surfaces as ``None`` rather than fabricating a value.
+        """
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(worktree), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            return None
+        if proc.returncode != 0:
+            return None
+        sha = proc.stdout.strip()
+        return sha or None
+
+    def _run_occ_fetch(
+        self, occ: Path, remote: str, branch: str
+    ) -> tuple[EnumOccRefRefreshOutcome, str]:
+        """Run one ``git fetch`` attempt. Pure I/O helper, no retry logic."""
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(occ), "fetch", "--quiet", remote, branch],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            return EnumOccRefRefreshOutcome.FETCH_FAILED, "timed out"
+        if proc.returncode == 0:
+            return EnumOccRefRefreshOutcome.FETCHED, ""
+        return EnumOccRefRefreshOutcome.FETCH_FAILED, proc.stderr.strip()
+
+    def _refresh_occ_ref(self, occ: Path) -> EnumOccRefRefreshOutcome:
+        """``git fetch`` the OCC governance ref's remote branch — typed outcome.
+
+        OMN-15454: previously logged a failure at ``logger.info`` and returned
+        ``None`` unconditionally, which every caller discarded — the worktree
+        add proceeded against the local clone regardless, while ``collect()``
+        still logged that the run resolved "dev-first". Callers now consume
+        this typed outcome and decide explicitly rather than continuing on a
+        swallowed failure.
+
+        Only fires for a ``<remote>/<branch>`` ref (e.g. ``origin/dev``); a bare
+        local-branch ref (test override, AC4) has no remote and is
+        ``NOT_APPLICABLE`` — that path is unchanged.
+
+        The specific ``cannot lock ref ... is at X but expected Y`` race
+        (fix-item 4) is a symptom of concurrent mutation of the SAME OCC
+        clone — the *normal* state of this repo while the merge controller
+        runs, i.e. precisely when a Done-flip is attempted — and is retried
+        once. Any other failure (offline, no remote) is not retried; a second
+        attempt cannot fix those.
+        """
+        ref = self._occ_governance_ref
+        if "/" not in ref:
+            return EnumOccRefRefreshOutcome.NOT_APPLICABLE
+        remote, branch = ref.split("/", 1)
+        outcome, stderr = self._run_occ_fetch(occ, remote, branch)
+        if outcome is EnumOccRefRefreshOutcome.FETCHED:
+            return outcome
+        if _REF_LOCK_ERROR_MARKER in stderr:
+            logger.info(
+                "OCC ref refresh (git fetch %s %s) hit a ref-lock race; "
+                "retrying once: %s",
+                remote,
+                branch,
+                stderr,
+            )
+            outcome, stderr = self._run_occ_fetch(occ, remote, branch)
+            if outcome is EnumOccRefRefreshOutcome.FETCHED:
+                return outcome
+        logger.warning(
+            "OCC ref refresh (git fetch %s %s) failed: %s",
+            remote,
+            branch,
+            stderr,
+        )
+        return EnumOccRefRefreshOutcome.FETCH_FAILED
+
+    def _remove_occ_dev_worktree(self, worktree: Path) -> None:
+        occ = self._resolve_occ_root()
+        if occ is not None:
+            try:
+                proc = subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(occ),
+                        "worktree",
+                        "remove",
+                        "--force",
+                        str(worktree),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=_git_op_timeout_s(),
+                )
+            except subprocess.TimeoutExpired:
+                logger.warning(
+                    "Timed out removing OCC worktree %s after %ss",
+                    worktree,
+                    _git_op_timeout_s(),
+                )
+                proc = None
+            # A failed/timed-out `worktree remove` leaves a stale registration
+            # under .git/worktrees/ even after rmtree deletes the directory;
+            # clear it so the shared OCC clone does not accumulate dead entries
+            # (CodeRabbit — Stability).
+            #
+            # OMN-16826: this used to fall back to a bare `worktree prune`, which
+            # is a SILENT NO-OP on a locked entry — and `worktree remove` refuses
+            # a locked worktree even with `--force`, so the commonest way to
+            # reach this branch was precisely the case the fallback could not
+            # fix. Routed through the shared cleanup, which unlocks first.
+            if proc is None or proc.returncode != 0:
+                if proc is not None:
+                    logger.warning(
+                        "git worktree remove failed for %s: %s; unlocking + pruning "
+                        "registration",
+                        worktree,
+                        proc.stderr.strip(),
+                    )
+                self._cleanup_failed_occ_worktree_add(occ, worktree)
+                return
+        shutil.rmtree(worktree, ignore_errors=True)
+
+    def _cleanup_failed_occ_worktree_add(self, occ: Path, worktree: Path) -> None:
+        """Clear the debris a failed or aborted ``git worktree add`` leaves.
+
+        OMN-16826 AC(b). ``git worktree add`` holds a ``locked`` marker with the
+        reason ``initializing`` for the duration of the checkout and releases it
+        on success. A killed or failed add leaves that lock set, and a locked
+        registration is unreachable by every reaping command:
+
+        * ``git worktree prune`` **skips locked entries silently** — it exits 0
+          having done nothing, which is why 414 registrations accumulated behind
+          a command that looked like it worked;
+        * ``git worktree remove`` refuses, because a half-initialised directory
+          with no ``.git`` file is not a valid worktree.
+
+        Deleting the directory alone (what both failure paths did before) is
+        therefore the worst option: it destroys the only evidence of what the
+        registration pointed at while leaving the registration itself immortal.
+
+        Order is load-bearing. ``unlock`` resolves its argument against the
+        registered path, so it must run BEFORE the directory is removed; ``prune``
+        only reaps registrations whose directory is already gone, so it must run
+        after. Every step is best-effort: this is cleanup on an error path and
+        must never raise over the failure that brought us here.
+        """
+        self._run_git_best_effort(occ, "worktree", "unlock", str(worktree))
+        shutil.rmtree(worktree, ignore_errors=True)
+        self._prune_occ_worktrees(occ)
+
+    def _run_git_best_effort(self, occ: Path, *args: str) -> None:
+        """Run one git command against ``occ``, swallowing failure and timeout.
+
+        Used only by cleanup paths, where a non-zero exit is an ordinary outcome
+        (``worktree unlock`` on an entry that was never locked, or that git can
+        no longer resolve) rather than something a caller can act on.
+        """
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(occ), *args],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning("Timed out running `git %s` under %s", " ".join(args), occ)
+            return
+        if proc.returncode != 0:
+            logger.debug(
+                "`git %s` under %s exited %s: %s",
+                " ".join(args),
+                occ,
+                proc.returncode,
+                proc.stderr.strip(),
+            )
+
+    def _prune_occ_worktrees(self, occ: Path) -> None:
+        """Best-effort ``git worktree prune`` to clear stale registrations."""
+        self._run_git_best_effort(occ, "worktree", "prune")
+
+    def _collect_impl(
+        self,
+        ticket_id: str,
+        contract_path: str | None = None,
+        execution_audience: EnumDodVerifyExecutionAudience = (
+            EnumDodVerifyExecutionAudience.HOSTED
+        ),
+        inline_items: tuple[ModelContractDodItem, ...] | None = None,
+        goal_id: UUID | None = None,
+        contract_schema_version: str | None = None,
+    ) -> list[ModelEvidenceCheckResult]:
+        """Load contract and run all dod_evidence checks (worktree-agnostic core).
+
+        Args:
+            ticket_id: Linear ticket ID (e.g. OMN-1234).
+            contract_path: Explicit path to contract YAML. If None, auto-detect.
+
+        Returns:
+            One ModelEvidenceCheckResult per dod_evidence item.
+        """
+        self.acceptance_summary = None
+        raw: dict[str, Any] | None
+        if inline_items is not None:
+            path = None
+            raw = {
+                "ticket_id": ticket_id,
+                "dod_evidence": [item.model_dump(mode="json") for item in inline_items],
+            }
+        elif contract_path is not None:
+            path = Path(contract_path)
+            if not path.exists():
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id="contract",
+                        description=f"Contract file not found: {contract_path}",
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=f"File does not exist: {contract_path}",
+                    )
+                ]
+            raw = self._load_yaml(path)
+        else:
+            found = self._find_contract(ticket_id)
+            if found is None:
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id="contract",
+                        description=f"No contract found for {ticket_id}",
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"Searched: {_DEFAULT_CONTRACT_ROOTS}. "
+                            "Provide --contract-path or generate a contract."
+                        ),
+                    )
+                ]
+            path = found
+            raw = self._load_yaml(path)
+        if raw is None:
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id="contract",
+                    description=f"Failed to parse contract: {path}",
+                    status=EnumEvidenceCheckStatus.FAILED,
+                    message=f"YAML parse error in {path}",
+                )
+            ]
+
+        # Validate contract belongs to the requested ticket
+        contract_ticket_id = raw.get("ticket_id")
+        if contract_ticket_id != ticket_id:
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id="contract",
+                    description=f"Contract ticket mismatch: {path}",
+                    status=EnumEvidenceCheckStatus.FAILED,
+                    message=(
+                        f"Expected ticket_id {ticket_id!r}, "
+                        f"found {contract_ticket_id!r}."
+                    ),
+                )
+            ]
+
+        dod_items = raw.get("dod_evidence", [])
+        if not isinstance(dod_items, list):
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id="contract",
+                    description=f"Invalid dod_evidence structure in contract: {path}",
+                    status=EnumEvidenceCheckStatus.FAILED,
+                    message="dod_evidence must be a list of mappings.",
+                )
+            ]
+        if not dod_items:
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id="contract",
+                    description=f"No dod_evidence entries in contract: {path}",
+                    status=EnumEvidenceCheckStatus.SKIPPED,
+                    message="Contract has empty or missing dod_evidence[] section.",
+                )
+            ]
+
+        # OMN-20153: the author's own accepted falsifiers become evidence items
+        # here, before audiences are validated and before anything executes, so
+        # they run through the ordinary item path and a failing or zero-test
+        # falsifier is a FAILED item in the verdict rather than a sentence in a
+        # ticket. A goal-scoped inline run has no ticket criteria and derives
+        # nothing.
+        if inline_items is None:
+            derived_items, self.acceptance_summary = derive_falsifier_items(
+                raw,
+                dod_items,
+                repo_candidates=self._contract_repo_dirs(dod_items),
+                path_exists=self._product_path_exists,
+            )
+            dod_items = [*dod_items, *derived_items]
+        else:
+            self.acceptance_summary = None
+
+        # OMN-15443: validate the complete contract's execution audience before
+        # resolving supersessions or running ANY declared/local-GitHub effect.
+        # A later malformed item must not allow an earlier valid sibling to run.
+        # OMN-19428: the OCC tree the contract came from owns every item field
+        # the core model does not; see ``occ_dod_item_fields``.
+        contract_repo_dir = self._resolve_contract_repo_dir(path)
+        audience_failures = self._validate_evidence_audiences(
+            dod_items,
+            Path(contract_repo_dir) if contract_repo_dir else None,
+        )
+        if audience_failures:
+            return audience_failures
+
+        supersession = self._resolve_supersessions(dod_items)
+
+        # OMN-15390 (remediation): resolving the markers only says which EDGES
+        # are well-formed. Whether an edge actually RETIRES its target is a
+        # second, stricter question — it depends on the superseding item's own
+        # executed verdict, which is not known until that item runs. Hence two
+        # phases: run every item that is not a supersession target, then let
+        # each target's terminal superseder decide whether the target is
+        # retired or executed normally. See ``_supersession_is_in_effect``.
+        target_ids = set(supersession.superseded)
+        id_at: dict[int, str | None] = {
+            index: (
+                item.get("id")
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+                else None
+            )
+            for index, item in enumerate(dod_items)
+        }
+
+        # OMN-15390 (residual R2): an entry the receipt cannot REPRESENT must
+        # fail closed with a verdict, never abort the run. ``evidence_id`` is
+        # typed ``str`` on ``ModelEvidenceCheckResult``, so a contract carrying
+        # ``id: 7`` or ``id: null`` (or a ``dod_evidence`` element that is not a
+        # mapping at all) raised an unhandled ``pydantic.ValidationError`` /
+        # ``AttributeError`` straight out of ``collect()``: the process died and
+        # NO receipt was written at all, on the only sanctioned Done-flip path.
+        # No receipt is strictly worse than a FAIL receipt — nothing downstream
+        # can even see that the contract was rejected. Rejected rather than
+        # coerced to a positional label: the ``id`` is what binds an entry to
+        # its evidence, so silently renaming a schema-invalid entry would let a
+        # malformed contract keep producing PASS receipts.
+        unrepresentable: dict[int, str] = {}
+        for index, item in enumerate(dod_items):
+            if not isinstance(item, dict):
+                unrepresentable[index] = (
+                    f"MALFORMED_EVIDENCE_ITEM: dod_evidence[{index}] is "
+                    f"{type(item).__name__}, not a mapping. Every dod_evidence "
+                    "entry must be a mapping with an 'id' and 'checks'. The "
+                    "entry was not executed and cannot pass."
+                )
+                continue
+            if "id" in item and not isinstance(item["id"], str):
+                unrepresentable[index] = (
+                    f"MALFORMED_EVIDENCE_ID: dod_evidence[{index}] declares "
+                    f"id={item['id']!r} ({type(item['id']).__name__}), but a "
+                    "dod_evidence id must be a string. The entry was not "
+                    "executed and cannot pass. Fix the contract."
+                )
+
+        # Phase 1 — execute everything that is neither malformed nor a target.
+        executed: dict[int, list[ModelEvidenceCheckResult]] = {}
+        for index, item in enumerate(dod_items):
+            if index in supersession.malformed or index in unrepresentable:
+                continue
+            if (id_at[index] or None) in target_ids:
+                continue
+            executed[index] = self._execute_item(
+                item,
+                ticket_id,
+                path,
+                index,
+                execution_audience,
+                goal_id,
+                contract_schema_version,
+            )
+
+        # Phase 2 — an edge takes effect only if the item that ultimately
+        # carries the verdict proved something in its own right.
+        in_effect: dict[str, int] = {}
+        for target_id in supersession.superseded:
+            carrier = self._terminal_superseder(
+                target_id, supersession.superseded, id_at
+            )
+            if self._supersession_is_in_effect(executed.get(carrier)):
+                in_effect[target_id] = carrier
+
+        # Phase 3 — emit one result group per item, in declaration order.
+        results: list[ModelEvidenceCheckResult] = []
+        for index, item in enumerate(dod_items):
+            item_id = item.get("id") if isinstance(item, dict) else None
+            item_id_str = item_id if isinstance(item_id, str) and item_id else None
+            description = (
+                str(item.get("description", item_id_str or "unknown"))
+                if isinstance(item, dict)
+                else "unknown"
+            )
+
+            # OMN-15390 (residual R2): an entry whose id the receipt cannot
+            # represent is reported against its POSITION and never executed.
+            # Checked ahead of the marker diagnostics because it is the more
+            # fundamental defect; a marker fault on the same entry is appended
+            # so neither is lost.
+            unrepresentable_reason = unrepresentable.get(index)
+            if unrepresentable_reason is not None:
+                also = supersession.malformed.get(index)
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=f"dod_evidence[{index}]",
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=(
+                            f"{unrepresentable_reason} {also}"
+                            if also is not None
+                            else unrepresentable_reason
+                        ),
+                    )
+                )
+                continue
+
+            # OMN-15708: an item's OWN retirement (is it validly superseded by
+            # a LATER, verified item?) is checked BEFORE its own marker's
+            # validity. A malformed marker on THIS item (dangling/forward/
+            # self-referential — see below) only matters if this item is not
+            # itself retired: an item that some other, well-formed, verified
+            # marker successfully supersedes is SUPERSEDED regardless of
+            # whether ITS OWN outbound marker (if any) was well-formed. Before
+            # this reorder, an item carrying a malformed outbound marker (e.g.
+            # OMN-15374's OCC#6080 comma-joined
+            # ``supersedes_dod_evidence:<a>,<b>,<c>``, which resolves to one
+            # nonexistent target id -> DANGLING_SUPERSESSION) hard-FAILED
+            # unconditionally even when a LATER, separate, single-id marker
+            # (OCC#6084) validly targeted and retired it — no append-only
+            # repair could ever reach the now-unreachable retirement branch
+            # below. The marker parser itself is unchanged: a comma-joined
+            # marker still resolves to a single bogus id and a NON-superseded
+            # carrier still hard-fails via the malformed-reason branch further
+            # down — only the carrying item's OWN retirement path changed.
+            carrier_index = (
+                in_effect.get(item_id_str) if item_id_str is not None else None
+            )
+            if carrier_index is not None:
+                # OMN-15382: an item a LATER, VERIFIED item in this contract
+                # supersedes is not executed and gets no ::pr-live-state check
+                # — its checks are preserved for audit while the superseding
+                # item's checks carry the verdict.
+                #
+                # OMN-15708: a retirement is never a QUIET skip of this item's
+                # OWN marker defect (the property the pre-15708 ordering
+                # protected). If this item's own outbound marker was ALSO
+                # malformed, that fact is folded into the SUPERSEDED message
+                # rather than dropped — the item is still legitimately
+                # retired (its own marker's validity is irrelevant to whether
+                # SOMETHING ELSE validly retires it), but the audit trail
+                # keeps naming the defect instead of erasing it.
+                own_marker_defect = supersession.malformed.get(index)
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=item_id_str,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.SUPERSEDED,
+                        message=(
+                            f"SUPERSEDED by "
+                            f"{self._carrier_label(carrier_index, id_at)!r} "
+                            f"(evidence_artifact: "
+                            f"'{_SUPERSEDES_DOD_EVIDENCE_PREFIX}{item_id_str}'); "
+                            "not re-executed — preserved for audit."
+                            + (
+                                f" NOTE: this item's own outbound "
+                                f"evidence_artifact marker was ALSO malformed "
+                                f"({own_marker_defect}) — irrelevant to this "
+                                "retirement (a marker's validity does not "
+                                "affect whether the item carrying it can "
+                                "itself be superseded), recorded so the "
+                                "defect is not silently dropped."
+                                if own_marker_defect is not None
+                                else ""
+                            )
+                        ),
+                    )
+                )
+                continue
+
+            # OMN-15382: a malformed marker (dangling, forward, or
+            # self-referential target) hard-fails the ITEM CARRYING the marker
+            # — it is neither executed nor treated as a clean supersession.
+            # Keyed by INDEX (OMN-15390 remediation) so a marker on an item
+            # with a missing/empty/non-string ``id`` is still reported rather
+            # than silently dropped. Reached only when this item is NOT itself
+            # validly superseded (see OMN-15708 comment above).
+            malformed_reason = supersession.malformed.get(index)
+            if malformed_reason is not None:
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=item_id_str or f"dod_evidence[{index}]",
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=malformed_reason,
+                    )
+                )
+                continue
+
+            group = executed.get(index)
+            if group is None:
+                # A declared target whose supersession did NOT take effect:
+                # execute it now so its own verdict stands, and say loudly why
+                # the marker did not retire it (OMN-15390 remediation — the
+                # anti-laundering rule). Never a silent pass.
+                group = self._execute_item(
+                    item,
+                    ticket_id,
+                    path,
+                    index,
+                    execution_audience,
+                    goal_id,
+                    contract_schema_version,
+                )
+                if group:
+                    carrier = self._terminal_superseder(
+                        item_id_str or "", supersession.superseded, id_at
+                    )
+                    group[0] = group[0].model_copy(
+                        update={
+                            "message": (
+                                "SUPERSESSION_NOT_IN_EFFECT: a later item "
+                                f"({self._carrier_label(carrier, id_at)}) declares "
+                                f"'{_SUPERSEDES_DOD_EVIDENCE_PREFIX}{item_id_str}' "
+                                "but did not verify in its own right — a "
+                                "superseder that declares no checks, skips, or "
+                                "fails retires NOTHING — so this entry was "
+                                f"executed normally. {group[0].message}"
+                            )
+                        }
+                    )
+            results.extend(group)
+
+        # OMN-18056. STAMP THE CONTRACT'S OWN AC BINDINGS ONTO EVERY RESULT.
+        #
+        # One post-pass instead of an argument threaded through ~30 result
+        # construction sites: the binding is a property of the ITEM, every
+        # result in an item's group belongs to that item, and a single point
+        # of application cannot be forgotten at construction site 27.
+        #
+        # Keyed on the item's declared `id`, which is the same key
+        # `evidence_id` carries, with the OMN-14207 live-PR-state suffix
+        # (`<id>::pr-live-state`) split off so an overlay inherits the binding
+        # of the item that produced it. Items whose id the receipt could not
+        # represent are addressed positionally and are FAILED already, so they
+        # never reach a consumer's binding question.
+        #
+        # A contract declaring nothing leaves every tuple empty, which is the
+        # corpus default today and is reported downstream as a coverage gap —
+        # never silently as coverage.
+        # OMN-18238. And WHICH of those claims is only a PROPOSAL. A binding
+        # record with no `accepted_by` is a draft: a machine may propose a
+        # binding, it may not decide one. The draft labels are carried
+        # alongside the claim rather than removed from it, because "claimed but
+        # not yet accepted" and "not claimed at all" are different facts and
+        # the consumer's hold reason has to tell them apart.
+        declared_by_id: dict[str, tuple[str, ...]] = {}
+        drafts_by_id: dict[str, tuple[str, ...]] = {}
+        for item in dod_items:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            raw_binds = item.get("binds_ac")
+            if not isinstance(item_id, str) or not item_id:
+                continue
+            if not isinstance(raw_binds, (list, tuple)):
+                continue
+            labels = tuple(str(label) for label in raw_binds if str(label).strip())
+            if labels:
+                declared_by_id[item_id] = labels
+                drafts_by_id[item_id] = _draft_binding_labels(item, labels)
+        if declared_by_id:
+            stamped: list[ModelEvidenceCheckResult] = []
+            for result in results:
+                item_key = result.evidence_id.split("::", 1)[0]
+                declared = declared_by_id.get(item_key)
+                stamped.append(
+                    result.model_copy(
+                        update={
+                            "binds_ac": declared,
+                            "draft_binds_ac": drafts_by_id.get(item_key, ()),
+                        }
+                    )
+                    if declared is not None
+                    else result
+                )
+            results = stamped
+
+        return results
+
+    def collect_inline(
+        self,
+        ticket_id: str,
+        dod_evidence: tuple[ModelContractDodItem, ...],
+        *,
+        goal_id: UUID,
+        contract_schema_version: str,
+        execution_audience: EnumDodVerifyExecutionAudience,
+    ) -> list[ModelEvidenceCheckResult]:
+        """Run a typed goal contract without resolving a ticket contract file."""
+        return self._collect_impl(
+            ticket_id,
+            contract_path=None,
+            execution_audience=execution_audience,
+            inline_items=dod_evidence,
+            goal_id=goal_id,
+            contract_schema_version=contract_schema_version,
+        )
+
+    @staticmethod
+    def _validate_evidence_audiences(
+        dod_items: list[Any],
+        occ_root: Path | None,
+    ) -> list[ModelEvidenceCheckResult]:
+        """Validate every item-level execution audience before any effect.
+
+        The authoritative core model owns the item field set and default; the
+        authoritative enum owns the accepted audience values.  This boundary is
+        deliberately scoped to item-level structure and ``execution_scope`` so
+        the local collector's established check aliases and explicit PR-binding
+        extensions remain backward compatible.  Unknown item fields still fail
+        loud, which prevents a misspelled ``execution_scope`` key from silently
+        taking the canonical default.
+
+        OMN-19428: a field outside the core model and this collector's own
+        PR-binding fields is looked up in ``onex_change_control``'s evidence
+        item model under ``occ_root`` (the contract's own OCC tree). That model
+        is read only when such a field appears, so a core-only contract needs no
+        OCC tree. When it cannot be read the contract is refused by name, never
+        admitted on a guess.
+        """
+        failures: list[ModelEvidenceCheckResult] = []
+        occ_fields: frozenset[str] | None = None
+        occ_error: str | None = None
+        allowed_values = ", ".join(
+            scope.value for scope in EnumDodEvidenceExecutionScope
+        )
+
+        for index, item in enumerate(dod_items):
+            fallback_id = f"dod_evidence[{index}]"
+            if not isinstance(item, dict):
+                failures.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=fallback_id,
+                        description="Invalid DoD evidence item",
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=(
+                            "MALFORMED_EVIDENCE_ITEM: item must be a mapping; "
+                            "refusing to execute any evidence check from an "
+                            "audience-ambiguous contract."
+                        ),
+                    )
+                )
+                continue
+
+            raw_id = item.get("id")
+            evidence_id = raw_id if isinstance(raw_id, str) and raw_id else fallback_id
+            description = str(item.get("description", evidence_id))
+
+            unknown_fields = [key for key in item if key not in _LOCAL_DOD_ITEM_FIELDS]
+            if unknown_fields and occ_fields is None and occ_error is None:
+                if occ_root is None:
+                    occ_error = (
+                        "no onex_change_control tree resolvable for this contract "
+                        "(set CONTRACT_REPO_DIR or ONEX_CC_REPO_PATH)"
+                    )
+                else:
+                    try:
+                        occ_fields = occ_dod_item_fields(occ_root)
+                    except OccDodItemFieldAuthorityError as exc:
+                        occ_error = str(exc)
+            if unknown_fields and occ_error is not None:
+                rendered_names = ", ".join(
+                    f"{key!r}={item[key]!r}"
+                    for key in sorted(unknown_fields, key=lambda value: repr(value))
+                )
+                failures.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=(
+                            f"{_OCC_FIELD_AUTHORITY_UNREADABLE}: item carries "
+                            f"field(s) {rendered_names} that the core model does "
+                            "not own, and the onex_change_control model that "
+                            f"does ({_OCC_DOD_ITEM_MODEL_CLASS} in "
+                            f"{_OCC_DOD_ITEM_MODEL_RELPATH}) could not be read: "
+                            f"{occ_error}; refusing to execute any evidence "
+                            "check from this contract."
+                        ),
+                    )
+                )
+                continue
+            if occ_fields is not None:
+                unknown_fields = [
+                    key for key in unknown_fields if key not in occ_fields
+                ]
+            if unknown_fields:
+                rendered = ", ".join(
+                    f"{key!r}={item[key]!r}"
+                    for key in sorted(unknown_fields, key=lambda value: repr(value))
+                )
+                failures.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=(
+                            "INVALID_DOD_EVIDENCE_ITEM: strict canonical field "
+                            f"set rejected unknown field(s): {rendered}; refusing "
+                            "to execute any evidence check from this contract."
+                        ),
+                    )
+                )
+                continue
+
+            raw_scope = item.get("execution_scope", _DEFAULT_EXECUTION_SCOPE)
+            try:
+                EnumDodEvidenceExecutionScope(raw_scope)
+            except (TypeError, ValueError):
+                failures.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=(
+                            "UNKNOWN_EXECUTION_SCOPE: item "
+                            f"{evidence_id!r} declares execution_scope={raw_scope!r}; "
+                            f"allowed values: {allowed_values}. Refusing to execute "
+                            "with an ambiguous evidence audience."
+                        ),
+                    )
+                )
+
+        return failures
+
+    def _execute_item(
+        self,
+        item: Any,
+        ticket_id: str,
+        path: Path | None,
+        index: int,
+        execution_audience: EnumDodVerifyExecutionAudience,
+        goal_id: UUID | None,
+        contract_schema_version: str | None,
+    ) -> list[ModelEvidenceCheckResult]:
+        """Execute one dod_evidence item and return its full result group.
+
+        The group is the item's own check result followed by any OMN-14207
+        live-PR-state checks: verify the LIVE PR state for a PR-bound item and
+        emit it ALONGSIDE the item's declared checks, so a static
+        ``status: PASS`` receipt can no longer mask an unmerged or CI-red
+        product PR. Group element 0 is always the item's own result.
+
+        OMN-15390 (residual R2): the whole group is executed inside a
+        fail-CLOSED boundary. ``_collect_impl`` rejects the two malformed
+        shapes we know about up front, but an unforeseen one must not be able
+        to abort ``collect()`` either — an exception escaping here means the
+        run dies with NO receipt at all, which reads downstream as "the
+        verification never happened" rather than "the verification refused".
+        Anything unexpected is therefore converted into a receipted FAILED
+        entry naming the item's position. ``BaseException`` (KeyboardInterrupt,
+        SystemExit) is deliberately NOT caught.
+        """
+        try:
+            if (
+                isinstance(item, dict)
+                and item.get("execution_scope", _DEFAULT_EXECUTION_SCOPE)
+                == EnumDodEvidenceExecutionScope.LOCAL_DONE_GATE
+                and execution_audience is EnumDodVerifyExecutionAudience.HOSTED
+            ):
+                evidence_id = item.get("id")
+                skipped_label = (
+                    evidence_id
+                    if isinstance(evidence_id, str) and evidence_id
+                    else f"dod_evidence[{index}]"
+                )
+                checks = item.get("checks", [])
+                proof_class = (
+                    classify_item_checks(checks)
+                    if isinstance(checks, list)
+                    else EnumCheckProofClass.INDETERMINATE
+                )
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id=skipped_label,
+                        description=str(item.get("description", skipped_label)),
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        proof_class=proof_class,
+                        message=(
+                            "NOT_EVALUATED [local_done_gate] -- hosted "
+                            "node_dod_verify is not an authorized consumer; "
+                            "the local Done gate must execute this item and "
+                            "persist its result."
+                        ),
+                    )
+                ]
+            if isinstance(item, dict):
+                checks = item.get("checks")
+                disposition_checks = (
+                    [
+                        check
+                        for check in checks
+                        if isinstance(check, dict)
+                        and check.get("check_type")
+                        == EnumDodCheckType.DISPOSITION.value
+                    ]
+                    if isinstance(checks, list)
+                    else []
+                )
+                if isinstance(checks, list) and disposition_checks:
+                    if len(disposition_checks) != len(checks):
+                        return [
+                            ModelEvidenceCheckResult(
+                                evidence_id=str(
+                                    item.get("id", f"dod_evidence[{index}]")
+                                ),
+                                description=str(item.get("description", "")),
+                                status=EnumEvidenceCheckStatus.FAILED,
+                                message=(
+                                    "INVALID_DISPOSITION_ITEM: disposition items "
+                                    "must not mix disposition and executable checks."
+                                ),
+                            )
+                        ]
+                    return [
+                        self._read_disposition_receipts(
+                            item,
+                            ticket_id,
+                            path,
+                            goal_id,
+                            contract_schema_version,
+                            disposition_checks,
+                        )
+                    ]
+            results = [self._check_evidence_item(item, ticket_id, path)]
+            if isinstance(item, dict):
+                results.extend(self._live_pr_checks_for_item(item, ticket_id, path))
+            results = self._apply_must_fail_control(item, ticket_id, path, results)
+            return self._demote_non_probative(item, results)
+        except Exception as exc:
+            item_id = item.get("id") if isinstance(item, dict) else None
+            label = item_id if isinstance(item_id, str) and item_id else None
+            logger.exception(
+                "dod_evidence[%d] of %s raised while executing; failing closed",
+                index,
+                ticket_id,
+            )
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id=label or f"dod_evidence[{index}]",
+                    description=label or f"dod_evidence[{index}]",
+                    status=EnumEvidenceCheckStatus.FAILED,
+                    message=(
+                        f"EVIDENCE_ITEM_ERROR: executing dod_evidence[{index}] "
+                        f"raised {type(exc).__name__}: {exc}. The entry cannot "
+                        "pass. This is a fail-closed conversion — the run still "
+                        "produces a receipt instead of aborting without one."
+                    ),
+                )
+            ]
+
+    def _read_disposition_receipts(
+        self,
+        item: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None,
+        goal_id: UUID | None,
+        contract_schema_version: str | None,
+        checks: list[dict[str, Any]],
+    ) -> ModelEvidenceCheckResult:
+        """Read stored lane dispositions without executing the check value."""
+        item_id = item.get("id")
+        evidence_id = item_id if isinstance(item_id, str) else "unknown"
+        description = str(item.get("description", evidence_id))
+        if goal_id is None:
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.SKIPPED,
+                is_disposition=True,
+                message="DISPOSITION_NOT_GOAL_SCOPED: no goal id was supplied.",
+            )
+
+        if contract_schema_version is None:
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.FAILED,
+                is_disposition=True,
+                message=(
+                    "INVALID_DISPOSITION_RECEIPT: goal contract schema version is "
+                    "missing."
+                ),
+            )
+
+        if not isinstance(item_id, str) or not item_id:
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.FAILED,
+                is_disposition=True,
+                message="MALFORMED_DISPOSITION_ITEM: item id is required.",
+            )
+
+        expected_values = {
+            check.get("check_value")
+            for check in checks
+            if isinstance(check.get("check_value"), str)
+        }
+        payloads = self._load_item_receipts(item_id, ticket_id, contract_path)
+        candidates: list[tuple[str, ModelDodReceipt]] = []
+        malformed = False
+        unbound = False
+        goal_contract = {
+            "ticket_id": ticket_id,
+            "schema_version": contract_schema_version,
+            "dod_evidence": [item],
+        }
+        expected_entry_sha256 = compute_contract_entry_sha256(goal_contract, item_id)
+        for payload in payloads:
+            fields = {
+                key: value for key, value in payload.items() if key != "__source_name__"
+            }
+            if (
+                fields.get("check_type") != EnumDodCheckType.DISPOSITION.value
+                or fields.get("ticket_id") != ticket_id
+                or fields.get("evidence_item_id") != item_id
+                or fields.get("goal_id") != str(goal_id)
+                or fields.get("check_value") not in expected_values
+            ):
+                continue
+            source_name = str(payload.get("__source_name__", ""))
+            try:
+                receipt = ModelDodReceipt.model_validate(fields)
+            except ValidationError:
+                malformed = True
+                continue
+            if receipt.contract_entry_sha256 != expected_entry_sha256:
+                unbound = True
+                continue
+            candidates.append((source_name, receipt))
+
+        if not candidates:
+            status = (
+                EnumEvidenceCheckStatus.FAILED
+                if malformed or unbound
+                else EnumEvidenceCheckStatus.SKIPPED
+            )
+            if malformed:
+                message = (
+                    "INVALID_DISPOSITION_RECEIPT: matching receipt did not validate."
+                )
+            elif unbound:
+                message = (
+                    "INVALID_DISPOSITION_RECEIPT: contract entry hash is missing "
+                    "or mismatched."
+                )
+            else:
+                message = (
+                    "DISPOSITION_RECEIPT_MISSING: no stored receipt matched this goal."
+                )
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=status,
+                is_disposition=True,
+                message=message,
+            )
+
+        source_name, receipt = max(candidates, key=lambda candidate: candidate[0])
+        if receipt.status is EnumReceiptStatus.PASS:
+            status = EnumEvidenceCheckStatus.VERIFIED
+        elif receipt.status is EnumReceiptStatus.FAIL:
+            status = EnumEvidenceCheckStatus.FAILED
+        else:
+            status = EnumEvidenceCheckStatus.SKIPPED
+        return ModelEvidenceCheckResult(
+            evidence_id=evidence_id,
+            description=description,
+            status=status,
+            is_disposition=True,
+            message=f"Disposition receipt {receipt.status.value} read from {source_name}.",
+        )
+
+    @staticmethod
+    def _non_probative_reason(item: Any) -> str | None:
+        """Reason this item cannot bear a verdict, or ``None`` if it can.
+
+        OMN-15391. An item is non-probative only when EVERY check it declares
+        is a command whose exit status is invariant over the product diff (see
+        ``omnimarket.occ_evidence_probative_class``). One probative check makes
+        the whole item probative: an item whose checks must ALL pass carries a
+        real verdict as soon as one of them can go red for a product reason.
+
+        ``file_exists`` is always probative — a file is present or it is not,
+        and that is a fact about the tree under test. An item declaring no
+        checks at all is not classified here; ``_check_evidence_item`` already
+        SKIPs it, and a SKIP is not a green that needs demoting.
+        """
+        if not isinstance(item, dict):
+            return None
+        checks = item.get("checks")
+        if not isinstance(checks, list) or not checks:
+            return None
+
+        reasons: list[str] = []
+        for check in checks:
+            if not isinstance(check, dict):
+                return None
+            if check.get("check_type") not in ("command", "test_passes"):
+                return None
+            # The EFFECTIVE command, resolved exactly as ``_run_command_check``
+            # resolves it (``command`` first, ``check_value`` as fallback).
+            # Reading only ``check_value`` would let a check spelled with the
+            # ``command`` key execute as a surrogate while classifying as
+            # probative — a complete bypass of this refusal, since its green
+            # would still count. Found by CodeRabbit on omnimarket#2168.
+            check_value = check.get("command") or check.get("check_value")
+            probative_class = classify_check_value(
+                check_value if isinstance(check_value, str) else None
+            )
+            if probative_class is EnumEvidenceProbativeClass.PROBATIVE:
+                return None
+            reasons.append(surrogate_refusal_reason(probative_class, str(check_value)))
+        return " ".join(reasons)
+
+    def _fetch_pr_diff_facts(
+        self, repo: str, pr_number: int
+    ) -> ModelPrDiffFacts | None:
+        """The merged PR's merge commit, first parent and changed files (OMN-20032).
+
+        None on any inability to read them, so the caller records the control as
+        unavailable rather than guessing.
+        """
+        command = ModelDodEvidenceGithubLookupCommand(
+            operation=EnumDodEvidenceGithubOperation.FETCH_PR_DIFF_FACTS,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        output = HandlerDodEvidenceGithubEffect().handle(command)
+        result = self._github_lookup_result(output)
+        if not result.resolved:
+            return None
+        return result.diff_facts
+
+    def _interpreter_for_project(
+        self, repo_dir: Path
+    ) -> tuple[Path | None, str | None]:
+        """The interpreter of the lock-exact environment of ``repo_dir``'s project."""
+        project_root = _uv_project_root(repo_dir)
+        if project_root is None:
+            return None, f"{repo_dir} is not a uv project"
+        env_path, err = self._ensure_hermetic_uv_env(project_root)
+        if env_path is None:
+            return None, err
+        return env_path / "bin" / "python", None
+
+    def _apply_must_fail_control(
+        self,
+        item: Any,
+        ticket_id: str,
+        contract_path: Path | None,
+        results: list[ModelEvidenceCheckResult],
+    ) -> list[ModelEvidenceCheckResult]:
+        """Record what the must-fail control says about a passing test-run item.
+
+        OMN-20032 (GC.9). A ``test_passes`` check that exited 0 says the tests
+        pass at the head. This asks the second question: did the changed tests
+        fail on the code before the change? It only runs for an item whose own
+        result is VERIFIED, and like the OMN-15391 demotion below it can only
+        take a green away:
+
+        * ``vacuous``: every changed test also passed before the change, so the
+          run does not discriminate. The result becomes NON_PROBATIVE.
+        * ``unavailable``: the control could not run. The result becomes a typed
+          SKIPPED that still blocks a Done-flip.
+        * ``controlled`` / ``controlled_weak`` / ``impossible``: the result keeps
+          its status and carries the record, with the reason for an impossible
+          control named on it.
+
+        A ``test_passes`` item that is not a diff-derived behaviour proof bound
+        to a PR runs by the shell route only: it carries a ``shell`` record and
+        is never labelled controlled.
+        """
+        if not isinstance(item, dict) or not results:
+            return results
+        checks = item.get("checks")
+        if not isinstance(checks, list):
+            return results
+        test_checks = [
+            c
+            for c in checks
+            if isinstance(c, dict)
+            and c.get("check_type") == EnumDodCheckType.TEST_PASSES.value
+        ]
+        head = results[0]
+        if not test_checks or head.status is not EnumEvidenceCheckStatus.VERIFIED:
+            return results
+
+        binding = diff_derived_binding(item)
+        if binding is None or len(test_checks) != len(checks):
+            control = shell_route_record(
+                "the item is a test run that is not a diff-derived behaviour "
+                "proof bound to a PR, so no PR names the changed tests"
+            )
+            return [
+                head.model_copy(update={"must_fail_control": control}),
+                *results[1:],
+            ]
+
+        check = test_checks[0]
+        command = check.get("command") or check.get("check_value") or ""
+        run_cwd, cwd_err, declared = self._resolve_check_cwd(
+            check, ticket_id, contract_path
+        )
+        repo_dir = Path(run_cwd) if cwd_err is None and declared and run_cwd else None
+        repo, pr_number = binding
+        facts = self._fetch_pr_diff_facts(repo, pr_number)
+        runner = self._must_fail_runner or HandlerMustFailLocalTreeRun(
+            self._interpreter_for_project
+        )
+        control = evaluate_must_fail_control(
+            item=item,
+            command=str(command),
+            facts=facts,
+            runner=runner,
+            repo_dir=repo_dir,
+            timeout_seconds=max(1, int(_check_timeout_s())),
+        )
+        return [self._with_control(head, control), *results[1:]]
+
+    @staticmethod
+    def _with_control(
+        head: ModelEvidenceCheckResult, control: ModelMustFailControl
+    ) -> ModelEvidenceCheckResult:
+        note = f"MUST_FAIL_CONTROL {control.outcome.value}: {control.reason}"
+        if control.outcome is EnumMustFailControlOutcome.VACUOUS:
+            return head.model_copy(
+                update={
+                    "status": EnumEvidenceCheckStatus.NON_PROBATIVE,
+                    "must_fail_control": control,
+                    "message": f"{note} (check output: {head.message})"
+                    if head.message
+                    else note,
+                }
+            )
+        if control.outcome is EnumMustFailControlOutcome.UNAVAILABLE:
+            return head.model_copy(
+                update={
+                    "status": EnumEvidenceCheckStatus.SKIPPED,
+                    "unverifiable_cause": (
+                        EnumEvidenceUnverifiableCause.MUST_FAIL_CONTROL_UNAVAILABLE
+                    ),
+                    "must_fail_control": control,
+                    "message": note,
+                }
+            )
+        return head.model_copy(update={"must_fail_control": control})
+
+    def _demote_non_probative(
+        self, item: Any, results: list[ModelEvidenceCheckResult]
+    ) -> list[ModelEvidenceCheckResult]:
+        """Reclassify an item's GREENS when the item cannot bear a verdict.
+
+        OMN-15391 — the load-bearing refusal, and the reason it is applied here
+        rather than before execution.
+
+        **Only a VERIFIED result is demoted.** A FAILED one is left exactly as
+        it was, and the checks are still EXECUTED rather than short-circuited.
+        That is deliberate: it makes this change monotone toward refusal — it
+        can subtract a green and it can never manufacture one, so no contract
+        that is red today can go green because of it. Skipping execution would
+        have been cheaper, but it would silently convert a genuine red (a PR
+        the token cannot see, a foreign suite that is actually broken) into a
+        non-verdict, which is a loosening in the one direction that matters.
+
+        The item's OMN-14207 ``::pr-live-state`` legs are demoted with it.
+        Those legs assert the bound PR is merged with green CI — provenance
+        about the very PR the surrogate names, not about the behaviour claimed.
+        Leaving them VERIFIED would defeat the whole refusal: an all-surrogate
+        contract would still read green on its live-state legs alone (measured
+        on ``contracts/OMN-16667.yaml``: 5 declared surrogate checks plus 4
+        passing live-state legs). Their anti-laundering force is untouched —
+        a live-state leg that goes RED still fails the contract.
+        """
+        reason = self._non_probative_reason(item)
+        if reason is None:
+            return results
+        return [
+            result.model_copy(
+                update={
+                    "status": EnumEvidenceCheckStatus.NON_PROBATIVE,
+                    "message": (
+                        f"{reason}"
+                        + (
+                            f" (check output: {result.message})"
+                            if result.message
+                            else ""
+                        )
+                    ),
+                }
+            )
+            if result.status is EnumEvidenceCheckStatus.VERIFIED
+            else result
+            for result in results
+        ]
+
+    @staticmethod
+    def _carrier_label(index: int, id_at: dict[int, str | None]) -> str:
+        """Human label for the item at ``index`` — its id, else its position."""
+        return id_at.get(index) or f"dod_evidence[{index}]"
+
+    @staticmethod
+    def _terminal_superseder(
+        target_id: str,
+        superseded: dict[str, int],
+        id_at: dict[int, str | None],
+    ) -> int:
+        """Follow a supersession chain to the item that carries the verdict.
+
+        With ``A`` superseded by ``B`` and ``B`` in turn superseded by ``C``,
+        the OCC gate retires both ``A`` and ``B`` and ``C`` is what actually
+        proves anything — so ``C``'s verdict, not ``B``'s, decides whether
+        ``A``'s edge takes effect.
+
+        THE ``visited`` GUARD IS LOAD-BEARING — it is the only thing that
+        terminates this walk, not a defensive backstop. Do not remove it.
+
+        Edges point strictly backwards by INDEX, but ``superseded`` is keyed by
+        ID and ids are not unique in a contract, so the walked relation is NOT
+        acyclic. A duplicate id admits an id-level SELF-LOOP: for
+        ``[{id: dod-0}, {id: dod-0, evidence_artifact:
+        'supersedes_dod_evidence:dod-0'}]`` resolution records
+        ``superseded['dod-0'] == 1`` while ``id_at[1] == 'dod-0'``, so
+        ``index -> superseded[id_at[index]]`` maps 1 to 1 forever. Delete the
+        guard and this function hangs on that input (verified: an unguarded
+        walk did not terminate in 10_000 steps).
+
+        Measured over the parity domain in
+        ``test_omn_15390_contract_entry_supersession.py``: the guard fires on
+        **176 of 296 edges (59.5%)** of ``_duplicate_id_contracts()`` and on
+        **0 of 75** edges of the unique-id ``_small_contracts()`` — i.e. it is
+        dead only on the domain the pre-OMN-15390-R1 code was tested against.
+        ``test_the_visited_set_guard_is_required_not_defensive`` pins this.
+
+        Returning the revisited index is the fail-safe answer: the caller
+        (``_collect_impl`` phase 2) looks that index up in ``executed``, a
+        self-looping carrier is itself a supersession target so it was never
+        executed, ``_supersession_is_in_effect(None)`` is False, and the edge
+        does not fire — both entries execute normally and carry their own
+        verdicts.
+        """
+        index = superseded[target_id]
+        visited = {index}
+        while True:
+            carrier_id = id_at.get(index)
+            if carrier_id is None or carrier_id not in superseded:
+                return index
+            following = superseded[carrier_id]
+            if following in visited:
+                return index
+            visited.add(following)
+            index = following
+
+    @staticmethod
+    def _supersession_is_in_effect(
+        carrier_group: list[ModelEvidenceCheckResult] | None,
+    ) -> bool:
+        """True only if the superseding item proved something in its own right.
+
+        OMN-15390 anti-laundering, and the reason a well-formed marker is not
+        sufficient on its own: supersession may remove a FALSE red, never
+        manufacture a green. Appending ONE marker item that declares no passing
+        check of its own (``checks: []``, a check that skips, or a check that
+        fails) would otherwise retire a genuinely-failing entry, drop
+        ``failed`` to 0, and land as a PASS receipt on the only sanctioned
+        Done-flip path — strictly worse than the FAIL it replaced. A repair
+        must carry its own proof, so the carrier's own result must be VERIFIED
+        and nothing in its group may have FAILED.
+        """
+        if not carrier_group:
+            return False
+        if carrier_group[0].status is not EnumEvidenceCheckStatus.VERIFIED:
+            return False
+        return not any(
+            result.status is EnumEvidenceCheckStatus.FAILED for result in carrier_group
+        )
+
+    @staticmethod
+    def _resolve_supersessions(dod_items: list[Any]) -> _SupersessionResolution:
+        """Resolve ``evidence_artifact: "supersedes_dod_evidence:<id>"`` markers.
+
+        Pure function — no I/O. See the module-level comment above
+        :class:`_SupersessionResolution` for the marker syntax and the
+        append-only ORDERING rule this mirrors field-for-field from
+        onex_change_control's lint/compliance scripts, plus the fail-closed
+        diagnostics (dangling / forward / self target) this runner adds
+        beyond those advisory scripts without changing the superseded set.
+
+        Single forward pass in declaration order, mirroring
+        ``_superseded_dod_ids``'s ``seen``/``if supersedes in seen`` loop, so
+        THIS function terminates in O(len(dod_items)) unconditionally.
+
+        The relation it RETURNS is not acyclic, though: edges point backwards
+        by index while ``superseded`` is keyed by id, so a duplicate id admits
+        an id-level self-loop. Any consumer that WALKS the relation needs a
+        cycle guard — see ``_terminal_superseder``.
+        """
+        # Pre-pass: every id in the contract, used ONLY to tell a forward
+        # reference (target exists, declared later) apart from a dangling one
+        # (target exists nowhere). Neither is a supersession.
+        all_ids: set[str] = set()
+        for item in dod_items:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            if isinstance(item_id, str) and item_id:
+                all_ids.add(item_id)
+
+        seen: set[str] = set()
+        superseded: dict[str, int] = {}
+        malformed: dict[int, str] = {}
+
+        for index, item in enumerate(dod_items):
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            item_id_str = item_id if isinstance(item_id, str) and item_id else None
+            label = item_id_str or f"dod_evidence[{index}]"
+
+            # OMN-15390 (remediation): the marker is read and resolved BEFORE
+            # any judgement about the CARRYING item's own id, because
+            # ``_superseded_dod_ids`` evaluates ``if supersedes in seen``
+            # unconditionally. Gating on the carrier's id first (the earlier
+            # shape of this loop) made the runner MISS supersessions the gate
+            # honours whenever the carrier's ``id`` was missing, empty,
+            # non-string or null — leaving the runner STRICTER than the gate
+            # and re-creating this ticket's original bug class, silently.
+            target = _supersedes_marker(item.get("evidence_artifact"))
+
+            if target is not None:
+                if target in seen:
+                    # The OCC rule verbatim: a LATER item retires an EARLIER
+                    # one. Recorded by INDEX, not id, so an id-less carrier is
+                    # still an identifiable superseder for the effectiveness
+                    # check in ``_collect_impl``.
+                    #
+                    # OMN-15390 (residual R1): this test runs FIRST, ahead of
+                    # the self-reference test below, because that is the order
+                    # ``_superseded_dod_ids`` evaluates in — it has no
+                    # self-reference branch at all, only ``if supersedes in
+                    # seen``. A self-reference is normally inert BECAUSE
+                    # ``seen.add`` happens after the marker check, so the
+                    # carrier's own id is not yet in ``seen``. But when an
+                    # EARLIER item already declared the same id (a duplicate-id
+                    # contract), ``seen`` DOES contain it and the gate retires
+                    # that earlier entry. Testing self-reference first made the
+                    # runner hard-RED a carrier the gate treats as a valid
+                    # superseder — runner-STRICTER-than-gate on the Done-flip
+                    # path, this ticket's original bug class, on 144 of the 544
+                    # contracts in the duplicate-id domain.
+                    superseded[target] = index
+                elif target == item_id_str:
+                    malformed[index] = (
+                        "MALFORMED_SUPERSESSION: item "
+                        f"{label!r} declares evidence_artifact "
+                        f"'{_SUPERSEDES_DOD_EVIDENCE_PREFIX}{target}', which "
+                        "supersedes itself and therefore retires nothing. Fix "
+                        "the marker before this item can execute."
+                    )
+                elif target in all_ids:
+                    malformed[index] = (
+                        "FORWARD_SUPERSESSION: item "
+                        f"{label!r} declares evidence_artifact "
+                        f"'{_SUPERSEDES_DOD_EVIDENCE_PREFIX}{target}' but "
+                        f"{target!r} is declared LATER in this contract. "
+                        "Supersession is append-only — only a later item may "
+                        "retire an earlier one — so this marker retires "
+                        "nothing. Move the repair below the entry it replaces."
+                    )
+                else:
+                    malformed[index] = (
+                        "DANGLING_SUPERSESSION: item "
+                        f"{label!r} declares evidence_artifact "
+                        f"'{_SUPERSEDES_DOD_EVIDENCE_PREFIX}{target}' but no "
+                        f"dod_evidence item with id {target!r} exists in this "
+                        "contract. Fix the marker (typo, or the target item "
+                        "was removed) before this item can execute."
+                    )
+
+            # Mirrors ``_superseded_dod_ids`` exactly, including its acceptance
+            # of the empty string and its placement AFTER the marker check
+            # (which is what makes a self-reference match nothing in either
+            # consumer).
+            if isinstance(item_id, str):
+                seen.add(item_id)
+
+        return _SupersessionResolution(superseded=superseded, malformed=malformed)
+
+    def _contract_repo_dirs(self, dod_items: list[Any]) -> tuple[str, ...]:
+        """Repository directory names the contract's own PR-bound items name.
+
+        Read from the evidence-id convention (``dod-<owner>-<repo>-pr-<n>``),
+        in contract order and de-duplicated. These are the only repositories a
+        derived falsifier may run in, because they are the ones the ticket's
+        own evidence says the work landed in.
+        """
+        repos: list[str] = []
+        for item in dod_items:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("id")
+            slug, _pr = self._repo_and_pr_from_evidence_id(
+                item_id if isinstance(item_id, str) else None
+            )
+            name = slug.split("/", 1)[-1] if slug else ""
+            if name and name not in repos:
+                repos.append(name)
+        return tuple(repos)
+
+    @staticmethod
+    def _product_path_exists(repo: str, path: str) -> bool:
+        """Whether ``$OMNI_HOME/<repo>`` holds ``path`` (a file or a directory)."""
+        omni_home = os.environ.get("OMNI_HOME")
+        if not omni_home:
+            return False
+        return (Path(omni_home) / repo / path).exists()
+
+    def _find_contract(self, ticket_id: str) -> Path | None:
+        """Search standard locations for a ticket contract."""
+        # OMN-13888 (scope 6): a materialised origin/dev worktree wins so a
+        # dev-only contract resolves instead of falling through to "No contract".
+        if self._occ_dev_root:
+            dev_candidate = Path(self._occ_dev_root) / "contracts" / f"{ticket_id}.yaml"
+            if dev_candidate.exists():
+                logger.info("Found contract at %s (dev worktree)", dev_candidate)
+                return dev_candidate
+        for root_template in _DEFAULT_CONTRACT_ROOTS:
+            root = Path(os.path.expandvars(root_template))
+            candidate = root / f"{ticket_id}.yaml"
+            if candidate.exists():
+                logger.info("Found contract at %s", candidate)
+                return candidate
+
+        # Fallback: resolve via OMNI_HOME env var
+        omni_home = os.environ.get("OMNI_HOME", "")
+        candidate = (
+            Path(omni_home) / "onex_change_control" / "contracts" / f"{ticket_id}.yaml"
+        )
+        if candidate.exists():
+            logger.info("Found contract at %s", candidate)
+            return candidate
+
+        return None
+
+    def _load_yaml(self, path: Path) -> dict[str, Any] | None:
+        """Load and return YAML content, or None on error."""
+        try:
+            content = path.read_text(encoding="utf-8")
+            raw = yaml.safe_load(content)
+            if not isinstance(raw, dict):
+                logger.error("Contract %s root is not a mapping", path)
+                return None
+            return raw
+        except Exception as exc:
+            logger.error("Failed to parse %s: %s", path, exc)
+            return None
+
+    def _check_evidence_item(
+        self,
+        item: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None = None,
+    ) -> ModelEvidenceCheckResult:
+        """Run checks for a single dod_evidence item."""
+        evidence_id = item.get("id", "unknown")
+        description = item.get("description", evidence_id)
+        checks = item.get("checks", [])
+
+        # OMN-15382: publish this item's id for _lookup_pr_for_ticket /
+        # _lookup_repo_for_ticket to consult (see _current_evidence_item_id
+        # docstring in __init__). Reset per item so it never leaks.
+        self._current_evidence_item_id = (
+            evidence_id if isinstance(evidence_id, str) else None
+        )
+
+        if not isinstance(checks, list):
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.FAILED,
+                message="checks must be a list of mappings.",
+            )
+
+        # OMN-15911: what this item BINDS, decided from the commands it
+        # declares rather than from its prose or its exit code. Resolved once,
+        # before execution, and stamped on whichever verdict this item reaches
+        # — a FAILED behavior check is still a behavior check, and the
+        # ``behavior_proving_count`` roll-up (which requires VERIFIED) is what
+        # keeps a failure from releasing a flip.
+        item_proof_class = classify_item_checks(checks)
+
+        if not checks:
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.SKIPPED,
+                message="No checks defined for this evidence item.",
+                proof_class=item_proof_class,
+            )
+
+        if any(
+            isinstance(check, dict)
+            and check.get("check_type") == EnumDodCheckType.DISPOSITION.value
+            for check in checks
+        ):
+            return ModelEvidenceCheckResult(
+                evidence_id=evidence_id,
+                description=description,
+                status=EnumEvidenceCheckStatus.FAILED,
+                message=(
+                    "DISPOSITION_NOT_EXECUTABLE: stored lane verdicts are read "
+                    "from receipts and are never run by the verifier."
+                ),
+                proof_class=item_proof_class,
+            )
+
+        # OMN-14637: when this evidence item is authoritatively bound to a PR that
+        # GitHub now confirms MERGED, relax any live-OPEN-state gate in its command
+        # checks to the merged terminal state, so the sanctioned closeout does not
+        # fail-closed forever on a normal, successful merge (branch deleted +
+        # ``.state`` flipped to MERGED). Resolved ONCE per item; the merge state is
+        # read from the live GitHub surface, never caller-supplied.
+        relax_merged_state = self._item_bound_to_merged_pr(
+            item, ticket_id, contract_path
+        )
+
+        # Run each check; all must pass for the item to be VERIFIED
+        messages: list[str] = []
+        # OMN-16846 AC5: tree provenance for every distinct product repository
+        # this item's commands executed in, in first-resolution order.
+        clones: list[ModelProductCloneResolution] = []
+        seen_roots: set[str] = set()
+        for check in checks:
+            check_type = check.get("check_type") or ""
+            if check_type in ("command", "test_passes"):
+                # OMN-16846 D2: assert the PRODUCT clone before executing in
+                # it. A check whose declared cwd names a repository that is
+                # behind its upstream runs against a tree that does not
+                # contain the work under adjudication; its verdict is about
+                # the wrong commit, and the receipt recorded nothing that
+                # would let a reader notice. Fail closed with a named cause
+                # (still blocking — see HandlerDodVerify) rather than
+                # recording a substantive FAILED the run never earned.
+                run_cwd, cwd_err, declared = self._resolve_check_cwd(
+                    check, ticket_id, contract_path
+                )
+                if cwd_err is None and declared and run_cwd is not None:
+                    resolution = self._assess_product_clone(run_cwd)
+                    if (
+                        resolution.freshness
+                        is not EnumProductCloneFreshness.NOT_APPLICABLE
+                        and resolution.repo_root not in seen_roots
+                    ):
+                        seen_roots.add(resolution.repo_root)
+                        clones.append(resolution)
+                    cause = self._product_clone_unverifiable_cause(resolution)
+                    if cause is not None:
+                        if self._allow_stale_product_clone():
+                            logger.warning(
+                                "OMN-16846 product-clone gate OVERRIDDEN because "
+                                "%s is set — executing %s against %s (%s). The "
+                                "resulting verdict is NOT attributable to a "
+                                "verified-fresh tree.",
+                                _ALLOW_STALE_PRODUCT_CLONE_ENV,
+                                evidence_id,
+                                resolution.repo_root,
+                                resolution.freshness.value,
+                            )
+                        else:
+                            logger.error(
+                                "Refusing to run %s in %s: clone freshness is %s "
+                                "(head=%s upstream=%s behind=%s). Set %s=1 to "
+                                "execute anyway.",
+                                evidence_id,
+                                resolution.repo_root,
+                                resolution.freshness.value,
+                                resolution.head_sha,
+                                resolution.upstream_ref,
+                                resolution.behind_count,
+                                _ALLOW_STALE_PRODUCT_CLONE_ENV,
+                            )
+                            return ModelEvidenceCheckResult(
+                                evidence_id=evidence_id,
+                                description=description,
+                                status=EnumEvidenceCheckStatus.SKIPPED,
+                                unverifiable_cause=cause,
+                                message=(
+                                    "PRODUCT_CLONE_NOT_FRESH: the check's cwd "
+                                    f"names {resolution.repo_root}, whose "
+                                    f"freshness is {resolution.freshness.value} "
+                                    f"(HEAD {resolution.head_sha or '<unresolved>'}"
+                                    f", upstream {resolution.upstream_ref or '<none>'}"
+                                    f", compared against "
+                                    f"{resolution.comparison_sha or '<unresolved>'}"
+                                    f"{' pinned at materialisation' if resolution.comparison_pinned else ' read live'}"
+                                    f", behind {resolution.behind_count}"
+                                    f"{'; ' + resolution.detail if resolution.detail else ''}"
+                                    "). The command was NOT executed — a verdict "
+                                    "from a tree that does not contain the work "
+                                    "under adjudication is not evidence about it. "
+                                    f"Fast-forward that clone, or set "
+                                    f"{_ALLOW_STALE_PRODUCT_CLONE_ENV}=1 to "
+                                    "execute anyway."
+                                ),
+                                proof_class=item_proof_class,
+                                product_clones=tuple(clones),
+                            )
+                # ``test_passes`` is a semantic alias for ``command`` that signals
+                # the command is a test runner (typically ``uv run pytest ...``).
+                # Both share the same execution path: run the shell command and
+                # treat exit code 0 as VERIFIED. The alias exists so contracts
+                # can declare intent (running tests) distinct from generic
+                # commands without forcing every shell-based check into the same
+                # bucket. Regression for OMN-10046.
+                #
+                # OMN-16824: this is now the ONLY reading of ``test_passes``
+                # anywhere. The hosted Contract Compliance Check used to ignore
+                # ``check_value`` here and report whether the PR's own CI was
+                # green, so one contract entry was a behaviour proof to this
+                # runner and a PR-status proxy to that one; it now executes the
+                # command exactly as this branch does. The agreement is held by
+                # an executed case table shared byte-for-byte between the two
+                # repos -- ``tests/fixtures/check_type_runner_semantics.yaml``,
+                # run here by
+                # ``tests/unit/nodes/node_dod_verify/test_omn16824_test_passes_semantics.py``
+                # and against the hosted gate by the same-named module in
+                # onex_change_control. Do not give this branch a meaning the
+                # table does not state.
+                ok, msg = self._run_command_check(
+                    check,
+                    ticket_id,
+                    contract_path,
+                    relax_merged_state=relax_merged_state,
+                )
+                if not ok:
+                    # OMN-17795: this process killed the command at its own
+                    # per-check ceiling. The command was cut off mid-flight, so
+                    # what it would have concluded is unknown, and the ceiling
+                    # is the verifier's — recording it FAILED asserts a defect
+                    # the run never looked for, which is the same argument the
+                    # two OMN-16846 causes below already carry.
+                    #
+                    # Read from the runner's own flag, never from ``msg``: the
+                    # check's output is attacker-controlled in the only sense
+                    # that matters here (it is the product under adjudication),
+                    # so a message-grep would let a check mint its own cause.
+                    #
+                    # Still blocking, still never verified, still in the
+                    # denominator — see the enum's own docstring for the
+                    # per-conjunct argument that this opens no flip path.
+                    if self._last_check_budget_exceeded:
+                        logger.error(
+                            "Recording %s as unverifiable: the check exceeded "
+                            "the %ss per-check budget and was killed, so it "
+                            "never reached a verdict. %s",
+                            evidence_id,
+                            _check_timeout_s(),
+                            msg,
+                        )
+                        return ModelEvidenceCheckResult(
+                            evidence_id=evidence_id,
+                            description=description,
+                            status=EnumEvidenceCheckStatus.SKIPPED,
+                            unverifiable_cause=(
+                                EnumEvidenceUnverifiableCause.CHECK_BUDGET_EXCEEDED
+                            ),
+                            message=(
+                                "CHECK_BUDGET_EXCEEDED: this run killed the "
+                                f"command at its {_check_timeout_s()}s "
+                                "per-check ceiling, so the command reached no "
+                                "verdict and this is not a statement about the "
+                                "ticket. The ceiling is the verifier's, not the "
+                                "product's: raise it with "
+                                f"{_CHECK_TIMEOUT_ENV} for this host, or make "
+                                "the check cheaper. This still blocks a "
+                                f"Done-flip. Runner output: {msg}"
+                            ),
+                            proof_class=item_proof_class,
+                            product_clones=tuple(clones),
+                        )
+                    # OMN-16846 D1/AC3: the OMN-15620 venv-purity gate fires
+                    # in ``pytest_configure`` — the command exits non-zero
+                    # having collected nothing and imported no test module, so
+                    # it made no statement about the product at all. Recording
+                    # it FAILED asserts a defect nothing looked for, and reads
+                    # in the receipt exactly like a real one; run 33194402437
+                    # recorded all three OMN-16759 behaviour checks that way
+                    # (behavior_proving=0) purely because of a venv shape.
+                    # Still blocking, never counted verified — the change is in
+                    # HOW the block is recorded, not WHETHER it blocks.
+                    # OMN-16846 D1/AC3, applied to the local path's own
+                    # setup failure: the lock-exact environment could not be
+                    # built, so the command never executed and made no
+                    # statement about the product. Positively identified from
+                    # this process's own marker, emitted by
+                    # ``_ensure_hermetic_uv_env`` -- never grepped out of a
+                    # check's output, which a product under test could forge.
+                    if msg.startswith(_HERMETIC_ENV_FAILURE_MARKER):
+                        logger.error(
+                            "Recording %s as unverifiable: the lock-exact "
+                            "behaviour-check environment could not be built, "
+                            "so the check never executed. %s",
+                            evidence_id,
+                            msg,
+                        )
+                        return ModelEvidenceCheckResult(
+                            evidence_id=evidence_id,
+                            description=description,
+                            status=EnumEvidenceCheckStatus.SKIPPED,
+                            unverifiable_cause=(
+                                EnumEvidenceUnverifiableCause.HERMETIC_ENV_UNAVAILABLE
+                            ),
+                            message=msg,
+                            proof_class=item_proof_class,
+                            product_clones=tuple(clones),
+                        )
+                    # OMN-18756, the interpreter sibling of the marker branch
+                    # above and carried on the same terms: emitted by
+                    # ``_run_command_check``, which is the only frame that
+                    # knows it re-pointed the interpreter, and never grepped
+                    # out of a check's output.
+                    if msg.startswith(_VERIFIER_ENV_FAILURE_MARKER):
+                        logger.error(
+                            "Recording %s as unverifiable: the check was "
+                            "routed to this verifier's own interpreter, which "
+                            "cannot import a module the command needs, so the "
+                            "command made no statement about the product. %s",
+                            evidence_id,
+                            msg,
+                        )
+                        return ModelEvidenceCheckResult(
+                            evidence_id=evidence_id,
+                            description=description,
+                            status=EnumEvidenceCheckStatus.SKIPPED,
+                            unverifiable_cause=(
+                                EnumEvidenceUnverifiableCause.VERIFIER_ENVIRONMENT
+                            ),
+                            message=msg,
+                            proof_class=item_proof_class,
+                            product_clones=tuple(clones),
+                        )
+                    if self._is_venv_purity_refusal(msg):
+                        logger.error(
+                            "Recording %s as unverifiable: the OMN-15620 "
+                            "venv-purity gate refused the venv before "
+                            "collection, so the check never executed. %s",
+                            evidence_id,
+                            msg,
+                        )
+                        return ModelEvidenceCheckResult(
+                            evidence_id=evidence_id,
+                            description=description,
+                            status=EnumEvidenceCheckStatus.SKIPPED,
+                            unverifiable_cause=(
+                                EnumEvidenceUnverifiableCause.GATE_VENV_IMPURE
+                            ),
+                            message=(
+                                "GATE_VENV_IMPURE: the OMN-15620 venv-purity "
+                                "gate refused this venv at pytest_configure, "
+                                "before collection — no test module was "
+                                "imported and no product code ran, so this is "
+                                "not a statement about the ticket. Repair the "
+                                "venv separation (OMN-16846) rather than "
+                                "reading this as a failed check. "
+                                f"Runner output: {msg}"
+                            ),
+                            proof_class=item_proof_class,
+                            product_clones=tuple(clones),
+                        )
+                    return ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=msg,
+                        proof_class=item_proof_class,
+                        product_clones=tuple(clones),
+                    )
+                messages.append(msg)
+            elif check_type == "released":
+                # OMN-18010 deliverable 2: released is part of Done. Binds
+                # distribution state, never behaviour — see check_proof_class,
+                # which classifies it MERGE_STATE so it can never satisfy the
+                # behaviour-proving leg of a flip rule.
+                ok, msg = self._run_released_check(check)
+                if not ok:
+                    return ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=msg,
+                        proof_class=item_proof_class,
+                        product_clones=tuple(clones),
+                    )
+                messages.append(msg)
+            elif check_type == "file_exists":
+                ok, msg = self._run_file_exists_check(check, contract_path)
+                if not ok:
+                    return ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=description,
+                        status=EnumEvidenceCheckStatus.FAILED,
+                        message=msg,
+                        proof_class=item_proof_class,
+                        product_clones=tuple(clones),
+                    )
+                messages.append(msg)
+            else:
+                # Unknown or missing check_type must FAIL, not SKIPPED.
+                # Silently skipping unknown types is the OMN-9571 bug class:
+                # a misspelled or unregistered check_type would let DoD evidence
+                # pass trivially without running any real check.
+                label = check_type if check_type else "<missing check_type key>"
+                return ModelEvidenceCheckResult(
+                    evidence_id=evidence_id,
+                    description=description,
+                    status=EnumEvidenceCheckStatus.FAILED,
+                    message=(
+                        f"Unknown check_type: {label!r}. "
+                        "Supported: command, test_passes, file_exists, released."
+                    ),
+                    proof_class=item_proof_class,
+                    product_clones=tuple(clones),
+                )
+
+        return ModelEvidenceCheckResult(
+            evidence_id=evidence_id,
+            description=description,
+            status=EnumEvidenceCheckStatus.VERIFIED,
+            message="; ".join(messages) if messages else None,
+            proof_class=item_proof_class,
+            product_clones=tuple(clones),
+        )
+
+    def _resolve_cwd(
+        self,
+        cwd_template: str,
+        ticket_id: str,
+    ) -> tuple[str | None, str | None]:
+        """Resolve a ``cwd`` template string into an absolute, contained path.
+
+        Supports the ``${OMNI_HOME}``, ``${PR_NUMBER}``, ``${REPO}``, and
+        ``${TICKET_ID}`` template tokens introduced by OMN-10078 (mirroring
+        the OMN-10086 substitution pattern from the contract-compliance
+        runner). Returns ``(resolved_path, None)`` on success or
+        ``(None, error_message)`` on failure.
+
+        Containment rules (defence-in-depth — the model itself does not
+        validate `cwd`):
+
+        - ``..`` segments in the raw input are rejected up-front
+        - the resolved path must be relative to ``OMNI_HOME`` (when set);
+          paths that escape via symlinks are rejected after ``Path.resolve()``
+        - the resolved path must exist and be a directory
+        """
+        if ".." in Path(cwd_template).parts:
+            return None, f"cwd path traversal not allowed: {cwd_template}"
+
+        # Build the substitution table. Missing tokens leave the literal
+        # ``${TOKEN}`` in place — the existence/containment check below is
+        # what flags a bad cwd.
+        substitutions = {
+            "OMNI_HOME": os.environ.get("OMNI_HOME", ""),
+            "PR_NUMBER": os.environ.get("PR_NUMBER", ""),
+            "REPO": os.environ.get("REPO", ""),
+            "TICKET_ID": ticket_id,
+        }
+        rendered = cwd_template
+        for token, value in substitutions.items():
+            rendered = rendered.replace(f"${{{token}}}", value)
+        # Also support bare $TOKEN form via os.path.expandvars for any
+        # tokens we did not template explicitly (e.g. user-set vars).
+        rendered = os.path.expandvars(rendered)
+
+        if "${" in rendered or rendered == "":
+            return None, (
+                f"cwd contains unresolved template tokens or is empty after "
+                f"substitution: {cwd_template!r} -> {rendered!r}"
+            )
+
+        candidate = Path(rendered).resolve()
+
+        omni_home = os.environ.get("OMNI_HOME")
+        if omni_home:
+            base = Path(omni_home).resolve()
+            if not candidate.is_relative_to(base):
+                return None, (
+                    f"cwd escapes OMNI_HOME containment: {cwd_template!r} "
+                    f"resolved to {candidate}"
+                )
+
+        if not candidate.exists():
+            return None, f"cwd does not exist: {cwd_template!r} -> {candidate}"
+        if not candidate.is_dir():
+            return None, f"cwd is not a directory: {candidate}"
+
+        return str(candidate), None
+
+    @staticmethod
+    def _repo_and_pr_from_evidence_id(evidence_item_id: str | None) -> tuple[str, str]:
+        """Extract an authoritative ``(owner/repo, pr_number)`` binding from
+        the current dod_evidence item's id — see ``_EVIDENCE_ID_BINDING_RE``.
+        Returns ``("", "")`` when the id does not follow the convention.
+        """
+        if not evidence_item_id:
+            return "", ""
+        match = _EVIDENCE_ID_BINDING_RE.match(evidence_item_id)
+        if not match:
+            return "", ""
+        return f"{match.group('owner')}/{match.group('repo')}", match.group("num")
+
+    def _lookup_pr_for_ticket(self, ticket_id: str) -> str:
+        """Return the merged PR number string for ticket_id, or empty string.
+
+        OMN-15382 fail-closed rewrite. Resolution order:
+
+        1. ``PR_NUMBER`` env var (not gh I/O — stays here, unchanged).
+        2. The current evidence item's id, when it embeds an authoritative
+           ``(owner/repo, pr_number)`` binding (see
+           ``_repo_and_pr_from_evidence_id``) — zero gh calls, deterministic.
+        3. HandlerDodEvidenceGithubEffect's ``gh pr list`` search, but ONLY
+           when a repo can be resolved first (``REPO`` env var, else the
+           evidence-id-derived repo). The prior implementation ran this
+           search with no ``--repo`` flag at all — silently resolving
+           whatever repo the process cwd's git remote pointed at — which is
+           the OMN-15382 root cause (``${PR_NUMBER}`` bound PR #2454 instead
+           of #2536). When no repo can be resolved, this now fails closed
+           immediately rather than guessing via an unscoped search.
+
+        Returns empty string when nothing can be resolved (caller must
+        handle unresolved placeholders gracefully); ``self._last_pr_lookup_error``
+        carries the specific fail-closed reason for the caller's message.
+        """
+        self._last_pr_lookup_error = None
+        env_val = os.environ.get("PR_NUMBER", "").strip()
+        if env_val:
+            return env_val
+
+        id_repo, id_pr = self._repo_and_pr_from_evidence_id(
+            self._current_evidence_item_id
+        )
+        if id_pr:
+            return id_pr
+
+        repo = os.environ.get("REPO", "").strip() or id_repo
+        if not repo:
+            self._last_pr_lookup_error = (
+                "PR_LOOKUP_FAILED: cannot resolve target repo for PR search "
+                "(set REPO env var, or the evidence item id must embed "
+                "owner/repo per the autobind naming convention)"
+            )
+            self._record_lookup_failure(self._last_pr_lookup_error)
+            return ""
+
+        command = ModelDodEvidenceGithubLookupCommand(
+            operation=EnumDodEvidenceGithubOperation.LOOKUP_PR_FOR_TICKET,
+            ticket_id=ticket_id,
+            repo=repo,
+        )
+        output = HandlerDodEvidenceGithubEffect().handle(command)
+        result = self._github_lookup_result(output)
+        if not result.text_value and result.error_code:
+            self._last_pr_lookup_error = result.error_code
+            self._record_lookup_failure(result.error_code)
+        return result.text_value
+
+    def _lookup_repo_for_ticket(self, ticket_id: str) -> str:
+        """Return the ``owner/repo`` string for ticket_id, or empty string.
+
+        Checks REPO env var first (not gh I/O — stays here), then the
+        current evidence item's id-derived binding (OMN-15382, zero gh
+        calls), then falls back to HandlerDodEvidenceGithubEffect's ``gh pr
+        list`` search. That gh fallback is scoped by whatever repo the
+        invoking process's cwd git remote resolves to — it CANNOT discover a
+        repo different from the caller's own working tree, so it is not a
+        substitute for an explicit REPO/id-derived binding when the target
+        repo differs from cwd; see the handler's ``_lookup_repo_for_ticket``
+        docstring. It is hardened with the same exact-ticket-token
+        fail-closed filtering as PR lookup (OMN-14400, RSD-1 of OMN-14398 —
+        the gh-CLI I/O itself lives in the canonical EFFECT handler).
+        """
+        self._last_repo_lookup_error = None
+        env_val = os.environ.get("REPO", "").strip()
+        if env_val:
+            return env_val
+
+        id_repo, _id_pr = self._repo_and_pr_from_evidence_id(
+            self._current_evidence_item_id
+        )
+        if id_repo:
+            return id_repo
+
+        command = ModelDodEvidenceGithubLookupCommand(
+            operation=EnumDodEvidenceGithubOperation.LOOKUP_REPO_FOR_TICKET,
+            ticket_id=ticket_id,
+        )
+        output = HandlerDodEvidenceGithubEffect().handle(command)
+        result = self._github_lookup_result(output)
+        if not result.text_value and result.error_code:
+            self._last_repo_lookup_error = result.error_code
+            self._record_lookup_failure(result.error_code)
+        return result.text_value
+
+    def _record_lookup_failure(self, error_code: str | None) -> None:
+        """Retain the FIRST lookup failure code of this run (OMN-17022)."""
+        if error_code and self._sticky_lookup_failure_code is None:
+            self._sticky_lookup_failure_code = error_code
+
+    @property
+    def lookup_failure_code(self) -> str | None:
+        """The first PR/repo lookup failure code observed this run, verbatim.
+
+        Exposed the same way ``occ_refresh_outcome`` is: provenance the handler
+        reads AFTER ``collect()`` returns, so the classification is made from a
+        typed code the effect handler already emitted rather than by parsing a
+        rendered message string.
+        """
+        return self._sticky_lookup_failure_code
+
+    @property
+    def occ_ref_failure_code(self) -> str | None:
+        """The governance-ref refusal code this run hit, verbatim (OMN-17796).
+
+        ``None`` unless ``collect()`` refused on the OCC ref itself. Read by
+        the handler AFTER ``collect()`` returns, exactly as
+        ``lookup_failure_code`` and ``occ_refresh_outcome`` are — typed
+        provenance the collector already holds, never a rendered message
+        parsed back out.
+        """
+        return self._occ_ref_failure_code
+
+    @property
+    def occ_ref_failure_cause(self) -> EnumDodVerifyUnresolvedCause | None:
+        """``occ_ref_failure_code`` mapped onto the OMN-17022 taxonomy."""
+        if self._occ_ref_failure_code is None:
+            return None
+        return EnumDodVerifyUnresolvedCause.from_error_code(self._occ_ref_failure_code)
+
+    @property
+    def lookup_failure_cause(self) -> EnumDodVerifyUnresolvedCause | None:
+        """``lookup_failure_code`` mapped onto the OMN-17022 cause taxonomy."""
+        if self._sticky_lookup_failure_code is None:
+            return None
+        return EnumDodVerifyUnresolvedCause.from_error_code(
+            self._sticky_lookup_failure_code
+        )
+
+    def _resolve_command_placeholders(
+        self,
+        cmd_str: str,
+        ticket_id: str,
+    ) -> tuple[str, str | None]:
+        """Substitute all placeholder forms in a command string.
+
+        Supported forms:
+          - ``{ticket_id}``, ``{pr}``, ``{repo}``  (Python format-style)
+          - ``${TICKET_ID}``, ``${PR_NUMBER}``, ``${REPO}``  (shell-style)
+
+        Returns ``(resolved_cmd, None)`` on success.
+        Returns ``(original_cmd, error_message)`` when a required placeholder
+        cannot be resolved (e.g. no merged PR found for ticket).
+        """
+        needs_pr = "{pr}" in cmd_str or "${PR_NUMBER}" in cmd_str
+        needs_repo = "{repo}" in cmd_str or "${REPO}" in cmd_str
+
+        pr_num = self._lookup_pr_for_ticket(ticket_id) if needs_pr else ""
+        repo = self._lookup_repo_for_ticket(ticket_id) if needs_repo else ""
+
+        if needs_pr and not pr_num:
+            reason = self._last_pr_lookup_error
+            detail = f" [{reason}]" if reason else ""
+            return cmd_str, (
+                f"Cannot resolve PR number for {ticket_id}: "
+                f"set PR_NUMBER env var or ensure a merged PR exists.{detail}"
+            )
+        if needs_repo and not repo:
+            reason = self._last_repo_lookup_error
+            detail = f" [{reason}]" if reason else ""
+            return cmd_str, (
+                f"Cannot resolve repo for {ticket_id}: "
+                f"set REPO env var or ensure a merged PR exists.{detail}"
+            )
+
+        # Apply shell-style substitutions first (${...} → value)
+        cmd_str = cmd_str.replace("${TICKET_ID}", shlex.quote(ticket_id))
+        if pr_num:
+            cmd_str = cmd_str.replace("${PR_NUMBER}", shlex.quote(pr_num))
+        if repo:
+            cmd_str = cmd_str.replace("${REPO}", shlex.quote(repo))
+
+        # Apply Python-format-style substitutions ({...} → value)
+        cmd_str = cmd_str.replace("{ticket_id}", shlex.quote(ticket_id))
+        if pr_num:
+            cmd_str = cmd_str.replace("{pr}", shlex.quote(pr_num))
+        if repo:
+            cmd_str = cmd_str.replace("{repo}", shlex.quote(repo))
+
+        return cmd_str, None
+
+    def _infer_occ_cwd(self, contract_path: Path | None) -> str | None:
+        """Return the onex_change_control repo path when contract is from OCC.
+
+        Detects OCC contracts by checking whether the contract path contains
+        ``onex_change_control`` as a path component. Returns None for all
+        other contracts (cwd stays inherited).
+        """
+        # OMN-13888 (scope 6): during a dev-resolved collect, greps must run
+        # inside the origin/dev worktree so dev-only receipt files are visible.
+        if self._occ_dev_root:
+            return self._occ_dev_root
+        if contract_path is None:
+            return None
+        if "onex_change_control" not in contract_path.parts:
+            return None
+        omni_home = os.environ.get("OMNI_HOME")
+        if not omni_home:
+            return None
+        occ_path = Path(omni_home) / "onex_change_control"
+        if occ_path.is_dir():
+            return str(occ_path)
+        return None
+
+    def _resolve_contract_repo_dir(self, contract_path: Path | None) -> str | None:
+        """Resolve the OCC repo root for the ``$CONTRACT_REPO_DIR`` check token.
+
+        OMN-13857: contract check commands embed ``$CONTRACT_REPO_DIR`` (e.g.
+        ``grep -q ... "$CONTRACT_REPO_DIR/drift/dod_receipts/<T>/.../command.yaml"``).
+        Before this fix the token was only satisfied when the *caller* happened to
+        export ``CONTRACT_REPO_DIR``; unset it expanded to the empty string and
+        every receipt-backed check FAILED with a missing-prefix path — a
+        false-negative verdict on genuinely-passing evidence.
+
+        Resolution is deterministic and does not depend on the caller's shell:
+
+        1. An explicit non-empty ``CONTRACT_REPO_DIR`` in the environment wins
+           (honours a deliberate CI / operator override).
+        2. Otherwise, if the contract lives under ``onex_change_control/``, the
+           OCC root is derived from the contract path itself — correct even when
+           ``OMNI_HOME`` is unset or points elsewhere.
+        3. Otherwise ``$ONEX_CC_REPO_PATH`` when set.
+        4. Otherwise ``$OMNI_HOME/onex_change_control`` when that directory exists.
+
+        Returns the absolute OCC root, or ``None`` when it cannot be resolved
+        (the check then runs with the token unset — the fail-closed pre-fix
+        behaviour — rather than silently guessing a wrong root).
+        """
+        explicit = os.environ.get("CONTRACT_REPO_DIR", "").strip()
+        if explicit:
+            return explicit
+
+        # OMN-13888 (scope 6): a materialised origin/dev worktree is the OCC root
+        # for receipt-backed greps during a dev-resolved collect.
+        if self._occ_dev_root:
+            return self._occ_dev_root
+
+        # Derive from the contract path when it lives inside the OCC clone.
+        if contract_path is not None and "onex_change_control" in contract_path.parts:
+            parts = contract_path.parts
+            occ_index = parts.index("onex_change_control")
+            occ_root = Path(*parts[: occ_index + 1])
+            if occ_root.is_dir():
+                return str(occ_root)
+
+        cc_repo_path = os.environ.get("ONEX_CC_REPO_PATH", "").strip()
+        if cc_repo_path:
+            return cc_repo_path
+
+        omni_home = os.environ.get("OMNI_HOME", "").strip()
+        if omni_home:
+            occ_path = Path(omni_home) / "onex_change_control"
+            if occ_path.is_dir():
+                return str(occ_path)
+
+        return None
+
+    # ------------------------------------------------------------------
+    # OMN-14207: live GitHub PR-state verification for PR-bound evidence.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _live_pr_check_enabled() -> bool:
+        """Whether the live PR-state check runs (default: on).
+
+        Disabled only when ``DOD_VERIFY_LIVE_PR_CHECK`` is explicitly set to a
+        falsey value (``0``/``false``/``off``/``no``). This is a deliberate,
+        logged operator opt-out for environments without an authenticated
+        ``gh`` CLI — NOT a silent fallback. When disabled, the live check is
+        emitted as SKIPPED (surfaced, not swallowed).
+        """
+        raw = os.environ.get(_LIVE_PR_CHECK_ENV, "1").strip().lower()
+        return raw not in ("0", "false", "off", "no")
+
+    @staticmethod
+    def _normalize_repo(repo: str) -> str:
+        """Return ``owner/repo``, defaulting a bare name to the OmniNode org."""
+        repo = repo.strip()
+        return repo if "/" in repo else f"{_DEFAULT_GITHUB_ORG}/{repo}"
+
+    def _resolve_pr_bindings(
+        self,
+        item: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None,
+    ) -> list[tuple[str, int]]:
+        """Resolve every ``(owner/repo, pr_number)`` this evidence item binds to.
+
+        OMN-15382 (F2) fail-closed rewrite, in precedence order:
+
+        1. An explicit ``pr`` mapping on the item (``{repo, number}``) or explicit
+           ``repo`` + ``pr_number`` scalar fields — lets a contract declare the
+           binding directly (future-proof).
+        2. A hardcoded, same-clause literal ``gh pr view/checks/diff <N> ...
+           --repo <owner>/<repo>`` pin within the item's OWN ``checks[]``
+           (:func:`_hardcoded_pr_bindings_in_value`) — the repo and number come
+           from the exact same string, so they can never be mixed.
+        3. The item's ``id``, when it follows the autobind naming convention
+           (:meth:`_repo_and_pr_from_evidence_id`) — same guarantee, a single
+           anchored regex over one string.
+        4. The durable receipt(s) for the item under
+           ``<occ_root>/drift/dod_receipts/<ticket>/<item_id>/*.yaml`` — but
+           ONLY a citation whose repo and ``pr_number`` are corroborated by the
+           SAME receipt field (:func:`_field_confirms_pair`). A receipt's
+           ``pr_number`` records the TICKET/CARRIER PR the receipt was authored
+           under, which is not necessarily the PR any given
+           ``check_value``/``probe_command`` pins — trusting a repo extracted
+           from one field paired unconditionally with ``pr_number`` produced a
+           mismatched pair (discovery case: ``dod-omn-14968-pr-2536-rebind-15382``
+           derived ``(OmniNode-ai/omnibase_infra, 5458)`` — the carrier PR
+           number paired with the pinned PR's repo — instead of the item's
+           actual ``(OmniNode-ai/omnibase_infra, 2536)`` pin). A PASS receipt
+           that names a ``pr_number`` but cannot be consistently paired sets
+           ``self._last_binding_note`` (read by
+           :meth:`_live_pr_checks_for_item`) instead of silently contributing
+           nothing or trusting the mismatched pair.
+
+           OMN-15465 adds a second refusal at this tier: a receipt pair that IS
+           internally consistent but whose number CONTRADICTS a PR the item's
+           own ``id`` literally pins (:func:`_pr_numbers_pinned_by_item_id`) is
+           refused too. Internal consistency only proves the receipt describes
+           *some* PR coherently — not that it describes *this item's* PR.
+
+        Tiers 1-3 are deliberately NOT subject to the id-contradiction guard:
+        an explicit ``pr`` field is an author declaration, the item's own
+        ``check_value`` is the command that actually runs, and tier 3 reads the
+        id itself. Only the receipt tier speaks about the item from outside it,
+        so only the receipt tier can be wrong about which PR the item is.
+
+        Returns a de-duplicated list; empty when the item does not bind to any PR
+        (a non-PR evidence item is therefore unaffected by the live check).
+        """
+        self._last_binding_note = None
+        bindings: list[tuple[str, int]] = []
+        seen: set[tuple[str, int]] = set()
+
+        def _add(repo_val: object, number_val: object) -> None:
+            if not isinstance(repo_val, str) or not repo_val.strip():
+                return
+            # bool is an int subclass — reject it as a PR number.
+            if isinstance(number_val, bool):
+                return
+            if isinstance(number_val, int):
+                number = number_val
+            elif isinstance(number_val, str) and number_val.strip().isdigit():
+                number = int(number_val.strip())
+            else:
+                return
+            if number <= 0:
+                return
+            key = (self._normalize_repo(repo_val), number)
+            if key not in seen:
+                seen.add(key)
+                bindings.append(key)
+
+        # 1. Explicit fields on the item.
+        explicit = item.get("pr")
+        if isinstance(explicit, dict):
+            _add(
+                explicit.get("repo"),
+                explicit.get("number", explicit.get("pr_number")),
+            )
+        _add(item.get("repo"), item.get("pr_number"))
+
+        # 2. Hardcoded, same-clause literal pin in the item's OWN checks.
+        if not bindings:
+            checks = item.get("checks")
+            if isinstance(checks, list):
+                for check in checks:
+                    if not isinstance(check, dict):
+                        continue
+                    value = check.get("check_value") or check.get("command")
+                    if not isinstance(value, str) or not value.strip():
+                        continue
+                    for repo_val, number_val in _hardcoded_pr_bindings_in_value(value):
+                        _add(repo_val, number_val)
+
+        # 3. id-convention parse.
+        if not bindings:
+            item_id_raw = item.get("id")
+            item_id_for_parse = item_id_raw if isinstance(item_id_raw, str) else None
+            id_repo, id_pr = self._repo_and_pr_from_evidence_id(item_id_for_parse)
+            if id_repo and id_pr:
+                _add(id_repo, id_pr)
+
+        # 4. Receipt-derived bindings, hardened against cross-field mixing.
+        if not bindings:
+            item_id = item.get("id")
+            if isinstance(item_id, str) and item_id:
+                receipts = apply_supersessions(
+                    self._load_item_receipts(item_id, ticket_id, contract_path)
+                )
+                untrusted = False
+                # OMN-15465: PR numbers the item's own id asserts. A
+                # receipt-derived pair can be internally consistent (repo and
+                # number corroborated by the SAME field) and STILL describe a
+                # different PR than the item does — the OMN-14623
+                # "2nd consumer" merged-path supersede re-binds a prior entry
+                # to an unrelated product PR, so the surviving receipt for
+                # ``occ-self-bind-pr-4711`` reads ``pr_number: 2424`` +
+                # ``gh pr view 2424 --repo OmniNode-ai/omnibase_infra``. The
+                # F2 consistency check passes it; the resulting live-state
+                # check then reports omnibase_infra#2424 under an item whose
+                # id and description both say OCC #4711, and renders VERIFIED
+                # whenever that carrier PR is merged and green. Census over
+                # OCC origin/dev @5a19a5e1b: 55 non-superseded items affected
+                # (plus 43 masked behind a contract-entry supersession).
+                id_pinned = _pr_numbers_pinned_by_item_id(item_id)
+                contradicted: list[int] = []
+                for receipt in receipts:
+                    if not isinstance(receipt, dict):
+                        continue
+                    if receipt.get("status") != "PASS":
+                        continue
+                    pr_number = receipt.get("pr_number")
+                    if not isinstance(pr_number, int) or isinstance(pr_number, bool):
+                        continue
+                    confirmed_repo = self._consistent_receipt_repo(receipt, pr_number)
+                    if confirmed_repo is None:
+                        untrusted = True
+                        continue
+                    if id_pinned and pr_number not in id_pinned:
+                        # Refuse, never downgrade to "probe the carrier
+                        # anyway": absent is honest, mis-bound is not.
+                        contradicted.append(pr_number)
+                        continue
+                    _add(confirmed_repo, pr_number)
+                if not bindings and contradicted:
+                    self._last_binding_note = (
+                        f"NO_CONSISTENT_PR_BINDING: item {item_id!r} pins PR "
+                        f"{sorted(id_pinned)} in its own id, but its surviving "
+                        f"PASS receipt(s) bind it to PR {sorted(contradicted)} "
+                        "— a different PR entirely (the OMN-14623 2nd-consumer "
+                        "supersede re-binds a prior entry to the current "
+                        "product PR). No live-state binding derived, because "
+                        "probing the carrier PR here would report VERIFIED "
+                        "about a PR this item never referenced. Give the item "
+                        "its own literal pin ('gh pr view <N> --repo "
+                        "<owner>/<repo>' or 'repos/<owner>/<repo>/pulls/<N>'), "
+                        "or give the 2nd consumer its own evidence item "
+                        "instead of re-binding this one."
+                    )
+                elif not bindings and untrusted:
+                    self._last_binding_note = (
+                        f"NO_CONSISTENT_PR_BINDING: item {item_id!r} has a PASS "
+                        "receipt recording pr_number, but no receipt field "
+                        "consistently pairs that number with a repo (the "
+                        "receipt's pr_number tracks the carrier PR, which may "
+                        "differ from the PR any check_value/probe_command "
+                        "actually pins) — no live-state binding derived. Pin "
+                        "the item's own check_value with a literal 'gh pr "
+                        "view <N> --repo <owner>/<repo>' or repair the "
+                        "receipt so pr_number and the probed repo agree."
+                    )
+
+        return bindings
+
+    @staticmethod
+    def _consistent_receipt_repo(receipt: dict[str, Any], pr_number: int) -> str | None:
+        """Return a repo for ``pr_number`` only when a receipt field names both.
+
+        Checks ``probe_stdout``, ``probe_command``, ``check_value`` in that
+        order for either a ``--repo <owner>/<repo>`` flag or a
+        ``https://github.com/<owner>/<repo>/pull/<n>`` URL, and requires the
+        SAME field to also confirm ``pr_number`` (:func:`_field_confirms_pair`
+        for the flag form; the URL's own ``<n>`` for the URL form). Pure
+        function — no I/O.
+        """
+        for field_name in ("probe_stdout", "probe_command", "check_value"):
+            value = receipt.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            repo_match = _REPO_FLAG_RE.search(value)
+            if repo_match is not None and _field_confirms_pair(
+                value, repo_match.group(1), pr_number
+            ):
+                return repo_match.group(1)
+            for url_repo, url_num in _GH_PR_URL_RE.findall(value):
+                if int(url_num) == pr_number:
+                    return str(url_repo)
+        return None
+
+    def _load_item_receipts(
+        self,
+        item_id: str,
+        ticket_id: str,
+        contract_path: Path | None,
+    ) -> list[dict[str, Any]]:
+        """Load the durable receipt payloads for a single evidence item.
+
+        Receipts live at the canonical platform layout
+        ``<occ_root>/drift/dod_receipts/<ticket>/<item_id>/*.yaml``. Each payload
+        is tagged with ``__source_name__`` so :func:`apply_supersessions` can
+        order any supersession chain by the unforgeable filename ordinal (matching
+        the DurableEvidenceGate). Returns ``[]`` when the OCC root or the receipt
+        directory cannot be resolved.
+        """
+        occ_root = self._resolve_contract_repo_dir(contract_path)
+        if occ_root is None:
+            return []
+        receipt_dir = Path(occ_root) / "drift" / "dod_receipts" / ticket_id / item_id
+        if not receipt_dir.is_dir():
+            return []
+        payloads: list[dict[str, Any]] = []
+        for receipt_file in sorted(receipt_dir.glob("*.yaml")):
+            raw = self._load_yaml(receipt_file)
+            if raw is None:
+                continue
+            raw.setdefault("__source_name__", receipt_file.name)
+            payloads.append(raw)
+        return payloads
+
+    def _live_pr_checks_for_item(
+        self,
+        item: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None,
+    ) -> list[ModelEvidenceCheckResult]:
+        """Emit the live PR-state check result(s) for a PR-bound evidence item.
+
+        Returns ``[]`` for a non-PR item (leaving its declared-check result the
+        sole authority) — UNLESS :meth:`_resolve_pr_bindings` found evidence the
+        item IS PR-related (a PASS receipt naming a ``pr_number``) but could not
+        safely derive which PR/repo it pins (OMN-15382 F2c); that case emits one
+        SKIPPED, visibly-noted result instead of silently omitting the check.
+        Otherwise one result per bound PR: VERIFIED when the PR is MERGED and
+        all checks are green; FAILED otherwise, INCLUDING when the live state
+        cannot be resolved (fail-closed — a Done-flip must not proceed on
+        unverifiable PR state) — EXCEPT for the one shape OMN-16788 carves
+        out, a MERGED PR whose required-context set the credential was not
+        PERMITTED to read, which is SKIPPED with a named
+        ``unverifiable_cause`` (still not verified, so still blocking; see
+        :meth:`_verify_live_pr`) — and UNLESS the item's own check_value asserts a
+        specific non-merged state (OPEN/CLOSED) for that exact PR reference
+        (OMN-16087), in which case that ONE binding is SKIPPED instead: the
+        item's declared ``command`` check already verifies the assertion
+        directly, so deriving a second, contradictory "must be MERGED"
+        judgement would invert the entry's stated intent rather than
+        corroborate it. Every OTHER binding on the same item (e.g. a second PR
+        reference the item asserts IS merged) is unaffected and still receives
+        the ordinary live derivation.
+        """
+        bindings = self._resolve_pr_bindings(item, ticket_id, contract_path)
+        item_id = str(item.get("id", "unknown"))
+        description = str(item.get("description", item_id))
+        if not bindings:
+            if self._last_binding_note is not None:
+                return [
+                    ModelEvidenceCheckResult(
+                        evidence_id=f"{item_id}::pr-live-state",
+                        description=f"Live PR state for {description}",
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=self._last_binding_note,
+                        proof_class=EnumCheckProofClass.MERGE_STATE,
+                        # OMN-17323: THIS is the arm the marker exists for, and
+                        # the only one. The result is an overlay this collector
+                        # synthesised — the ticket declared no such criterion —
+                        # and it is skipped because THIS collector's own binder
+                        # derived nothing. Reporting it in the verdict-bearing
+                        # denominator states the tool's inability as the
+                        # ticket's shortfall, which is what held the OMN-16106
+                        # autoclose flip at zero for the whole corpus. The
+                        # entry is kept, note and all, so the receipt still
+                        # shows the binder gap.
+                        unbindable_derived_overlay=True,
+                    )
+                ]
+            return []
+
+        if not self._live_pr_check_enabled():
+            logger.warning(
+                "Live PR check disabled via %s; %d binding(s) NOT verified for %s",
+                _LIVE_PR_CHECK_ENV,
+                len(bindings),
+                item_id,
+            )
+            return [
+                ModelEvidenceCheckResult(
+                    evidence_id=f"{item_id}::pr-live-state",
+                    description=f"Live PR state for {description}",
+                    status=EnumEvidenceCheckStatus.SKIPPED,
+                    message=(
+                        f"Live PR check disabled via {_LIVE_PR_CHECK_ENV}; "
+                        f"bindings not verified: {bindings}"
+                    ),
+                    proof_class=EnumCheckProofClass.MERGE_STATE,
+                )
+            ]
+
+        asserted_states = self._asserted_non_merged_pr_states_for_item(item, bindings)
+
+        results: list[ModelEvidenceCheckResult] = []
+        multi = len(bindings) > 1
+        for repo, pr_number in bindings:
+            evidence_id = (
+                f"{item_id}::pr-{pr_number}-live-state"
+                if multi
+                else f"{item_id}::pr-live-state"
+            )
+            asserted = asserted_states.get((repo, pr_number))
+            if asserted is not None:
+                results.append(
+                    ModelEvidenceCheckResult(
+                        evidence_id=evidence_id,
+                        description=(
+                            f"Live GitHub state for {repo}#{pr_number} ({item_id})"
+                        ),
+                        status=EnumEvidenceCheckStatus.SKIPPED,
+                        message=(
+                            f"{repo}#{pr_number}: item's own check_value "
+                            f"asserts {asserted} (not MERGED) for this PR — "
+                            "an intentional non-merged assertion (OMN-16087), "
+                            "not auto-bound to merged/green semantics. The "
+                            "item's declared command check verifies this "
+                            "assertion directly."
+                        ),
+                        proof_class=EnumCheckProofClass.MERGE_STATE,
+                    )
+                )
+                continue
+            status, message, cause = self._verify_live_pr(repo, pr_number)
+            results.append(
+                ModelEvidenceCheckResult(
+                    evidence_id=evidence_id,
+                    description=f"Live GitHub state for {repo}#{pr_number} ({item_id})",
+                    status=status,
+                    message=message,
+                    unverifiable_cause=cause,
+                    proof_class=EnumCheckProofClass.MERGE_STATE,
+                )
+            )
+        return results
+
+    @staticmethod
+    def _asserted_non_merged_pr_states_for_item(
+        item: dict[str, Any], bindings: list[tuple[str, int]]
+    ) -> dict[tuple[str, int], str]:
+        """Return ``{(repo, pr_number): "OPEN"|"CLOSED"}`` for every resolved
+        ``binding`` whose exact PR reference is accompanied, in the SAME
+        pipeline of the item's own ``checks[]`` text, by an explicit
+        non-merged state assertion (OMN-16087).
+
+        Scans ``check_value``/``command`` on every check in the item — not
+        only the check(s) that produced the binding — because the binding may
+        have been resolved from a different tier (id convention, receipt)
+        than the check carrying the assertion; the assertion is still
+        authoritative when it names the same (repo, pr_number) pair. Bindings
+        with no matching assertion are simply absent from the returned dict.
+        Pure — no I/O.
+        """
+        checks = item.get("checks")
+        if not isinstance(checks, list) or not bindings:
+            return {}
+        values: list[str] = []
+        for check in checks:
+            if not isinstance(check, dict):
+                continue
+            value = check.get("check_value") or check.get("command")
+            if isinstance(value, str) and value.strip():
+                values.append(value)
+        asserted: dict[tuple[str, int], str] = {}
+        for repo, pr_number in bindings:
+            for value in values:
+                state = _pr_binding_asserted_state(value, repo, pr_number)
+                if state is not None:
+                    asserted[(repo, pr_number)] = state
+                    break
+        return asserted
+
+    def _verify_live_pr(
+        self, repo: str, pr_number: int
+    ) -> tuple[EnumEvidenceCheckStatus, str, EnumEvidenceUnverifiableCause | None]:
+        """Return ``(status, message, cause)`` for the live state of
+        ``repo#pr_number``.
+
+        VERIFIED only when the PR is MERGED AND every REQUIRED status check is
+        green (OMN-14390) — a red non-required/informational check does not
+        block. A failure to resolve the merge state (gh
+        missing/auth/network/not-found) fails closed as FAILED.
+
+        SKIPPED (OMN-16788) in exactly one shape: the PR is CONFIRMED MERGED
+        and the ONLY thing left unproven is a required-context set the
+        verifying credential was not permitted to read. That is not a check
+        that ran and found the evidence wanting, and recording it as a
+        substantive failure is what made the scheduled CI sweep disagree with
+        every local run. The caller keeps the check out of the failure count
+        AND out of the verified count: ``HandlerDodVerify`` refuses to reach
+        VERIFIED while any ``cause`` is present, so OMN-15715's fail-closed
+        intent is preserved exactly — only its bookkeeping changes.
+
+        Everything else stays FAILED, deliberately:
+
+        * a PR that is genuinely not merged — read off a reachable API, a
+          substantive fact that a credential gap elsewhere does not excuse;
+        * a required context that actually ran RED;
+        * a timeout / 5xx / OSError on the protection probe, which says
+          nothing about a credential and must not become a laundering route.
+        """
+        self._last_checks_unreachable_cause = None
+        merge = self._fetch_pr_merge_state(repo, pr_number)
+        if merge is None:
+            return (
+                EnumEvidenceCheckStatus.FAILED,
+                (
+                    f"{repo}#{pr_number}: could not resolve live PR state via gh "
+                    "(missing/auth/network/not-found). Failing closed — a Done-flip "
+                    "must not proceed on unverifiable PR state."
+                ),
+                None,
+            )
+        merged, state = merge
+        reasons: list[str] = []
+        if not merged:
+            reasons.append(f"PR not merged (state={state})")
+        self._last_checks_unreachable_cause = None
+        checks_green, checks_detail = self._fetch_pr_checks_green(repo, pr_number)
+        checks_cause = self._last_checks_unreachable_cause
+        if not checks_green:
+            reasons.append(f"required checks not green ({checks_detail})")
+        if not reasons:
+            return (
+                EnumEvidenceCheckStatus.VERIFIED,
+                f"{repo}#{pr_number}: MERGED (state={state}); {checks_detail}",
+                None,
+            )
+        if merged and checks_cause is not None:
+            # Sole outstanding reason is an unread required-context set. The
+            # ``merged`` guard is load-bearing: without it an OPEN PR in a
+            # repo the credential cannot fully read would launder its
+            # not-merged failure into a skip.
+            return (
+                EnumEvidenceCheckStatus.SKIPPED,
+                (
+                    f"{repo}#{pr_number}: MERGED (state={state}), but this "
+                    f"check could not be evaluated — {checks_detail}. Recorded "
+                    f"SKIPPED with cause '{checks_cause.value}', NOT verified: "
+                    f"unread evidence never satisfies a Done-flip."
+                ),
+                checks_cause,
+            )
+        return (
+            EnumEvidenceCheckStatus.FAILED,
+            f"{repo}#{pr_number}: " + "; ".join(reasons),
+            None,
+        )
+
+    def _fetch_pr_merge_state(
+        self,
+        repo: str,
+        pr_number: int,
+    ) -> tuple[bool, str] | None:
+        """Return ``(merged, state)`` for ``repo#pr_number`` via the GitHub
+        effect handler's ``gh pr view`` lookup (OMN-14400, RSD-1 of
+        OMN-14398 — behavior-identical carve-out of the gh-CLI I/O into a
+        canonical EFFECT handler).
+
+        Returns ``None`` on any inability to resolve the PR (timeout, missing gh,
+        non-zero exit, unparseable output) so the caller can fail closed.
+        """
+        command = ModelDodEvidenceGithubLookupCommand(
+            operation=EnumDodEvidenceGithubOperation.FETCH_PR_MERGE_STATE,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        output = HandlerDodEvidenceGithubEffect().handle(command)
+        result = self._github_lookup_result(output)
+        if not result.resolved:
+            return None
+        return bool(result.merged), result.state or "UNKNOWN"
+
+    def _fetch_pr_checks_green(
+        self,
+        repo: str,
+        pr_number: int,
+    ) -> tuple[bool, str]:
+        """Return ``(all_green, detail)`` for ``repo#pr_number`` REQUIRED status
+        checks via the GitHub effect handler (OMN-14400, RSD-1 of OMN-14398).
+
+        Scoped to required checks only via required-context names read live from
+        branch protection, cross-referenced against check-suites/check-runs for
+        the PR's own head branch (OMN-15709) — a non-green *non-required* check
+        (e.g. an informational/advisory job) must never fail a Done-flip, and a
+        check-run produced only by a foreign PR/branch sharing the same head SHA
+        must never satisfy OR redden this PR's evidence; only branch-protection-
+        required contexts actually produced on the PR's own branch are
+        load-bearing here. Fails closed: any non-green required check
+        (FAILURE/CANCELLED/PENDING/...), a required context missing entirely or
+        produced only by a foreign branch, an empty required-check set, or an
+        inability to enumerate checks yields ``False``.
+        """
+        command = ModelDodEvidenceGithubLookupCommand(
+            operation=EnumDodEvidenceGithubOperation.FETCH_PR_CHECKS_GREEN,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        output = HandlerDodEvidenceGithubEffect().handle(command)
+        result = self._github_lookup_result(output)
+        # OMN-16788: publish the handler's credential-reachability
+        # classification on the side channel for ``_verify_live_pr``. Always
+        # assigned (including to None) so a previous item's cause can never
+        # leak into this one.
+        self._last_checks_unreachable_cause = result.unreachable_cause
+        return bool(result.checks_green), result.detail or ""
+
+    # ------------------------------------------------------------------
+    # OMN-14637: merged-state re-anchoring of self-referential live-OPEN gates.
+    # ------------------------------------------------------------------
+
+    def _item_bound_to_merged_pr(
+        self,
+        item: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None,
+    ) -> bool:
+        """Whether this evidence item binds to a PR that GitHub confirms MERGED.
+
+        Reuses the SAME authoritative binding resolution the OMN-14207 live-state
+        check uses (:meth:`_resolve_pr_bindings` — an explicit ``pr`` field or the
+        durable receipt's ``pr_number`` + probed repo), then reads live merge
+        state via :meth:`_fetch_pr_merge_state`. Returns ``True`` only when at
+        least one bound PR is CONFIRMED MERGED.
+
+        Fails safe (no relaxation → command runs verbatim) when:
+
+        * the live-PR check is disabled (``DOD_VERIFY_LIVE_PR_CHECK`` off) — merge
+          state cannot then be authoritatively confirmed;
+        * the item binds to no PR;
+        * the probe is unresolved / errored, or the PR is not merged (OPEN/CLOSED).
+
+        The merge fact is therefore never caller-supplied — it is read from the
+        live GitHub surface, mirroring the fail-closed posture of the live check.
+        """
+        if not self._live_pr_check_enabled():
+            return False
+        bindings = self._resolve_pr_bindings(item, ticket_id, contract_path)
+        for repo, pr_number in bindings:
+            merge = self._fetch_pr_merge_state(repo, pr_number)
+            if merge is not None and merge[0]:
+                logger.info(
+                    "OMN-14637: evidence item %s binds to MERGED PR %s#%d — "
+                    "relaxing any live-OPEN-state gate to the merged terminal "
+                    "state for its command checks.",
+                    item.get("id", "unknown"),
+                    repo,
+                    pr_number,
+                )
+                return True
+        return False
+
+    @staticmethod
+    def _relax_merged_pr_state_predicate(cmd_str: str) -> tuple[str, bool]:
+        """Rewrite ``.state == "OPEN"`` → ``.state == "MERGED"`` (OMN-14637).
+
+        Applied ONLY when the evidence item is confirmed bound to a MERGED PR
+        (see :meth:`_item_bound_to_merged_pr`). It targets the canonical
+        ``gh pr view ... --json state ... --jq '.state == "OPEN" and ...'`` idiom
+        precisely: only the ``.state`` equality against ``OPEN`` (single- or
+        double-quoted) is rewritten, preserving the quote style. Every other
+        predicate — ``.headRefOid``, ``.files``, ``.title``, ``.baseRefName``,
+        receipt greps, and any unrelated ``"OPEN"`` literal such as
+        ``.title == "OPEN"`` — is left untouched, so the check still re-verifies
+        the merged PR's retained content rather than vacuously passing.
+
+        Returns ``(new_cmd, changed)`` where ``changed`` is ``True`` when at least
+        one predicate was rewritten.
+        """
+        new_cmd, count = _PR_OPEN_STATE_PREDICATE_RE.subn(
+            lambda m: f"{m.group(1)}{m.group(2)}MERGED{m.group(2)}", cmd_str
+        )
+        return new_cmd, count > 0
+
+    def _resolve_check_cwd(
+        self,
+        check: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None,
+    ) -> tuple[str | None, str | None, bool]:
+        """Resolve the working directory a check will execute in.
+
+        Returns ``(run_cwd, error, declared)``. ``declared`` is True only when
+        the check itself carried a ``cwd`` key — the OMN-10476 auto-injected
+        OCC root does not count, because that repository's freshness is
+        already pinned by ``occ_refresh_outcome``/``occ_resolved_sha`` and
+        re-asserting it here would fetch the same clone twice per run.
+
+        Extracted from ``_run_command_check`` (OMN-16846) so the product-clone
+        freshness gate resolves the SAME directory the command will run in,
+        by the same containment rules, rather than re-deriving it.
+        """
+        cwd_template = check.get("cwd")
+        if cwd_template is None:
+            # OMN-10476: auto-inject OCC cwd when no explicit cwd is declared.
+            return self._infer_occ_cwd(contract_path), None, False
+        if not isinstance(cwd_template, str):
+            return (
+                None,
+                f"cwd must be a string, got {type(cwd_template).__name__}",
+                True,
+            )
+        resolved, err = self._resolve_cwd(cwd_template, ticket_id)
+        if err is not None:
+            return None, err, True
+        return resolved, None, True
+
+    def _run_git(self, repo: Path, *args: str) -> tuple[int, str, str]:
+        """Run one git subprocess under the shared ceiling. Pure I/O helper."""
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(repo), *args],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_git_op_timeout_s(),
+            )
+        except subprocess.TimeoutExpired:
+            return 124, "", f"git {' '.join(args)} timed out"
+        except OSError as exc:  # git absent / unreadable path
+            return 127, "", f"git {' '.join(args)} could not be executed: {exc}"
+        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+
+    def _assess_product_clone(self, run_cwd: str) -> ModelProductCloneResolution:
+        """Resolve the tree a behaviour check will execute in, and its freshness.
+
+        OMN-16846 D2. ``node_dod_verify`` refreshes and pins the CONTRACT repo
+        and asserted nothing about the PRODUCT clone the ``test_passes``
+        commands actually run in. Measured 2026-08-28: the canonical
+        ``omnibase_core`` clone was 2 commits behind ``origin/dev`` and missing
+        the merge under adjudication, so the new test file did not exist and
+        ``uv run pytest`` reported "collected 0 items / no tests ran" — which
+        reads exactly like "the tests were never written". 9 of 12 canonical
+        clones were behind that session, so this is the machine's normal state.
+
+        Comparison is against the clone's OWN upstream, not a hard-coded
+        ``origin/dev``: a worktree parked on a feature branch is the legitimate
+        shape for verifying that branch, and it tracks its own remote branch.
+        Only being BEHIND falsifies a verdict; being ahead does not.
+
+        OMN-18117 froze WHICH COMMIT that comparison resolves to, for callers
+        that materialise their clones up front and check them later. Where a
+        pin exists for this repository the verdict is measured against the
+        upstream tip observed at materialisation and no fetch is performed, so
+        an unrelated merge landing mid-run cannot turn a clone that contains
+        the work under adjudication into a refusal. Where none exists — every
+        local invocation — the live fetch below is unchanged.
+
+        Residual, stated rather than implied: a pin cannot see a merge that
+        lands AFTER materialisation. A check bound to such a merge runs against
+        a tree that genuinely lacks it and reports a substantive result rather
+        than a refusal. Closing that needs the clone re-materialised
+        immediately before the check phase, which would move
+        ``${OMNI_HOME}/omnimarket`` mid-run and hard-fail the OMN-14060 drift
+        guard against the dispatch venv. It self-corrects on the next tick,
+        where materialisation happens after the merge; the defect this replaces
+        did not self-correct at all while merges kept landing.
+
+        Memoised per repository root — one fetch per repo per run.
+        """
+        cached = self._product_clone_cache.get(run_cwd)
+        if cached is not None:
+            return cached
+        resolution = self._compute_product_clone_resolution(run_cwd)
+        self._product_clone_cache[run_cwd] = resolution
+        return resolution
+
+    def _compute_product_clone_resolution(
+        self, run_cwd: str
+    ) -> ModelProductCloneResolution:
+        """Uncached body of ``_assess_product_clone``."""
+        cwd_path = Path(run_cwd)
+
+        rc, toplevel, stderr = self._run_git(cwd_path, "rev-parse", "--show-toplevel")
+        if rc != 0 or not toplevel:
+            # Not a repository at all. ``_resolve_cwd`` has already proven the
+            # directory exists and is contained, so this is a scratch or
+            # generated directory rather than a typo'd clone path — there is
+            # no tree here to be stale against, and nothing to record.
+            return ModelProductCloneResolution(
+                repo_root=run_cwd,
+                freshness=EnumProductCloneFreshness.NOT_APPLICABLE,
+                detail=(
+                    f"{run_cwd} is not inside a git repository "
+                    f"(git rev-parse --show-toplevel: {stderr or f'exit {rc}'})"
+                ),
+            )
+        repo_root = toplevel
+
+        rc, head_sha, stderr = self._run_git(cwd_path, "rev-parse", "HEAD")
+        if rc != 0 or not head_sha:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                detail=f"HEAD could not be resolved: {stderr or f'exit {rc}'}",
+            )
+
+        # OMN-18117. If this run recorded a pin for this repository, THAT is
+        # the comparison target for the rest of the run. Everything below this
+        # branch re-derives the target from a live fetch, which is correct for
+        # a one-shot local verification and wrong for a sweep that materialised
+        # its clones twenty minutes ago: an unrelated merge landing in between
+        # made a clone that genuinely contains the work under adjudication read
+        # ``behind 1`` and be refused unexecuted.
+        pin = self._load_product_clone_pins().get(os.path.realpath(repo_root))
+        if pin is not None:
+            return self._pinned_product_clone_resolution(
+                cwd_path, repo_root, head_sha, pin
+            )
+
+        rc, upstream, stderr = self._run_git(
+            cwd_path, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"
+        )
+        if rc != 0 or not upstream or "/" not in upstream:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                head_sha=head_sha,
+                detail=(
+                    "no remote-tracking upstream is configured for HEAD, so "
+                    "freshness cannot be established "
+                    f"({stderr or upstream or f'exit {rc}'})"
+                ),
+            )
+        remote, branch = upstream.split("/", 1)
+
+        rc, _out, stderr = self._run_git(cwd_path, "fetch", "--quiet", remote, branch)
+        if rc != 0:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                head_sha=head_sha,
+                upstream_ref=upstream,
+                detail=(
+                    f"git fetch {remote} {branch} failed, so the local "
+                    f"remote-tracking ref cannot be trusted as a comparison "
+                    f"point: {stderr or f'exit {rc}'}"
+                ),
+            )
+
+        rc, behind_raw, stderr = self._run_git(
+            cwd_path, "rev-list", "--count", f"HEAD..{upstream}"
+        )
+        if rc != 0 or not behind_raw.isdigit():
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                head_sha=head_sha,
+                upstream_ref=upstream,
+                detail=(
+                    f"could not count commits between HEAD and {upstream}: "
+                    f"{stderr or behind_raw or f'exit {rc}'}"
+                ),
+            )
+        behind = int(behind_raw)
+        # OMN-18117: name the commit this verdict was measured against, not
+        # only the moving ref it was read from. Best-effort — a receipt with an
+        # unresolved comparison SHA is worse than one without, but neither is a
+        # reason to refuse a tree the predicate above already placed.
+        _rc, comparison_sha, _stderr = self._run_git(cwd_path, "rev-parse", upstream)
+        return self._finalise_product_clone(
+            cwd_path,
+            repo_root=repo_root,
+            head_sha=head_sha,
+            upstream_ref=upstream,
+            comparison_sha=comparison_sha or None,
+            comparison_pinned=False,
+            behind=behind,
+        )
+
+    def _load_product_clone_pins(self) -> dict[str, ModelProductClonePin]:
+        """Read this run's frozen comparison targets, once, keyed by repo root.
+
+        OMN-18117. Absent, unreadable, malformed or unrecognised-version files
+        all resolve to "no pins", which lands every repository back on the
+        OMN-16846 live-fetch comparison. That fallback is the conservative
+        direction: the live comparison is the one that over-refuses, so a pin
+        file this collector cannot interpret costs held candidates, never a
+        laundered verdict.
+        """
+        if self._product_clone_pins is not None:
+            return self._product_clone_pins
+
+        pins: dict[str, ModelProductClonePin] = {}
+        raw_path = os.environ.get(_PRODUCT_CLONE_PIN_FILE_ENV, "").strip()
+        if raw_path:
+            try:
+                payload = Path(raw_path).read_text(encoding="utf-8")
+                pin_set = ModelProductClonePinSet.model_validate_json(payload)
+            except (OSError, ValueError, ValidationError) as exc:
+                logger.warning(
+                    "OMN-18117: %s names %s, which could not be read as a pin "
+                    "file (%s). Falling back to the live upstream comparison "
+                    "for every clone this run touches.",
+                    _PRODUCT_CLONE_PIN_FILE_ENV,
+                    raw_path,
+                    exc,
+                )
+            else:
+                if pin_set.version != _PRODUCT_CLONE_PIN_SCHEMA_VERSION:
+                    logger.warning(
+                        "OMN-18117: pin file %s declares schema version %d, "
+                        "which this collector cannot interpret (expected %d). "
+                        "Falling back to the live upstream comparison.",
+                        raw_path,
+                        pin_set.version,
+                        _PRODUCT_CLONE_PIN_SCHEMA_VERSION,
+                    )
+                else:
+                    for entry in pin_set.pins:
+                        pins[os.path.realpath(entry.repo_root)] = entry
+                    logger.info(
+                        "OMN-18117: pinned the freshness comparison target for "
+                        "%d repository/repositories from %s.",
+                        len(pins),
+                        raw_path,
+                    )
+
+        self._product_clone_pins = pins
+        return pins
+
+    def _pinned_product_clone_resolution(
+        self,
+        cwd_path: Path,
+        repo_root: str,
+        head_sha: str,
+        pin: ModelProductClonePin,
+    ) -> ModelProductCloneResolution:
+        """Measure HEAD against the commit this run materialised against.
+
+        OMN-18117. No fetch happens here, deliberately: fetching is what let
+        the moving tip back into the verdict. The pinned commit is the upstream
+        tip as of materialisation, so ``HEAD..<pin>`` answers exactly the
+        question OMN-16846 asks — does this tree contain everything the run
+        picked it up believing it contained — and answers it identically
+        whether it is asked one second or forty minutes into the run.
+
+        A pinned commit absent from this clone's object database is STALE, not
+        UNKNOWN. The clones the sweep materialises are ``--depth 1``, so a tree
+        copied at an older SHA never receives the newer tip's object; HEAD
+        demonstrably cannot contain a commit the repository has never seen.
+        """
+        rc, _out, stderr = self._run_git(
+            cwd_path, "cat-file", "-e", f"{pin.pinned_sha}^{{commit}}"
+        )
+        if rc != 0:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.STALE,
+                head_sha=head_sha,
+                upstream_ref=pin.upstream_ref,
+                comparison_sha=pin.pinned_sha,
+                comparison_pinned=True,
+                detail=(
+                    f"this run materialised against {pin.pinned_sha}, which is "
+                    f"absent from this clone's object database, so HEAD cannot "
+                    f"contain it ({stderr or f'exit {rc}'})"
+                ),
+            )
+
+        rc, behind_raw, stderr = self._run_git(
+            cwd_path, "rev-list", "--count", f"HEAD..{pin.pinned_sha}"
+        )
+        if rc != 0 or not behind_raw.isdigit():
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                head_sha=head_sha,
+                upstream_ref=pin.upstream_ref,
+                comparison_sha=pin.pinned_sha,
+                comparison_pinned=True,
+                detail=(
+                    f"could not count commits between HEAD and the pinned "
+                    f"comparison target {pin.pinned_sha}: "
+                    f"{stderr or behind_raw or f'exit {rc}'}"
+                ),
+            )
+
+        return self._finalise_product_clone(
+            cwd_path,
+            repo_root=repo_root,
+            head_sha=head_sha,
+            upstream_ref=pin.upstream_ref,
+            comparison_sha=pin.pinned_sha,
+            comparison_pinned=True,
+            behind=int(behind_raw),
+        )
+
+    def _finalise_product_clone(
+        self,
+        cwd_path: Path,
+        *,
+        repo_root: str,
+        head_sha: str,
+        upstream_ref: str | None,
+        comparison_sha: str | None,
+        comparison_pinned: bool,
+        behind: int,
+    ) -> ModelProductCloneResolution:
+        """Turn a behind-count into a verdict, then apply the dirt check.
+
+        Shared by the live and pinned paths (OMN-18117) so the two cannot drift
+        on what counts as STALE or DIRTY — only on what they compare against.
+        """
+        if behind > 0:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.STALE,
+                head_sha=head_sha,
+                upstream_ref=upstream_ref,
+                comparison_sha=comparison_sha,
+                comparison_pinned=comparison_pinned,
+                behind_count=behind,
+            )
+
+        # Tracked-file dirt only: untracked build artefacts and caches are
+        # present in every canonical clone and are not a misattribution risk,
+        # while a modified tracked file means the executed tree is no commit
+        # at all and ``head_sha`` would name something that was not run.
+        rc, porcelain, stderr = self._run_git(
+            cwd_path, "status", "--porcelain", "--untracked-files=no"
+        )
+        if rc != 0:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.UNKNOWN,
+                head_sha=head_sha,
+                upstream_ref=upstream_ref,
+                comparison_sha=comparison_sha,
+                comparison_pinned=comparison_pinned,
+                behind_count=behind,
+                detail=f"git status failed: {stderr or f'exit {rc}'}",
+            )
+        if porcelain:
+            return ModelProductCloneResolution(
+                repo_root=repo_root,
+                freshness=EnumProductCloneFreshness.DIRTY,
+                head_sha=head_sha,
+                upstream_ref=upstream_ref,
+                comparison_sha=comparison_sha,
+                comparison_pinned=comparison_pinned,
+                behind_count=behind,
+                detail=f"{len(porcelain.splitlines())} tracked path(s) modified",
+            )
+
+        return ModelProductCloneResolution(
+            repo_root=repo_root,
+            freshness=EnumProductCloneFreshness.FRESH,
+            head_sha=head_sha,
+            upstream_ref=upstream_ref,
+            comparison_sha=comparison_sha,
+            comparison_pinned=comparison_pinned,
+            behind_count=0,
+        )
+
+    @staticmethod
+    def _allow_stale_product_clone() -> bool:
+        """Named, logged override for the D2 gate — the OMN-15454 pattern."""
+        return os.environ.get(_ALLOW_STALE_PRODUCT_CLONE_ENV, "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+    @staticmethod
+    def _product_clone_unverifiable_cause(
+        resolution: ModelProductCloneResolution,
+    ) -> EnumEvidenceUnverifiableCause | None:
+        """Map a freshness verdict onto the blocking cause it warrants."""
+        if resolution.freshness in (
+            EnumProductCloneFreshness.FRESH,
+            EnumProductCloneFreshness.NOT_APPLICABLE,
+        ):
+            return None
+        if resolution.freshness is EnumProductCloneFreshness.STALE:
+            return EnumEvidenceUnverifiableCause.PRODUCT_CLONE_STALE
+        # DIRTY and UNKNOWN are both "this run cannot say which tree produced
+        # the verdict", which is the same fail-closed fact.
+        return EnumEvidenceUnverifiableCause.PRODUCT_CLONE_FRESHNESS_UNKNOWN
+
+    @staticmethod
+    def _is_venv_purity_refusal(message: str) -> bool:
+        """True only for the OMN-15620 gate's own verbatim refusal banner."""
+        return all(marker in message for marker in _VENV_PURITY_REFUSAL_MARKERS)
+
+    def _ensure_hermetic_uv_env(
+        self, project_root: Path
+    ) -> tuple[Path | None, str | None]:
+        """Build (once) a lock-exact uv environment for ``project_root``.
+
+        ``uv sync --frozen`` in EXACT mode: it installs precisely what
+        ``uv.lock`` declares and removes anything else, which is the whole
+        point -- the resulting interpreter cannot contain an undeclared
+        ``onex.nodes`` provider, so the OMN-15620 purity gate runs inside it
+        and passes on the facts rather than being bypassed.
+
+        The shared canonical venv is neither read nor written by this: the
+        environment path is handed to uv via ``UV_PROJECT_ENVIRONMENT``, which
+        redirects the project environment wholesale. Verified on the operator
+        Mac 2026-09-06 -- the omnimarket dist-info mtime in
+        ``$OMNI_HOME/omnibase_infra/.venv`` was byte-identical either side of
+        a full sync into the ephemeral path.
+
+        Returns ``(path, None)`` on success and ``(None, message)`` on failure,
+        where the message carries ``_HERMETIC_ENV_FAILURE_MARKER`` so the
+        caller records a typed SKIPPED rather than asserting a product defect
+        the run never looked for.
+        """
+        cached = self._hermetic_uv_envs.get(project_root)
+        if cached is not None:
+            return cached
+
+        result: tuple[Path | None, str | None]
+        try:
+            env_path = _hermetic_venv_path(project_root)
+        except OSError as exc:
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} could not read "
+                f"{project_root / 'uv.lock'} to key the environment: {exc}",
+            )
+            self._hermetic_uv_envs[project_root] = result
+            return result
+
+        # Inherit the caller env so a proxy/credential/cache setting still
+        # applies, then overlay the three things that decide WHICH
+        # interpreter uv builds and populates.
+        build_env = dict(os.environ)
+        build_env[_UV_PROJECT_ENVIRONMENT_ENV] = str(env_path)
+        # An inherited PYTHONPATH pointing at the shared venv's site-packages
+        # would re-expose the composed provider inside this interpreter and
+        # trip the purity gate again -- the same reason every governed script
+        # in this fleet runs `env -u PYTHONPATH`.
+        build_env.pop("PYTHONPATH", None)
+        # An inherited VIRTUAL_ENV disagreeing with the target makes uv warn
+        # about a mismatch it did not cause; drop it rather than explain it.
+        build_env.pop("VIRTUAL_ENV", None)
+        # Never inherit an ambient no-sync: the CI half of this ticket had
+        # exactly that (OMN-16902 D2), producing an EMPTY environment and
+        # `Failed to spawn: pytest` in 12ms.
+        build_env.pop("UV_NO_SYNC", None)
+
+        # Resolved from PATH by the OS rather than pre-checked here: a
+        # missing `uv` raises OSError below and lands on the same typed
+        # non-result as any other build failure, instead of needing a second
+        # branch that says the same thing.
+        argv = ["uv", "sync", "--frozen", "--project", str(project_root)]
+        timeout_s = _hermetic_sync_timeout_s()
+        logger.info(
+            "OMN-16846: building lock-exact behaviour-check environment for %s at %s",
+            project_root,
+            env_path,
+        )
+        try:
+            env_path.parent.mkdir(parents=True, exist_ok=True)
+            proc = subprocess.run(
+                argv,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                cwd=str(project_root),
+                env=build_env,
+            )
+        except subprocess.TimeoutExpired:
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} `uv sync --frozen` for "
+                f"{project_root} exceeded its {timeout_s}s build ceiling "
+                f"({_HERMETIC_SYNC_TIMEOUT_ENV} raises it). No check ran.",
+            )
+            self._hermetic_uv_envs[project_root] = result
+            return result
+        except OSError as exc:
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} could not spawn `uv sync "
+                f"--frozen` for {project_root}: {exc}",
+            )
+            self._hermetic_uv_envs[project_root] = result
+            return result
+
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip()[:600]
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} `uv sync --frozen` for "
+                f"{project_root} exited {proc.returncode}: {detail}",
+            )
+            self._hermetic_uv_envs[project_root] = result
+            return result
+
+        # Assert the interpreter exists rather than trusting the exit status --
+        # the same lesson `reconcile-workspace-venvs.sh` records about repairs
+        # that witness themselves (OMN-17307).
+        interpreter = env_path / "bin" / "python"
+        if not interpreter.is_file():
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} `uv sync --frozen` reported "
+                f"success for {project_root} but {interpreter} is absent.",
+            )
+            self._hermetic_uv_envs[project_root] = result
+            return result
+
+        result = (env_path, None)
+        self._hermetic_uv_envs[project_root] = result
+        return result
+
+    def _ensure_hermetic_node_env(
+        self, project_root: Path
+    ) -> tuple[Path | None, str | None]:
+        """Build (once) a lock-exact staged tree for a JS ``project_root``.
+
+        Returns ``(stage, None)`` on success and ``(None, message)`` on
+        failure, where the message carries ``_HERMETIC_ENV_FAILURE_MARKER`` so
+        the caller records the same typed SKIPPED the uv path records rather
+        than asserting a product defect the run never looked for.
+
+        Three things happen, in this order, all on the BUILD budget:
+
+        1. the pnpm the project itself pins is resolved -- corepack first
+           because that is the mechanism the ``packageManager`` field exists
+           for, then a PATH pnpm whose version matches exactly. Nothing else is
+           accepted: using an unpinned pnpm would put undeclared state back
+           into the adjudication;
+        2. the source tree is copied into a stage keyed by (project root,
+           lockfile bytes), every entry except the installed modules tree
+           replaced, so a stale file from a previous run cannot survive into a
+           verdict; and
+        3. ``pnpm install --frozen-lockfile`` populates the stage's own
+           ``node_modules`` if it is not already there. ``--frozen-lockfile``
+           is the exactness: pnpm refuses rather than resolving when the
+           manifest and the lockfile disagree.
+
+        The canonical clone is read (copied FROM) and never written: no
+        install, no lockfile rewrite, no modules tree. That is the whole
+        separation, and it is asserted rather than asserted-about by
+        ``test_a_pnpm_check_executes_in_a_lock_exact_stage_not_the_shared_clone``.
+        """
+        cached = self._hermetic_node_envs.get(project_root)
+        if cached is not None:
+            return cached
+
+        result: tuple[Path | None, str | None]
+
+        version, pin_err = _pinned_pnpm_version(project_root)
+        if version is None:
+            result = (None, f"{_HERMETIC_ENV_FAILURE_MARKER} {pin_err}")
+            self._hermetic_node_envs[project_root] = result
+            return result
+
+        runner, runner_err = _resolve_pinned_pnpm(version, project_root)
+        if runner is None:
+            result = (None, f"{_HERMETIC_ENV_FAILURE_MARKER} {runner_err}")
+            self._hermetic_node_envs[project_root] = result
+            return result
+
+        try:
+            stage = _hermetic_node_stage_path(project_root)
+        except OSError as exc:
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} could not read "
+                f"{project_root / 'pnpm-lock.yaml'} to key the stage: {exc}",
+            )
+            self._hermetic_node_envs[project_root] = result
+            return result
+
+        timeout_s = _hermetic_sync_timeout_s()
+        logger.info(
+            "OMN-17863: staging lock-exact behaviour-check tree for %s at %s "
+            "(pnpm %s via %s)",
+            project_root,
+            stage,
+            version,
+            runner[0],
+        )
+
+        try:
+            stage.mkdir(parents=True, exist_ok=True)
+            self._refresh_node_stage_source(project_root, stage)
+            bin_dir = self._write_pnpm_shim(stage, runner)
+        except OSError as exc:
+            result = (
+                None,
+                f"{_HERMETIC_ENV_FAILURE_MARKER} could not stage {project_root} "
+                f"at {stage}: {exc}",
+            )
+            self._hermetic_node_envs[project_root] = result
+            return result
+
+        modules = stage / "node_modules"
+        if not modules.is_dir():
+            build_env = dict(os.environ)
+            # Non-interactive for the same reason corepack is: a scheduled run
+            # has nobody to answer a prompt, so a prompt is an indefinite hang
+            # reported as nothing at all.
+            build_env["CI"] = "1"
+            build_env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0"
+            argv = [
+                *runner,
+                *_pnpm_config_flags(),
+                "install",
+                "--frozen-lockfile",
+                "--reporter=append-only",
+            ]
+            try:
+                proc = subprocess.run(
+                    argv,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_s,
+                    cwd=str(stage),
+                    env=build_env,
+                )
+            except subprocess.TimeoutExpired:
+                result = (
+                    None,
+                    f"{_HERMETIC_ENV_FAILURE_MARKER} `pnpm install "
+                    f"--frozen-lockfile` for {project_root} exceeded its "
+                    f"{timeout_s}s build ceiling "
+                    f"({_HERMETIC_SYNC_TIMEOUT_ENV} raises it). No check ran.",
+                )
+                self._hermetic_node_envs[project_root] = result
+                return result
+            except OSError as exc:
+                result = (
+                    None,
+                    f"{_HERMETIC_ENV_FAILURE_MARKER} could not spawn `pnpm "
+                    f"install --frozen-lockfile` for {project_root}: {exc}",
+                )
+                self._hermetic_node_envs[project_root] = result
+                return result
+
+            if proc.returncode != 0:
+                detail = (proc.stderr or proc.stdout or "").strip()[:600]
+                result = (
+                    None,
+                    f"{_HERMETIC_ENV_FAILURE_MARKER} `pnpm install "
+                    f"--frozen-lockfile` for {project_root} exited "
+                    f"{proc.returncode}: {detail}",
+                )
+                self._hermetic_node_envs[project_root] = result
+                return result
+
+            # Assert the tree exists rather than trusting the exit status --
+            # the same lesson as the uv path's interpreter assertion.
+            if not modules.is_dir():
+                result = (
+                    None,
+                    f"{_HERMETIC_ENV_FAILURE_MARKER} `pnpm install "
+                    f"--frozen-lockfile` reported success for {project_root} "
+                    f"but {modules} is absent.",
+                )
+                self._hermetic_node_envs[project_root] = result
+                return result
+
+        logger.info("OMN-17863: staged tree ready at %s (pnpm shim %s)", stage, bin_dir)
+        result = (stage, None)
+        self._hermetic_node_envs[project_root] = result
+        return result
+
+    @staticmethod
+    def _refresh_node_stage_source(project_root: Path, stage: Path) -> None:
+        """Replace the stage's source with the clone's, keeping the modules.
+
+        Deleting first is what makes the stage EXACT rather than merely
+        up-to-date: a file the product deleted must not survive in the tree an
+        adjudication runs against, and a copy-over-the-top would leave it
+        there indefinitely. The installed modules tree and the toolchain shim
+        are the two things kept, because both are keyed to the lockfile that
+        keyed this stage in the first place.
+        """
+        keep = {"node_modules", _STAGE_TOOLCHAIN_BIN}
+        for entry in stage.iterdir():
+            if entry.name in keep:
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        shutil.copytree(
+            project_root,
+            stage,
+            symlinks=True,
+            ignore_dangling_symlinks=True,
+            dirs_exist_ok=True,
+            ignore=lambda _src, names: [
+                n for n in names if n in _STAGE_SKIPPED_ENTRIES
+            ],
+        )
+
+    @staticmethod
+    def _write_pnpm_shim(stage: Path, runner: list[str]) -> Path:
+        """Put the PINNED pnpm on the check's PATH as plain ``pnpm``.
+
+        The check's own command is ``pnpm test:...``, so without this the
+        version that adjudicates is whichever pnpm the host happens to have --
+        the pin would govern the install and not the run, which is the half
+        that produces the verdict. The shim makes the pin govern both.
+
+        It also carries ``_pnpm_config_flags()``, which is the only place they
+        CAN be carried: the check's command line belongs to the contract and
+        this runner must never rewrite it.
+        """
+        bin_dir = stage / _STAGE_TOOLCHAIN_BIN
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        shim = bin_dir / "pnpm"
+        argv = [*runner, *_pnpm_config_flags()]
+        shim.write_text(
+            "#!/usr/bin/env bash\n"
+            "exec " + " ".join(shlex.quote(part) for part in argv) + ' "$@"\n'
+        )
+        shim.chmod(0o755)
+        return bin_dir
+
+    def _run_command_check(
+        self,
+        check: dict[str, Any],
+        ticket_id: str,
+        contract_path: Path | None = None,
+        *,
+        relax_merged_state: bool = False,
+    ) -> tuple[bool, str]:
+        """Execute a command-type check. Returns (success, message).
+
+        OMN-10078: when ``check["cwd"]`` is set, the runner expands its
+        ``${OMNI_HOME}/${PR_NUMBER}/${REPO}/${TICKET_ID}`` template tokens,
+        containment-checks the resolved path against ``OMNI_HOME``, and
+        passes ``cwd=`` to ``subprocess.run``. When ``cwd`` is absent the
+        runner inherits its caller's working directory (legacy behaviour).
+
+        OMN-10476: placeholder substitution is applied to the command string
+        for both ``{pr}/{repo}/{ticket_id}`` and ``${PR_NUMBER}/${REPO}/${TICKET_ID}``
+        forms before execution. OCC contracts get automatic cwd injection.
+        """
+        # OMN-17795: clear the per-check budget flag before every run, so it
+        # can only ever describe THIS invocation.
+        self._last_check_budget_exceeded = False
+
+        # Prefer explicit `command` field; fall back to `check_value`
+        cmd_str = check.get("command") or check.get("check_value", "")
+        if not cmd_str:
+            return False, "Empty command in check definition."
+
+        # OMN-10476: resolve all placeholder forms before execution
+        cmd_str, placeholder_err = self._resolve_command_placeholders(
+            cmd_str, ticket_id
+        )
+        if placeholder_err is not None:
+            return False, placeholder_err
+
+        # OMN-14637: when the evidence item is bound to a CONFIRMED-MERGED PR,
+        # re-anchor any live-OPEN-state gate to the merged terminal state so a
+        # normal, successful merge (head branch deleted, ``.state`` → MERGED) no
+        # longer fails the sanctioned closeout forever. All other predicates in the
+        # command still execute, so an unmet DoD still FAILS (non-vacuous).
+        if relax_merged_state:
+            cmd_str, relaxed = self._relax_merged_pr_state_predicate(cmd_str)
+            if relaxed:
+                logger.info(
+                    "OMN-14637: relaxed live-OPEN-state gate to MERGED for a "
+                    "merged-PR-bound command check."
+                )
+
+        # OMN-10078: resolve optional cwd via template-substitution +
+        # containment-check pipeline. None => inherit caller cwd. This MUST
+        # run before the shape guard below (OMN-15382 verifier finding):
+        # a relative script path (e.g. "./verify.sh") is only resolvable
+        # against the check's declared cwd, not this process's cwd.
+        run_cwd, cwd_err, _declared = self._resolve_check_cwd(
+            check, ticket_id, contract_path
+        )
+        if cwd_err is not None:
+            return False, cwd_err
+
+        # OMN-17863, the JS sibling of the uv block below. Same argument, same
+        # typed failure, two structural differences.
+        #
+        # First, a Node modules tree cannot be redirected out of the project
+        # the way UV_PROJECT_ENVIRONMENT redirects a venv, because resolution
+        # walks up from the importing file's real path. So the tree is STAGED
+        # and the check's cwd moves to the stage -- see the module comment
+        # above _HERMETIC_NODE_ROOT_ENV.
+        #
+        # Second, this runs BEFORE the shape guard while the uv block runs
+        # after it, and the ordering is load-bearing rather than incidental.
+        # `uv` is ambient wherever this runner runs; `pnpm` is not, and the
+        # guard's last predicate is a PATH lookup. Ordered the other way, a
+        # pnpm check on a host with no pnpm is rejected as
+        # INVALID_CHECK_VALUE_NOT_A_COMMAND -> FAILED, which is the exact
+        # verifier-defect-as-product-defect this ticket removes, arriving one
+        # step earlier than the exit 127 it was written against. Measured on
+        # omnimarket CI (run 34034066290, job 101488803404), where the runner
+        # has neither pnpm nor corepack. Staging first means an unbuildable
+        # toolchain returns its typed marker, and a buildable one hands the
+        # guard the PATH the command will actually resolve against.
+        node_stage_path: Path | None = None
+        if run_cwd is not None and _PNPM_INVOCATION_RE.search(cmd_str) is not None:
+            node_project_root = _pnpm_project_root(Path(run_cwd))
+            if node_project_root is not None:
+                node_stage_path, node_err = self._ensure_hermetic_node_env(
+                    node_project_root
+                )
+                if node_err is not None:
+                    return False, node_err
+        staged_path: str | None = None
+        if node_stage_path is not None:
+            # The pinned pnpm shim first, so the version that adjudicates is
+            # the version the project pinned rather than whatever the host has.
+            staged_path = os.pathsep.join(
+                [
+                    str(node_stage_path / _STAGE_TOOLCHAIN_BIN),
+                    os.environ.get("PATH", ""),
+                ]
+            )
+            run_cwd = str(node_stage_path)
+
+        # OMN-15382: reject prose masquerading as a command BEFORE ever
+        # shelling out (see module-level comment above
+        # _invalid_check_value_reason for the two bug mechanisms this closes).
+        # Runs AFTER cwd resolution and is cwd-aware so a legitimate
+        # relative-script + cwd: check (e.g. "./verify.sh" with
+        # cwd: "${OMNI_HOME}/.../subdir") resolves against the check's
+        # declared cwd instead of this process's actual cwd/PATH.
+        invalid_reason = _invalid_check_value_reason(
+            cmd_str, cwd=run_cwd, path=staged_path
+        )
+        if invalid_reason is not None:
+            return False, f"INVALID_CHECK_VALUE_NOT_A_COMMAND: {invalid_reason}"
+
+        # OMN-13857: deterministically satisfy the ``$CONTRACT_REPO_DIR`` token
+        # used by receipt-backed check commands, so the verdict does not depend
+        # on the caller having exported it. Inherit the caller env and overlay
+        # the resolved OCC root (never mutate os.environ in place).
+        run_env: dict[str, str] | None = None
+        contract_repo_dir = self._resolve_contract_repo_dir(contract_path)
+        if contract_repo_dir is not None:
+            run_env = dict(os.environ)
+            run_env["CONTRACT_REPO_DIR"] = contract_repo_dir
+
+        # OMN-16846 D1, local path. A check that invokes `uv` inside a locked
+        # project resolves that project's environment -- on an operator
+        # machine that is the SHARED canonical venv, which the workspace
+        # reconciler deliberately composes the skill-dispatch provider into
+        # and which the OMN-15620 purity gate therefore refuses before
+        # collection. Borrowing it was the defect; the check gets its own
+        # lock-exact environment instead. Non-uv commands are untouched, so
+        # the routing reaches exactly the commands that resolve a uv
+        # environment and nothing else.
+        if staged_path is not None:
+            if run_env is None:
+                run_env = dict(os.environ)
+            run_env["PATH"] = staged_path
+            run_env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0"
+
+        # OMN-18756. Bind a bare ``python``/``python3`` to the interpreter this
+        # process runs on, by putting its directory first on the check's PATH.
+        # See ``_BARE_PYTHON_INVOCATION_RE`` for the measurement.
+        #
+        # Composed onto whatever PATH the block above left rather than
+        # replacing it, so a staged pnpm shim keeps its precedence and every
+        # other tool still resolves exactly as it did. Guarded on the
+        # interpreter actually being there: ``sys.executable`` is not
+        # guaranteed to have a ``python3`` sibling (a frozen or embedded
+        # interpreter has none), and asserting a routing that did not happen
+        # is what would let the classifier below speak without standing.
+        interpreter_routed = False
+        if _BARE_PYTHON_INVOCATION_RE.search(cmd_str) is not None:
+            interpreter_bin = Path(sys.executable).parent
+            if any((interpreter_bin / name).exists() for name in ("python3", "python")):
+                if run_env is None:
+                    run_env = dict(os.environ)
+                run_env["PATH"] = os.pathsep.join(
+                    [str(interpreter_bin), run_env.get("PATH", "")]
+                )
+                interpreter_routed = True
+
+        hermetic_env_path: Path | None = None
+        # Deliberately mutually exclusive with the JS staging above rather than
+        # additive: a command that resolves a hermetic uv environment is a
+        # Python check, and moving its working directory would re-root every
+        # relative path in it for no benefit.
+        if (
+            node_stage_path is None
+            and run_cwd is not None
+            and _UV_INVOCATION_RE.search(cmd_str) is not None
+        ):
+            project_root = _uv_project_root(Path(run_cwd))
+            if project_root is not None:
+                hermetic_env_path, hermetic_err = self._ensure_hermetic_uv_env(
+                    project_root
+                )
+                if hermetic_err is not None:
+                    return False, hermetic_err
+        if hermetic_env_path is not None:
+            if run_env is None:
+                run_env = dict(os.environ)
+            run_env[_UV_PROJECT_ENVIRONMENT_ENV] = str(hermetic_env_path)
+            # Already synced above, on its own budget. Re-resolving here would
+            # charge the project's whole dependency graph to the per-check
+            # ceiling and manufacture a CHECK_BUDGET_EXCEEDED that says
+            # nothing about the product.
+            run_env["UV_NO_SYNC"] = "1"
+            run_env.pop("PYTHONPATH", None)
+            run_env.pop("VIRTUAL_ENV", None)
+
+        logger.info(
+            "Running command check (cwd=%s, CONTRACT_REPO_DIR=%s, uv env=%s, "
+            "node stage=%s): %s",
+            run_cwd or "<inherit>",
+            contract_repo_dir or "<unset>",
+            hermetic_env_path or "<project default>",
+            node_stage_path or "<not a staged JS project>",
+            cmd_str,
+        )
+
+        timeout_s = _check_timeout_s()
+        start = time.monotonic()
+        try:
+            # OMN-15382: list-form + explicit pipefail (not shell=True /
+            # plain sh -c) so a failing first stage of a multi-stage pipeline
+            # fails the whole check instead of being masked by the last
+            # stage's exit code.
+            result = subprocess.run(
+                ["bash", "-o", "pipefail", "-c", cmd_str],
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                cwd=run_cwd,
+                env=run_env,
+            )
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+        except subprocess.TimeoutExpired:
+            # OMN-17795: record the fact HERE, where it is known first-hand,
+            # rather than letting the caller re-derive it from this message.
+            self._last_check_budget_exceeded = True
+            return False, f"Timed out after {timeout_s}s: {cmd_str}"
+        except Exception as exc:
+            return False, f"Execution error: {exc}"
+
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+
+        if result.returncode != 0:
+            detail = stderr or stdout or f"exit code {result.returncode}"
+            # OMN-18756: only for a command this frame re-pointed. An unrouted
+            # check resolved its own interpreter, so nothing here knows whose
+            # environment the failure is about.
+            if interpreter_routed:
+                env_reason = _verifier_environment_reason(detail)
+                if env_reason is not None:
+                    return (
+                        False,
+                        f"{_VERIFIER_ENV_FAILURE_MARKER} {env_reason} "
+                        f"Runner output: {detail}",
+                    )
+            return False, f"FAILED ({elapsed_ms}ms): {detail}"
+
+        return True, f"OK ({elapsed_ms}ms): {stdout[:200]}"
+
+    def _run_released_check(self, check: dict[str, Any]) -> tuple[bool, str]:
+        """Assert every cited merge is released (OMN-18010 deliverable 2).
+
+        ``check_value`` is one or more ``<owner>/<repo>@<merge-sha>`` citations.
+        For each one that lands in a publishing repo, the merge sha must be
+        contained in a ``vX.Y.Z`` release tag AND the package index must serve
+        that tag's version with both a wheel and an sdist.
+
+        Fail-closed throughout: a missing clone, unfetched tags, an unknown sha,
+        an unreachable index, or a malformed citation is FAILED, never a pass.
+        The check exists because "merged" was being read as "shipped"; a probe
+        that cannot answer must not restore that reading.
+        """
+        raw = check.get("check_value") or check.get("command") or ""
+        if not isinstance(raw, str):
+            return False, (
+                "check_type 'released' requires a string check_value of "
+                f"'<owner>/<repo>@<merge-sha>' citations, got {type(raw).__name__}."
+            )
+        citations, parse_error = parse_released_check_value(raw)
+        if parse_error is not None:
+            return False, parse_error
+
+        omni_home = os.environ.get("OMNI_HOME", "").strip()
+        if not omni_home:
+            return False, (
+                "OMNI_HOME is unset, so the containing-tag lookup has no clone to "
+                "resolve against. Fail-closed (OMN-18010) — an unresolvable probe "
+                "is not evidence that a merge is released."
+            )
+        omni_root = Path(omni_home)
+
+        def tags_probe(repo: str, commit_sha: str) -> tuple[str, ...] | None:
+            # The canonical clone for ``<owner>/<repo>`` is ``$OMNI_HOME/<repo>``.
+            # git_release_tags_containing returns None — not () — when that clone
+            # is absent or does not know the sha, so a stale or missing clone can
+            # never be read as "no tag contains it".
+            return git_release_tags_containing(
+                omni_root / repo.split("/")[-1], commit_sha
+            )
+
+        result = evaluate_released(
+            citations,
+            release_tags_containing=tags_probe,
+            index_release_files=pypi_release_files,
+        )
+        return result.passed, result.message
+
+    def _run_file_exists_check(
+        self,
+        check: dict[str, Any],
+        contract_path: Path | None = None,
+    ) -> tuple[bool, str]:
+        """Verify a path exists within the repo-root containment boundary.
+
+        Accepts ``path`` or ``check_value`` as the target. Resolution rules:
+
+        - Relative paths resolve against the inferred OCC repo root when the
+          contract lives under ``onex_change_control/`` (matches the cwd
+          inference used by ``_run_command_check``); otherwise they resolve
+          against ``OMNI_HOME`` (or ``Path.cwd()`` fallback). Regression for
+          OMN-10542.
+        - Absolute paths are permitted only if they resolve inside ``OMNI_HOME``
+          (when set).
+        - ``..`` segments in the raw input are rejected up-front.
+        - Every candidate (and every glob match) is canonicalised via
+          ``Path.resolve()`` — which follows symlinks — and checked against
+          the containment base with ``is_relative_to``. Symlink escapes are
+          therefore blocked.
+        - Glob metacharacters (``*``, ``?``, ``[``) are expanded; at least one
+          match must remain after containment filtering.
+        """
+        raw_path = check.get("path") or check.get("check_value", "")
+        if not raw_path:
+            return False, "Empty path in file_exists check definition."
+
+        raw_path_obj = Path(raw_path)
+        if ".." in raw_path_obj.parts:
+            return False, f"Path traversal not allowed: {raw_path}"
+
+        omni_home = os.environ.get("OMNI_HOME")
+        # Containment base: OMNI_HOME (or cwd fallback). All resolved paths must
+        # land inside this boundary regardless of where they were resolved from.
+        base = Path(omni_home).resolve() if omni_home else Path.cwd().resolve()
+
+        # Relative-path resolution root: prefer the OCC repo root when this
+        # contract lives under onex_change_control/, mirroring the cwd
+        # inference _run_command_check uses (OMN-10542). The OCC root stays
+        # inside OMNI_HOME so the containment check below is unaffected.
+        occ_cwd = self._infer_occ_cwd(contract_path)
+        resolve_root = Path(occ_cwd).resolve() if occ_cwd else base
+
+        candidate = (
+            raw_path_obj if raw_path_obj.is_absolute() else resolve_root / raw_path_obj
+        )
+        has_glob = any(ch in raw_path for ch in ("*", "?", "["))
+
+        if has_glob:
+            safe_matches: list[Path] = []
+            for match in glob.glob(str(candidate)):
+                resolved_match = Path(match).resolve()
+                if resolved_match.is_relative_to(base):
+                    safe_matches.append(resolved_match)
+            if not safe_matches:
+                return False, f"No matches for glob: {raw_path}"
+            return True, f"OK: {len(safe_matches)} match(es) for {raw_path}"
+
+        resolved_target = candidate.resolve()
+        if not resolved_target.is_relative_to(base):
+            return False, f"Path traversal not allowed: {raw_path}"
+        if not resolved_target.exists():
+            return False, f"Path does not exist: {raw_path}"
+        return True, f"OK: exists {raw_path}"
+
+
+__all__ = ["EvidenceCollector"]

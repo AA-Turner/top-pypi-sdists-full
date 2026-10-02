@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# cut-lab-ref.sh -- RT-2 (OMN-14438): one-command git-ref deploy to a lab lane.
+#
+# The lab fast lane (Train 1, mechanical-release-trains plan §3) needs a single
+# mechanical command that gets an EXACT named ref of code running in the dev /
+# stability lane and fails loudly when it deploys nothing. This wrapper:
+#
+#   (a) optionally cuts a lightweight dev tag  lab/<lane>/<utc>-<shortsha>  at the
+#       chosen ref in each sibling clone (a reproducible marker, NOT a v* release
+#       tag -- Train 1 never touches PyPI),
+#   (b) engages RT-1's clean-ref checkout + vendored-SHA assertion by exporting
+#       DEPLOY_REF (or DEPLOY_HOTPATCH) into the workspace build, and
+#   (c) builds + deploys the resulting image to the target lab lane via
+#       deploy-runtime.sh.
+#
+# Supports --ref <branch|tag|sha> and --hotpatch (deploy a dirty tree
+# deliberately, LABELLED as such in the manifest -- a hot-patch is labelled, never
+# laundered). This wrapper drives the lab lanes (dev / stability-test) only; the
+# grant-gated prod lane is Train 2 and is refused here.
+#
+# Default is a DRY-RUN plan; pass --execute to actually build + deploy.
+#
+# Usage:
+#   cut-lab-ref.sh [--ref <ref>] [--lane dev|stability-test] [--hotpatch]
+#                  [--cut-tag] [--cold|--restart] [--execute]
+#
+# Exit codes:
+#   0  plan printed (dry-run) or deploy succeeded
+#   1  usage / precondition error (including a refused staged proof root)
+#   2  unknown / unsupported lane (e.g. prod)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# Overridable so an operator can point at a relocated deploy-runtime.sh (and so
+# the execute path is exercisable in tests without a real Docker deploy).
+DEPLOY_RUNTIME="${DEPLOY_RUNTIME:-${REPO_ROOT}/scripts/deploy-runtime.sh}"
+
+# The repos --cut-tag tags: SIBLING_LAB_TAG_REPOS from sibling_clone_manifest.sh,
+# which is every clone the sibling-pin preflight reads (SIBLING_CLONE_MANIFEST,
+# five repos including the omnibase_infra build context and omnibase_spi) plus
+# onex_change_control (SIBLING_EXTRA_TRACKED_REPOS). It is NOT the set the build
+# checks out to <ref>: stage_workspace.sh clean-checks-out only the three
+# source-vendored siblings (SIBLING_VENDORED_REPOS). OMN-19072: this used to be
+# a literal list of its own that omitted omnibase_spi, under a comment that
+# called it a mirror of stage_workspace.sh.
+# shellcheck source=./sibling_clone_manifest.sh
+source "${SCRIPT_DIR}/sibling_clone_manifest.sh"
+LAB_REF_REPOS=("${SIBLING_LAB_TAG_REPOS[@]}")
+
+# --- defaults -------------------------------------------------------------
+REF="origin/dev"
+LANE="dev"
+HOTPATCH=false
+CUT_TAG=false
+BRINGUP="--restart"   # warm refresh by default; --cold for a full bring-up
+MODE="plan"           # plan | execute
+
+usage() {
+    sed -n '4,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+log() { printf '[cut-lab-ref] %s\n' "$*" >&2; }
+err() { printf '[cut-lab-ref] ERROR: %s\n' "$*" >&2; }
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --ref)
+            [[ -n "${2:-}" ]] || { err "--ref requires a value"; exit 1; }
+            REF="$2"; shift 2 ;;
+        --lane)
+            [[ -n "${2:-}" ]] || { err "--lane requires a value"; exit 1; }
+            LANE="$2"; shift 2 ;;
+        --hotpatch)
+            HOTPATCH=true; shift ;;
+        --cut-tag)
+            CUT_TAG=true; shift ;;
+        --cold)
+            BRINGUP="--cold"; shift ;;
+        --restart)
+            BRINGUP="--restart"; shift ;;
+        --execute)
+            MODE="execute"; shift ;;
+        --help|-h)
+            usage 0 ;;
+        *)
+            err "unknown option: $1"; usage 1 ;;
+    esac
+done
+
+# --- lane -> compose project (mirrors deploy-runtime.sh lane mapping) ------
+DEPLOY_PROFILE_ARGS=()
+case "${LANE}" in
+    dev)
+        COMPOSE_PROJECT="omnibase-infra" ;;
+    stability-test)
+        COMPOSE_PROJECT="omnibase-infra-stability-test" ;;
+    dogfood)
+        COMPOSE_PROJECT="omnibase-infra-dogfood"
+        # This standalone lane puts every service behind the dogfood profile.
+        DEPLOY_PROFILE_ARGS=(--profile dogfood) ;;
+    prod|judge)
+        err "lane '${LANE}' is not a lab fast-lane target."
+        err "  prod is Train 2 (grant-gated, PyPI-backed); judge is read-only."
+        err "  cut-lab-ref drives dev / stability-test only."
+        exit 2 ;;
+    prepr-*)
+        # OMN-18893: the ephemeral pre-PR verify pool is refused HERE BY NAME,
+        # rather than given an arm of its own, and the refusal is the point.
+        #
+        # Rule 24(e) sanctions building a branch workspace image through
+        # exactly one entrypoint. A pool arm in this script would be a SECOND
+        # path to build a slot, reachable with one argument, bypassing that
+        # entrypoint's declared-lane refusals, its attribution requirement,
+        # its pool-wide build lock, its pinned-sha snapshot and its
+        # rendered-config gate. The value of a single entrypoint is entirely
+        # in there being one.
+        #
+        # This arm exists because the generic "unknown lane" refusal below
+        # told a caller only that the name was not recognised, which reads
+        # like a typo or a missing feature. A pool lane IS recognised; it is
+        # declared in the lane manifest and it is deliberately not driven from
+        # here. Saying so, and naming where it is driven from, is the
+        # difference between a refusal a caller can act on and one that sends
+        # them looking for the arm to add.
+        err "lane '${LANE}' is a pre-PR verify POOL slot and is not driven from here."
+        err "  Pool slots are built only by scripts/runtime_build/prepr_verify_lane.sh,"
+        err "  which derives its compose project from a claimed slot number and"
+        err "  accepts no lane argument at all (rule 24(e))."
+        err "  Use:  prepr_verify_lane.sh --slot <n> --worktree <path> --reason <text>"
+        err "  Do NOT add a pool arm to this script: a second build path would"
+        err "  bypass that entrypoint's refusals, locks, pinned-sha staging and"
+        err "  rendered-config gate."
+        exit 2 ;;
+    *)
+        err "unknown lane '${LANE}'; expected dev, stability-test, or dogfood."
+        err "  (Pre-PR pool slots are refused by name above and are built by"
+        err "  scripts/runtime_build/prepr_verify_lane.sh instead.)"
+        exit 2 ;;
+esac
+
+# --- OMNI_HOME (required: the sibling clones are the build source) ---------
+OMNI_HOME="${OMNI_HOME:-}"
+if [[ -z "${OMNI_HOME}" ]]; then
+    err "OMNI_HOME must be set (the sibling clones under it are the build source)."
+    exit 1
+fi
+
+# --- staged proof root precondition (OMN-19086) ---------------------------
+# The dogfood lane only ever builds from a proof lane's private source root, and
+# a root copied from the canonical clones while their ten-minute pull fires is a
+# git directory at one commit over a working tree at another, which builds and
+# serves 200 without a word. So a dogfood build, and any build whose OMNI_HOME
+# carries a pin manifest, runs the verifier first and refuses a root that is
+# unpinned, dirty or off its pins, naming the repository and both shas. Runs in
+# the dry-run plan too, so a plan never promises a build the execute would refuse.
+#
+# A proof root builds with --hotpatch only. A ref build makes stage_workspace.sh
+# fetch from each clone's origin and reset to the ref, and a staged clone's origin
+# is the moving canonical clone, so the image would come from whatever that clone
+# holds at build time rather than from the pins this check just approved.
+PROOF_ROOT_VERIFIER="${SCRIPT_DIR}/stage_pinned_proof_root.py"
+if [[ "${LANE}" == "dogfood" || -f "${OMNI_HOME}/proof-root-pins.json" ]]; then
+    if [[ "${HOTPATCH}" != true ]]; then
+        err "a staged proof root builds with --hotpatch only: a --ref build re-fetches every"
+        err "  clone from its origin, the moving canonical clone, and discards the pins."
+        exit 1
+    fi
+    log "proof root      : verifying ${OMNI_HOME} against its pin manifest"
+    if ! "${PROOF_ROOT_PYTHON:-python3}" "${PROOF_ROOT_VERIFIER}" verify --root "${OMNI_HOME}"; then
+        err "the staged proof root under ${OMNI_HOME} is unpinned, dirty or off its pins; not building."
+        err "  stage it with: python3 ${PROOF_ROOT_VERIFIER} stage --dest <new root> --source-root <clones>"
+        exit 1
+    fi
+fi
+
+if [[ "${HOTPATCH}" == true ]]; then
+    DEPLOY_HOTPATCH_VAL="1"
+else
+    DEPLOY_HOTPATCH_VAL="0"
+fi
+
+# --- optional lab tag: lab/<lane>/<utc>-<shortsha> ------------------------
+# A lightweight, local (un-pushed) marker cut at <ref> in each sibling clone so
+# this exact lab deploy is redeployable later via --ref <that-tag>. The tag name
+# carries the infra repo's short SHA + a UTC stamp; the same name is cut in every
+# sibling at that sibling's own resolved <ref> SHA.
+LAB_TAG=""
+compute_lab_tag_name() {
+    local infra_clone="${OMNI_HOME}/omnibase_infra"
+    local utc short
+    utc="$(date -u +%Y%m%dT%H%M%SZ)"
+    if [[ "${HOTPATCH}" == true ]]; then
+        short="$(git -C "${infra_clone}" rev-parse --short=12 HEAD 2>/dev/null || echo "HEAD")"
+    else
+        short="$(git -C "${infra_clone}" rev-parse --short=12 "${REF}^{commit}" 2>/dev/null || echo "unknown")"
+    fi
+    echo "lab/${LANE}/${utc}-${short}"
+}
+
+# The ref a sibling is tagged at when <ref> does not resolve in it: the same
+# default stage_workspace.sh's RT-1 checkout falls back to.
+SIBLING_FALLBACK_REF="${DEPLOY_SIBLING_FALLBACK_REF:-origin/dev}"
+
+cut_lab_tags() {
+    local tag="$1"
+    local repo clone sha
+    for repo in "${LAB_REF_REPOS[@]}"; do
+        clone="${OMNI_HOME}/${repo}"
+        if [[ ! -d "${clone}/.git" ]] && ! git -C "${clone}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            log "skip tag ${repo}: not a git clone at ${clone}"
+            continue
+        fi
+        if [[ "${HOTPATCH}" == true ]]; then
+            sha="$(git -C "${clone}" rev-parse HEAD)"
+        elif [[ "${repo}" == "omnibase_infra" ]]; then
+            # The build context: a ref it cannot resolve names nothing to
+            # build, so this stays a hard failure under set -e.
+            sha="$(git -C "${clone}" rev-parse "${REF}^{commit}")"
+        elif sha="$(git -C "${clone}" rev-parse "${REF}^{commit}" 2>/dev/null)"; then
+            : # <ref> resolves in this sibling (a branch or tag name).
+        else
+            # OMN-19072: a ref that exists only in omnibase_infra (a raw infra
+            # sha, or a lab tag cut before this sibling joined the tag set)
+            # must not abort here with the tag half-cut and the deploy never
+            # run. Tag the sibling at the same fallback stage_workspace.sh
+            # checks siblings out at, and say so.
+            sha="$(git -C "${clone}" rev-parse "${SIBLING_FALLBACK_REF}^{commit}")"
+            log "NOTE ${repo}: --ref '${REF}' does not resolve here -- falling back to"
+            log "  this sibling's own ${SIBLING_FALLBACK_REF} (${sha:0:12})."
+        fi
+        git -C "${clone}" tag -f "${tag}" "${sha}" >/dev/null
+        log "tagged ${repo}: ${tag} -> ${sha:0:12}"
+    done
+}
+
+# --- build the plan -------------------------------------------------------
+log "lane            : ${LANE} (compose project ${COMPOSE_PROJECT})"
+if [[ "${HOTPATCH}" == true ]]; then
+    log "ref             : <hotpatch: current HEAD, dirty tree deployed AS-IS>"
+else
+    log "ref             : ${REF}"
+fi
+log "bring-up        : ${BRINGUP}"
+log "cut lab tag     : ${CUT_TAG}"
+log "mode            : ${MODE}"
+
+if [[ "${CUT_TAG}" == true ]]; then
+    LAB_TAG="$(compute_lab_tag_name)"
+    log "lab tag         : ${LAB_TAG}"
+fi
+
+# Environment RT-1 needs: workspace build + the ref that engages clean-checkout
+# + assertion in stage_workspace.sh, plus the lane's compose project.
+PLAN_ENV=(
+    "OMNI_HOME=${OMNI_HOME}"
+    "OMNIBASE_INFRA_COMPOSE_PROJECT=${COMPOSE_PROJECT}"
+    "BUILD_SOURCE=workspace"
+    "DEPLOY_HOTPATCH=${DEPLOY_HOTPATCH_VAL}"
+)
+if [[ "${HOTPATCH}" != true ]]; then
+    PLAN_ENV+=("DEPLOY_REF=${REF}")
+fi
+
+log "deploy command  :"
+log "  ${PLAN_ENV[*]} \\"
+log "    ${DEPLOY_RUNTIME} --execute --force ${BRINGUP} ${DEPLOY_PROFILE_ARGS[*]}"
+
+if [[ "${MODE}" != "execute" ]]; then
+    log "dry-run: no tags cut, no build/deploy performed. Re-run with --execute."
+    exit 0
+fi
+
+# --- execute --------------------------------------------------------------
+if [[ ! -x "${DEPLOY_RUNTIME}" && ! -f "${DEPLOY_RUNTIME}" ]]; then
+    err "deploy-runtime.sh not found at ${DEPLOY_RUNTIME}"
+    exit 1
+fi
+
+if [[ "${CUT_TAG}" == true ]]; then
+    cut_lab_tags "${LAB_TAG}"
+fi
+
+export OMNI_HOME
+export OMNIBASE_INFRA_COMPOSE_PROJECT="${COMPOSE_PROJECT}"
+export BUILD_SOURCE="workspace"
+export DEPLOY_HOTPATCH="${DEPLOY_HOTPATCH_VAL}"
+if [[ "${HOTPATCH}" != true ]]; then
+    export DEPLOY_REF="${REF}"
+fi
+
+log "executing deploy-runtime.sh ..."
+# --force: the lab fast lane redeploys the SAME package version at new SHAs
+# constantly (version bumps are infrequent/manual), so deploy-runtime.sh's
+# version-directory collision guard ("Deployment directory already exists")
+# fires on nearly every lab redeploy -- and it fires BEFORE the RT-1 clean-ref
+# checkout even runs, so the checkout this whole wrapper exists for never
+# happens (OMN-14562). A same-version overwrite is the expected happy path
+# for this wrapper; deploy-runtime.sh's --force already backs up the existing
+# deployment dir and restores it on failure, so this is a safe, reversible
+# overwrite of the lab lane's OWN deployed/{version}/ staging dir -- it does
+# not touch prod, other lanes, or running containers beyond the lane's own
+# rebuild. Prod/release deploys never go through this wrapper (Train 2 is
+# grant-gated and refuses here -- see the lane case above), so the guard
+# stays fully intact for that path.
+exec bash "${DEPLOY_RUNTIME}" --execute --force "${BRINGUP}" "${DEPLOY_PROFILE_ARGS[@]}"

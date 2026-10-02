@@ -3795,6 +3795,53 @@ internal-only change (CLAUDE.md's existing exemption), say so explicitly \
 in your final message instead — that already satisfies the reviewer, no \
 test required.
 
+#3502: this ONLY applies to `type="work"` assignments — the ones whose \
+merge auto-closes the linked issue (`CLOSES_ISSUE_TYPES` in \
+`coord/models.py`). If you were dispatched as `mock-author`, \
+`test-author`, or `epic-decompose`, the `issue_number` you were given is \
+a milestone's TRACKING issue, not one your merge closes — this marker is \
+meaningless on those legs and you should omit it. For `type="work"`: your \
+PR merging does NOT automatically mean issue it's for is \
+actually resolved. If merging this PR would make the coordinator \
+auto-close the issue, but you know the issue's own problem is NOT fully \
+fixed — root cause lives in another repo and only a dependent half of \
+the fix landed here, this PR is investigation-only (no production change, \
+or only one hypothesis ruled out), or you only confirmed a symptom \
+without fixing the cause — say so explicitly, right before your \
+SMOKE_TESTS block:
+
+  ISSUE_RESOLUTION: partial — <what remains, in one sentence>
+
+or
+
+  ISSUE_RESOLUTION: investigation — <what you ruled out / what's still \
+unknown>
+
+Omit the line entirely (it defaults to `resolved`, today's behaviour) \
+when this PR genuinely fixes the issue. A drafted-but-unfiled upstream \
+issue — a bullet in a design doc, a TODO comment, a line in a tracking \
+markdown file — is NOT "filed"; only a real GitHub issue number counts, \
+so don't write `partial — see quadraui issue` unless that issue actually \
+exists and you name its number. This is read by the coordinator's merge \
+gate (not posted to GitHub by you — never run `gh` commands): a `partial`/ \
+`investigation` here keeps the issue OPEN after your PR merges, with a \
+comment on the issue quoting what remains, instead of auto-closing work \
+that still has a reported bug live.
+
+#3522: if you are going to declare `partial` or `investigation`, your \
+commit messages must reference this issue with `Refs #N` — never `Fix \
+#N`/`Fixes #N`/`Closes #N`/`Resolves #N`, even when that is this repo's \
+own commit convention for a fully-resolving change. GitHub scans commit \
+messages for closing keywords independently of the PR body and auto-closes \
+the issue the moment the commit lands on the base branch, regardless of \
+what your `ISSUE_RESOLUTION:` line says — the coordinator's merge gate can \
+rewrite the PR body but cannot rewrite history in a `gh`-only wire layer, \
+so it refuses to merge a `partial`/`investigation` PR whose commits still \
+carry a closing keyword. If you already wrote a commit this way before \
+deciding on `partial`/`investigation`, reword it (`git commit --amend` for \
+the most recent commit, `git rebase -i` for an earlier one) to say `Refs \
+#N` before you push.
+
 #252: before exiting, emit a SMOKE_TESTS block telling the human what to \
 manually verify.  You changed the code; you know what's worth poking.
 

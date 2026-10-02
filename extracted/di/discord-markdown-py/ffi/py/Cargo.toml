@@ -1,0 +1,11 @@
+[package]
+name = "discord-markdown-py"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+discord-markdown = { path = "../..", features = ["serde"] }
+nom = "8.0.0"
+pyo3 = { version = "0.22.2", features = ["extension-module", "abi3-py38"] }
+pythonize = "0.22.0"

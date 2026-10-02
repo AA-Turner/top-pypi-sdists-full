@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: libbs
+Version: 3.8.1
+Summary: Deprecated: 'libbs' has been renamed to 'declib'. Install 'declib' instead.
+License: BSD 2 Clause
+Project-URL: Homepage, https://github.com/binsync/declib
+Classifier: Development Status :: 7 - Inactive
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: declib
+Dynamic: license-file
+
+# libbs (deprecated)
+
+> **`libbs` has been renamed to [`declib`](https://github.com/binsync/declib).**
+>
+> This package is now a deprecation shim. Installing it will pull in `declib`
+> and emit a `DeprecationWarning` on import. No further updates will be made
+> to `libbs`.
+
+## Migrate
+
+```bash
+pip uninstall libbs
+pip install declib
+```
+
+Replace `libbs` with `declib` in your imports:
+
+```python
+# Before
+from libbs.api import DecompilerInterface
+
+# After
+from declib.api import DecompilerInterface
+```
+
+All sources, docs, examples, and tests now live in the `declib` repository.

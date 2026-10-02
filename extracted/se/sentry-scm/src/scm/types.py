@@ -1,0 +1,1747 @@
+import dataclasses
+from collections.abc import Iterator, MutableMapping
+from datetime import date, datetime
+from typing import Any, Literal, NotRequired, Protocol, Required, TypedDict, runtime_checkable
+
+import requests
+
+type Action = Literal["check_run", "comment", "pull_request"]
+type EventTypeHint = Literal["check_run", "check_suite", "comment", "pull_request", "pull_request_review"]
+type HybridCloudSilo = Literal["control", "region"]
+
+
+type ProviderName = Literal["bitbucket", "cursor_origin", "github", "github_enterprise", "gitlab"]
+"""The SCM provider that owns an integration or repository."""
+
+PROVIDER_SET: set[ProviderName] = set(["bitbucket", "cursor_origin", "github", "github_enterprise", "gitlab"])
+
+type ExternalId = str
+"""
+Identifier whose origin is an external, source-code-management provider. Refers specifically to
+the unique identifier of a repository.
+"""
+
+type ResourceId = str
+"""An opaque provider-assigned identifier for a resource (pull request, review, check run, etc.).
+
+Represented as a string to accommodate providers that use non-integer IDs (e.g. GitLab uses
+integers but Bitbucket uses UUIDs). Callers should treat this as opaque and not assume numeric
+ordering or format.
+"""
+
+type Reaction = Literal["+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"]
+"""Normalized reaction identifiers shared across all SCM providers."""
+
+type Referrer = str
+"""
+Identifies the caller so providers can apply per-referrer rate-limit policies and emit metrics
+scoped by referrer.
+"""
+
+type RepositoryId = int | tuple[ProviderName, ExternalId]
+"""A repository can be identified by its internal DB id or by a (provider, external_id) pair."""
+
+type FileStatus = Literal["added", "removed", "modified", "renamed", "copied", "changed", "unchanged", "unknown"]
+"""The change type applied to a file in a commit or pull request.
+
+- added: file was created
+- removed: file was deleted
+- modified: file contents changed
+- renamed: file was moved; see previous_filename for the old path
+- copied: file was duplicated from another path
+- changed: file metadata changed without content change (e.g. mode)
+- unchanged: file appears in the diff context but was not modified
+- unknown: file status could not be positively identified
+"""
+
+type ArchiveFormat = Literal["tarball", "zip"]
+"""Normalized archive format identifiers shared across all SCM providers."""
+
+
+class ArchiveLink(TypedDict):
+    """A download URL bundled with the authentication headers required to fetch it."""
+
+    url: str
+    headers: dict[str, str]
+
+
+type BuildStatus = Literal["pending", "running", "completed"]
+"""The lifecycle stage of a CI build.
+
+- pending: created or queued but not yet running
+- running: actively executing
+- completed: finished; see BuildConclusion for the outcome
+"""
+
+type BuildConclusion = Literal[
+    "success",
+    "failure",
+    "cancelled",
+    "skipped",
+    "timed_out",
+    "neutral",
+    "action_required",
+    "unknown",
+]
+"""The terminal outcome of a completed build.
+
+- success: all checks passed
+- failure: one or more checks failed
+- cancelled: stopped before completion
+- skipped: deliberately bypassed
+- timed_out: exceeded the time limit
+- neutral: completed without a pass/fail determination
+- action_required: requires manual intervention before proceeding
+- unknown: outcome could not be determined
+"""
+
+type TreeEntryMode = Literal["100644", "100755", "040000", "160000", "120000"]
+"""UNIX file mode for a git tree entry, as stored in a git tree object.
+
+- 100644: regular file (non-executable)
+- 100755: executable file
+- 040000: directory (subtree)
+- 160000: git submodule (gitlink)
+- 120000: symbolic link
+"""
+
+type TreeEntryType = Literal["blob", "tree", "commit"]
+"""The object type stored at a git tree entry.
+
+- blob: a file
+- tree: a directory (subtree)
+- commit: a submodule reference
+"""
+
+type ReviewSide = Literal["base", "head"]
+"""Which side of a diff a review comment is anchored to.
+
+- base: the base (original) side of the diff
+- head: the head (modified) side of the diff
+"""
+
+type BranchName = str
+type SHA = str
+type IssueState = Literal["open", "closed"]
+type PullRequestState = Literal["open", "closed"]
+type ReviewEvent = Literal["approve", "change_request", "comment"]
+type PullRequestReviewState = Literal["approved", "changes_requested", "commented", "dismissed", "pending"]
+type Encoding = Literal["utf-8", "base64"]
+type RepositoryPermission = Literal["admin", "read", "write", "none"]
+
+
+@dataclasses.dataclass
+class ChmodCommitAction:
+    executable: bool
+    filename: str
+
+
+@dataclasses.dataclass
+class DeleteCommitAction:
+    filename: str
+
+
+@dataclasses.dataclass
+class MoveCommitAction:
+    old_filename: str
+    new_filename: str
+
+
+@dataclasses.dataclass
+class WriteCommitAction:
+    action: Literal["create", "update"]
+    filename: str
+    content: str
+    encoding: Encoding
+
+
+class PaginationParams(TypedDict, total=False):
+    """Controls page traversal for list endpoints.
+
+    - cursor: an opaque token returned from a previous page's `next_cursor`
+    - per_page: how many items to return per page
+    """
+
+    cursor: str
+    per_page: int
+
+
+class RequestOptions(TypedDict, total=False):
+    """Transport-level options for single-resource fetches.
+
+    - if_none_match: send an `If-None-Match` header (ETag-based caching)
+    - if_modified_since: send an `If-Modified-Since` header (UTC datetime)
+    - timeout: connect/read timeout passed to the underlying HTTP request
+    """
+
+    if_none_match: str
+    if_modified_since: datetime
+    timeout: float | tuple[float, float]
+
+
+class ResponseMeta(TypedDict, total=False):
+    """Transport-level metadata attached to a single-resource provider response.
+
+    - etag: the `ETag` header value, usable in a subsequent `if_none_match`
+    - last_modified: UTC datetime parsed from the `Last-Modified` header
+    """
+
+    etag: str
+    last_modified: datetime
+
+
+class PaginatedResponseMeta(TypedDict, total=False):
+    """Transport-level metadata attached to a paginated provider response.
+
+    Carries all fields from `ResponseMeta` plus a required `next_cursor`
+    that callers can pass back to `PaginationParams.cursor` to fetch the
+    next page. `None` means there are no more pages.
+    """
+
+    etag: str
+    last_modified: datetime
+    next_cursor: Required[str | None]
+
+
+class Author(TypedDict):
+    """Normalized author identity returned by all SCM providers."""
+
+    id: ResourceId
+    username: str
+
+
+class ReactionResult(TypedDict):
+    """Provider-agnostic representation of a reaction on an issue, comment, or pull request."""
+
+    id: ResourceId
+    content: Reaction
+    author: Author | None
+
+
+class Comment(TypedDict):
+    """Provider-agnostic representation of an issue or pull-request comment."""
+
+    id: ResourceId
+    body: str | None
+    author: Author | None
+    # ISO-8601 creation timestamp. Populated by GitHub and GitLab.
+    created_at: NotRequired[str | None]
+    # The author's relationship to the repository, e.g. "OWNER", "MEMBER",
+    # "CONTRIBUTOR", "NONE". Implemented by GitHub; GitLab has no equivalent (None).
+    author_association: NotRequired[str | None]
+    # Reactions on the comment. GitHub populates these from the inline REST
+    # reaction rollup (one entry per reaction; the rollup carries no per-reaction
+    # author/id, so those are empty). GitLab does not surface comment reactions
+    # inline, so it leaves this unset.
+    reactions: NotRequired[list[ReactionResult]]
+
+
+class Label(TypedDict):
+    """Provider-agnostic representation of a repository label."""
+
+    id: ResourceId
+    name: str
+    color: str
+    description: str | None
+
+
+class PullRequestBranch(TypedDict):
+    """A branch reference within a pull request (head or base)."""
+
+    sha: SHA | None
+    ref: BranchName
+
+
+class PullRequest(TypedDict):
+    """Provider-agnostic representation of a pull request."""
+
+    id: str
+    internal_id: ResourceId
+    title: str
+    body: str | None
+    state: PullRequestState
+    merged: bool
+    html_url: str
+    head: PullRequestBranch
+    base: PullRequestBranch
+    author: Author
+
+
+class Issue(TypedDict):
+    """Provider-agnostic representation of an issue."""
+
+    id: ResourceId
+    title: str
+    body: str | None
+    state: IssueState
+    html_url: str
+
+
+class AppInstallation(TypedDict):
+    """Represents an installation of an SCM app (e.g. GitHub App, GitLab Application)."""
+
+    has_read_access: bool
+    has_write_access: bool
+    has_check_run_write_access: bool
+
+
+class UserPermissions(TypedDict):
+    """Normalized repository permissions for a user."""
+
+    login: str
+    id: str
+    perms: RepositoryPermission
+
+
+class RawResult(TypedDict):
+    headers: MutableMapping[str, str] | None
+    data: Any
+
+
+class ActionResult[T](TypedDict):
+    """Wraps a provider response with metadata and the original API payload.
+
+    Pairs a normalized domain object with the provider name and raw API
+    payload. This lets callers work with a stable interface while still
+    having access to provider-specific fields when needed.
+
+    The `meta` field carries transport-level metadata such as ETags.
+    Pass an empty dict when the provider does not supply any metadata.
+    """
+
+    data: T
+    type: ProviderName
+    raw: RawResult
+    meta: ResponseMeta
+
+
+class PaginatedActionResult[T](TypedDict):
+    """Wraps a paginated provider response.
+
+    Identical to `ActionResult` but carries a `PaginatedResponseMeta` with a required
+    `page_info`, guaranteeing that callers of list endpoints always have access to pagination
+    state.
+    """
+
+    data: T
+    type: ProviderName
+    raw: RawResult
+    meta: PaginatedResponseMeta
+
+
+class Repository(TypedDict):
+    """Identifies a repository within a Sentry integration."""
+
+    external_id: str | None
+    id: int
+    integration_id: int
+    is_active: bool
+    name: str
+    organization_id: int
+    provider_name: ProviderName
+    web_base_url: str | None
+    # The SCM app's external id.
+    installation_id: str | None
+
+
+class GitRepository(TypedDict):
+    """Information about a git repository at an SCM provider."""
+
+    full_name: str
+    default_branch: str
+    clone_url: str
+    private: bool
+    size: int | None
+    description: str | None
+    topics: list[str]
+
+
+class GitRef(TypedDict):
+    """A git reference (branch pointer)."""
+
+    ref: BranchName
+    sha: SHA
+
+
+class GitBlob(TypedDict):
+    sha: SHA
+
+
+type FileContentType = Literal["file", "directory", "symlink", "submodule"]
+
+
+class FileContent(TypedDict):
+    path: str
+    sha: SHA
+    content: str  # base64-encoded
+    encoding: str
+    size: int
+    type: FileContentType
+
+
+class CommitAuthorParam(TypedDict):
+    name: str
+    email: str
+
+
+class CommitAuthor(TypedDict):
+    name: str
+    email: str
+    date: datetime | None
+
+
+class CommitFile(TypedDict):
+    filename: str
+    status: FileStatus
+    patch: str | None
+    additions: int | None
+    deletions: int | None
+    previous_filename: str | None
+
+
+class Commit(TypedDict):
+    """A commit, with the git identities that signed it and the accounts that own them.
+
+    ``author`` carries the *git* identity (``{name, email, date}``), which is
+    self-asserted and trivially spoofable. ``author_login`` / ``committer_login``
+    carry the service-provider *account* that GitHub attributed the commit to,
+    which is what to test against when a caller needs to tell a bot's commits
+    (e.g. ``"getsantry[bot]"``) from a human's.
+
+    Both login keys are absent when the provider does not attribute the commit
+    to an account: GitLab's commit and compare endpoints carry no user objects
+    at all, so they are never populated there, and GitHub omits them for
+    commits whose email matches no account.
+    """
+
+    id: SHA
+    message: str
+    author: CommitAuthor | None
+    additions: int | None
+    deletions: int | None
+    author_login: NotRequired[str]
+    committer_login: NotRequired[str]
+
+
+class CommitWithChanges(Commit):
+    files: list[CommitFile] | None
+
+
+class CommitComparison(TypedDict):
+    """Two commits compared against their merge base.
+
+    ``ahead_by`` counts commits reachable from the end SHA but not from the
+    merge base; ``behind_by`` counts the reverse. Together they classify how the
+    end SHA moved relative to the start SHA: both zero is identical, only
+    ``ahead_by`` is a fast-forward, only ``behind_by`` means the end SHA is an
+    ancestor, and both non-zero means the two have diverged.
+
+    GitHub populates both. GitLab only populates ``behind_by`` when the caller
+    passes ``include_behind=True``, which costs a second request; without it the
+    key is absent and a reset-to-an-ancestor is indistinguishable from
+    identical.
+
+    Where the counts are derived from ``commits`` rather than read off the
+    response (GitLab), they inherit that list's limits: they cannot be requested
+    alongside ``pagination``, and they saturate rather than erroring once the
+    provider caps the list. Treat a count that has hit the cap as "at least
+    this many", not as an exact answer.
+    """
+
+    ahead_by: NotRequired[int]
+    behind_by: NotRequired[int]
+    commits: list[Commit]
+    diff: list[CommitFile]
+
+
+class TreeEntry(TypedDict):
+    path: str
+    mode: TreeEntryMode
+    type: TreeEntryType
+    sha: SHA
+    size: int | None
+
+
+class InputTreeEntry(TypedDict):
+    path: str
+    mode: TreeEntryMode
+    type: TreeEntryType
+    sha: NotRequired[SHA | None]  # None deletes the entry; omit when using `content`
+    content: NotRequired[str]  # UTF-8 text inlined into the tree; mutually exclusive with sha
+
+
+class GitTree(TypedDict):
+    sha: SHA
+    tree: list[TreeEntry]
+    truncated: bool
+
+
+class GitCommitTree(TypedDict):
+    sha: SHA
+
+
+class GitCommitObject(TypedDict):
+    sha: SHA
+    tree: GitCommitTree
+    message: str
+
+
+class PullRequestFile(TypedDict):
+    filename: str
+    status: FileStatus
+    patch: str | None
+    changes: int
+    sha: SHA
+    previous_filename: str | None
+
+
+class PullRequestCommit(TypedDict):
+    """A commit listed on a pull request. See :class:`Commit` for the login fields."""
+
+    sha: SHA
+    message: str
+    author: CommitAuthor | None
+    author_login: NotRequired[str]
+    committer_login: NotRequired[str]
+
+
+class DiffLine(TypedDict, total=False):
+    """A single line within a diff, identified by its number on each side.
+
+    A line exists on the base (pre-image) side, the head (post-image) side, or
+    both:
+
+    - ``{"head": 42}`` — an added line (only on the head side)
+    - ``{"base": 17}`` — a removed line (only on the base side)
+    - ``{"base": 17, "head": 42}`` — an unchanged/context line (both sides)
+
+    This is the sole way review comments describe *where* they attach. Which
+    "side" of the diff a comment lands on is derived from which number(s) are
+    set, so callers never pass a separate ``side`` — GitLab needs both numbers
+    for a context line's ``line_code``, and GitHub selects whichever side is
+    present. At least one of ``base``/``head`` must be set; a diff line with
+    both is a context (unchanged) line.
+    """
+
+    base: int
+    head: int
+
+
+class ReviewCommentInput(TypedDict, total=False):
+    """Input for an inline comment within a batch review."""
+
+    path: Required[str]
+    body: Required[str]
+    line: DiffLine  # the commented line, or the END of a multiline range
+    start_line: DiffLine  # the START of a multiline range; omit for a single line
+
+
+class ReviewComment(TypedDict):
+    """Provider-agnostic representation of a review comment."""
+
+    id: ResourceId
+    unique_id: str | None
+    url: str | None
+    file_path: str | None
+    body: str
+    author: Author | None
+    created_at: str | None
+    diff_hunk: str | None
+    line: DiffLine | None
+    start_line: DiffLine | None
+    review_id: ResourceId | None
+    author_association: str | None
+    commit_sha: str | None
+    head: str | None
+    thread_id: str | None
+
+
+class Review(TypedDict):
+    """Provider-agnostic representation of a pull request review."""
+
+    id: ResourceId
+    html_url: str
+    state: NotRequired[PullRequestReviewState]
+    author: NotRequired[Author | None]
+    body: NotRequired[str | None]
+    submitted_at: NotRequired[str | None]
+    commit_id: NotRequired[SHA | None]
+
+
+class ReviewThreadComment(TypedDict):
+    """A comment in a pull-request review thread, with the extra fields needed
+    to render or moderate the thread (bot indicator, timestamps).
+    """
+
+    id: ResourceId
+    unique_id: str | None
+    body: str
+    author: Author | None
+    is_bot: bool
+    created_at: str | None
+    updated_at: str | None
+    is_minimized: bool
+    # Reactions are populated when include_reactions=True
+    reactions: NotRequired[list[ReactionResult]]
+    # The commit the comment is anchored to
+    commit_sha: str
+    # ID of the parent review that groups this comment. Implemented by GitHub, not GitLab.
+    review_id: NotRequired[ResourceId | None]
+    # The unified-diff snippet the comment is anchored to (the surrounding code
+    # as it looked when the comment was made). Implemented by GitHub, not GitLab.
+    diff_hunk: NotRequired[str | None]
+    # Web permalink to the individual comment. Implemented by GitHub, not GitLab.
+    url: NotRequired[str | None]
+    # The author's relationship to the repository, e.g. "OWNER", "MEMBER",
+    # "CONTRIBUTOR", "NONE". Implemented by GitHub, not GitLab.
+    author_association: NotRequired[str | None]
+
+
+class ReviewThread(TypedDict):
+    """A pull-request review thread, anchored at a file/line range, containing
+    one or more comments. ``id`` is the provider-assigned thread/discussion id
+    accepted by ``ResolveReviewThreadProtocol.resolve_review_thread``."""
+
+    id: ResourceId
+    is_resolved: bool
+    is_outdated: bool
+    file_path: str | None
+    line: int | None
+    start_line: int | None
+    comments: list[ReviewThreadComment]
+
+
+class CheckRunOutput(TypedDict, total=False):
+    """Output annotation for a check run."""
+
+    title: Required[str]
+    summary: Required[str]
+    text: str
+
+
+class CheckRun(TypedDict):
+    """Provider-agnostic representation of a check run."""
+
+    id: ResourceId
+    name: str
+    status: BuildStatus
+    conclusion: BuildConclusion | None
+    html_url: str
+
+
+class WorkflowRun(TypedDict):
+    """A CI workflow run (GitHub Actions run); the Actions surface for job logs, distinct from CheckRun."""
+
+    id: ResourceId
+    name: str
+    status: BuildStatus
+    conclusion: BuildConclusion | None
+
+
+class WorkflowJob(TypedDict):
+    """A single job within a workflow run"""
+
+    id: ResourceId
+    name: str
+    status: BuildStatus
+    conclusion: BuildConclusion | None
+
+
+type CheckRunAction = Literal["completed", "created", "requested_action", "rerequested"]
+
+
+class CheckRunEventData(TypedDict):
+    external_id: str
+    html_url: str
+
+
+type CheckSuiteAction = Literal["completed", "requested", "rerequested"]
+
+
+class CheckSuiteEventData(TypedDict):
+    id: ResourceId
+    status: BuildStatus
+    conclusion: BuildConclusion | None
+    html_url: str
+    pull_request_ids: list[str]
+
+
+type PullRequestReviewAction = Literal["dismissed", "edited", "submitted"]
+
+
+class PullRequestReviewEventData(TypedDict):
+    id: ResourceId
+    state: PullRequestReviewState
+    pull_request_id: str
+
+
+type CommentAction = Literal["created", "deleted", "edited", "pinned", "unpinned"]
+type CommentType = Literal["issue", "pull_request"]
+
+
+class CommentEventData(TypedDict):
+    id: str
+    body: str | None
+    author: Author | None
+
+
+type PullRequestAction = Literal[
+    "assigned",
+    "auto_merge_disabled",
+    "auto_merge_enabled",
+    "closed",
+    "converted_to_draft",
+    "demilestoned",  # Removed a milestone.
+    "dequeued",  # Removed from merge queue.
+    "edited",
+    "enqueued",  # Added to merge queue.
+    "labeled",
+    "locked",
+    "milestoned",  # Added a milestone.
+    "opened",
+    "ready_for_review",
+    "reopened",
+    "review_request_removed",
+    "review_requested",
+    "stacked",
+    "synchronize",  # Commits were pushed.
+    "unassigned",
+    "unlabeled",
+    "unlocked",
+]
+
+
+class PullRequestEventData(TypedDict):
+    repository_id: str
+    id: str
+    title: str
+    description: str | None
+    head: PullRequestBranch
+    base: PullRequestBranch
+    is_private_repo: bool
+    author: Author | None
+    draft: bool
+
+
+# Basic protocols
+
+
+@runtime_checkable
+class GetAppInstallationProtocol(Protocol):
+    def get_app_installation(self) -> ActionResult[AppInstallation]: ...
+
+
+@runtime_checkable
+class GetAuthenticatedActorProtocol(Protocol):
+    def get_authenticated_actor(self) -> ActionResult[Author]: ...
+
+
+@runtime_checkable
+class GetRepositoryProtocol(Protocol):
+    def get_repository(self) -> ActionResult[GitRepository]: ...
+
+
+@runtime_checkable
+class GetRepositoryAssigneesProtocol(Protocol):
+    def get_repository_assignees(
+        self,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Author]]: ...
+
+
+@runtime_checkable
+class ListRepositoryUserPermissionsProtocol(Protocol):
+    def list_repository_user_permissions(
+        self,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[UserPermissions]]: ...
+
+
+@runtime_checkable
+class GetRepositoryUserPermissionProtocol(Protocol):
+    def get_repository_user_permission(
+        self,
+        username: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[UserPermissions]: ...
+
+
+@runtime_checkable
+class GetRepositoryLabelsProtocol(Protocol):
+    def get_repository_labels(
+        self,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Label]]: ...
+
+
+@runtime_checkable
+class GetRepositoryTopicsProtocol(Protocol):
+    def get_repository_topics(
+        self,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[list[str]]: ...
+
+
+@runtime_checkable
+class ListRepositoriesProtocol(Protocol):
+    def list_repositories(
+        self,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[GitRepository]]: ...
+
+
+# Issue Protocols
+
+
+@runtime_checkable
+class GetIssueProtocol(Protocol):
+    def get_issue(
+        self,
+        issue_id: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[Issue]: ...
+
+
+@runtime_checkable
+class CreateIssueProtocol(Protocol):
+    def create_issue(
+        self,
+        title: str,
+        body: str,
+        assignees: list[str] | None = None,
+        labels: list[str] | None = None,
+    ) -> ActionResult[Issue]: ...
+
+
+@runtime_checkable
+class UpdateIssueProtocol(Protocol):
+    def update_issue(
+        self,
+        issue_id: str,
+        state: IssueState | None = None,
+        assignees: list[str] | None = None,
+        labels: list[str] | None = None,
+    ) -> ActionResult[Issue]: ...
+
+
+# Issue Comment Protocols
+
+
+@runtime_checkable
+class GetIssueCommentsProtocol(Protocol):
+    def get_issue_comments(
+        self,
+        issue_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Comment]]: ...
+
+
+@runtime_checkable
+class CreateIssueCommentProtocol(Protocol):
+    def create_issue_comment(self, issue_id: str, body: str) -> ActionResult[Comment]: ...
+
+
+@runtime_checkable
+class DeleteIssueCommentProtocol(Protocol):
+    def delete_issue_comment(self, issue_id: str, comment_id: str) -> None: ...
+
+
+# Pull Request Comment Protocols
+
+
+@runtime_checkable
+class GetPullRequestCommentsProtocol(Protocol):
+    def get_pull_request_comments(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Comment]]: ...
+
+
+@runtime_checkable
+class CreatePullRequestCommentProtocol(Protocol):
+    def create_pull_request_comment(
+        self,
+        pull_request_id: str,
+        body: str,
+        extensions: list["CoPilotChatExtension"] | None = None,
+    ) -> ActionResult[Comment]: ...
+
+
+@runtime_checkable
+class DeletePullRequestCommentProtocol(Protocol):
+    def delete_pull_request_comment(self, pull_request_id: str, comment_id: str) -> None: ...
+
+
+# Issue Comment Reaction Protocols
+
+
+@runtime_checkable
+class GetIssueCommentReactionsProtocol(Protocol):
+    def get_issue_comment_reactions(
+        self,
+        issue_id: str,
+        comment_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReactionResult]]: ...
+
+
+@runtime_checkable
+class CreateIssueCommentReactionProtocol(Protocol):
+    def create_issue_comment_reaction(
+        self, issue_id: str, comment_id: str, reaction: Reaction
+    ) -> ActionResult[ReactionResult]: ...
+
+
+@runtime_checkable
+class DeleteIssueCommentReactionProtocol(Protocol):
+    def delete_issue_comment_reaction(self, issue_id: str, comment_id: str, reaction_id: str) -> None: ...
+
+
+# Pull Request Comment Reaction Protocols
+
+
+@runtime_checkable
+class GetPullRequestCommentReactionsProtocol(Protocol):
+    def get_pull_request_comment_reactions(
+        self,
+        pull_request_id: str,
+        comment_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReactionResult]]: ...
+
+
+@runtime_checkable
+class CreatePullRequestCommentReactionProtocol(Protocol):
+    def create_pull_request_comment_reaction(
+        self, pull_request_id: str, comment_id: str, reaction: Reaction
+    ) -> ActionResult[ReactionResult]: ...
+
+
+@runtime_checkable
+class DeletePullRequestCommentReactionProtocol(Protocol):
+    def delete_pull_request_comment_reaction(self, pull_request_id: str, comment_id: str, reaction_id: str) -> None: ...
+
+
+# Review Comment Reaction Protocols
+
+
+@runtime_checkable
+class GetReviewCommentReactionsProtocol(Protocol):
+    def get_review_comment_reactions(
+        self,
+        pull_request_id: str,
+        comment_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReactionResult]]: ...
+
+
+@runtime_checkable
+class CreateReviewCommentReactionProtocol(Protocol):
+    def create_review_comment_reaction(
+        self, pull_request_id: str, comment_id: str, reaction: Reaction
+    ) -> ActionResult[ReactionResult]: ...
+
+
+@runtime_checkable
+class DeleteReviewCommentReactionProtocol(Protocol):
+    def delete_review_comment_reaction(self, pull_request_id: str, comment_id: str, reaction_id: str) -> None: ...
+
+
+# Issue Reaction Protocols
+
+
+@runtime_checkable
+class GetIssueReactionsProtocol(Protocol):
+    def get_issue_reactions(
+        self,
+        issue_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReactionResult]]: ...
+
+
+@runtime_checkable
+class CreateIssueReactionProtocol(Protocol):
+    def create_issue_reaction(self, issue_id: str, reaction: Reaction) -> ActionResult[ReactionResult]: ...
+
+
+@runtime_checkable
+class DeleteIssueReactionProtocol(Protocol):
+    def delete_issue_reaction(self, issue_id: str, reaction_id: str) -> None: ...
+
+
+# Pull Request Reaction Protocols
+
+
+@runtime_checkable
+class GetPullRequestReactionsProtocol(Protocol):
+    def get_pull_request_reactions(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReactionResult]]: ...
+
+
+@runtime_checkable
+class CreatePullRequestReactionProtocol(Protocol):
+    def create_pull_request_reaction(
+        self, pull_request_id: str, reaction: Reaction
+    ) -> ActionResult[ReactionResult]: ...
+
+
+@runtime_checkable
+class DeletePullRequestReactionProtocol(Protocol):
+    def delete_pull_request_reaction(self, pull_request_id: str, reaction_id: str) -> None: ...
+
+
+# Branch Protocols
+
+
+@runtime_checkable
+class GetBranchProtocol(Protocol):
+    def get_branch(
+        self,
+        branch: BranchName,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[GitRef]: ...
+
+
+@runtime_checkable
+class CreateBranchProtocol(Protocol):
+    def create_branch(self, branch: BranchName, sha: SHA) -> ActionResult[GitRef]: ...
+
+
+@runtime_checkable
+class UpdateBranchProtocol(Protocol):
+    def update_branch(self, branch: BranchName, sha: SHA, force: bool = False) -> ActionResult[GitRef]: ...
+
+
+@runtime_checkable
+class DeleteBranchProtocol(Protocol):
+    def delete_branch(self, branch: BranchName) -> None: ...
+
+
+# Git Ref Protocols
+
+
+@runtime_checkable
+class GetGitRefProtocol(Protocol):
+    def get_git_ref(
+        self,
+        ref: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[GitRef]: ...
+
+
+# URL Protocols
+
+
+@runtime_checkable
+class GetFileUrlProtocol(Protocol):
+    def get_file_url(
+        self,
+        file_path: str,
+        sha: SHA,
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> str: ...
+
+
+@runtime_checkable
+class GetCommitUrlProtocol(Protocol):
+    def get_commit_url(self, commit_sha: SHA) -> str: ...
+
+
+@runtime_checkable
+class GetCommitsUrlProtocol(Protocol):
+    def get_commits_url(
+        self,
+        commit_sha: SHA,
+        *,
+        file_path: str | None = None,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> str: ...
+
+
+@runtime_checkable
+class GetPullRequestUrlProtocol(Protocol):
+    def get_pull_request_url(self, pull_request_id: str) -> str: ...
+
+
+# Commit Protocols
+
+
+@runtime_checkable
+class GetCommitProtocol(Protocol):
+    def get_commit(
+        self,
+        sha: SHA,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[CommitWithChanges]: ...
+
+
+@runtime_checkable
+class GetCommitChangesProtocol(Protocol):
+    def get_commit_changes(
+        self,
+        sha: SHA,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[CommitFile]]: ...
+
+
+@runtime_checkable
+class GetCommitsProtocol(Protocol):
+    def get_commits(
+        self,
+        ref: str | None = None,
+        pagination: PaginationParams | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Commit]]: ...
+
+
+@runtime_checkable
+class GetCommitsByPathProtocol(Protocol):
+    def get_commits_by_path(
+        self,
+        path: str,
+        ref: str | None = None,
+        pagination: PaginationParams | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Commit]]: ...
+
+
+@runtime_checkable
+class CompareCommitsProtocol(Protocol):
+    def compare_commits(
+        self,
+        start_sha: SHA,
+        end_sha: SHA,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+        *,
+        include_behind: bool = False,
+    ) -> PaginatedActionResult[CommitComparison]: ...
+
+
+@runtime_checkable
+class CreateCommitProtocol(Protocol):
+    def create_commit(
+        self,
+        branch: BranchName,
+        parent_sha: SHA,
+        message: str,
+        actions: list[ChmodCommitAction | DeleteCommitAction | MoveCommitAction | WriteCommitAction],
+        force: bool = False,
+        create_branch: bool = False,
+        author: CommitAuthorParam | None = None,
+        *,
+        expected_head_sha: SHA | None = None,
+    ) -> ActionResult[Commit]: ...
+
+
+# Pull Request Protocols
+
+
+@runtime_checkable
+class GetPullRequestProtocol(Protocol):
+    def get_pull_request(
+        self,
+        pull_request_id: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[PullRequest]: ...
+
+
+@runtime_checkable
+class GetPullRequestsProtocol(Protocol):
+    def get_pull_requests(
+        self,
+        state: PullRequestState | None = "open",
+        head: BranchName | None = None,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[PullRequest]]: ...
+
+
+@runtime_checkable
+class GetPullRequestFilesProtocol(Protocol):
+    def get_pull_request_files(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[PullRequestFile]]: ...
+
+
+@runtime_checkable
+class GetPullRequestCommitsProtocol(Protocol):
+    def get_pull_request_commits(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[PullRequestCommit]]: ...
+
+
+@runtime_checkable
+class GetPullRequestDiffProtocol(Protocol):
+    def get_pull_request_diff(
+        self,
+        pull_request_id: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[str]: ...
+
+
+@runtime_checkable
+class CreatePullRequestProtocol(Protocol):
+    def create_pull_request(
+        self,
+        title: str,
+        body: str,
+        head: BranchName,
+        base: BranchName,
+    ) -> ActionResult[PullRequest]: ...
+
+
+@runtime_checkable
+class CreatePullRequestDraftProtocol(Protocol):
+    def create_pull_request_draft(
+        self,
+        title: str,
+        body: str,
+        head: BranchName,
+        base: BranchName,
+    ) -> ActionResult[PullRequest]: ...
+
+
+@runtime_checkable
+class MarkPullRequestDraftStateProtocol(Protocol):
+    def mark_pull_request_ready_for_review(self, pull_request_id: str) -> None: ...
+
+    def mark_pull_request_as_draft(self, pull_request_id: str) -> None: ...
+
+
+@runtime_checkable
+class UpdatePullRequestProtocol(Protocol):
+    def update_pull_request(
+        self,
+        pull_request_id: str,
+        title: str | None = None,
+        body: str | None = None,
+        state: PullRequestState | None = None,
+    ) -> ActionResult[PullRequest]: ...
+
+
+@runtime_checkable
+class RequestReviewProtocol(Protocol):
+    def request_review(self, pull_request_id: str, reviewers: list[str]) -> None: ...
+
+
+# Git Object Protocols
+
+
+@runtime_checkable
+class GetTreeProtocol(Protocol):
+    def get_tree(
+        self,
+        tree_sha: SHA,
+        recursive: bool = True,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[GitTree]: ...
+
+
+@runtime_checkable
+class GetFullTreeProtocol(Protocol):
+    def get_full_tree(
+        self,
+        tree_sha: SHA,
+        recursive: bool = True,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[GitTree]: ...
+
+
+@runtime_checkable
+class GetGitCommitProtocol(Protocol):
+    def get_git_commit(
+        self,
+        sha: SHA,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[GitCommitObject]: ...
+
+
+@runtime_checkable
+class CreateGitBlobProtocol(Protocol):
+    def create_git_blob(self, content: str, encoding: str) -> ActionResult[GitBlob]: ...
+
+
+@runtime_checkable
+class CreateGitTreeProtocol(Protocol):
+    def create_git_tree(self, tree: list[InputTreeEntry], base_tree: SHA | None = None) -> ActionResult[GitTree]: ...
+
+
+@runtime_checkable
+class CreateGitCommitProtocol(Protocol):
+    def create_git_commit(
+        self,
+        message: str,
+        tree_sha: SHA,
+        parent_shas: list[SHA],
+        author: CommitAuthorParam | None = None,
+    ) -> ActionResult[GitCommitObject]: ...
+
+
+# File Content Protocol
+
+
+@runtime_checkable
+class GetFileContentProtocol(Protocol):
+    def get_file_content(
+        self,
+        path: str,
+        ref: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[FileContent]: ...
+
+
+@runtime_checkable
+class GetDirectoryContentsProtocol(Protocol):
+    def get_directory_contents(
+        self,
+        path: str,
+        ref: str | None = None,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[FileContent]]: ...
+
+
+@runtime_checkable
+class GetReadmeProtocol(Protocol):
+    def get_readme(
+        self,
+        ref: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[FileContent]: ...
+
+
+@runtime_checkable
+class GetPullRequestTemplateProtocol(Protocol):
+    def get_pull_request_template(
+        self,
+        ref: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> Iterator[ActionResult[FileContent]]: ...
+
+
+# Archive Protocols
+
+
+@runtime_checkable
+class GetArchiveLinkProtocol(Protocol):
+    def get_archive_link(self, ref: str, archive_format: ArchiveFormat = "tarball") -> ActionResult[ArchiveLink]: ...
+
+
+@runtime_checkable
+class DownloadArchiveProtocol(Protocol):
+    def download_archive(
+        self,
+        ref: str,
+        archive_format: ArchiveFormat = "tarball",
+        request_options: RequestOptions | None = None,
+    ) -> requests.Response: ...
+
+
+# Check Run Protocols
+
+
+@runtime_checkable
+class GetCheckRunProtocol(Protocol):
+    def get_check_run(
+        self,
+        check_run_id: ResourceId,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[CheckRun]: ...
+
+
+@runtime_checkable
+class CreateCheckRunProtocol(Protocol):
+    def create_check_run(
+        self,
+        name: str,
+        head_sha: SHA,
+        status: BuildStatus | None = None,
+        conclusion: BuildConclusion | None = None,
+        external_id: str | None = None,
+        started_at: str | None = None,
+        completed_at: str | None = None,
+        output: CheckRunOutput | None = None,
+    ) -> ActionResult[CheckRun]: ...
+
+
+@runtime_checkable
+class UpdateCheckRunProtocol(Protocol):
+    def update_check_run(
+        self,
+        check_run_id: ResourceId,
+        status: BuildStatus | None = None,
+        conclusion: BuildConclusion | None = None,
+        output: CheckRunOutput | None = None,
+    ) -> ActionResult[CheckRun]: ...
+
+
+@runtime_checkable
+class ListCheckRunsInCheckSuiteProtocol(Protocol):
+    def list_check_runs_in_check_suite(
+        self,
+        check_suite_id: ResourceId,
+        check_name: str | None = None,
+        status: Literal["queued", "in_progress", "completed"] | None = None,
+        timestamp_filter: Literal["latest", "all"] = "latest",
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[CheckRun]]: ...
+
+
+@runtime_checkable
+class ListCheckRunsForRefProtocol(Protocol):
+    def list_check_runs_for_ref(
+        self,
+        ref: str,
+        check_name: str | None = None,
+        status: Literal["queued", "in_progress", "completed"] | None = None,
+        timestamp_filter: Literal["latest", "all"] = "latest",
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[CheckRun]]: ...
+
+
+@runtime_checkable
+class ListWorkflowRunsProtocol(Protocol):
+    def list_workflow_runs(
+        self,
+        head_sha: SHA | None = None,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[WorkflowRun]]: ...
+
+
+@runtime_checkable
+class ListWorkflowJobsProtocol(Protocol):
+    def list_workflow_jobs(
+        self,
+        workflow_run_id: ResourceId,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[WorkflowJob]]: ...
+
+
+@runtime_checkable
+class DownloadWorkflowJobLogProtocol(Protocol):
+    def download_workflow_job_log(
+        self,
+        job_id: ResourceId,
+        request_options: RequestOptions | None = None,
+    ) -> requests.Response: ...
+
+
+# Review Protocols
+
+
+@runtime_checkable
+class CreateReviewCommentFileProtocol(Protocol):
+    def create_review_comment_file(
+        self,
+        pull_request_id: str,
+        commit_id: SHA,
+        body: str,
+        path: str,
+        side: ReviewSide,
+    ) -> ActionResult[ReviewComment]: ...
+
+
+@runtime_checkable
+class CreateReviewCommentProtocol(Protocol):
+    def create_review_comment(
+        self,
+        pull_request_id: str,
+        commit_id: SHA,
+        body: str,
+        path: str,
+        line: DiffLine,
+        start_line: DiffLine | None = None,
+    ) -> ActionResult[ReviewComment]: ...
+
+
+@runtime_checkable
+class CreateReviewCommentReplyProtocol(Protocol):
+    def create_review_comment_reply(
+        self,
+        pull_request_id: str,
+        body: str,
+        comment_id: str,
+    ) -> ActionResult[ReviewComment]: ...
+
+
+@runtime_checkable
+class CreateReviewProtocol(Protocol):
+    def create_review(
+        self,
+        pull_request_id: str,
+        commit_sha: SHA,
+        event: ReviewEvent,
+        comments: list[ReviewCommentInput],
+        body: str | None = None,
+    ) -> ActionResult[Review]: ...
+
+
+@runtime_checkable
+class UpdateReviewCommentProtocol(Protocol):
+    def update_review_comment(
+        self,
+        pull_request_id: str,
+        comment_id: str,
+        body: str,
+    ) -> ActionResult[ReviewComment]: ...
+
+
+@runtime_checkable
+class GetReviewCommentsProtocol(Protocol):
+    def get_review_comments(
+        self,
+        pull_request_id: str,
+        review_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[ReviewComment]]: ...
+
+
+@runtime_checkable
+class GetPullRequestReviewProtocol(Protocol):
+    def get_pull_request_review(
+        self,
+        pull_request_id: str,
+        review_id: str,
+        request_options: RequestOptions | None = None,
+    ) -> ActionResult[Review]: ...
+
+
+@runtime_checkable
+class GetPullRequestReviewThreadsProtocol(Protocol):
+    def get_pull_request_review_threads(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+        *,
+        include_reactions: bool = False,
+    ) -> PaginatedActionResult[list[ReviewThread]]: ...
+
+
+@runtime_checkable
+class ListPullRequestReviewsProtocol(Protocol):
+    def list_pull_request_reviews(
+        self,
+        pull_request_id: str,
+        pagination: PaginationParams | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> PaginatedActionResult[list[Review]]: ...
+
+
+# Moderation Protocols
+
+
+@runtime_checkable
+class MinimizeCommentProtocol(Protocol):
+    def minimize_comment(self, comment_node_id: str, reason: str) -> None: ...
+
+
+@runtime_checkable
+class ResolveReviewThreadProtocol(Protocol):
+    def get_thread_id_from_review_comment_unique_id(
+        self, pull_request_id: str, review_comment_unique_id: str
+    ) -> str | None: ...
+    def resolve_review_thread(self, pull_request_id: str, thread_id: str) -> None: ...
+
+
+@runtime_checkable
+class CollapsePullRequestCommentProtocol(Protocol):
+    def collapse_pull_request_comment(
+        self,
+        pull_request_id: str,
+        thread_id: str,
+        comment_node_id: str,
+        reason: str = "OUTDATED",
+    ) -> None: ...
+
+
+@runtime_checkable
+class UpdateAndCollapsePullRequestCommentProtocol(Protocol):
+    def update_and_collapse_pull_request_comment(
+        self,
+        pull_request_id: str,
+        thread_id: str,
+        comment_id: str,
+        comment_node_id: str,
+        body: str,
+        reason: str = "OUTDATED",
+    ) -> ActionResult[ReviewComment]: ...
+
+
+ALL_PROTOCOLS = (
+    CollapsePullRequestCommentProtocol,
+    CompareCommitsProtocol,
+    CreateBranchProtocol,
+    CreateCheckRunProtocol,
+    CreateCommitProtocol,
+    CreateGitBlobProtocol,
+    CreateGitCommitProtocol,
+    CreateGitTreeProtocol,
+    CreateIssueCommentProtocol,
+    CreateIssueCommentReactionProtocol,
+    CreateIssueProtocol,
+    CreateIssueReactionProtocol,
+    CreatePullRequestCommentProtocol,
+    CreatePullRequestCommentReactionProtocol,
+    CreatePullRequestDraftProtocol,
+    CreatePullRequestProtocol,
+    CreatePullRequestReactionProtocol,
+    CreateReviewCommentFileProtocol,
+    CreateReviewCommentProtocol,
+    CreateReviewCommentReactionProtocol,
+    CreateReviewCommentReplyProtocol,
+    CreateReviewProtocol,
+    DeleteBranchProtocol,
+    DeleteIssueCommentProtocol,
+    DeleteIssueCommentReactionProtocol,
+    DeleteIssueReactionProtocol,
+    DeletePullRequestCommentProtocol,
+    DeletePullRequestCommentReactionProtocol,
+    DeletePullRequestReactionProtocol,
+    DeleteReviewCommentReactionProtocol,
+    DownloadArchiveProtocol,
+    GetAppInstallationProtocol,
+    GetAuthenticatedActorProtocol,
+    GetArchiveLinkProtocol,
+    GetBranchProtocol,
+    GetCheckRunProtocol,
+    GetCommitChangesProtocol,
+    GetCommitProtocol,
+    GetCommitsByPathProtocol,
+    GetCommitsProtocol,
+    GetCommitsUrlProtocol,
+    GetCommitUrlProtocol,
+    GetDirectoryContentsProtocol,
+    GetFileContentProtocol,
+    GetFileUrlProtocol,
+    GetGitCommitProtocol,
+    GetGitRefProtocol,
+    GetIssueCommentReactionsProtocol,
+    GetIssueCommentsProtocol,
+    GetIssueProtocol,
+    GetIssueReactionsProtocol,
+    GetPullRequestCommentReactionsProtocol,
+    GetPullRequestCommentsProtocol,
+    GetPullRequestCommitsProtocol,
+    GetPullRequestDiffProtocol,
+    GetPullRequestFilesProtocol,
+    GetPullRequestProtocol,
+    GetPullRequestReactionsProtocol,
+    GetPullRequestReviewProtocol,
+    GetPullRequestReviewThreadsProtocol,
+    GetReviewCommentReactionsProtocol,
+    GetReviewCommentsProtocol,
+    GetPullRequestsProtocol,
+    GetPullRequestTemplateProtocol,
+    GetPullRequestUrlProtocol,
+    GetReadmeProtocol,
+    GetRepositoryAssigneesProtocol,
+    GetRepositoryLabelsProtocol,
+    GetRepositoryProtocol,
+    GetRepositoryTopicsProtocol,
+    GetRepositoryUserPermissionProtocol,
+    ListRepositoryUserPermissionsProtocol,
+    GetFullTreeProtocol,
+    GetTreeProtocol,
+    ListRepositoriesProtocol,
+    ListCheckRunsInCheckSuiteProtocol,
+    ListCheckRunsForRefProtocol,
+    ListWorkflowRunsProtocol,
+    ListWorkflowJobsProtocol,
+    DownloadWorkflowJobLogProtocol,
+    ListPullRequestReviewsProtocol,
+    MarkPullRequestDraftStateProtocol,
+    MinimizeCommentProtocol,
+    RequestReviewProtocol,
+    ResolveReviewThreadProtocol,
+    UpdateAndCollapsePullRequestCommentProtocol,
+    UpdateBranchProtocol,
+    UpdateCheckRunProtocol,
+    UpdateIssueProtocol,
+    UpdatePullRequestProtocol,
+    UpdateReviewCommentProtocol,
+)
+
+type CredentialsSet = str
+
+
+class ApiClient(Protocol):
+    def request(
+        self,
+        method: str,
+        path: str,
+        headers: dict[str, str] | None = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
+        allow_redirects: bool | None = None,
+        stream: bool = True,
+        raw_response: bool = True,
+        credentials_set: CredentialsSet = "installation",
+        timeout: float | tuple[float, float] | None = None,
+    ) -> requests.Response: ...
+
+
+class Provider(ApiClient, Protocol):
+    """
+    Providers abstract over an integration. They map generic commands to service-provider specific
+    commands and they map the results of those commands to generic result-types.
+
+    Providers necessarily offer a larger API surface than what is available in an integration. Some
+    methods may be duplicates in some providers. This is intentional. Providers capture programmer
+    intent and translate it into a concrete interface. Therefore, providers provide a large range
+    of behaviors which may or may not be explicitly defined on a service-provider.
+
+    Providers, also by necessity, offer a smaller API surface than what the SCM platform can
+    maximally provide. There are simply some operations which can not be adequately translated
+    between providers. None the less, we want to have a service-agnostic interface. This problem
+    is solved with capability-object-like system. Capabilities are progressively opted into using
+    structural sub-typing. As a provider's surface area expands the SourceCodeManager class will
+    automatically recognize that the provider has a particular capability and return "true" when
+    handling "can" requests.
+    """
+
+    organization_id: int
+    repository: Repository
+
+
+@dataclasses.dataclass(frozen=True)
+class CoPilotChatExtension:
+    name: str
+    prompt: str

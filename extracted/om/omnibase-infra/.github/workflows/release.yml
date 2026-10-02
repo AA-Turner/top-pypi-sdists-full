@@ -1,0 +1,712 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release (e.g. v0.10.0). Leave empty when using sync_main_to_tag.'
+        required: false
+        default: ''
+      # OMN-16289: sync-only recovery input. The main fast-forward is the LAST
+      # step of the `release` job, sequenced behind `Publish to PyPI` and
+      # `Create GitHub Release`, so neither a `--failed` re-run nor a plain
+      # `-f tag=` dispatch can reach it without re-executing the publish,
+      # re-cutting the GitHub Release, re-firing the dependency cascade and
+      # re-dispatching the runtime image rebuild. When the sync is the ONLY
+      # thing that failed -- run 34037128862 (v0.38.19): publish SUCCESS,
+      # GitHub Release SUCCESS, `Mint onexbot-occ-writer app token` FAILURE
+      # with HTTP 422 because the App installation lacked `workflows: write`
+      # -- this input runs the mint + fast-forward and nothing else.
+      sync_main_to_tag:
+        description: 'Sync-only: fast-forward main to this EXISTING release tag. No build, no publish, no GitHub Release, no cascade, no runtime rebuild.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # OMN-16289: a sync-only dispatch (`-f sync_main_to_tag=vX.Y.Z`) must not
+    # re-publish an already-published version, re-cut its GitHub Release,
+    # re-fire the dependency cascade or re-dispatch the runtime image rebuild.
+    # This job IS the release; skip it whole and let `sync-main` below perform
+    # the pointer move on its own.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_main_to_tag == '' }}
+    # OMN-16047: 60, not 30. The pin-resolvability gate below installs the built
+    # wheel's whole transitive closure with --no-cache (135 packages / 242 MB for
+    # this repo) and now budgets up to 1800s for it, because a *cached* uv sync on
+    # the self-hosted fleet already costs 110-402s. 30 minutes left no room for
+    # that install plus build + publish, so the job ceiling has to clear the step
+    # ceiling -- otherwise a slow install dies as an opaque job kill instead of the
+    # script's own diagnostic failure.
+    timeout-minutes: 60
+    runs-on: >-
+      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    outputs:
+      version: ${{ steps.tag.outputs.tag }}
+      ticket: ${{ steps.release_evidence.outputs.ticket }}
+      evidence_source: ${{ steps.release_evidence.outputs.evidence_source }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      # OMN-16289: `tag` is no longer a REQUIRED dispatch input -- a sync-only
+      # dispatch supplies `sync_main_to_tag` instead and skips this job whole.
+      # A dispatch that supplies NEITHER would otherwise fall back to
+      # `github.ref` and die several steps later on a confusing
+      # "tag v does not match pyproject.toml version" message. Fail here, in
+      # the language of the mistake that was actually made.
+      - name: Require a release tag on workflow_dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "::error::workflow_dispatch needs one of: tag=<tag> to run a release, or sync_main_to_tag=<tag> to fast-forward main only"
+            exit 1
+          fi
+          echo "Release dispatch for tag ${RELEASE_TAG}"
+
+      - name: Assert clean working tree
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Verify and bump runner image identity (OMN-12567)
+        # The runner image version is a binding, not a label. A release must not
+        # ship with a stale bound identity: verify the committed lock matches the
+        # live manifest/python/uv/shared-env inputs. The image version is bumped
+        # by editing docker/runners/runner-image.lock.json and regenerating with
+        # `--mode generate`; this gate fails the release if that was skipped.
+        run: |
+          PYTHONPATH=scripts/ci python3 scripts/ci/runner_image_identity.py \
+            --mode verify
+          identity="$(PYTHONPATH=scripts/ci python3 scripts/ci/runner_image_identity.py --mode emit)"
+          echo "### Runner image identity (release)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "${identity}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate tag matches pyproject.toml version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="$RELEASE_TAG"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          TAG="${TAG#v}"
+          PKG_VERSION=$(python3 -c "
+          import tomllib, sys
+          with open('pyproject.toml', 'rb') as f:
+              d = tomllib.load(f)
+          v = d.get('project', {}).get('version')
+          if not v:
+              raise SystemExit('ERROR: missing [project].version in pyproject.toml')
+          print(v)
+          ")
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "ERROR: tag v${TAG} does not match pyproject.toml version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Version validated: $PKG_VERSION"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+
+      # OMN-16286 / OMN-18596: the dependency cascade opens PRs in downstream
+      # repositories, and those PRs must carry the SAME Evidence-Ticket and
+      # Evidence-Source pair that already proved this release. Resolving it here
+      # rather than in the cascade means a release that cannot produce an honest
+      # pair fails BEFORE anything is published, not after.
+      #
+      # Ported from omnibase_core's copy so the two repos cannot disagree about
+      # what an honest cascade PR looks like.
+      - name: Resolve release ticket + evidence (OMN-16286)
+        id: release_evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+
+          # /commits/{sha}/pulls returns EVERY PR associated with this commit,
+          # including OPEN ones, with no documented ordering. Taking a bare
+          # .[0] risks propagating evidence from an open, unreviewed PR instead
+          # of the merged release PR that actually proved this code, so filter
+          # to merged explicitly and fail loud when none qualifies.
+          pr_number="$(gh api "repos/${{ github.repository }}/commits/${head_sha}/pulls" \
+            --jq '[.[] | select(.state == "closed" and .merged_at != null)][0].number // empty' 2>/dev/null || true)"
+          if [ -z "$pr_number" ]; then
+            echo "::error::OMN-16286: could not resolve a MERGED PR for release commit ${head_sha}. The dependency cascade requires a real Evidence-Ticket/Evidence-Source pair sourced from the release's own merged PR; a tag with no associated merged PR cannot cascade honestly."
+            exit 1
+          fi
+
+          pr_state="$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json state --jq '.state' 2>/dev/null || true)"
+          if [ "$pr_state" != "MERGED" ]; then
+            echo "::error::OMN-16286: PR #${pr_number} (commit ${head_sha}) resolved to state='${pr_state:-<unknown>}', not MERGED. Refusing to propagate evidence from a non-merged PR."
+            exit 1
+          fi
+
+          pr_body="$(gh pr view "$pr_number" --repo "${{ github.repository }}" --json body --jq '.body' 2>/dev/null || true)"
+
+          ticket="$(printf '%s' "$pr_body" | grep -oiE '^Evidence-Ticket:[[:space:]]*OMN-[0-9]+' | head -1 | grep -oiE 'OMN-[0-9]+' | tr '[:lower:]' '[:upper:]' || true)"
+          evidence_source="$(printf '%s' "$pr_body" | grep -iE '^Evidence-Source:[[:space:]]+\S' | head -1 | sed -E 's/^Evidence-Source:[[:space:]]*//; s/[[:space:]]+$//' || true)"
+
+          if [ -z "$ticket" ] || [ -z "$evidence_source" ]; then
+            echo "::error::OMN-16286: release PR #${pr_number} (commit ${head_sha}) is missing a resolvable Evidence-Ticket/Evidence-Source pair (ticket='${ticket:-<none>}', evidence_source='${evidence_source:-<none>}'). Fix the release PR's evidence trailer before the dependency cascade can open honest downstream PRs."
+            exit 1
+          fi
+
+          echo "ticket=${ticket}" >> "$GITHUB_OUTPUT"
+          echo "evidence_source=${evidence_source}" >> "$GITHUB_OUTPUT"
+          echo "::notice::OMN-16286: resolved cascade evidence from PR #${pr_number} -- ticket=${ticket} evidence_source=${evidence_source}"
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Verify dist artifacts exist
+        run: |
+          ls -la dist/
+          ls dist/*.whl dist/*.tar.gz >/dev/null 2>&1 || {
+            echo "ERROR: expected wheel + sdist in dist/"
+            exit 1
+          }
+
+      - name: Verify PyPI dependency-pin resolvability (OMN-14070)
+        # omnimarket 0.4.6 was published pinning a nonexistent
+        # omnibase-compat==0.5.1 (OMN-14064) because nothing anywhere resolved
+        # a package's declared [project.dependencies] pins against the real
+        # PyPI index -- local/CI resolution is silently short-circuited by
+        # [tool.uv.sources] git-rev overrides, which `uv build` bakes past
+        # unverified into the wheel's real Requires-Dist metadata. This step
+        # installs the just-built wheel with `uv pip install` (never
+        # `uv sync`/`uv add`, so [tool.uv.sources] is structurally
+        # unreachable) into a bare scratch venv with no project config, so a
+        # broken pin fails the release *before* `uv publish` runs.
+        run: |
+          python3 scripts/ci/verify_pypi_pin_resolvability.py dist/
+
+      - name: Publish to PyPI (retry on transient 5xx, idempotent on re-publish)
+        # v0.37.2 died here on a bare PyPI HTTP 500 with no retry, stalling PyPI
+        # at 0.36.1 for six weeks. publish_with_retry.py retries transient
+        # 5xx/429/network failures with exponential backoff and treats an
+        # already-present artifact as success (--check-url skips uploaded files),
+        # so a re-run of the release is idempotent. The token is read from
+        # UV_PUBLISH_TOKEN by uv itself — never placed on the command line.
+        # See OMN-14468.
+        run: |
+          python3 scripts/ci/publish_with_retry.py dist/*.whl dist/*.tar.gz
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Generate checksums
+        run: sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS.txt
+
+      - name: Set release tag
+        id: tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # A newline in the dispatch input would forge extra GITHUB_OUTPUT
+            # entries, so constrain it to the tag charset before writing it.
+            case "$RELEASE_TAG" in
+              ''|*[!A-Za-z0-9.+_-]*)
+                echo "::error::release tag contains unsupported characters"
+                exit 1
+                ;;
+            esac
+            echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, 'rc') }}
+
+      # OMN-16289: main = the last release. Once a release publishes
+      # successfully, fast-forward main to the released tag's commit SHA.
+      # This is a non-force push of an already-proven dev SHA (release
+      # tags are cut from dev; dev CI + this job already validated it).
+      # Promotion PRs to main are retired -- main protection now empties
+      # required_status_checks on main and restricts pushes to a named
+      # automation identity. The workflow's default GITHUB_TOKEN cannot
+      # satisfy that restriction (proven live on omnibase_core: GH006
+      # "protected branch update failed", 2026-08-21), so this push mints
+      # a short-lived installation token for the org-owned GitHub App
+      # onexbot-occ-writer (org secrets ONEXBOT_OCC_APP_ID /
+      # ONEXBOT_OCC_PRIVATE_KEY) and pushes as that app identity instead.
+      # See OMN-16343.
+      - name: Mint onexbot-occ-writer app token (release main-sync push identity)
+        id: app-token
+        if: ${{ !contains(steps.tag.outputs.tag, 'rc') }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: omnibase_infra
+          # OMN-16289: a `permission-*` input REPLACES the installation's full
+          # permission set with exactly what is listed. OMN-17272 added
+          # `permission-workflows: write` alone, which silently dropped
+          # `contents: write` -- so the minted token could not push ANY ref and
+          # the fast-forward died on `GH013 ... Cannot update this protected
+          # ref` (omnibase_core run 34065670492, v0.47.5). omnimarket, whose
+          # sync has worked throughout, mints with `permission-contents: write`.
+          # Both scopes are required: contents to move the ref at all, workflows
+          # because a release tag may change a workflow (OMN-17272).
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Sync main to release tag
+        if: ${{ !contains(steps.tag.outputs.tag, 'rc') }}
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          TAG="$RELEASE_TAG"
+          TAG_SHA=$(git rev-list -n 1 "$TAG")
+          echo "Resolved tag $TAG -> commit $TAG_SHA"
+          # OMN-16289/OMN-17272: update the ref over REST with the App token,
+          # not through git's credential layer. actions/checkout may keep the
+          # workflow token in an included credential file, and a token-in-URL
+          # push can therefore authenticate as github-actions[bot]. The REST
+          # endpoint binds the identity to APP_TOKEN and force=false keeps the
+          # server-side fast-forward guard.
+          curl --fail-with-body --silent --show-error \
+            -X PATCH \
+            -H "Authorization: Bearer ${APP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            --data "{\"sha\":\"${TAG_SHA}\",\"force\":false}"
+          echo "main fast-forwarded to $TAG_SHA ($TAG)"
+
+  # ---------------------------------------------------------------------------
+  # OMN-16289: sync-only main fast-forward, dispatchable for an EXISTING tag
+  # ---------------------------------------------------------------------------
+  # The `release` job's own main sync is the last step of a long, partly
+  # non-idempotent job. When only that step fails, the pointer move has no
+  # recovery path that does not also re-run the publish. This job is that path:
+  # it builds nothing, publishes nothing, and touches no downstream repo.
+  #
+  # The step NAMES here are deliberately identical to the release job's
+  # ("Mint onexbot-occ-writer app token", "Sync main to release tag") -- the
+  # release-on-merge work (OMN-18010) reuses this dispatch path, and stable
+  # step names are what its evidence is read from.
+  #
+  # Two guards, both fail-closed:
+  #   * ancestor-valid: the tag must exist and be an ancestor of origin/dev.
+  #     A tag cut from anywhere else is not a release this policy may point
+  #     main at.
+  #   * fast-forward only: current main must be an ancestor of the tag SHA, so
+  #     main can never be moved backwards or sideways. main already AT the tag
+  #     is a no-op, not a failure.
+  #
+  # The validation script is free of inline `${{ }}` (values arrive through
+  # `env:`) so tests can execute the committed shell verbatim instead of
+  # pattern-matching it.
+  sync-main:
+    timeout-minutes: 30
+    name: Sync main to release tag (sync-only)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.sync_main_to_tag != '' }}
+    runs-on: >-
+      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Validate sync tag
+        id: sync_tag
+        env:
+          SYNC_TAG: ${{ inputs.sync_main_to_tag }}
+        run: |
+          set -euo pipefail
+          TAG="$SYNC_TAG"
+
+          # A newline in the dispatch input would forge extra GITHUB_OUTPUT
+          # entries, so constrain it to the tag charset before it is written.
+          case "$TAG" in
+            ''|*[!A-Za-z0-9.+_-]*)
+              echo "::error::sync_main_to_tag contains unsupported characters"
+              exit 1
+              ;;
+          esac
+
+          if ! [[ "$TAG" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+            echo "::error::sync_main_to_tag '$TAG' is not a final vX.Y.Z release tag"
+            exit 1
+          fi
+
+          if ! git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+            echo "::error::tag '$TAG' does not exist in this repository"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+
+          # Explicit refspecs: never rely on git opportunistically updating
+          # the remote-tracking refs for a named-branch fetch.
+          git fetch --no-tags --quiet origin \
+            "+refs/heads/dev:refs/remotes/origin/dev" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor "$TAG_SHA" origin/dev; then
+            echo "::error::tag '$TAG' ($TAG_SHA) is not an ancestor of origin/dev -- it is not a release cut from dev, refusing to point main at it"
+            exit 1
+          fi
+
+          MAIN_SHA="$(git rev-parse origin/main)"
+          echo "main=$MAIN_SHA  tag=$TAG_SHA ($TAG)"
+          if [ "$MAIN_SHA" = "$TAG_SHA" ]; then
+            echo "::notice::main is already at $TAG_SHA ($TAG) -- nothing to do"
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+          elif ! git merge-base --is-ancestor "$MAIN_SHA" "$TAG_SHA"; then
+            echo "::error::main ($MAIN_SHA) is not an ancestor of $TAG ($TAG_SHA) -- refusing to move main backwards or sideways"
+            exit 1
+          else
+            echo "noop=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        if: steps.sync_tag.outputs.noop == 'false'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: omnibase_infra
+          # OMN-16289: a `permission-*` input REPLACES the installation's full
+          # permission set with exactly what is listed. OMN-17272 added
+          # `permission-workflows: write` alone, which silently dropped
+          # `contents: write` -- so the minted token could not push ANY ref and
+          # the fast-forward died on `GH013 ... Cannot update this protected
+          # ref` (omnibase_core run 34065670492, v0.47.5). omnimarket, whose
+          # sync has worked throughout, mints with `permission-contents: write`.
+          # Both scopes are required: contents to move the ref at all, workflows
+          # because a release tag may change a workflow (OMN-17272).
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Sync main to release tag
+        if: steps.sync_tag.outputs.noop == 'false'
+        env:
+          RELEASE_TAG: ${{ steps.sync_tag.outputs.tag }}
+          TAG_SHA: ${{ steps.sync_tag.outputs.tag_sha }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          TAG="$RELEASE_TAG"
+          echo "Resolved tag $TAG -> commit $TAG_SHA"
+          # OMN-16289/OMN-17272: update the ref over REST with the App token,
+          # not through git's credential layer. Reuse the TAG_SHA validated by
+          # the previous step; do not re-resolve a mutable tag name here.
+          # force=false keeps GitHub's server-side fast-forward guard.
+          curl --fail-with-body --silent --show-error \
+            -X PATCH \
+            -H "Authorization: Bearer ${APP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            --data "{\"sha\":\"${TAG_SHA}\",\"force\":false}"
+          echo "main fast-forwarded to $TAG_SHA ($TAG)"
+
+
+  # ---------------------------------------------------------------------------
+  # Post-release: disarm the release-identity gate the publish just armed
+  # (OMN-13912 / OMN-13412)
+  # ---------------------------------------------------------------------------
+  # Publishing X.Y.Z from dev HEAD leaves dev's [project].version EQUAL to the
+  # highest published tag. check_release_identity.py then fails every dev PR
+  # that touches src/** until somebody unrelated notices and bumps. Measured
+  # twice in this series: v0.38.10 (tagged 2026-08-26T01:38:23Z, disarmed
+  # 2026-08-26T03:44:31Z by OMN-16536) and v0.38.11 (tagged
+  # 2026-08-28T00:49:31Z, disarmed 2026-08-28T02:27:16Z by OMN-16769) — ~2h06m
+  # and ~1h38m of armed dev. The event that arms a gate must perform its own
+  # disarm in the same flow, so the train opens the bump PR itself.
+  #
+  # Gated on `needs.release.outputs.version` rather than
+  # `needs.release.result == 'success'` ON PURPOSE. That output is set by the
+  # release job's "Set release tag" step, i.e. only AFTER PyPI publish
+  # succeeded, but BEFORE the "Sync main to release tag" step that is currently
+  # failing GH006 (OMN-16343). Coupling the disarm to overall job success would
+  # mean an unrelated main-sync failure leaves dev wedged — which is exactly
+  # what happened for v0.38.10 and v0.38.11.
+  post-release-dev-bump:
+    timeout-minutes: 30
+    name: Post-Release Dev Version Bump
+    needs: release
+    if: >-
+      always() &&
+      needs.release.outputs.version != '' &&
+      !contains(needs.release.outputs.version, 'rc')
+    runs-on: >-
+      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    steps:
+      - name: Check onexbot-occ-writer App credentials are configured
+        id: token_check
+        env:
+          APP_ID: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "::error::ONEXBOT_OCC_APP_ID / ONEXBOT_OCC_PRIVATE_KEY are not configured -- the post-release dev bump cannot open its PR, so dev is left with the release-identity gate ARMED. Provision the App org secrets."
+            exit 1
+          fi
+
+      - name: Mint onexbot-occ-writer app token (dev bump PR identity)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: omnibase_infra
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout dev
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+
+      - name: Decide and apply the dev version bump
+        id: bump
+        env:
+          RELEASED_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Decide first WITHOUT writing, so the decision is recorded even when
+          # it is a no-op (dev already ahead => the gate is already disarmed).
+          DECISION="$(python3 scripts/ci/post_release_dev_bump.py --released "$RELEASED_VERSION")"
+          echo "$DECISION"
+          ACTION="$(printf '%s' "$DECISION" | python3 -c 'import json,sys; print(json.load(sys.stdin)["action"])')"
+          TARGET="$(printf '%s' "$DECISION" | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_version"])')"
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "branch=automation/post-release-dev-bump-${TARGET}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Post-release dev version bump"
+            echo ""
+            echo '```json'
+            echo "$DECISION"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$ACTION" = "bump" ]; then
+            python3 scripts/ci/post_release_dev_bump.py --released "$RELEASED_VERSION" --apply
+            # uv.lock carries this package's own version, so it must move with
+            # pyproject.toml or the lockfile-drift gate fails the bump PR.
+            uv lock
+          fi
+
+      - name: Open the bump PR and arm auto-merge
+        if: steps.bump.outputs.action == 'bump'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASED_VERSION: ${{ needs.release.outputs.version }}
+          TARGET: ${{ steps.bump.outputs.target }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Idempotent: a re-dispatched tag must not open a second PR.
+          EXISTING=$(gh pr list --repo "${{ github.repository }}" \
+            --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "${EXISTING:-0}" -gt 0 ]; then
+            echo "A bump PR for $BRANCH is already open -- not opening another."
+            exit 0
+          fi
+
+          git config user.name "onexbot-occ-writer[bot]"
+          git config user.email "onexbot-occ-writer[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add pyproject.toml uv.lock
+          git commit -m "chore(OMN-13912): post-release dev version bump to ${TARGET}
+
+          Disarms the OMN-13412 release-identity gate that publishing
+          ${RELEASED_VERSION} armed against dev.
+
+          Triggered-by: ${RUN_URL}"
+          git push origin "$BRANCH"
+
+          gh pr create --repo "${{ github.repository }}" \
+            --base dev --head "$BRANCH" \
+            --title "chore(OMN-13912): post-release dev version bump to ${TARGET}" \
+            --body "$(printf '%s\n' \
+              "## Summary" \
+              "" \
+              "Automated post-release disarm step (OMN-13912). Publishing \`${RELEASED_VERSION}\` left dev's \`[project].version\` equal to the highest published tag, which ARMS the OMN-13412 release-identity gate (\`scripts/check_release_identity.py\`) against every subsequent dev PR that touches \`src/**\`." \
+              "" \
+              "This PR bumps \`[project].version\` to \`${TARGET}\` and re-locks \`uv.lock\`, so the gate is disarmed by the same flow that armed it rather than by whichever unrelated PR trips it first." \
+              "" \
+              "## Ticket" \
+              "" \
+              "OMN-13912 — release train must auto-bump project.version post-publish." \
+              "" \
+              "## Triggered by" \
+              "" \
+              "Release workflow: ${RUN_URL}" \
+              "" \
+              "## Test plan" \
+              "" \
+              "- [ ] \`release-identity\` is green on this PR (that IS the behaviour under test)" \
+              "- [ ] CI passes (lockfile resolves, version matrix in sync)")"
+
+          gh pr merge --repo "${{ github.repository }}" --squash --auto "$BRANCH"
+
+      - name: Report no-op
+        if: steps.bump.outputs.action == 'noop'
+        run: |
+          echo "dev is already ahead of ${{ needs.release.outputs.version }} -- release-identity is disarmed, no PR needed."
+
+  # ---------------------------------------------------------------------------
+  # Post-release: advisory checks that must NOT block publish (OMN-3833)
+  # ---------------------------------------------------------------------------
+  post-release-checks:
+    timeout-minutes: 30
+    name: Post-Release Checks
+    needs: release
+    if: always() && needs.release.result == 'success'
+    runs-on: >-
+      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Check fallback matrix sync (advisory)
+        run: |
+          if ! uv run python scripts/update_version_matrix.py --check; then
+            echo "::warning::Fallback matrix is out of sync with pyproject.toml."
+            echo "Run: uv run python scripts/update_version_matrix.py"
+            echo "## ⚠️ Fallback Matrix Drift" >> $GITHUB_STEP_SUMMARY
+            echo "The _FALLBACK_MATRIX in version_compatibility.py is out of sync." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`uv run python scripts/update_version_matrix.py\` to fix." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Post-release: trigger runtime Docker image rebuild (OMN-2751)
+  # ---------------------------------------------------------------------------
+  # When omnibase_infra is released, the runtime image in omninode_infra must be
+  # rebuilt to pick up the new version. This uses repository_dispatch to trigger
+  # the build-and-push workflow in the omninode_infra repo.
+  #
+  # OMN-16373: CROSS_REPO_PAT retired. repository_dispatch is gated on
+  # Contents:write on the target repo, which the onexbot-occ-writer GitHub
+  # App (org secrets ONEXBOT_OCC_APP_ID / ONEXBOT_OCC_PRIVATE_KEY) already
+  # grants org-wide — no actions:write needed. If the App credentials are
+  # absent the dispatch step is skipped with a warning so that the release
+  # itself is not marked as failed.
+  trigger-runtime-rebuild:
+    timeout-minutes: 30
+    name: Trigger Runtime Image Rebuild
+    needs: release
+    # OMN-16289: `needs.release.result == 'success'` is explicit rather than
+    # implied, so a sync-only dispatch (which skips `release`) can never
+    # dispatch a runtime rebuild off an empty version string.
+    if: ${{ needs.release.result == 'success' && !contains(needs.release.outputs.version, 'rc') }}
+    runs-on: >-
+      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    steps:
+      - name: Check onexbot-occ-writer App credentials are configured
+        id: token_check
+        env:
+          APP_ID: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "::warning::ONEXBOT_OCC_APP_ID / ONEXBOT_OCC_PRIVATE_KEY are not configured. Skipping cross-repo dispatch." \
+              "Provision the onexbot-occ-writer App org secrets to enable runtime image rebuild triggers."
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        if: steps.token_check.outputs.has_token == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: omninode_infra
+          permission-contents: write
+
+      - name: Dispatch runtime rebuild to omninode_infra
+        if: steps.token_check.outputs.has_token == 'true'
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: OmniNode-ai/omninode_infra
+          event-type: foundation-release
+          client-payload: >-
+            {
+              "package": "omnibase_infra",
+              "version": "${{ needs.release.outputs.version }}",
+              "source_repo": "${{ github.repository }}",
+              "source_sha": "${{ github.sha }}"
+            }
+
+  # ---------------------------------------------------------------------------
+  # Post-release: open dependency bump PRs in downstream repos (OMN-2751)
+  # ---------------------------------------------------------------------------
+  dependency-cascade:
+    name: Dependency Cascade
+    needs: release
+    # OMN-16289: see trigger-runtime-rebuild -- a sync-only dispatch skips
+    # `release`, and must therefore open no downstream bump PRs.
+    if: ${{ needs.release.result == 'success' && !contains(needs.release.outputs.version, 'rc') }}
+    uses: ./.github/workflows/dependency-cascade.yml
+    with:
+      package: omnibase_infra
+      version: ${{ needs.release.outputs.version }}
+      ticket: ${{ needs.release.outputs.ticket }}
+      evidence_source: ${{ needs.release.outputs.evidence_source }}
+    secrets:
+      # OMN-16373: CROSS_REPO_PAT retired — pass the onexbot-occ-writer App
+      # credentials through so dependency-cascade.yml can mint its own
+      # per-repo installation token.
+      onexbot-occ-app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+      onexbot-occ-private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}

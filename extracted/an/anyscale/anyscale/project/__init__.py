@@ -50,21 +50,25 @@ class ProjectSDK:
         arg_docstrings=_ADD_COLLABORATORS_DOCSTRINGS,
     )
     def add_collaborators(  # noqa: F811
-        self, cloud: str, project: str, collaborators: List[CreateProjectCollaborator],
+        self,
+        cloud: str,
+        project: str,
+        collaborators: List[CreateProjectCollaborator],
     ) -> None:
-        """Batch add collaborators to a project.
-        """
+        """Batch add collaborators to a project."""
         self._private_sdk.add_collaborators(cloud, project, collaborators)
 
     @sdk_docs(
-        doc_py_example=_GET_PROJECT_EXAMPLE, arg_docstrings=_GET_PROJECT_DOCSTRINGS,
+        doc_py_example=_GET_PROJECT_EXAMPLE,
+        arg_docstrings=_GET_PROJECT_DOCSTRINGS,
     )
     def get(self, project_id: str) -> Project:  # noqa: F811
         """Get details of a project."""
         return self._private_sdk.get(project_id)
 
     @sdk_docs(
-        doc_py_example=_LIST_PROJECTS_EXAMPLE, arg_docstrings=_LIST_PROJECTS_DOCSTRINGS,
+        doc_py_example=_LIST_PROJECTS_EXAMPLE,
+        arg_docstrings=_LIST_PROJECTS_DOCSTRINGS,
     )
     def list(  # noqa: F811
         self,

@@ -1,0 +1,452 @@
+Metadata-Version: 2.4
+Name: ndex2
+Version: 3.12.0
+Summary: Nice CX Python includes a client and a data model.
+Home-page: https://github.com/ndexbio/ndex2-client
+Author: The NDEx Project
+Author-email: contact@ndexbio.org
+License: BSD
+Keywords: network analysis biology
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE.txt
+Requires-Dist: six
+Requires-Dist: ijson
+Requires-Dist: requests
+Requires-Dist: requests_toolbelt
+Requires-Dist: networkx
+Requires-Dist: urllib3>=1.16
+Requires-Dist: pandas
+Requires-Dist: enum34; python_version < "3.4"
+Requires-Dist: numpy
+Requires-Dist: enum; python_version == "2.6" or python_version == "2.7"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+**NDEx2 Python Client**
+=========================
+
+.. _NDEx: http://ndexbio.org
+.. _NDEx REST Server API: http://home.ndexbio.org/using-the-ndex-server-api
+
+.. image:: https://app.travis-ci.com/ndexbio/ndex2-client.svg?branch=master
+        :target: https://app.travis-ci.com/ndexbio/ndex2-client
+
+.. image:: https://img.shields.io/pypi/v/ndex2.svg
+        :target: https://pypi.python.org/pypi/ndex2
+
+.. image:: https://coveralls.io/repos/github/ndexbio/ndex2-client/badge.svg?branch=master
+        :target: https://coveralls.io/github/ndexbio/ndex2-client?branch=master
+
+.. image:: https://app.readthedocs.org/projects/ndex2/badge/?version=latest
+        :target: https://ndex2.readthedocs.io/en/latest/?badge=latest
+        :alt: Documentation Status
+
+
+**Overview**
+--------------
+
+The NDEx2 Python Client provides methods to access NDEx_ via
+the `NDEx REST Server API`_. As well as methods for common operations on
+networks via the NiceCXNetwork class.
+
+**Dependencies**
+---------------------
+
+* `six <https://pypi.org/project/six>`__
+* `ijson <https://pypi.org/project/ijson>`__
+* `requests <https://pypi.org/project/requests>`__
+* `requests_toolbelt <https://pypi.org/project/requests_toolbelt>`__
+* `networkx <https://pypi.org/project/networkx>`__
+* `urllib3 <https://pypi.org/project/urllib3>`__
+* `pandas <https://pypi.org/project/pandas>`__
+* `enum34 <https://pypi.org/project/enum34>`__ (Python < 3.4)
+* `numpy <https://pypi.org/project/numpy>`__
+* `enum <https://pypi.org/project/enum>`__ (Python 2.6 & 2.7)
+
+**Compatibility**
+-----------------------
+
+Python 3.5+
+
+.. note::
+
+    Python < 3.5 may have some issues
+
+**Installation**
+--------------------------------------
+
+The NDEx2 Python Client module can be installed from the Python Package
+Index (PyPI) repository using PIP:
+
+::
+
+    pip install ndex2
+
+If you already have an older version of the ndex2 module installed, you
+can use this command instead:
+
+::
+
+    pip install --upgrade ndex2
+
+
+**Resources**
+--------------------------------------
+
+* The NDEx2 Python Client `documentation <https://ndex2.readthedocs.io/en/latest/>`_ is available on Read the Docs.
+* Please refer to our `Jupyter Notebook Tutorials <https://github.com/ndexbio/ndex-jupyter-notebooks>`_ GitHub repository for code examples to work with networks using the NDEx2 Python Client and NiceCX object class. 
+
+
+**License**
+--------------------------------------
+
+See `LICENSE.txt <https://github.com/ndexbio/ndex2-client/blob/master/LICENSE.txt>`_
+
+
+
+
+=======
+History
+=======
+
+3.12.0 (2025-08-12)
+-------------------
+
+* Enhancements
+    * Added namespace attributes to ``ndex2.client.Ndex2`` exposing the
+      NDEx **v3** API, so a single client covers both API versions:
+      ``client.files`` (folders, shortcuts, trash, sharing, file search),
+      ``client.networks`` (summaries, aspects, queries, export, ownership),
+      ``client.users`` and ``client.admin``.
+    * Added ``ndex2.transport.HttpTransport``, shared by every namespace. It is
+      built on the session ``Ndex2`` already creates, so credentials are held in
+      one place and changing them applies to all calls.
+    * Added ``FileType``, ``Visibility`` and ``Permissions`` to
+      ``ndex2.constants``.
+    * Added ``folder_id`` to ``Ndex2.save_new_cx2_network()`` and
+      ``Ndex2.save_cx2_stream_as_new_network()``, creating the network directly
+      inside a folder. Omitting it leaves the request unchanged.
+    * Added ``ndex2.exceptions.raise_from_requests_http_error()`` and
+      ``raise_from_exception()``, the shared mapping from HTTP status code to
+      exception type.
+
+* Deprecations
+    * Network set and group methods now emit a ``DeprecationWarning`` pointing
+      at the namespace equivalent: ``create_networkset``, ``get_networkset``,
+      ``get_network_set``, ``get_networksets_for_user_id``,
+      ``delete_networkset``, ``add_networks_to_networkset``,
+      ``delete_networks_from_networkset``,
+      ``update_network_group_permission``, ``grant_networks_to_group``, and the
+      ``include_groups`` argument of ``search_networks``.
+    * These methods remain fully supported and there is no planned removal. On
+      the server a network set is stored as a folder, and a group as a folder
+      several users hold permissions on, so the v2 endpoints continue to work.
+      Because a network set is a folder, ``client.files.get_folder()`` accepts
+      a network set UUID and network sets appear in
+      ``client.files.search()``.
+
+* Notes
+    * No existing method was removed, renamed, or changed in behaviour. The v3
+      endpoints are additive.
+    * Some namespace methods overlap a flat method where the v3 endpoint offers
+      more, for example ``client.networks.get_summary()`` reports ``folderId``
+      and ``client.networks.delete()`` moves a network to the trash rather than
+      deleting it outright. Both remain available; see the *v3 API namespaces*
+      page in the documentation.
+
+3.11.0 (2025-07-22)
+-------------------
+
+* Enhancements
+    * Added `CX2Network.rename_attribute` method to rename attributes in the network.
+
+3.10.0 (2025-01-14)
+-------------------
+
+* Enhancements
+    * Added ``store_layout_in_pos`` argument in ``get_graph`` method of ``CX2NetworkXFactory`` that saves layout
+      coordinates in G.pos (x and y) and G.zpos (z).
+    * Added ``get_layout_from_pos`` argument in ``get_cx2network`` method of ``NetworkXToCX2NetworkFactory`` that
+      determines the source of the layout coordinates. If True, the layout is derived from G.pos (x and y) and G.zpos.
+      If False, the layout uses the (x, y, z) values specified as the node attributes.
+    * Added ``interaction_col`` argument in ``get_cx2network`` of ``PandasDataFrameToCX2NetworkFactory`` that allows to
+      specify the name of the column with edge interactions
+
+* Bug fixes
+    * Fix for string IDs in NetworkX networks - cast to integer if possible or add as name attribute.
+    * Fix for DataFrames without column names
+
+
+
+3.9.0 (2024-06-18)
+-------------------
+
+* Enhancements
+    * Added ``set_name()``, ``remove_node_attribute()``, ``remove_edge_attribute``,
+      ``get_opaque_aspect()``, and ``set_opaque_aspect()`` to ``CX2Network`` class.
+
+* Bug fixes
+    * Fixed bug in type conversion. Datatypes in shorter form such as 'str', 'int' etc. are accepted.
+
+
+3.8.0 (2024-02-07)
+-------------------
+
+* Enhancements
+    * Added ``add_network_attribute()``, ``add_node_attribute()``, ``add_edge_attribute()``, ``lookup_node_id_by_name()`` to ``CX2Network`` class.
+    * Added new parameters to ``get_cx2network`` in ``PandasDataFrameToCX2NetworkFactory`` to make it easier to convert Pandas Dataframe.
+    * Added ``get_nodelist_table()`` to ``CX2NetworkPandasDataFrameFactory`` class.
+
+3.7.0 (2024-01-03)
+-------------------
+
+* Enhancements
+    * Added ``CX2NetworkXFactory`` under ``cx2.py`` module to convert
+      ``CX2Network`` object to `NetworkX Graph <https://networkx.org>`__
+    * Added ``NetworkXToCX2NetworkFactory`` under ``cx2.py`` module to convert
+      `NetworkX Graph <https://networkx.org>`__ to ``CX2Network`` object
+    * Added ``PandasDataFrameToCX2NetworkFactory`` under ``cx2.py`` module to
+      convert `Pandas DataFrame <https://pandas.org>`__ to ``CX2Network`` object
+    * Added ``CX2NetworkPandasDataFrameFactory`` under ``cx2.py`` module to convert
+      ``CX2Network`` object to `Pandas DataFrame <https://pandas.org>`__
+
+
+
+3.6.0 (2023-11-14)
+-------------------
+
+* Enhancements
+    * Added ``CX2Network`` class under ``cx2.py`` module to represent networks `CX2 format <https://cytoscape.org/cx/cx2/specification/cytoscape-exchange-format-specification-(version-2)/>`__
+    * Added ``RawCX2NetworkFactory`` class under ``cx2.py`` to create ``CX2Network`` objects
+    * Added ``NoStyleCXToCX2NetworkFactory`` class under ``cx2.py`` to convert ``NiceCXNetwork`` to ``CX2Network``
+
+* Bug fixes
+    * Fixed SyntaxWarnings `Issue #92 <https://github.com/ndexbio/ndex2-client/issues/92>`__
+
+3.5.1 (2023-04-11)
+-------------------
+
+* Bug fixes
+    * Fixed bug where ``ndex2.create_nice_cx_from_networkx()`` fails with numpy version 1.24
+      `Issue #96 <https://github.com/ndexbio/ndex2-client/issues/96>`__
+    * Updated post and put calls in ``client.py`` to only pass credentials if they are
+      set. This change is to accommodate changes in upcoming version 3 of requests library
+
+3.5.0 (2022-06-28)
+-------------------
+
+* Enhancements
+    * Added **skip_version_check** parameter to ``Ndex2()`` constructor to let caller
+      optionally bypass NDEx server call to see if **v2** endpoint is supported
+
+    * Added the following *CX2* methods to ``Ndex2()`` client:
+      ``get_network_as_cx2_stream()``, ``get_network_aspect_as_cx2_stream()``,
+      ``save_cx2_stream_as_new_network()``,
+      ``save_new_cx2_network()``, and ``update_cx2_network()``
+      `Issue #87 <https://github.com/ndexbio/ndex2-client/issues/87>`__
+
+    * In ``Ndex2()`` client, methods that raise ``NDExError`` exceptions from calls
+      to NDEx server will now raise the more specific ``NDExUnauthorizedError``
+      subclass when the response from NDEx server is a 401 aka unauthorized.
+
+    * Added new parameters **dataconverter** and **include_attributes** to ``NiceCXNetwork.to_pandas_dataframe()``.
+      **dataconverter** parameter specifies data type conversion and **include_attributes** parameter lets
+      caller specify whether all node/edge attributes are added to the resulting DataFrame
+
+    * Added new parameter to ``ndex2.create_nice_cx_from_server()`` named **ndex_client**
+      that lets caller specify ``NDex2()`` client object to use.
+
+    * Passing ``None`` for the **server** positional parameter into ``ndex2.create_nice_cx_from_server(None, uuid='XXXX')`` will default to the production
+      NDEx server
+
+* Bug fixes
+    * Fixed bug where creation of `NiceCXNetwork` from networkx via ``ndex2.create_nice_cx_from_networkx()``
+      incorrectly set the data type for boolean values to integer.
+      Issue `#83 <https://github.com/ndexbio/ndex2-client/issues/83>`__
+
+    * Fixed bug where converting `NiceCXNetwork` to networkx and back does not handle
+      name attribute correctly. `Issue #84 <https://github.com/ndexbio/ndex2-client/issues/84>`__
+
+    * Fixed bug where `@context` was lost if it was set as aspect in CX format and loaded
+      into NiceCXNetwork object.
+      `Issue #88 <https://github.com/ndexbio/ndex2-client/issues/88>`__
+
+    * Fixed bug where creation of `NiceCXNetwork` from networkx via ``ndex2.create_nice_cx_from_networkx()``
+      incorrectly set the data type for empty list to string.
+      Issue `#90 <https://github.com/ndexbio/ndex2-client/issues/90>`__
+
+    * Fixed bug where Y coordinates of nodes would be inverted when converting to/from
+      networkx from `NiceCXNetwork`. This was due to differences in coordinate systems
+      between networkx and `NiceCXNetwork`
+
+    * `DefaultNetworkXFactory` networkx converter (used by ``NiceCXNetwork.to_networkx(mode='default')``)
+      no longer converts edge attributes that are of type list into strings delimited by
+      commas
+
+    * Fixed bug where ``ndex2.create_nice_cx_from_server()`` failed on networks
+      with `provenanceHistory` aspect
+
+* Removals
+    * Removed unused test methods from internal class `NiceCXBuilder`:
+      ``load_aspect()``, ``stream_aspect()``, ``stream_aspect_raw()``
+
+    * Removed the following deprecated methods from `NiceCXNetwork`:
+      ``add_node()``, ``add_edge()``, ``get_edge_attribute_object()``,
+      ``get_node_attribute_objects()``, ``get_edge_attribute_objects()``,
+      ``add_metadata()``, ``get_provenance()``, ``set_provenance()``,
+      ``__merge_node_attributes()``, ``create_from_pandas()``,
+      ``create_from_networkx()``, ``create_from_server()``, ``upload_new_network_stream()``, &
+      ``create_from_cx()``
+
+
+3.4.0 (2021-05-06)
+-------------------
+
+* Added **offset** and **limit** parameters to `Ndex2.get_network_ids_for_user()` to enable
+  retrieval of all networks for a user.
+  `Issue #78 <https://github.com/ndexbio/ndex2-client/issues/78>`__
+
+* Switched `NiceCXNetwork.upload_to()` to named arguments and added **client** parameter.
+  `Issue #80 <https://github.com/ndexbio/ndex2-client/issues/80>`__
+
+* Switched `NiceCXNetwork.update_to()` to named arguments and added **client** parameter.
+  `Issue #81 <https://github.com/ndexbio/ndex2-client/issues/81>`__
+
+* Fixed documentation `NiceCXNetwork.update_to()` to correctly state method returns empty
+  string upon success.
+  `Issue #82 <https://github.com/ndexbio/ndex2-client/issues/82>`__
+
+* Fixed bug in `NiceCXNetwork.set_opaque_aspect()` where passing `None` in the **aspect_elements**
+  parameter raised an error instead of removing the aspect
+
+* Added `Ndex2.get_user_by_id()` method to get user information by NDEx user Id.
+
+* Added `Ndex2.get_id_for_user()` method to get NDEx user Id by username.
+
+* Added `Ndex2.get_networksets_for_user_id()` to get Network Sets for a given user Id.
+  `Issue #61 <https://github.com/ndexbio/ndex2-client/issues/61>`__
+
+* Improved documentation by adding intersphinx to provide links to python documentation for
+  python objects.
+
+3.3.3 (2021-04-22)
+-------------------
+
+* Fixed bug where `NiceCXNetwork.to_networkx()` fails with `ValueError` when installed
+  networkx version has X.Y.Z format (example: 2.5.1)
+  `Issue #79 <https://github.com/ndexbio/ndex2-client/issues/79>`_
+
+3.3.2 (2021-04-13)
+-------------------
+
+* Fixed bug where `NiceCXNetwork.create_node()` and `.create_edge()` overwrote existing nodes/edges.
+  `Issue #60 <https://github.com/ndexbio/ndex2-client/issues/60>`_
+
+* Fixed bug where `enum34` package would be unnecessarily installed on versions of Python 3.4 and newer.
+  `Issue #76 <https://github.com/ndexbio/ndex2-client/issues/76>`_
+
+* Improved documentation for `Ndex2.set_network_properties()` method.
+  `Issue #77 <https://github.com/ndexbio/ndex2-client/issues/77>`_
+
+3.3.1 (2019-09-23)
+-------------------
+
+* Added `MANIFEST.in` file to include `README.rst, HISTORY.rst, and LICENSE.txt` files as well as documentation and tests so `python setup.py install` will work properly on distribution of this client on PyPI. Thanks to Ben G. for catching this. `Issue #62 <https://github.com/ndexbio/ndex2-client/pull/62>`_
+
+* Minor updates to `README.rst`
+
+3.3.0 (2019-09-11)
+------------------
+
+* Fixed bug where if server version is not 2.0 exactly then `Ndex2()` object incorrectly falls back to version of 1.3 of REST calls
+  `Issue #40 <https://github.com/ndexbio/ndex2-client/issues/40>`_
+
+* Fixed bug in `NiceCXNetwork.add_network_attribute()` method where type not properly reset when adding duplicate attribute
+  `Issue #50 <https://github.com/ndexbio/ndex2-client/issues/50>`_
+
+* Added `delete_networksets()` method to Ndex2 client to allow deletion of networksets `Issue #59 <https://github.com/ndexbio/ndex2-client/issues/59>`_
+
+
+3.2.0 (2019-04-23)
+------------------
+
+* Verify consistent conversion of CX for networkx 1.11 and 2.0+
+  `Issue #30 <https://github.com/ndexbio/ndex2-client/issues/30>`_
+
+* `NiceCXNetwork.get_nodes()`, `NiceCXNetwork.get_edges()`, `NiceCXNetwork.get_metadata()` needs to make correct iterator call in Python 2
+  `Issue #44 <https://github.com/ndexbio/ndex2-client/issues/44>`_
+
+* Add `NiceCXNetwork.get_network_attribute_names()` function enhancement
+  `Issue #45 <https://github.com/ndexbio/ndex2-client/issues/45>`_
+
+* `NiceCXNetwork.create_edge()` fails to correctly create edge when node dict passed in
+  `Issue #46 <https://github.com/ndexbio/ndex2-client/issues/46>`_
+
+3.1.0a1 (2019-03-20)
+--------------------
+
+* Add method to ndex2 python client to apply style from one NiceCXNetwork 
+  to another NiceCXNetwork
+  `Issue #43 <https://github.com/ndexbio/ndex2-client/issues/43>`_
+
+3.0.0a1 (2019-02-11)
+--------------------
+
+* In NiceCXNetwork class ability to add to User-Agent for calls to NDEx service
+  `Issue #36 <https://github.com/ndexbio/ndex2-client/issues/36>`_
+
+* Methods in `ndex2/client.py` should raise an NDExError for invalid credentials
+  `Issue #39 <https://github.com/ndexbio/ndex2-client/issues/39>`_
+
+* Add timeout flag to all web request calls
+  `Issue #33 <https://github.com/ndexbio/ndex2-client/issues/33>`_
+
+* Update `User-Agent` to reflect actual version of software
+  `Issue #35 <https://github.com/ndexbio/ndex2-client/issues/35>`_
+
+* `NiceCXNetwork.set_node_attribute()` incorrectly handles duplicate attributes
+  `Issue #41 <https://github.com/ndexbio/ndex2-client/issues/41>`_
+
+* `NiceCXNetwork.set_node_attribute()` fails if node object passed to it
+  `Issue #42 <https://github.com/ndexbio/ndex2-client/issues/42>`_
+
+* Passing None to user_agent parameterin `Ndex2()` constructor raises TypeError
+  `Issue #34 <https://github.com/ndexbio/ndex2-client/issues/34>`_
+
+* `Ndex2()` constructor does not properly handle invalid json from server
+  `Issue #28 <https://github.com/ndexbio/ndex2-client/issues/28>`_
+
+* Eliminate circular import between ndex2 and ndex2cx/nice_cx_builder.py
+  `Issue #31 <https://github.com/ndexbio/ndex2-client/issues/31>`_
+
+* Replace print statements with logging calls in `ndex2/client.py`
+  `Issue #32 <https://github.com/ndexbio/ndex2-client/issues/32>`_
+
+
+2.0.1 (2019-01-03)
+------------------
+
+* Fixed bug where logs directory is created within
+  the package installation directory. 
+  `Issue #26 <https://github.com/ndexbio/ndex2-client/issues/26>`_

@@ -35,16 +35,20 @@ class GpuStatusGroupKey(object):
     openapi_types = {
         'instance_type': 'str',
         'gpu_model': 'str',
-        'workload': 'GpuWorkloadRef'
+        'workload': 'GpuWorkloadRef',
+        'k8s_cluster_id': 'str',
+        'k8s_cluster_name': 'str'
     }
 
     attribute_map = {
         'instance_type': 'instance_type',
         'gpu_model': 'gpu_model',
-        'workload': 'workload'
+        'workload': 'workload',
+        'k8s_cluster_id': 'k8s_cluster_id',
+        'k8s_cluster_name': 'k8s_cluster_name'
     }
 
-    def __init__(self, instance_type=None, gpu_model=None, workload=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, instance_type=None, gpu_model=None, workload=None, k8s_cluster_id=None, k8s_cluster_name=None, local_vars_configuration=None):  # noqa: E501
         """GpuStatusGroupKey - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,6 +57,8 @@ class GpuStatusGroupKey(object):
         self._instance_type = None
         self._gpu_model = None
         self._workload = None
+        self._k8s_cluster_id = None
+        self._k8s_cluster_name = None
         self.discriminator = None
 
         if instance_type is not None:
@@ -61,6 +67,10 @@ class GpuStatusGroupKey(object):
             self.gpu_model = gpu_model
         if workload is not None:
             self.workload = workload
+        if k8s_cluster_id is not None:
+            self.k8s_cluster_id = k8s_cluster_id
+        if k8s_cluster_name is not None:
+            self.k8s_cluster_name = k8s_cluster_name
 
     @property
     def instance_type(self):
@@ -130,6 +140,52 @@ class GpuStatusGroupKey(object):
         """
 
         self._workload = workload
+
+    @property
+    def k8s_cluster_id(self):
+        """Gets the k8s_cluster_id of this GpuStatusGroupKey.  # noqa: E501
+
+        The Kubernetes cluster (cldrsrc_... id). Set when grouping by k8s_cluster; null for GPUs not attributable to one.  # noqa: E501
+
+        :return: The k8s_cluster_id of this GpuStatusGroupKey.  # noqa: E501
+        :rtype: str
+        """
+        return self._k8s_cluster_id
+
+    @k8s_cluster_id.setter
+    def k8s_cluster_id(self, k8s_cluster_id):
+        """Sets the k8s_cluster_id of this GpuStatusGroupKey.
+
+        The Kubernetes cluster (cldrsrc_... id). Set when grouping by k8s_cluster; null for GPUs not attributable to one.  # noqa: E501
+
+        :param k8s_cluster_id: The k8s_cluster_id of this GpuStatusGroupKey.  # noqa: E501
+        :type: str
+        """
+
+        self._k8s_cluster_id = k8s_cluster_id
+
+    @property
+    def k8s_cluster_name(self):
+        """Gets the k8s_cluster_name of this GpuStatusGroupKey.  # noqa: E501
+
+        The Kubernetes cluster's display name (its cloud deployment name, falling back to its id). Set when grouping by k8s_cluster.  # noqa: E501
+
+        :return: The k8s_cluster_name of this GpuStatusGroupKey.  # noqa: E501
+        :rtype: str
+        """
+        return self._k8s_cluster_name
+
+    @k8s_cluster_name.setter
+    def k8s_cluster_name(self, k8s_cluster_name):
+        """Sets the k8s_cluster_name of this GpuStatusGroupKey.
+
+        The Kubernetes cluster's display name (its cloud deployment name, falling back to its id). Set when grouping by k8s_cluster.  # noqa: E501
+
+        :param k8s_cluster_name: The k8s_cluster_name of this GpuStatusGroupKey.  # noqa: E501
+        :type: str
+        """
+
+        self._k8s_cluster_name = k8s_cluster_name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

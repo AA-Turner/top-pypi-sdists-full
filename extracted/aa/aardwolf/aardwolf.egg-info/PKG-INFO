@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: aardwolf
+Version: 0.2.14
+Summary: Asynchronous RDP protocol implementation
+Home-page: https://github.com/skelsec/aardwolf
+Author: Tamas Jos
+Author-email: info@skelsecprojects.com
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+License-File: LICENSE

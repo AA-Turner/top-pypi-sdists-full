@@ -40,7 +40,8 @@ def extract_inputs(
     canonicalization_cache: CanonicalizationCache,
     response_resource_cache: ResponseResourceCache,
     deferred_nested_fks: list[tuple[str, str, str]] | None = None,
-    deferred_named_scalars: list[tuple[str, str]] | None = None,
+    deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
+    deferred_field_named_path_parameters: list[tuple[str, str]] | None = None,
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     """Extract resource dependencies for an API operation from its input parameters.
@@ -52,11 +53,20 @@ def extract_inputs(
     isn't yet registered. The caller replays them after every operation has been
     scanned so the slot lands once the producer has been seen.
 
+    `deferred_field_named_path_parameters` collects `(resource, parameter)` pairs for path
+    parameters named after a field of their owning resource (`/projects/{code}`), bound once
+    every resource definition is known.
+
     `candidate_resource_names` gates `<word>_name` body-field synthetics: only
     creates a placeholder when the inferred name is backed by a path segment or
     component schema.
     """
     known_dependencies = set()
+    # Updates address the resource bound by the trailing path parameter, e.g. `PATCH /users/{userId}`.
+    updated_parameter = (
+        naming.trailing_path_parameter(operation.path) if operation.method.lower() in ("put", "patch") else None
+    )
+    updated_resource = None
     for param in operation.iter_parameters():
         input_slot = _resolve_parameter_dependency(
             parameter_name=param.name,
@@ -71,22 +81,37 @@ def extract_inputs(
         if input_slot is not None:
             if input_slot.resource.source >= DefinitionSource.SCHEMA_WITH_PROPERTIES:
                 known_dependencies.add(input_slot.resource.name)
+            if param.location == ParameterLocation.PATH and param.name == updated_parameter:
+                updated_resource = input_slot.resource.name
             yield input_slot
+        elif param.location == ParameterLocation.PATH and deferred_field_named_path_parameters is not None:
+            owner = naming.owning_resource(param.name, operation.path)
+            if owner is not None:
+                deferred_field_named_path_parameters.append((owner, param.name))
 
+    json_bodies = []
+    form_bodies = []
     for body in operation.body:
         try:
-            if media_types.is_json(body.media_type):
-                yield from _resolve_body_dependencies(
-                    body=body,
-                    operation=operation,
-                    resources=resources,
-                    known_dependencies=known_dependencies,
-                    deferred_nested_fks=deferred_nested_fks,
-                    deferred_named_scalars=deferred_named_scalars,
-                    candidate_resource_names=candidate_resource_names,
-                )
+            media_type = media_types.parse(body.media_type)
         except MalformedMediaType:
             continue
+        if media_types.is_json_parts(media_type):
+            json_bodies.append(body)
+        elif media_types.is_form_parts(media_type):
+            form_bodies.append(body)
+    # Link values fill whichever body variant is sent, so form fields matter only when there is no JSON variant.
+    for body in json_bodies or form_bodies:
+        yield from _resolve_body_dependencies(
+            body=body,
+            operation=operation,
+            resources=resources,
+            known_dependencies=known_dependencies,
+            updated_resource=updated_resource,
+            deferred_nested_fks=deferred_nested_fks,
+            deferred_named_scalars=deferred_named_scalars,
+            candidate_resource_names=candidate_resource_names,
+        )
 
 
 def _resolve_parameter_dependency(
@@ -165,21 +190,7 @@ def _resolve_parameter_dependency(
                 resources[resource_name] = resource
             field = parameter_name
     else:
-        # Match parameter to resource field (`userId` -> `id`, `Id` -> `ChannelId`, etc.)
-        matched = naming.find_matching_field(
-            parameter=parameter_name,
-            resource=resource_name,
-            fields=resource.fields,
-        )
-        if matched is not None:
-            field = matched
-        elif "id" in resource.fields:
-            # Conventional fallback: `<resource>Id` parameters point at the resource's `id` field.
-            field = "id"
-        else:
-            # Resource has no `id` field — use the parameter name itself so request-pool
-            # captures from peer operations land in the same field this slot will read.
-            field = parameter_name
+        field = _match_field(parameter_name, resource_name, resource.fields)
 
     return InputSlot(
         resource=resource,
@@ -238,6 +249,15 @@ def _find_matching_resource_by_suffix(
     Only considers high-quality resources (schema-defined with properties) and
     requires the parameter to match a field via find_matching_field.
     """
+    return next(
+        _iter_suffix_matches(resource_name=resource_name, parameter_name=parameter_name, resources=resources),
+        (None, None),
+    )
+
+
+def _iter_suffix_matches(
+    *, resource_name: str, parameter_name: str, resources: ResourceMap
+) -> Iterator[tuple[ResourceDefinition, str]]:
     # Normalize for case-insensitive matching
     resource_lower = resource_name.lower()
 
@@ -261,9 +281,7 @@ def _find_matching_resource_by_suffix(
             fields=candidate_resource.fields,
         )
         if matched_field is not None:
-            return candidate_resource, matched_field
-
-    return None, None
+            yield candidate_resource, matched_field
 
 
 GENERIC_FIELD_NAMES = frozenset(
@@ -317,8 +335,9 @@ def _resolve_body_dependencies(
     operation: APIOperation,
     resources: ResourceMap,
     known_dependencies: set[str],
+    updated_resource: str | None = None,
     deferred_nested_fks: list[tuple[str, str, str]] | None = None,
-    deferred_named_scalars: list[tuple[str, str]] | None = None,
+    deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     schema = body.raw_schema
@@ -397,7 +416,7 @@ def _resolve_body_dependencies(
         if resource_name is None and deferred_named_scalars is not None and _is_scalar(subschema):
             # A field carrying no identifier suffix may still name the collection listing its
             # accepted values (`country` <- `GET /countries`). The producer is confirmed later.
-            deferred_named_scalars.append((naming.to_pascal_case(property_name), property_name))
+            deferred_named_scalars.append((naming.to_pascal_case(property_name), property_name, subschema))
 
         # Skip generic property names & optional fields (at least for now)
         if property_name in GENERIC_FIELD_NAMES or property_name not in required:
@@ -408,6 +427,9 @@ def _resolve_body_dependencies(
             resources[dep] for dep in known_dependencies if dep in resources and property_name in resources[dep].fields
         ]
 
+        if len(candidates) > 1:
+            # An update writes the resource its path addresses, whatever its parents carry
+            candidates = [candidate for candidate in candidates if candidate.name == updated_resource]
         # Skip ambiguous cases when multiple resources have same field name
         if len(candidates) != 1:
             continue
@@ -415,6 +437,9 @@ def _resolve_body_dependencies(
         resource = candidates[0]
         # Ensure the target field supports the same type
         if not resource.types[property_name] & set(get_type(subschema)):
+            continue
+        # A name labels the resource being written: only an update may keep its current one.
+        if naming.key_kind(property_name) == naming.KeyKind.NAME and resource.name != updated_resource:
             continue
 
         yield InputSlot(
@@ -524,6 +549,55 @@ def _extract_nested_body_fk_fields(
                     yield from _extract_nested_body_fk_fields(
                         items, resources, items_path, max_depth - 1, deferred=deferred
                     )
+
+
+def rebind_inherited_suffix_matches(operations: OperationMap, resources: ResourceMap) -> None:
+    """Re-resolve suffix matches that hold only through a field inherited via `allOf`.
+
+    A field inherited from a shared base schema (`id` from a generic `Resource`) says little about
+    which entity a prefix-named resource is: `ReservationTransaction.id` does not identify a reservation.
+    Once every operation is known, the resource the parameter names wins if the API refers to it,
+    and otherwise a field named after the parameter itself (`ReservationDetailProperties.reservationId`).
+    """
+    produced = {output.resource.name for operation in operations.values() for output in operation.outputs}
+    for operation in operations.values():
+        for input_slot in operation.inputs:
+            parameter_name = input_slot.parameter_name
+            if (
+                not input_slot.is_suffix_matched
+                or not isinstance(parameter_name, str)
+                or input_slot.resource_field not in input_slot.resource.inherited_fields
+            ):
+                continue
+            resource_name = naming.from_parameter(parameter=parameter_name, path=operation.path)
+            if resource_name is None or resource_name.lower() == input_slot.resource.name.lower():
+                continue
+            named = resources.get(resource_name)
+            if named is not None and named.source != DefinitionSource.PARAMETER_INFERENCE and resource_name in produced:
+                input_slot.resource = named
+                input_slot.resource_field = _match_field(parameter_name, resource_name, named.fields)
+                input_slot.is_suffix_matched = False
+                continue
+            parameter_normalized = naming.normalize_for_matching(parameter_name)
+            for candidate, field in _iter_suffix_matches(
+                resource_name=resource_name, parameter_name=parameter_name, resources=resources
+            ):
+                if naming.normalize_for_matching(field) == parameter_normalized:
+                    input_slot.resource = candidate
+                    input_slot.resource_field = field
+                    break
+
+
+def _match_field(parameter_name: str, resource_name: str, fields: list[str]) -> str:
+    # Match parameter to resource field (`userId` -> `id`, `Id` -> `ChannelId`, etc.)
+    matched = naming.find_matching_field(parameter=parameter_name, resource=resource_name, fields=fields)
+    if matched is not None:
+        return matched
+    if "id" in fields:
+        # Conventional fallback: `<resource>Id` parameters point at the resource's `id` field.
+        return "id"
+    # Without an `id` field, use the parameter name so peer captures reach this slot.
+    return parameter_name
 
 
 def update_input_field_bindings(resource_name: str, operations: OperationMap) -> None:

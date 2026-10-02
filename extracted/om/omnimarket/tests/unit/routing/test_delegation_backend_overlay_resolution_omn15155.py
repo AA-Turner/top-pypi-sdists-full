@@ -1,0 +1,318 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Committed-backend + overlay resolution tests (OMN-15155 / OMN-16442).
+
+OMN-15155 registered the .200 MLX endpoint as the committed ``local-coder-mlx``
+backend_id in ``bifrost_delegation.yaml`` and proved three general properties
+through it. OMN-16442 RETIRED that backend — .200:8401 was re-probed 2026-08-28
+and returns curl exit 7 "Couldn't connect to server", and the Mac Studio's MLX
+server now serves ``Qwen3.8-27B-8bit`` on 127.0.0.1:8099, LOCALHOST-ONLY (so it
+is deliberately NOT re-registered; that needs explicit availability semantics +
+a health check first).
+
+The three properties are NOT specific to that backend, so these tests were
+retargeted onto ``local-ds-v4-flash`` — the surviving local backend with the
+identical shape (``endpoint_url: null`` in the committed contract, supplied by
+the overlay/store at deploy time, unauthenticated, ``tier: local``) — rather
+than deleted with the backend:
+
+  1. The committed contract declares the backend with null ``endpoint_url``
+     and ``model_name`` (supplied by the overlay), ``tier: local``, and no
+     ``secret_ref`` / ``api_key_env``.
+  2. A stability-test-shaped overlay/store entry survives ``_merge_overlay``
+     and resolves via the public ``resolve_delegation_backend`` entrypoint to a
+     COMPLETE chat-completions URL, never the bare ``/v1`` base — the named
+     silent-failure class (OMN-12815).
+  3. The committed-file entry is MANDATORY for a PARTIAL overlay row: an
+     overlay-only ``backend_id`` whose row is not a complete backend
+     declaration never resolves. This is the property that makes
+     retiring a backend a two-file change, and it is exactly why OMN-16442
+     removed the retired ids from the committed contract rather than only from
+     the overlay.
+
+     OMN-16903 RETARGETED property 3 onto a stricter outcome. The property was
+     originally written as "``_merge_overlay`` silently DROPS it", which pinned
+     one half of a live divergence: the sibling merge path in
+     ``adapters/llm/bifrost/config_loader_bifrost_delegation.py`` APPENDED the
+     same row instead, and the appended partial entry then failed whole-config
+     schema validation — so retiring a backend_id took every task type down on
+     that path while merely narrowing the routing table on this one. Both paths
+     now REJECT the row, naming the offending id and the overlay source.
+
+     OMN-17099 (operator ruling 2026-09-22) replaced that blanket refusal with
+     contract validation: an overlay-only row that IS a complete backend
+     declaration now adds a backend on both paths. The row below carries only
+     ``backend_id`` / ``endpoint_url`` / ``model_name`` — the real stale-overlay
+     shape — so it is still refused, now as ``OverlayBackendIncompleteError``
+     naming the missing fields too. A partial row still never resolves a
+     phantom backend.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from omnimarket.adapters.llm.bifrost.config_loader_bifrost_delegation import (
+    OverlayBackendIncompleteError,
+)
+from omnimarket.models.delegation.wire.model_bifrost_delegation_config import (
+    ModelDelegationBackendConfig,
+)
+from omnimarket.routing.delegation_backend_resolution import (
+    BIFROST_OVERLAY_STORE_KEY,
+    load_bifrost_backends,
+    resolve_delegation_backend,
+)
+
+_BIFROST_CONFIG_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "src"
+    / "omnimarket"
+    / "configs"
+    / "bifrost_delegation.yaml"
+)
+
+_STABILITY_TEST_ENDPOINT = "http://stickybeatz-studio:8101/v1/chat/completions"
+
+
+class _MockStore:
+    """Minimal in-memory ProtocolSecretStore for unit tests."""
+
+    def __init__(self, data: dict[str, str]) -> None:
+        self._data = data
+
+    async def get_secret(self, key: str) -> str | None:
+        return self._data.get(key)
+
+    async def set_secret(self, key: str, value: str) -> bool:
+        raise RuntimeError("Mock store is read-only")
+
+    async def delete_secret(self, key: str) -> bool:
+        raise RuntimeError("Mock store is read-only")
+
+    async def list_keys(self, prefix: str | None = None) -> list[str]:
+        del prefix
+        return list(self._data.keys())
+
+    async def health_check(self) -> bool:
+        return True
+
+    async def close(self, timeout_seconds: float = 30.0) -> None:
+        del timeout_seconds
+
+
+def _overlay_yaml(backends: list[dict[str, Any]]) -> str:
+    return yaml.dump({"backends": backends}, default_flow_style=False)
+
+
+# ---------------------------------------------------------------------------
+# 1. Committed contract declares local-ds-v4-flash correctly
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_committed_contract_declares_local_ds_v4_flash() -> None:
+    raw = yaml.safe_load(_BIFROST_CONFIG_PATH.read_text(encoding="utf-8"))
+    backends = {backend["backend_id"]: backend for backend in raw["backends"]}
+
+    assert "local-ds-v4-flash" in backends, (
+        "local-ds-v4-flash must be a COMMITTED backend_id — both overlay merge "
+        "paths REJECT a partial overlay-only row, which is what a site overlay "
+        "for it carries (OMN-15155, OMN-16903, OMN-17099)."
+    )
+    backend = backends["local-ds-v4-flash"]
+
+    assert backend["model_name"] is None
+    assert backend["tier"] == "local"
+    # Committed default is null; the real endpoint is supplied by the
+    # stability-test overlay/store, never hardcoded here.
+    assert backend["endpoint_url"] is None
+    assert backend["endpoint_url_env"] == "BIFROST_LOCAL_DS_V4_FLASH_ENDPOINT_URL"
+
+    # Unauthenticated local endpoint: no auth fields (OMN-16442: same
+    # property held for the retired MLX backend this test was retargeted from).
+    assert backend.get("secret_ref") is None
+    assert backend.get("api_key_env") is None
+    assert backend.get("api_key_ref") is None
+
+
+@pytest.mark.unit
+def test_committed_local_ds_v4_flash_validates_against_wire_model() -> None:
+    """The committed entry must validate against the strict wire DTO."""
+    raw = yaml.safe_load(_BIFROST_CONFIG_PATH.read_text(encoding="utf-8"))
+    backend = next(b for b in raw["backends"] if b["backend_id"] == "local-ds-v4-flash")
+    config = ModelDelegationBackendConfig.model_validate(backend)
+    assert config.timeout_ms >= 1
+    assert config.max_tokens >= 1
+    assert config.resolved_secret_ref is None
+
+
+# ---------------------------------------------------------------------------
+# 2. Stability-test overlay/store survives _merge_overlay and resolves the
+#    COMPLETE chat-completions URL via resolve_delegation_backend.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_stability_test_store_overlay_merges_onto_committed_local_ds_v4_flash() -> None:
+    """A stability-test-shaped store overlay merges field-by-field onto the
+    committed local-ds-v4-flash entry (same overlay/store mechanism the sibling
+    local backends — e.g. local-coder, local-ds-v4-flash — use)."""
+    store = _MockStore(
+        {
+            BIFROST_OVERLAY_STORE_KEY: _overlay_yaml(
+                [
+                    {
+                        "backend_id": "local-ds-v4-flash",
+                        "endpoint_url": _STABILITY_TEST_ENDPOINT,
+                        "model_name": "deepseek-v4-flash",
+                    }
+                ]
+            )
+        }
+    )
+
+    backends = load_bifrost_backends(config_path=_BIFROST_CONFIG_PATH, store=store)
+    ds_backend = next(b for b in backends if b["backend_id"] == "local-ds-v4-flash")
+
+    assert ds_backend["endpoint_url"] == _STABILITY_TEST_ENDPOINT
+    # The overlay supplies the served id; the committed tier survives the merge.
+    assert ds_backend["model_name"] == "deepseek-v4-flash"
+    assert ds_backend["tier"] == "local"
+
+
+@pytest.mark.unit
+def test_resolve_delegation_backend_local_ds_v4_flash_ends_in_chat_completions() -> (
+    None
+):
+    """End-to-end via the public resolve_delegation_backend entrypoint: the
+    resolved endpoint_ref is the COMPLETE chat-completions path, never the bare
+    /v1 base (the named silent-failure class this ticket guards against)."""
+    store = _MockStore(
+        {
+            BIFROST_OVERLAY_STORE_KEY: _overlay_yaml(
+                [
+                    {
+                        "backend_id": "local-ds-v4-flash",
+                        "endpoint_url": _STABILITY_TEST_ENDPOINT,
+                        "model_name": "deepseek-v4-flash",
+                    }
+                ]
+            )
+        }
+    )
+
+    resolved = resolve_delegation_backend(
+        "code_generation",
+        backend_id="local-ds-v4-flash",
+        config_path=_BIFROST_CONFIG_PATH,
+        store=store,
+    )
+
+    assert resolved.backend_id == "local-ds-v4-flash"
+    assert resolved.endpoint_ref == _STABILITY_TEST_ENDPOINT
+    assert resolved.endpoint_ref.endswith("/v1/chat/completions")
+    assert resolved.model_id == "deepseek-v4-flash"
+    assert resolved.tier == "local"
+    assert resolved.secret_ref is None
+    assert resolved.api_key_env is None
+
+
+@pytest.mark.unit
+def test_resolve_delegation_backend_rejects_bare_v1_base_class_of_failure() -> None:
+    """A bare-base URL (no /chat/completions path) is carried verbatim by the
+    resolver — never silently constructed into a complete path — so a
+    misconfigured overlay is visibly wrong rather than a silent failure."""
+    bare_base = "http://stickybeatz-studio:8101/v1"
+    store = _MockStore(
+        {
+            BIFROST_OVERLAY_STORE_KEY: _overlay_yaml(
+                [
+                    {
+                        "backend_id": "local-ds-v4-flash",
+                        "endpoint_url": bare_base,
+                        "model_name": "deepseek-v4-flash",
+                    }
+                ]
+            )
+        }
+    )
+
+    resolved = resolve_delegation_backend(
+        "code_generation",
+        backend_id="local-ds-v4-flash",
+        config_path=_BIFROST_CONFIG_PATH,
+        store=store,
+    )
+
+    # Carried verbatim, not silently completed — proves the resolver performs
+    # no in-code path construction (OMN-12815). A bare base is a
+    # misconfiguration this test documents, not a code path this ticket wires.
+    assert resolved.endpoint_ref == bare_base
+    assert not resolved.endpoint_ref.endswith("/v1/chat/completions")
+
+
+# ---------------------------------------------------------------------------
+# 3. Proof the committed-file entry is mandatory for a partial row: a partial
+#    overlay-only row is REJECTED attributably by both merge paths (retargeted
+#    by OMN-16903 from "silently DROPPED by _merge_overlay", narrowed to
+#    partial rows by OMN-17099).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_overlay_only_backend_id_is_rejected_without_committed_entry() -> None:
+    """A partial overlay-only row never resolves a phantom backend.
+
+    OMN-15155 asserted this by observing the row silently vanish from the merged
+    config. OMN-16903 replaced that with an explicit refusal that names the
+    offending id and the overlay source, because the sibling merge path handled
+    the identical input by appending it and hard-failing whole-config validation
+    with a pydantic message pointing at a list index. The property being proved
+    is unchanged — the committed entry is MANDATORY — but the failure is now
+    loud and attributable on both paths instead of divergent. OMN-17099 lets a
+    COMPLETE overlay-only row add a backend; this row carries three keys, so it
+    is still refused, and the refusal now names the missing fields as well.
+    """
+    store = _MockStore(
+        {
+            BIFROST_OVERLAY_STORE_KEY: _overlay_yaml(
+                [
+                    {
+                        "backend_id": "local-ds-v4-flash-not-committed",
+                        "endpoint_url": _STABILITY_TEST_ENDPOINT,
+                        "model_name": "deepseek-v4-flash",
+                    }
+                ]
+            )
+        }
+    )
+
+    with pytest.raises(OverlayBackendIncompleteError) as excinfo:
+        load_bifrost_backends(config_path=_BIFROST_CONFIG_PATH, store=store)
+
+    message = str(excinfo.value)
+    assert "local-ds-v4-flash-not-committed" in message, (
+        "the refusal must NAME the overlay-only backend_id — this is why "
+        "local-ds-v4-flash MUST be committed in bifrost_delegation.yaml, not "
+        "overlay-only (OMN-15155/OMN-16903)."
+    )
+    assert BIFROST_OVERLAY_STORE_KEY in message, (
+        "the refusal must attribute the row to the store overlay it came from "
+        "(OMN-16903)."
+    )
+
+    # The public resolve entrypoint inherits the same refusal — it loads through
+    # the same merge path, so a stale overlay can no longer make one caller fail
+    # closed on a phantom lookup while another hard-fails on schema validation.
+    with pytest.raises(OverlayBackendIncompleteError):
+        resolve_delegation_backend(
+            "code_generation",
+            backend_id="local-ds-v4-flash-not-committed",
+            config_path=_BIFROST_CONFIG_PATH,
+            store=store,
+        )

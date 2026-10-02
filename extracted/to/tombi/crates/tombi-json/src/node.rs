@@ -2,7 +2,36 @@ use std::io::Read;
 
 use itertools::Itertools;
 use tombi_json_value::{Number, Object, Value};
-use tombi_text::Range;
+use tombi_text::Span;
+
+/// A parsed JSON document.
+#[derive(Debug, Clone)]
+pub struct Document {
+    /// The root value of the document.
+    pub value: ValueNode,
+    /// The line index of the document, to convert the spans of its nodes.
+    pub line_index: std::sync::Arc<tombi_text::OwnedLineIndex>,
+}
+
+impl Document {
+    pub fn from_reader<R>(reader: R) -> Result<Self, crate::Error>
+    where
+        R: std::io::Read,
+    {
+        let mut reader = std::io::BufReader::new(reader);
+        let mut s = String::new();
+        reader.read_to_string(&mut s)?;
+        Ok(crate::parser::parse_document(s)?)
+    }
+}
+
+impl std::str::FromStr for Document {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(crate::parser::parse_document(s)?)
+    }
+}
 
 /// A JSON value with source code position information
 #[derive(Debug, Clone, PartialEq)]
@@ -22,14 +51,14 @@ pub enum ValueNode {
 }
 
 impl ValueNode {
-    pub fn range(&self) -> Range {
+    pub fn span(&self) -> Span {
         match self {
-            Self::Null(node) => node.range,
-            Self::Bool(node) => node.range,
-            Self::Number(node) => node.range,
-            Self::String(node) => node.range,
-            Self::Array(node) => node.range,
-            Self::Object(node) => node.range,
+            Self::Null(node) => node.span,
+            Self::Bool(node) => node.span,
+            Self::Number(node) => node.span,
+            Self::String(node) => node.span,
+            Self::Array(node) => node.span,
+            Self::Object(node) => node.span,
         }
     }
 
@@ -157,7 +186,7 @@ impl std::str::FromStr for ValueNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct NullNode {
     /// The position of the null value in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl std::fmt::Display for NullNode {
@@ -172,7 +201,7 @@ pub struct BoolNode {
     /// The boolean value
     pub value: bool,
     /// The position of the boolean value in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl std::fmt::Display for BoolNode {
@@ -187,7 +216,7 @@ pub struct NumberNode {
     /// The number value
     pub value: Number,
     /// The position of the number value in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl std::fmt::Display for NumberNode {
@@ -202,7 +231,7 @@ pub struct StringNode {
     /// The string value
     pub value: String,
     /// The position of the string value in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl std::fmt::Display for StringNode {
@@ -241,9 +270,11 @@ impl std::hash::Hash for StringNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayNode {
     /// The array elements
-    pub items: Vec<ValueNode>,
+    ///
+    /// Shared so that cloning a node does not copy the whole subtree.
+    pub items: std::sync::Arc<Vec<ValueNode>>,
     /// The position of the entire array in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl ArrayNode {
@@ -276,9 +307,11 @@ impl std::fmt::Display for ArrayNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectNode {
     /// The object properties
-    pub properties: tombi_json_value::Map<StringNode, ValueNode>,
+    ///
+    /// Shared so that cloning a node does not copy the whole subtree.
+    pub properties: std::sync::Arc<tombi_json_value::Map<StringNode, ValueNode>>,
     /// The position of the entire object in the source code
-    pub range: Range,
+    pub span: Span,
 }
 
 impl ObjectNode {
@@ -299,7 +332,7 @@ impl ObjectNode {
 
 impl From<ObjectNode> for Object {
     fn from(node: ObjectNode) -> Self {
-        node.properties
+        std::sync::Arc::unwrap_or_clone(node.properties)
             .into_iter()
             .map(|(k, v)| (k.value, v.into()))
             .collect()
@@ -334,11 +367,14 @@ impl From<ValueNode> for Value {
             ValueNode::Bool(node) => Value::Bool(node.value),
             ValueNode::Number(node) => Value::Number(node.value),
             ValueNode::String(node) => Value::String(node.value),
-            ValueNode::Array(node) => {
-                Value::Array(node.items.into_iter().map(Into::into).collect())
-            }
+            ValueNode::Array(node) => Value::Array(
+                std::sync::Arc::unwrap_or_clone(node.items)
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
             ValueNode::Object(node) => Value::Object(
-                node.properties
+                std::sync::Arc::unwrap_or_clone(node.properties)
                     .into_iter()
                     .map(|(k, v)| (k.value, v.into()))
                     .collect(),
@@ -391,7 +427,10 @@ impl From<&ValueNode> for Value {
 
 impl From<ArrayNode> for Value {
     fn from(node: ArrayNode) -> Self {
-        let values: Vec<Value> = node.items.into_iter().map(Into::into).collect();
+        let values: Vec<Value> = std::sync::Arc::unwrap_or_clone(node.items)
+            .into_iter()
+            .map(Into::into)
+            .collect();
         Value::Array(values)
     }
 }
@@ -407,7 +446,7 @@ impl From<ObjectNode> for Value {
     fn from(node: ObjectNode) -> Self {
         // Use IndexMap as an intermediate step
         let mut map = Object::new();
-        for (key, value_node) in node.properties {
+        for (key, value_node) in std::sync::Arc::unwrap_or_clone(node.properties) {
             map.insert(key.value, Value::from(value_node));
         }
         // Convert IndexMap to Value
@@ -419,7 +458,7 @@ impl From<&ObjectNode> for Value {
     fn from(node: &ObjectNode) -> Self {
         // Use IndexMap as an intermediate step
         let mut map = Object::new();
-        for (key, value_node) in &node.properties {
+        for (key, value_node) in node.properties.iter() {
             map.insert(key.value.clone(), Value::from(value_node));
         }
         // Convert IndexMap to Value

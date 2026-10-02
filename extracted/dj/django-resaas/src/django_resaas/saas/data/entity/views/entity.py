@@ -1,0 +1,1031 @@
+from django_resaas.saas.core.base.access import ActionPermissionMixin, ExplicitAccessMixin
+from django_resaas.saas.core.exceptions import ResaasAPIException
+import base64
+import os
+import random
+
+from django_resaas.saas.core.utils import make_qr_b64, make_barcode_b64, png_bytes_to_b64, PDF
+import barcode
+import qrcode
+from barcode.writer import ImageWriter
+from PIL import Image
+from django.db import transaction
+
+from django.db.models import Q
+from django.conf import settings
+from django_resaas.saas.models.group import Group
+from django.contrib.contenttypes.models import ContentType
+from django.http import Http404
+
+from rest_framework import filters
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.response import Response
+
+from django_resaas.saas.core.utils.translate import Translate
+
+from django_resaas.saas.models.app import App
+from django_resaas.saas.models.entity import Entity
+from django_resaas.saas.models.entity_app import EntityApp
+from django_resaas.saas.models.entity_user import EntityUser
+from django_resaas.saas.models.file import File
+from django_resaas.saas.models.branch import Branch
+from django_resaas.saas.models.branch_user import BranchUser
+from django_resaas.saas.models.branch_group import BranchGroup
+from django_resaas.saas.models.branch_user_group import BranchUserGroup
+from django_resaas.saas.models.entity_type import EntityType
+from django_resaas.saas.models.entity_type_group import EntityTypeGroup
+from django_resaas.saas.models.entity_type_app import EntityTypeApp
+from django_resaas.saas.models.entity_model import EntityModel
+from django_resaas.saas.models.entity_type_model import EntityTypeModel
+from django_resaas.saas.models.entity_group import EntityGroup
+from django_resaas.saas.models.user import User
+
+from django_resaas.saas.data.branch.serializers.branch import BranchSerializer
+from django_resaas.saas.data.entity.serializers.entity import EntitySerializer
+from django_resaas.saas.data.entity.serializers.entity_gravar import EntityGravarSerializer
+from django_resaas.saas.data.entity.serializers.entity_user import EntityUserSerializer
+from django_resaas.saas.data.file.serializers.file import FileSerializer
+from django_resaas.saas.data.file.serializers.file_gravar import FileGravarSerializer
+
+from django_resaas.saas.models.theme import Theme
+from django_resaas.saas.models.typography import Typography
+
+from django_resaas.saas.models.layout_setting import LayoutSetting
+from django_resaas.saas.models.animation_setting import AnimationSetting
+from django_resaas.saas.data.theme.serializers.theme import ThemeSerializer, TypographySerializer
+from django_resaas.saas.data.layout_setting.serializers.layout_setting import LayoutSettingSerializer, AnimationSettingSerializer
+from django_resaas.saas.core.utils import ok
+
+
+from django_resaas.saas.core.services.disc_manager import DiskManegarService
+from django_resaas.saas.core.base.views import BaseAPIView, registerView
+from django_resaas.saas.core.base.permissions import hasPermission, isPermited
+from django_resaas.saas.core.decorators.action import resaas_action
+from django_resaas.saas.core.utils.sub_object_put import apply_sub_object_put
+
+
+@registerView("entitys", module="django_resaas")
+class EntityAPIView(ActionPermissionMixin, ExplicitAccessMixin, viewsets.ModelViewSet):
+    # PROTECTED. Membership reads (the caller's own Entities, needed by the
+    # login / context selection before a profile exists) need no permission;
+    # every other action needs its permission in the signed context AND
+    # works only on the context's Entity - unless platform level
+    # (change_entitytype). See core/base/access.py ActionPermissionMixin.
+
+    membership_actions = (
+        "list", "retrieve", "branchs",
+        "themeGet", "layoutSettingsGet", "typographyGet", "animationSettingsGet",
+        # active modules/models of the caller's Entity: read passively by
+        # every user for module gating (HeaderUser.vue)
+        "apps", "models",
+        # self-service registration of a NEW Entity (the creator becomes its
+        # admin) - creates a separate tenant, touches no existing one
+        "create",
+    )
+
+    action_permissions = {
+        "update": "change_entity",
+        "partial_update": "change_entity",
+        "destroy": "delete_entity",
+        "storage": "view_entity",
+        "profiles": "view_entity",
+        "users": "view_entity",
+        "groups": "view_entity",
+        "qr": "view_entity",
+        "pdf": "pdf_entity",
+        "addModel": "addModel_entity",
+        "removeModel": "removeModel_entity",
+        "addApp": "addApp_entity",
+        "removeApp": "removeApp_entity",
+        "addUser": "add_entityuser",
+        "removeUser": "delete_entityuser",
+        "logoPost": "change_entity",
+        "themePut": "change_entity",
+        "layoutSettingsPut": "change_entity",
+        "typographyPut": "change_entity",
+        "animationSettingsPut": "change_entity",
+        "createGroup": "add_group",
+        "addGroup": "add_entitygroup",
+        "removeGroup": "delete_entitygroup",
+    }
+
+    search_fields = ['id', 'name']
+    filter_backends = (filters.SearchFilter,)
+    serializer_class = EntitySerializer
+    queryset = Entity.objects.all()
+  
+    def get_queryset(self, *args, **kwargs):
+        user = self.request.user
+        queryset = super().get_queryset()
+
+        if not user.is_authenticated:
+            return queryset.none()
+
+        if user.is_superuser:
+            return queryset
+
+        return queryset.filter(
+            Q(admins=user)
+            | Q(entityuser__user=user, entityuser__deleted_at__isnull=True)
+        ).distinct()
+
+    def get_object(self):
+        entity = super().get_object()
+
+        # a permission-guarded action acts on the Entity of the signed
+        # context only (a member of several Entities holds permissions per
+        # context) - another one is "not found", unless platform level
+        if (
+            self.action not in self.membership_actions
+            and str(entity.id) != str(getattr(self.request, "entity_id", None))
+            and not isPermited(request=self.request, role="change_entitytype")
+        ):
+            raise Http404
+
+        return entity
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            transformer = self.get_object()
+            serializer = EntitySerializer(
+                transformer,
+                context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Http404:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+        except Http404:
+            pass
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def list(self, request, *args, **kwargs):
+        self._paginator = None
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(
+                page,
+                many=True,
+                context={'request': request}
+            )
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        partial = request.method == 'PATCH'
+
+        instance = self.get_object()
+
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=partial
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data)
+
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        
+        # ------------------------
+        # 🔥 SELF REGISTER
+        # ------------------------
+        if request.query_params.get('selfRegist') == 'self':
+            data['entity_type'] = request.entity_type_id
+            data['admins'][0] = request.user.id
+
+
+        # ------------------------
+        # 🔥 VALIDAR E CRIAR ENTIDADE
+        # ------------------------
+        serializer = EntityGravarSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        entity = serializer.save()
+
+        # ------------------------
+        # 🔥 TIPO ENTIDADE
+        # ------------------------
+        entity_type = EntityType.objects.get(
+            id=entity.entity_type.id
+        )
+
+        for te in EntityTypeApp.objects.filter(entity_type=entity_type):
+            entity_app, _ = EntityApp.objects.get_or_create(
+                app=te.app,
+                entity=entity,
+                defaults={"state": "Active"},
+            )
+            if entity_app.state != "Active":
+                entity_app.state = "Active"
+                entity_app.save(update_fields=["state"])
+
+        for u in data['admins']:
+            user = User.objects.get(id = u)
+           
+            # ------------------------
+            # 🔥 RELAÇÃO USER ↔ ENTIDADE
+            # ------------------------
+            entity.admins.add(user)
+
+            EntityUser.objects.get_or_create(
+                user=user,
+                entity=entity,
+                defaults={"state": "Active"}
+            )
+
+            # ------------------------
+            # 🔥 HERDAR GRUPOS DO TIPO ENTIDADE
+            # ------------------------
+            for te in EntityTypeGroup.objects.filter(entity_type = entity.entity_type.id ):
+
+                EntityGroup.objects.get_or_create(
+                    entity = entity,
+                    group = te.group,
+                    defaults={"state": "Active"}
+                )
+                # user.groups.add(te.group)
+
+            # ------------------------
+            # 🔥 SUCURSAL PRINCIPAL
+            # ------------------------
+            branch = Branch.objects.create(
+                name=f"{entity.name} Main",
+                entity=entity,
+                state = 'Active',
+                icon='...',
+                label='...'
+            )
+
+            # ------------------------
+            # 🔥 RELAÇÃO USER ↔ SUCURSAL
+            # ------------------------
+            BranchUser.objects.get_or_create(
+                user=user,
+                branch=branch,
+                defaults={"state": "Active"}
+            )
+
+            # ------------------------
+            # 🔥 GRUPOS NA SUCURSAL
+            # ------------------------
+            for e in EntityGroup.objects.filter(entity = entity.id ):
+
+                BranchGroup.objects.get_or_create(
+                    branch=branch,
+                    group=e.group,
+                    defaults={"state": "Active"}
+                )
+
+                BranchUserGroup.objects.get_or_create(
+                    user=user,
+                    branch=branch,
+                    group=e.group,
+                    defaults={"state": "Active"}
+                )
+            
+
+        # ------------------------
+        # 🔥 RESPONSE
+        # ------------------------
+        return ok(
+            request,
+            "Entity created successfully",
+            entity_type=entity_type.name,
+            entity=entity.name,
+            branch=branch.name,
+            usuario=user.username,
+            status=status.HTTP_201_CREATED
+        )
+
+    @resaas_action(detail=True, methods=['GET'])
+    def branchs(self, request, *args, **kwargs):
+        transformer = self.get_object()
+        branchs = Branch.objects.filter(entity=transformer)
+
+        # Full BranchSerializer output (id/name/state plus
+        # address/photo/description) - EntityBranchesPanel.vue only
+        # reads id/name/state, but the map dialog needs the rest, and
+        # reusing one endpoint beats adding a second just for that.
+        return Response(
+            BranchSerializer(branchs, many=True, context={'request': request}).data
+        )
+
+    @resaas_action(detail=True, methods=['GET'])
+    def storage(self, request, *args, **kwargs):
+        entity = self.get_object()
+        usage = DiskManegarService.get_entity_usage(entity.id)
+        return Response(usage, status=status.HTTP_200_OK)
+
+    @resaas_action(
+        methods=["get"],
+        detail=True,
+        label="View Models",
+        icon="table_chart",
+        tooltip="Lista os modelos activos desta Entity",
+        order=1,
+    )
+    def models(self, request, *args, **kwargs):
+        entity = self.get_object()
+        return Response(
+            [
+                {
+                    'id': m.model.id,
+                    'model': m.model.model,
+                    'app_label': m.model.app_label
+                }
+                for m in EntityModel.objects.filter(entity__id=entity.id)
+            ],
+            status=status.HTTP_200_OK
+        )
+
+    @resaas_action(
+        methods=["get"],
+        detail=True,
+        label="View Apps",
+        icon="extension",
+        tooltip="Lista as apps activas desta Entity",
+        order=2,
+    )
+    def apps(self, request, *args, **kwargs):
+        entity = self.get_object()
+        ent_mods = EntityApp.objects.filter(entity=entity)
+
+        return Response(
+            [
+                {
+                    'id': em.app.id,
+                    'name': em.app.name
+                }
+                for em in ent_mods
+            ],
+            status=status.HTTP_200_OK
+        )
+
+    @resaas_action(
+        methods=["post"],
+        detail=True,
+        label="Add Model",
+        icon="add",
+        tooltip="Activa um modelo já disponível no EntityType desta Entity",
+        order=3,
+    )
+    @hasPermission("addModel_entity")
+    def addModel(self, request, *args, **kwargs):
+        entity = self.get_object()
+        model = ContentType.objects.get(id=request.data['id'])
+
+        # Só se o modelo já fizer parte do EntityType desta Entity -
+        # o EntityType define o universo disponível (EntityTypeModel),
+        # a Entity só escolhe dentro dele, nunca de qualquer
+        # ContentType do sistema (backend autoritativo, nunca confiar
+        # só no que o frontend mostra - ver CLAUDE.md secção 10/60).
+        if not EntityTypeModel.objects.filter(
+            entity_type=entity.entity_type, model=model
+        ).exists():
+            return Response(
+                {"error": "Model is not part of this Entity's EntityType"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # `entity__id=` (a relation lookup) is not a valid create()
+        # kwarg - get_or_create() would try to INSERT a row with
+        # entity_id left NULL when no match exists, failing the
+        # column's NOT NULL constraint. `entity=` is the real field.
+        ent, _ = EntityModel.objects.get_or_create(
+            entity=entity, model=model, defaults={"state": "Active"}
+        )
+
+        return Response(
+            {
+                'id': model.id,
+                'model': model.model,
+                'alert_info': f'App <b>{model.app_label}</b> created successfully'
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @resaas_action(
+        methods=["post"],
+        detail=True,
+        label="Remove Model",
+        icon="remove",
+        tooltip="Desactiva um modelo desta Entity",
+        order=4,
+    )
+    @hasPermission("removeModel_entity")
+    def removeModel(self, request, *args, **kwargs):
+        entity = self.get_object()
+        model = ContentType.objects.get(id=request.data['id'])
+        EntityModel.objects.filter(entity__id=entity.id, model=model).delete()
+
+        return Response(
+            {
+                'id': model.id,
+                'model': model.model,
+                'alert_info': f'App <b>{model.app_label}</b> removed successfully'
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @resaas_action(
+        methods=["post"],
+        detail=True,
+        label="Add App",
+        icon="add",
+        tooltip="Activa uma App já disponível no EntityType desta Entity",
+        order=5,
+    )
+    @hasPermission("addApp_entity")
+    def addApp(self, request, *args, **kwargs):
+        entity = self.get_object()
+        app = App.objects.filter(id=request.data.get('id')).first()
+
+        if not app:
+            return Response({"error": "App not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mesma regra do addModel acima: só apps já ligadas ao
+        # EntityType desta Entity (EntityTypeApp) podem ser activadas
+        # para a Entity em si.
+        if not EntityTypeApp.objects.filter(
+            entity_type=entity.entity_type, app=app
+        ).exists():
+            return Response(
+                {"error": "App is not part of this Entity's EntityType"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        EntityApp.objects.get_or_create(
+            entity=entity, app=app, defaults={"state": "Active"}
+        )
+
+        return Response(
+            {
+                'id': app.id,
+                'name': app.name,
+                'alert_info': f'App <b>{app.name}</b> activated successfully'
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @resaas_action(
+        methods=["post"],
+        detail=True,
+        label="Remove App",
+        icon="remove",
+        tooltip="Desactiva uma App desta Entity",
+        order=6,
+    )
+    @hasPermission("removeApp_entity")
+    def removeApp(self, request, *args, **kwargs):
+        entity = self.get_object()
+        app_id = request.data.get('id')
+        EntityApp.objects.filter(entity=entity, app_id=app_id).delete()
+
+        return Response({"success": True})
+
+    @resaas_action(detail=True, methods=['GET'])
+    def profiles(self, request, *args, **kwargs):
+        entity = self.get_object()
+        profiles = sorted(
+            [{'id': g.id, 'name': g.name} for g in entity.groups.all()],
+            key=lambda x: x['name']
+        )
+        return Response(profiles, status=status.HTTP_200_OK)
+
+    @resaas_action(detail=True, methods=['GET'])
+    def users(self, request, *args, **kwargs):
+        transformer = self.get_object()
+        # without ?search= this used to fail (icontains=None -> 500)
+        search = self.request.query_params.get('search') or ''
+
+        entity_users = EntityUser.objects.filter(
+            entity=transformer,
+            user__username__icontains=search,
+            deleted_at__isnull=True,
+        ).order_by('-user__username')
+
+        page = self.paginate_queryset(entity_users)
+        serializer = EntityUserSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @resaas_action(detail=True, methods=['POST'])
+    def addUser(self, request, *args, **kwargs):
+        transformer = self.get_object()
+        user = User.objects.get(id=request.data['user'])
+
+        exists = EntityUser.objects.filter(
+            entity=transformer,
+            user=user,
+            deleted_at__isnull=True
+        ).exists()
+
+        if not exists:
+            EntityUser.objects.create(
+                user=user,
+                entity=transformer,
+                state = 'Active'
+            )
+            return Response(
+                {
+                    "alert_seccess": f"User {user.username} added successfully!"
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            {
+                "alert_seccess": f"User {user.username} already exists!"
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @resaas_action(detail=True, methods=['DELETE'])
+    def removeUser(self, request, *args, **kwargs):
+        transformer = self.get_object()
+        entity_user = EntityUser.objects.filter(
+            entity=transformer,
+            user__id=request.query_params.get('user'),
+            deleted_at__isnull=True
+        ).first()
+
+        if entity_user:
+            entity_user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(
+            "entity.errors",
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+    @resaas_action(
+        detail=True,
+        methods=['POST'],
+    )
+    def logoPost(self, request, *args, **kwargs):
+
+        transformer = self.get_object()
+        entity = Entity.objects.get(id=transformer.id)
+       
+        request.data['entity'] = str(entity.id)
+        uploaded_file = request.FILES['file']
+
+        if DiskManegarService.freeSpace(entity.id, request.FILES['file']):
+            resposta = {'alert_error': 'Unable to upload file<br><b>Contact the administrator</b>'}
+            return Response(resposta , status=status.HTTP_400_BAD_REQUEST)
+        
+
+
+        try:
+            fcr = Files.objects.get(entity=entity, funcionalidade='Logo')
+            fcr.delete()
+            DiskManegarService.recoverSpace(entity.id, fcr)
+        except:
+            pass
+
+    
+
+        request.data['size'] = uploaded_file.size
+        request.data['model'] = 'Entity'
+        request.data['state'] = 1
+        request.data['funcionalidade'] = 'Logo'
+
+        file = FileGravarSerializer(data=request.data)
+        if file.is_valid(raise_exception=True):
+            file.save()
+            file = FileSerializer(Files.objects.get(id=file.data['id']))
+            DiskManegarService.updateSpace(entity.id, request.FILES['file'])
+            return Response(file.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(file.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @resaas_action(
+        detail=True,
+        methods=['GET'],
+    )
+    def qr(self, request, pk):
+        id = self.get_object().id
+        var_qr = {}
+        origin = request.headers['Origin']
+        LANGUAGE_CODE = 'pt-pt'
+
+        TIME_ZONE = 'UTC'
+        settings.LANGUAGE_CODE = 'pt-pt'
+
+
+        root = settings.MEDIA_ROOT
+        lingua = self.request.query_params.get('lang')
+
+        ean = barcode.get('code128', id, writer=ImageWriter())
+        filename = ean.save(str(root) +'/' + str(random.random()) + 'qr' + str(random.random()))
+
+        file = Image.open(str(filename))
+        file = open(str(filename), 'rb').read()
+
+
+        blob_barcode = base64.b64encode((file))
+        if os.path.exists(filename):
+            os.remove(filename)
+
+
+        qr = qrcode.QRCode(box_size=2)
+        qr.add_data(str('var_qr'))
+        qr.make()
+        img_qr = qr.make_image()
+        # img_qr.
+        img = img_qr.get_image()
+
+        name = str(root) +'/' + str(random.random()) + 'qr' + str(random.random()) + '.png'
+        img_qr.save(name)
+        file = Image.open(str(name))
+        file = open(str(name), 'rb').read()
+        blob = base64.b64encode(bytes(file))
+        if os.path.exists(name):
+            os.remove(name)
+
+
+        template_path = 'core/entity/qr_pdf.html'
+
+        entity = Entity.objects.get(id=id)
+ 
+        entity = EntitySerializer(entity)
+
+        file  = Files.objects.get(entity = id, funcionalidade = 'Logo')
+
+        logo_name = file.file.path
+        try:
+            file = open(logo_name, 'rb').read()
+            logo = base64.b64encode(file)
+        except:
+            logo = ''
+
+        
+        url = origin + '/#/?e=' + entity.data['id'] + '&q=1' 
+        var_qr['entity'] = entity.data['name']
+        for key, value in var_qr.items():
+            url = url + '&' + key + '=' + value
+        qr = qrcode.QRCode(box_size=2)
+        qr.add_data(str(url))
+        qr.make()
+        img_qr = qr.make_image()
+    
+
+        name = str(root) +'/' + str(random.random()) + 'qr' + str(random.random()) + '.png'
+        img_qr.save(name)
+        file = Image.open(str(name))
+        file = open(str(name), 'rb').read()
+        qr_to_scan = base64.b64encode(bytes(file))
+        if os.path.exists(name):
+            os.remove(name)
+        context = {
+            'qr': blob,
+            'qr_to_scan': qr_to_scan,
+            'barcode': blob_barcode, 
+            'entity': entity.data,
+            'logo':logo,
+            'titulo': Translate.tdc(lingua, 'QR'),
+            'name': Translate.tdc(lingua, 'Entity'),
+            'de': Translate.tdc(lingua, 'de'),
+            'morada': Translate.tdc(lingua, 'Morada'),
+            'pagina': Translate.tdc(lingua, 'Pagina')
+        }
+        
+        return Response(context)
+
+
+
+    @resaas_action(detail=True, methods=['GET'])
+    def themeGet(self, request, *args, **kwargs):
+        entity = self.get_object()
+        entity = Entity.objects.get(id=entity.id )
+
+        if entity.theme:
+            theme = ThemeSerializer(Theme.objects.get(id=entity.theme.id)).data
+        else:
+            entitytype = EntityType.objects.get(id=entity.entity_type.id )
+            theme = ThemeSerializer(Theme.objects.get(id=entitytype.theme.id)).data
+        return Response(theme, status=status.HTTP_200_OK)
+
+
+    @resaas_action(detail=True, methods=['PUT'])
+    def themePut(self, request, *args, **kwargs):
+        entity = self.get_object()
+        theme = entity.theme or Theme.objects.create(state="Active")
+        if not entity.theme:
+            entity.theme = theme
+            entity.save()
+
+        theme = Theme.objects.get(id=entity.theme.id)
+        data = request.data
+
+        apply_sub_object_put(theme, data, user=request.user)
+        theme.save()
+        theme = ThemeSerializer(theme).data
+        return ok(request, 'Colors updated successfully!',theme=theme)
+
+    @resaas_action(detail=True, methods=['GET'])
+    def layoutSettingsGet(self, request, *args, **kwargs):
+        entity = self.get_object()
+        entity = Entity.objects.get(id=entity.id)
+        if entity.layout_settings:
+            ls = LayoutSettingSerializer(LayoutSetting.objects.get(id=entity.layout_settings.id)).data
+        else:
+            entitytype = EntityType.objects.get(id=entity.entity_type.id )
+            ls = LayoutSettingSerializer(LayoutSetting.objects.get(id=entitytype.layout_settings.id)).data
+        return Response(ls, status=status.HTTP_200_OK)
+
+
+    @resaas_action(detail=True, methods=['PUT'])
+    def layoutSettingsPut(self, request, *args, **kwargs):
+        entity = self.get_object()
+        layout_settings = entity.layout_settings or LayoutSetting.objects.create(state="Active")
+        if not entity.layout_settings:
+            entity.layout_settings = layout_settings
+            entity.save()
+
+
+        layout_settings = LayoutSetting.objects.get(id=entity.layout_settings.id)
+        data = request.data
+
+        apply_sub_object_put(layout_settings, data, user=request.user)
+
+        layout_settings.save()
+        layout_settings = LayoutSettingSerializer(layout_settings).data
+        return ok(request, 'Layout updated successfully!',layout_settings=layout_settings)
+
+
+
+
+
+
+
+    @resaas_action(detail=True, methods=['GET'])
+    def typographyGet(self, request, *args, **kwargs):
+        entity = self.get_object()
+        entity = Entity.objects.get(id=entity.id )
+
+        if entity.typography:
+            typography = TypographySerializer(Typography.objects.get(id=entity.typography.id)).data
+        else:
+            entitytype = EntityType.objects.get(id=entity.entity_type.id )
+            typography = TypographySerializer(Typography.objects.get(id=entitytype.typography.id)).data
+        return Response(typography, status=status.HTTP_200_OK)
+
+    @resaas_action(detail=True, methods=['PUT'])
+    def typographyPut(self, request, *args, **kwargs):
+        entity = self.get_object()
+        typography = entity.typography or Typography.objects.create(state="Active")
+        if not entity.typography:
+            entity.typography = typography
+            entity.save()
+
+        typography = Typography.objects.get(id=entity.typography.id)
+        data = request.data
+
+        apply_sub_object_put(typography, data, user=request.user)
+        typography.save()
+        typography = TypographySerializer(typography).data
+        return ok(request, 'Font updated successfully!',typography=typography)
+
+
+
+
+    @resaas_action(detail=True, methods=['GET'])
+    def animationSettingsGet(self, request, *args, **kwargs):
+        entity = self.get_object()
+        entity = Entity.objects.get(id=entity.id)
+        if entity.animation_settings:
+            animation_settings = AnimationSettingSerializer(AnimationSetting.objects.get(id=entity.animation_settings.id)).data
+        else:
+            entitytype = EntityType.objects.get(id=entity.entity_type.id )
+            animation_settings = AnimationSettingSerializer(AnimationSetting.objects.get(id=entitytype.animation_settings.id)).data
+        return Response(animation_settings, status=status.HTTP_200_OK)
+
+
+    @resaas_action(detail=True, methods=['PUT'])
+    def animationSettingsPut(self, request, *args, **kwargs):
+        entity = self.get_object()
+        animation_settings = entity.animation_settings or AnimationSetting.objects.create(state="Active")
+        if not entity.animation_settings:
+            entity.animation_settings = animation_settings
+            entity.save()
+
+
+        animation_settings = AnimationSetting.objects.get(id=entity.animation_settings.id)
+        data = request.data
+
+        apply_sub_object_put(animation_settings, data, user=request.user)
+
+        animation_settings.save()
+        animation_settings = AnimationSettingSerializer(animation_settings).data
+        return ok(request, 'Animation updated successfully!',animation_settings=animation_settings)
+
+
+
+    @resaas_action(
+        detail=True,
+        methods=['GET'],
+    )
+    def pdf(self, request, *args, **kwargs):
+        entity = self.get_object()
+
+        # Normalmente você busca no DB
+        # invoice = Invoice.objects.get(id=invoice_id)
+        # Exemplo de dados (substituir por dados reais)
+        company = {
+            "name": "My Company Ltd",
+            "address": "Street X, Luanda, Angola",
+            "nif": "5000000000",
+            "phone": "+244 900 000 000",
+            "email": "finance@empresa.co.ao",
+        }
+
+        customer = {
+            "name": "Example Client",
+            "nif": "4000000000",
+            "address": "Street Y, Benguela, Angola",
+            "email": "cliente@email.com",
+            "phone": "+244 999 999 999",
+        }
+
+        doc = {
+            "type": "INVOICE",
+            "number": "FT 2026/000123",
+            "date": "2026-02-05",
+            "due_date": "2026-02-10",
+            "currency": "AOA",
+            "payment_method": "Bank transfer",
+            "reference": "REF-001",
+            "notes": "Thank you for your business.",
+        }
+
+        lines = [
+            {"name":"Product A", "sku":"A-001", "note":"", "qty":2, "unit_price":"10.000,00", "vat_rate":14, "total":"22.800,00"},
+            {"name":"Service B", "sku":"S-100", "note":"Monthly", "qty":1, "unit_price":"50.000,00", "vat_rate":14, "total":"57.000,00"},
+            {"name":"Service B", "sku":"S-100", "note":"Monthly", "qty":1, "unit_price":"50.000,00", "vat_rate":14, "total":"57.000,00"},
+        ]
+
+        totals = {
+            "subtotal": "60.000,00",
+            "vat_total": "8.400,00",
+            "discount_total": "0,00",
+            "grand_total": "68.400,00",
+        }
+
+        logo_b64 = None
+        with open(entity.logo.path, "rb") as f:
+            logo_b64 = png_bytes_to_b64(f.read())
+
+
+
+        qr_b64 = make_qr_b64(f"{doc['type']}|{doc['number']}|TOTAL:{totals['grand_total']}")
+        barcode_b64 = make_barcode_b64(doc["number"])
+        
+
+        return PDF("django_resaas/invoice.html", request,  company= company, customer= customer, doc= doc, lines= lines, totals= totals, logo_b64= logo_b64, qr_b64= qr_b64, barcode_b64= barcode_b64,)
+
+    
+    # ===============================
+    # 🔥 GROUPS (FINAL LIMPO)
+    # ===============================
+
+    @resaas_action(detail=True, methods=['GET'])
+    # @transaction.atomic
+    def groups(self, request, pk=None):
+        entity = self.get_object()
+
+        groups = EntityGroup.objects.filter(
+            entity=entity
+        ).select_related('group')
+
+        return Response([
+            {
+                "id": g.group.id,
+                "name": g.group.name
+            }
+            for g in groups
+        ], status=status.HTTP_200_OK)
+
+
+
+    @resaas_action(detail=True, methods=['POST'])
+    @transaction.atomic
+    def createGroup(self, request, pk=None):
+        entity = self.get_object()
+
+        name = request.data.get("name")
+        if not name:
+            return Response({"error": "name is required"}, status=400)
+
+        # editable: a group the Entity creates for itself is the only kind an
+        # Entity may later change without platform level (see
+        # PermissionAPIView._check_group_scope)
+        group = Group.objects.create(name=name, editable=True)
+
+        # 🔥 Entity
+        EntityGroup.objects.create(
+            entity=entity,
+            group=group,
+            state="Active"
+        )
+
+        # 🔥 Propaga para sucursais
+        sucursais = Branch.objects.filter(entity=entity)
+
+        BranchGroup.objects.bulk_create([
+            BranchGroup(branch=s, group=group, state="Active")
+            for s in sucursais
+        ], ignore_conflicts=True)
+
+        return Response({
+            "id": group.id,
+            "name": group.name
+        })
+
+
+    @resaas_action(detail=True, methods=['POST'])
+    @transaction.atomic
+    def addGroup(self, request, pk=None):
+        entity = self.get_object()
+        group_id = request.data.get("group")
+
+        group = Group.objects.filter(id=group_id).first()
+        if not group:
+            return Response({"error": "Group not found"}, status=400)
+
+        # An Entity picks from ITS EntityType's template groups - linking any
+        # other group (e.g. Root) would let its admins hand it out through
+        # users/{id}/addGroup. Platform level may link any group.
+        if not (
+            EntityTypeGroup.objects.filter(entity_type_id=entity.entity_type_id, group=group).exists()
+            or isPermited(request=request, role="change_entitytype")
+        ):
+            raise ResaasAPIException(
+                "This profile is not available for this entity type.",
+                code="group_not_in_entity_type",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        EntityGroup.objects.get_or_create(
+            entity=entity,
+            group=group,
+            defaults={"state": "Active"}
+        )
+
+        # 🔥 Propaga para sucursais
+        sucursais = Branch.objects.filter(entity=entity)
+
+        BranchGroup.objects.bulk_create([
+            BranchGroup(branch=s, group=group, state="Active")
+            for s in sucursais
+        ], ignore_conflicts=True)
+
+        return Response({"success": True})
+
+
+    @resaas_action(detail=True, methods=['POST'])
+    @transaction.atomic
+    def removeGroup(self, request, pk=None):
+        entity = self.get_object()
+        group_id = request.data.get("group")
+
+        group = Group.objects.filter(id=group_id).first()
+        if not group:
+            return Response({"error": "Group not found"}, status=400)
+
+        # 🔥 Remove da entity
+        EntityGroup.objects.filter(
+            entity=entity,
+            group=group
+        ).delete()
+
+        # 🔥 Remove das sucursais
+        BranchGroup.objects.filter(
+            branch__entity=entity,
+            group=group
+        ).delete()
+
+        BranchUserGroup.objects.filter(
+            branch__entity=entity,
+            group=group
+        ).delete()
+
+        return Response({"success": True})

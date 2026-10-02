@@ -1,0 +1,123 @@
+Metadata-Version: 2.4
+Name: rqx
+Version: 0.4.1
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: matplotlib ; extra == 'benchmarks'
+Requires-Dist: numpy ; extra == 'benchmarks'
+Provides-Extra: benchmarks
+License-File: LICENSE
+Summary: Rust-backed Python HTTP client with an httpx-compatible API.
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/rodcochran/rqx/releases
+Project-URL: Homepage, https://github.com/rodcochran/rqx
+Project-URL: Issues, https://github.com/rodcochran/rqx/issues
+Project-URL: Repository, https://github.com/rodcochran/rqx
+
+# rqx
+
+A Rust-backed Python HTTP client with an httpx-familiar API.
+
+rqx replaces httpx's pure-Python internals with a Rust core built on [`reqwest`](https://github.com/seanmonstar/reqwest) and [`tokio`](https://github.com/tokio-rs/tokio). The goal: an API that httpx users already know, without the performance ceilings of pure-Python HTTP under concurrent load.
+
+## Origin
+
+rqx is a personal learning project for PyO3 and maturin. The structure of the work was a forcing function: I wrote a normal product spec, then asked Claude to rewrite it in the form of an academic course-project spec (CS 262A — Advanced Topics in Computer Systems). The academic framing pushed the design toward sharper engineering decisions — measurable acceptance criteria, explicit architectural trade-offs, and concrete performance targets — than a casual spec would have produced.
+
+Two documents capture this:
+
+- **[docs/reqx_project_spec.md](docs/reqx_project_spec.md)** — the original project specification: problem statement, design constraints, acceptance criteria.
+- **[docs/report.md](docs/report.md)** — the write-up: design decisions, lessons learned, and the things that didn't work. Written while the project was still called `reqx`, against an early local-machine benchmark; the architectural discussion holds, the numbers in it are superseded.
+
+Read the report for the architectural trade-offs (sync vs async paths, retry placement, JSON parsing strategy, runtime singleton). For performance numbers, use the benchmark section below and [benchmarks/0.4.0/report.md](benchmarks/0.4.0/report.md).
+
+## Quick look
+
+```python
+import asyncio
+
+import rqx
+
+# Sync
+with rqx.Client() as client:
+    resp = client.get("https://httpbin.org/get")
+    print(resp.json())
+
+# Async
+async def main():
+    async with rqx.AsyncClient() as client:
+        resp = await client.get("https://httpbin.org/get")
+        print(resp.json())
+
+        # Streaming: the request is sent on entering the block, the connection released on leaving it
+        async with client.stream("GET", "https://httpbin.org/bytes/1024") as stream:
+            async for chunk in stream.aiter_bytes():
+                ...
+
+asyncio.run(main())
+
+# Module-level convenience (one-off requests)
+resp = rqx.get("https://httpbin.org/get")
+
+# With retries
+transport = rqx.HTTPTransport(
+    retries=rqx.Retry(total=3, backoff_factor=0.5, status_forcelist={503}),
+)
+with rqx.Client(transport=transport) as client:
+    resp = client.get("https://example.com/api")
+```
+
+The API follows [httpx](https://github.com/encode/httpx)'s shape: sync and async clients, transports, streaming, mTLS, base URLs, granular timeouts, and an exception hierarchy with httpx's names. Retries are built in and configurable per failure kind: connect errors, read errors, and status codes, with backoff and `Retry-After`. httpx's transport retries only failed connection attempts. It is not a drop-in replacement: some types and behaviors differ, and the [migration and divergences guide](https://github.com/rodcochran/rqx/issues/116) is planned before v1. See `python/rqx/_types.pyi` for the current surface.
+
+## Installation
+
+```bash
+pip install rqx
+```
+
+To build from source (Rust toolchain + Python 3.8+ required):
+
+```bash
+git clone https://github.com/rodcochran/rqx.git
+cd rqx
+just setup        # uv venv + maturin develop + dev deps
+just test         # full test suite
+```
+
+## Benchmarks
+
+Measured on a paired AWS c7i.large client/server (2 vCPU each, non-burstable) in `us-east-1`, hitting nginx over an intra-VPC private IP. Each bar is the median of 5 runs; each (client, concurrency, run) executes in its own Python subprocess to keep clients from contaminating each other's measurements.
+
+Charts below are from the 0.4.0 release run (2026-09-27), measured just before the last fix of the release ([#210](https://github.com/rodcochran/rqx/pull/210)), which a same-box A/B puts at a further +4.5% throughput and −2.5 MB peak memory at concurrency 100 (+5.7% and −9.3 MB at 500). Full methodology, per-concurrency tables, and limitations: [benchmarks/0.4.0/report.md](benchmarks/0.4.0/report.md). Earlier runs are kept at [benchmarks/0.3.0/report.md](benchmarks/0.3.0/report.md), [benchmarks/0.2.0/report.md](benchmarks/0.2.0/report.md), [benchmarks/0.1.5/report.md](benchmarks/0.1.5/report.md), [benchmarks/0.1.4/report.md](benchmarks/0.1.4/report.md), [benchmarks/0.1.3/report.md](benchmarks/0.1.3/report.md), and [docs/launch_report.md](docs/launch_report.md) for comparison.
+
+![Throughput at concurrency=100](benchmarks/0.4.0/throughput.png)
+
+![Memory at concurrency=100](benchmarks/0.4.0/memory.png)
+
+![Median latency at concurrency=100](benchmarks/0.4.0/latency.png)
+
+httpx is the modern successor to requests, aiohttp is the de-facto async HTTP library, and httpr is another Rust-backed alternative.
+
+## Status
+
+0.4.1, published on PyPI. Usable, but the API may still shift in small ways during 0.x. Open issues track the v0.x roadmap — anything labeled `httpx-feature-parity` is a known surface gap.
+
+## Contributing
+
+This started as a learning project and stayed one. Contributions are welcome, especially additions from httpx's surface that don't change existing behavior, such as `Limits`, `mounts=`, and multipart `files=`. See open issues for the working set, particularly anything labeled `good first issue`, and [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and how to run the benchmarks.
+
+## Acknowledgements
+
+rqx builds on the work of several excellent projects:
+
+- **[httpx](https://github.com/encode/httpx)** — the API design this project mirrors
+- **[reqwest](https://github.com/seanmonstar/reqwest)** — the Rust HTTP client powering rqx
+- **[PyO3](https://github.com/PyO3/pyo3)** and **[maturin](https://github.com/PyO3/maturin)** — Rust/Python FFI and build tooling
+- **[tokio](https://github.com/tokio-rs/tokio)** — async runtime
+
+## License
+
+MIT
+

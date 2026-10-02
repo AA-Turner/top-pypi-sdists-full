@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: pysubnettree
+Version: 0.38.1
+Summary: Map subnets in CIDR notation to Python objects
+Home-page: https://github.com/zeek/pysubnettree
+Maintainer-email: The Zeek Team <info@zeek.org>
+License: 3-clause BSD License
+Project-URL: Repository, https://github.com/zeek/pysubnettree
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+License-File: COPYING

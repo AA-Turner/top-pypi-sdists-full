@@ -57,9 +57,7 @@ def get_job_submission_client_cluster_info(
         # Use ClientBuilder to start cluster if needed because cluster needs to be active for
         # the calling command.
         api_client = get_auth_api_client().api_client
-        client_builder = ClientBuilder(
-            address=address, log=BlockLogger(log_output=False)
-        )
+        client_builder = ClientBuilder(address=address, log=BlockLogger(log_output=False))
         if cloud_name:
             client_builder.cloud(cloud_name)
         if client_builder._project_name and not (  # noqa: SLF001
@@ -118,9 +116,7 @@ def get_job_submission_client_cluster_info(
     else:
         # Calling ClientBuilder to parse address.
         api_client = get_auth_api_client(log_output=False).api_client
-        client_builder = ClientBuilder(
-            address=address, log=BlockLogger(log_output=False)
-        )
+        client_builder = ClientBuilder(address=address, log=BlockLogger(log_output=False))
         if cloud_name:
             client_builder.cloud(cloud_name)
         if client_builder._project_name and not (  # noqa: SLF001

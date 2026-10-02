@@ -43,12 +43,8 @@ GCP_REQUIRED_APIS = [
 
 GCP_RESOURCE_DICT: Dict[str, CloudAnalyticsEventCloudResource] = {
     "VPC": CloudAnalyticsEventCloudResource(CloudAnalyticsEventCloudResource.GCP_VPC),
-    "Subnet": CloudAnalyticsEventCloudResource(
-        CloudAnalyticsEventCloudResource.GCP_SUBNET
-    ),
-    "Project": CloudAnalyticsEventCloudResource(
-        CloudAnalyticsEventCloudResource.GCP_PROJECT
-    ),
+    "Subnet": CloudAnalyticsEventCloudResource(CloudAnalyticsEventCloudResource.GCP_SUBNET),
+    "Project": CloudAnalyticsEventCloudResource(CloudAnalyticsEventCloudResource.GCP_PROJECT),
     "Anyscale Access Service Account": CloudAnalyticsEventCloudResource(
         CloudAnalyticsEventCloudResource.GCP_SERVICE_ACCOUNT
     ),
@@ -58,9 +54,7 @@ GCP_RESOURCE_DICT: Dict[str, CloudAnalyticsEventCloudResource] = {
     "Firewall Policy": CloudAnalyticsEventCloudResource(
         CloudAnalyticsEventCloudResource.GCP_FIREWALL_POLICY
     ),
-    "Filestore": CloudAnalyticsEventCloudResource(
-        CloudAnalyticsEventCloudResource.GCP_FILESTORE
-    ),
+    "Filestore": CloudAnalyticsEventCloudResource(CloudAnalyticsEventCloudResource.GCP_FILESTORE),
     "Google Cloud Storage Bucket": CloudAnalyticsEventCloudResource(
         CloudAnalyticsEventCloudResource.GCP_STORAGE_BUCKET
     ),
@@ -71,16 +65,17 @@ GCP_RESOURCE_DICT: Dict[str, CloudAnalyticsEventCloudResource] = {
 
 
 class GCPLogger:
-    def __init__(
-        self, logger: CloudSetupLogger, project_id: str, spinner: Any, yes: bool = False
-    ):
+    def __init__(self, logger: CloudSetupLogger, project_id: str, spinner: Any, yes: bool = False):
         self.internal = logger
         self.project_id = project_id
         self.spinner = spinner
         self.yes = yes
 
     def log_resource_not_found_error(
-        self, resource_name: str, resource_id: str, project_id: Optional[str] = None,
+        self,
+        resource_name: str,
+        resource_id: str,
+        project_id: Optional[str] = None,
     ):
         if resource_name == "Project":
             self.internal.error(
@@ -93,9 +88,7 @@ class GCPLogger:
             )
         resource = GCP_RESOURCE_DICT.get(resource_name)
         if resource:
-            self.internal.log_resource_error(
-                resource, CloudSetupError.RESOURCE_NOT_FOUND
-            )
+            self.internal.log_resource_error(resource, CloudSetupError.RESOURCE_NOT_FOUND)
 
     def confirm_missing_permission(self, error_str: str):
         self.internal.error(error_str)
@@ -149,9 +142,7 @@ class GoogleCloudClientFactory:
 
     def build(self, service_name: str, version: str):
         """Return a Google API Client with default values from the factor"""
-        return api_client_build(
-            service_name, version, cache_discovery=False, **self.kwargs
-        )
+        return api_client_build(service_name, version, cache_discovery=False, **self.kwargs)
 
 
 def get_application_default_credentials(
@@ -176,9 +167,7 @@ def get_application_default_credentials(
         logger.warning(
             "Could not automatically determine Google Application Default Credentials, trying to authenticate via GCloud"
         )
-    auth_login = subprocess.run(
-        ["gcloud", "auth", "application-default", "login"], check=False
-    )
+    auth_login = subprocess.run(["gcloud", "auth", "application-default", "login"], check=False)
     if auth_login.returncode != 0:
         raise RuntimeError("Failed to authenticate via gcloud")
 
@@ -217,9 +206,7 @@ def get_google_cloud_client_factory(logger: CloudSetupLogger, project_id: str):
     return factory
 
 
-def binding_from_dictionary(
-    inp: List[Dict[str, Union[List[str], str]]]
-) -> List[Binding]:
+def binding_from_dictionary(inp: List[Dict[str, Union[List[str], str]]]) -> List[Binding]:
     return [Binding(role=b["role"], members=b["members"]) for b in inp]
 
 
@@ -227,10 +214,7 @@ def check_policy_bindings(
     iam_policy: List[Binding], member: str, possible_roles: Set[str]
 ) -> bool:
     """Checks if `member` has any role in `possible_roles` given the specified iam_policy."""
-    return any(
-        policy.role in possible_roles and member in policy.members
-        for policy in iam_policy
-    )
+    return any(policy.role in possible_roles and member in policy.members for policy in iam_policy)
 
 
 def check_required_policy_bindings(
@@ -253,7 +237,10 @@ def get_gcp_filestore_config(
         project_id, filestore_location, filestore_instance_id
     )
     return get_gcp_filestore_config_from_full_name(
-        factory=factory, vpc_name=vpc_name, instance_name=instance_name, logger=logger,
+        factory=factory,
+        vpc_name=vpc_name,
+        instance_name=instance_name,
+        logger=logger,
     )
 
 
@@ -295,11 +282,11 @@ def get_gcp_filestore_config_from_full_name(
             CloudAnalyticsEventCloudResource.GCP_FILESTORE,
             CloudSetupError.FILESTORE_NOT_CONNECTED_TO_VPC,
         )
-        raise ClickException(
-            f"Filestore {instance_name} is not connected to {vpc_name}."
-        )
+        raise ClickException(f"Filestore {instance_name} is not connected to {vpc_name}.")
     return GCPFileStoreConfig(
-        instance_name=instance_name, root_dir=root_dir, mount_target_ip=mount_target_ip,
+        instance_name=instance_name,
+        root_dir=root_dir,
+        mount_target_ip=mount_target_ip,
     )
 
 
@@ -308,9 +295,7 @@ def get_filestore_location_and_instance_id(
 ) -> Tuple[str, str]:
     instance_name = gcp_filestore_config.instance_name
     # instance name follows format of "projects/{}/locations/{}/instances/{}"
-    pattern = (
-        r"projects/[^/]+/locations/(?P<location>[^/]+)/instances/(?P<instance_id>[^/]+)"
-    )
+    pattern = r"projects/[^/]+/locations/(?P<location>[^/]+)/instances/(?P<instance_id>[^/]+)"
     match = re.match(pattern, instance_name)
 
     if match:
@@ -318,9 +303,7 @@ def get_filestore_location_and_instance_id(
         filestore_instance_id = match.group("instance_id")
         return filestore_location, filestore_instance_id
     else:
-        raise ClickException(
-            f"Could not parse Filestore instance name {instance_name}."
-        )
+        raise ClickException(f"Could not parse Filestore instance name {instance_name}.")
 
 
 def get_gcp_memorystore_config(
@@ -341,5 +324,6 @@ def get_gcp_memorystore_config(
             f"Error occurred when trying to access the memorystore instance {instance_name}: {e}.\nPlease validate that you're using the correct GCP project and that the resource values are correct."
         )
     return GCPMemorystoreInstanceConfig(
-        name=instance_name, endpoint=instance.host + ":" + str(instance.port),
+        name=instance_name,
+        endpoint=instance.host + ":" + str(instance.port),
     )

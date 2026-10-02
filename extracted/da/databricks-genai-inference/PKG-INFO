@@ -1,0 +1,302 @@
+Metadata-Version: 2.1
+Name: databricks-genai-inference
+Version: 0.2.3
+Summary: Interact with the Databricks Foundation Model API from python
+Home-page: https://docs.databricks.com/en/machine-learning/foundation-models/query-foundation-model-apis.html
+Author: Databricks
+Author-email: eng-genai-inference@databricks.com
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=5.4.1
+Requires-Dist: requests<3,>=2.26.0
+Requires-Dist: databricks-sdk==0.19.1
+Requires-Dist: pydantic>=2.4.2
+Requires-Dist: typing_extensions>=4.7.1
+Requires-Dist: tenacity==8.2.3
+Requires-Dist: httpx<1,>=0.23.0
+Provides-Extra: dev
+Requires-Dist: build>=0.10.0; extra == "dev"
+Requires-Dist: isort>=5.9.3; extra == "dev"
+Requires-Dist: pre-commit>=2.17.0; extra == "dev"
+Requires-Dist: pylint>=2.12.2; extra == "dev"
+Requires-Dist: pyright==1.1.256; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.3; extra == "dev"
+Requires-Dist: pytest>=6.2.5; extra == "dev"
+Requires-Dist: radon>=5.1.0; extra == "dev"
+Requires-Dist: twine>=4.0.2; extra == "dev"
+Requires-Dist: toml>=0.10.2; extra == "dev"
+Requires-Dist: yapf>=0.33.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: pylint>=2.12.2; extra == "all"
+Requires-Dist: radon>=5.1.0; extra == "all"
+Requires-Dist: pytest-asyncio>=0.23.3; extra == "all"
+Requires-Dist: pytest-mock>=3.7.0; extra == "all"
+Requires-Dist: isort>=5.9.3; extra == "all"
+Requires-Dist: pre-commit>=2.17.0; extra == "all"
+Requires-Dist: build>=0.10.0; extra == "all"
+Requires-Dist: pytest>=6.2.5; extra == "all"
+Requires-Dist: toml>=0.10.2; extra == "all"
+Requires-Dist: pytest-cov>=4.0.0; extra == "all"
+Requires-Dist: yapf>=0.33.0; extra == "all"
+Requires-Dist: twine>=4.0.2; extra == "all"
+Requires-Dist: pyright==1.1.256; extra == "all"
+
+# Databricks Generative AI Inference SDK (Beta)
+
+[![PyPI version](https://img.shields.io/pypi/v/databricks-genai-inference.svg)](https://pypi.org/project/databricks-genai-inference/)
+
+The Databricks Generative AI Inference Python library provides a user-friendly python interface to use the Databricks [Foundation Model API](https://docs.databricks.com/en/machine-learning/foundation-models/api-reference.html). 
+
+> [!NOTE]
+> This SDK was primarily designed for pay-per-token endpoints (`databricks-*`). It has a list of known model names (eg. `dbrx-instruct`) and automatically maps them to the corresponding shared endpoint (`databricks-dbrx-instruct`).
+> You can use this with provisioned throughput endpoints, as long as they do not match known model names.
+> If there is an overlap, you can use the `DATABRICKS_MODEL_URL_ENV` URL to directly provide an endpoint URL.
+
+This library includes a pre-defined set of API classes `Embedding`, `Completion`, `ChatCompletion` with convenient functions to make API request, and to parse contents from raw json response. 
+
+We also offer a high level `ChatSession` object for easy management of multi-round chat completions, which is especially useful for your next chatbot development.
+
+You can find more usage details in our [SDK onboarding doc](https://docs.databricks.com/en/machine-learning/foundation-models/query-foundation-model-apis.html).
+
+> [!IMPORTANT]  
+> We're preparing to release version 1.0 of the Databricks GenerativeAI Inference Python library.
+
+## Installation
+
+```sh
+pip install databricks-genai-inference
+```
+
+## Usage
+
+### Embedding
+
+```python
+from databricks_genai_inference import Embedding
+```
+
+#### Text embedding
+
+```python
+response = Embedding.create(
+    model="bge-large-en", 
+    input="3D ActionSLAM: wearable person tracking in multi-floor environments")
+print(f'embeddings: {response.embeddings[0]}')
+```
+
+> [!TIP]  
+> You may want to reuse http connection to improve request latency for large-scale workload, code example:
+
+```python
+with requests.Session() as client:
+    for i, text in enumerate(texts):
+        response = Embedding.create(
+            client=client,
+            model="bge-large-en",
+            input=text
+        )
+```
+
+#### Text embedding (async)
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await Embedding.acreate(
+        client=client,
+        model="bge-large-en", 
+        input="3D ActionSLAM: wearable person tracking in multi-floor environments")
+    print(f'embeddings: {response.embeddings[0]}')
+```
+
+#### Text embedding with instruction
+
+```python
+response = Embedding.create(
+    model="bge-large-en", 
+    instruction="Represent this sentence for searching relevant passages:", 
+    input="3D ActionSLAM: wearable person tracking in multi-floor environments")
+print(f'embeddings: {response.embeddings[0]}')
+```
+
+#### Text embedding (batching)
+
+> [!IMPORTANT]  
+> Support max batch size of 150
+
+```python
+response = Embedding.create(
+    model="bge-large-en", 
+    input=[
+        "3D ActionSLAM: wearable person tracking in multi-floor environments",
+        "3D ActionSLAM: wearable person tracking in multi-floor environments"])
+print(f'response.embeddings[0]: {response.embeddings[0]}\n')
+print(f'response.embeddings[1]: {response.embeddings[1]}')
+```
+
+#### Text embedding with instruction (batching)
+
+> [!IMPORTANT]  
+> Support one instruction per batch 
+> Batch size
+
+```python
+response = Embedding.create(
+    model="bge-large-en", 
+    instruction="Represent this sentence for searching relevant passages:",
+    input=[
+        "3D ActionSLAM: wearable person tracking in multi-floor environments",
+        "3D ActionSLAM: wearable person tracking in multi-floor environments"])
+print(f'response.embeddings[0]: {response.embeddings[0]}\n')
+print(f'response.embeddings[1]: {response.embeddings[1]}')
+```
+
+### Text completion
+
+```python
+from databricks_genai_inference import Completion
+```
+
+#### Text completion
+
+```python
+response = Completion.create(
+    model="mpt-7b-instruct",
+    prompt="Represent the Science title:")
+print(f'response.text:{response.text:}')
+
+```
+
+#### Text completion (async)
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await Completion.acreate(
+        client=client,
+        model="mpt-7b-instruct",
+        prompt="Represent the Science title:")
+    print(f'response.text:{response.text:}')
+
+```
+
+#### Text completion (streaming)
+
+> [!IMPORTANT]  
+> Only support batch size = 1 in streaming mode
+
+```python
+response = Completion.create(
+    model="mpt-7b-instruct", 
+    prompt="Count from 1 to 100:",
+    stream=True)
+print(f'response.text:')
+for chunk in response:
+    print(f'{chunk.text}', end="")
+```
+
+#### Text completion (streaming + async)
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await Completion.acreate(
+        client=client,
+        model="mpt-7b-instruct", 
+        prompt="Count from 1 to 10:",
+        stream=True)
+    print(f'response.text:')
+    async for chunk in response:
+        print(f'{chunk.text}', end="")
+
+```
+
+
+#### Text completion (batching)
+
+> [!IMPORTANT]  
+> Support max batch size of 16
+
+```python
+response = Completion.create(
+    model="mpt-7b-instruct", 
+    prompt=[
+        "Represent the Science title:", 
+        "Represent the Science title:"])
+print(f'response.text[0]:{response.text[0]}')
+print(f'response.text[1]:{response.text[1]}')
+```
+
+### Chat completion
+
+```python
+from databricks_genai_inference import ChatCompletion
+```
+
+> [!IMPORTANT]  
+> Batching is not supported for `ChatCompletion`
+
+#### Chat completion
+
+```python
+response = ChatCompletion.create(model="llama-2-70b-chat", messages=[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Knock knock."}])
+print(f'response.text:{response.message:}')
+```
+
+#### Chat completion (async)
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await ChatCompletion.acreate(
+        client=client,
+        model="llama-2-70b-chat",
+        messages=[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Knock knock."}],
+    )
+    print(f'response.text:{response.message:}')
+```
+
+#### Chat completion (streaming)
+
+```python
+response = ChatCompletion.create(model="llama-2-70b-chat", messages=[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Count from 1 to 30, add one emoji after each number"}], stream=True)
+for chunk in response:
+    print(f'{chunk.message}', end="")
+```
+
+#### Chat completion (streaming + async)
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await ChatCompletion.acreate(
+        client=client,
+        model="llama-2-70b-chat",
+        messages=[{"role": "system", "content": "You are a helpful assistant."},{"role": "user", "content": "Count from 1 to 30, add one emoji after each number"}],
+        stream=True,
+    )
+    async for chunk in response:
+        print(f'{chunk.message}', end="")
+```
+
+### Chat session
+
+```python
+from databricks_genai_inference import ChatSession
+```
+
+> [!IMPORTANT]  
+> Streaming mode is not supported for `ChatSession`
+
+```python
+chat = ChatSession(model="llama-2-70b-chat")
+chat.reply("Kock, kock!")
+print(f'chat.last: {chat.last}')
+chat.reply("Take a guess!")
+print(f'chat.last: {chat.last}')
+
+print(f'chat.history: {chat.history}')
+print(f'chat.count: {chat.count}')
+```

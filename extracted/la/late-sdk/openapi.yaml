@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.182.0"
+  version: "1.196.2"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -226,6 +226,7 @@ x-documentation:
     - `branded_calling.identity.action_required` - A caller identity waits on you: answer a change request, enter the authorizer's code, fix a carrier rejection, respond to an infringement claim or renew an expired verification
     - `branded_calling.number.status_updated` - A number attached to a caller identity changed vetting status (verified = the identity now shows on its calls)
     - `rcs.agent.status_updated` - An RCS agent changed status: changes_requested, brand_vetting, agent_review, testing, launch_review, launching, live, rejected or deactivated
+    - `api.changelog.published` - An entry was published to the API changelog (https://docs.zernio.com/changelog). Carries the entry (`type`, `platforms`, markdown `message`, docs `url`) and the deterministic OpenAPI diff behind it (`changes`: operations and schemas added, removed and modified). Tenant-free: one broadcast reaches every subscription that opted in. Back-fill with GET /v1/changelog.
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Every delivery carries `X-Zernio-Event` (the event name) and `X-Zernio-Event-Id` (the payload's `id`, a UUID generated once when the event is emitted). That id is identical on every subscription that receives the event, on every automatic retry and on a redelivery via `POST /v1/webhooks/logs/redeliver`, so it is the key to dedupe on. Payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header when the subscription has a secret. Legacy `X-Late-*` copies of these three headers are still sent and will be removed in a future major version.
@@ -244,7 +245,7 @@ x-documentation:
     | `ad.status_changed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
     | `whatsapp.automatic_event` | top-level `accountId` |
     | `whatsapp.number.*`, `sms.registration.*` | none; `number.id` / `registration.id` are the number and registration ids, `number.profileId` / `registration.profileId` the profile |
-    | `verification.*`, `phone_number.stock_available`, `webhook.test` | none |
+    | `verification.*`, `phone_number.stock_available`, `api.changelog.published`, `webhook.test` | none |
 
     ## Full Documentation
 
@@ -573,15 +574,18 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
-      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
 
       Profile and account filters. A subscription can also carry `profileIds`, an allowlist of profiles, and `accountIds`, an allowlist of connected accounts with the same semantics keyed on the account; each non-empty list narrows delivery and a subscription with both must be satisfied on both. A scoped subscription is only sent events it can attribute to one of those profiles: the profile of the connected account behind the event, or for an aggregate `post.*` event the profile of every account the post targets (a post spanning two scoped endpoints' profiles reaches both). So an integrator can route the profile holding test accounts to a staging endpoint while a second subscription, scoped to the production profiles, keeps production traffic. Events that belong to no profile (`verification.*`, `phone_number.*`, and a legacy post whose accounts were deleted) reach only unscoped subscriptions. The filter runs when an event is emitted; redelivery replays a delivery already made to that endpoint and test fires ignore it. Absent or empty means every profile (or every account).
   - name: Webhook Events
     description: |
       Incoming webhook deliveries sent by Zernio to your configured endpoint URL.
+  - name: Changelog
+    description: |
+      The API changelog (https://docs.zernio.com/changelog) as data: the entries the `api.changelog.published` webhook announces, newest first, for agents that automate against API changes and need to back-fill what they missed.
   - name: Logs
     description: |
       Publishing logs for transparency and debugging. Each log includes the platform API endpoint, HTTP status code, request/response bodies, duration, and retry attempts. Logs are automatically deleted after 7 days.
@@ -1095,6 +1099,53 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    AnalyticsDashboardTotals:
+      type: object
+      properties:
+        impressions: { type: integer }
+        reach: { type: integer }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        saves: { type: integer }
+        clicks: { type: integer }
+        views: { type: integer }
+        engagementRate:
+          type: number
+          description: 'Percentage. Likes, comments, shares and saves over impressions, pooled per platform (reach, then views, when a platform has no impressions).'
+    AnalyticsDashboardFollowers:
+      type: object
+      properties:
+        current: { type: integer, description: 'Live follower count when the window includes today, otherwise the count the window ended on.' }
+        gained: { type: integer, description: 'Last minus first follower snapshot inside the window. Can be negative.' }
+        byAccount:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId: { type: string }
+              platform: { type: string }
+              current: { type: integer }
+              gained: { type: integer }
+    AnalyticsDashboardPost:
+      type: object
+      properties:
+        postId: { type: string }
+        platform: { type: string }
+        publishedAt: { type: string, format: date-time }
+        metrics:
+          type: object
+          description: Lifetime metrics of the post on this platform.
+          properties:
+            impressions: { type: integer }
+            reach: { type: integer }
+            likes: { type: integer }
+            comments: { type: integer }
+            shares: { type: integer }
+            saves: { type: integer }
+            clicks: { type: integer }
+            views: { type: integer }
+            engagementRate: { type: number }
     BrandedCallingContact:
       type: object
       required: [firstName, lastName, email, phoneNumber]
@@ -3816,7 +3867,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -7016,6 +7067,66 @@ components:
         conversationId: 6a0000000000000000000004
         changedAt: '2026-09-30T12:00:00.000Z'
         timestamp: '2026-09-30T12:00:01.000Z'
+    ApiChangelogOperationRef:
+      type: object
+      required: [method, path]
+      properties:
+        method: { type: string, example: POST }
+        path: { type: string, example: /v1/ads/create }
+        operationId: { type: string, example: createAd }
+    ApiChangelogEntry:
+      type: object
+      description: One API changelog entry, as shown on https://docs.zernio.com/changelog.
+      required: [id, type, platforms, message, publishedAt, specVersion, url, changes]
+      properties:
+        id: { type: string, description: 'Stable entry id; the same entry is never published twice.' }
+        type:
+          type: string
+          enum: [new_feature, breaking_change, improvement, deprecation, minor]
+        platforms:
+          type: array
+          items: { type: string }
+          description: 'Platform and area slugs the entry is about: a platform (`instagram`, `facebook`, `threads`, `tiktok`, `x`, `linkedin`, `youtube`, `pinterest`, `reddit`, `bluesky`, `telegram`, `snapchat`, `whatsapp`, `discord`, `slack`, `google-business`, `imessage`), an ads platform (`meta-ads`, `google-ads`, `tiktok-ads`, `linkedin-ads`, `pinterest-ads`, `x-ads`) or an area (`ads`, `publishing`, `inbox`, `telephony`, `commerce`, `analytics`, `webhooks`, `general`). Filter with the `platform` query parameter.'
+          example: [whatsapp, inbox]
+        message: { type: string, description: 'The announcement, in Markdown.' }
+        publishedAt: { type: string, format: date-time }
+        specVersion: { type: [string, "null"], description: 'The `info.version` of the OpenAPI spec the entry describes, when known.' }
+        url: { type: string, format: uri, description: 'The entry on the docs changelog.' }
+        changes:
+          type: object
+          description: 'Deterministic diff of the OpenAPI spec behind the entry. Empty lists when nothing of that kind changed.'
+          required: [endpoints, schemas]
+          properties:
+            endpoints:
+              type: object
+              required: [added, removed, modified]
+              properties:
+                added: { type: array, items: { $ref: '#/components/schemas/ApiChangelogOperationRef' } }
+                removed: { type: array, items: { $ref: '#/components/schemas/ApiChangelogOperationRef' } }
+                modified: { type: array, items: { $ref: '#/components/schemas/ApiChangelogOperationRef' } }
+            schemas:
+              type: object
+              required: [added, removed, modified]
+              properties:
+                added: { type: array, items: { type: string }, description: 'Component schema names.' }
+                removed: { type: array, items: { type: string } }
+                modified: { type: array, items: { type: string } }
+    WebhookPayloadApiChangelogPublished:
+      type: object
+      required: [id, event, entry, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        event:
+          type: string
+          enum: [api.changelog.published]
+        entry:
+          $ref: '#/components/schemas/ApiChangelogEntry'
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
     WebhookPayloadTest:
       type: object
       description: Webhook payload for test deliveries
@@ -9108,6 +9219,9 @@ components:
         isOverLimit:
           type: boolean
           description: Only present when includeOverLimit=true. Indicates if this profile exceeds the plan limit.
+        accountCount:
+          type: integer
+          description: 'In the profile list. Connected accounts on the profile, including ones that need reconnecting; phone and SMS number internals and posting accounts hidden by an ads connect are not counted.'
         createdAt: { type: string, format: date-time }
     SocialAccount:
       type: object
@@ -10246,6 +10360,10 @@ components:
         pagination:
           description: Only present when page/limit params are provided
           $ref: '#/components/schemas/Pagination'
+        profileTotals:
+          type: object
+          additionalProperties: { type: integer }
+          description: 'Only with profileIds and perProfile. Accounts matching the filters per profile ID; a profile with none is absent.'
     FollowerStatsResponse:
       type: object
       properties:
@@ -10484,7 +10602,7 @@ components:
             id: { type: string }
             name: { type: [string, "null"] }
             platform: { type: string }
-            status: { type: [string, "null"], description: "Effective campaign status (ACTIVE when any child ad is active)." }
+            status: { type: [string, "null"], description: "The platform's own campaign status in its vocabulary (Google ENABLED / PAUSED / REMOVED, Meta ACTIVE / PAUSED, ...), the same value as platformCampaignStatus on /v1/ads/campaigns and /v1/ads/tree. For a campaign synced before that value was stored it falls back to an active child ad's status, else the newest ad's." }
             budget:
               anyOf:
                 - $ref: '#/components/schemas/AdCampaignBudget'
@@ -11099,8 +11217,9 @@ components:
         resolved via `GET /v1/ads/targeting/search`. A spec is therefore meaningful only
         for the platform it was built against, except the portable fields (`countries`,
         `ageMin`/`ageMax`, `gender`, `incomeTier`, `languages`) which carry across
-        platforms. Fields a platform cannot honour are rejected at create time with
-        `INVALID_FIELD_VALUE` naming the offending field (not silently dropped).
+        platforms. Fields a platform cannot honour are rejected on create, boost and
+        targeting update with `INVALID_FIELD_VALUE` naming the offending field (never
+        silently dropped).
       properties:
         userOs:
           type: array
@@ -11245,9 +11364,9 @@ components:
                   distanceUnit: { type: string, enum: [mile, kilometer] }
                   name: { type: string }
                   address: { type: string, description: "Optional label, sent to Meta as `address_string`. latitude/longitude take precedence for the pin location." }
-        ageMin: { type: integer, minimum: 13, maximum: 100, description: "Minimum age. Applied on Meta, TikTok and Pinterest; ignored on Google, LinkedIn and X. Each platform clamps to its own range: Meta and Pinterest effectively cap at 65 (65 = 65+), TikTok maps up to 100. Pinterest has no under-18 bucket, so an ageMin below 18 starts at 18 there." }
+        ageMin: { type: integer, minimum: 13, maximum: 100, description: "Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 on OpenAI and on Google Performance Max / Demand Gen. Each platform clamps to its own range: Meta and Pinterest effectively cap at 65 (65 = 65+), TikTok maps up to 100. LinkedIn rounds out to its buckets (18-24, 25-34, 35-54, 55+) and has no under-18 audience; X rounds out to the narrowest of its fixed ranges (e.g. 25-34 becomes 25-49, 18-65 becomes 18+). Pinterest has no under-18 bucket, so an ageMin below 18 starts at 18 there." }
         ageMax: { type: integer, minimum: 13, maximum: 100, description: "Maximum age. Same per-platform application and clamping as ageMin." }
-        gender: { type: string, enum: [all, male, female], description: "Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
+        gender: { type: string, enum: [all, male, female], description: "Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other gender); rejected with 400 on OpenAI and on Google Performance Max / Demand Gen." }
         incomeTier:
           type: string
           enum: [top_5, top_10, top_10_25, top_25_50]
@@ -11257,10 +11376,10 @@ components:
             tiers on Google, and any income tier on LinkedIn / X / Pinterest, are rejected.
             On Meta, income/zip targeting requires the relevant `specialAdCategories` to be
             unset (housing/employment/credit ads cannot use it).
-        languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. On Meta, ISO 639-1 codes (e.g. ['en']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code (\"en_GB\", \"pt_BR\") for a specific one. Unknown codes are rejected." }
+        languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the platform cannot target returns 400 listing the ones it can. On Meta, ISO 639-1 codes (e.g. ['en']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code (\"en_GB\", \"pt_BR\") for a specific one. Unknown codes are rejected." }
         interests:
           type: array
-          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id."
+          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. Rejected with 400 on Google (use Demand Gen audience userInterests there) and OpenAI."
           items:
             type: object
             required: [id]
@@ -11996,7 +12115,7 @@ components:
           enum: [carousel, video, document, image, null]
           description: "Creative format, classified from the media the creative carries. `null` when the creative carries no media to classify. An unsynced creative and a genuine text-only ad are indistinguishable, so neither is guessed at. Returned by `GET /v1/ads`, `GET /v1/ads/{adId}` and the ad nodes of `GET /v1/ads/tree`."
           example: video
-        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, job_applicants], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 10 (incl. `lead_conversion` = website pixel lead optimization, `catalog_sales` = Advantage+ catalog ads and `page_likes` = Page Likes conversion location under Engagement). TikTok supports engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion. LinkedIn supports all Meta goals except app_promotion / lead_conversion / catalog_sales / page_likes. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest supports only engagement, traffic, awareness, video_views. Google Ads supports only engagement, traffic, awareness (video_views is rejected at create with 422 FEATURE_NOT_AVAILABLE)." }
+        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, page_visits, job_applicants], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 11 (incl. `lead_conversion` = website pixel lead optimization, `catalog_sales` = Advantage+ catalog ads `page_likes` = Page Likes conversion location under Engagement and `page_visits` = Page visits and followers under Traffic). TikTok supports engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion. LinkedIn supports all Meta goals except app_promotion / lead_conversion / catalog_sales / page_likes / page_visits. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest supports only engagement, traffic, awareness, video_views. Google Ads supports only engagement, traffic, awareness (video_views is rejected at create with 422 FEATURE_NOT_AVAILABLE)." }
         isExternal: { type: boolean, description: True for ads synced from platform ad managers }
         budget:
           type: [object, "null"]
@@ -15451,6 +15570,22 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  api.changelog.published:
+    post:
+      operationId: onApiChangelogPublished
+      summary: API changelog entry published event
+      description: |
+        Fired when an entry is published to the API changelog (https://docs.zernio.com/changelog), which happens when a change to this OpenAPI spec goes live. The event belongs to no profile or account: every active subscription that opted in receives it, scoped subscriptions (`profileIds` / `accountIds`) do not. `entry.changes` is the deterministic diff of the spec (operations and schemas added, removed and modified); `entry.message` is the written announcement. Act on `changes` and `type`, read `message` for the why. Entries are listed by `GET /v1/changelog`.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadApiChangelogPublished'
+      responses:
+        '200':
+          description: Webhook received successfully
   webhook.test:
     post:
       operationId: onWebhookTest
@@ -17687,6 +17822,117 @@ paths:
                 properties:
                   error: { type: string, example: "Analytics add-on required" }
                   code: { type: string, example: "analytics_addon_required" }
+
+  /v1/analytics/dashboard:
+    get:
+      x-resource-group: "analytics"
+      operationId: getAnalyticsDashboard
+      tags: [Analytics]
+      summary: Get an analytics dashboard
+      description: |
+        Everything an analytics dashboard needs in one call: window totals, follower growth, a per-day series, top posts, recent posts and, optionally, the same figures for the previous period.
+        Daily and total metrics use received attribution: each day holds the engagement that arrived that day, on any post, so `totals` is always the sum of `daily`.
+        `topPosts` and `recentPosts` list posts published in the window with their lifetime metrics. A post cross-posted to several platforms appears once per platform.
+        All dates are UTC days. Requires the Analytics add-on.
+      parameters:
+        - name: profileId
+          in: query
+          schema: { type: string, default: all }
+          description: 'Profile ID, or "all" for every profile you can access.'
+        - name: platform
+          in: query
+          schema: { type: string, default: all }
+          description: 'Platform to cover (e.g. "instagram"), or "all".'
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2026-09-01" }
+          description: First day of the window (YYYY-MM-DD, inclusive).
+        - name: toDate
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2026-09-30" }
+          description: 'Last day of the window (YYYY-MM-DD, inclusive). May equal fromDate. The window covers at most 366 days.'
+        - name: compare
+          in: query
+          schema: { type: string, enum: [previous_period] }
+          description: 'Set to "previous_period" to also return previousTotals and previousFollowers for the window of the same length that ends the day before fromDate.'
+        - name: topPosts
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 25, default: 5 }
+          description: 'How many top posts to return, ranked by engagement (likes, comments, shares and saves, the same sum as daily engagement).'
+        - name: recentPosts
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 25, default: 10 }
+          description: How many of the most recently published posts to return.
+      responses:
+        '200':
+          description: Dashboard for the window
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [dateRange, totals, followers, daily, topPosts, recentPosts, dataAsOf]
+                properties:
+                  dateRange:
+                    type: object
+                    properties:
+                      fromDate: { type: string, format: date }
+                      toDate: { type: string, format: date }
+                  totals: { $ref: '#/components/schemas/AnalyticsDashboardTotals' }
+                  previousTotals: { $ref: '#/components/schemas/AnalyticsDashboardTotals' }
+                  followers: { $ref: '#/components/schemas/AnalyticsDashboardFollowers' }
+                  previousFollowers: { $ref: '#/components/schemas/AnalyticsDashboardFollowers' }
+                  daily:
+                    type: array
+                    description: One entry per day of the window, days without data included as zeros.
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date }
+                        impressions: { type: integer }
+                        reach: { type: integer }
+                        engagement: { type: integer, description: 'Likes, comments, shares and saves received that day.' }
+                        views: { type: integer }
+                        followersGained: { type: integer, description: 'Net follower change against the previous snapshot. Can be negative.' }
+                  topPosts:
+                    type: array
+                    items: { $ref: '#/components/schemas/AnalyticsDashboardPost' }
+                  recentPosts:
+                    type: array
+                    items: { $ref: '#/components/schemas/AnalyticsDashboardPost' }
+                  dataAsOf:
+                    type: [string, "null"]
+                    format: date-time
+                    description: When the most recently synced account in scope was last synced. Null if none has synced yet.
+              examples:
+                success:
+                  value:
+                    dateRange: { fromDate: "2026-09-01", toDate: "2026-09-02" }
+                    totals: { impressions: 5400, reach: 4100, likes: 320, comments: 41, shares: 18, saves: 25, clicks: 60, views: 2200, engagementRate: 7.48 }
+                    followers:
+                      current: 12840
+                      gained: 96
+                      byAccount:
+                        - { accountId: "64e1f0a9c2b4d5e6f7a8b9c0", platform: "instagram", current: 12840, gained: 96 }
+                    daily:
+                      - { date: "2026-09-01", impressions: 2900, reach: 2200, engagement: 210, views: 1200, followersGained: 0 }
+                      - { date: "2026-09-02", impressions: 2500, reach: 1900, engagement: 194, views: 1000, followersGained: 96 }
+                    topPosts:
+                      - postId: "65f1c0a9e2b4d5f6a7b8c9d0"
+                        platform: "instagram"
+                        publishedAt: "2026-09-01T15:00:00.000Z"
+                        metrics: { impressions: 3100, reach: 2600, likes: 210, comments: 22, shares: 9, saves: 14, clicks: 30, views: 1500, engagementRate: 8.23 }
+                    recentPosts: []
+                    dataAsOf: "2026-09-02T23:10:00.000Z"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402':
+          description: Analytics access required. Legacy plans need the Analytics add-on; included by default on usage-based plans.
+        '403':
+          description: The profile is not accessible, or is beyond your plan's profile limit (PROFILE_OVER_LIMIT).
+        '404':
+          description: Profile not found or not accessible with this API key.
 
   /v1/analytics/best-time:
     get:
@@ -21911,6 +22157,14 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 100 }
           description: |
             Page size. Must be provided together with page; sending only one of the two returns 400.
+        - name: profileIds
+          in: query
+          schema: { type: string }
+          description: 'Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.'
+        - name: perProfile
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 24 }
+          description: 'Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit.'
       responses:
         '200':
           description: Accounts (with optional pagination)
@@ -22592,7 +22846,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/accounts/{accountId}/posts:
     get:
-      x-resource-group: "accounts"
+      x-resource-group: "publishing"
       operationId: getAccountPosts
       tags: [Accounts]
       x-platforms: ["facebook", "instagram", "twitter", "bluesky", "threads", "youtube", "linkedin", "reddit", "tiktok", "pinterest"]
@@ -22670,6 +22924,7 @@ paths:
 
   /v1/accounts/{accountId}/follow-status/{userId}:
     get:
+      x-resource-group: "accounts"
       operationId: getInstagramFollowStatus
       tags: [Accounts]
       x-platforms: ["instagram"]
@@ -23431,12 +23686,12 @@ paths:
         Initiate an OAuth connection flow. Returns an authUrl to redirect the user to.
         Standard flow: Zernio hosts the selection UI, then redirects to your redirect_url. Headless mode (headless=true): user is redirected to your redirect_url with OAuth data for custom UI. Use the platform-specific selection endpoints to complete.
 
-        TikTok: every connection now goes through the TikTok for Business app. One TikTok account per
-        profile, so connecting on a profile that already holds one replaces it. Reconnecting the SAME
-        account keeps it and all of its history; authorizing a DIFFERENT TikTok account takes the slot
-        over and permanently deletes the previous account's analytics, inbox and DM history. The two
-        are told apart by the `@handle` stored at the last connect, so an account whose handle has
-        been renamed on TikTok since then reads as a different account. An authorization that leaves
+        A profile can hold several accounts of the same platform: connecting a different account adds
+        it as a new account, and reconnecting the SAME account keeps it and all of its history. Ads
+        connections stay one per profile. On a legacy plan limited to N profiles, a new account is
+        refused with 403 `platform_account_limit` once N accounts of its platform are connected.
+
+        TikTok: every connection now goes through the TikTok for Business app. An authorization that leaves
         out a permission the connected account needs changes nothing at all and comes back as
         `missing_tiktok_permissions`; connect again and accept every permission on TikTok's screen.
       parameters:
@@ -23455,7 +23710,7 @@ paths:
         - name: reconnectAccountId
           in: query
           schema: { type: string }
-          description: "Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. While a profile holds one account per platform the login still replaces this account as before. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url."
+          description: "Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url."
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -23488,7 +23743,8 @@ paths:
               - `pages_permission_declined`: the user declined the pages_show_list permission.
               - `no_pages_granted`: the permission was granted with no Page ticked. Meta reports a user who
                 manages no Page the same way, so this covers both.
-              - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage.
+              - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage, and a
+                direct read of each ticked Page returned no access token.
 
             Headless Facebook success (`step=select_page`): `userProfile` is JSON that was
             percent-encoded once before being set as a query param, so it is encoded twice on the wire.
@@ -23868,8 +24124,11 @@ paths:
           description: |
             Existing SocialAccount ID. Required for `twitter` (X Ads). Optional for `tiktok`:
             omit to enter ads-only mode (no TikTok posting account linked; ad creation uses
-            a Brand Identity instead of a TT_USER). Ignored for same-token (`facebook`,
-            `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
+            a Brand Identity instead of a TT_USER). For same-token platforms (`facebook`,
+            `instagram`, `linkedin`, `pinterest`) it picks which posting account the ads
+            connection uses when the profile holds several of that platform; with one it can
+            be omitted, and an id that names no active account of the platform on the profile
+            is ignored. Ignored for standalone platforms (`googleads`).
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -24009,17 +24268,17 @@ paths:
         '404':
           description: "Profile or posting account not found"
         '409':
-          description: "The Business Login connection needs reconnecting. Reconnect it with loginMode=business, or pass force=true (or disconnect it first) to switch to the standard login."
+          description: "The Business Login connection needs reconnecting (reconnect it with loginMode=business, or pass force=true or disconnect it first to switch to the standard login), or the profile holds several active accounts of the platform and no accountId names one (ambiguous_account)."
         '503':
           description: "Business login is not configured or the platform is temporarily unavailable."
 
   /v1/connect/meta-ads/callback:
     get:
+      x-resource-group: "public"
       operationId: completeMetaAdsBusinessLogin
       summary: Complete Meta business login
       tags: [Connect]
       x-platforms: [meta]
-      x-resource-group: "accounts"
       security: []
       description: "Facebook Login for Business redirect target. Meta supplies the single-use authorization code and the authenticated state returned by connectAds. The state expires after 30 minutes and binds the user, profile, Page selection and ad-account scope. No bearer token is sent by the browser. Success reconnects only metaads and redirects to the original redirect_url. Invalid state returns 400; inaccessible profiles or missing ads access cannot connect. Dashboard logins with several Pages redirect to the Facebook Page picker with an encrypted selectionToken valid for ten minutes. Listing and selecting require the initiating user and current profile access. No plaintext platform token is returned to the browser."
       parameters:
@@ -24416,7 +24675,7 @@ paths:
             schema:
               oneOf:
                 - type: object
-                  required: [profileId, pageId, tempToken, userProfile]
+                  required: [profileId, tempToken, userProfile]
                   not: { required: [selectionToken], properties: { selectionToken: {} } }
                   properties:
                     profileId:
@@ -24424,7 +24683,13 @@ paths:
                       description: "Profile ID from your classic connection flow."
                     pageId:
                       type: string
-                      description: "The Facebook Page ID selected by the user."
+                      description: "The Facebook Page ID selected by the user. Send this or pageIds, not both."
+                    pageIds:
+                      type: array
+                      minItems: 1
+                      maxItems: 25
+                      items: { type: string }
+                      description: "Several Page IDs to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect, which pick exactly one Page. A single distinct ID behaves exactly like pageId."
                     tempToken:
                       type: string
                       description: "Temporary Facebook access token from OAuth."
@@ -24493,6 +24758,19 @@ paths:
                       profilePicture: { type: string }
                       isActive: { type: boolean }
                       selectedPageName: { type: string }
+                  accounts:
+                    type: array
+                    description: "pageIds only. The connected accounts, same shape as `account`. The redirect_url then carries `accountIds` (comma-separated) and `accountId` of the first."
+                    items: { type: object }
+                  failed:
+                    type: array
+                    description: "pageIds only. The Pages that could not be connected while the others were."
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "The Page ID." }
+                        code: { type: string }
+                        message: { type: string }
               example:
                 message: "Facebook page connected successfully"
                 redirect_url: "https://yourdomain.com/integrations/callback?connected=facebook&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&username=My+Brand+Page"
@@ -24511,6 +24789,11 @@ paths:
           description: User does not have access to the specified profile
         '404':
           description: Selected page not found in available pages
+        '422':
+          description: "pageIds only. None of the Pages could be connected; `details.failed` lists each one with its reason."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           description: |
             Reconnect identity mismatch. The OAuth
@@ -24529,6 +24812,7 @@ paths:
 
   /v1/connect/instagram/select-account:
     get:
+      x-resource-group: "accounts"
       operationId: listInstagramPages
       tags: [Connect]
       summary: List Pages with a linked Instagram account
@@ -24588,27 +24872,34 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: User does not have access to the specified profile }
     post:
+      x-resource-group: "accounts"
       operationId: selectInstagramAccount
       tags: [Connect]
       summary: Select the Page whose Instagram account to connect
       description: |
         Saves the selected Page as an Instagram account connected via Facebook Login. The Page access token becomes the account's access token, so every Instagram call for it runs against the Facebook Graph host.
 
-        One Instagram account per profile: if the profile already has an Instagram account, this replaces it, and picking a different Instagram identity purges the previous account's conversations, external posts and stats.
+        A different Instagram account is added next to any already connected on the profile; picking one already connected refreshes it.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [profileId, pageId, tempToken]
+              required: [profileId, tempToken]
               properties:
                 profileId:
                   type: string
                   description: Profile ID from your connection flow
                 pageId:
                   type: string
-                  description: 'The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account'
+                  description: 'The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account. Send this or pageIds, not both.'
+                pageIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  items: { type: string }
+                  description: 'Several Page IDs whose linked Instagram accounts to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single distinct ID behaves exactly like pageId.'
                 tempToken:
                   type: string
                   description: Long-lived Facebook user access token from the OAuth callback redirect
@@ -24649,6 +24940,19 @@ paths:
                       profilePicture: { type: string }
                       isActive: { type: boolean }
                       loginMethod: { type: string, enum: [facebook_login] }
+                  accounts:
+                    type: array
+                    description: 'pageIds only. The connected accounts, same shape as `account`. The redirect_url then carries `accountIds` (comma-separated) and `accountId` of the first.'
+                    items: { type: object }
+                  failed:
+                    type: array
+                    description: 'pageIds only. The Pages whose Instagram account could not be connected while the others were.'
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: 'The Page ID.' }
+                        code: { type: string }
+                        message: { type: string }
               example:
                 message: "Instagram (via Facebook) connected"
                 account:
@@ -24665,6 +24969,11 @@ paths:
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { description: User does not have access to the specified profile }
         '404': { description: Selected page not found among the pages this token can manage }
+        '422':
+          description: 'pageIds only. None of the accounts could be connected; `details.failed` lists each Page with its reason.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/connect/googlebusiness/locations:
     get:
@@ -27195,12 +27504,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [profileId, tempToken, userProfile, accountType]
+              required: [profileId, tempToken, userProfile]
               properties:
                 profileId: { type: string }
                 tempToken: { type: string }
                 userProfile: { type: object }
-                accountType: { type: string, enum: [personal, organization] }
+                accountType:
+                  type: string
+                  enum: [personal, organization]
+                  description: 'Send this (with selectedOrganization for an organization) or selections, not both.'
+                selections:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  description: 'Several accounts to connect from one sign-in (yourself and/or organizations), each as its own account. With two or more entries the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single entry behaves exactly like accountType.'
+                  items:
+                    type: object
+                    required: [accountType]
+                    properties:
+                      accountType: { type: string, enum: [personal, organization] }
+                      selectedOrganization: { type: object, description: 'Same shape as selectedOrganization.' }
                 selectedOrganization:
                   type: object
                   required: [id, urn, name]
@@ -27265,6 +27588,19 @@ paths:
                       profilePicture: { type: string }
                       isActive: { type: boolean }
                       accountType: { type: string, enum: [personal, organization] }
+                  accounts:
+                    type: array
+                    description: 'selections only. The connected accounts, same shape as `account`. The redirect_url then carries `accountIds` (comma-separated) and `accountId` of the first.'
+                    items: { type: object }
+                  failed:
+                    type: array
+                    description: 'selections only. The accounts that could not be connected while the others were. `id` is the organization URN or the member id, or `selections[i]` for an entry naming neither.'
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        code: { type: string }
+                        message: { type: string }
                   bulkRefresh:
                     type: object
                     properties:
@@ -27301,6 +27637,11 @@ paths:
                       errors: 0
         '400': { description: Missing required fields }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: 'selections only. None of the accounts could be connected; `details.failed` lists each one with its reason.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           description: 'The sign-in behind tempToken was already used by an earlier selection or has expired (code oauth_sign_in_consumed); start a new sign-in or send refreshToken'
           content:
@@ -28045,7 +28386,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
-          description: 'Conflict with an existing connection. One of: the target profile already has a WhatsApp number connected (code ONE_WHATSAPP_PER_PROFILE, each profile holds exactly one WhatsApp number, so connect this number to a different or new profile); the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile); or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile. Or, for a number connected from the WhatsApp Business app (coexistence), the phone never registered the number on the Cloud API, so Meta reported it as platform_type ON_PREMISE and refused the contacts/history sync with error 133010 (code WHATSAPP_COEXISTENCE_NOT_REGISTERED). No account is created in that case: the customer opens WhatsApp Business on the phone, keeps it open and updated, and runs the same Embedded Signup again, which succeeds on the second attempt in practice.'
+          description: 'Conflict with an existing connection. One of: the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile); or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile. Or, for a number connected from the WhatsApp Business app (coexistence), the phone never registered the number on the Cloud API, so Meta reported it as platform_type ON_PREMISE and refused the contacts/history sync with error 133010 (code WHATSAPP_COEXISTENCE_NOT_REGISTERED). No account is created in that case: the customer opens WhatsApp Business on the phone, keeps it open and updated, and runs the same Embedded Signup again, which succeeds on the second attempt in practice.'
         '500':
           description: Failed to bind phone number
           content:
@@ -30067,8 +30408,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
     post:
-      operationId: createYoutubePlaylist
       x-resource-group: "accounts"
+      operationId: createYoutubePlaylist
       tags: [Connect]
       summary: Create YouTube playlist
       description: >
@@ -30321,8 +30662,8 @@ paths:
         one location the normal way (browser OAuth), then bulk-assign the rest onto
         each client's profile via this endpoint. The path `accountId` is a SOURCE
         connected Google Business Profile account (the token holder); the body `profileId` is the TARGET
-        profile. Returns 409 if the target profile already has a Google Business Profile
-        connection (switch its location with PUT gmb-locations instead).
+        profile, which may already hold other locations; assigning a location it already holds
+        refreshes that account.
       parameters:
         - name: accountId
           in: path
@@ -30387,7 +30728,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Payment required, or target profile exceeds plan limit' }
         '404': { description: Source Google Business Profile account not found }
-        '409': { description: 'Target profile already has a Google Business Profile connection (use PUT gmb-locations to switch its location)' }
+        '409': { description: 'Conflict with an existing connection' }
 
   /v1/accounts/{accountId}/facebook-post-reactions:
     get:
@@ -32412,7 +32753,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -32569,7 +32910,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -36810,6 +37151,7 @@ paths:
 
   /v1/inbox/posts/{postId}/like:
     post:
+      x-resource-group: "messages"
       operationId: likePost
       summary: Like post
       description: |
@@ -36893,6 +37235,7 @@ paths:
         '409':
           description: 'LinkedIn only: the account already holds a different reaction on this target (code invalid_resource_state); remove it before creating another.'
     delete:
+      x-resource-group: "messages"
       operationId: unlikePost
       summary: Unlike post
       description: |
@@ -39507,9 +39850,9 @@ paths:
         conversation endpoints. To have Zernio order a new sender for you, use
         POST /v1/imessage/senders/order instead. Registration attaches the
         monthly sender fee (billed while active) and requires a payment method
-        (402 without one). One sender per profile: re-registering the SAME
-        handle refreshes it; a different handle returns 409 until the existing
-        sender is canceled.
+        (402 without one). Re-registering the SAME handle refreshes its account;
+        a different handle is added as another sender, and a profile can hold
+        several.
       tags: [iMessage]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -39620,7 +39963,7 @@ paths:
         '402': { description: 'A valid payment method is required (code: payment_method_required)' }
         '403': { description: 'Sender limit reached (code: imessage_sender_limit)' }
         '404': { description: Profile not found or access denied }
-        '409': { description: 'This profile already has a live iMessage sender (code: imessage_sender_conflict), or billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
+        '409': { description: 'Billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
         '422': { description: 'Workspace is not on usage-based billing (code: usage_billing_required)' }
         '502': { description: 'The provider rejected the order; nothing was charged' }
 
@@ -40266,7 +40609,7 @@ paths:
       description: |
         Requests a new agent for a profile, with a new company (`brand`) or an existing one
         (`brandId`, skips vetting when it is already verified). The request lands in our review:
-        nothing is filed with the carriers or billed until we submit it. One open agent per profile.
+        nothing is filed with the carriers or billed until we submit it. A profile can hold several agents.
         Requires usage-based billing and a card on file. Send an `Idempotency-Key` header to make
         retries safe.
       security:
@@ -40303,7 +40646,7 @@ paths:
         '402': { description: 'No payment method on file (payment_method_required). Add a card and retry.' }
         '403': { description: 'Your plan does not include the inbox, which RCS requires.' }
         '404': { description: Profile or brand not found }
-        '409': { description: 'The profile already has an open agent, the brand was rejected, or the Idempotency-Key is still in flight' }
+        '409': { description: 'The brand was rejected, or the Idempotency-Key is still in flight' }
         '422': { description: 'Usage-based billing is not enabled for the workspace (USAGE_BILLING_REQUIRED), or the Idempotency-Key was reused with a different body' }
 
   /v1/rcs/agents/{agentId}:
@@ -41037,9 +41380,11 @@ paths:
         identity goes into carrier vetting on its own. Track it with `GET` or the
         `branded_calling.identity.status_updated` webhook.
 
-        Billing: $100 per identity per month, the first month charged when the
-        identity is filed with the carrier and not refunded if the carrier rejects it,
-        then monthly while the identity exists. Branded calls add $0.10 each, counted
+        Billing: $100 per identity per month while it is verified. The first month is
+        charged when the carrier verifies the identity, never when it is filed: nothing
+        is charged while it is in our review or carrier vetting, or if it is rejected.
+        An edit that sends a verified identity back to vetting pauses the fee until it
+        is verified again. Branded calls add $0.10 each, counted
         on every outbound call from a verified branded number to a US destination
         (whether or not the callee's carrier displayed the branding); the surcharge
         shows as `brandedCallUSD` on the call's billing and in
@@ -42096,7 +42441,7 @@ paths:
 
   /v1/whatsapp/catalogs:
     get:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: listWhatsAppCatalogs
       tags: [WhatsApp]
       summary: List the catalogs linked to a WhatsApp number
@@ -42123,7 +42468,7 @@ paths:
         '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
     post:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: linkWhatsAppCatalog
       tags: [WhatsApp]
       summary: Link a catalog to a WhatsApp number
@@ -42158,7 +42503,7 @@ paths:
         '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
     delete:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: unlinkWhatsAppCatalog
       tags: [WhatsApp]
       summary: Unlink a catalog from a WhatsApp number
@@ -42180,7 +42525,7 @@ paths:
         '404': { $ref: '#/components/responses/AccountUnavailable' }
   /v1/whatsapp/commerce-settings:
     get:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: getWhatsAppCommerceSettings
       tags: [WhatsApp]
       summary: Get a number's commerce settings
@@ -42204,7 +42549,7 @@ paths:
         '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
     put:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: updateWhatsAppCommerceSettings
       tags: [WhatsApp]
       summary: Update a number's commerce settings
@@ -42984,7 +43329,7 @@ paths:
 
   /v1/whatsapp/account-events:
     get:
-      x-resource-group: "accounts"
+      x-resource-group: "messages"
       operationId: listWhatsAppAccountEvents
       tags: [WhatsApp]
       summary: List account notifications
@@ -43332,11 +43677,9 @@ paths:
                 profileId:
                   type: string
                   description: >
-                    Preferred profile for the number. One number = one
-                    profile, so when the requested profile already holds a
-                    number the API assigns the next free profile instead (or
-                    creates one) and returns the actual assignment in
-                    `profileId` on the response.
+                    Profile for the number, which may already hold other
+                    numbers. Without it the number goes to the default profile.
+                    The response's `profileId` carries the assignment.
                 country:
                   type: string
                   description: >
@@ -45733,8 +46076,7 @@ paths:
 
         `id` is the number record id from `GET /v1/phone-numbers`, not an account id.
 
-        A profile holds at most one account per platform, so the destination must be
-        free of every platform this number occupies.
+        The destination profile may already hold other numbers.
       security:
         - bearerAuth: []
       parameters:
@@ -45766,7 +46108,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'No access to the source or destination profile, or the Inbox add-on is not active.' }
         '404': { description: 'Number not found, or the destination profile does not exist.' }
-        '409': { description: 'The destination profile already holds an account on one of the platforms this number occupies.' }
+        '409': { description: 'The number cannot move, for example because the same number is already connected on the destination profile.' }
 
   /v1/whatsapp/phone-numbers/{id}/remediate:
     get:
@@ -50457,11 +50799,11 @@ paths:
 
   /v1/ads/recommendations:
     get:
+      x-resource-group: "ads"
       operationId: listGoogleRecommendations
       summary: List Google Ads recommendations
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Google's optimization recommendations for one ad account: type, estimated impact (base vs potential metrics, cost in account currency units), the campaign, ad group or budget they target, and the type-specific payload Google returns (`details`, in Google's own shape with micros). Filter by campaignId and types. Cached for 10 minutes and cleared by apply or dismiss; served stale when Google quota is exhausted."
@@ -50492,11 +50834,11 @@ paths:
         '501': { description: "accountId is not a Google Ads connection." }
   /v1/ads/recommendations/apply:
     post:
+      x-resource-group: "ads"
       operationId: applyGoogleRecommendations
       summary: Apply Google Ads recommendations
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Apply up to 100 recommendations. This changes the account (budgets, bidding, keywords, assets) and is not reversible or idempotent; Google offers no validate-only mode for it. Items run in partial-failure mode, so one stale recommendation does not block the rest. `parameters` is optional and takes exactly one key named for the recommendation type, in Google's ApplyRecommendationOperation shape (for example `campaignBudget: { newBudgetAmountMicros }` or `keyword: { matchType, cpcBidMicros }`); omit it to apply Google's suggested values."
@@ -50549,11 +50891,11 @@ paths:
         '501': { description: "accountId is not a Google Ads connection." }
   /v1/ads/recommendations/dismiss:
     post:
+      x-resource-group: "ads"
       operationId: dismissGoogleRecommendations
       summary: Dismiss Google Ads recommendations
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Dismiss up to 100 recommendations so Google stops suggesting them. Items run in partial-failure mode."
@@ -51166,7 +51508,7 @@ paths:
                 name: { type: string, maxLength: 255 }
                 goal:
                   type: string
-                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, job_applicants, conversions, app_promotion, catalog_sales, page_likes]
+                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, job_applicants, conversions, app_promotion, catalog_sales, page_likes, page_visits]
                   description: Mapped to the ODAX objective (same mapping as POST /v1/ads/create).
                 isSkadnetworkAttribution:
                   type: boolean
@@ -53434,9 +53776,9 @@ paths:
 
   /v1/ads/campaigns/{campaignId}/assets:
     get:
+      x-resource-group: "ads"
       operationId: listCampaignAssets
       summary: List campaign assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -53550,9 +53892,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: attachCampaignAssets
       summary: Attach campaign assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -53664,9 +54006,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     put:
+      x-resource-group: "ads"
       operationId: updateCampaignAssets
       summary: Update campaign assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -53744,9 +54086,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     delete:
+      x-resource-group: "ads"
       operationId: removeCampaignAssets
       summary: Remove campaign assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -53829,9 +54171,9 @@ paths:
 
   /v1/ads/ad-sets/{adSetId}/assets:
     get:
+      x-resource-group: "ads"
       operationId: listAdGroupAssets
       summary: List ad-group assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -53945,9 +54287,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: attachAdGroupAssets
       summary: Attach ad-group assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -54059,9 +54401,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     put:
+      x-resource-group: "ads"
       operationId: updateAdGroupAssets
       summary: Update ad-group assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -54139,9 +54481,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     delete:
+      x-resource-group: "ads"
       operationId: removeAdGroupAssets
       summary: Remove ad-group assets
-      x-resource-group: ads
       tags:
       - Ad Campaigns
       x-platforms:
@@ -55109,10 +55451,10 @@ paths:
 
   /v1/ads/{adId}/comments/{commentId}/reply:
     post:
+      x-resource-group: "engagement"
       operationId: replyToAdComment
       summary: Reply to an ad comment
       tags: ["Ad Accounts"]
-      x-resource-group: "engagement"
       x-platforms: ["tiktok"]
       description: |
         Reply to a first-level TikTok ad comment. Requires a TT_USER or CUSTOMIZED_USER identity with comment-management permission. Replies to replies are rejected. The response commentId identifies the new reply. This operation is not idempotent; do not blindly retry an uncertain response.
@@ -55176,10 +55518,10 @@ paths:
 
   /v1/ads/{adId}/comments/{commentId}/hide:
     post:
+      x-resource-group: "engagement"
       operationId: hideAdComment
       summary: Hide or unhide an ad comment
       tags: ["Ad Accounts"]
-      x-resource-group: "engagement"
       x-platforms: ["tiktok"]
       description: |
         Hide or restore a TikTok ad comment. Send hidden=true to hide it or hidden=false to make it public again. Identity and video item ID are not required; no identity lookup is performed.
@@ -55236,10 +55578,10 @@ paths:
 
   /v1/ads/{adId}/comments/{commentId}:
     delete:
+      x-resource-group: "engagement"
       operationId: deleteAdComment
       summary: Delete an ad comment
       tags: ["Ad Accounts"]
-      x-resource-group: "engagement"
       x-platforms: ["tiktok"]
       description: |
         Delete your own TikTok ad comment or reply. TikTok must return can_delete=true for the comment. Other users' comments can be hidden instead.
@@ -55663,11 +56005,11 @@ paths:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
   /v1/ads/instagram-accounts:
     get:
+      x-resource-group: "ads"
       operationId: listAdsInstagramAccounts
       summary: List Instagram ad identities
       description: "Discovers identities through connected_instagram_accounts, Page linkage and Page-backed identities, with a best-effort business fallback. Business permission errors do not fail discovery. The resolved object uses the same profile-scoped resolver as ad creation; null means no identity was resolved. Format-specific observed-actor fallbacks at creative creation are not predicted."
       tags: ["Ad Accounts"]
-      x-resource-group: "ads"
       x-platforms: ["meta"]
       security:
         - bearerAuth: []
@@ -55728,11 +56070,11 @@ paths:
 
   /v1/ads/instagram-posts:
     get:
+      x-resource-group: "ads"
       operationId: listAdsInstagramPosts
       summary: List Instagram posts to boost
       description: "Lists the media of the Instagram account this Meta connection can reach, so an existing Instagram post can be boosted without connecting the Instagram account separately. Each `posts[].id` is the existing-post id to send as `platformPostId` when creating the ad; Meta turns it into `source_instagram_media_id` on the creative. Identity resolution reuses the same resolver as `/v1/ads/instagram-accounts`. `igUserId` is always checked against the identities the connection can reach and is never trusted as sent. When no identity is reachable the endpoint fails instead of returning an empty list, and the two causes stay apart: `403 reconnect_required` means the connection predates Instagram access (Meta then omits `instagram_business_account` from the Page read rather than erroring, so it looks identical to having no data) and the account must be reconnected granting Instagram access, while `422 instagram_business_account_unresolved` means the Page genuinely has no Instagram professional account linked."
       tags: ["Ad Accounts"]
-      x-resource-group: "ads"
       x-platforms: ["meta"]
       security:
         - bearerAuth: []
@@ -55792,11 +56134,11 @@ paths:
 
   /v1/ads/advertisable-applications:
     get:
+      x-resource-group: "ads"
       operationId: listAdvertisableApplications
       summary: List advertisable apps
       description: "Lists applications available to a Meta ad account, their supported platforms and unmodified object store URLs. A listed app still needs a configured mobile platform and store URL to run install promotion."
       tags: ["Ad Accounts"]
-      x-resource-group: "ads"
       x-platforms: ["meta"]
       security:
         - bearerAuth: []
@@ -55844,11 +56186,11 @@ paths:
 
   /v1/ads/ios-fourteen-campaign-limits:
     get:
+      x-resource-group: "ads"
       operationId: getIosFourteenCampaignLimits
       summary: Get iOS 14 campaign limits
       description: "Reads Meta iOS 14 campaign limits for an application on an ad account. applicationId is sent as Meta app_id. This read does not establish that the application is configured for iOS promotion."
       tags: ["Ad Accounts"]
-      x-resource-group: "ads"
       x-platforms: ["meta"]
       security:
         - bearerAuth: []
@@ -57709,9 +58051,9 @@ paths:
 
   /v1/ads/accounts/callouts:
     get:
+      x-resource-group: "ads"
       operationId: listAccountCallouts
       summary: List account callouts
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -57786,9 +58128,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: addAccountCallouts
       summary: Add account callouts
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -57865,9 +58207,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     put:
+      x-resource-group: "ads"
       operationId: updateAccountCallouts
       summary: Update account callouts
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -57957,9 +58299,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     delete:
+      x-resource-group: "ads"
       operationId: removeAccountCallout
       summary: Remove account callout
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58026,9 +58368,9 @@ paths:
 
   /v1/ads/accounts/sitelinks:
     get:
+      x-resource-group: "ads"
       operationId: listAccountSitelinks
       summary: List account sitelinks
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58113,9 +58455,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: addAccountSitelinks
       summary: Add account sitelinks
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58204,9 +58546,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     put:
+      x-resource-group: "ads"
       operationId: updateAccountSitelinks
       summary: Update account sitelinks
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58313,9 +58655,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     delete:
+      x-resource-group: "ads"
       operationId: removeAccountSitelink
       summary: Remove account sitelink
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58382,9 +58724,9 @@ paths:
 
   /v1/ads/accounts/structured-snippets:
     get:
+      x-resource-group: "ads"
       operationId: listAccountStructuredSnippets
       summary: List account snippets
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58466,9 +58808,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: addAccountStructuredSnippets
       summary: Add account snippets
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58569,9 +58911,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     put:
+      x-resource-group: "ads"
       operationId: updateAccountStructuredSnippets
       summary: Update account snippets
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -58658,9 +59000,9 @@ paths:
         '501':
           description: "Only supported on Google Ads."
     delete:
+      x-resource-group: "ads"
       operationId: removeAccountStructuredSnippet
       summary: Remove account snippet
-      x-resource-group: ads
       tags:
       - Ad Accounts
       x-platforms:
@@ -59079,10 +59421,10 @@ paths:
 
   /v1/ads/accounts:
     post:
+      x-resource-group: "ads"
       operationId: createAdAccount
       summary: Create Meta ad account
       tags: ["Ad Accounts"]
-      x-resource-group: "ads"
       x-platforms: ["meta"]
       description: |
         Creates a durable Meta ad account in the end user's own business portfolio using
@@ -59956,11 +60298,11 @@ paths:
 
   /v1/ads/campaigns/{campaignId}/asset-groups:
     get:
+      x-resource-group: "ads"
       operationId: listGoogleAssetGroups
       summary: List Performance Max asset groups
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       description: "Read Performance Max asset groups and their linked text, image and YouTube assets. campaignId is the platform campaign id returned by creation or the campaign list. The campaign must be visible to the caller. Uses a 10-minute cache, with the last successful response served as stale when Google quota is exhausted. Removed groups and asset links are excluded. Campaign-level brand assets on campaigns with brand guidelines enabled are not included."
       security:
         - bearerAuth: []
@@ -60004,11 +60346,11 @@ paths:
         '501':
           description: "Campaign is not on Google Ads."
     post:
+      x-resource-group: "ads"
       operationId: createGoogleAssetGroup
       summary: Create a Performance Max asset group
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Add an asset group to an existing Performance Max campaign. The group, any new assets, their links and an optional listing-group tree are created in one atomic request, so Google checks the asset minimums (for non-retail campaigns) against the whole set. Created PAUSED unless status is ENABLED. validateOnly: true runs Google's validation without creating anything."
@@ -60070,11 +60412,11 @@ paths:
         '501': { description: "Campaign is not on Google Ads." }
   /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}:
     get:
+      x-resource-group: "ads"
       operationId: getGoogleAssetGroup
       summary: Get a Performance Max asset group
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "One asset group with its linked assets, ad strength, primary status and listing-group tree. Uses a 10-minute cache, served stale when Google quota is exhausted; any write below clears it."
@@ -60100,11 +60442,11 @@ paths:
         '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
         '501': { description: "Campaign is not on Google Ads." }
     patch:
+      x-resource-group: "ads"
       operationId: updateGoogleAssetGroup
       summary: Update a Performance Max asset group
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Change the name, status (ENABLED or PAUSED), final URLs or display paths. Only the fields sent are written; null on path1 or path2 clears it. Change assets with the /assets endpoint and product targeting with /listing-group-filters. validateOnly: true validates without writing."
@@ -60144,11 +60486,11 @@ paths:
         '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
         '501': { description: "Campaign is not on Google Ads." }
     delete:
+      x-resource-group: "ads"
       operationId: removeGoogleAssetGroup
       summary: Remove a Performance Max asset group
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Removes the asset group on Google (status REMOVED, not reversible). Pass validateOnly=true to validate without removing."
@@ -60175,11 +60517,11 @@ paths:
         '501': { description: "Campaign is not on Google Ads." }
   /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}/assets:
     post:
+      x-resource-group: "ads"
       operationId: editGoogleAssetGroupAssets
       summary: Link or unlink asset group assets
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Link existing assets or new content to the asset group, and unlink assets, in one atomic request. Links are applied before unlinks, so swapping the last asset of a role does not trip Google's per-role minimum. Unlinking removes the link only; the asset stays in the account library. validateOnly: true validates without writing."
@@ -60219,11 +60561,11 @@ paths:
         '501': { description: "Campaign is not on Google Ads." }
   /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}/listing-group-filters:
     put:
+      x-resource-group: "ads"
       operationId: replaceGoogleListingGroupFilters
       summary: Replace an asset group's listing-group tree
       tags: ["Ad Campaigns"]
       x-platforms: ["google"]
-      x-resource-group: "ads"
       security:
         - bearerAuth: []
       description: "Replace the product (listing-group) tree of a Performance Max retail asset group. The current tree is removed and the new one created in one atomic request. Read the current tree with GET on the asset group. Requires a campaign linked to Merchant Center; other campaigns return 400 LISTING_SOURCE_NOT_ALLOWED from Google. validateOnly: true validates without writing."
@@ -60341,7 +60683,7 @@ paths:
                 tracking: { $ref: '#/components/schemas/AdTracking' }
                 goal:
                   type: string
-                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, job_applicants]
+                  enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales, page_likes, page_visits, job_applicants]
                   description: |
                     Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
@@ -60352,6 +60694,7 @@ paths:
                     - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
                     - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
                     - `page_likes`: Page Likes conversion location under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled from the connected Page. The creative CTA is fixed to LIKE_PAGE targeting that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives the link and the Like button from the Page).
+                    - `page_visits`: Meta's "Page visits and followers" under OUTCOME_TRAFFIC (destination_type FACEBOOK_PAGE, optimization PROFILE_VISIT). `promotedObject.pageId` is optional and auto-filled from the connected Page, and `linkUrl` defaults to the Page. Meta enables Profile Visit ads per ad account: one it has not enabled is refused with Meta's "This account isn't eligible to use Profile Visit ads yet".
 
                     **TikTok**
                     - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
@@ -60455,7 +60798,7 @@ paths:
                 callToAction: { type: string, enum: [LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, ADD_TO_CART, APPLY_NOW, BOOK_NOW, BUY_TICKETS, DONATE, DONATE_NOW, GET_DIRECTIONS, GET_SHOWTIMES, LISTEN_NOW, ORDER_NOW, PLAY_GAME, REQUEST_TIME, SEE_MENU, START_ORDER, INSTALL_MOBILE_APP, USE_APP, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, BUY_NOW], description: "Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X." }
                 linkUrl: { type: string, format: uri, description: "Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url)." }
                 leadGenFormId: { type: string, description: "Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads." }
-                imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format)." }
+                imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Rejected with 400 on X (an X ad is a post from body + linkUrl; promote a post that carries the image with POST /v1/ads/boost), as are headline, description, video and callToAction. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format)." }
                 images:
                   type: object
                   description: "Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display."
@@ -72064,12 +72407,12 @@ paths:
 
   /v1/ads/pixels:
     get:
+      x-resource-group: "ads"
       operationId: 'listTikTokAdPixels'
       summary: 'List TikTok ad pixels'
       description: 'Lists pixels and their supported optimization events for a connected TikTok Ads account. The advertiser defaults to the first advertiser on the connection. Reconnect if Pixel Management permission has not been granted.'
       tags:
         - 'Ad Accounts'
-      x-resource-group: 'ads'
       x-platforms:
         - 'tiktok'
       security:
@@ -72154,12 +72497,12 @@ paths:
           description: 'Pixel Management permission is missing (code reconnect_required). Reconnect TikTok Ads to grant it.'
   /v1/ads/partnership-content:
     get:
+      x-resource-group: "ads"
       operationId: 'listPartnershipAdContent'
       summary: 'List partnership ad content'
       description: 'Private beta. Lists creator Instagram posts available to the advertiser for Partnership Ads. Supply creatorUsername or postUrl. Requires instagram_branded_content_ads_brand permission and an advertiser Instagram Business Account.'
       tags:
         - 'Ad Creatives'
-      x-resource-group: 'ads'
       x-platforms:
         - 'meta'
       security:
@@ -72225,12 +72568,12 @@ paths:
           description: 'The advertiser Instagram Business Account could not be resolved.'
   /v1/ads/partnership-permissions:
     get:
+      x-resource-group: "ads"
       operationId: 'listPartnershipAdPermissions'
       summary: 'List partnership permissions'
       description: 'Private beta. Lists granted or pending creator permissions for the advertiser Instagram Business Account. Requires instagram_branded_content_ads_brand permission.'
       tags:
         - 'Ad Creatives'
-      x-resource-group: 'ads'
       x-platforms:
         - 'meta'
       security:
@@ -72271,12 +72614,12 @@ paths:
         "422":
           description: 'The advertiser Instagram Business Account could not be resolved.'
     post:
+      x-resource-group: "ads"
       operationId: 'setPartnershipAdPermission'
       summary: 'Set partnership permission'
       description: 'Private beta. Requests permission from a creator or revokes it when revoke is true. Requests require the creator to approve in Instagram. Requires instagram_branded_content_ads_brand permission.'
       tags:
         - 'Ad Creatives'
-      x-resource-group: 'ads'
       x-platforms:
         - 'meta'
       security:
@@ -72325,6 +72668,7 @@ paths:
           description: 'The advertiser Instagram Business Account could not be resolved.'
   /v1/tools/tiktok/download:
     get:
+      x-resource-group: "publishing"
       operationId: downloadTikTokVideo
       tags: [Tools]
       x-platforms: ["tiktok"]
@@ -72387,3 +72731,60 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamFailure' }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
+
+  # ============================================
+  # Changelog
+  # ============================================
+  /v1/changelog:
+    get:
+      x-resource-group: "public"
+      operationId: listChangelog
+      tags: [Changelog]
+      summary: List API changelog entries
+      security: []
+      description: |
+        The API changelog, newest first. No API key needed; one address may make 120 requests a minute. Each entry is what the `api.changelog.published` webhook delivered: the announcement in `message`, and in `changes` the deterministic diff of the OpenAPI spec (operations and schemas added, removed and modified) for automation to act on. Page with `before` set to the previous page's `nextCursor`.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [new_feature, breaking_change, improvement, deprecation, minor]
+          description: Only entries of this type.
+        - name: platform
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[a-z0-9-]+$' }
+          description: 'Only entries tagged with this platform or area slug (see `platforms` on the entry). One slug per request.'
+          example: whatsapp
+        - name: before
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Only entries published strictly before this instant. Pass the previous page's `nextCursor`.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Changelog entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries, nextCursor]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiChangelogEntry'
+                  nextCursor:
+                    type: [string, "null"]
+                    format: date-time
+                    description: '`before` value for the next page, or null when this page was not full.'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'

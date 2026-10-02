@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - PR Lifecycle Inventory Compute
+#
+# Inventory layer of the pr_lifecycle domain.
+# Collects raw PR state from GitHub via gh CLI.
+# Pure data collection — no classification or action logic.
+#
+# Related Tickets:
+#   - OMN-8082: Create pr_lifecycle_inventory_compute Node
+#   - OMN-13318: Org-wide open-PR census as mandatory sweep-done gate
+---
+name: "node_pr_lifecycle_inventory_compute"
+node_type: "COMPUTE_GENERIC"
+runtime_profiles: [main]
+contract_version:
+  major: 1
+  minor: 2
+  patch: 0
+node_version: "1.2.0"
+description: "Inventory layer of the pr_lifecycle domain — collects raw PR state (status, checks, reviews, conflicts) via gh CLI without classification or action logic, plus opt-in immutable check-execution history and an org-wide open-PR census (OMN-13318) used as the mandatory sweep-done precondition."
+input_model:
+  name: "ModelPrInventoryInput"
+  module: "omnimarket.nodes.node_pr_lifecycle_inventory_compute.models.model_pr_lifecycle_inventory"
+  description: "Repo slug and list of PR numbers to collect state for."
+output_model:
+  name: "ModelPrInventoryOutput"
+  module: "omnimarket.nodes.node_pr_lifecycle_inventory_compute.models.model_pr_lifecycle_inventory"
+  description: "Collected raw PR states with current check runs, opt-in immutable check-execution history, reviews, conflict info, and the org-wide open-PR census (open_count + remainders)."
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "pr_lifecycle_inventory"
+      handler:
+        name: "HandlerPrLifecycleInventory"
+        module: "omnimarket.nodes.node_pr_lifecycle_inventory_compute.handlers.handler_pr_lifecycle_inventory"
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-inventory-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-lifecycle-inventory-completed.v1
+metadata:
+  transport_type: kafka
+  description: "PR lifecycle inventory compute node — raw data collection"
+  author: "OmniNode Platform Team"
+  created: "2026-04-09"
+  tags:
+    - "compute"
+    - "pr-lifecycle"
+    - "inventory"
+    - "OMN-8082"
+    - "OMN-13318"
+    - "OMN-18078"
+  related_tickets:
+    - "OMN-8082"
+    - "OMN-13318"
+    - "OMN-18078"
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.pr-lifecycle-inventory-start.v1

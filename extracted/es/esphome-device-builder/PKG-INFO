@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.18.0
+Version: 1.19.0
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,7 +20,7 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.356
+Requires-Dist: esphome-device-builder-frontend==0.1.357
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
@@ -51,7 +51,7 @@ Requires-Dist: pytest-codspeed==5.0.3; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
-Requires-Dist: ruff==0.16.8; extra == "test"
+Requires-Dist: ruff==0.16.9; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Provides-Extra: mcp-interop
 Requires-Dist: mcp<2,>=1.26; extra == "mcp-interop"
@@ -629,16 +629,20 @@ So it stays on, quietly, like a backup should.
 
 **What it does on disk:**
 
-- If the config directory is not already a git repository, one is
+- If the config directory isn't inside any git repository, one is
   created for it, with a `.gitignore` that keeps `secrets.yaml` out
   of history.
-- If the directory already is a git work tree (or sits inside one,
-  as `/config/esphome` commonly does), it is adopted rather than
-  re-initialised. Automatic commits are scoped to exactly the files
-  that changed, so your own staged work is never swept into one,
-  and your `.gitignore` is never modified. Device Builder's own
-  machine state (sidecars, keys, pairing files) is kept out of
-  history via the repo-local `.git/info/exclude`.
+- If the directory sits inside a larger repository rooted higher up,
+  such as a git-tracked `/config`, Device Builder leaves that
+  repository alone: it creates and commits nothing there, logs why
+  once, and version history stays off.
+- If the directory already is a git repository of its own, it is
+  adopted rather than re-initialised. Automatic commits are scoped
+  to exactly the files that changed, so your own staged work is
+  never swept into one, and your `.gitignore` is never modified.
+  Device Builder's own machine state (sidecars, keys, pairing
+  files) is kept out of history via the repo-local
+  `.git/info/exclude`.
 - Your secrets file is never committed.
 - Commits are authored as
   `ESPHome Device Builder <device-builder@esphome.io>`, with hooks

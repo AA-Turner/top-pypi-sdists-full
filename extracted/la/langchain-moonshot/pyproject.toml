@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langchain-moonshot"
+description = "An integration package connecting Moonshot AI and LangChain"
+authors = [{ name = "ArcadiaLin" }]
+keywords = ["langchain", "moonshot", "moonshot-ai", "llm", "chat-model"]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+version = "0.1.0"
+requires-python = ">=3.10,<4.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "langchain-core>=1.2.21,<2.0.0",
+    "langchain-openai>=1.1.0,<2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ArcadiaLin/langchain-moonshot"
+Repository = "https://github.com/ArcadiaLin/langchain-moonshot"
+Issues = "https://github.com/ArcadiaLin/langchain-moonshot/issues"
+Changelog = "https://github.com/ArcadiaLin/langchain-moonshot/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+test = [
+    "pytest>=7.4.3,<8.0.0",
+    "pytest-asyncio>=0.23.2,<1.0.0",
+    "pytest-socket>=0.7.0,<1.0.0",
+    "pytest-timeout>=2.3.1,<3.0.0",
+    "langchain-tests>=1.0.0,<2.0.0",
+]
+test_integration = [
+    "langgraph>=1.1.0,<2.0.0",
+]
+lint = [
+    "ruff>=0.13.1,<0.14.0",
+]
+typing = [
+    "mypy>=1.10.0,<2.0.0",
+]
+dev = [
+    "pytest>=7.4.3,<8.0.0",
+    "pytest-asyncio>=0.23.2,<1.0.0",
+    "pytest-socket>=0.7.0,<1.0.0",
+    "pytest-timeout>=2.3.1,<3.0.0",
+    "langchain-tests>=1.0.0,<2.0.0",
+    "ruff>=0.13.1,<0.14.0",
+    "mypy>=1.10.0,<2.0.0",
+    "langgraph>=1.1.0,<2.0.0",
+]
+
+[tool.uv]
+constraint-dependencies = ["pygments>=2.20.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["langchain_moonshot"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "langchain_moonshot",
+    "tests",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5"
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["INP001"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

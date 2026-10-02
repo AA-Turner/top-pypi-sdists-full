@@ -1,0 +1,2 @@
+# Compatibility alias; all repositories use the same policy.
+extend = "ruff.strict.toml"

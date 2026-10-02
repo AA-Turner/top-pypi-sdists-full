@@ -1,0 +1,223 @@
+"""Output formatting for linting results.
+
+This module provides functions to format LintReport results in various
+output formats (table, JSON, CSV) for the lint CLI command.
+"""
+
+import csv
+import io
+from pathlib import Path
+from typing import Literal
+
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+
+from confiture.cli.markup import verbatim, verbatim_text
+from confiture.models.lint import LintReport, LintSeverity, Violation
+
+
+def format_lint_report(
+    report: LintReport,
+    format_type: Literal["table", "csv"] = "table",
+    console: Console | None = None,
+) -> str:
+    """Format a LintReport as a table (printed) or as CSV (returned).
+
+    JSON is not a format here: ``lint --format json`` is ``report.to_dict()``
+    through ``helpers.emit``, the one writer of machine output.
+
+    Args:
+        report: LintReport to format
+        format_type: Output format (table or csv)
+        console: Rich Console instance for table rendering
+
+    Returns:
+        The CSV text, or ``""`` for a table (already printed)
+    """
+    if format_type == "csv":
+        return format_csv(report)
+    else:  # table
+        if console is None:
+            console = Console()
+        format_table(report, console)
+        return ""
+
+
+def _severity_string(severity: LintSeverity) -> str:
+    """Format severity level with color.
+
+    Args:
+        severity: Severity level to format
+
+    Returns:
+        Colored severity string for Rich output
+    """
+    if severity == LintSeverity.ERROR:
+        return "[red]ERROR[/red]"
+    elif severity == LintSeverity.WARNING:
+        return "[yellow]WARNING[/yellow]"
+    return "[blue]INFO[/blue]"
+
+
+def _location_cell(violation: Violation) -> Text:
+    """The object, and under it the file and line — the answer to "where?".
+
+    A finding with no file shows the object alone; a line without a file is not
+    a location and is never rendered on its own. Both are data: an object's
+    name may hold ``[link=…]`` or an ESC, and neither is rendered (#488).
+    """
+    location = verbatim_text(violation.location)
+    if not violation.file:
+        return location
+    where = f"{violation.file}:{violation.line}" if violation.line else violation.file
+    return Text.assemble(location, "\n", (verbatim_text(where).plain, "dim"))
+
+
+def format_table(report: LintReport, console: Console) -> None:
+    """Display LintReport as a rich table.
+
+    Args:
+        report: LintReport to display
+        console: Rich Console instance for rendering
+    """
+    # Summary section
+    console.print(f"\n[bold]Schema Linting Results[/bold] - {verbatim(report.schema_name)}")
+    console.print(f"Tables: {verbatim(report.tables_checked)} checked")
+    console.print(f"Columns: {verbatim(report.columns_checked)} checked")
+    console.print(f"Time: {verbatim(report.execution_time_ms)}ms\n")
+
+    _print_statuses(report, console)
+    _print_documentation(report, console)
+
+    if not report.violations:
+        console.print("[green]✅ No violations found![/green]\n")
+        return
+
+    # Violations table
+    table = Table(title="Violations")
+    table.add_column("Severity", style="bold")
+    # The code, not just the prose name: it is what --select / --ignore take.
+    table.add_column("Code", style="cyan")
+    table.add_column("Rule", style="cyan")
+    table.add_column("Location", style="yellow")
+    table.add_column("Message", style="white")
+
+    for violation in sorted(
+        report.violations,
+        key=lambda v: (
+            v.severity == LintSeverity.ERROR,
+            v.severity == LintSeverity.WARNING,
+        ),
+        reverse=True,
+    ):
+        table.add_row(
+            _severity_string(violation.severity),
+            violation.rule_id,
+            violation.rule_name,
+            _location_cell(violation),
+            # Text, not str: a message can quote what an author wrote — doc_005
+            # quotes the COMMENT it is about — and Rich reads `[a]` in a cell as
+            # a style tag, rendering a different sentence from the one reported.
+            verbatim_text(violation.message),
+        )
+
+    console.print(table)
+
+    # Summary counts
+    console.print("\n[bold]Summary:[/bold]")
+    console.print(f"  {verbatim(report.errors_count)} errors")
+    console.print(f"  {verbatim(report.warnings_count)} warnings")
+    console.print(f"  {verbatim(report.info_count)} info")
+
+    # Suggested fixes (if any)
+    fixes = [v for v in report.violations if v.suggested_fix]
+    if fixes:
+        console.print("\n[bold]Suggested Fixes:[/bold]")
+        for violation in fixes:
+            console.print(f"  {verbatim(violation.location)}: {verbatim(violation.suggested_fix)}")
+
+
+#: How each status reads on the summary: "<code> <verb>: <reason>". The verb is
+#: the *state*; what was lost is the `RuleStatus`'s own reason. A verb naming one
+#: degradation ("ran without the live tier") would read as a claim about every
+#: other — an unread file has no live tier to have run without (#274).
+_STATE_VERB = {
+    "skipped": "did not run",
+    "degraded": "ran on less than the whole schema",
+}
+
+
+def _print_statuses(report: LintReport, console: Console) -> None:
+    """Say which rules did not run, and which ran short of a tier.
+
+    Printed above the findings, because it changes how the findings should be
+    read — a degraded rule over-reports, and a skipped one reports nothing at
+    all. ``markup=False``: a reason carries a rule code and a driver's error
+    text, and Rich would read ``[build_003]`` as a style tag and render it as
+    nothing.
+    """
+    for status in (*report.skipped, *report.degraded):
+        verb = _STATE_VERB.get(status["state"], status["state"])
+        console.print(f"{status['code']} {verb}: {status['reason']}\n", markup=False)
+
+
+def _print_documentation(report: LintReport, console: Console) -> None:
+    """The `doc` family's distribution, in one line, above the findings.
+
+    Printed before the early return for a clean report, because the failure
+    mode #250 describes has no findings at all: a schema whose every object
+    carries a one-line restatement of its own name reports zero `doc`
+    violations and a documentation figure of 100 %. The median is what tells
+    that apart from a documented schema, and p10/p90 tell it apart from a
+    schema where half the objects got the real treatment.
+    """
+    block = report.documentation
+    if block is None:
+        return
+    line = f"doc: {block['documented']} documented, {block['undocumented']} undocumented"
+    lengths = block.get("comment_length")
+    if lengths:
+        line += (
+            f", median comment {lengths['p50']} chars (p10 {lengths['p10']}, p90 {lengths['p90']})"
+        )
+    console.print(f"[dim]{verbatim(line)}[/dim]\n")
+
+
+def format_csv(report: LintReport) -> str:
+    """Format LintReport as CSV.
+
+    Args:
+        report: LintReport to format
+
+    Returns:
+        CSV string representation
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        ["rule_name", "severity", "location", "file", "line", "message", "suggested_fix"]
+    )
+    for violation in report.violations:
+        writer.writerow(
+            [
+                violation.rule_name,
+                violation.severity.value,
+                violation.location,
+                violation.file or "",
+                "" if violation.line is None else violation.line,
+                violation.message,
+                violation.suggested_fix or "",
+            ]
+        )
+    return buffer.getvalue().rstrip("\n")
+
+
+def save_report(report: LintReport, output_path: Path) -> None:
+    """Save LintReport to a file as CSV.
+
+    Args:
+        report: LintReport to save
+        output_path: Path to save to
+    """
+    output_path.write_text(format_csv(report))

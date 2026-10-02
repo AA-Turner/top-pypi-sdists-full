@@ -30,8 +30,9 @@ class GpuGroupBy(object):
     """
     INSTANCE_TYPE = "instance_type"
     WORKLOAD = "workload"
+    K8S_CLUSTER = "k8s_cluster"
 
-    allowable_values = [INSTANCE_TYPE, WORKLOAD]  # noqa: E501
+    allowable_values = [INSTANCE_TYPE, WORKLOAD, K8S_CLUSTER]  # noqa: E501
 
     """
     Attributes:

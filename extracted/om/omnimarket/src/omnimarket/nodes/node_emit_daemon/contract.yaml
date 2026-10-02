@@ -1,0 +1,266 @@
+---
+name: emit_daemon
+contract_version: {major: 1, minor: 2, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 2, patch: 0}
+
+description: >
+  Self-healing portable event publishing daemon. Accepts events via Unix
+  domain socket, validates against a pluggable per-platform event registry,
+  and publishes to Kafka with circuit breaker protection. Durability is split
+  by declared per-topic tier: duty-critical / command / evidence topics use an
+  append-only durable outbox (acked replay outbox -> Kafka, truncate-on-ack,
+  never drop; outbox-full surfaces explicit backpressure to the caller), while
+  telemetry topics use a bounded in-memory queue + disk spool with drop-oldest
+  on overflow (bounded loss correct by design). Tier is a required per-topic
+  property in registries/topics.yaml; the registry fails fast on any fan-out
+  rule with no declared tier. Health endpoint responds within 100ms and never
+  hangs.
+
+handler_routing:
+  handlers:
+    - operation: emit_daemon
+      handler:
+        name: HandlerEmitDaemon
+        module: omnimarket.nodes.node_emit_daemon.handlers.handler_emit_daemon
+
+input_model:
+  name: ModelEmitDaemonCommand
+  module: omnimarket.nodes.node_emit_daemon.models.model_daemon_state
+  description: Typed lifecycle command for start, stop, and health checks.
+output_model:
+  name: ModelEmitDaemonState
+  module: omnimarket.nodes.node_emit_daemon.models.model_daemon_state
+  description: Current daemon lifecycle state or completed transition event.
+
+runtime_dispatch:
+  command_topic: onex.cmd.omnimarket.emit-daemon-lifecycle.v1
+  terminal_events:
+    success: onex.evt.omnimarket.emit-daemon-lifecycle-completed.v1
+    failure: onex.evt.omnimarket.emit-daemon-lifecycle-failed.v1
+  default_timeout_ms: 5000
+  max_timeout_ms: 30000
+
+descriptor:
+  node_archetype: service
+  purity: effectful
+  runtime_profiles:
+    - effects
+  idempotent: false
+  timeout_ms: 0  # long-running daemon, no timeout
+
+env_dependencies:
+  KAFKA_BOOTSTRAP_SERVERS:
+    required: false
+    description: "Kafka broker addresses. Omit for no-kafka standalone mode."
+  ONEX_EMIT_SOCKET_PATH:
+    required: false
+    description: "Unix socket path override. Default: /tmp/onex-emit.sock"
+
+self_healing:
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout_seconds: 30
+    half_open_probes: 1
+    description: >
+      After 5 consecutive Kafka publish failures, circuit opens and events
+      are buffered in the memory queue + disk spool. After 30s, a probe
+      publish is attempted. On success, circuit closes and buffered events
+      are drained. On failure, circuit stays open for another 30s.
+  backoff:
+    strategy: exponential
+    base_seconds: 1.0
+    max_seconds: 60.0
+  auto_reconnect: true
+  health_endpoint:
+    protocol: unix_socket
+    command: '{"command": "health"}'
+    budget_ms: 100
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.emit-daemon-lifecycle.v1
+  # Topics are driven by the event registry YAML (registries/topics.yaml).
+  # This list mirrors the fan-out targets declared there so the dep-health
+  # sweep can verify they are contract-declared (OMN-11061).
+  publish_topics:
+    # Lifecycle management
+    - onex.evt.omnimarket.emit-daemon-lifecycle-completed.v1
+    - onex.evt.omnimarket.emit-daemon-lifecycle-failed.v1
+    # Session events
+    - onex.evt.omniclaude.session-started.v1
+    - onex.evt.omniclaude.session-ended.v1
+    - onex.cmd.omniintelligence.session-outcome.v1
+    - onex.cmd.omniintelligence.utilization-scoring.v1
+    # Prompt events
+    - onex.cmd.omniintelligence.claude-hook-event.v1
+    - onex.evt.omniclaude.prompt-submitted.v1
+    # Tool events
+    - onex.evt.omniclaude.tool-executed.v1
+    - onex.cmd.omniintelligence.tool-content.v1
+    # Full-content capture (OMN-19550)
+    - onex.cmd.omniintelligence.content-captured.v1
+    # Routing events
+    - onex.evt.omniclaude.routing-feedback.v1
+    - onex.evt.omniclaude.routing-decision.v1
+    - onex.evt.omniclaude.llm-routing-decision.v1
+    - onex.evt.omniclaude.llm-routing-fallback.v1
+    # Injection and context events
+    - onex.evt.omniclaude.injection-recorded.v1
+    - onex.evt.omniclaude.context-utilization.v1
+    - onex.evt.omniclaude.context-enrichment.v1
+    # Agent events
+    - onex.evt.omniclaude.agent-match.v1
+    - onex.evt.omniclaude.agent-status.v1
+    - onex.evt.omniclaude.agent-chat-broadcast.v1
+    # Latency and phase metrics
+    - onex.evt.omniclaude.latency-breakdown.v1
+    - onex.evt.omniclaude.phase-metrics.v1
+    # Notification events
+    - onex.evt.omniclaude.notification-blocked.v1
+    - onex.evt.omniclaude.notification-completed.v1
+    # Compliance and enforcement
+    - onex.cmd.omniintelligence.compliance-evaluate.v1
+    - onex.evt.omniclaude.pattern-enforcement.v1
+    # Static context edit detection
+    - onex.evt.omniclaude.static-context-edit-detected.v1
+    # Intent binding
+    - onex.evt.omniclaude.intent-commit-bound.v1
+    # ChangeFrame events
+    - onex.evt.omniclaude.change-frame.v1
+    # Skill lifecycle events
+    - onex.evt.omniclaude.skill-started.v1
+    - onex.evt.omniclaude.skill-completed.v1
+    - onex.evt.omniclaude.skill-invoked.v1
+    - onex.evt.omniclaude.friction-observed.v1
+    # Pipeline observability events
+    - onex.evt.omniclaude.epic-run-updated.v1
+    - onex.evt.omniclaude.pr-watch-updated.v1
+    - onex.evt.omniclaude.gate-decision.v1
+    - onex.evt.omniclaude.budget-cap-hit.v1
+    - onex.evt.omniclaude.circuit-breaker-tripped.v1
+    # PR validation
+    - onex.evt.omniclaude.pr-validation-rollup.v1
+    # DoD telemetry
+    - onex.evt.omniclaude.dod-guard-fired.v1
+    - onex.evt.omniclaude.dod-sweep-completed.v1
+    # Correlation trace
+    - onex.evt.omniclaude.correlation-trace.v1
+    # Context integrity audit
+    - onex.evt.omniclaude.audit-dispatch-validated.v1
+    - onex.evt.omniclaude.audit-scope-violation.v1
+    # Plan and review events
+    - onex.evt.omniclaude.plan-review-completed.v1
+    - onex.evt.omniclaude.hostile-reviewer-completed.v1
+    - onex.evt.omniclaude.hostile-reviewer-failed.v1
+    # Coordination events
+    - onex.evt.omniclaude.session-coordination-signal.v1
+    # Team lifecycle events
+    - onex.evt.omniclaude.team-task-assigned.v1
+    - onex.evt.omniclaude.team-task-progress.v1
+    - onex.evt.omniclaude.team-task-completed.v1
+    - onex.evt.omniclaude.team-evidence-written.v1
+    # Delegation command (renamed from delegation.request)
+    - onex.cmd.omniclaude.delegate-task.v1
+    # Agent action telemetry
+    - onex.evt.omniclaude.agent-actions.v1
+    # LLM cost telemetry
+    - onex.evt.omniintelligence.llm-call-completed.v1
+    # Durable capture events (duty-critical)
+    - onex.evt.omnimarket.artifact-captured.v1
+    - onex.evt.omnimarket.tool-output-captured.v1
+    # Hook health
+    - onex.evt.omniclaude.hook-health-error.v1
+    # Runtime diagnostics
+    # Note: onex.evt.diagnostic.daemon-health.v1 uses non-standard service name 'diagnostic'
+    # and cannot be listed here without failing the topic-naming lint. It is allowlisted
+    # in dep_health_allowlist.yaml for UNDECLARED_TOPIC suppression (OMN-11061).
+    - onex.evt.omniclaude.diagnostic-daemon-health.v1
+    # Work-obligation lifecycle (OMN-17019 / C9). Mirrors the five
+    # work.obligation.* fan-out targets in registries/topics.yaml. Declaring
+    # them here is what makes node_projection_open_obligations a wired consumer
+    # rather than an ORPHANED_CONSUMER: the contract-topic-graph gate proves
+    # statically that something can send a subscriber a message, and the emit
+    # daemon is that something for every topic this registry fans out to.
+    - onex.evt.omniclaude.work-obligation-created.v1
+    - onex.evt.omniclaude.work-obligation-transferred.v1
+    - onex.evt.omniclaude.work-obligation-satisfied.v1
+    - onex.evt.omniclaude.work-obligation-superseded.v1
+    - onex.evt.omniclaude.work-obligation-abandoned.v1
+
+externally_consumed_topics:
+  - onex.cmd.omniintelligence.tool-content.v1
+  - onex.cmd.omniintelligence.claude-hook-event.v1
+  - onex.cmd.omniintelligence.compliance-evaluate.v1
+  - onex.cmd.omniintelligence.session-outcome.v1
+  - onex.cmd.omniintelligence.utilization-scoring.v1
+  - onex.evt.omniclaude.notification-blocked.v1
+  - onex.evt.omnimarket.tool-output-captured.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/agent_actions/consumer.py
+  - onex.evt.omniclaude.agent-actions.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.agent-chat-broadcast.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/injection_effectiveness/consumer.py
+  - onex.evt.omniclaude.agent-match.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/agent_actions/consumer.py
+  - onex.evt.omniclaude.agent-status.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/context_audit/consumer.py
+  - onex.evt.omniclaude.audit-dispatch-validated.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/context_audit/consumer.py
+  - onex.evt.omniclaude.audit-scope-violation.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.change-frame.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/injection_effectiveness/consumer.py
+  - onex.evt.omniclaude.context-enrichment.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/injection_effectiveness/consumer.py
+  - onex.evt.omniclaude.context-utilization.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.correlation-trace.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.diagnostic-daemon-health.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.dod-guard-fired.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.dod-sweep-completed.v1
+  # referenced outside the node graph at omniclaude/plugins/onex/hooks/lib/pipeline_event_emitters.py
+  - onex.evt.omniclaude.epic-run-updated.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.friction-observed.v1
+  # referenced outside the node graph at omniclaude/plugins/onex/hooks/lib/pipeline_event_emitters.py
+  - onex.evt.omniclaude.gate-decision.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.hook-health-error.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.hostile-reviewer-completed.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.hostile-reviewer-failed.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/injection_effectiveness/consumer.py
+  - onex.evt.omniclaude.injection-recorded.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.intent-commit-bound.v1
+  # consumed off-graph by omnibase_infra/src/omnibase_infra/services/observability/injection_effectiveness/consumer.py
+  - onex.evt.omniclaude.latency-breakdown.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.llm-routing-fallback.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.plan-review-completed.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.pr-validation-rollup.v1
+  # referenced outside the node graph at omniclaude/plugins/onex/hooks/lib/pipeline_event_emitters.py
+  - onex.evt.omniclaude.pr-watch-updated.v1
+  # referenced outside the node graph at omnibase_infra/src/omnibase_infra/enums/generated/enum_omniclaude_topic.py
+  - onex.evt.omniclaude.session-coordination-signal.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.skill-invoked.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.static-context-edit-detected.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.team-evidence-written.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.team-task-assigned.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.team-task-completed.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omniclaude.team-task-progress.v1
+  # referenced outside the node graph at omniclaude/src/omniclaude/hooks/topics.py
+  - onex.evt.omnimarket.artifact-captured.v1

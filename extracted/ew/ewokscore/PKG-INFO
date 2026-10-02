@@ -1,0 +1,160 @@
+Metadata-Version: 2.4
+Name: ewokscore
+Version: 5.0.0
+Summary: API for graphs and tasks in Ewoks
+Author-email: ESRF <dau-pydev@esrf.fr>
+License: # MIT License
+        
+        **Copyright (c) 2021 European Synchrotron Radiation Facility**
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of
+        this software and associated documentation files (the "Software"), to deal in
+        the Software without restriction, including without limitation the rights to
+        use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+        the Software, and to permit persons to whom the Software is furnished to do so,
+        subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+        FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+        COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+        IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+        CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/ewoks-kit/ewokscore
+Project-URL: Documentation, https://ewokscore.readthedocs.io/
+Project-URL: Repository, https://github.com/ewoks-kit/ewokscore
+Project-URL: Issues, https://github.com/ewoks-kit/ewokscore/issues/
+Project-URL: Changelog, https://github.com/ewoks-kit/ewokscore/blob/main/CHANGELOG.md
+Keywords: ewoks
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: numpy>=1.15
+Requires-Dist: networkx>=2
+Requires-Dist: silx>=1
+Requires-Dist: pyyaml>=5.1
+Requires-Dist: h5py>=2.8
+Requires-Dist: packaging
+Requires-Dist: ewoksutils>=1.10.0
+Requires-Dist: importlib_metadata; python_version < "3.9"
+Requires-Dist: pydantic>=2
+Requires-Dist: typing_extensions; python_version < "3.11"
+Requires-Dist: backports.strenum; python_version < "3.11"
+Provides-Extra: notebooks
+Requires-Dist: papermill; extra == "notebooks"
+Provides-Extra: test
+Requires-Dist: ewokscore[notebooks]; extra == "test"
+Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: matplotlib>=3; extra == "test"
+Requires-Dist: ipykernel; extra == "test"
+Provides-Extra: dev
+Requires-Dist: ewokscore[test]; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Provides-Extra: doc
+Requires-Dist: ewokscore[test]; extra == "doc"
+Requires-Dist: sphinx>=4.5; extra == "doc"
+Requires-Dist: sphinxcontrib-mermaid>=0.7; extra == "doc"
+Requires-Dist: sphinx-autodoc-typehints>=1.16; extra == "doc"
+Requires-Dist: nbsphinx; extra == "doc"
+Requires-Dist: docutils<0.21; extra == "doc"
+Requires-Dist: nbsphinx_link; extra == "doc"
+Requires-Dist: pydata-sphinx-theme; extra == "doc"
+Requires-Dist: sphinx-copybutton; extra == "doc"
+Dynamic: license-file
+
+# ewokscore
+
+[![Pipeline](https://github.com/ewoks-kit/ewokscore/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/ewoks-kit/ewokscore/actions/workflows/test.yml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License](https://img.shields.io/github/license/ewoks-kit/ewokscore)](https://github.com/ewoks-kit/ewokscore/blob/main/LICENSE.md)
+[![Coverage](https://codecov.io/gh/ewoks-kit/ewokscore/branch/main/graph/badge.svg)](https://codecov.io/gh/ewoks-kit/ewokscore)
+[![Docs](https://readthedocs.org/projects/ewokscore/badge/?version=latest)](https://ewokscore.readthedocs.io/en/latest/?badge=latest)
+[![PyPI](https://img.shields.io/pypi/v/ewokscore)](https://pypi.org/project/ewokscore/)
+
+*ewokscore* provides an API to define workflows and implement tasks in [ewoks](https://ewoks.readthedocs.io/).
+
+## Install
+
+```bash
+pip install ewokscore[test]
+```
+
+## Test
+
+```bash
+pytest --pyargs ewokscore.tests
+```
+
+## Getting started
+
+```python
+from ewokscore.task import Task
+from ewokscore import execute_graph
+
+
+# Implement a workflow task
+class SumTask(
+    Task, input_names=["a"], optional_input_names=["b"], output_names=["result"]
+):
+    def run(self):
+        result = self.inputs.a
+        if self.inputs.b:
+            result += self.inputs.b
+        self.outputs.result = result
+
+
+# Define a workflow with default inputs
+graph = {"id": "testworkflow", "schema_version": "1.1"}
+nodes = [
+    {
+        "id": "task1",
+        "task_type": "class",
+        "task_identifier": "__main__.SumTask",
+        "default_inputs": [{"name": "a", "value": 1}],
+    },
+    {
+        "id": "task2",
+        "task_type": "class",
+        "task_identifier": "__main__.SumTask",
+        "default_inputs": [{"name": "b", "value": 1}],
+    },
+    {
+        "id": "task3",
+        "task_type": "class",
+        "task_identifier": "__main__.SumTask",
+        "default_inputs": [{"name": "b", "value": 1}],
+    },
+]
+links = [
+    {
+        "source": "task1",
+        "target": "task2",
+        "data_mapping": [{"source_output": "result", "target_input": "a"}],
+    },
+    {
+        "source": "task2",
+        "target": "task3",
+        "data_mapping": [{"source_output": "result", "target_input": "a"}],
+    },
+]
+workflow = {"graph": graph, "nodes": nodes, "links": links}
+
+# Define task inputs
+inputs = [{"id": "task1", "name": "a", "value": 10}]
+
+# Execute a workflow (use a proper Ewoks task scheduler in production)
+varinfo = {"root_uri": "/tmp/myresults"}  # optionally save all task outputs
+result = execute_graph(workflow, varinfo=varinfo, inputs=inputs)
+print(result)
+```
+
+## Documentation
+
+https://ewokscore.readthedocs.io/

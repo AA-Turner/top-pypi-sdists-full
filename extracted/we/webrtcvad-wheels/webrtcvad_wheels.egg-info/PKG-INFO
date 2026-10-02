@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: webrtcvad-wheels
-Version: 2.0.14
+Version: 2.0.14.post1
 Summary: Python interface to the Google WebRTC Voice Activity Detector (VAD) [released with binary wheels!]
 Home-page: https://github.com/daanzu/py-webrtcvad-wheels
 Author: David Zurow
@@ -13,18 +13,27 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: unittest2; extra == "dev"
 Requires-Dist: psutil; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://img.shields.io/pypi/v/webrtcvad-wheels.svg
     :target: https://pypi.python.org/pypi/webrtcvad-wheels/
@@ -112,6 +121,13 @@ To run unit tests::
 
 History
 -------
+
+2.0.14.post1
+
+* Packaging update; VAD behavior unchanged.
+* Require Python 3.10 or newer; support CPython 3.10-3.14 and PyPy 3.11.
+* Refresh the full wheel set for Linux, Windows, Intel macOS, and Apple Silicon macOS.
+* Include the memory-leak test fixture in the source distribution and validate distributions before publishing.
 
 2.0.14
 

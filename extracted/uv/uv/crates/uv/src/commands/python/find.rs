@@ -8,8 +8,8 @@ use uv_configuration::{ActiveEnvironment, DependencyGroupsWithDefaults};
 use uv_errors::ErrorWithHints;
 use uv_fs::Simplified;
 use uv_python::{
-    ConfigDiscovery, EnvironmentPreference, PythonDownloads, PythonInstallation, PythonPreference,
-    PythonRequest,
+    ConfigDiscovery, EnvironmentPreference, PythonArchitecture, PythonDownloads,
+    PythonInstallation, PythonPreference, PythonRequest,
 };
 use uv_scripts::Pep723ItemRef;
 use uv_settings::PythonInstallMirrors;
@@ -18,7 +18,9 @@ use uv_workspace::{DiscoveryOptions, VirtualProject, WorkspaceCache, WorkspaceEr
 
 use crate::commands::{
     ExitStatus,
-    project::{ScriptInterpreter, WorkspacePython, validate_project_requires_python},
+    project::{
+        PythonRequirementSource, ScriptInterpreter, WorkspacePython, validate_python_requirement,
+    },
 };
 use crate::printer::Printer;
 
@@ -33,6 +35,7 @@ pub(crate) async fn find(
     system: bool,
     config_discovery: ConfigDiscovery,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads_json_url: Option<&str>,
     client_builder: &BaseClientBuilder<'_>,
     cache: &Cache,
@@ -77,7 +80,7 @@ pub(crate) async fn find(
     let WorkspacePython {
         source,
         python_request,
-        requires_python,
+        requirement,
     } = WorkspacePython::from_request(
         request.map(|request| PythonRequest::parse(&request)),
         project.as_ref().map(VirtualProject::workspace),
@@ -92,6 +95,7 @@ pub(crate) async fn find(
         &python_request,
         environment_preference,
         python_preference,
+        python_arch,
         cache,
     )?;
     python
@@ -104,13 +108,15 @@ pub(crate) async fn find(
         .await?;
 
     // Warn if the discovered Python version is incompatible with the current workspace
-    if let Some(requires_python) = requires_python {
-        match validate_project_requires_python(
+    if let Some(requirement) = requirement {
+        match validate_python_requirement(
             python.interpreter(),
-            project.as_ref().map(VirtualProject::workspace),
-            &groups,
-            &requires_python,
+            &requirement.requires_python,
             &source,
+            PythonRequirementSource::Workspace(
+                project.as_ref().map(VirtualProject::workspace),
+                &groups,
+            ),
         ) {
             Ok(()) => {}
             Err(err) => {
@@ -143,6 +149,7 @@ pub(crate) async fn find_script(
     resolve_links: bool,
     client_builder: &BaseClientBuilder<'_>,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads: PythonDownloads,
     config_discovery: ConfigDiscovery,
     cache: &Cache,
@@ -153,6 +160,7 @@ pub(crate) async fn find_script(
         None,
         client_builder,
         python_preference,
+        python_arch,
         python_downloads,
         &PythonInstallMirrors::default(),
         false,

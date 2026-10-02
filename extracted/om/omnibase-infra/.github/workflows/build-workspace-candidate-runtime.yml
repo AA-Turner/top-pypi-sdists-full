@@ -1,0 +1,666 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# build-workspace-candidate-runtime.yml — OMN-13656
+#
+# Builds a SCANNED workspace-from-dev runtime image and pushes it to ECR as an
+# explicitly NON-PROD "stability-candidate". This is the CI counterpart of the
+# local deploy-runtime.sh BUILD_SOURCE=workspace path: it stages the sibling
+# repos at their dev HEAD, builds docker/Dockerfile.runtime in WORKSPACE mode,
+# runs the SAME Trivy scan + the OMN-9139 source-hash attestation + a provenance
+# manifest, and pushes a candidate-tagged image.
+#
+# Lineage guard discipline (OMN-12626):
+#   A workspace build is NON-main-lineage BY DESIGN (it stages dev-HEAD siblings),
+#   so the prod-bound lineage guard does NOT run here. Instead the image is STAMPED
+#   as a stability-candidate (build-manifest BUILD_SOURCE=workspace,
+#   promotion_class=stability-candidate, non_main_lineage:true + OCI labels
+#   com.omninode.promotion_class / com.omninode.non_main_lineage). The omnimarket
+#   prod-promotion gate (node_prod_promotion_gate_compute) REFUSES such an image
+#   for prod unless an explicit candidate-authorizing grant exists. The digest is
+#   pinnable to the dev / stability-test lane kustomization ONLY — never prod.
+#
+# Trigger: workflow_dispatch, plus workflow_call (OMN-15796). Still never a bare
+# `push:` trigger on this file -- the image NEVER masquerades as a clean-main build
+# under the lineage guard, and the stamping above is what keeps that true regardless
+# of who starts the build.
+#
+# OMN-15796/OMN-14044 (workflow_call): dispatch-only meant a candidate existed only
+# when a human remembered to ask for one, so onex-dev routinely ran days-old code
+# behind a green deploy. deliver-dev-candidate-to-staging.yml now calls this workflow
+# on a dev merge and forwards the resulting digest to omninode_infra. Being *called*
+# changes nothing about what is built or how it is stamped: same workspace mode, same
+# unweakened Trivy scan, same stability-candidate labels, same prod refusal. The
+# outputs below exist so the caller can name the image it just built -- the digest is
+# the thing that gets pinned, and a build whose digest the caller cannot read is not
+# a link in a chain.
+
+name: Build workspace stability-candidate runtime (OMN-13656)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sibling_ref:
+        description: "Git ref to stage sibling repos at (default: dev)."
+        required: false
+        default: "dev"
+        type: string
+      pinned_repo:
+        # OMN-17057. `sibling_ref` is ONE value applied to every sibling, which
+        # is why its own comments insist it stay a branch name: a commit SHA
+        # from omnimarket does not exist in omnibase_core, so cloning all four
+        # at it fails outright. That constraint is real, and it is also the
+        # whole defect -- it means the vendored sibling revision is never
+        # CHOSEN. Whichever commit each repo's `dev` happens to point at when
+        # some OTHER repository's merge fires a rebuild is the one the lane and
+        # then staging run, and no sibling merge can cause or prove delivery of
+        # its own sha.
+        #
+        # These two inputs name ONE repository and ONE revision. Everything
+        # else keeps taking `sibling_ref`, so the axis `sibling_ref` was
+        # protecting is untouched. The mechanism underneath already exists and
+        # has since OMN-17135: `deploy_source_ref.py` takes `--ref` plus
+        # `--fallback-ref` and resolves the primary in whichever repository
+        # carries it while taking the fallback everywhere else, recording
+        # `fallback_from`. What CI did until now was pass the same branch name
+        # as both, throwing that capability away.
+        #
+        # Family-general by construction: `omnimarket`, `omnibase_core`,
+        # `omnibase_compat` and `omnibase_spi` are all staged by the same loop,
+        # so each names itself here with no per-repo code anywhere. `omniclaude`
+        # is deliberately outside the family -- it is not in SIBLING_REPOS and
+        # is not vendored into the image, so there is nothing for it to pin.
+        description: >-
+          Sibling repository whose revision is pinned exactly (e.g. omnimarket).
+          Empty means every sibling takes sibling_ref, which is the pre-OMN-17057
+          behaviour.
+        required: false
+        default: ""
+        type: string
+      pinned_revision:
+        description: >-
+          40-character commit SHA in pinned_repo. Refused unless pinned_repo is
+          also set, and refused if the staged tree does not end up at it.
+        required: false
+        default: ""
+        type: string
+      no-cache:
+        # Same bare-boolean rule as the workflow_call block below. GitHub
+        # tolerates a quoted default on a dispatch-only input, which is exactly
+        # why this one survived here long enough for OMN-15796 to copy it into
+        # the workflow_call block, where it is fatal (OMN-16906).
+        description: "Build with --no-cache to force a fresh foundation install."
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      sibling_ref:
+        description: "Git ref to stage sibling repos at."
+        required: false
+        default: "dev"
+        type: string
+      pinned_repo:
+        # OMN-17057. `sibling_ref` is ONE value applied to every sibling, which
+        # is why its own comments insist it stay a branch name: a commit SHA
+        # from omnimarket does not exist in omnibase_core, so cloning all four
+        # at it fails outright. That constraint is real, and it is also the
+        # whole defect -- it means the vendored sibling revision is never
+        # CHOSEN. Whichever commit each repo's `dev` happens to point at when
+        # some OTHER repository's merge fires a rebuild is the one the lane and
+        # then staging run, and no sibling merge can cause or prove delivery of
+        # its own sha.
+        #
+        # These two inputs name ONE repository and ONE revision. Everything
+        # else keeps taking `sibling_ref`, so the axis `sibling_ref` was
+        # protecting is untouched. The mechanism underneath already exists and
+        # has since OMN-17135: `deploy_source_ref.py` takes `--ref` plus
+        # `--fallback-ref` and resolves the primary in whichever repository
+        # carries it while taking the fallback everywhere else, recording
+        # `fallback_from`. What CI did until now was pass the same branch name
+        # as both, throwing that capability away.
+        #
+        # Family-general by construction: `omnimarket`, `omnibase_core`,
+        # `omnibase_compat` and `omnibase_spi` are all staged by the same loop,
+        # so each names itself here with no per-repo code anywhere. `omniclaude`
+        # is deliberately outside the family -- it is not in SIBLING_REPOS and
+        # is not vendored into the image, so there is nothing for it to pin.
+        description: >-
+          Sibling repository whose revision is pinned exactly (e.g. omnimarket).
+          Empty means every sibling takes sibling_ref, which is the pre-OMN-17057
+          behaviour.
+        required: false
+        default: ""
+        type: string
+      pinned_revision:
+        description: >-
+          40-character commit SHA in pinned_repo. Refused unless pinned_repo is
+          also set, and refused if the staged tree does not end up at it.
+        required: false
+        default: ""
+        type: string
+      no-cache:
+        # OMN-16906: BARE `false`, never `"false"`. GitHub type-checks this
+        # default while compiling the CALLER's graph, so a quoted default here
+        # fails deliver-dev-candidate-to-staging.yml with `startup_failure` --
+        # no job, no log, and a silently undelivered dev merge. This workflow's
+        # own dispatch runs stay green throughout, which is what made the
+        # outage invisible for a day. Ratcheted by
+        # scripts/ci/check_workflow_input_default_types.py.
+        description: "Build with --no-cache to force a fresh foundation install."
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      digest:
+        description: "sha256 digest of the pushed candidate image (ECR-verified post-push)."
+        value: ${{ jobs.build-workspace-candidate.outputs.image_digest }}
+      image-ref:
+        description: "Digest-pinned 'registry/repo@sha256:digest' reference of the candidate."
+        value: ${{ jobs.build-workspace-candidate.outputs.image_ref }}
+      candidate-tag:
+        description: "The candidate-<sha7>-<ts> tag the image was pushed under."
+        value: ${{ jobs.build-workspace-candidate.outputs.candidate_tag }}
+
+concurrency:
+  group: build-workspace-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: omninode-runtime
+  UV_VERSION: "0.6.14"
+  PYTHON_VERSION: "3.12"
+  # The sibling repos the workspace build stages. omnibase_core is staged FIRST
+  # (Dockerfile workspace branch reinstalls dev-HEAD core before the others).
+  SIBLING_REPOS: "omnibase_core omnibase_compat omnimarket"
+
+jobs:
+  build-workspace-candidate:
+    name: Build + scan + push workspace stability-candidate
+    permissions:
+      id-token: write
+      contents: read
+    # OMN-14974: use clean cloud egress for ECR. The .201 self-hosted Docker
+    # daemon is a proven-unreliable push lane (the clean-main runtime workflow
+    # moved off it in OMN-13747 for the same EOF/stalled-upload failure mode).
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    outputs:
+      image_digest: ${{ steps.resolve-digest.outputs.digest }}
+      image_ref: ${{ steps.resolve-digest.outputs.image_ref }}
+      candidate_tag: ${{ steps.meta.outputs.candidate_tag }}
+
+    steps:
+      - name: Checkout omnibase_infra (the consuming repo / build context)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify Docker socket access
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker daemon is not accessible on this runner."
+            exit 1
+          fi
+          echo "Docker daemon accessible"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+        with:
+          driver: docker
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Stage the sibling repos at their requested ref into a workspace root, then
+      # point OMNI_HOME at it so stage_workspace.sh + the Dockerfile workspace
+      # branch vendor the dev-HEAD siblings. Each clone is shallow at the ref but
+      # carries full enough history for HEAD SHA / branch / status probes that
+      # stage_workspace.sh records as per-repo VCS provenance (OMN-13030).
+      # OMN-17057: refuse a half-specified pin before anything is cloned. A
+      # revision with no repository names nothing; a repository with no
+      # revision would silently fall through to the branch and produce a build
+      # that LOOKS pinned. Both are refusals, not warnings.
+      - name: Validate the sibling pin
+        env:
+          PINNED_REPO: ${{ inputs.pinned_repo }}
+          PINNED_REVISION: ${{ inputs.pinned_revision }}
+          SIBLING_REPOS_ALL: ${{ env.SIBLING_REPOS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PINNED_REPO}" ] && [ -z "${PINNED_REVISION}" ]; then
+            echo "no sibling pin requested; every sibling takes sibling_ref"
+            exit 0
+          fi
+          if [ -z "${PINNED_REPO}" ] || [ -z "${PINNED_REVISION}" ]; then
+            echo "::error::pinned_repo='${PINNED_REPO}' and" \
+              "pinned_revision='${PINNED_REVISION}' must be set together." \
+              "A half-specified pin would build from the branch while reading" \
+              "as pinned."
+            exit 1
+          fi
+          if ! [[ "${PINNED_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::pinned_revision='${PINNED_REVISION}' is not a" \
+              "40-character lowercase commit sha. A branch or tag is not a" \
+              "named revision -- that is the defect this input closes."
+            exit 1
+          fi
+          FOUND=0
+          for repo in ${SIBLING_REPOS_ALL}; do
+            [ "${repo}" = "${PINNED_REPO}" ] && FOUND=1
+          done
+          if [ "${FOUND}" -ne 1 ]; then
+            echo "::error::pinned_repo='${PINNED_REPO}' is not one of the" \
+              "repositories this image vendors (${SIBLING_REPOS_ALL})." \
+              "Pinning a repository the build does not stage would change" \
+              "nothing while reading as a pin."
+            exit 1
+          fi
+          echo "pinning ${PINNED_REPO} at ${PINNED_REVISION}; other siblings take sibling_ref"
+
+      - name: Stage sibling repos at the requested ref
+        id: stage-siblings
+        env:
+          SIBLING_REF: ${{ inputs.sibling_ref }}
+          PINNED_REPO: ${{ inputs.pinned_repo }}
+          PINNED_REVISION: ${{ inputs.pinned_revision }}
+        run: |
+          set -euo pipefail
+          WORKSPACE_ROOT="${RUNNER_TEMP}/omni_workspace"
+          rm -rf "${WORKSPACE_ROOT}"
+          mkdir -p "${WORKSPACE_ROOT}"
+          # The consuming repo (omnibase_infra) is itself a sibling for the
+          # lock-pin preflight; symlink the checked-out tree in.
+          ln -s "${GITHUB_WORKSPACE}" "${WORKSPACE_ROOT}/omnibase_infra"
+          # omnibase_spi is referenced by the lock-pin preflight too. Keep the
+          # complete commit graph so ancestry checks can distinguish a valid
+          # clone-ahead state from unrelated SHA drift.
+          for repo in omnibase_spi ${SIBLING_REPOS}; do
+            echo "::group::clone ${repo}@${SIBLING_REF}"
+            git clone --filter=blob:none --branch "${SIBLING_REF}" \
+              "https://github.com/OmniNode-ai/${repo}.git" \
+              "${WORKSPACE_ROOT}/${repo}"
+            # OMN-17057: the pinned commit is a MERGE commit on the branch just
+            # cloned, so it is already reachable -- but only if the branch tip
+            # is at or after it. A pin that raced its own merge landing on the
+            # remote would otherwise surface much later, inside RT-1, as an
+            # unresolvable ref with no clue which repository moved. Fetch it by
+            # sha explicitly and fail here, where the message can name the repo
+            # and the commit.
+            if [ "${repo}" = "${PINNED_REPO:-}" ]; then
+              if ! git -C "${WORKSPACE_ROOT}/${repo}" \
+                  fetch --filter=blob:none origin "${PINNED_REVISION}"; then
+                echo "::error::${repo} does not carry ${PINNED_REVISION}." \
+                  "Refusing to build a candidate that claims a revision its" \
+                  "source does not contain."
+                exit 1
+              fi
+              echo "  ${repo} carries the pinned revision ${PINNED_REVISION}"
+            fi
+            echo "  ${repo} HEAD: $(git -C "${WORKSPACE_ROOT}/${repo}" rev-parse HEAD)"
+            echo "::endgroup::"
+          done
+          echo "workspace_root=${WORKSPACE_ROOT}" >> "$GITHUB_OUTPUT"
+
+      # stage_workspace.sh runs the OMN-12977 sibling-lock-pin preflight
+      # (scripts/runtime_build/check_sibling_lock_pins.py), which imports pydantic
+      # (BaseModel/ConfigDict/Field). The actions/setup-python interpreter carries
+      # no project deps, so without this install the preflight dies with
+      # ModuleNotFoundError: No module named 'pydantic' and stage_workspace.sh
+      # exits 3 before the docker build ever runs (OMN-13985). Everything else the
+      # script imports is stdlib.
+      - name: Install sibling-lock-pin preflight deps (pydantic)
+        run: python3 -m pip install --upgrade 'pydantic>=2'
+
+      - name: Stage workspace sibling trees into the build context
+        env:
+          OMNI_HOME: ${{ steps.stage-siblings.outputs.workspace_root }}
+          # The consuming pin authority is omnimarket's uv.lock (OMN-12977).
+          CONSUMER_LOCK: ${{ steps.stage-siblings.outputs.workspace_root }}/omnimarket/uv.lock
+          # OMN-17291: stage_workspace.sh refuses an unpinned build. The clones
+          # above were cloned fresh AT sibling_ref, so arming RT-1 with the same
+          # ref makes the checkout a no-op and turns the vendored SHA into an
+          # asserted fact instead of an unfalsifiable claim.
+          #
+          # OMN-17057: when a pin is requested, RT-1's primary ref becomes the
+          # pinned COMMIT and sibling_ref becomes the fallback. That is exactly
+          # the pair deploy_source_ref.py was built for in OMN-17135 -- the
+          # primary resolves in the one repository that carries it, every other
+          # repository takes the fallback and records `fallback_from`. Both
+          # values are still refs, so RT-1's own refusals (unresolvable ref,
+          # vendored SHA not equal to the expected one) apply unchanged.
+          DEPLOY_REF: ${{ inputs.pinned_revision || inputs.sibling_ref }}
+          DEPLOY_SIBLING_FALLBACK_REF: origin/${{ inputs.sibling_ref }}
+          PINNED_REPO: ${{ inputs.pinned_repo }}
+          PINNED_REVISION: ${{ inputs.pinned_revision }}
+        run: |
+          set -euo pipefail
+          bash scripts/runtime_build/stage_workspace.sh
+          echo "Staged sibling trees:"
+          ls -1 workspace/sibling-repos/
+          echo "Per-repo VCS provenance:"
+          cat workspace/sibling-vcs-provenance.json
+
+          # OMN-17057: the pin is a VERIFIED fact or it is not a pin.
+          # stage_workspace.sh already refuses a vendored SHA that disagrees
+          # with what RT-1 checked out, but that assertion is about RT-1's own
+          # bookkeeping. This one is about the provenance file the image will
+          # BAKE and the staging deploy will later read out of a running pod
+          # (OMN-17926) -- the artefact the ticket's done-proof probe names. If
+          # those two ever diverge, the image would ship a claim nothing
+          # checked.
+          if [ -n "${PINNED_REPO}" ]; then
+            VENDORED="$(jq -r --arg repo "${PINNED_REPO}" \
+              '.siblings[$repo].vcs_ref // ""' \
+              workspace/sibling-vcs-provenance.json)"
+            if [ "${VENDORED}" != "${PINNED_REVISION}" ]; then
+              echo "::error::${PINNED_REPO} was pinned at ${PINNED_REVISION} but" \
+                "the staged tree vendors '${VENDORED}'. Refusing to publish a" \
+                "candidate whose baked provenance would not name the revision" \
+                "it was asked to carry."
+              exit 1
+            fi
+            echo "verified: ${PINNED_REPO} vendored at ${PINNED_REVISION}"
+          fi
+
+      - name: Set up Python for AWS CLI
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Ensure AWS CLI is available
+        shell: bash
+        run: |
+          if command -v aws >/dev/null 2>&1; then aws --version; exit 0; fi
+          python -m pip install --user 'awscli>=1.33,<2'
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/aws" --version
+
+      - name: Configure AWS credentials (OIDC -> omninode-github-actions-role)
+        uses: aws-actions/configure-aws-credentials@d45db47bd94e3a7d50b9c36da4cfe07ceca89d74 # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/omninode-github-actions-role
+          role-session-name: gha-build-workspace-candidate
+
+      - name: Verify AWS caller identity
+        shell: bash
+        env:
+          AWS_CLI_CONNECT_TIMEOUT: '10'
+          AWS_CLI_READ_TIMEOUT: '30'
+        run: aws sts get-caller-identity
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          SHA_SHORT="${GITHUB_SHA::7}"
+          IMAGE_REPO="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+          # candidate-* tag namespace makes the non-prod lineage unmistakable and
+          # disjoint from the clean-main commit-SHA tags the prod build pushes.
+          CANDIDATE_TAG="candidate-${SHA_SHORT}-$(date -u +'%Y%m%d%H%M%S')"
+          {
+            echo "sha_short=${SHA_SHORT}"
+            echo "image_repo=${IMAGE_REPO}"
+            echo "candidate_tag=${CANDIDATE_TAG}"
+            echo "tags=${IMAGE_REPO}:${CANDIDATE_TAG}"
+            echo "build_date=$(date -u +'%Y%m%d')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Read runtime version from pyproject
+        id: version
+        run: |
+          set -euo pipefail
+          VER="$(awk '
+            /^\[project\]/ { in_s=1; next }
+            /^\[/          { in_s=0 }
+            in_s && /^version[[:space:]]*=/ { gsub(/.*=[[:space:]]*"/,""); gsub(/".*/,""); print; exit }
+          ' pyproject.toml)"
+          if [ -z "$VER" ]; then echo "::error::could not read version from pyproject.toml"; exit 1; fi
+          echo "runtime_version=${VER}" >> "$GITHUB_OUTPUT"
+
+      # WORKSPACE-mode build. BUILD_SOURCE=workspace + EXPECTED_BUILD_SOURCE=workspace
+      # selects the staged-sibling install branch; PROMOTION_CLASS / NON_MAIN_LINEAGE
+      # stamp the stability-candidate provenance the Dockerfile guard requires and
+      # the OCI labels the prod gate / lineage guard consult.
+      - name: Build runtime image (workspace stability-candidate)
+        id: build-local
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          file: docker/Dockerfile.runtime
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          no-cache: ${{ inputs.no-cache == true }}
+          build-args: |
+            RUNTIME_VERSION=${{ steps.version.outputs.runtime_version }}
+            BUILD_DATE=${{ steps.timestamp.outputs.build_date }}
+            VCS_REF=${{ github.sha }}
+            RUNTIME_SOURCE_HASH=${{ github.sha }}
+            UV_VERSION=${{ env.UV_VERSION }}
+            BUILD_SOURCE=workspace
+            EXPECTED_BUILD_SOURCE=workspace
+            OMNI_HOME=/workspace
+            PROMOTION_CLASS=stability-candidate
+            NON_MAIN_LINEAGE=true
+
+      # OMN-16229: same unignored audit as the prod build path
+      # (build-and-push-runtime.yml). The policy check must prove every ignore
+      # is present in this exact image and has no fixed version.
+      - name: Generate unignored Trivy audit report (OMN-16229)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.34.2
+        with:
+          image-ref: '${{ steps.meta.outputs.image_repo }}:${{ steps.meta.outputs.candidate_tag }}'
+          format: 'json'
+          output: 'trivy-unignored.json'
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          version: 'v0.69.3'
+
+      # OMN-16229: same expiring-ignore policy check as the prod build path
+      # (build-and-push-runtime.yml) -- an expired, malformed, stale, or
+      # fix-available .trivyignore entry fails the build here too.
+      - name: Validate .trivyignore policy (OMN-16229)
+        run: >-
+          python3 scripts/ci/check_trivyignore_expiry.py .trivyignore
+          --trivy-json trivy-unignored.json
+
+      # SAME Trivy scan as the prod build path — CRITICAL,HIGH, --ignore-unfixed,
+      # exit-code 1. NOT weakened, NOT advisory. A finding fails the build before
+      # any push.
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.34.2
+        with:
+          image-ref: '${{ steps.meta.outputs.image_repo }}:${{ steps.meta.outputs.candidate_tag }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          version: 'v0.69.3'
+          trivyignores: '.trivyignore'
+
+      # OMN-9139 source-hash attestation: assert the baked-in RUNTIME_SOURCE_HASH
+      # equals the build SHA. Runs inline (not via the reusable workflow, which
+      # re-asserts a clean main tree — a workspace build is intentionally dev/non-
+      # main, so the clean-main assertion does not apply). The hash-equals-HEAD
+      # invariant IS enforced here and is NOT weakened.
+      - name: Attest baked-in source hash (OMN-9139)
+        env:
+          IMAGE_REF: ${{ steps.meta.outputs.image_repo }}:${{ steps.meta.outputs.candidate_tag }}
+        run: |
+          set -euo pipefail
+          BAKED="$(docker inspect "${IMAGE_REF}" \
+            --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^RUNTIME_SOURCE_HASH=//p')"
+          EXPECTED="${GITHUB_SHA}"
+          if [ -z "$BAKED" ] || [ "$BAKED" = "unknown" ] || [ "$BAKED" = "dev" ]; then
+            echo "::error::baked source hash '${BAKED}' is empty/unknown/dev"; exit 1
+          fi
+          if [[ "$EXPECTED" == "$BAKED"* ]] || [[ "$BAKED" == "$EXPECTED"* ]]; then
+            echo "source-hash attestation OK: baked='${BAKED}' expected='${EXPECTED}'"
+          else
+            echo "::error::baked source hash '${BAKED}' != HEAD '${EXPECTED}'"; exit 1
+          fi
+
+      # Assert the image carries the non-main-lineage / stability-candidate labels
+      # so it can NEVER masquerade as a clean-main build under the lineage guard.
+      - name: Assert stability-candidate lineage labels
+        run: |
+          set -euo pipefail
+          IMG="${{ steps.meta.outputs.image_repo }}:${{ steps.meta.outputs.candidate_tag }}"
+          BS="$(docker inspect "$IMG" --format '{{ index .Config.Labels "com.omninode.build_source" }}')"
+          PC="$(docker inspect "$IMG" --format '{{ index .Config.Labels "com.omninode.promotion_class" }}')"
+          NL="$(docker inspect "$IMG" --format '{{ index .Config.Labels "com.omninode.non_main_lineage" }}')"
+          echo "build_source=${BS} promotion_class=${PC} non_main_lineage=${NL}"
+          [ "$BS" = "workspace" ] || { echo "::error::build_source label must be workspace"; exit 1; }
+          [ "$PC" = "stability-candidate" ] || { echo "::error::promotion_class label must be stability-candidate"; exit 1; }
+          [ "$NL" = "true" ] || { echo "::error::non_main_lineage label must be true"; exit 1; }
+
+      # OMN-15676: prove the required config files are actually IN the candidate
+      # image before it can be pushed and pinned. The onex-dev runtime digest is
+      # pinned from exactly this workflow's output (e.g. omninode_infra#802), so
+      # this is the step that stops a missing COPY from reaching the cluster.
+      # Reads src/omnibase_infra/runtime/required_image_config_paths.py and runs
+      # `test -f` INSIDE the built image; fails closed if the probe cannot run.
+      - name: Assert required config paths exist in the built image (OMN-15676)
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/assert_image_config_paths.py \
+            --image "${{ steps.meta.outputs.image_repo }}:${{ steps.meta.outputs.candidate_tag }}"
+
+      - name: Push candidate image to Amazon ECR
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Trivy + attestation + lineage labels passed — pushing candidate..."
+          docker push "${{ steps.meta.outputs.tags }}"
+          echo "Pushed: ${{ steps.meta.outputs.tags }}"
+
+      - name: Resolve ECR image digest for candidate tag
+        id: resolve-digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            DIGEST="$(aws ecr describe-images \
+              --repository-name "${ECR_REPOSITORY}" \
+              --image-ids imageTag="${{ steps.meta.outputs.candidate_tag }}" \
+              --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)"
+            if [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+              echo "image_ref=${ECR_REGISTRY}/${ECR_REPOSITORY}@${DIGEST}" >> "$GITHUB_OUTPUT"
+              echo "Resolved digest: ${DIGEST}"
+              exit 0
+            fi
+            echo "digest not yet resolvable (attempt ${attempt}/5); backing off..."
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not resolve ECR digest for the candidate tag"; exit 1
+
+      # Provenance build-manifest. Records BUILD_SOURCE=workspace,
+      # promotion_class=stability-candidate, non_main_lineage:true, the consuming
+      # lock pin authority, and per-sibling VCS provenance (folded from
+      # stage_workspace.sh's sibling-vcs-provenance.json). This is the durable
+      # evidence a deploy verifier reads to refuse the candidate for prod.
+      - name: Create candidate build manifest
+        id: manifest
+        env:
+          SIBLING_REF: ${{ inputs.sibling_ref }}
+          # OMN-17057: which sibling revision was CHOSEN, as distinct from
+          # per_sibling_vcs_provenance, which records what each tree happened
+          # to be at. A reader has to be able to tell a deliberate pin from a
+          # branch that drifted to the same commit.
+          PINNED_REPO: ${{ inputs.pinned_repo }}
+          PINNED_REVISION: ${{ inputs.pinned_revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops/digests
+          SIBLINGS="$(cat workspace/sibling-vcs-provenance.json)"
+          jq -n \
+            --arg sha "$GITHUB_SHA" \
+            --arg repo "${{ steps.meta.outputs.image_repo }}" \
+            --arg digest "${{ steps.resolve-digest.outputs.digest }}" \
+            --arg ref "${{ steps.resolve-digest.outputs.image_ref }}" \
+            --arg tag "${{ steps.meta.outputs.candidate_tag }}" \
+            --arg date "${{ steps.timestamp.outputs.build_date }}" \
+            --arg sibling_ref "${SIBLING_REF}" \
+            --arg pinned_repo "${PINNED_REPO}" \
+            --arg pinned_revision "${PINNED_REVISION}" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --argjson siblings "$SIBLINGS" \
+            '{
+              build_source: "workspace",
+              promotion_class: "stability-candidate",
+              non_main_lineage: true,
+              pinnable_lanes: ["dev", "stability-test"],
+              prod_pinnable: false,
+              commit_sha: $sha,
+              image_repo: $repo,
+              image_digest: $digest,
+              image_ref: $ref,
+              image_tag: $tag,
+              sibling_ref: $sibling_ref,
+              pinned_sibling: (if $pinned_repo == "" then null
+                               else {repo: $pinned_repo, revision: $pinned_revision}
+                               end),
+              per_sibling_vcs_provenance: $siblings.siblings,
+              build_date: $date,
+              workflow_run_id: $run_id,
+              ticket: "OMN-13656"
+            }' > ops/digests/build-manifest.json
+          echo "Candidate build manifest:"
+          cat ops/digests/build-manifest.json
+
+      - name: Upload candidate build manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-manifest-candidate-${{ steps.meta.outputs.candidate_tag }}
+          path: ops/digests/build-manifest.json
+          retention-days: 90
+
+      - name: Build summary
+        if: always()
+        env:
+          SIBLING_REF: ${{ inputs.sibling_ref }}
+          PINNED_REPO: ${{ inputs.pinned_repo }}
+          PINNED_REVISION: ${{ inputs.pinned_revision }}
+        run: |
+          {
+            echo "# Workspace Stability-Candidate Build (OMN-13656)"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| build_source | workspace |"
+            echo "| promotion_class | stability-candidate |"
+            echo "| non_main_lineage | true |"
+            echo "| pinnable lanes | dev, stability-test (NEVER prod) |"
+            echo "| sibling ref | \`${SIBLING_REF}\` |"
+            if [ -n "${PINNED_REPO}" ]; then
+              echo "| pinned sibling | \`${PINNED_REPO}@${PINNED_REVISION}\` |"
+            else
+              echo "| pinned sibling | none (every sibling at \`${SIBLING_REF}\`) |"
+            fi
+            echo "| digest | \`${{ steps.resolve-digest.outputs.digest }}\` |"
+            echo "| candidate tag | \`${{ steps.meta.outputs.candidate_tag }}\` |"
+            echo ""
+            echo "> This image is a NON-main-lineage stability-candidate. The omnimarket"
+            echo "> prod-promotion gate refuses it for prod absent an explicit candidate grant."
+          } >> "$GITHUB_STEP_SUMMARY"

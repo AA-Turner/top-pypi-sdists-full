@@ -1,0 +1,140 @@
+[project]
+name = "starlette-problem"
+version = "0.13.5"
+description = "Starlette support for RFC9457 problems."
+authors = [
+    {name = "Daniel Edgecombe", email = "daniel@nrwl.co"},
+]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["exception", "handler", "webdev", "starlette"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Internet",
+    "Topic :: Utilities",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "rfc9457 >= 0.4.0",
+]
+
+[project.urls]
+homepage="https://github.com/NRWLDev/starlette-problem/"
+documentation="https://nrwldev.github.io/starlette-problem/"
+
+[project.optional-dependencies]
+dev = [
+    "starlette",
+    "uvicorn",
+
+    # test
+    "pytest >= 9.0.2",
+    "pytest-asyncio >= 1.3.0",
+    "pytest-cov >= 7.0.0",
+    "pytest-httpx >= 0.36.0",
+    "pytest-random-order >= 1.2.0",
+
+    # style
+    "ruff >= 0.14.10",
+    "pre-commit >= 4.5.1",
+
+    # release
+    "changelog-gen >= 0.13.8",
+]
+
+[tool.changelog_gen]
+current_version = "0.13.5"
+reject_empty = true
+statistics = true
+allowed_branches = [
+    "main",
+]
+date_format = "- %Y-%m-%d"
+
+[tool.changelog_gen.github]
+strip_pr_from_description = true
+extract_pr_from_description = true
+extract_common_footers = true
+
+[[tool.changelog_gen.extractors]]
+footer = ["closes", "fixes", "Refs"]
+pattern = '#(?P<issue_ref>\d+)'
+
+[[tool.changelog_gen.link_generators]]
+source = "issue_ref"
+link = "https://github.com/NRWLDev/starlette-problem/issues/{0}"
+
+[[tool.changelog_gen.link_generators]]
+source = "__change__"
+text = "{0.short_hash}"
+link = "https://github.com/NRWLDev/starlette-problem/commit/{0.commit_hash}"
+
+[[tool.changelog_gen.files]]
+filename = "pyproject.toml"
+pattern = 'version = "{version}"'
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--random-order"
+markers = [
+    "backwards_compat: marks tests as part of backwards compatibility checks.",
+]
+
+[tool.coverage.report]
+sort = "cover"
+fail_under = 95
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "if t.TYPE_CHECKING:",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/starlette_problem"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN002",  # ParamSpec not available in 3.9
+    "ANN003",  # ParamSpec not available in 3.9
+    "FIX",  # allow TODO
+    "D",
+    "E501",  # handled by ruff format
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tasks.py" = ["ANN", "E501", "INP001", "S"]
+"tests/*" = ["ANN", "D", "S101", "S105", "S106", "SLF001"]
+"examples/*" = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["starlette_problem"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

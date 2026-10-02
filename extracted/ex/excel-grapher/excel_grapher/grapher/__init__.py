@@ -1,0 +1,169 @@
+"""excel_grapher: Build and analyze dependency graphs from Excel workbooks.
+
+Workbook I/O lives here (`create_dependency_graph`, `write_workbook`) next to
+graph mutation and visualization. This package intentionally keeps the public
+API small and stable.
+"""
+
+from excel_grapher.core.cell_types import (
+    GreaterThanCell,
+    NotEqualCell,
+    RealBetween,
+    RealIntervalDomain,
+)
+
+from .blank_ranges import normalize_blank_range_specs
+from .builder import create_dependency_graph, list_dynamic_ref_constraint_candidates
+from .cache import (
+    GRAPH_CACHE_SCHEMA_VERSION,
+    CacheValidationPolicy,
+    build_graph_cache_meta,
+    build_graph_cache_meta_portable,
+    save_graph_cache,
+    try_load_graph_cache,
+)
+from .dependency_provenance import DependencyCause, EdgeProvenance
+from .dynamic_refs import (
+    DynamicRefCellLimitError,
+    DynamicRefConfig,
+    DynamicRefError,
+    DynamicRefLimits,
+    DynamicRefTraceEvent,
+    DynamicRefTraceFn,
+    ExactMatchUndomainedCellWarning,
+    infer_dynamic_index_targets,
+    infer_dynamic_indirect_targets,
+    infer_dynamic_offset_targets,
+    trace_dynamic_refs,
+)
+from .export import (
+    LightweightVizLocalEdges,
+    LightweightVizModule,
+    LightweightVizModuleEdge,
+    LightweightVizPayload,
+    select_path_induced_subgraph,
+    select_shortest_path_subgraph,
+    to_graphviz,
+    to_mermaid,
+    to_networkx,
+    write_lightweight_viz_data,
+    write_web_viz_html,
+)
+from .formula_replace import WorkbookContextRequiredError
+from .formula_shapes import warm_formula_shapes
+from .graph import CycleError, CycleReport, DependencyGraph, GraphReadView, NodeHook
+from .graph_consistency import (
+    GraphConsistencyError,
+    GraphConsistencyIssue,
+    GraphConsistencyKind,
+)
+from .graph_pickle import dump_graph, load_graph
+from .guard import And, Arith, Compare, GuardExpr, Literal, Neg, Not, Or
+from .guard import CellRef as GuardCellRef
+from .guard import RangeRef as GuardRangeRef
+from .node import (
+    Node,
+    NodeKey,
+    make_cell_node,
+)
+from .parser import DEFAULT_MAX_RANGE_CELLS, format_cell_key, format_key, needs_quoting
+from .preparsed_formulas import warm_preparsed_formulas
+from .range_compression import (
+    RawFormulasRequiredError,
+    TacoBuildConfig,
+    TacoIndex,
+    build_taco_index,
+    input_keys_from_graph,
+)
+from .series_graph import SeriesGraph, SeriesGraphEdge, SeriesGraphNode, to_series_graph
+from .sheet_graph import SheetGraph, SheetGraphEdge, SheetGraphNode, to_sheet_graph
+from .validation import ValidationResult, WorkbookCalcSettings, get_calc_settings, validate_graph
+from .writeback import write_workbook
+
+__all__ = [
+    "create_dependency_graph",
+    "build_taco_index",
+    "input_keys_from_graph",
+    "TacoBuildConfig",
+    "TacoIndex",
+    "RawFormulasRequiredError",
+    "normalize_blank_range_specs",
+    "list_dynamic_ref_constraint_candidates",
+    "GRAPH_CACHE_SCHEMA_VERSION",
+    "build_graph_cache_meta",
+    "build_graph_cache_meta_portable",
+    "CacheValidationPolicy",
+    "save_graph_cache",
+    "try_load_graph_cache",
+    "warm_preparsed_formulas",
+    "warm_formula_shapes",
+    "DependencyCause",
+    "DependencyGraph",
+    "dump_graph",
+    "load_graph",
+    "GraphReadView",
+    "EdgeProvenance",
+    "DynamicRefConfig",
+    "DynamicRefCellLimitError",
+    "DynamicRefError",
+    "DynamicRefLimits",
+    "ExactMatchUndomainedCellWarning",
+    "DynamicRefTraceEvent",
+    "DynamicRefTraceFn",
+    "trace_dynamic_refs",
+    "GreaterThanCell",
+    "NotEqualCell",
+    "RealBetween",
+    "RealIntervalDomain",
+    "infer_dynamic_index_targets",
+    "infer_dynamic_indirect_targets",
+    "infer_dynamic_offset_targets",
+    "NodeHook",
+    "CycleError",
+    "CycleReport",
+    "GraphConsistencyError",
+    "GraphConsistencyIssue",
+    "GraphConsistencyKind",
+    "GuardExpr",
+    "GuardCellRef",
+    "GuardRangeRef",
+    "Literal",
+    "Compare",
+    "Arith",
+    "Neg",
+    "Not",
+    "And",
+    "Or",
+    "Node",
+    "NodeKey",
+    "make_cell_node",
+    "LightweightVizLocalEdges",
+    "LightweightVizModule",
+    "LightweightVizModuleEdge",
+    "LightweightVizPayload",
+    "select_path_induced_subgraph",
+    "select_shortest_path_subgraph",
+    "SeriesGraph",
+    "SeriesGraphEdge",
+    "SeriesGraphNode",
+    "SheetGraph",
+    "SheetGraphEdge",
+    "SheetGraphNode",
+    "to_series_graph",
+    "to_sheet_graph",
+    "to_graphviz",
+    "to_mermaid",
+    "to_networkx",
+    "write_web_viz_html",
+    "write_lightweight_viz_data",
+    "write_workbook",
+    "validate_graph",
+    "ValidationResult",
+    "get_calc_settings",
+    "WorkbookCalcSettings",
+    "WorkbookContextRequiredError",
+    "format_cell_key",
+    "format_key",
+    "DEFAULT_MAX_RANGE_CELLS",
+    "needs_quoting",
+]

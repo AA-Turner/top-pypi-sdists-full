@@ -1,0 +1,33 @@
+Metadata-Version: 1.1
+Name: mwcli
+Version: 0.0.3
+Summary: Utilities for processing MediaWiki on the command line.
+Home-page: https://github.com/mediawiki-utilities/python-mwcli
+Author: Aaron Halfaker
+Author-email: aaron.halfaker@gmail.com
+License: MIT
+Description: # MediaWiki command-line interface
+        
+        A set of helper functions and classes for mediawiki-utilities command-line
+        utilities. 
+        
+        * **Installation:** ``pip install mwcli``
+        * **Documentation:** https://pythonhosted.org/mwcli
+        * **Repositiory:** https://github.com/mediawiki-utilities/python-mwcli
+        * **License:** MIT
+        
+        ## Author
+        * Aaron Halfaker -- https://github.com/halfak
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: General
+Classifier: Topic :: Utilities
+Classifier: Topic :: Scientific/Engineering

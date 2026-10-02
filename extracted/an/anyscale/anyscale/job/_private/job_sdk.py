@@ -78,7 +78,10 @@ TERMINAL_HA_JOB_STATES = [
 # Reverse mapping from JobState to HaJobStates for filtering in list operations
 JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
     JobState.SUCCEEDED: [HaJobStates.SUCCESS],
-    JobState.FAILED: [HaJobStates.BROKEN, HaJobStates.OUT_OF_RETRIES,],
+    JobState.FAILED: [
+        HaJobStates.BROKEN,
+        HaJobStates.OUT_OF_RETRIES,
+    ],
     JobState.TERMINATED: [HaJobStates.TERMINATED],
     JobState.RUNNING: [
         HaJobStates.UPDATING,
@@ -91,9 +94,7 @@ JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
 }
 
 
-def _normalize_state_filter(
-    states: Optional[List[Union[JobState, str]]]
-) -> Optional[List[str]]:
+def _normalize_state_filter(states: Optional[List[Union[JobState, str]]]) -> Optional[List[str]]:
     """Normalize state filter to list of HaJobStates strings.
 
     Converts JobState enums or string values to backend HaJobStates format.
@@ -109,8 +110,7 @@ def _normalize_state_filter(
             state_key = s.upper()
         else:
             raise TypeError(
-                "'state_filter' entries must be JobState or str, "
-                f"got {type(s).__name__}"
+                f"'state_filter' entries must be JobState or str, got {type(s).__name__}"
             )
         ha_states = JOB_STATE_TO_HA_JOB_STATES.get(state_key, [])
         ha_job_states_filter.extend(ha_states)
@@ -175,7 +175,8 @@ class PrivateJobSDK(WorkloadSDK):
             workspace_requirements_path=workspace_requirements_path,
         )
         [runtime_env] = self.update_env_vars(
-            [runtime_env], env_vars_updates=config.env_vars,
+            [runtime_env],
+            env_vars_updates=config.env_vars,
         )
 
         return runtime_env or None
@@ -195,17 +196,12 @@ class PrivateJobSDK(WorkloadSDK):
         )
         compute_template = self._client.get_compute_config(compute_config_id)
         if compute_template is None or compute_template.config is None:
-            raise ValueError(
-                f"The compute config '{compute_config_id}' does not exist."
-            )
+            raise ValueError(f"The compute config '{compute_config_id}' does not exist.")
 
         if compute_template.config.deployment_configs is None:
             return [None]
 
-        return [
-            config.cloud_deployment
-            for config in compute_template.config.deployment_configs
-        ]
+        return [config.cloud_deployment for config in compute_template.config.deployment_configs]
 
     def get_default_name(self) -> str:
         """Get a default name for the job.
@@ -336,9 +332,7 @@ class PrivateJobSDK(WorkloadSDK):
             compute_config=config.compute_config, cloud=config.cloud
         )
 
-        project_id = self.client.get_project_id(
-            parent_cloud_id=cloud_id, name=config.project
-        )
+        project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
 
         # Resolve connection names to IDs
         connection_ids = self.resolve_connection_ids(config.connections)
@@ -370,14 +364,10 @@ class PrivateJobSDK(WorkloadSDK):
         )
 
         self.logger.info(f"Job '{job.name}' submitted, ID: '{job.id}'.")
-        self.logger.info(
-            f"View the job in the UI: {self.client.get_job_ui_url(job.id)}"
-        )
+        self.logger.info(f"View the job in the UI: {self.client.get_job_ui_url(job.id)}")
         return job.id
 
-    _BACKEND_JOB_STATUS_TO_JOB_RUN_STATE: ClassVar[
-        Dict[BackendJobStatus, JobRunState]
-    ] = {
+    _BACKEND_JOB_STATUS_TO_JOB_RUN_STATE: ClassVar[Dict[BackendJobStatus, JobRunState]] = {
         BackendJobStatus.RUNNING: JobRunState.RUNNING,
         BackendJobStatus.COMPLETED: JobRunState.SUCCEEDED,
         BackendJobStatus.PENDING: JobRunState.STARTING,
@@ -392,9 +382,7 @@ class PrivateJobSDK(WorkloadSDK):
         return cast(JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN))
 
     def _job_run_model_to_job_run_status(self, run: APIJobRun) -> JobRunStatus:
-        state = self._BACKEND_JOB_STATUS_TO_JOB_RUN_STATE.get(
-            run.status, JobRunState.UNKNOWN
-        )
+        state = self._BACKEND_JOB_STATUS_TO_JOB_RUN_STATE.get(run.status, JobRunState.UNKNOWN)
         return JobRunStatus(name=run.name, state=state)
 
     def prod_job_config_to_job_config(
@@ -405,7 +393,9 @@ class PrivateJobSDK(WorkloadSDK):
         decorated_connections: Optional[List] = None,
     ) -> JobConfig:
         """Convert ProductionJobConfig to user-facing JobConfig."""
-        runtime_env_config: RayRuntimeEnvConfig = prod_job_config.runtime_env if prod_job_config else None
+        runtime_env_config: RayRuntimeEnvConfig = (
+            prod_job_config.runtime_env if prod_job_config else None
+        )
         # An imported KubeRay workload has no compute config (the field is ""),
         # so skip the lookup, which would raise on an empty id.
         compute_config = (
@@ -425,13 +415,9 @@ class PrivateJobSDK(WorkloadSDK):
 
         # Use pre-fetched decorated connections if available, otherwise resolve from IDs
         if decorated_connections is not None:
-            connections = self.resolve_decorated_connections_to_configs(
-                decorated_connections
-            )
+            connections = self.resolve_decorated_connections_to_configs(decorated_connections)
         else:
-            connections = self.resolve_connection_ids_to_configs(
-                prod_job_config.connection_ids
-            )
+            connections = self.resolve_connection_ids_to_configs(prod_job_config.connection_ids)
 
         return JobConfig(
             name=name,
@@ -440,16 +426,13 @@ class PrivateJobSDK(WorkloadSDK):
             requirements=runtime_env_config.pip if runtime_env_config else None,
             working_dir=runtime_env_config.working_dir if runtime_env_config else None,
             env_vars=runtime_env_config.env_vars if runtime_env_config else None,
-            py_executable=runtime_env_config.py_executable
-            if runtime_env_config
-            else None,
+            py_executable=runtime_env_config.py_executable if runtime_env_config else None,
             entrypoint=prod_job_config.entrypoint,
             cloud=compute_config.cloud
             if compute_config and isinstance(compute_config, ComputeConfig)
             else None,
             max_retries=prod_job_config.max_retries
-            if prod_job_config.max_retries is not None
-            and prod_job_config.max_retries >= 0
+            if prod_job_config.max_retries is not None and prod_job_config.max_retries >= 0
             else None,
             project=project,
             connections=connections,
@@ -457,9 +440,7 @@ class PrivateJobSDK(WorkloadSDK):
             priority=prod_job_config.priority,
         )
 
-    def _job_model_to_status(
-        self, model: ProductionJob, runs: List[APIJobRun]
-    ) -> JobStatus:
+    def _job_model_to_status(self, model: ProductionJob, runs: List[APIJobRun]) -> JobStatus:
         state = self._job_state_from_job_model(model)
         project_model = self.client.get_project(model.project_id)
         project = (
@@ -496,15 +477,12 @@ class PrivateJobSDK(WorkloadSDK):
         contains all the necessary fields (including project as MiniProject).
         """
         ha_state = decorated_job.state.current_state if decorated_job.state else None
-        state = cast(
-            JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN)
-        )
+        state = cast(JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN))
 
         # DecoratedProductionJob has project directly as MiniProject
         project = (
             decorated_job.project.name
-            if decorated_job.project is not None
-            and decorated_job.project.name != "default"
+            if decorated_job.project is not None and decorated_job.project.name != "default"
             else None
         )
 
@@ -712,13 +690,13 @@ class PrivateJobSDK(WorkloadSDK):
             )
 
         self.client.delete_job(job_model.id)
-        self.logger.info(
-            f"Job '{job_model.name}' (ID: {job_model.id}) has been deleted."
-        )
+        self.logger.info(f"Job '{job_model.name}' (ID: {job_model.id}) has been deleted.")
         return job_model.id
 
     def _stream_logs_for_job_run(
-        self, job_run_id: str, next_page_token: Optional[str] = None,
+        self,
+        job_run_id: str,
+        next_page_token: Optional[str] = None,
     ) -> Optional[str]:
         """Stream logs for a job run and return updated pagination state.
 
@@ -731,7 +709,8 @@ class PrivateJobSDK(WorkloadSDK):
         """
         try:
             logs, next_page_token = self.client.stream_logs_for_job_run(
-                job_run_id=job_run_id, next_page_token=next_page_token,
+                job_run_id=job_run_id,
+                next_page_token=next_page_token,
             )
 
             # Print logs line by line
@@ -814,13 +793,12 @@ class PrivateJobSDK(WorkloadSDK):
 
                 if job_run_id:
                     next_page_token = self._stream_logs_for_job_run(
-                        job_run_id=job_run_id, next_page_token=next_page_token,
+                        job_run_id=job_run_id,
+                        next_page_token=next_page_token,
                     )
 
             if curr_state == state:
-                self.logger.info(
-                    f"Job '{job_id_or_name}' reached target state, exiting"
-                )
+                self.logger.info(f"Job '{job_id_or_name}' reached target state, exiting")
                 break
 
             if JobState.is_terminal(curr_state):
@@ -858,9 +836,7 @@ class PrivateJobSDK(WorkloadSDK):
 
         runs = self.client.get_job_runs(job_model.id, run_name=run, max_runs_per_job=1)
         if not runs:
-            raise ValueError(
-                f"Job run '{run}' was not found for job '{job_id or name}'."
-            )
+            raise ValueError(f"Job run '{run}' was not found for job '{job_id or name}'.")
         return runs[0].id
 
     def get_logs(
@@ -891,9 +867,7 @@ class PrivateJobSDK(WorkloadSDK):
         )
 
         head = mode == JobLogMode.HEAD
-        return self.client.logs_for_job_run(
-            job_run_id=job_run_id, head=head, max_lines=max_lines
-        )
+        return self.client.logs_for_job_run(job_run_id=job_run_id, head=head, max_lines=max_lines)
 
     def add_tags(
         self,
@@ -976,9 +950,7 @@ class PrivateJobSDK(WorkloadSDK):
                 include_archived=include_archived,
             )
             resource_id = model.id
-        records = self.client.list_resource_tags(
-            ResourceTagResourceType.JOB, resource_id
-        )
+        records = self.client.list_resource_tags(ResourceTagResourceType.JOB, resource_id)
         return {r.key: r.value for r in records if r and r.key is not None}
 
     def list(  # noqa: PLR0913
@@ -1086,9 +1058,7 @@ class PrivateJobSDK(WorkloadSDK):
         # Convert tags dict to API format using utility
         backend_tags_filter = flatten_tag_dict_to_api_list(tags_filter)
 
-        archive_status = (
-            ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
-        )
+        archive_status = ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
 
         # Convert user-facing JobState values to backend HaJobStates
         ha_job_states_filter = _normalize_state_filter(state_filter)
@@ -1132,5 +1102,7 @@ class PrivateJobSDK(WorkloadSDK):
             return page
 
         return ResultIterator(
-            page_token=None, max_items=max_items, fetch_page=_fetch_page,
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch_page,
         )

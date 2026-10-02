@@ -1,0 +1,102 @@
+[project]
+name = "oban"
+version = "0.6.6"
+description = "Job orchestration framework, backed by PostgreSQL."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [
+  {name = "Soren, LLC", email = "support@oban.pro"}
+]
+keywords = [
+  "jobs",
+  "queue",
+  "background",
+  "async",
+  "postgresql",
+  "worker",
+  "cron",
+  "scheduling",
+  "task-queue",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Distributed Computing",
+  "Typing :: Typed",
+]
+dependencies = [
+  "click>=8.1.0",
+  "erlpack>=1.0.0",
+  "orjson>=3.11.4",
+  "psycopg-pool>=3.2.6",
+  "psycopg[binary]>=3.2.13",
+  "uvloop>=0.22.0",
+]
+
+[project.urls]
+Homepage = "https://oban.pro"
+Documentation = "https://oban.pro/docs/py"
+Repository = "https://github.com/oban-bg/oban-py"
+Changelog = "https://github.com/oban-bg/oban-py/blob/main/CHANGELOG.md"
+Issues = "https://github.com/oban-bg/oban-py/issues"
+
+[project.scripts]
+oban = "oban.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.2.0",
+    "pytest-benchmark>=5.2.3",
+    "ruff>=0.9.9",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "ty>=0.0.1a27",
+]
+docs = [
+  "sphinx>=8.0.0",
+  "sphinx-book-theme>=1.1.0",
+  "myst-parser>=4.0.0",
+  "sphinx-click>=6.0.0",
+  "sphinx-autodoc-typehints>=2.0.0",
+  "sphinx-design>=0.6.1",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff.lint]
+extend-select = ["S"]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["S101", "S311", "S608"]
+"examples/**" = ["S101"]
+
+[tool.setuptools.packages.find]
+include = ["oban*"]
+
+[tool.setuptools.package-data]
+"oban" = ["py.typed"]
+"oban.queries" = ["*.sql"]
+
+[tool.ty.src]
+exclude = ["test", "examples"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+markers = [
+    "oban: configure Oban instance options for a test",
+    "benchmark: mark test as a benchmark (deselect with '-m \"not benchmark\"')",
+]
+addopts = "-m 'not benchmark'"
+filterwarnings = [
+    "ignore:'asyncio.AbstractEventLoopPolicy' is deprecated:DeprecationWarning",
+]

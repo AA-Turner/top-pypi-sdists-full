@@ -1,11 +1,10 @@
-"""Directly invoke a model deployed to a scaling group."""
+"""Resolve model deployments and invoke them through their public URL or function queue."""
 
 from __future__ import annotations
 
 import collections.abc
-import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple, TypeVar
 from urllib.parse import urlsplit
 
 import grpc
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
 
     from chalk.client.client_grpc import ChalkGRPCClient
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
 DEFAULT_HANDLER = "handler"
 
 
@@ -25,7 +24,30 @@ class ModelRemoteError(RuntimeError):
 
 
 class ModelNotDeployedError(ModelRemoteError):
-    """Model/scaling group exists but has no reachable ingress."""
+    """The model version has no active deployment."""
+
+
+class ModelDeploymentNotReadyError(ModelNotDeployedError):
+    """The model version's deployment exists but has no public URL yet."""
+
+
+class ModelDeploymentAmbiguousError(ModelRemoteError):
+    """Several deployments serve the model version; select one by ID or name."""
+
+
+class ModelDeploymentMismatchError(ModelRemoteError):
+    """The selected deployment does not serve the requested model version."""
+
+
+def with_model_deployment_key(request: T, deployment_id: Optional[str], deployment_name: Optional[str]) -> T:
+    """Set the request's ``model_scaling_group_key`` oneof from exactly one of the deployment's ID or name."""
+    if deployment_id is not None and deployment_name is None:
+        setattr(request, "model_scaling_group_id", deployment_id)
+    elif deployment_name is not None and deployment_id is None:
+        setattr(request, "model_scaling_group_name", deployment_name)
+    else:
+        raise ValueError("Provide exactly one of the model deployment's id or name")
+    return request
 
 
 def bind_inputs(
@@ -61,43 +83,95 @@ def _grpc_target_from_url(web_url: str) -> Tuple[str, bool]:
     return host, False
 
 
-def resolve_scaling_group_web_url(
+def _list_deployments_serving(client: "ChalkGRPCClient", model_name: str, version: int) -> Any:
+    from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+    from chalk._gen.chalk.models.v1.model_version_pb2 import ModelVersionIdentifier
+
+    # Two results are enough to tell a unique deployment from an ambiguous one.
+    request = md_pb.ListModelScalingGroupsRequest(
+        model_version=md_pb.ModelVersionSelector(
+            model_name=model_name,
+            identifier=ModelVersionIdentifier(version=version),
+        ),
+        limit=2,
+    )
+    response = client._stub_refresher.call_model_deployment_stub(  # pyright: ignore[reportPrivateUsage]
+        lambda stub: stub.ListModelScalingGroups(request)
+    )
+    groups = list(response.scaling_groups)
+    if not groups:
+        raise ModelNotDeployedError(f"Model {model_name!r} v{version} has no active deployment")
+    if len(groups) > 1:
+        raise ModelDeploymentAmbiguousError(
+            f"Model {model_name!r} v{version} is served by several deployments "
+            + f"({', '.join(repr(g.name) for g in groups)}); select one with deployment_id or deployment_name"
+        )
+    return groups[0]
+
+
+def _get_selected_deployment(
+    client: "ChalkGRPCClient",
+    model_name: str,
+    version: Optional[int],
+    deployment_id: Optional[str],
+    deployment_name: Optional[str],
+) -> Any:
+    from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+    from chalk.client.model_deployment import model_version_from_metadata
+
+    label = f"id {deployment_id!r}" if deployment_id is not None else f"{deployment_name!r}"
+    request = with_model_deployment_key(md_pb.GetModelScalingGroupRequest(), deployment_id, deployment_name)
+    try:
+        response = client._stub_refresher.call_model_deployment_stub(  # pyright: ignore[reportPrivateUsage]
+            lambda stub: stub.GetModelScalingGroup(request)
+        )
+    except grpc.RpcError as e:
+        if e.code() == grpc.StatusCode.NOT_FOUND:  # pyright: ignore[reportAttributeAccessIssue]
+            raise ModelNotDeployedError(f"No model deployment {label}") from e
+        raise
+    group = response.scaling_group
+    try:
+        served_model, served_version = model_version_from_metadata(group.metadata)
+    except ValueError as e:
+        raise ModelDeploymentMismatchError(f"Deployment {label} is not a model deployment") from e
+    # Mirrors the server's CallModel check on an explicitly selected deployment.
+    if served_model != model_name or (version is not None and served_version != version):
+        requested = f"{model_name!r}" + (f" v{version}" if version is not None else "")
+        raise ModelDeploymentMismatchError(
+            f"Deployment {group.name!r} serves {served_model!r} v{served_version}, not {requested}"
+        )
+    return group
+
+
+def resolve_model_deployment(
     client: "ChalkGRPCClient",
     model_name: str,
     *,
-    version: Optional[int] = None,
-) -> str:
-    """Resolve the public ``web_url`` of the scaling group serving a model version.
+    version: Optional[int],
+    deployment_id: Optional[str] = None,
+    deployment_name: Optional[str] = None,
+) -> Any:
+    """Return the deployment that serves ``model_name`` v``version``.
 
-    Uses ``version`` (or the model's latest) to look up its deployed scaling group.
+    With ``deployment_id`` or ``deployment_name``, that deployment is used after checking it
+    serves the model (and ``version``, when given). Without either, the version must be
+    served by exactly one deployment.
     """
-    from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
-    from chalk._gen.chalk.models.v1.model_version_pb2 import ModelVersionIdentifier
-    from chalk._gen.chalk.server.v1.model_registry_pb2 import GetModelRequest
+    if deployment_id is not None or deployment_name is not None:
+        return _get_selected_deployment(client, model_name, version, deployment_id, deployment_name)
+    if version is None:
+        raise ValueError("A version is required unless a deployment is selected")
+    return _list_deployments_serving(client, model_name, version)
 
-    resolved_version = version
-    if resolved_version is None:
-        try:
-            model_resp = client._stub_refresher.call_model_stub(  # pyright: ignore[reportPrivateUsage]
-                lambda x: x.GetModel(GetModelRequest(model_name=model_name))
-            )
-        except grpc.RpcError as e:
-            raise ModelNotDeployedError(f"Model {model_name!r} not found: {e.details()}") from e
-        resolved_version = model_resp.model.latest_model_version.version
-        if not resolved_version:
-            raise ModelNotDeployedError(f"Model {model_name!r} has no published versions")
 
-    selector = md_pb.ModelVersionSelector(
-        model_name=model_name,
-        identifier=ModelVersionIdentifier(version=resolved_version),
-    )
-    list_resp = client._stub_refresher.call_model_deployment_stub(  # pyright: ignore[reportPrivateUsage]
-        lambda x: x.ListModelScalingGroups(md_pb.ListModelScalingGroupsRequest(model_version=selector))
-    )
-    for group in list_resp.scaling_groups:
-        if group.web_url:
-            return group.web_url
-    raise ModelNotDeployedError(f"Model {model_name!r} v{resolved_version} has no scaling group with a web URL")
+def model_deployment_queue_name(group: Any, model_name: str) -> str:
+    """The function queue a deployment consumes, as recorded on its selected revision.
+
+    Revisions created before per-deployment queues consume the model-wide queue, matching
+    how the server picks the queue for them.
+    """
+    queue_name = group.metadata["fnq_queue_name"].string_value if "fnq_queue_name" in group.metadata else ""
+    return queue_name or model_name
 
 
 def _encode_inputs(inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table") -> bytes:
@@ -123,10 +197,10 @@ def _decode_output(chunks: Sequence[bytes]) -> "pa.RecordBatch":
     import pyarrow as pa
 
     if not chunks:
-        raise ModelRemoteError("Empty response from scaling group")
+        raise ModelRemoteError("Empty response from model deployment")
     batches = list(pa.ipc.open_stream(chunks[0]))
     if not batches:
-        raise ModelRemoteError("Response from scaling group contained no record batches")
+        raise ModelRemoteError("Response from model deployment contained no record batches")
     return batches[0]
 
 
@@ -162,29 +236,36 @@ def _transport_call(
         remote_client.close()
 
 
-def call_model_scaling_group(
+def is_stale_route_error(error: BaseException) -> bool:
+    """Whether a direct call failed to reach the deployment, rather than the model rejecting it.
+
+    Only connection-level failures qualify; status errors from the model are never retried.
+    """
+    try:
+        from chalkcompute._remote_call_client import (  # pyright: ignore[reportMissingImports]
+            RemoteCallTransportError,
+            RemoteCallUnavailableError,
+        )
+    except ImportError:
+        return False
+    return isinstance(error, (RemoteCallTransportError, RemoteCallUnavailableError))
+
+
+def call_model_url(
     client: "ChalkGRPCClient",
-    model_name: str,
+    web_url: str,
     inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table",
     *,
-    version: Optional[int] = None,
     handler: str = DEFAULT_HANDLER,
-    web_url: Optional[str] = None,
 ) -> "pa.RecordBatch":
-    """Invoke a deployed model by calling its scaling group ingress directly.
+    """Invoke a model by calling a deployment's public URL directly.
 
     ``inputs`` is a column mapping or pyarrow batch/table whose column order
     matches the model's input schema.
-
-    ``web_url`` possibly passed from DeployedModelVersion.remote() to skip re-resolution.
     """
-    if web_url is None:
-        web_url = resolve_scaling_group_web_url(client, model_name, version=version)
     target, use_tls = _grpc_target_from_url(web_url)
     metadata = client._get_remote_call_metadata()  # pyright: ignore[reportPrivateUsage]
-    feather_bytes = _encode_inputs(inputs)
-    chunks = _transport_call(target, use_tls, handler, feather_bytes, metadata)
-    return _decode_output(chunks)
+    return _decode_output(_transport_call(target, use_tls, handler, _encode_inputs(inputs), metadata))
 
 
 def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
@@ -206,19 +287,18 @@ def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
 
 def enqueue_model_call(
     queue_client: "RemoteCallClient",
-    model_name: str,
+    queue_name: str,
     inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table",
 ) -> Tuple[str, bytes]:
     """Enqueue one call, returning ``(call_id, request_bytes)``.
 
-    The queue name is the bare model name, matching the scaling group's
-    ``CHALK_FNQ_FUNCTION_NAME``. One queue per model, shared across versions: the
-    deployed revision draining it serves the call.
+    The queue name comes from the selected deployment's stored revision.
+    Legacy revisions retain their model-wide queue until redeployed.
 
     The encoded request is returned so callers can resubmit it after a transient failure.
     """
     feather_bytes = _encode_inputs(inputs)
-    call_id = queue_client.enqueue(model_name, feather_bytes)
+    call_id = queue_client.enqueue(queue_name, feather_bytes)
     return call_id, feather_bytes
 
 
@@ -239,10 +319,10 @@ def _decode_first_value(chunks: Sequence[bytes]) -> Any:
 class ModelCallHandle:
     """Handle for a deferred model call, returned by ``DeployedModelVersion.defer()``."""
 
-    def __init__(self, get_queue_client: Callable[[], "RemoteCallClient"], model_name: str, call_id: str) -> None:
+    def __init__(self, get_queue_client: Callable[[], "RemoteCallClient"], queue_name: str, call_id: str) -> None:
         super().__init__()
         self._get_queue_client = get_queue_client
-        self._model_name = model_name
+        self._queue_name = queue_name
         self._call_id = call_id
         self._cursor = ""
         self._poll_count = 0
@@ -289,5 +369,5 @@ class ModelCallHandle:
 
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Model call {self._call_id} ({self._model_name!r}) timed out (last status: {last_status})"
+                    f"Model call {self._call_id} ({self._queue_name!r}) timed out (last status: {last_status})"
                 )

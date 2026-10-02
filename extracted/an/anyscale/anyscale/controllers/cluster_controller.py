@@ -54,9 +54,7 @@ from anyscale.utils.name_utils import gen_valid_name
 
 
 class ClusterController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -120,7 +118,9 @@ class ClusterController(BaseController):
         cluster_compute_id, cluster_compute_config = None, None
         if cluster_compute_name:
             cluster_compute_id = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client, cloud_name=cloud_name,
+                cluster_compute_name,
+                self.api_client,
+                cloud_name=cloud_name,
             ).id
         elif cluster_compute_file:
             cluster_compute_config = self._load_cluster_compute(cluster_compute_file)
@@ -170,9 +170,7 @@ class ClusterController(BaseController):
             existing_cluster,
             project_id,
         )
-        cloud = self.anyscale_api_client.get_cloud(
-            cluster_compute.config.cloud_id
-        ).result
+        cloud = self.anyscale_api_client.get_cloud(cluster_compute.config.cloud_id).result
 
         # Whether configurations that could require a restart were passed
         passed_cluster_env = bool(cluster_env_name)
@@ -194,9 +192,7 @@ class ClusterController(BaseController):
             # Don't include build.revision or build.id for BYOD images
             cluster_environment_display = f"{cluster_env.name}"
         else:
-            cluster_environment_display = (
-                f"{cluster_env.name}.{build.revision} (id={build.id})"
-            )
+            cluster_environment_display = f"{cluster_env.name}.{build.revision} (id={build.id})"
 
         cluster_start_parameters_str = (
             f"\t\t\tCluster environment: {cluster_environment_display}\n"
@@ -240,7 +236,9 @@ class ClusterController(BaseController):
         )
         if cloud_id or cloud_name:
             cloud_id, _ = get_cloud_id_and_name(
-                api_client=self.api_client, cloud_id=cloud_id, cloud_name=cloud_name,
+                api_client=self.api_client,
+                cloud_id=cloud_id,
+                cloud_name=cloud_name,
             )
         project_id, cluster_name = self._get_project_id_and_cluster_name(
             cluster_id, project_id, cluster_name, project_name, cloud_id=cloud_id
@@ -250,9 +248,7 @@ class ClusterController(BaseController):
             {"project_id": project_id, "name": {"equals": cluster_name}}
         ).results
         if len(cluster_list) == 0:
-            raise click.ClickException(
-                f"No cluster {cluster_name} found in project {project_id}."
-            )
+            raise click.ClickException(f"No cluster {cluster_name} found in project {project_id}.")
 
         cluster = cluster_list[0]
         self.anyscale_api_client.terminate_cluster(cluster.id, {})
@@ -274,7 +270,9 @@ class ClusterController(BaseController):
         )
         if cloud_id or cloud_name:
             cloud_id, _ = get_cloud_id_and_name(
-                api_client=self.api_client, cloud_id=cloud_id, cloud_name=cloud_name,
+                api_client=self.api_client,
+                cloud_id=cloud_id,
+                cloud_name=cloud_name,
             )
         project_id, cluster_name = self._get_project_id_and_cluster_name(
             cluster_id, project_id, cluster_name, project_name, cloud_id
@@ -284,9 +282,7 @@ class ClusterController(BaseController):
             {"project_id": project_id, "name": {"equals": cluster_name}}
         ).results
         if len(cluster_list) == 0:
-            raise click.ClickException(
-                f"No cluster {cluster_name} found in project {project_id}."
-            )
+            raise click.ClickException(f"No cluster {cluster_name} found in project {project_id}.")
 
         cluster = cluster_list[0]
 
@@ -306,9 +302,7 @@ class ClusterController(BaseController):
         cloud_id: Optional[str],
         cloud_name: Optional[str],
     ) -> None:
-        if (
-            project_id is not None or project_name is not None
-        ) and include_all_projects:
+        if (project_id is not None or project_name is not None) and include_all_projects:
             self.log.warning(
                 f"Because `include_all_projects` was specified, the `--project-id` "
                 f"argument {project_id} will be ignored."
@@ -337,7 +331,11 @@ class ClusterController(BaseController):
                     cloud_name=cloud_name,
                 )
             project_id, cluster_name = self._get_project_id_and_cluster_name(
-                cluster_id, project_id, cluster_name, project_name, cloud_id=cloud_id,
+                cluster_id,
+                project_id,
+                cluster_name,
+                project_name,
+                cloud_id=cloud_id,
             )
             cluster_list.extend(
                 self.api_client.list_decorated_clusters_api_v2_decorated_sessions_get(
@@ -382,23 +380,23 @@ class ClusterController(BaseController):
                 search_clusters_query["archive_status"] = "ALL"
 
             # Page through all clusters in response
-            cluster_list_resp = self.api_client.list_decorated_clusters_api_v2_decorated_sessions_get(
-                **search_clusters_query, count=20
+            cluster_list_resp = (
+                self.api_client.list_decorated_clusters_api_v2_decorated_sessions_get(
+                    **search_clusters_query, count=20
+                )
             )
             next_paging_token = cluster_list_resp.metadata.next_paging_token
             cluster_list.extend(cluster_list_resp.results)
-            has_more = (next_paging_token is not None) and (
-                len(cluster_list) < max_items
-            )
+            has_more = (next_paging_token is not None) and (len(cluster_list) < max_items)
             while has_more:
-                cluster_list_resp = self.api_client.list_decorated_clusters_api_v2_decorated_sessions_get(
-                    **search_clusters_query, paging_token=next_paging_token, count=20
+                cluster_list_resp = (
+                    self.api_client.list_decorated_clusters_api_v2_decorated_sessions_get(
+                        **search_clusters_query, paging_token=next_paging_token, count=20
+                    )
                 )
                 next_paging_token = cluster_list_resp.metadata.next_paging_token
                 cluster_list.extend(cluster_list_resp.results)
-                has_more = (next_paging_token is not None) and (
-                    len(cluster_list) < max_items
-                )
+                has_more = (next_paging_token is not None) and (len(cluster_list) < max_items)
             cluster_list = cluster_list[:max_items]
 
         clusters_table = [
@@ -414,13 +412,21 @@ class ClusterController(BaseController):
 
         table = tabulate.tabulate(
             clusters_table,
-            headers=["NAME", "ID", "STATE", "CLOUD ID", "URL",],
+            headers=[
+                "NAME",
+                "ID",
+                "STATE",
+                "CLOUD ID",
+                "URL",
+            ],
             tablefmt="plain",
         )
         print(f"Clusters:\n{table}")
 
     def debug_networking(
-        self, cluster_id: Optional[str], skip_tls_no_sni: bool = False,
+        self,
+        cluster_id: Optional[str],
+        skip_tls_no_sni: bool = False,
     ) -> bool:
         cluster = self.anyscale_api_client.get_cluster(cluster_id).result
         if cluster.state != SessionState.RUNNING:
@@ -430,9 +436,7 @@ class ClusterController(BaseController):
 
         # TODO(ilr) modify messaging based on whether or not the cloud of this cluster uses Private IPs
         url = cluster.head_node_info.url
-        self.log.info(
-            f"Beginning network diagnostics for cluster {cluster_id} at {url}"
-        )
+        self.log.info(f"Beginning network diagnostics for cluster {cluster_id} at {url}")
 
         success = True
         for test_result in debug_cluster(
@@ -446,9 +450,7 @@ class ClusterController(BaseController):
                 if test_result.warnings:
                     self.log.warning(test_result.warnings)
             else:
-                self.log.error(
-                    f"{test_result.name}: ❌ Error Message: {test_result.error}"
-                )
+                self.log.error(f"{test_result.name}: ❌ Error Message: {test_result.error}")
                 success = False
         return success
 
@@ -473,19 +475,14 @@ class ClusterController(BaseController):
                 "of these two arguments."
             )
         if cluster_name is None and cluster_id is None:
-            raise click.ClickException(
-                "Please specify one of `--name` or `--cluster-id`."
-            )
+            raise click.ClickException("Please specify one of `--name` or `--cluster-id`.")
         if cloud_name is not None and cloud_id is not None:
             raise click.ClickException(
                 "`--cloud-name` and `--cloud-id` cannot both be specified. Please only provide one "
                 "of these two arguments."
             )
         if cluster_name is not None and (
-            project_id is None
-            and project_name is None
-            and cloud_id is None
-            and cloud_name is None
+            project_id is None and project_name is None and cloud_id is None and cloud_name is None
         ):
             raise click.ClickException(
                 "Please specify the project of the cluster through `--project-id` or `--project-name`. If the cluster "
@@ -540,9 +537,7 @@ class ClusterController(BaseController):
             )
         else:
             # Use default cluster environment per ray and python version
-            build = get_default_cluster_env_build(
-                self.api_client, self.anyscale_api_client
-            )
+            build = get_default_cluster_env_build(self.api_client, self.anyscale_api_client)
         cluster_env = self.anyscale_api_client.get_cluster_environment(
             build.cluster_environment_id
         ).result
@@ -558,7 +553,9 @@ class ClusterController(BaseController):
     ) -> ComputeTemplate:
         if cluster_compute_name:
             cluster_compute = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client, cloud_name=cloud_name,
+                cluster_compute_name,
+                self.api_client,
+                cloud_name=cloud_name,
             )
         elif cluster_compute_file:
             cluster_compute_config = self._load_cluster_compute(cluster_compute_file)
@@ -576,9 +573,7 @@ class ClusterController(BaseController):
             )
         return cluster_compute
 
-    def _get_or_generate_cluster_name(
-        self, project_id: str, cluster_name: Optional[str]
-    ) -> str:
+    def _get_or_generate_cluster_name(self, project_id: str, cluster_name: Optional[str]) -> str:
         """
         Return slugified cluster name if provided, else generate default cluster name from project id.
         """
@@ -642,9 +637,7 @@ class ClusterController(BaseController):
                 self.anyscale_api_client.update_cluster(
                     cluster.id, UpdateCluster(idle_timeout_minutes=idle_timeout)
                 )
-                self.log.info(
-                    f"Updated idle timeout minutes to {idle_timeout} minutes."
-                )
+                self.log.info(f"Updated idle timeout minutes to {idle_timeout} minutes.")
 
         return (cluster, needs_start)
 
@@ -672,10 +665,7 @@ class ClusterController(BaseController):
             return False
 
         needs_start = False
-        if (
-            passed_cluster_env
-            and current_cluster.cluster_environment_build_id != build.id
-        ):
+        if passed_cluster_env and current_cluster.cluster_environment_build_id != build.id:
             current_cluster_build = self.anyscale_api_client.get_cluster_environment_build(
                 current_cluster.cluster_environment_build_id
             ).result
@@ -691,10 +681,7 @@ class ClusterController(BaseController):
                 "the passed cluster environment."
             )
             needs_start = True
-        if (
-            passed_cluster_compute
-            and current_cluster.cluster_compute_id != cluster_compute.id
-        ):
+        if passed_cluster_compute and current_cluster.cluster_compute_id != cluster_compute.id:
             current_cluster_compute = self.anyscale_api_client.get_cluster_compute(
                 current_cluster.cluster_compute_id
             ).result

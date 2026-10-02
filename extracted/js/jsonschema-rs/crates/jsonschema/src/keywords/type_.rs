@@ -473,13 +473,9 @@ pub(crate) fn is_integer<N: jsonschema_value::JsonNumber>(num: &N) -> bool {
 #[inline]
 pub(crate) fn compile<'a, F: Json>(
     ctx: &compiler::Context<F>,
-    parent: &'a Map<String, Value>,
+    _parent: &'a Map<String, Value>,
     schema: &'a Value,
 ) -> Option<CompilationResult<'a, F>> {
-    // Absorbed by the fused array-shape validator emitted from `items`.
-    if crate::keywords::items::array_shape_fusion(ctx, parent) {
-        return None;
-    }
     let location = ctx.location().join("type");
     match schema {
         Value::String(item) => Some(compile_single_type(item.as_str(), location, schema)),
@@ -553,6 +549,16 @@ mod tests {
     #[test_case(&json!({"type": ["string", "object"]}), &json!(1), "/type")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         tests_util::assert_schema_location(schema, instance, expected);
+    }
+
+    #[test_case(&json!({"type": 5}), "5 is not of types \"string\", \"array\""; "not string or array")]
+    #[test_case(&json!({"type": "foo"}), "Unexpected type"; "unknown name")]
+    #[test_case(&json!({"type": ["foo"]}), "Unexpected type"; "single unknown name")]
+    #[test_case(&json!({"type": [5]}), "5 is not of type \"string\""; "single non string")]
+    #[test_case(&json!({"type": ["string", "foo"]}), "\"foo\" is not one of \"array\", \"boolean\" or 5 other candidates"; "list unknown name")]
+    #[test_case(&json!({"type": [5, "string"]}), "5 is not of type \"string\""; "list non string")]
+    fn malformed(schema: &Value, message: &str) {
+        tests_util::assert_compile_error(schema, message, "/type");
     }
 
     fn parse_json(s: &str) -> Value {

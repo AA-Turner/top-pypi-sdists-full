@@ -1,0 +1,8 @@
+service:
+  uri: https://api.earthmover.io
+  token_path:
+  ssl:
+    verify: True
+    cafile:
+icechunk:
+  scatter_initial_credentials: True

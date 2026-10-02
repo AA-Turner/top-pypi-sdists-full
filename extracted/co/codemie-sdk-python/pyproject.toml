@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "codemie-sdk-python"
+version = "0.1.656"
+description = "CodeMie SDK for Python"
+authors = [
+    "Vadym Vlasenko <vadym_vlasenko@epam.com>",
+]
+readme = "README.md"
+packages = [
+    { include = "codemie_sdk", from="src"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.31.0"
+pydantic = "^2.12.2"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.11.3"
+pytest-cov = "^6.0.0"
+
+[tool.poetry.group.test.dependencies]
+python-dotenv = "^1.1.0"
+PyHamcrest = "^2.1.0"
+pytest-xdist = "^3.6.1"
+pytest-rerunfailures = "^15.1"
+python-gitlab = "^5.6.0"
+boto3 = "^1.39.8"
+aws-assume-role-lib = "^2.10.0"
+pyyaml = "^6.0.2"
+codemie-plugins = "^0.1.123"
+pytest-reportportal = "^5.5.2"
+pytest-playwright = "^0.7.0"
+tzlocal = "^5.3.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

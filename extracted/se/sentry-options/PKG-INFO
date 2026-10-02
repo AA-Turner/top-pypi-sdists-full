@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: sentry_options
+Version: 1.2.13
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Rust
+Requires-Dist: maturin ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pyperf ; extra == 'dev'
+Provides-Extra: dev
+Summary: Python client for sentry-options using Rust validation
+Author-email: Sentry <oss@sentry.io>
+License-Expression: Apache-2.0
+Requires-Python: >=3.11
+Project-URL: Homepage, https://github.com/getsentry/sentry-options

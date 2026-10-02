@@ -1,0 +1,137 @@
+#pragma once
+
+#include "openscad_cpp_evaluator/eval_error.hpp"
+#include "openscad_cpp_evaluator/value.hpp"
+
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace oscadeval {
+
+// Callback injection points, mirroring the Python reference's
+// Evaluator.__init__(echo_fn=None, debug_hook=None, error_break_fn=None,
+// return_hook=None): callback injection, not GUI/toolkit coupling. No
+// QObject, no signals -- a caller (e.g. a Qt-based host app, or this
+// project's own CLI --debug REPL, debug_repl.hpp) wires these to its own
+// event system; all default to empty/no-op so a bare Evaluator
+// construction needs none of them.
+
+// echo()/WARNING output. Mirrors Evaluator._echo_fn(message) -- message
+// already has any "WARNING: "/formatting applied, this is just "print it
+// somewhere."
+using EchoFn = std::function<void(const std::string& message)>;
+
+// -- Debugging (Phase 9) -----------------------------------------------
+
+// Currently-visible variable names -> values at a debug pause, already
+// merged the way the reference's own REPL actually consumes them: plain
+// (`let`) locals plus `$`-prefixed dynamic vars for the *innermost* active
+// frame, plus (if that frame is nested inside a user call) any
+// unshadowed top-level script variable. Mirrors what
+// Evaluator._build_frame_locals computes for `all_frame_locals[0]` --
+// deliberately not the *whole* call-stack's own per-frame locals, since
+// neither this port's debug_repl.cpp nor the reference's own
+// _debug_repl.py ever look past frame 0 (only backtrace walks the rest,
+// and that only needs names/positions, already on CallStackFrame).
+struct DebugFrame {
+    // Merged localScope + outerScope, for consumers that want one flat map
+    // (debug_repl.cpp's `print`/`info variables`).
+    std::unordered_map<std::string, Value> locals;
+    // Split view mirroring the Python reference's per-frame frame_data: this
+    // frame's own `let` locals plus its `$`-dynamic vars (localScope), the
+    // unshadowed top-level script vars (outerScope, innermost frame only),
+    // and the subset of localScope names that are `let`-bound and hence
+    // editable at a pause (dynNames). A GUI debugger separates these; the
+    // CLI REPL only reads `locals`.
+    std::unordered_map<std::string, Value> localScope;
+    std::unordered_map<std::string, Value> outerScope;
+    std::vector<std::string> dynNames;
+};
+
+// Lazily computes the per-frame DebugFrame snapshot, innermost frame first
+// (frame 0 = the paused statement's own scope, then each enclosing user
+// call, then a final top-level frame when inside a call) -- mirrors the
+// reference's own `get_frames` returning all_frame_locals. A hook that only
+// traces line numbers (never inspects variables) shouldn't call this at all.
+using DebugFramesFn = std::function<std::vector<DebugFrame>()>;
+
+// A debug hook's response: `stop` aborts the whole evaluate() call
+// (mirrors returning cmd="stop", which raises EvalError); `mods` are
+// applied to the paused statement's own `let` scope before resuming
+// (mirrors the returned `mods` dict -- a debugger's "set variable"
+// command).
+struct DebugAction {
+    bool stop = false;
+    std::unordered_map<std::string, Value> mods;
+};
+
+// The exact message checkDebug() (debug_profile.cpp) throws EvalError with
+// when a DebugAction::stop is honored -- shared so cli_lib.cpp can tell
+// "the debugger itself asked to abort" (its own "stop"/"restart"/"quit"
+// commands) apart from a genuine script error (assert()/etc, possibly also
+// inspected via an errorBreak() pause that happens to have "stop" typed
+// into it) without the two copies of this string ever risking drifting
+// apart. Mirrors the Python reference's own
+// evaluator.DEBUGGING_STOPPED_MESSAGE.
+inline constexpr const char* kDebuggingStoppedMessage = "Debugging stopped.";
+
+// What a paused DebugRepl session decided to do once its own "stop"/
+// "restart"/"quit" command raises the shared kDebuggingStoppedMessage
+// EvalError -- read by cli_lib.cpp (via DebugRepl::takePostRunAction())
+// after catching that specific exception, to decide whether to return to
+// the pre-run prompt (Stopped), immediately re-run (Restart), or actually
+// exit the CLI (Quit). None is the initial/reset state -- also what a
+// genuine (non-debugger-triggered) EvalError leaves it at.
+enum class PostRunAction { None, Stopped, Restart, Quit };
+
+// Called at every point the Python reference calls _check_debug: every
+// top-level statement in every block (Evaluator::evalChildren's single
+// statement checkpoint), plus the reference's finer-grained sub-statement
+// sites -- ternary condition and chosen branch, if/else branch entry,
+// for-loop per-variable bindings and per-iteration body entry,
+// statement- and expression-form let() assignments, expression-form
+// echo()/assert(), every list-comprehension clause (if / if-else / let /
+// each / for / C-style-for, plus bare elements), modifier-wrapped
+// children, and user function / function-literal call sites. Also called
+// once right before evaluating a user function/function-literal's body
+// expression, and by breakpoint() (forced=true, unconditionally, matching
+// the reference's own _check_debug(..., forced=True) call).
+//
+// `exprLevel` mirrors the reference's `expr_level` keyword exactly: true
+// for the sub-expression markers a debugger should NOT treat as a
+// steppable/breakpointable statement (a chosen ternary or if branch, a
+// for-loop body entry, a list-comprehension body element, a C-style-for
+// condition re-check). Both this port's own debug_repl.cpp and the
+// reference's _debug_repl.py gate every step/breakpoint decision on
+// `!exprLevel`, while still pausing unconditionally on `forced`.
+//
+// `depth` is the live user-call-stack depth (Evaluator::callStack_.size())
+// at the pause point. Mirrors Evaluator._check_debug/the debug_hook
+// callback contract.
+using DebugHookFn = std::function<DebugAction(int line, int depth, bool forced, bool exprLevel, const std::string& origin,
+                                               const std::vector<CallStackFrame>& callStack, const DebugFramesFn& getFrame)>;
+
+// Called from Evaluator::error() right before it throws, if set -- gives a
+// debugger one last chance to inspect state at the failure site. Mirrors
+// error_break_fn.
+using ErrorBreakFn = std::function<void(int line, const std::string& header, const std::string& origin,
+                                         const std::vector<CallStackFrame>& callStack, const DebugFramesFn& getFrame)>;
+
+// Called right after a user function/function-literal call computes its
+// result, before returning -- lets a debugger's `finish` command report
+// "value returned is ...". Mirrors return_hook(name, value, depth).
+using ReturnHookFn = std::function<void(const std::string& name, const Value& result, int depth)>;
+
+// Bundles the 3 debugging-related callbacks into one constructor
+// parameter (rather than 3 more positional Evaluator(...) arguments) --
+// default-constructed (every field null) means "debugging off", mirroring
+// the reference's `self._debugging = debug_hook is not None`.
+struct DebugHooks {
+    DebugHookFn debugHook;
+    ErrorBreakFn errorBreak;
+    ReturnHookFn returnHook;
+};
+
+} // namespace oscadeval

@@ -104,12 +104,6 @@ def _configure_stubs() -> None:
         "Notes",
         "OpsIssueClass",
         "OpsIssueEvent",
-        # User-defined data type (UDT) models — backed by udt_* tables.
-        "UdtDatasets",
-        "UdtDatasetFields",
-        "UdtDatasetRows",
-        "UdtStructuredLists",
-        "UdtStructuredListItems",
         "Tasks",
         "Projects",
         "Definition",
@@ -148,13 +142,9 @@ def _configure_stubs() -> None:
     # External utilities used at module-import time in matrx_ai submodules.
     ext_stubs: dict[str, object] = {
         "update_data_in_code": lambda *a, **kw: None,
-        "dataset_reference_fetch": {},
-        "picklist_reference_fetch": {},
         "settings": _Stub(),
         "TEMP_DIR": "/tmp",
         "get_async_supabase_client": lambda *a, **kw: None,
-        "DatasetCreator": _Stub,
-        "PicklistCreator": _Stub,
         "brave_search": {},
         "keyword_research": lambda *a, **kw: None,
         "load_manifest_from_ctx": lambda *a, **kw: None,

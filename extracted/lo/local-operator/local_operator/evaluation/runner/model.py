@@ -1,0 +1,469 @@
+"""The policy boundary an episode drives, independent of any provider.
+
+``EpisodeRunner`` needs exactly one capability from a model: turn the current
+observation and the transcript so far into an :class:`ActionBatch`. Expressing
+that as a Protocol rather than a concrete client is what keeps ``episode.py``
+free of provider, config, and session imports -- the import-isolation test in
+``tests/unit/evaluation/runner`` asserts that boundary, because an evaluation
+episode must be reproducible from pinned inputs and must not inherit a user's
+live session configuration.
+
+The concrete provider-backed implementation lives in ``provider_client.py``,
+which is the only runner module permitted to import ``local_operator.model``.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol, Sequence, runtime_checkable
+
+from pydantic import Field
+
+from local_operator.evaluation.action_surface import ActionSurface
+from local_operator.evaluation.evidence.models import RouteIdentity
+from local_operator.evaluation.protocol import ActionBatch, Observation, ProtocolModel
+from local_operator.evaluation.receipts import SafeCount, StrictIdentifier
+
+
+class ModelUsage(ProtocolModel):
+    """Provider-reported token consumption for exactly one decision.
+
+    These counts feed both ``model_response`` and ``usage_cost`` evidence, and
+    the verifier recomputes the bundle's counters from the latter. They are
+    therefore authoritative provider numbers, never estimates: a provider that
+    cannot report a count must surface zero here and declare the resource
+    unavailable during reconciliation instead of guessing.
+    """
+
+    input_tokens: SafeCount = 0
+    output_tokens: SafeCount = 0
+    reasoning_tokens: SafeCount = 0
+    cache_read_tokens: SafeCount = 0
+    cache_write_tokens: SafeCount = 0
+
+
+class CompactionRecord(ProtocolModel):
+    """A context rebuild the client performed before this decision's request.
+
+    Reported so the runner can DECLARE it in the bundle (a ``context_compaction``
+    event) rather than leave it inferable from a message-count drop. The
+    summarization call that produced ``summary_text`` was a billed provider
+    call; its usage and cost are folded into the owning ``ModelDecision`` so
+    the bundle's counters remain a pure sum of usage events.
+    """
+
+    strategy: StrictIdentifier
+    tokens_before: SafeCount
+    tokens_after: SafeCount
+    frames_dropped: SafeCount
+    messages_before: SafeCount
+    messages_after: SafeCount
+    summary_text: str | None = None
+
+
+class ModelDecision(ProtocolModel):
+    """One model turn: the batch to execute plus its billing provenance.
+
+    ``route`` is the route the provider actually served. The runner compares it
+    against the requested route when labelling comparability, so a client that
+    silently fell back must report the served route here rather than echoing
+    what was asked for.
+
+    ``usage``/``cost_micros`` cover EVERY provider call the decision cost,
+    including a compaction summary made on the way to it; ``compaction`` is set
+    when one happened so the runner can declare it before the request event.
+    """
+
+    action_batch: ActionBatch
+    # Only validated visible model output, never provider reasoning. None keeps
+    # old clients/history on their byte-identical canonical-action replay path.
+    public_reply: str | None = None
+    route: RouteIdentity
+    usage: ModelUsage = Field(default_factory=ModelUsage)
+    cost_micros: SafeCount = 0
+    stop_reason: StrictIdentifier = "stop"
+    provider_request_id: StrictIdentifier = "unknown"
+    tool_call_count: SafeCount = 0
+    #: Tools the request PUT ON THE WIRE. Distinct from ``tool_call_count``,
+    #: which counts how the model answered: a bundle showing a call against a
+    #: request that offered nothing is a state the wire cannot produce.
+    offered_tool_count: SafeCount = 0
+    #: How many of this attempt's action fields the reply put on a kind that
+    #: does not take them (``drop_sibling_action_fields``), dropped before the
+    #: batch was validated. Recorded on the ACCEPTED path, which is the whole
+    #: point: the replies this tolerance recovers stop producing rejection
+    #: artifacts, so without a count the class that justified the change becomes
+    #: uncountable from the bundles -- and a tolerance nobody can count is
+    #: indistinguishable from one that stopped firing. A count rather than the
+    #: names: the names are a bounded ``kind.field`` vocabulary reported in the
+    #: log line, while the bundle is signed and published.
+    #:
+    #: Sealed by the runner as its own ``reply_tolerance`` event
+    #: (:class:`~local_operator.evaluation.evidence.models.ReplyTolerancePayload`)
+    #: rather than as a field of ``ModelResponsePayload``: an event's id is a
+    #: digest over its payload, so a field added to a payload model that already
+    #: has sealed events makes every one of them fail verification. This
+    #: structure is runner-side and is never hashed, which is what makes it the
+    #: safe place to carry the count until the writer seals it.
+    tolerated_action_fields: SafeCount = 0
+    #: The dropped fields themselves, as ``kind.field`` names in the reply's
+    #: action order (repeats kept). Carried BESIDE the count rather than
+    #: instead of it because the two have different readers: the count is what
+    #: the sealed ``reply_tolerance`` event records, and the names are what the
+    #: model-facing correction needs -- a count cannot be rendered into a note
+    #: the model can act on, and an episode that drops a field without saying so
+    #: teaches the model nothing (``public_reply.tolerated_fields_note``).
+    #: Runner-side like the count beside it: this structure is never hashed.
+    tolerated_field_names: tuple[str, ...] = ()
+    #: How many UTF-8 bytes of framing preceded this attempt's decision, after
+    #: leading whitespace. Zero for the ordinary reply, which begins with its
+    #: decision; non-zero says the decoder had to LOCATE the decision behind a
+    #: preamble, a code fence or a native call-syntax wrapper
+    #: (``_locate_leading_object``). Carried because that recovery is otherwise
+    #: invisible in a sealed bundle: a reply read through the tolerance produces
+    #: no rejection artifact, so the class would leave the histogram entirely
+    #: rather than showing as recovered. Sealed by the ``reply_tolerance`` event,
+    #: for the reason stated on ``tolerated_action_fields``.
+    leading_framing_bytes: SafeCount = 0
+    #: How many DECLARED provider reasoning-boundary markers were stripped from
+    #: the head of this attempt's reply before it was judged. Recorded on the
+    #: ACCEPTED path as well as the rejected one, and that is the whole point:
+    #: the strip exists to turn a refused reply into an accepted one, so a
+    #: counter that only appeared on refusals could never show the tolerance
+    #: working -- and could never show it going quiet, which is what a provider
+    #: changing its chat template looks like from here. See
+    #: ``ModelSpec.reasoning_boundary_markers`` for the declaration and
+    #: ``strip_reasoning_boundary_markers`` for what removal is licensed to do.
+    #: Counts strips on the attempt's assembled PROSE channel. A model that
+    #: answered on the reply channel instead was judged on that text, and the
+    #: count still refers to the channel the token arrived on -- it is a record
+    #: of what the assembly did, not a claim about the reply that won.
+    stripped_reply_markers: SafeCount = 0
+    #: The reasoning effort this attempt's request was BUILT with -- the rung the
+    #: provider was actually asked for, not the one the run was configured with.
+    #: ``None`` when the route publishes no effort ladder or the client could not
+    #: report one, which is an absent measurement rather than a claim of "no
+    #: effort". It exists because the campaign's one real recovery lever is a
+    #: step DOWN the ladder (an empty output-limit truncation is retried one rung
+    #: lower): without the rung on the request, a bundle reads as three identical
+    #: silent attempts and cannot show that the retry actually changed anything --
+    #: and a score is not comparable across effort levels, so which rung produced
+    #: which reply is a measurement, not diagnostics.
+    reasoning_effort: StrictIdentifier | None = None
+    prompt_cache_key: StrictIdentifier | None = None
+    context_tokens: SafeCount | None = None
+    compaction: CompactionRecord | None = None
+
+
+class EpisodeTurn(ProtocolModel):
+    """One completed (or in-progress) turn of the episode, protocol-typed.
+
+    ``observation`` is what the model saw; ``batch`` is what it decided, which
+    is ``None`` for the turn currently being decided and for a turn whose batch
+    was terminal; ``ask_answer`` is the answer delivered for an ``ask_user``
+    batch. The runner appends these and never renders them — how a turn becomes
+    a provider message (frames as image blocks, the batch replayed verbatim as
+    the assistant's own words) is the client's business, which keeps the runner
+    core free of provider vocabulary.
+    """
+
+    observation: Observation
+    batch: ActionBatch | None = None
+    # The runner attaches the evidence-redacted reply to this same observation;
+    # the context builder must not reconstruct it as actions and lose its facts.
+    public_reply: str | None = None
+    #: The sibling fields the reply tolerance dropped from this turn's decision
+    #: (``kind.field`` names, as the decoder reported them). The runner attaches
+    #: them when the decision is accepted, and the client renders them into the
+    #: NEXT observation's message -- the same place an ask answer reaches the
+    #: model, and for the same reason: a correction has to arrive beside the
+    #: state it applies to. Empty for an ordinary turn.
+    tolerated_field_names: tuple[str, ...] = ()
+    ask_answer: str | None = None
+
+
+class StreamShape(ProtocolModel):
+    """The shape of ONE attempt's provider stream, counted per event kind.
+
+    Recorded beside a refusal because the counts are the only thing that says
+    whether an empty-looking reply was empty: a turn with a large
+    ``reasoning_deltas`` and zero ``content_deltas`` produced work on the
+    reasoning channel, while all-zero counts under a normal ``stop`` mean the
+    provider sent nothing at all. Without them a reader of the evidence cannot
+    tell a model that thought and said nothing from a client that discarded
+    what it said -- which is why :class:`StreamReasoningDelta` exists at all.
+
+    Counts of EVENTS, not of tokens or characters: the wire client emits one
+    delta per provider chunk, so these are bounded by the provider's own
+    chunking, and ``stop`` is the provider's raw terminal marker (never
+    normalised, since the marker is exactly what a reader needs to bucket the
+    attempt).
+    """
+
+    content_deltas: SafeCount = 0
+    reasoning_deltas: SafeCount = 0
+    tool_call_deltas: SafeCount = 0
+    #: The NAMES of the tool calls this attempt's stream carried, JSON-quoted in
+    #: stream order and bounded by the builder. Empty when the stream carried
+    #: none, which is a real reading and not an absence: a reply with
+    #: ``content_deltas=0`` and this empty said nothing on either channel.
+    #:
+    #: It exists because the name was the ONE thing a refusal could not be
+    #: diagnosed from. 178 of the arm's 204 ``leading-delimiter`` refusal
+    #: artifacts were a decision that arrived as a tool call the harness did not
+    #: read, recounted 2026-09-25 over ``~/worktrees/osworld/runs`` (see
+    #: ``harness/reply_channel.envelope_from_tool_call``); the bundle kept the
+    #: delta count and nothing else, so whether the model invented a name, called
+    #: a real tool of its own, or reused the offered one with different casing was
+    #: unknowable after the fact — and unanswerable without paying for the run
+    #: again. The count says a call happened; this says what it was called.
+    #:
+    #: Model-controlled text, so it is escaped by the renderer exactly as ``stop``
+    #: is: a name carrying a newline would otherwise open a line that reads like
+    #: another artifact header.
+    tool_call_names: str = ""
+    #: The provider's raw terminal marker, recorded VERBATIM and deliberately a
+    #: plain ``str`` rather than a ``StrictIdentifier``. The vocabulary here
+    #: belongs to the provider: a marker our identifier pattern would reject
+    #: (``function_call``, a vendor's ``SAFETY``, a future wire client's
+    #: normalisation) would make this record fail validation and turn a refusal
+    #: into a crash -- on a path whose whole job is to describe the refusal. The
+    #: builder truncates it, so it cannot grow the artifact unbounded either.
+    stop: str = "unspecified"
+
+
+class DecisionRejected(Exception):
+    """The provider answered, and was billed, but the reply is not a usable batch.
+
+    This is the MODEL's error, not the provider's: the request went through,
+    tokens were spent, and what came back failed strict decision parsing (not
+    JSON, wrong shape, a stale observation id, a ``frame_id`` the observation
+    does not carry, a coordinate outside the frame). It is raised INSTEAD of a
+    :class:`ModelDecision` so the runner can still record the attempt honestly
+    -- every field a decision would have carried for the bundle's
+    request/response/usage triple is here -- and then ask again.
+
+    The first paid OSWorld episode ended on exactly this: the model named
+    ``frame_id "1"`` where the adapter had published ``"screen"``, the reply
+    was classified as a provider failure, and the episode was sealed unscored
+    after a single call. A rejected reply is recoverable in a way a dead
+    provider is not, which is why it has its own type and its own path.
+
+    ``diagnostic`` is the parse error, phrased so it can be shown back to the
+    model verbatim. An implementation that raises this is expected to have
+    folded the rejection into its own context first (the bad reply, then the
+    diagnostic as the next user turn) so that the runner's re-call of
+    :meth:`EpisodeModelClient.decide` for the same observation is a corrective
+    re-prompt rather than a blind replay.
+    """
+
+    def __init__(
+        self,
+        diagnostic: str,
+        *,
+        reply: str | None = None,
+        route: RouteIdentity | None = None,
+        usage: ModelUsage | None = None,
+        cost_micros: int = 0,
+        stop_reason: str = "stop",
+        provider_request_id: str = "unknown",
+        tool_call_count: int = 0,
+        offered_tool_count: int = 0,
+        prompt_cache_key: str | None = None,
+        context_tokens: int | None = None,
+        compaction: CompactionRecord | None = None,
+        class_key: str | None = None,
+        evidence_reply: str | None = None,
+        stream_shape: StreamShape | None = None,
+        channel_read: bool = False,
+        channel_prose_chars: int | None = None,
+        stripped_reply_markers: int = 0,
+        reasoning_effort: str | None = None,
+        empty_length_truncation: bool = False,
+    ) -> None:
+        super().__init__(diagnostic)
+        self.diagnostic = diagnostic
+        # WHAT the model actually said, not just why it was refused. The
+        # diagnostic alone cannot answer the question a post-mortem asks --
+        # "was it trying to type?" -- because a Pydantic error names the
+        # fields it disliked and not the intent behind them. A real paid
+        # episode's three rejections were only reconstructible as far as
+        # "something with a `key` field" and "trailing junk after the JSON";
+        # the replies themselves were discarded, so the failure class could
+        # not be diagnosed without paying for the run again.
+        #
+        # ``reply`` is the HISTORY rendering of that reply: the words replayed
+        # back as the assistant's own turn so the correction has something to
+        # correct. It is bounded, and for a reply that touched the reserved
+        # envelope it is the placeholder instead of the reply, because that
+        # text is unvalidated and may carry notes the episode's redaction set
+        # forbids replaying. ``evidence_reply`` below is the OTHER boundary --
+        # see its own comment -- and the two must be allowed to differ.
+        self.reply = reply
+        # The reply as EVIDENCE may publish it: raw, and bounded and
+        # redaction-scanned by the publisher rather than here, because the
+        # scan needs the episode's resolved-secret set (``episode.py`` has it;
+        # this exception is constructed where the reply is refused).
+        #
+        # Separate from ``reply`` on purpose. Withholding the model's own words
+        # from the bundle made the rejection classes unreadable -- in the
+        # MiniMax campaign 273 of 280 rejection artifacts carried the
+        # placeholder instead of the reply -- while the reason for withholding
+        # (unvalidated notes must not be replayed as history, and no secret may
+        # reach evidence) applies to only one of the two boundaries.
+        self.evidence_reply = evidence_reply
+        # The class the refusal was bucketed into, and the stream that produced
+        # it. Both ride into the rejection artifact so a reader can group
+        # rejections without re-deriving the class from prose, and so an empty
+        # reply can be told apart from a discarded one.
+        self.class_key = class_key
+        self.stream_shape = stream_shape
+        # WHICH channel this refusal was judged on, carried as a fact rather than
+        # left for a reader to infer. The class key alone cannot say it: a
+        # ``leading-delimiter`` refusal is the bytes not starting with ``{``, and
+        # whether those bytes came from the model's prose or from the arguments
+        # of a call it made is the difference between a model that framed its
+        # reply badly and a harness that read the wrong channel -- the exact
+        # misdiagnosis that let 178 of the arm's 204 refusals sit undiagnosed
+        # (see ``harness/reply_channel.envelope_from_tool_call``; recounted
+        # 2026-09-25 over ``~/worktrees/osworld/runs``). ``True`` means
+        # the tool-call channel was read and its bytes are what was judged;
+        # ``False`` means the prose was judged (or there was none).
+        #
+        # A harness fact beside the shape, not a property of the provider's
+        # stream, which is the same reason ``stripped_reply_markers`` rides
+        # here: reading a channel is something the harness did to the reply.
+        self.channel_read = channel_read
+        # How much prose the judged-vs-published question had to choose over, in
+        # CHARACTERS of the text the decoder would have been handed. Together with
+        # ``channel_read`` this is what makes the widening's collateral
+        # countable from a sealed bundle: ``channel=read(prose=0)`` is the silent
+        # reply the widening exists for, ``channel=read(prose=26)`` is a turn that
+        # also wrote prose the channel reader set aside -- a combination no
+        # artifact could show before, because a ``content_deltas`` count is
+        # events rather than the bytes judged.
+        #
+        # ``None`` means the client did not RECORD the count, and the renderer
+        # omits the clause rather than printing ``prose=0``: zero is a READING
+        # of a genuinely silent turn, which is the class the widening exists
+        # for, so guessing it would make an unrecorded refusal indistinguishable
+        # from that class in a sealed bundle.
+        self.channel_prose_chars = channel_prose_chars
+        # The reply-assembly tally, for the same reason the class key is here:
+        # a refusal whose reply LOST a provider boundary token explains itself
+        # differently from one that arrived already broken, and only the count
+        # can tell the two apart after the fact -- the recorded reply is the
+        # version the harness judged, i.e. with the marker already gone.
+        self.stripped_reply_markers = stripped_reply_markers
+        # Which rung produced this refusal, for the reason ``ModelDecision``
+        # records it: it is the only record that a retry changed the question
+        # that was asked.
+        self.reasoning_effort = reasoning_effort
+        # The ONE failure shape the runner may answer with a LOWER EFFORT rather
+        # than a corrective re-prompt: a reply cut off at the output limit with
+        # nothing on either channel (no text, no tool calls), i.e. the whole
+        # budget went to thinking. Classified by the client, which is the only
+        # layer that saw the stream, and carried as a fact so the runner does
+        # not have to re-derive a class from prose -- or, worse, retreat on a
+        # reply that merely looked empty. False for every other refusal,
+        # including a truncation that carried text or a call: that one is
+        # truncated, not silent, and keeps the ordinary re-prompt.
+        self.empty_length_truncation = empty_length_truncation
+        # The served route matters even for a rejected reply: a fallback that
+        # answered badly still moved the run off its pinned route.
+        self.route = route
+        self.usage = usage or ModelUsage()
+        self.cost_micros = cost_micros
+        self.stop_reason = stop_reason
+        self.provider_request_id = provider_request_id
+        self.tool_call_count = tool_call_count
+        self.offered_tool_count = offered_tool_count
+        self.prompt_cache_key = prompt_cache_key
+        self.context_tokens = context_tokens
+        self.compaction = compaction
+
+
+@runtime_checkable
+class CompletionChallenger(Protocol):
+    """A model client that can re-present the end state on request.
+
+    THE RUNNER'S GATE ASKS FOR THIS AND THIS ALONE, and it is a SEPARATE
+    protocol rather than a member of :class:`EpisodeModelClient` on purpose. The
+    gate has to survive a client that cannot do it -- that is the whole reason
+    the driver refuses to seal a gate-on run whose client has no
+    ``challenge_completion`` -- and a REQUIRED member would make that case
+    impossible to express: every double, scripted client and third-party client
+    would have to implement a method whose only job is to say something the
+    client may have no way to say. Membership is therefore optional, declared
+    here, and asked for by ``isinstance``.
+
+    The contract, for an implementation (see
+    ``ProviderModelClient.challenge_completion`` for the shipped one):
+
+    * ``batch`` is the terminal batch the model just declared -- one
+      ``FinishAction``, alone in its batch -- and ``instruction`` is the task
+      text as the reset observation published it.
+    * Append the model's OWN declaration as the assistant message it would have
+      been replayed as, then a user message carrying the challenge AND the
+      current observation's frames, read through the same ``verify_artifact``
+      reader the observation itself was rendered with. The
+      ``append_rejection`` shape, reused: an APPEND, never a rewrite, because
+      the prefix cache is keyed on the bytes already sent.
+    * Return the challenge text as appended, so the runner can publish exactly
+      what the model was shown.
+    * Raising is the contract for an unrecoverable failure, exactly as in
+      ``decide``: the challenge is appended in-process and the provider is not
+      called until the next ``decide``.
+    """
+
+    async def challenge_completion(
+        self,
+        observation: Observation,
+        history: Sequence[EpisodeTurn],
+        *,
+        batch: ActionBatch,
+        instruction: str,
+    ) -> str: ...
+
+
+@runtime_checkable
+class EpisodeModelClient(Protocol):
+    """Chooses the next action batch for an episode.
+
+    ``history`` carries every turn already taken, oldest first, each with the
+    observation the model saw and the batch it chose, so an implementation can
+    build a real append-only conversation without the runner taking a position
+    on prompt construction. The current ``observation`` is the last entry's
+    observation too (its ``batch`` is still ``None``).
+
+    Two failure contracts, deliberately distinct:
+
+    * Raising :class:`DecisionRejected` means the call was billed but the
+      reply was unusable. The runner records the attempt (request, response,
+      usage, and a retryable ``error`` event) and calls ``decide`` AGAIN with
+      the same observation and history, up to one flat ceiling -- consecutive
+      refusals end the episode at
+      ``max(EpisodeConfig.max_decision_retries + 2, max_rejection_streak)``
+      refusals, four by default, whichever classes they landed on; only when
+      the ceiling is spent does the episode end, as a MODEL failure. The
+      implementation owns making the re-call corrective.
+    * Raising anything else is the contract for an unrecoverable provider
+      failure: the runner treats it as ``ErrorPayload(category="provider")``
+      and finalizes the episode unscored on a still-live session. Internal
+      retries for transport faults therefore belong inside the implementation,
+      below this boundary.
+
+    A client MAY also implement :class:`CompletionChallenger`. The runner's
+    completion gate asks the model once to check a ``done`` declaration against
+    the observation it is bound to, and a client that cannot re-present the end
+    state simply does not satisfy that protocol -- so the gate does not fire and
+    ``scripts/run_episode.py`` refuses to seal a gate-on run rather than record a
+    manifest claiming a gate that never ran.
+    """
+
+    async def decide(
+        self,
+        observation: Observation,
+        history: Sequence[EpisodeTurn],
+        *,
+        action_surface: ActionSurface,
+    ) -> ModelDecision: ...

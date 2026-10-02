@@ -1,0 +1,207 @@
+name: Staging pre-release and publish to PyPI
+
+# rc pre-release stream: on every push to staging, publish a PEP 440
+# pre-release (0.YY.M.DD.SEQrcN) to PyPI so staging desktop builds install
+# from PyPI exactly like prod (same installer flow, no git/Xcode) while
+# following the rc stream. Resolvers ignore pre-releases unless a specifier
+# names one, and PyPI's `info.version` (which the prod desktop updater reads)
+# excludes them, so prod installs can never pick these up.
+#
+# The publish job MUST live in this top-level workflow — PyPI Trusted
+# Publishing does not support reusable workflows and matches the OIDC claim
+# on THIS filename. Register publish-staging.yml as a trusted publisher
+# (environment `pypi`) at the PyPI project's publishing settings.
+
+# No workflow-level `permissions:` block. It used to grant `contents: write` to
+# every job in this file, which only `release` needs — the unit tests and the
+# image build got it for nothing, and so would anything added later without
+# thinking. Each job below states its own, so the default (read) applies to the
+# rest.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-prerelease-${{ github.ref }}
+  cancel-in-progress: false
+
+# THIS IS THE STAGING PIPELINE, not a side workflow. It used to be one of two
+# workflows on push to `staging` — this one and `staging-build-deploy.yml` — so
+# every merge produced two disconnected run trees and neither showed the whole
+# story: the one named "Build and Deploy" did not publish, and the one that
+# published did not build.
+#
+# They merged into this file rather than the other way round because of the
+# constraint above: the publish job must live in a top-level workflow whose
+# filename the PyPI trusted-publisher claim matches. So this file keeps the name
+# and calls the image build as a reusable, which is the only arrangement that gives
+# one run tree without breaking publishing.
+jobs:
+  unit-tests:
+    # Explicit, though `contents: read` is also the repo default. A caller job's
+    # `permissions` is the CAP on the workflow it calls, so leaving it off makes
+    # this file's blast radius a property of Settings -> Actions rather than of
+    # the file, and an org-wide flip to read/write would silently widen it.
+    # tests-unit.yml declares `contents: read` itself, so this matches exactly.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tests-unit.yml
+
+  build-deploy:
+    # The container image, for the per-PR environments and whatever comes after.
+    # Independent of the release chain on purpose: a scan finding should not hold
+    # up the wheel the desktop installs from, and a failed publish should not hide
+    # a broken image. Both land in this one run tree, and `notify` covers both.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-deploy.yml
+    with:
+      build-environment: staging
+    secrets: inherit
+
+  wheels-available:
+    # Gates the publish below, same as in publish.yml. Staging is where an
+    # Intel-Mac wheel regression should be caught, since staging desktop builds
+    # install from PyPI exactly like prod.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/wheels-available.yml
+
+  release:
+    # Waits for `wheels-available` as well, so a red gate means NO TAG. With
+    # `needs: unit-tests` alone the two ran in parallel: the rc tag and its
+    # GitHub Release were created, then `publish` was skipped, leaving a
+    # version that exists on GitHub and not on PyPI and a tag to clean up
+    # before the fixed commit could re-release.
+    needs: [unit-tests, wheels-available]
+    # workflow_dispatch can be pointed at any ref; only staging mints rc tags.
+    if: github.ref == 'refs/heads/staging'
+    permissions:
+      contents: write  # tag push + release creation
+    uses: mindsdb/github-actions/.github/workflows/calver-release.yml@main
+    with:
+      calver-major: "0"
+      prerelease: true
+      runs-on: ubuntu-latest
+
+  publish:
+    name: Build and publish pre-release to PyPI
+    # `wheels-available` is redundant now that `release` waits for it too, and
+    # deliberately kept: it is the edge that actually stops a broken wheel
+    # reaching PyPI, so it should not disappear if the `release` edge is ever
+    # refactored away.
+    needs: [release, wheels-available]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write  # required for trusted publisher (OIDC)
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0  # hatch-vcs needs tags to derive version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      # Exact cowork-server/anton pairing for the rc stream: pin anton-agent
+      # to its latest staging rc so this wheel records the anton that was
+      # current when it published. The desktop passes the pin as a DIRECT
+      # `--with anton-agent==<rc>` requirement at install time (uv honors
+      # pre-release markers only in direct requirements) — no resolution-wide
+      # prerelease flag is ever used.
+      - name: Pin anton-agent to its latest staging rc
+        run: |
+          set -euo pipefail
+          LATEST=$(curl -fsSL --retry 3 https://pypi.org/pypi/anton-agent/json | jq -r '[.releases | to_entries[] | select(.key | test("^[0-9]+(\\.[0-9]+)*(rc[0-9]+)?$")) | select((.value | length) > 0) | select(any(.value[]; .yanked != true)) | {v: .key, t: ([.value[].upload_time_iso_8601] | max)}] | sort_by(.t) | last | .v')
+          if [[ "$LATEST" == *rc* ]]; then
+            sed -i 's/"anton-agent>=[^"]*"/"anton-agent=='"$LATEST"'"/' pyproject.toml
+            grep -q '"anton-agent=='"$LATEST"'"' pyproject.toml
+            echo "Pinned anton-agent==$LATEST"
+          else
+            echo "Latest anton-agent is a stable release ($LATEST); keeping the loose constraint"
+          fi
+
+      - name: Build package
+        env:
+          # The anton pin dirties the checkout, which would make hatch-vcs
+          # append a +dirty local segment PyPI rejects. Force the version to
+          # exactly what the tag encodes.
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ needs.release.outputs.version }}
+        run: uv build
+
+      # Catches the anton/cowork-server pairing race: the pin step above grabs
+      # whichever anton-agent is newest on PyPI right now, which can predate an
+      # anton change this commit already depends on if anton's own matching rc
+      # hasn't finished publishing yet. Installing the wheel about to ship and
+      # importing the app runs the same import chain uvicorn runs at startup
+      # (server.py -> router.py -> endpoints -> services), so a stale pin fails
+      # here instead of on a user's machine.
+      # The `wheels-available` gate above ran against the checked-in
+      # pyproject, i.e. the loose `anton-agent>=...,<3`. The pin step rewrote
+      # that to an exact rc, so the wheel just built can carry a dependency set
+      # the gate never saw — if that rc pulls something with no Intel-Mac or
+      # Windows wheel, desktop users get a source build and the gate stayed
+      # green. The smoke install below cannot catch it either: it runs on
+      # ubuntu and permits source builds.
+      #
+      # So re-run the cross-platform check against the artifact itself, which
+      # is the only thing that carries the pinned metadata.
+      - name: Check the built wheel resolves to wheels on every shipped platform
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          # Exactly one, or the check would silently inspect an arbitrary
+          # artifact. `uv build` produces one wheel plus an sdist, so anything
+          # else means the build changed and this check needs rethinking.
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "expected exactly 1 wheel in dist/, found ${#wheels[@]}: ${wheels[*]:-<none>}" >&2
+            exit 1
+          fi
+          bash scripts/check_wheels_available.sh "${wheels[0]}"
+
+      - name: Verify the pinned anton-agent satisfies this build
+        run: |
+          set -euo pipefail
+          uv venv .smoke-venv
+          uv pip install --python .smoke-venv "$(ls dist/*.whl)"
+          VENV_PY="$(pwd)/.smoke-venv/bin/python"
+          # Run from outside the checkout: the repo root has its own cowork/
+          # source directory, and `python -c` puts cwd first on sys.path, so
+          # importing from here would silently shadow the wheel we just
+          # installed and test the checkout instead of the published artifact.
+          cd /tmp && "$VENV_PY" -c "import cowork.server"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Trusted publisher (OIDC) — publish-staging.yml must be registered at
+        # the PyPI project's publishing settings (environment: pypi).
+
+  notify:
+    # Alert the eng channel if ANY job in the staging release/publish pipeline
+    # fails.
+    # One job covers both outcomes: a `uses:` job cannot branch on status, so
+    # the aggregate result picks the failed or recovered message, and a
+    # cancelled run stays silent.
+    needs: [unit-tests, build-deploy, wheels-available, release, publish]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'cancelled') }}
+    permissions:
+      contents: read
+      actions: read  # the prior-run lookup behind the recovery message
+    uses: mindsdb/github-actions/.github/workflows/notify-main-failure.yml@main
+    with:
+      env-name: "staging build + release + PyPI publish"
+      status: ${{ contains(needs.*.result, 'failure') && 'failed' || 'recovered' }}
+      # A staging failure is release-blocking once the freeze window is open, and
+      # an ordinary integration-branch red before it. `freeze-scoped` keeps the
+      # red alert for the former and drops the latter to a muted notice, so the
+      # alert still means "look now" when it is styled to say so.
+      freeze-scoped: true
+      runs-on: ubuntu-latest
+    secrets: inherit

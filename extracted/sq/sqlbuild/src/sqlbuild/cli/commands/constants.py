@@ -1,0 +1,140 @@
+"""CLI command decision constants."""
+
+from sqlbuild.cli.commands.types import CompileLineageMode, PlaygroundTemplate
+from sqlbuild.compiler.lineage.types import ColumnLineageMode
+from sqlbuild.compiler.planner.types import SelectorKind
+
+C0_CONTROL_CODE_LIMIT: int = 32
+C1_CONTROL_CODE_START: int = 127
+C1_CONTROL_CODE_LIMIT: int = 160
+COMPILE_LINEAGE_MODE_VALUES: tuple[str, ...] = tuple(mode.value for mode in CompileLineageMode)
+RICH_LINEAGE_STATUS_MODEL_THRESHOLD: int = 100
+EMPTY_DAG_PATH: str = ""
+TARGET_DIRECTORY_NAME: str = "target"
+SQLBUILD_CONCURRENCY_ENV_VAR: str = "SQLBUILD_CONCURRENCY"
+EMPTY_ENV_VALUE: str = ""
+NO_COLOR_OPTION: str = "--no-color"
+DEBUG_OPTION: str = "--debug"
+DBT_INIT_COMMAND: str = "init"
+SCENARIO_TEST_COMMAND: str = "test"
+SCENARIO_CAPTURE_COMMAND: str = "capture"
+COLUMN_LINEAGE_MODE_VALUES: tuple[str, ...] = tuple(mode.value for mode in ColumnLineageMode)
+UNLIMITED_DEPTH_VALUE: str = "all"
+UPSTREAM_DIRECTION: str = "upstream"
+DOWNSTREAM_DIRECTION: str = "downstream"
+BOTH_DIRECTIONS: str = "both"
+JSON_OUTPUT_FORMAT: str = "json"
+CSV_OUTPUT_FORMAT: str = "csv"
+LIST_OUTPUT_FORMAT: str = "list"
+DEBUG_COMMAND: str = "debug"
+LINEAGE_COMMAND: str = "lineage"
+QUERY_COMMAND: str = "query"
+RULES_LIST_ACTION: str = "list"
+RULES_SHOW_ACTION: str = "show"
+RULES_SKILLS_ACTION: str = "skills"
+SQL_FILE_SUFFIX: str = ".sql"
+SELECTOR_INTERSECTION_MARKER: str = ","
+PATH_BETWEEN_MARKER: str = "~"
+SELECTOR_KIND_SEPARATOR: str = ":"
+PATH_SEPARATOR: str = "/"
+SELECTOR_EXPANSION_MARKER: str = "+"
+COLUMN_TARGET_SEPARATOR: str = "."
+SUPPORTED_TYPED_SELECTOR_KINDS: frozenset[str] = frozenset(
+    {
+        SelectorKind.SEED,
+        SelectorKind.SOURCE,
+        SelectorKind.TAG,
+        SelectorKind.PATH,
+    }
+)
+PLAYGROUND_ORCHESTRATED_PROJECT_DIR: str = "waffle_shop"
+PLAYGROUND_ORCHESTRATED_TEMPLATES: frozenset[PlaygroundTemplate] = frozenset(
+    {PlaygroundTemplate.DAGSTER, PlaygroundTemplate.RIVERS}
+)
+PLAYGROUND_TEMPLATE_VALUES: tuple[str, ...] = tuple(
+    template.value for template in PlaygroundTemplate
+)
+SUCCESS_STATUS: str = "success"
+FAILED_STATUS: str = "failed"
+DEFAULT_MAX_SNAPSHOT_ROWS_PER_RELATION: int = 10_000
+DEFAULT_MAX_SNAPSHOT_TOTAL_ROWS: int = 50_000
+DEFAULT_MAX_SNAPSHOT_BYTES_PER_RELATION: int = 5_000_000
+DEFAULT_MAX_SNAPSHOT_TOTAL_BYTES: int = 25_000_000
+SCENARIO_CLI_MISSING_SUBCOMMAND: str = "C450"
+SCENARIO_CLI_NONE_DISCOVERED: str = "C451"
+SCENARIO_CLI_LOCAL_RETAIN_UNSUPPORTED: str = "C452"
+SCENARIO_CLI_UNKNOWN_SELECTOR: str = "C453"
+SCENARIO_CLI_LOCAL_SNAPSHOT_FLAG_REQUIRED: str = "C454"
+SCENARIO_CLI_SQL_VALIDATION_REQUIRED: str = "C455"
+SCENARIO_CLI_CAPTURE_DIALECT_REQUIRED: str = "C456"
+SCENARIO_CLI_UNSUPPORTED_GRAPH_SELECTOR: str = "C457"
+SCENARIO_CLI_INVALID_NAMESPACE: str = "C458"
+SQL_ANALYSIS_CONFIG_KEY: str = "sql_analysis"
+GRAPH_SELECTOR_EXPANSION_MARKER: str = "+"
+GRAPH_SELECTOR_PATH_MARKER: str = "~"
+DBT_JSON_OUTPUT_OPTION: str = "--json"
+DBT_PASSTHROUGH_SEPARATOR: str = "--"
+DBT_VERBOSE_OPTIONS: frozenset[str] = frozenset({"--verbose", "-v"})
+DBT_CLI_OUTPUT_OPTIONS: frozenset[str] = frozenset({DBT_JSON_OUTPUT_OPTION, *DBT_VERBOSE_OPTIONS})
+DBT_NO_CONNECTION_OPTION: str = "--no-connection"
+COST_HISTORY_SELECTOR: str = "history"
+COST_LATEST_SELECTOR: str = "latest"
+COST_DESCENDING_ORDER: str = "desc"
+COST_DEFAULT_HISTORY_SORT: str = "completed"
+COST_DEFAULT_DETAIL_SORT: str = "cost"
+COST_DEFAULT_HISTORY_LIMIT: int = 10
+ISO_DATE_LENGTH: int = 10
+COST_NARROW_TERMINAL_WIDTH: int = 120
+COST_HISTORY_NUMERIC_COLUMNS: frozenset[int] = frozenset({4, 5})
+COST_RESOURCE_NUMERIC_START_COLUMN: int = 2
+BYTE_SCALE: int = 1024
+BYTE_UNIT: str = "B"
+TERABYTE_UNIT: str = "TiB"
+SCOPE_PATH_RELATIVE: str = "relative"
+SCOPE_PATH_COMPACT: str = "compact"
+SCOPE_PATH_NONE: str = "none"
+SCOPE_GLOBAL_SUMMARY: str = "summary"
+SCOPE_GLOBAL_ALL: str = "all"
+SCOPE_DEFAULT_PAGE_SIZE: int = 100
+READ_ONLY_QUERY_ROOT_KEYS: frozenset[str] = frozenset(
+    {"except", "intersect", "select", "union", "values"}
+)
+DEFAULT_DIFF_MAX_VALUE_LENGTH: int = 160
+QUERY_DIFF_INCOMPLETE_PREPARATION_CODES: frozenset[str] = frozenset(
+    {"C229", "C230", "C231", "C232", "C233", "C234", "C235", "C240", "C244"}
+)
+MISSING_ORIGIN_BUILD_HELP: str = (
+    "Pass --allow-missing-migration-origin to confirm in non-interactive runs."
+)
+MISSING_ORIGIN_DBT_HELP: str = (
+    "sqb dbt has no confirmation flag: confirm on an interactive terminal, build the affected "
+    "models with sqb build --allow-missing-migration-origin and leave them out of this dbt "
+    "selection, or set the target's missing_migration_origin to 'allow'."
+)
+SNAPSHOT_FULL_REFRESH_BUILD_HELP: str = (
+    "Pass --allow-snapshot-full-refresh to confirm in non-interactive runs."
+)
+SNAPSHOT_FULL_REFRESH_DBT_HELP: str = (
+    "sqb dbt has no confirmation flag: confirm on an interactive terminal, build the affected "
+    "snapshots with sqb build --allow-snapshot-full-refresh and leave them out of this dbt "
+    "selection, or relax the snapshot_full_refresh policy."
+)
+TABLE_TYPE_DOWNGRADE_BUILD_HELP: str = (
+    "Pass --allow-table-type-downgrade to confirm in non-interactive runs."
+)
+TABLE_TYPE_DOWNGRADE_DBT_HELP: str = (
+    "sqb dbt has no confirmation flag: confirm on an interactive terminal, build the affected "
+    "models with sqb build --allow-table-type-downgrade and leave them out of this dbt "
+    "selection, or set the target's table_type_downgrade to 'allow'."
+)
+RETENTION_DECREASE_BUILD_HELP: str = (
+    "Pass --allow-retention-decrease to confirm in non-interactive runs."
+)
+RETENTION_DECREASE_DBT_HELP: str = (
+    "sqb dbt has no confirmation flag: confirm on an interactive terminal, build the affected "
+    "models with sqb build --allow-retention-decrease and leave them out of this dbt "
+    "selection, or set the target's time_travel_retention_decrease to 'allow'."
+)
+EXECUTION_LIMIT_BUILD_NOTE: str = "No warehouse changes were made."
+EXECUTION_LIMIT_DBT_NOTE: str = "dbt work has already run; no SQLBuild models were built."
+QUERY_DIFF_INCOMPLETE_EXECUTION_CODES: frozenset[str] = frozenset({"C237", "C238", "C239"})

@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+from tap import config, killswitch
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_hosted_gateway_contract_is_research_os() -> None:
+    previous = os.environ.get("PROBE_TAP_SOURCE")
+    os.environ["PROBE_TAP_SOURCE"] = "codex"
+    try:
+        assert config.webhook_path() == "/ingest/v1/sessions/codex"
+        assert killswitch.PATH == "/ingest/v1/sessions/status"
+    finally:
+        if previous is None:
+            os.environ.pop("PROBE_TAP_SOURCE", None)
+        else:
+            os.environ["PROBE_TAP_SOURCE"] = previous
+
+
+def test_codex_lifecycle_hooks_start_and_stop_capture() -> None:
+    """The exact event set, not a subset.
+
+    One hooks.json serves BOTH plugin manifests (neither declares hooks; both
+    systems auto-discover this file), so every event added here reaches Codex
+    too. UserPromptSubmit is the respawn hook (hooks/ensure-daemon.sh): on a
+    harness that never dispatches the event it is inert, and on one that does
+    but carries no `session_id` the script exits 0 without spawning. Keeping
+    this an equality assertion is what makes the next addition a decision
+    rather than an accident.
+    """
+    hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text())
+    assert set(hooks["hooks"]) == {"SessionStart", "UserPromptSubmit", "SessionEnd", "Stop"}
+    # Stop is the daemon's turn-end signal (hooks/turn-end.sh). It reaches Codex
+    # too, by decision: it writes only when the session is in `daemon` and the
+    # payload names a transcript, prints nothing, and exits 0 on every failure,
+    # so where Codex sends no transcript path the worker keeps its quiet timer.
+    turn = hooks["hooks"]["Stop"][0]["hooks"][0]
+    assert "turn-end.sh" in turn["command"] and turn["timeout"] == 3
+    assert "statusMessage" not in turn
+    start = hooks["hooks"]["SessionStart"][0]["hooks"][0]
+    end = hooks["hooks"]["SessionEnd"][0]["hooks"][0]
+    ensure = hooks["hooks"]["UserPromptSubmit"][0]["hooks"][0]
+    assert "session-start.sh" in start["command"]
+    assert "session-end.sh" in end["command"]
+    assert "ensure-daemon.sh" in ensure["command"]
+    assert end["timeout"] == 3
+    # The waiting SessionEnd is a SECOND entry, never a change to the first:
+    # Codex trusts a hook by a hash of its whole entry (timeout included) and
+    # silently skips a changed one until the researcher re-approves it. Claude
+    # Code runs both and waits for the longer (up to 15s for the FINALIZE).
+    assert len(hooks["hooks"]["SessionEnd"]) == 2
+    wait = hooks["hooks"]["SessionEnd"][1]["hooks"][0]
+    assert wait["command"] == end["command"].replace(
+        'session-end.sh\"\'', 'session-end.sh\" --wait\''
+    )
+    assert wait["timeout"] == 20
+    assert ensure["timeout"] == 5
+    # Silent on the common path: this one fires on every prompt.
+    assert "statusMessage" not in ensure

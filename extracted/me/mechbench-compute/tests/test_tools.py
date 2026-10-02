@@ -1,0 +1,225 @@
+from __future__ import annotations
+
+import pytest
+
+from mechbench_compute import chat as chat_mod
+from mechbench_compute import model_ref as mr
+from mechbench_compute import tools as T
+from mechbench_compute.providers import messages as pm
+from mechbench_compute.ops.text.extend import extend
+from mechbench_compute.ops.text.render import render_records
+
+
+def call(name, **arguments):
+    return pm.ToolCallPart(id="c1", name=name, arguments=arguments)
+
+
+class TestTheToolbox:
+    def test_a_handler_is_an_ordinary_block(self):
+        box = T.build_toolbox(["calc"])
+        out = box.call(call("calc", expression="2*(3+4)"))
+        assert out.content == '{"expression": "2*(3+4)", "result": 14}'
+        assert out.is_error is False
+        run = box.runs[0]
+        assert run.tool == "calc"
+        assert run.handler["block"] == "tools/calc"
+
+    def test_calc_evaluates_arithmetic_and_refuses_code(self):
+        box = T.build_toolbox(["calc"])
+        bad = box.call(call("calc", expression="__import__('os').system('ls')"))
+        assert bad.is_error is True
+        assert "refuses Call" in bad.content
+        assert box.runs[0].error.startswith("CalcRefused")
+
+    def test_an_unknown_tool_is_an_answer_the_model_can_read(self):
+        box = T.build_toolbox(["calc"])
+        out = box.call(call("rm_rf", path="/"))
+        assert out.is_error is True
+        assert "no such tool" in out.content and "calc" in out.content
+
+    def test_a_handler_that_raises_becomes_an_error_result(self):
+        box = T.build_toolbox(["calc"])
+        out = box.call(call("calc"))
+        assert out.is_error and "expression" in out.content
+
+    def test_bench_lookup_consults_the_bench_through_an_injected_fetch(self):
+        box = T.Toolbox([{
+            "name": "bench.lookup",
+            "schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+            "handler": {"block": "tools/lookup",
+                        "params": {"fetch": lambda path: {
+                            "payload": {"path": path, "kind": "metric_table",
+                                        "rows": [{"n": 3}]}}}},
+        }])
+        out = box.call(call("bench.lookup", path="benji/lab/results/j_1/stats"))
+        assert '"kind": "metric_table"' in out.content
+        assert box.runs[0].error == ""
+
+    def test_a_non_pure_handler_says_it_needs_the_executor(self):
+        box = T.Toolbox([{"name": "read", "handler": {
+            "block": "logits/read"}}])
+        out = box.call(call("read"))
+        assert out.is_error and "executor's runner" in out.content
+
+    def test_the_executors_runner_takes_the_handlers_it_owns(self):
+        seen = {}
+
+        def runner(ref, inputs, params):
+            seen.update(ref=ref, inputs=inputs, params=params)
+            return {"conditions": [{"id": "a"}]}
+
+        box = T.Toolbox([{"name": "read", "handler": {
+            "block": "logits/read", "params": {"model": "$model"}}}],
+            block_runner=runner)
+        out = box.call(call("read", prompt="hi"))
+        assert not out.is_error
+        assert seen["ref"] == "logits/read"
+        assert seen["inputs"]["arguments"] == {"prompt": "hi"}
+        assert seen["inputs"]["records"] == [{"prompt": "hi"}]
+        assert seen["params"] == {"model": "$model"}
+
+    def test_a_bad_definition_is_refused_at_construction(self):
+        with pytest.raises(ValueError, match="needs a name"):
+            T.Toolbox([{"description": "nameless"}])
+        with pytest.raises(ValueError, match="handler is"):
+            T.Toolbox([{"name": "x", "handler": {"lambda": "nope"}}])
+        with pytest.raises(ValueError, match="unique"):
+            T.Toolbox([{"name": "x"}, {"name": "x"}])
+        with pytest.raises(ValueError, match="unknown built-in tool"):
+            T.build_toolbox(["telepathy"])
+
+
+class TestTheRemoteToolLoop:
+    def _params(self, **kw):
+        base = {
+            "model": {"provider": "mock", "model": "mock-large"},
+            "budget_usd": 1.0,
+            "tools": ["calc"],
+            "records": [{"id": "r0", "user": "what is 6*7?"}],
+            "provider_options": {"mock": {"tool_call": "calc"}},
+        }
+        base.update(kw)
+        return base
+
+    def test_a_model_that_calls_a_tool_gets_its_result_and_answers(self):
+        lookup = {
+            "name": "bench.lookup",
+            "schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+            "handler": {"block": "tools/lookup",
+                        "params": {"fetch": lambda path: {"payload": {"rows": 3}}}},
+        }
+        params = self._params(max_tool_rounds=1, tools=[lookup],
+                              provider_options={"mock": {"tool_call": "bench.lookup"}})
+        out = chat_mod.run_remote(mr.parse(params["model"]),
+                                  params["records"], params)
+        runs = out["items"][0]["metadata"]["tool_runs"]
+        assert len(runs) == 1 and runs[0]["tool"] == "bench.lookup"
+        assert "error" not in runs[0]
+        assert out["spend"]["calls"] == 2
+
+    def test_a_tool_that_fails_still_comes_back_as_an_answer(self):
+        params = self._params(max_tool_rounds=1)
+        out = chat_mod.run_remote(mr.parse(params["model"]),
+                                  params["records"], params)
+        run = out["items"][0]["metadata"]["tool_runs"][0]
+        assert run["tool"] == "calc" and run["error"].startswith("CalcRefused")
+        assert out["items"][0]["text"]
+
+    def test_the_loop_is_bounded(self):
+        out = chat_mod.run_remote(
+            mr.parse({"provider": "mock", "model": "mock-large"}),
+            [{"id": "r0", "user": "loop"}],
+            self._params(max_tool_rounds=1))
+        assert out["spend"]["calls"] == 2
+        out2 = chat_mod.run_remote(
+            mr.parse({"provider": "mock", "model": "mock-large"}),
+            [{"id": "r0", "user": "loop"}],
+            self._params(max_tool_rounds=3))
+        assert out2["spend"]["calls"] == 4
+
+    def test_without_tools_nothing_changes(self):
+        out = chat_mod.run_remote(
+            mr.parse({"provider": "mock", "model": "mock-large"}),
+            [{"id": "r0", "user": "hi"}],
+            {"model": {"provider": "mock", "model": "mock-large"},
+             "budget_usd": 1.0})
+        assert out["spend"]["calls"] == 1
+        assert "tool_runs" not in out["items"][0]["metadata"]
+
+
+class TestToolsInAConversation:
+    def test_a_turn_may_call_tools_and_the_transcript_records_them(self):
+        from mechbench_compute import transcript as TR
+
+        start = {"id": "c1", "kind": "text/transcript", "participants": ["asker", "other"],
+                 "stopped": "",
+                 "messages": [{"index": 0, "participant": "other", "role_as_seen": "user",
+                               "text": "What is 6*7?"}]}
+        view = render_records({"transcripts": [start]}, {"participant": "asker"})
+        said = chat_mod.run_remote(
+            mr.parse({"provider": "mock", "model": "mock-large"}),
+            view["items"],
+            {"model": {"provider": "mock", "model": "mock-large"},
+             "budget_usd": 1.0, "tools": ["calc"],
+             "provider_options": {"mock": {"tool_call": "calc"}}})
+        out = extend({"transcripts": [start], "replies": said},
+                        {"participant": "asker"})
+        asker = out["items"][0]["messages"][-1]
+        assert asker["participant"] == "asker"
+        assert asker["call"]["tool_runs"][0]["tool"] == "calc"
+        assert all("tool_code" not in t["text"] for t in out["items"][0]["turns"])
+
+
+class TestThroughTheExecutor:
+    @staticmethod
+    def _runner(ex):
+        from mechbench_compute import lexicon, ops
+        from mechbench_compute.ops.text import chat
+
+        return chat.build_tool_runner(ops.Context.for_op(lexicon.BY_NAME["text/chat"], ex))
+
+    def test_decision_read_is_available_as_a_tool(self, monkeypatch):
+        from mechbench_compute.protocol import ProtocolExecutor
+
+        seen = {}
+
+        def fake_model_block(self, fn, inputs, params, *a, **kw):
+            seen.update(inputs=inputs, params=params)
+            return {"conditions": [{"id": "q", "entropy_bits": 0.9}]}
+
+        monkeypatch.setattr(ProtocolExecutor, "_run_model_block", fake_model_block)
+        runner = self._runner(ProtocolExecutor())
+        out = runner("logits/read",
+                     {"arguments": {"prompt": "left or right?"},
+                      "records": [{"prompt": "left or right?"}]},
+                     {"model": "google/gemma-3-4b-it"})
+        assert out["conditions"][0]["entropy_bits"] == 0.9
+        assert seen["params"]["model"] == "google/gemma-3-4b-it"
+
+    def test_a_block_that_is_not_a_tool_handler_says_so(self):
+        from mechbench_compute.protocol import ProtocolExecutor
+
+        runner = self._runner(ProtocolExecutor())
+        with pytest.raises(ValueError, match="not available as a tool handler"):
+            runner("adapter/train", {}, {})
+        with pytest.raises(ValueError, match="not available as a tool handler"):
+            runner("text/chat", {}, {})
+
+    def test_a_chat_node_with_tools_runs_end_to_end(self):
+        from mechbench_compute.protocol import ProtocolExecutor, ProtocolSpec
+
+        graph = {"dataflow": 2, "nodes": [{
+            "id": "ask", "block": "text/chat",
+            "params": {
+                "model": {"provider": "mock", "model": "mock-large"},
+                "budget_usd": 1.0,
+                "tools": ["calc"],
+                "max_tool_rounds": 1,
+                "provider_options": {"mock": {"tool_call": "calc"}},
+            },
+            "inputs": {"records": [{"id": "r0", "user": "what is 6*7?"}]}}], "edges": []}
+        out = ProtocolExecutor().run(ProtocolSpec(
+            kind="pipeline", prompt="", model_id=None, extra={"graph": graph}))
+        item = out.payload["outputs"]["ask"]["items"][0]
+        assert item["metadata"]["tool_runs"][0]["tool"] == "calc"
+        assert "_block_runner" not in str(out.payload["nodes_executed"])

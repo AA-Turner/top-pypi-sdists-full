@@ -2,7 +2,7 @@ use tombi_future::Boxable;
 
 use crate::{Lint, Rule};
 
-impl Lint for tombi_ast_syntax::Root {
+impl Lint for tombi_ast_syntax::Root<'_> {
     fn lint<'a: 'b, 'b>(&'a self, l: &'a mut crate::Linter<'_>) -> tombi_future::BoxFuture<'b, ()> {
         async move {
             crate::rule::DottedKeysOutOfOrderRule::check(self, l).await;
@@ -21,7 +21,7 @@ impl Lint for tombi_ast_syntax::Root {
     }
 }
 
-impl Lint for tombi_ast_syntax::TableOrArrayOfTable {
+impl Lint for tombi_ast_syntax::TableOrArrayOfTable<'_> {
     fn lint<'a: 'b, 'b>(&'a self, l: &'a mut crate::Linter<'_>) -> tombi_future::BoxFuture<'b, ()> {
         async move {
             match self {
@@ -33,7 +33,7 @@ impl Lint for tombi_ast_syntax::TableOrArrayOfTable {
     }
 }
 
-impl Lint for tombi_ast_syntax::RootItem {
+impl Lint for tombi_ast_syntax::RootItem<'_> {
     fn lint<'a: 'b, 'b>(&'a self, l: &'a mut crate::Linter<'_>) -> tombi_future::BoxFuture<'b, ()> {
         async move {
             match self {
@@ -206,6 +206,48 @@ mod tests {
             ) -> Err([
                 tombi_validator::DiagnosticKind::KeyEmpty,
             ])
+        }
+
+        test_lint! {
+            #[test]
+            fn test_root_dotted_keys_merge_without_conflict(
+                r#"
+                a.b = 1
+                a.c = 2
+                d = 3
+                "#,
+            ) -> Ok(_)
+        }
+
+        test_lint! {
+            #[test]
+            fn test_root_duplicate_key(
+                r#"
+                a = 1
+                a = 3
+                b = 2
+                "#,
+            ) -> Err(["duplicate key: a"])
+        }
+
+        test_lint! {
+            #[test]
+            fn test_root_inline_table_then_dotted_key_conflict(
+                r#"
+                a = { x = 1 }
+                a.y = 2
+                "#,
+            ) -> Err(["conflicting table"])
+        }
+
+        test_lint! {
+            #[test]
+            fn test_root_dotted_key_then_inline_table_conflict(
+                r#"
+                a.y = 2
+                a = { x = 1 }
+                "#,
+            ) -> Err(["conflicting table"])
         }
 
         test_lint! {

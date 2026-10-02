@@ -1,0 +1,44 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "snowflake-code-unit-registry"
+version = "0.8.78"
+description = "SCAI state management library for database migrations"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+]
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+# Snowflake DDL migrations for cloud metadata; not required for core registry APIs.
+cloud-state = [
+    "scai-cloud-state>=0.8.9",
+]
+codegen = [
+    "datamodel-code-generator>=0.26,<1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "mypy>=1.0",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "snowflake_code_unit_registry._native"
+manifest-path = "crates/scai-state-python/Cargo.toml"
+python-source = "python"

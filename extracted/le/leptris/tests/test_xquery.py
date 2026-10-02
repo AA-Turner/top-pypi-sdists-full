@@ -1,0 +1,228 @@
+"""XQuery 1.0 core through leptris.XQuery (libleptris 1.9.64+)."""
+
+import pytest
+
+from leptris import Document, XQuery
+from leptris.error import LeptrisError
+
+SRC = "<r><item v='1'>alpha</item><item v='5'>beta</item></r>"
+
+
+class TestXQuery:
+    def test_flwor_returns_strings_for_scalars(self):
+        with Document.parse(SRC) as d:
+            assert XQuery("for $i in //item return $i/@v")(d) == ["1", "5"]
+            assert XQuery("for $i in //item return string($i)")(d) == [
+                "alpha", "beta",
+            ]
+
+    def test_element_sequences_wrap(self):
+        with Document.parse(SRC) as d:
+            items = XQuery("//item")(d)
+            assert [e.tag for e in items] == ["item", "item"]
+            assert [e.get("v") for e in items] == ["1", "5"]
+
+    def test_where_and_order_by(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "for $i in //item where $i/@v > 1 "
+                "order by $i/@v descending return string($i)"
+            # 1.9.122+ wave: single-item FLWOR sequences unwrap to
+            # the scalar (multi-item results stay lists).
+            )(d) == "beta"
+
+    def test_positional_for(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "for $i at $p in //item return concat($p, ':', $i/@v)"
+            )(d) == ["1:1", "2:5"]
+
+    def test_scalar_results(self):
+        with Document.parse(SRC) as d:
+            assert XQuery("count(//item)")(d) == 2.0
+            # and keeps the NUMBER type (the old synthetic-string
+            # stringification noted on leptris/leptris#692 is gone)
+            assert XQuery("let $x := 2 return $x * 21")(d) == 42.0
+
+    def test_prolog_variable_and_constructor(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "declare variable $n := 3; <out>{$n * 2}</out>"
+            )(d) == "<out>6</out>"
+
+    def test_prolog_namespace(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "declare namespace x = 'urn:x'; 'ns-ok'"
+            )(d) == "ns-ok"
+
+    def test_local_function(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "declare function local:dbl($x) { $x * 2 }; local:dbl(4)"
+            )(d) == 8.0
+
+    def test_try_catch_expression(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "try { error('boom') } catch * { 'caught' }"
+            )(d) == "caught"
+
+    def test_element_context(self):
+        with Document.parse(SRC) as d:
+            assert XQuery("string(.)")(d.getroot()[0]) == "alpha"
+
+    def test_compile_error_raises(self):
+        with pytest.raises(LeptrisError):
+            XQuery("for $x in ")
+
+    def test_reusable_across_documents(self):
+        query = XQuery("count(//item)")
+        with Document.parse(SRC) as d1:
+            assert query(d1) == 2.0
+        with Document.parse("<r><item/><item/><item/></r>") as d2:
+            assert query(d2) == 3.0
+
+
+class TestXQueryGroupBy:
+    # libleptris 1.9.67 (lane 12): XQuery group by — the range
+    # variable rebinds to the group inside the return clause (the
+    # XQuery 3.x form; current-group() is XSLT-only).
+
+    GROUP = (
+        "<r><item cat='a' v='1'>x</item>"
+        "<item cat='b' v='2'>y</item><item cat='a' v='3'>z</item></r>"
+    )
+
+    def test_group_counts(self):
+        with Document.parse(self.GROUP) as d:
+            assert XQuery(
+                "for $i in //item group by $c := $i/@cat "
+                "return concat($c, ':', count($i))"
+            )(d) == ["a:2", "b:1"]
+
+    def test_group_sum_with_order(self):
+        with Document.parse(self.GROUP) as d:
+            assert XQuery(
+                "for $i in //item group by $c := $i/@cat "
+                "order by $c return concat($c, '=', sum($i/@v))"
+            )(d) == ["a=4", "b=2"]
+
+    def test_group_members(self):
+        with Document.parse(self.GROUP) as d:
+            assert XQuery(
+                "for $i in //item group by $c := $i/@cat "
+                "return concat($c, '->', "
+                "string-join(for $x in $i return string($x/@v), '+'))"
+            )(d) == ["a->1+3", "b->2"]
+
+
+class TestXQuery3x:
+    # libleptris 1.9.68-1.9.70: #790 fixes, windows, typeswitch.
+
+    def test_constructor_as_return(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "for $i in //item return <e v='{$i/@v}'/>"
+            )(d) == ['<e v="1"/>', '<e v="5"/>']
+
+    def test_cast_error_caught(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "try { 'x' cast as xs:integer } catch * { 'caught' }"
+            )(d) == "caught"
+
+    def test_where_in_fnarg_flwnor(self):
+        # leptris/leptris#814 fixed in 1.9.76: filtered items drop
+        # (previously they contributed empty strings).
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "concat(for $i in //item where $i/@v = 5 "
+                "return string($i), '!')"
+            )(d) == "beta!"
+            assert XQuery(
+                "string-join(for $i in //item where $i/@v > 1 "
+                "return string($i/@v), ',')"
+            )(d) == "5"
+
+    def test_tumbling_window(self):
+        GROUP = (
+            "<r><i v='1'/><i v='2'/><i v='3'/></r>"
+        )
+        with Document.parse(GROUP) as d:
+            assert XQuery(
+                "for tumbling window $w in //i start $s when true() "
+                "end when true() return concat($s/@v, ':', count($w))"
+            )(d) == ["1:2", "3:1"]
+
+    def test_typeswitch(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "typeswitch (//item[1]) case element() return 'elem' "
+                "default return 'other'"
+            )(d) == "elem"
+
+
+class TestXQueryConformanceTail:
+    # libleptris 1.9.76 (#684 tail): version declaration and
+    # top-level empty constructors.
+
+    def test_version_declaration(self):
+        with Document.parse(SRC) as d:
+            assert XQuery("xquery version '1.0'; <a/>")(d) == "<a/>"
+
+    def test_top_level_empty_constructor(self):
+        with Document.parse(SRC) as d:
+            assert XQuery("<e/>")(d) == "<e/>"
+
+
+class TestXQueryErrorTaxonomy:
+    def test_compile_failure_raises_xquery_error(self):
+        from leptris.error import LeptrisError, XQueryError
+
+        with pytest.raises(XQueryError) as info:
+            XQuery("for $x in ")
+        assert isinstance(info.value, LeptrisError)
+
+    def test_eval_on_closed_document_raises(self):
+        # Caught a use-after-free red-first: XQuery.__call__ used to
+        # dereference the closed document's handle (crash) before
+        # the CompiledSource closed-guard landed.
+        from leptris.error import XQueryError
+
+        query = XQuery("count(//item)")
+        with Document.parse(SRC) as d:
+            pass
+        with pytest.raises(XQueryError):
+            query(d)
+
+    def test_wrong_argument_type_raises_type_error(self):
+        query = XQuery("count(//item)")
+        with pytest.raises(TypeError):
+            query("not a document or element")
+
+    def test_bytes_query_accepted(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(b"count(//item)")(d) == 2.0
+
+
+class TestXQueryExternalVariables:
+    # libleptris 1.9.144: declare variable $x external + QT3-style
+    # select bindings through XQuery(...)(doc, variables=...).
+
+    def test_select_bindings(self):
+        with Document.parse(SRC) as d:
+            assert XQuery(
+                "declare variable $min external; "
+                "//item[@v > $min]/@v"
+            )(d, variables={"min": "3"}) == ["5"]
+            assert XQuery(
+                "declare variable $n external; count((1 to $n))"
+            )(d, variables={"n": "4"}) == 4.0
+
+    def test_unbound_external_raises(self):
+        from leptris.error import XQueryError
+
+        with Document.parse(SRC) as d:
+            with pytest.raises(XQueryError):
+                XQuery("declare variable $need external; $need")(d)

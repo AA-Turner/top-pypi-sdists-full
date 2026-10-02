@@ -1,0 +1,69 @@
+[project]
+name = "youdotcom"
+version = "3.5.0"
+description = "The official You.com Python SDK."
+authors = [{ name = "You.com" },]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpcore >=1.0.9",
+    "httpx >=0.28.1",
+    "pydantic >=2.11.2",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[dependency-groups]
+# The single source of truth for dev tooling — CI installs this group with
+# `pip install --group dev` rather than repeating the list.
+dev = [
+    "mypy >=2.3.0, <3",
+    "pylint >=4.0.0, <5",
+    "pyright >=1.1.398, <2",
+    "pytest >=9.0.0, <10",
+    "pytest-asyncio >=1.0.0, <2",
+    "pytest-cov >=6.0.0, <8",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]
+# The suite closes every client it opens; keep it that way. A leaked transport
+# surfaces during GC, which pytest reports as an unraisable exception rather
+# than a test failure, so both have to be errors for this to actually enforce.
+filterwarnings = [
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
+markers = [
+    "slow: marks tests as slow (DEEP/EXHAUSTIVE research); skip with '-m \"not slow\"'",
+]
+
+[tool.mypy]
+disable_error_code = "misc"
+explicit_package_bases = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "typing_inspect"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jsonpath"
+ignore_missing_imports = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+

@@ -1,3 +1,0 @@
----
-fixes:
-  - Add missing ``copy()`` override for C++ ``DisjointBitSetsNode`` states.

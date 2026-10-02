@@ -1,0 +1,223 @@
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from inspect import iscoroutinefunction
+from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeAlias, cast, overload
+
+from coredis.commands.function import Library, wraps
+from coredis.commands.request import CommandRequest
+from coredis.response._callbacks import ResponseCallback
+from coredis.response._utils import flat_pairs_to_ordered_dict
+from coredis.response.types import StreamEntry
+from coredis.typing import KeyT
+from typing_extensions import TypeIs, TypeVar, TypeVarTuple
+
+if TYPE_CHECKING:
+    from streaq.task import AsyncRegisteredTask, SyncRegisteredTask
+
+C = TypeVar("C", bound=object | None, default=None)
+P = ParamSpec("P")
+POther = ParamSpec("POther")
+R = TypeVar("R", bound=object | None)
+ROther = TypeVar("ROther", bound=object | None)
+Ts = TypeVarTuple("Ts")
+
+
+class StreaqError(Exception):
+    """
+    Base class for all task queuing errors.
+    """
+
+
+class StreaqCancelled(StreaqError):
+    """
+    A cancellation error that can be raised manually.
+    """
+
+
+class StreaqRetry(StreaqError):
+    """
+    An exception you can raise in your tasks to retry a task.
+
+    :param delay:
+        amount of time to wait before retrying the task; if None and schedule
+        is not passed either, will be the number of tries squared, in seconds
+    :param schedule: specific datetime to retry the task at
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        delay: timedelta | int | None = None,
+        schedule: datetime | None = None,
+    ) -> None:
+        super().__init__(*args)
+        self.delay = delay
+        self.schedule = schedule
+
+
+@dataclass(frozen=True, slots=True)
+class StreamMessage:
+    """
+    Dataclass wrapping data stored in the Redis stream.
+    """
+
+    message_id: str
+    task_id: str
+    priority: str
+    enqueue_time: int
+
+
+@dataclass(frozen=True, slots=True)
+class TaskContext:
+    """
+    Dataclass containing task-specific information like the try count.
+    """
+
+    fn_name: str
+    task_id: str
+    timeout: timedelta | int | None
+    tries: int
+    ttl: timedelta | int | None
+
+
+ReturnCoroutine: TypeAlias = Callable[..., Coroutine[Any, Any, Any]]
+TypedCoroutine: TypeAlias = Coroutine[Any, Any, R]
+Middleware: TypeAlias = Callable[[ReturnCoroutine], ReturnCoroutine]
+Entries: TypeAlias = dict[str, tuple[StreamEntry, ...]] | None
+
+AsyncCron: TypeAlias = Callable[[], TypedCoroutine[R]]
+SyncCron: TypeAlias = Callable[[], R]
+AsyncTask: TypeAlias = Callable[P, TypedCoroutine[R]]
+SyncTask: TypeAlias = Callable[P, R]
+
+
+def is_async_task(
+    fn: Callable[P, Awaitable[R]] | Callable[P, R],
+) -> TypeIs[Callable[P, Awaitable[R]]]:
+    return iscoroutinefunction(fn)
+
+
+class CronDecorator(Protocol):
+    @overload
+    def __call__(self, fn: AsyncCron[R], /) -> AsyncRegisteredTask[[], R]: ...  # type: ignore[overload-overlap]
+
+    @overload
+    def __call__(self, fn: SyncCron[R], /) -> SyncRegisteredTask[[], R]: ...
+
+    def __call__(
+        self, fn: AsyncCron[R] | SyncCron[R], /
+    ) -> AsyncRegisteredTask[[], R] | SyncRegisteredTask[[], R]: ...
+
+
+class TaskDecorator(Protocol):
+    @overload
+    def __call__(self, fn: AsyncTask[P, R], /) -> AsyncRegisteredTask[P, R]: ...  # type: ignore[overload-overlap]
+
+    @overload
+    def __call__(self, fn: SyncTask[P, R], /) -> SyncRegisteredTask[P, R]: ...
+
+    def __call__(
+        self, fn: AsyncTask[P, R] | SyncTask[P, R], /
+    ) -> AsyncRegisteredTask[P, R] | SyncRegisteredTask[P, R]: ...
+
+
+class ReadStreamsCallback(
+    ResponseCallback[dict[str, list[list[list[str] | str]]] | None, Entries]
+):  # pragma: gated cover[xreadgroup-no-max-count]
+    """
+    Transform Lua function output to same format as XREAD.
+    """
+
+    def transform(
+        self, response: dict[str, list[list[list[str] | str]]] | None
+    ) -> dict[str, tuple[StreamEntry, ...]] | None:
+        if response:
+            return {
+                stream_id: tuple(
+                    StreamEntry(r[0], flat_pairs_to_ordered_dict(r[1])) for r in entries
+                )
+                for stream_id, entries in cast(list[Any], response)
+            }
+        return None
+
+
+class Streaq(Library[str]):
+    """
+    FFI stubs for Lua functions in streaq.lua.
+    """
+
+    NAME = "streaq"
+
+    @wraps(verify_existence=False)
+    def create_groups(
+        self, stream_key: KeyT, group_name: str, *priorities: str
+    ) -> CommandRequest[None]: ...
+
+    @wraps(verify_existence=False)
+    def fail_dependents(
+        self, dependents_key: KeyT, dependencies_key: KeyT, task_id: str, skip_id: str
+    ) -> CommandRequest[list[str]]: ...
+
+    @wraps(verify_existence=False)
+    def publish_delayed_tasks(
+        self, queue_key: KeyT, stream_key: KeyT, current_time: int
+    ) -> CommandRequest[None]: ...
+
+    @wraps(verify_existence=False)
+    def publish_task(
+        self,
+        stream_key: KeyT,
+        queue_key: KeyT,
+        task_key: KeyT,
+        dependents_key: KeyT,
+        dependencies_key: KeyT,
+        results_key: KeyT,
+        task_id: str,
+        task_data: Any,
+        score: int,
+        expire: int,
+        current_time: int,
+        *dependencies: str,
+    ) -> CommandRequest[None]: ...
+
+    @wraps(callback=ReadStreamsCallback())
+    def read_streams(
+        self,
+        stream_key: KeyT,
+        group_name: str,
+        consumer_name: str,
+        count: int,
+        idle: int,
+        *priorities: str,
+    ) -> CommandRequest[Any]: ...
+
+    @wraps(verify_existence=False)
+    def update_dependents(
+        self, dependents_key: KeyT, dependencies_key: KeyT, task_id: str
+    ) -> CommandRequest[list[str]]: ...
+
+    @wraps(verify_existence=False)
+    def refresh_timeout(
+        self,
+        stream_key: KeyT,
+        running_set: KeyT,
+        group_name: str,
+        consumer: str,
+        message_id: str,
+        task_id: str,
+    ) -> CommandRequest[bool]: ...
+
+    @wraps(verify_existence=False)
+    def schedule_cron_job(
+        self,
+        cron_key: KeyT,
+        queue_key: KeyT,
+        data_key: KeyT,
+        task_key: KeyT,
+        task_id: str,
+        score: int,
+        member: str,
+    ) -> CommandRequest[None]: ...

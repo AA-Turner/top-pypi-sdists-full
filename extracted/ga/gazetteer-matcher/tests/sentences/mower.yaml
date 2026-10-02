@@ -1,0 +1,57 @@
+language: en
+
+# Basic mower commands plus natural name-first fallback forms.
+cases:
+  - sentence: start mowing
+    frames:
+      - intent: HassLawnMowerStartMowing
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: start mowing the lawn
+    frames:
+      - intent: HassLawnMowerStartMowing
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: stop mowing
+    frames:
+      - intent: HassLawnMowerDock
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: stop mowing the lawn
+    frames:
+      - intent: HassLawnMowerDock
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentences:
+      - clippy start mowing
+      - clippy mow
+    frames:
+      - intent: HassLawnMowerStartMowing
+        combination: name_only
+        response_key: default
+        slots: {name: lawn_mower.clippy}
+
+  - sentence: clippy stop mowing
+    frames:
+      - intent: HassLawnMowerDock
+        combination: name_only
+        response_key: default
+        slots: {name: lawn_mower.clippy}
+
+  - sentences:
+      - send clippy to base
+      - put clippy on charger
+      - park clippy
+    frames:
+      - intent: HassLawnMowerDock
+        combination: name_only
+        response_key: default
+        slots: {name: lawn_mower.clippy}

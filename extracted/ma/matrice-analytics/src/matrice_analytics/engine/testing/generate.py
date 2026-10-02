@@ -157,6 +157,7 @@ from matrice_analytics.engine.manifest.models import (
     DwellConfig,
     IncidentQuantiseConfig,
     VelocityStateConfig,
+    VerificationConfig,
     ZoneOccupancyConfig,
     resolve_source,
 )
@@ -2022,6 +2023,12 @@ def _undrivable_rules(manifest: AppManifest) -> dict[str, str]:
                 continue
             try:
                 resolved = resolve_source(manifest, metric.source)
+                # A `verification` stage republishes its source's value, so what drives the
+                # metric is whatever drives *that* source -- a custom stage stays undrivable.
+                gate = manifest.stages.get(resolved.stage)
+                while isinstance(gate, VerificationConfig):
+                    resolved = resolve_source(manifest, gate.source)
+                    gate = manifest.stages.get(resolved.stage)
             except ValueError:  # pragma: no cover - check 1 reports it
                 continue
             if resolved.unverified:
@@ -2165,6 +2172,10 @@ def _digest_in_subprocess(ref: str, *, seed: str, timeout: float) -> dict[str, A
     entries = [entry for entry in sys.path if entry] + ([existing] if existing else [])
     env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(entries))
     env["PYTHONWARNINGS"] = env.get("PYTHONWARNINGS", "ignore")
+    # A `verification` stage must not reach a live VLM from here: the two runs are compared
+    # byte for byte, and a network verdict is neither reproducible nor available in CI. The
+    # stub is a pure function of frame_ts. An explicit setting in the caller's env wins.
+    env.setdefault("MATRICE_VERIFY_MODE", "stub")
 
     command = [sys.executable, "-c", _WORKER_SOURCE, ref]
     try:

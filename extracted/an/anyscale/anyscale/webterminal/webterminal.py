@@ -73,8 +73,7 @@ class AnyscaleTermManager(NamedTermManager):  # type: ignore
 
     def terminal_count(self, include_all: bool = False) -> int:
         return sum(
-            self.is_exec_command[term_name] is None or include_all
-            for term_name in self.terminals
+            self.is_exec_command[term_name] is None or include_all for term_name in self.terminals
         )
 
     def pty_read(self, fd: Any, events: Any = None) -> None:  # noqa: ARG002
@@ -100,16 +99,12 @@ class AnyscaleTermManager(NamedTermManager):  # type: ignore
 
             if len(commands) > 0:
                 last_command = commands[-1]
-                term_state.curr_cmd = (
-                    last_command if not last_command.finished else None
-                )
+                term_state.curr_cmd = last_command if not last_command.finished else None
                 if self.is_exec_command[ptywclients.term_name]:
                     # Override the id of the command to use the id the backend created
                     # We only do this for exec command because exec command returns
                     # the command id immediately to the client.
-                    last_command.scid = cast(
-                        str, self.is_exec_command[ptywclients.term_name]
-                    )
+                    last_command.scid = cast(str, self.is_exec_command[ptywclients.term_name])
                     last_command.exec_command = True
                     if last_command.finished:
                         # If the terminal is a single command terminal and the command is finished
@@ -242,9 +237,7 @@ class ExecTerminalHandler(tornado.web.RequestHandler):
         command_id = self.request.body_arguments.get("command_id")
         term_manager = self.application.settings["term_manager"]
         term_id = generate_id(IDTypes.session_commands)
-        term = term_manager.get_terminal(
-            term_id, is_debugger=False, exec_command_id=command_id
-        )
+        term = term_manager.get_terminal(term_id, is_debugger=False, exec_command_id=command_id)
         term.ptyproc.write(BASH_CMD)
 
         # Write command
@@ -253,7 +246,10 @@ class ExecTerminalHandler(tornado.web.RequestHandler):
 
 
 def make_application(
-    deploy_environment: str, cwd: str, command_persister: CommandPersister, host: str,
+    deploy_environment: str,
+    cwd: str,
+    command_persister: CommandPersister,
+    host: str,
 ) -> tornado.web.Application:
     configure_bash_preexec()
     term_manager = AnyscaleTermManager(
@@ -293,9 +289,7 @@ def main(
     # Write the .bashrc file before starting the server.
     loop = tornado.ioloop.IOLoop.instance()
     command_persister = CommandPersister(cli_token, host, session_id)
-    application = make_application(
-        deploy_environment, working_dir, command_persister, host
-    )
+    application = make_application(deploy_environment, working_dir, command_persister, host)
     port = 8700
     application.listen(port, "localhost")
     print(f"Listening on localhost:{port}")

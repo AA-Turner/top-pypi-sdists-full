@@ -3,7 +3,10 @@ line-length = 79
 
 [tool.cibuildwheel]
 enable = [
-    "cpython-freethreading",  # Only needed for 3.13t, where it was still experimental
     "pypy",
 ]
 test-extras = ["test"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_riscv64"
+before-all = ["dnf install -y --setopt=install_weak_deps=False procps-ng"]

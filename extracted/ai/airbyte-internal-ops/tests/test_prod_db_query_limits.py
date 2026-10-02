@@ -183,3 +183,33 @@ def test_query_connections_by_destination_connector_omits_limit_when_unbounded(
 
     assert "LIMIT :limit" not in str(captured_statements[0].text)
     assert captured_parameters[0] == {"connector_definition_id": "definition-id"}
+
+
+def test_query_failed_sync_attempts_for_connector_selects_actor_side(
+    monkeypatch,
+) -> None:
+    captured: list[tuple[str, str]] = []
+
+    def fake_run_sql_query(
+        statement: sqlalchemy.sql.elements.TextClause,
+        parameters: dict[str, object],
+        *,
+        query_name: str,
+        **_kwargs: object,
+    ) -> list[dict[str, object]]:
+        captured.append((query_name, str(statement.text)))
+        return []
+
+    monkeypatch.setattr(queries, "_run_sql_query", fake_run_sql_query)
+
+    queries.query_failed_sync_attempts_for_connector("definition-id")
+    queries.query_failed_sync_attempts_for_connector(
+        "definition-id", is_destination=True
+    )
+
+    (source_name, source_sql), (dest_name, dest_sql) = captured
+    assert source_name == "SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR"
+    assert "ON connection.source_id = actor.id" in source_sql
+    assert dest_name == "SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR"
+    assert "ON connection.destination_id = actor.id" in dest_sql
+    assert "attempts.failure_summary" in dest_sql

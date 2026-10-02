@@ -1,6 +1,0 @@
-#
-# TCP/UDP Ports
-#
-
-PORT_VALUE_MIN = 0
-PORT_VALUE_MAX = 65535

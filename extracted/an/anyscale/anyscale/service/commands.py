@@ -469,13 +469,11 @@ for svc in anyscale.service.list(max_items=50, state_filter=[ServiceState.RUNNIN
 
 _LIST_ARG_DOCSTRINGS = {
     "service_id": (
-        "If provided, returns just the service with this ID "
-        "wrapped in a one-page iterator."
+        "If provided, returns just the service with this ID wrapped in a one-page iterator."
     ),
     "name": "Substring to match against the service name.",
     "state_filter": (
-        "List of states to include. "
-        "May be `ServiceState` enums or case-insensitive strings."
+        "List of states to include. May be `ServiceState` enums or case-insensitive strings."
     ),
     "creator_id": "Filter services by user ID.",
     "cloud": "Name of the Anyscale Cloud to search in.",
@@ -605,4 +603,6 @@ def token_delete(
 
     Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
     """
-    return _private_sdk.token_delete(name=name, service_id=service_id, cloud=cloud, project=project, auth_token=auth_token)  # type: ignore
+    return _private_sdk.token_delete(  # type: ignore
+        name=name, service_id=service_id, cloud=cloud, project=project, auth_token=auth_token
+    )

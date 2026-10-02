@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-identity
-Version: 1.25.3
+Version: 1.26.0
 Summary: Microsoft Azure Identity Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.31.0
 Requires-Dist: cryptography>=2.5
-Requires-Dist: msal>=1.35.1
+Requires-Dist: msal>=1.39.0
 Requires-Dist: msal-extensions>=1.2.0
 Requires-Dist: typing-extensions>=4.0.0
 Dynamic: license-file
@@ -50,6 +50,10 @@ pip install azure-identity
 
 - An [Azure subscription](https://azure.microsoft.com/free/python)
 - Python 3.9 or a recent version of Python 3 (this library doesn't support end-of-life versions)
+
+### Use with AI tools
+
+AI coding tools such as VS Code and GitHub Copilot can help you write and debug code that uses this library. See [Using the Azure SDK for Python with AI tools](https://aka.ms/azsdk/python/ai) for available integrations.
 
 ### Authenticate the client
 
@@ -280,6 +284,8 @@ If you encounter bugs or have suggestions, [open an issue](https://github.com/Az
 
 ## Contributing
 
+For deeper context on why the library is designed the way it is, see the [architecture decision log](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/identity/azure-identity/design-decisions.md), a chronological record of key design decisions and the reasoning behind them.
+
 This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For details, visit [https://cla.microsoft.com](https://cla.microsoft.com).
 
 When you submit a pull request, a CLA-bot will automatically determine whether you need to provide a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions provided by the bot. You'll only need to do this once across all repos using our CLA.
@@ -320,6 +326,23 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [workload_id_cred_ref]: https://aka.ms/azsdk/python/identity/workloadidentitycredential
 
 # Release History
+
+## 1.26.0 (2026-09-30)
+
+### Features Added
+
+- `ManagedIdentityCredential` now supports user-assigned managed identities on Azure Arc-enabled servers. An identity can be selected by client ID, object ID, or resource ID. Token responses that do not confirm the requested identity are rejected. ([#48967](https://github.com/Azure/azure-sdk-for-python/pull/48967))
+
+### Bugs Fixed
+
+- Fixed synchronous Service Fabric managed identity authentication with MSAL 1.39.0 and later. Service Fabric now uses the session from an Azure Core `RequestsTransport`. ([#48967](https://github.com/Azure/azure-sdk-for-python/pull/48967))
+- Fixed an issue where `AuthorizationCodeCredential` and the asynchronous `OnBehalfOfCredential` could return a cached token for another account when multiple credentials shared a token cache. ([#49001](https://github.com/Azure/azure-sdk-for-python/pull/49001))
+
+### Other Changes
+
+- Added `RequestIdPolicy` to the default pipeline policies to ensure a unique `x-ms-client-request-id` header is sent with each request. ([#46070](https://github.com/Azure/azure-sdk-for-python/pull/46070))
+- `CertificateCredential` now passes the PEM private key to MSAL as a `str` rather than `bytes`, matching MSAL's documented `client_credential` contract. ([#46801](https://github.com/Azure/azure-sdk-for-python/pull/46801))
+- Bumped the minimum dependency on `msal` to `>=1.39.0`.
 
 ## 1.25.3 (2026-03-12)
 
@@ -764,7 +787,7 @@ More information on this change and the consideration behind it can be found [he
 
 ## 1.11.0b3 (2022-08-09)
 
-Azure-identity is supported on Python 3.7 or later. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
+Azure-identity is supported on Python 3.7 or later. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/blob/main/doc/python_version_support_policy.md).
 
 ### Features Added
 

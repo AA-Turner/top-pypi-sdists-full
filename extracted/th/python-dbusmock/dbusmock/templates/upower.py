@@ -1,0 +1,246 @@
+"""upowerd mock template
+
+This creates the expected methods and properties of the main
+org.freedesktop.UPower object, but no devices. You can specify any property
+such as 'OnLowBattery' or the return value of 'SuspendAllowed',
+'HibernateAllowed', and 'GetCriticalAction' in "parameters".
+
+This provides the 1.0 D-Bus API of upower.
+"""
+
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+__author__ = "Martin Pitt"
+__copyright__ = """
+(c) 2012, 2013 Canonical Ltd.
+(c) 2017 - 2022 Martin Pitt <martin@piware.de>
+"""
+
+import dbus
+
+import dbusmock
+from dbusmock import MOCK_IFACE, mockobject
+
+BUS_NAME = "org.freedesktop.UPower"
+MAIN_OBJ = "/org/freedesktop/UPower"
+MAIN_IFACE = "org.freedesktop.UPower"
+SYSTEM_BUS = True
+DEVICE_IFACE = "org.freedesktop.UPower.Device"
+
+
+def load(mock, parameters):
+    mock.AddMethods(
+        MAIN_IFACE,
+        [
+            (
+                "EnumerateDevices",
+                "",
+                "ao",
+                'ret = [k for k in objects.keys() if "/devices" in k and not k.endswith("/DisplayDevice")]',
+            ),
+        ],
+    )
+
+    props = dbus.Dictionary(
+        {
+            "DaemonVersion": parameters.get("DaemonVersion", "0.99"),
+            "OnBattery": parameters.get("OnBattery", False),
+            "LidIsPresent": parameters.get("LidIsPresent", True),
+            "LidIsClosed": parameters.get("LidIsClosed", False),
+            "LidForceSleep": parameters.get("LidForceSleep", True),
+            "IsDocked": parameters.get("IsDocked", False),
+        },
+        signature="sv",
+    )
+
+    mock.AddMethods(
+        MAIN_IFACE,
+        [
+            ("GetCriticalAction", "", "s", f'ret = "{parameters.get("GetCriticalAction", "HybridSleep")}"'),
+            ("GetDisplayDevice", "", "o", 'ret = "/org/freedesktop/UPower/devices/DisplayDevice"'),
+        ],
+    )
+
+    mock.p_display_dev = "/org/freedesktop/UPower/devices/DisplayDevice"
+
+    # add Display device; for defined properties, see
+    # http://cgit.freedesktop.org/upower/tree/src/org.freedesktop.UPower.xml
+    mock.AddObject(
+        mock.p_display_dev,
+        DEVICE_IFACE,
+        {
+            "Type": dbus.UInt32(0),
+            "State": dbus.UInt32(0),
+            "Percentage": dbus.Double(0.0),
+            "Energy": dbus.Double(0.0),
+            "EnergyFull": dbus.Double(0.0),
+            "EnergyRate": dbus.Double(0.0),
+            "TimeToEmpty": dbus.Int64(0),
+            "TimeToFull": dbus.Int64(0),
+            "IsPresent": dbus.Boolean(False),
+            "IconName": dbus.String(""),
+            # LEVEL_NONE
+            "WarningLevel": dbus.UInt32(1),
+        },
+        [
+            ("Refresh", "", "", ""),
+        ],
+    )
+
+    mock.AddProperties(MAIN_IFACE, props)
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="ss", out_signature="s")
+def AddAC(self, device_name, model_name):
+    """Convenience method to add an AC object
+
+    You have to specify a device name which must be a valid part of an object
+    path, e. g. "mock_ac", and an arbitrary model name.
+
+    Please note that this does not set any global properties such as
+    "on-battery".
+
+    Returns the new object path.
+    """
+    path = "/org/freedesktop/UPower/devices/" + device_name
+    self.AddObject(
+        path,
+        DEVICE_IFACE,
+        {
+            "PowerSupply": dbus.Boolean(True),
+            "Model": dbus.String(model_name),
+            "Online": dbus.Boolean(True),
+        },
+        [],
+    )
+    self.EmitSignal(MAIN_IFACE, "DeviceAdded", "o", [path])
+    return path
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="ssdx", out_signature="s")
+def AddDischargingBattery(self, device_name, model_name, percentage, seconds_to_empty):
+    """Convenience method to add a discharging battery object
+
+    You have to specify a device name which must be a valid part of an object
+    path, e. g. "mock_ac", an arbitrary model name, the charge percentage, and
+    the seconds until the battery is empty.
+
+    Please note that this does not set any global properties such as
+    "on-battery".
+
+    Returns the new object path.
+    """
+    path = "/org/freedesktop/UPower/devices/" + device_name
+    self.AddObject(
+        path,
+        DEVICE_IFACE,
+        {
+            "PowerSupply": dbus.Boolean(True),
+            "IsPresent": dbus.Boolean(True),
+            "Model": dbus.String(model_name),
+            "Percentage": dbus.Double(percentage),
+            "TimeToEmpty": dbus.Int64(seconds_to_empty),
+            "EnergyFull": dbus.Double(100.0),
+            "Energy": dbus.Double(percentage),
+            # UP_DEVICE_STATE_DISCHARGING
+            "State": dbus.UInt32(2),
+            # UP_DEVICE_KIND_BATTERY
+            "Type": dbus.UInt32(2),
+        },
+        [],
+    )
+    self.EmitSignal(MAIN_IFACE, "DeviceAdded", "o", [path])
+    return path
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="ssdx", out_signature="s")
+def AddChargingBattery(self, device_name, model_name, percentage, seconds_to_full):
+    """Convenience method to add a charging battery object
+
+    You have to specify a device name which must be a valid part of an object
+    path, e. g. "mock_ac", an arbitrary model name, the charge percentage, and
+    the seconds until the battery is full.
+
+    Please note that this does not set any global properties such as
+    "on-battery".
+
+    Returns the new object path.
+    """
+    path = "/org/freedesktop/UPower/devices/" + device_name
+    self.AddObject(
+        path,
+        DEVICE_IFACE,
+        {
+            "PowerSupply": dbus.Boolean(True),
+            "IsPresent": dbus.Boolean(True),
+            "Model": dbus.String(model_name),
+            "Percentage": dbus.Double(percentage),
+            "TimeToFull": dbus.Int64(seconds_to_full),
+            "EnergyFull": dbus.Double(100.0),
+            "Energy": dbus.Double(percentage),
+            # UP_DEVICE_STATE_CHARGING
+            "State": dbus.UInt32(1),
+            # UP_DEVICE_KIND_BATTERY
+            "Type": dbus.UInt32(2),
+        },
+        [],
+    )
+    self.EmitSignal(MAIN_IFACE, "DeviceAdded", "o", [path])
+    return path
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="uuddddxxbsu", out_signature="")
+def SetupDisplayDevice(
+    self,
+    _type,  # noqa: RUF052, RUF100 (access to local dummy variable); but this is API now
+    state,
+    percentage,
+    energy,
+    energy_full,
+    energy_rate,
+    time_to_empty,
+    time_to_full,
+    is_present,
+    icon_name,
+    warning_level,
+):
+    """Convenience method to configure DisplayDevice properties
+
+    This calls Set() for all properties that the DisplayDevice is defined to
+    have, and is shorter if you have to completely set it up instead of
+    changing just one or two properties.
+    """
+    display_props = mockobject.objects[self.p_display_dev]
+    display_props.Set(DEVICE_IFACE, "Type", dbus.UInt32(_type))
+    display_props.Set(DEVICE_IFACE, "State", dbus.UInt32(state))
+    display_props.Set(DEVICE_IFACE, "Percentage", percentage)
+    display_props.Set(DEVICE_IFACE, "Energy", energy)
+    display_props.Set(DEVICE_IFACE, "EnergyFull", energy_full)
+    display_props.Set(DEVICE_IFACE, "EnergyRate", energy_rate)
+    display_props.Set(DEVICE_IFACE, "TimeToEmpty", dbus.Int64(time_to_empty))
+    display_props.Set(DEVICE_IFACE, "TimeToFull", dbus.Int64(time_to_full))
+    display_props.Set(DEVICE_IFACE, "IsPresent", is_present)
+    display_props.Set(DEVICE_IFACE, "IconName", icon_name)
+    display_props.Set(DEVICE_IFACE, "WarningLevel", dbus.UInt32(warning_level))
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="oa{sv}", out_signature="")
+def SetDeviceProperties(_self, object_path, properties):
+    """Convenience method to Set a device's properties.
+
+    object_path: the device to update
+    properties: dictionary of keys to dbus variants.
+
+    Changing this property will trigger the device's PropertiesChanged signal.
+    """
+    device = dbusmock.get_object(object_path)
+
+    # set the properties
+    for key, value in properties.items():
+        device.Set(DEVICE_IFACE, key, value)
+
+
+@dbus.service.method(MOCK_IFACE, in_signature="o", out_signature="")
+def RemoveDevice(self, device_path):
+    self.RemoveObject(device_path)
+    self.EmitSignal(MAIN_IFACE, "DeviceRemoved", "o", [device_path])

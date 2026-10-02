@@ -1,0 +1,338 @@
+"""Native Azure OpenAI and Azure AI Foundry adapter for current model contracts."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import ClassVar
+from urllib.parse import urlsplit, urlunsplit
+
+from exp.common.models import ChatMaxTokensField, ModelSnapshot
+from exp.common.models.catalog import (
+    AzureApiSurface,
+    infer_azure_api_surface,
+    strip_model_inference_root,
+)
+from exp.runtime.models.credentials import ModelCredentialError
+from exp.runtime.models.providers.async_transport import AsyncJsonHttpTransport
+from exp.runtime.models.providers.base import DEFAULT_RETRY_POLICY, DEFAULT_TIMEOUT_SECONDS
+from exp.runtime.models.providers.openai_compatible import OpenAICompatibleClient
+from exp.runtime.models.providers.transport import JsonHttpTransport, RetryPolicy
+
+AZURE_OPENAI_API_KEY_ENV = "AZURE_OPENAI_API_KEY"
+AZURE_OPENAI_ENDPOINT_ENV = "AZURE_OPENAI_ENDPOINT"
+_V1_API_VERSION = "v1"
+_V1_ROOT_SUFFIX = "/openai/v1"
+
+DEFAULT_AZURE_API_SURFACE: AzureApiSurface = "openai_deployments"
+# The Foundry model-inference surface requires a dated API version, so an endpoint left on the
+# Azure OpenAI ``v1`` spelling still resolves to a version that surface accepts.
+MODEL_INFERENCE_FALLBACK_API_VERSION = "2024-05-01-preview"
+# The ``api-version`` values the model-inference surface (``{resource}/models``) answers. Every
+# other dated version belongs to the Azure OpenAI deployments vocabulary: a Foundry resource
+# answers ``/models/chat/completions?api-version=2024-10-21`` with a bare 404 ``Resource not
+# found`` while serving the same deployment at ``/openai/deployments/{name}`` on that version.
+MODEL_INFERENCE_API_VERSIONS: frozenset[str] = frozenset(
+    {MODEL_INFERENCE_FALLBACK_API_VERSION, "2025-04-01-preview"}
+)
+
+
+def resolve_azure_api_surface(
+    *,
+    endpoint: str,
+    api_version: str,
+    configured_surface: AzureApiSurface | None,
+) -> tuple[AzureApiSurface, str]:
+    """Resolve the wire surface and API version one Azure connection should use.
+
+    An explicitly configured surface always wins. Otherwise the surface follows the endpoint
+    host, so a Foundry resource reaches the model-inference surface without an operator having to
+    name it. An inferred model-inference surface also upgrades the Azure OpenAI ``v1`` API
+    version, which that surface rejects, and keeps a dated Azure OpenAI version (``2024-10-21``)
+    on the deployments surface that version belongs to: a Foundry resource serves that surface as
+    well, whereas the model-inference surface 404s every version outside its own vocabulary.
+    Inference never sends a version to a surface that rejects it.
+
+    Args:
+        endpoint: Azure resource endpoint from the connection.
+        api_version: API version configured on the connection.
+        configured_surface: Operator-declared surface, when the connection carries one.
+
+    Returns:
+        The surface to call and the API version to send with it.
+    """
+    if configured_surface is not None:
+        return configured_surface, api_version
+    inferred = infer_azure_api_surface(endpoint)
+    if inferred is None:
+        return DEFAULT_AZURE_API_SURFACE, api_version
+    if inferred == "model_inference":
+        if api_version == _V1_API_VERSION:
+            return inferred, MODEL_INFERENCE_FALLBACK_API_VERSION
+        if api_version not in MODEL_INFERENCE_API_VERSIONS:
+            return DEFAULT_AZURE_API_SURFACE, api_version
+    return inferred, api_version
+
+
+def same_azure_endpoint(
+    left: str,
+    right: str | None,
+    *,
+    api_surface: str = "openai_deployments",
+) -> bool:
+    """Compare two Azure resource endpoints after canonical host and path normalization.
+
+    Scheme and hostname are compared case-insensitively. Default HTTPS and HTTP ports are
+    equivalent to an omitted port. Other ports are distinct. The path is compared
+    case-sensitively after trailing slashes are removed. Query strings and fragments are never
+    part of a valid catalog endpoint.
+
+    Args:
+        left: Catalog or request endpoint.
+        right: Endpoint to compare, often ``AZURE_OPENAI_ENDPOINT``.
+        api_surface: Azure wire surface whose equivalent root spellings are accepted.
+
+    Returns:
+        ``True`` when both values name the same Azure resource after canonicalization.
+    """
+    if right is None:
+        return False
+    return _canonical_azure_endpoint(
+        left,
+        api_surface=api_surface,
+    ) == _canonical_azure_endpoint(right, api_surface=api_surface)
+
+
+def bind_azure_api_key(
+    *,
+    endpoint: str,
+    api_key_env: str,
+    api_key: str,
+    environment: Mapping[str, str],
+    api_surface: str = "openai_deployments",
+) -> str:
+    """Return the connection key only when it is paired with this exact Azure endpoint.
+
+    ``AZURE_OPENAI_API_KEY`` is bound to ``AZURE_OPENAI_ENDPOINT`` when that endpoint variable is
+    set. A different catalog endpoint cannot borrow that key.
+
+    Args:
+        endpoint: Explicit catalog resource endpoint for this connection.
+        api_key_env: Environment-variable name configured on the connection.
+        api_key: Credential already read from ``api_key_env``.
+        environment: Process or injected environment mapping.
+        api_surface: Azure wire surface used to normalize equivalent endpoint roots.
+
+    Returns:
+        The same non-empty API key when the pairing is valid.
+
+    Raises:
+        ModelCredentialError: The trusted Azure key would be sent to a different resource.
+        ValueError: The key is empty.
+    """
+    if not api_key:
+        raise ValueError("Azure clients require a non-empty API key")
+    if api_key_env == AZURE_OPENAI_API_KEY_ENV:
+        trusted_endpoint = environment.get(AZURE_OPENAI_ENDPOINT_ENV)
+        if trusted_endpoint and not same_azure_endpoint(
+            endpoint,
+            trusted_endpoint,
+            api_surface=api_surface,
+        ):
+            raise ModelCredentialError(
+                "AZURE_OPENAI_API_KEY is bound to AZURE_OPENAI_ENDPOINT and cannot be sent to a "
+                "different Azure resource"
+            )
+    return api_key
+
+
+def _azure_base_url(
+    endpoint: str,
+    *,
+    deployment: str,
+    api_version: str,
+    api_surface: str,
+) -> str:
+    """Build the Azure request root for the configured API surface.
+
+    ``v1`` uses the Foundry and Azure OpenAI ``/openai/v1`` root and places the deployment in
+    the JSON body. A dated API version uses the classic deployment-in-path root. The
+    model-inference surface serves ``/models`` directly off the resource, so an endpoint spelled
+    with either the terminal ``/models`` segment or the Azure OpenAI ``/openai/v1`` root resolves
+    to that one route.
+
+    Args:
+        endpoint: Normalized Azure resource endpoint, with or without the ``/openai/v1`` root.
+        deployment: Exact deployment identifier sent for this alias.
+        api_version: ``v1`` or a dated Azure OpenAI API version.
+
+    Returns:
+        Absolute request root. The root never includes a credential or query string.
+    """
+    root = endpoint.rstrip("/")
+    if api_surface == "model_inference":
+        parsed = urlsplit(endpoint)
+        path = strip_model_inference_root(parsed.path)
+        model_path = f"{path}/models" if path else "/models"
+        return urlunsplit((parsed.scheme, parsed.netloc, model_path, "", ""))
+    if api_version == _V1_API_VERSION:
+        if root.lower().endswith(_V1_ROOT_SUFFIX):
+            return root
+        return f"{root}{_V1_ROOT_SUFFIX}"
+    return f"{root}/openai/deployments/{deployment}"
+
+
+def azure_anthropic_base_url(endpoint: str) -> str:
+    """Return the Foundry native Anthropic Messages root off one resource endpoint.
+
+    Azure AI Foundry serves Anthropic models at ``{resource}/anthropic/v1/messages``
+    off the RESOURCE root, independent of whichever wire path the connection
+    endpoint is spelled with (``/models``, ``/openai/v1``, ``/openai/deployments/…``),
+    so every equivalent spelling collapses to the one Anthropic root instead of
+    appending ``/anthropic/v1`` after a stale ``/models`` or ``/openai`` segment.
+
+    Args:
+        endpoint: Azure resource endpoint in any of its equivalent spellings.
+
+    Returns:
+        The ``{scheme}://{host}/anthropic/v1`` root, never a credential or query.
+    """
+    parsed = urlsplit(endpoint)
+    return urlunsplit((parsed.scheme, parsed.netloc, "/anthropic/v1", "", ""))
+
+
+class AzureClient(OpenAICompatibleClient):
+    """Calls one explicit Azure connection without streaming, failover, or guessed deployments.
+
+    OpenAI reasoning deployments use ``max_completion_tokens`` while Azure-hosted
+    third-party models retain ``max_tokens``. The catalog supplies the exact field.
+    """
+
+    token_limit_key: ClassVar[ChatMaxTokensField] = "max_completion_tokens"
+
+    def __init__(
+        self,
+        *,
+        model: ModelSnapshot,
+        endpoint: str,
+        api_key: str,
+        api_version: str,
+        api_surface: str = "openai_deployments",
+        transport: AsyncJsonHttpTransport | JsonHttpTransport | None = None,
+        retry_policy: RetryPolicy = DEFAULT_RETRY_POLICY,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        supports_temperature: bool = True,
+        supports_top_p: bool | None = None,
+        supports_top_k: bool = False,
+        supports_logprobs: bool = False,
+        supports_frequency_penalty: bool = False,
+        supports_presence_penalty: bool = False,
+        supports_reasoning: bool = False,
+        reasoning_effort: str | None = None,
+        chat_max_tokens_field: ChatMaxTokensField | None = None,
+        sampling_requires_reasoning_none: bool = False,
+    ) -> None:
+        """Create a client bound to one endpoint, key, API version, and deployment.
+
+        Args:
+            model: Resolved identity whose ``model_id`` is the exact Azure deployment name.
+            endpoint: Explicit Azure resource endpoint from the catalog.
+            api_key: Credential already paired with ``endpoint``.
+            api_version: ``v1`` or a dated Azure API version.
+            api_surface: Azure ``openai_deployments`` or Foundry ``model_inference`` wire API.
+            transport: Optional deterministic transport used by tests.
+            retry_policy: Bounded same-endpoint retry policy.
+            timeout_seconds: Per-attempt timeout floor. Completion calls scale above it from the
+                requested maximum output tokens.
+
+        Raises:
+            ValueError: The key, endpoint, API version, or timeout is missing or invalid.
+        """
+        if not endpoint:
+            raise ValueError("Azure clients require an explicit resource endpoint")
+        if not api_version:
+            raise ValueError("Azure clients require an explicit api_version")
+        if api_surface not in {"openai_deployments", "model_inference"}:
+            raise ValueError("Azure clients require a supported api_surface")
+        if api_surface == "model_inference" and api_version == _V1_API_VERSION:
+            raise ValueError("Azure model_inference requires a dated api_version")
+        if api_surface == "model_inference":
+            chat_max_tokens_field = "max_tokens"
+        # The Azure OpenAI surface validates the body against the OpenAI Chat
+        # schema and answers any extra field with
+        # `Unrecognized request argument supplied: top_k`, whatever the model
+        # itself accepts. Only the Foundry model-inference surface carries the
+        # field, so the wire, not the catalog, decides top-k support here.
+        if api_surface == "openai_deployments":
+            supports_top_k = False
+        super().__init__(
+            model=model,
+            api_key=api_key,
+            base_url=_azure_base_url(
+                endpoint,
+                deployment=model.model_id,
+                api_version=api_version,
+                api_surface=api_surface,
+            ),
+            transport=transport,
+            retry_policy=retry_policy,
+            timeout_seconds=timeout_seconds,
+            supports_temperature=supports_temperature,
+            supports_top_p=supports_top_p,
+            supports_top_k=supports_top_k,
+            supports_logprobs=supports_logprobs,
+            supports_frequency_penalty=supports_frequency_penalty,
+            supports_presence_penalty=supports_presence_penalty,
+            supports_reasoning=supports_reasoning,
+            reasoning_effort=reasoning_effort,
+            chat_max_tokens_field=chat_max_tokens_field,
+            sampling_requires_reasoning_none=sampling_requires_reasoning_none,
+        )
+        self._api_version = api_version
+        self._api_surface = api_surface
+
+    def _headers(self) -> dict[str, str]:
+        """Return Azure ``api-key`` authentication headers without a Bearer token."""
+        return {
+            "api-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+
+    def _request_path(self, path: str) -> str:
+        """Append the dated API version to one logical Azure route.
+
+        Args:
+            path: Provider route below the configured base URL.
+
+        Returns:
+            Wire path with the configured API version when required.
+        """
+        if self._api_surface == "model_inference" or self._api_version != _V1_API_VERSION:
+            path = f"{path}?api-version={self._api_version}"
+        return path
+
+
+def _canonical_azure_endpoint(
+    value: str,
+    *,
+    api_surface: str,
+) -> tuple[str, str, int | None, str]:
+    """Return the comparable scheme, host, port, and path for one Azure endpoint.
+
+    Default HTTPS port 443 and HTTP port 80 are treated as omitted so catalog identity and key
+    pairing stay aligned. A non-default port is part of the resource identity. Model-inference
+    resource roots, their terminal ``/models`` form, and the Azure OpenAI ``/openai/v1`` root
+    share one authority.
+    """
+    parsed = urlsplit(value)
+    hostname = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Azure endpoint must use a valid port") from exc
+    scheme = parsed.scheme.lower()
+    default_port = 443 if scheme == "https" else 80
+    comparable_port = None if port in {None, default_port} else port
+    path = parsed.path.rstrip("/")
+    if api_surface == "model_inference":
+        path = strip_model_inference_root(path)
+    return (scheme, hostname, comparable_port, path)

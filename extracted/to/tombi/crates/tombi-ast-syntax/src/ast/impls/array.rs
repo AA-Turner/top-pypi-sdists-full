@@ -7,22 +7,22 @@ use crate::{
     support::{self, comment::skip_trailing_comment},
 };
 
-impl crate::Array {
-    pub fn parent_key_value(&self) -> Option<crate::KeyValue> {
+impl<'t> crate::Array<'t> {
+    pub fn parent_key_value(&self) -> Option<crate::KeyValue<'t>> {
         self.syntax().parent().and_then(crate::KeyValue::cast)
     }
 
     /// Returns the comma immediately following the array item containing
-    /// `position`. Invalid nodes are inspected so this also works while the
+    /// `offset`. Invalid nodes are inspected so this also works while the
     /// user is typing incomplete TOML.
     pub fn comma_after(
         &self,
-        position: tombi_text::Position,
-    ) -> Option<tombi_ast_syntax::SyntaxToken> {
+        offset: tombi_text::Offset,
+    ) -> Option<tombi_ast_syntax::SyntaxToken<'t>> {
         let following = self
             .syntax()
             .child_elements()
-            .skip_while(|element| !element.range().contains(position))
+            .skip_while(|element| !element.span().contains_inclusive(offset))
             .nth(1)?;
         match following {
             tombi_ast_syntax::SyntaxElement::Node(node)
@@ -64,7 +64,7 @@ impl crate::Array {
     /// ]
     /// ```
     #[inline]
-    pub fn bracket_start_trailing_comment(&self) -> Option<crate::TrailingComment> {
+    pub fn bracket_start_trailing_comment(&self) -> Option<crate::TrailingComment<'t>> {
         support::comment::trailing_comment(self.syntax().child_elements(), T!('['))
     }
 
@@ -81,7 +81,7 @@ impl crate::Array {
     ///     "value"
     /// ]
     #[inline]
-    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup> {
+    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup<'t>> {
         support::comment::dangling_comment_groups(skip_trailing_comment(
             self.syntax()
                 .child_elements()
@@ -94,7 +94,7 @@ impl crate::Array {
     #[inline]
     pub fn value_with_comma_groups(
         &self,
-    ) -> impl Iterator<Item = DanglingCommentGroupOr<ValueWithCommaGroup>> {
+    ) -> impl Iterator<Item = DanglingCommentGroupOr<'t, ValueWithCommaGroup<'t>>> {
         support::comment::dangling_comment_group_or(skip_trailing_comment(
             self.syntax()
                 .child_elements()
@@ -105,21 +105,23 @@ impl crate::Array {
     }
 
     #[inline]
-    pub fn values(&self) -> impl Iterator<Item = crate::Value> {
+    pub fn values(&self) -> impl Iterator<Item = crate::Value<'t>> {
         self.value_with_comma_groups()
             .filter_map(DanglingCommentGroupOr::into_item_group)
             .flat_map(ValueWithCommaGroup::into_values)
     }
 
     #[inline]
-    pub fn values_with_comma(&self) -> impl Iterator<Item = (crate::Value, Option<crate::Comma>)> {
+    pub fn values_with_comma(
+        &self,
+    ) -> impl Iterator<Item = (crate::Value<'t>, Option<crate::Comma<'t>>)> {
         self.value_with_comma_groups()
             .filter_map(DanglingCommentGroupOr::into_item_group)
             .flat_map(ValueWithCommaGroup::into_values_with_comma)
     }
 
     #[inline]
-    pub fn value_or_key_values(&self) -> impl Iterator<Item = crate::ValueOrKeyValue> {
+    pub fn value_or_key_values(&self) -> impl Iterator<Item = crate::ValueOrKeyValue<'t>> {
         self.syntax()
             .child_nodes()
             .filter_map(crate::ValueOrKeyValue::cast)
@@ -128,7 +130,7 @@ impl crate::Array {
     #[inline]
     pub fn value_or_key_values_with_comma(
         &self,
-    ) -> impl Iterator<Item = (crate::ValueOrKeyValue, Option<crate::Comma>)> {
+    ) -> impl Iterator<Item = (crate::ValueOrKeyValue<'t>, Option<crate::Comma<'t>>)> {
         self.value_or_key_values()
             .zip_longest(self.syntax().child_nodes().filter_map(crate::Comma::cast))
             .filter_map(|value_or_key_with_comma| match value_or_key_with_comma {

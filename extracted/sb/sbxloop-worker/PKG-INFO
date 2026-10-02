@@ -1,0 +1,51 @@
+Metadata-Version: 2.5
+Name: sbxloop-worker
+Version: 2.1.36
+Summary: In-sandbox worker runtime for sbxloop (protocol models, agent backends, job runner)
+Project-URL: Homepage, https://github.com/brettbergin/lantern-backend
+Project-URL: Repository, https://github.com/brettbergin/lantern-backend
+Author: Brett Bergin
+License-Expression: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.13
+Requires-Dist: gitpython>=3.1.62
+Requires-Dist: pydantic>=2.7
+Provides-Extra: claude
+Requires-Dist: claude-agent-sdk>=0.2.152; extra == 'claude'
+Provides-Extra: codex
+Requires-Dist: openai-codex==0.147.0; extra == 'codex'
+Provides-Extra: copilot
+Requires-Dist: github-copilot-sdk>=1.0.13; extra == 'copilot'
+Provides-Extra: openai
+Requires-Dist: openai>=1.99; extra == 'openai'
+Description-Content-Type: text/markdown
+
+# sbxloop-worker
+
+> **sbxloop is now Lantern.** This project continues as **Lantern backend** at
+> <https://github.com/brettbergin/lantern-backend>. This is the final release
+> published to PyPI under this name: Lantern installs from its GitHub Releases,
+> with the `lantern` CLI, `LANTERN_*` environment and `~/.lantern` home.
+
+The in-sandbox runtime for [sbxloop](https://github.com/brettbergin/lantern-backend):
+shared host/worker protocol models, the job runner (`python -m sbxloop_worker`),
+and agent backends. Install with the `copilot` extra inside agent sandboxes:
+
+```bash
+pip install "sbxloop-worker[copilot]"
+```
+
+You normally never install this directly — the sbxloop host package provisions
+it into sandboxes automatically.
+
+The `claude` and `codex` extras select the other agent backends. `codex`
+installs the Python `openai-codex` SDK and its matching Codex CLI runtime;
+it does not require Node. The worker uses `OPENAI_API_KEY` and exposes its
+own governed local tools plus the host's event/file tool relay. See the
+[Codex backend design](../../docs/codex-backend.md) for capabilities and
+verification limits.

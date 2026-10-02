@@ -14,6 +14,8 @@ import json
 import re
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -197,6 +199,140 @@ def test_uninstall_never_deletes_outside_the_project(boost, tapped, repo,
     projectlock.set_skill(repo, "brainstorming", entry)
     store.uninstall_project("brainstorming", base=repo)
     assert (victim / "keep.txt").is_file(), "escaped the project and deleted it"
+
+
+def test_uninstall_local_names_the_lock_row_it_refused(boost, tapped, repo):
+    """The user has to learn their committed lock was edited.
+
+    Being inside the repo was the whole guard, so a row of `src/core`
+    passed it and `boost uninstall --local` removed the source tree. The
+    directory now survives — but surviving silently is its own failure: the
+    row is still in a committed file, so a user who sees a clean "removed"
+    panel has no reason to look.
+    """
+    boost("install", "brainstorming", "--local")
+    victim = Path(repo) / "src" / "core"
+    victim.mkdir(parents=True)
+    (victim / "main.py").write_text("print(1)\n", encoding="utf-8")
+    entry = projectlock.get_skill(repo, "brainstorming")
+    entry["materializations"] = [{"agent": "claude-code", "path": "src/core"}]
+    projectlock.set_skill(repo, "brainstorming", entry)
+
+    res = boost("uninstall", "brainstorming", "--local", expect=0)
+
+    assert (victim / "main.py").read_text(encoding="utf-8") == "print(1)\n"
+    assert "src/core" in res.out
+    assert "left alone" in res.out
+    # Every row was refused, so nothing came off disk — and the panel used to
+    # say "removed from <repo>" regardless. A green line over a tampered lock
+    # is the one outcome this whole change exists to stop the user trusting.
+    assert "nothing removed from" in res.out
+    # The remedy, not just the complaint — and it must name the paths boost
+    # removes *here* rather than a `<repo>/<dotdir>/skills/<name>` shape. The
+    # shape hardcoded a leaf that comes from the agent's config, so under a
+    # renamed skills dir it told the user their path was not one an install
+    # writes directly above a shape that path matched.
+    assert ".claude/skills/brainstorming" in res.out
+    assert "<agent dotdir>" not in res.out
+
+
+def test_uninstall_local_reports_a_removal_a_row_did_not_attribute(
+        boost, tapped, repo):
+    """"removed from <repo>" must follow the disk, not the agent list.
+
+    `unlinked` names agents, and a lock row need not name one; the delete
+    above it is not gated on `agent` and must not be, since an agentless row
+    at a legal path is still the skill's own directory. Reading the success
+    line off that list therefore told a user with such a row that nothing had
+    been removed while the directory was gone — the round-2 fix for the
+    opposite lie, told backwards.
+    """
+    boost("install", "brainstorming", "--local")
+    landed = Path(repo) / ".claude" / "skills" / "brainstorming"
+    entry = projectlock.get_skill(repo, "brainstorming")
+    entry["materializations"] = [{"path": ".claude/skills/brainstorming"}]
+    projectlock.set_skill(repo, "brainstorming", entry)
+
+    res = boost("uninstall", "brainstorming", "--local", expect=0)
+
+    assert not landed.exists(), "the delete must not depend on `agent`"
+    flat = " ".join(res.out.split())
+    assert "removed from" in flat
+    assert "nothing removed from" not in flat
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="install cannot stage a copy through a relative directory "
+                           "symlink on Windows; the guard itself is covered "
+                           "there by the two ancestor tests, which symlink "
+                           "after the install")
+def test_uninstall_local_does_not_contradict_itself_on_a_redirect(
+        boost, tapped, repo):
+    """A redirected row is in the remedy list, so it cannot borrow the words.
+
+    `<repo>/.cursor -> config/cursor` is an ordinary in-repo dotfile layout.
+    Install writes through it — `ensure_in_base` is containment only — and
+    uninstall will not delete through it, because a committed symlink is
+    input and this is byte-identical to `.claude/skills -> ../src`.
+
+    That trade is deliberate. What is not acceptable is how it read: the row
+    is in the derived set by construction, so reporting it as `refused`
+    printed "not a path boost removes here" three lines above a list
+    containing that exact string.
+    """
+    (Path(repo) / "config" / "cursor").mkdir(parents=True)
+    (Path(repo) / ".cursor").symlink_to("config/cursor",
+                                        target_is_directory=True)
+    boost("install", "brainstorming", "--local")
+    landed = Path(repo) / "config" / "cursor" / "skills" / "brainstorming"
+    assert landed.is_dir(), "install did not write through the symlink"
+
+    res = boost("uninstall", "brainstorming", "--local", expect=0)
+
+    # Folded to the pane, so match on the unwrapped text. The `rm -rf ...`
+    # span stays on a line of its own whatever the width — a backtick span is
+    # one atomic token, and a command split across two lines does not run.
+    flat = " ".join(res.out.split())
+    assert ".cursor/skills/brainstorming" in flat
+    assert "will not delete through a symlink it did not create" in flat
+    assert "rm -rf" in flat
+    # The two messages this row must NOT get: `refused`'s, which contradicts
+    # the remedy list, and the remedy list itself, which names this very row.
+    assert "is not a path boost removes here" not in flat
+    assert "boost only removes" not in flat
+    # Left behind on purpose, and the printed remedy really does remove it —
+    # `rm` follows the committed symlink exactly as the install did.
+    assert landed.is_dir()
+    # One redirect is not a veto: every other agent's copy still goes, so the
+    # run is not a "nothing removed" run.
+    assert not (Path(repo) / ".claude" / "skills" / "brainstorming").exists()
+    assert "nothing removed from" not in flat
+
+
+def test_uninstall_local_reports_a_row_that_escapes_the_repo(
+        boost, tapped, repo):
+    """The most hostile row was the one that produced no output at all.
+
+    An absolute path or one climbing out with `..` is stopped by the
+    containment check, which is right — but it then fell through every
+    branch to a bare `continue`, so boost printed a clean "removed" panel
+    and said nothing. Being refused silently is the same failure as
+    surviving silently.
+    """
+    boost("install", "brainstorming", "--local")
+    outside = Path(repo).parent / "not-mine"
+    outside.mkdir(exist_ok=True)
+    (outside / "x").write_text("theirs", encoding="utf-8")
+    entry = projectlock.get_skill(repo, "brainstorming")
+    entry["materializations"] = [{"agent": "claude-code",
+                                  "path": "../not-mine"}]
+    projectlock.set_skill(repo, "brainstorming", entry)
+
+    res = boost("uninstall", "brainstorming", "--local", expect=0)
+
+    assert (outside / "x").read_text(encoding="utf-8") == "theirs"
+    assert "../not-mine" in res.out
+    assert "outside this repo" in res.out
 
 
 # ── dry run ──────────────────────────────────────────────────────────────
@@ -400,7 +536,7 @@ def test_a_local_install_records_mcp_servers_in_the_repo(boost, tapped, repo):
     boost("install", "brainstorming", "--local")
     sidecar = repo / mcpdecl.SIDECAR
     assert sidecar.is_file(), "no .mcp.json written into the repo"
-    servers = json.loads(sidecar.read_text())[mcpdecl.SERVERS_KEY]
+    servers = json.loads(sidecar.read_text(encoding="utf-8"))[mcpdecl.SERVERS_KEY]
     assert "gh" in servers
     assert servers["gh"][mcpdecl.MARKER_KEY] == "brainstorming", \
         "the entry must name the skill that asked for it, so uninstall can reverse it"
@@ -423,7 +559,8 @@ def test_uninstalling_locally_removes_the_servers_it_added(boost, tapped, repo):
     _declare_mcp(tapped, "brainstorming")
     boost("install", "brainstorming", "--local")
     boost("uninstall", "brainstorming", "--local")
-    servers = json.loads((repo / mcpdecl.SIDECAR).read_text())[mcpdecl.SERVERS_KEY]
+    servers = json.loads(
+        (repo / mcpdecl.SIDECAR).read_text(encoding="utf-8"))[mcpdecl.SERVERS_KEY]
     assert "gh" not in servers, \
         "a skill removed from the repo must stop launching its server"
 
@@ -445,7 +582,8 @@ def test_uninstall_leaves_a_hand_written_server_alone(boost, tapped, repo):
     _declare_mcp(tapped, "brainstorming")
     boost("install", "brainstorming", "--local")
     boost("uninstall", "brainstorming", "--local")
-    servers = json.loads((repo / mcpdecl.SIDECAR).read_text())[mcpdecl.SERVERS_KEY]
+    servers = json.loads(
+        (repo / mcpdecl.SIDECAR).read_text(encoding="utf-8"))[mcpdecl.SERVERS_KEY]
     assert servers["mine"] == {"command": "my-own-thing"}, \
         "boost must only reverse what boost wrote"
 
@@ -599,6 +737,125 @@ def test_list_local_json_keeps_the_four_key_shape(boost, tapped, repo):
     assert set(data) == {"skills", "rules", "workflows", "project"}
     assert "ship-it" in data["workflows"]
     assert data["skills"] == {}
+
+
+# ── uninstall --local: the flag that installed it can undo it ────────────
+#
+# These drive a REAL install rather than a synthesized lock row, because the
+# bug was that two commands read two different files for one answer: a
+# hand-written row can agree with whichever of them the test happens to call.
+
+
+@pytest.fixture()
+def trio_tap(boost, fixture_tap_src, tmp_path):
+    """The fixture tap plus one rule and one workflow, tapped.
+
+    The session fixture ships skills only, and the kinds that reproduce this
+    are the two a project lock cannot hold.
+    """
+    tap = tmp_path / "trio-tap"
+    shutil.copytree(fixture_tap_src, tap)
+    (tap / "rules").mkdir()
+    (tap / "rules" / "house.mdc").write_text(
+        "---\nname: house-style\nversion: 1.0.0\n---\n\nAlways write tests first.\n",
+        encoding="utf-8")
+    (tap / "commands").mkdir()
+    (tap / "commands" / "ship-it.md").write_text(
+        "---\nname: ship-it\nversion: 1.0.0\n---\n\nShip-it checklist body.\n",
+        encoding="utf-8")
+    run = lambda *a: subprocess.run(a, cwd=tap, check=True, capture_output=True)
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "add a rule and a workflow")
+    boost("tap", str(tap))
+    return tap
+
+
+def test_uninstall_local_removes_the_project_rule_list_local_shows(
+        boost, trio_tap, repo):
+    """The card, end to end: shown by one command, denied by the other."""
+    boost("install", "house-style", "--local")
+    rows = [Path(m["path"])
+            for m in lockfile.get_rule("house-style")["materializations"]]
+    assert rows, "nothing materialized — this would assert nothing"
+    assert "house-style" in boost("list", "--local", "--kind", "rule").out
+
+    res = boost("uninstall", "house-style", "--local", "-y")
+
+    assert lockfile.get_rule("house-style") is None
+    for p in rows:
+        # The claude-mode rows are a managed block in a context file boost
+        # created, so the file goes with the block; the file rows are deleted
+        # outright. Either way nothing the install wrote is left behind.
+        assert not p.exists(), p
+    assert "no rules installed" in boost("list", "--local", "--kind", "rule").out
+    # The *repo*, not just the agents. `cmd_uninstall` prints "removed from
+    # <agent · agent · …>" for any rule, so a bare `"removed from" in out`
+    # passes with the scope and base never reaching the result at all — it
+    # asserts the line this change did not add. Wrapping folds the path, so
+    # compare against the unfolded output.
+    flat = " ".join(res.out.split())
+    assert "removed from %s" % paths.tilde(repo) in flat, flat
+
+
+def test_uninstall_local_removes_a_project_workflow(boost, trio_tap, repo):
+    boost("install", "ship-it", "--local")
+    rows = [Path(m["path"])
+            for m in lockfile.get_workflow("ship-it")["materializations"]]
+    assert rows
+    boost("uninstall", "ship-it", "--local", "-y")
+    assert lockfile.get_workflow("ship-it") is None
+    for p in rows:
+        assert not p.exists(), p
+
+
+def test_uninstall_local_leaves_a_user_scope_rule_alone(boost, trio_tap, repo):
+    """`--local` narrows what may be removed; it never widens it.
+
+    The rule lives in the user's own config. Removing it under a flag that
+    names the repo would be the opposite of this command's contract, and the
+    old message — "not installed in this project" — sent the reader to `boost
+    list --local`, which correctly shows nothing. Message and remedy agreed
+    with each other and not with the machine.
+    """
+    boost("install", "house-style")
+    rows = [Path(m["path"])
+            for m in lockfile.get_rule("house-style")["materializations"]]
+
+    res = boost("uninstall", "house-style", "--local", "-y", expect=1)
+
+    assert lockfile.get_rule("house-style") is not None
+    assert all(p.exists() for p in rows)
+    flat = " ".join((res.out + " " + res.err).split())
+    assert "user scope" in flat
+    assert "boost uninstall house-style" in flat
+
+
+def test_uninstall_local_leaves_another_repos_rule_alone(boost, trio_tap, repo,
+                                                         tmp_path):
+    other = tmp_path / "elsewhere"
+    (other / ".git").mkdir(parents=True)
+    # Hand-written, because the point is a row this repo must not touch: a
+    # real second install would need a second cwd and would prove no more.
+    lockfile.set_rule("theirs", {
+        "kind": "rule", "version": "1.0.0", "tap": "trio-tap",
+        "scope": "project", "base": str(other),
+        "materializations": [{"agent": "claude-code", "mode": "claude",
+                              "path": str(other / "CLAUDE.local.md")}]})
+    (other / "CLAUDE.local.md").write_text("their rules\n", encoding="utf-8")
+
+    res = boost("uninstall", "theirs", "--local", "-y", expect=1)
+
+    assert lockfile.get_rule("theirs") is not None
+    assert (other / "CLAUDE.local.md").read_text(encoding="utf-8") == "their rules\n"
+    flat = " ".join((res.out + " " + res.err).split())
+    assert str(other) in flat
+
+
+def test_uninstall_local_still_denies_a_name_nothing_installed(boost, tapped,
+                                                               repo):
+    res = boost("uninstall", "nope", "--local", "-y", expect=1)
+    flat = " ".join((res.out + " " + res.err).split())
+    assert "nope is not installed in this project" in flat
 
 
 # ── info on a project-scoped skill ───────────────────────────────────────

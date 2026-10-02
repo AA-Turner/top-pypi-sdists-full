@@ -1,0 +1,557 @@
+"""`confiture migrate generate`."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated
+
+import typer
+
+from confiture.cli.commands.migrate._settings import _load_environment_if_present
+from confiture.cli.error_json import cli_boundary, fail
+from confiture.cli.helpers import (
+    console,
+    emit,
+    error_console,
+    is_json,
+)
+from confiture.cli.markup import verbatim
+from confiture.cli.options import (
+    config_option,
+    format_option,
+    migrations_dir_option,
+    verbose_option,
+)
+from confiture.core import schema_snapshot as _core_schema_snapshot
+from confiture.core.migration_generator import MigrationGenerator
+from confiture.core.migrator import (
+    discover_migration_files,
+    parse_migration_filename,
+)
+from confiture.core.migrator import (
+    find_duplicate_migration_versions as _gen_find,
+)
+from confiture.error_codes import SUCCESS
+from confiture.exceptions import ConfigurationError, ValidationError
+
+if TYPE_CHECKING:
+    from rich.console import Console
+
+# A migration name becomes a filename and a class name. snake_case only: a `/`
+# or `..` would walk out of the migrations directory, anything else is not a
+# Python identifier fragment.
+_MIGRATION_NAME_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+ForceOpt = Annotated[
+    bool, typer.Option("--force", help="Overwrite existing migration file (default: off)")
+]
+DryRunOpt = Annotated[
+    bool,
+    typer.Option("--dry-run", help="Show what would be generated without creating (default: off)"),
+]
+FromSchemaOpt = Annotated[
+    Path | None, typer.Option("--from", help="Old schema file path (required with --generator)")
+]
+ToSchemaOpt = Annotated[
+    Path | None, typer.Option("--to", help="New schema file path (required with --generator)")
+]
+GeneratorOpt = Annotated[
+    str | None,
+    typer.Option("--generator", help="Named external generator from migration_generators config"),
+]
+SnapshotOpt = Annotated[
+    bool | None,
+    typer.Option(
+        "--snapshot/--no-snapshot",
+        help="Write schema history snapshot (default: from config, True)",
+    ),
+]
+SnapshotsDirOpt = Annotated[
+    Path | None,
+    typer.Option(
+        "--snapshots-dir", help="Override snapshot output directory (default: db/schema_history)"
+    ),
+]
+LiveSnapshotOpt = Annotated[
+    bool | None,
+    typer.Option(
+        "--live-snapshot/--no-live-snapshot",
+        help="Snapshot via temp database + pg_dump (captures DO-block objects)",
+    ),
+]
+
+
+VerifySidecarOpt = Annotated[
+    bool,
+    typer.Option(
+        "--verify-sidecar/--no-verify-sidecar",
+        help=(
+            "Write an empty <version>_<name>.verify.sql beside the migration, where "
+            "assertions on data belong (default: on). `migrate preflight` runs up() "
+            "against a schema-only database, so assertions inside up() fail there."
+        ),
+    ),
+]
+
+
+@cli_boundary
+def migrate_generate(
+    *,
+    name: str = typer.Argument(..., help="Migration name (snake_case)"),
+    migrations_dir: Path = migrations_dir_option(),
+    format_output: str = format_option("text", "json"),
+    force: ForceOpt = False,
+    dry_run: DryRunOpt = False,
+    verbose: bool = verbose_option(help="Show version calculation details (default: off)"),
+    from_schema: FromSchemaOpt = None,
+    to_schema: ToSchemaOpt = None,
+    generator: GeneratorOpt = None,
+    config: Path = config_option(),
+    snapshot: SnapshotOpt = None,
+    snapshots_dir: SnapshotsDirOpt = None,
+    live_snapshot: LiveSnapshotOpt = None,
+    verify_sidecar: VerifySidecarOpt = True,
+) -> None:
+    """Generate a new migration file with timestamp-based version.
+
+    PROCESS:
+      Creates an empty migration template with a timestamp-based version number.
+      Uses the current system time (YYYYMMDDHHmmSS format) to ensure uniqueness
+      and avoid merge conflicts in multi-developer environments.
+
+    EXAMPLES:
+      confiture migrate generate add_user_email
+        ↳ Create migration template with timestamp version (20260228120530_add_user_email.py)
+
+      confiture migrate generate add_payment_column --verbose
+        ↳ Show version calculation and scanning details
+
+      confiture migrate generate stripe_integration --dry-run
+        ↳ Preview what would be created without writing files
+
+      confiture migrate generate hotfix --force
+        ↳ Overwrite existing migration file if it exists
+
+    RELATED:
+      confiture migrate up      - Apply the generated migration
+      confiture migrate status  - View all migrations
+      confiture migrate diff    - Compare schema files
+    """
+    if not _MIGRATION_NAME_RE.match(name):
+        fail(
+            ValidationError(
+                f"Invalid migration name {name!r}: use snake_case — lowercase letters, "
+                "digits and underscores only (e.g. add_user_bio).",
+                context={"name": name},
+                resolution_hint="Rename the migration, e.g. `confiture migrate generate add_user_bio`.",
+            ),
+            json_mode=format_output == "json",
+        )
+    if generator is not None:
+        _run_external_generator(
+            generator,
+            name=name,
+            from_schema=from_schema,
+            to_schema=to_schema,
+            migrations_dir=migrations_dir,
+            config=config,
+            dry_run=dry_run,
+            format_output=format_output,
+        )
+        raise typer.Exit(SUCCESS)
+
+    migrations_dir.mkdir(parents=True, exist_ok=True)
+    generator_instance = MigrationGenerator(migrations_dir=migrations_dir)
+    warnings: list[str] = []
+    # The narration is text: in JSON mode it goes to stderr, never ahead of the payload.
+    narrator = error_console if is_json(format_output) else console
+    if verbose:
+        _show_scan(migrations_dir, narrator)
+
+    duplicates = _gen_find(migrations_dir)
+    if duplicates:
+        warnings.append(f"Duplicate versions detected: {', '.join(sorted(duplicates.keys()))}")
+        if format_output == "text":
+            console.print(f"[yellow]⚠️  Warning: {verbatim(warnings[-1])}[/yellow]")
+    name_conflicts = generator_instance.check_name_conflict(name)
+    if name_conflicts:
+        warnings.append(f"Migration name '{name}' already exists in other versions")
+        if format_output == "text":
+            console.print(f"[yellow]⚠️  Warning: {verbatim(warnings[-1])}[/yellow]")
+            for f in name_conflicts:
+                console.print(f"    - {verbatim(f.name)}")
+    version = generator_instance.get_next_version()
+    if verbose:
+        existing = discover_migration_files(migrations_dir)
+        highest = parse_migration_filename(existing[-1].name)[0] if existing else "none"
+        narrator.print(f"\n  Highest version: {verbatim(highest)}")
+        narrator.print(f"  Next version: {verbatim(version)}")
+        narrator.print(f"  Target file: {verbatim(version)}_{verbatim(name)}.py")
+        narrator.print()
+    class_name = generator_instance.to_class_name(name)
+    filepath = migrations_dir / f"{version}_{name}.py"
+    template = _MIGRATION_TEMPLATE.format(name=name, version=version, class_name=class_name)
+
+    if dry_run:
+        _render_dry_run_preview(
+            version, name, class_name, filepath, template, warnings, format_output
+        )
+        return
+    if filepath.exists() and not force:
+        fail(
+            ValidationError(
+                f"Migration file already exists: {filepath.name}",
+                context={"filepath": str(filepath.absolute())},
+                resolution_hint="Use --force to overwrite the existing file.",
+            ),
+            json_mode=is_json(format_output),
+        )
+    if filepath.exists() and force and format_output == "text":
+        console.print(f"[yellow]⚠️  Overwriting existing file: {verbatim(filepath.name)}[/yellow]")
+    lock_fd = generator_instance.acquire_migration_lock()
+    try:
+        filepath.write_text(template)
+        verify_path = _write_verify_sidecar(
+            migrations_dir, version=version, name=name, enabled=verify_sidecar
+        )
+    finally:
+        generator_instance.release_migration_lock(lock_fd)
+
+    snapshot_path, snapshot_mode = _write_history_snapshot(
+        config,
+        version=version,
+        name=name,
+        snapshot=snapshot,
+        live_snapshot=live_snapshot,
+        snapshots_dir=snapshots_dir,
+        format_output=format_output,
+    )
+    _render_generated(
+        version,
+        name,
+        class_name,
+        filepath,
+        migrations_dir=migrations_dir,
+        snapshot_path=snapshot_path,
+        snapshot_mode=snapshot_mode,
+        warnings=warnings,
+        format_output=format_output,
+        verify_path=verify_path,
+    )
+
+
+def _write_verify_sidecar(
+    migrations_dir: Path, *, version: str, name: str, enabled: bool
+) -> Path | None:
+    """Write the empty `.verify.sql` placeholder; return its path, or None.
+
+    Written by default, opted out with ``--no-verify-sidecar`` (#311): an
+    opt-in sidecar is one a project never hears of, and a verification
+    mechanism nobody knows to use verifies nothing.
+
+    An existing sidecar is **never** overwritten, ``--force`` included. That
+    flag is about the migration file; a sidecar with content in it is somebody's
+    assertions, and this command has nothing to replace them with.
+    """
+    if not enabled:
+        return None
+    path = migrations_dir / f"{version}_{name}.verify.sql"
+    if path.exists():
+        return path
+    path.write_text(_VERIFY_TEMPLATE.format(name=name, version=version))
+    return path
+
+
+_VERIFY_TEMPLATE = """-- Verification for {version}_{name}
+--
+-- Assertions about DATA belong here, not in the migration's up().
+--
+-- `confiture migrate preflight` replays pending migrations against a
+-- schema-only database, where every table is empty. An `up()` that asserts on
+-- row counts fails there, and in a gated deploy that failure aborts the
+-- deploy — for a migration whose actual work was correct.
+--
+-- This file is run by `confiture migrate verify`, separately and afterwards,
+-- inside a SAVEPOINT that is rolled back. It never runs during `migrate up` or
+-- `migrate preflight`.
+--
+-- The contract: exactly one SELECT (or WITH ... SELECT), no DDL, no DML. It
+-- must return at least one row, and the first column of the first row must be
+-- truthy. Zero rows, or false/0/NULL, is a failure.
+--
+-- Until you write one, this file is reported as `skipped` — never as a
+-- failure. Delete it if this migration has nothing to assert.
+--
+-- Example:
+--   SELECT count(*) = 2 AS ok
+--     FROM catalog.tb_field
+--    WHERE identifier IN ('meter_a4_color', 'volume_a4_color');
+"""
+
+
+_MIGRATION_TEMPLATE = '''"""Migration: {name}
+
+Version: {version}
+
+up() must survive empty tables. `confiture migrate preflight` replays pending
+migrations against a schema-only database, so every table it sees has no rows
+in it — an assertion on data raises there, and a deploy gated on the preflight
+aborts for a migration whose work was correct.
+
+Assertions about data belong in the sidecar beside this file:
+    {version}_{name}.verify.sql
+`confiture migrate verify` runs it separately, in a SAVEPOINT, after the
+migration has been applied.
+"""
+
+from confiture.models.migration import Migration
+
+
+class {class_name}(Migration):
+    """Migration: {name}."""
+
+    version = "{version}"
+    name = "{name}"
+
+    def up(self) -> None:
+        """Apply migration.
+
+        Schema and data changes only — no assertions on data (see the module
+        docstring). Runs against a schema-only database during
+        `migrate preflight`.
+        """
+        # Add your forward migration SQL here
+        # Example:
+        # self.execute("CREATE TABLE users (id SERIAL PRIMARY KEY)")
+        pass
+
+    def down(self) -> None:
+        """Rollback migration."""
+        # Add your rollback SQL here
+        # Example:
+        # self.execute("DROP TABLE users")
+        pass
+'''
+
+
+def _run_external_generator(
+    generator: str,
+    *,
+    name: str,
+    from_schema: Path | None,
+    to_schema: Path | None,
+    migrations_dir: Path,
+    config: Path,
+    dry_run: bool,
+    format_output: str,
+) -> None:
+    """``--generator <name>``: hand the diff to a configured external generator.
+
+    A refusal is a ``ConfigurationError`` and a failed generator an
+    ``ExternalGeneratorError`` (``GEN_001``); both reach the command's boundary,
+    which writes the error envelope in JSON mode.
+    """
+    if from_schema is None or to_schema is None:
+        raise ConfigurationError(
+            "--from and --to are required when --generator is used",
+            resolution_hint="Pass the old schema file with --from and the new one with --to.",
+        )
+    env_config = _load_environment_if_present(config)
+    if env_config is None or generator not in env_config.migration.migration_generators:
+        raise ConfigurationError(
+            f"Generator '{generator}' not found in migration_generators config",
+            context={"generator": generator, "config": str(config)},
+            resolution_hint="Declare it under migration.migration_generators in the "
+            "environment file --config names.",
+        )
+    gen_config = env_config.migration.migration_generators[generator]
+    migrations_dir.mkdir(parents=True, exist_ok=True)
+    gen_instance = MigrationGenerator(migrations_dir=migrations_dir)
+    try:
+        resolved_cmd, up_sql_path = gen_instance.run_external_generator(
+            generator_config=gen_config,
+            from_path=from_schema,
+            to_path=to_schema,
+            migration_name=name,
+            dry_run=dry_run,
+        )
+    except FileNotFoundError as exc:
+        raise ConfigurationError(
+            str(exc), resolution_hint="Check the paths passed to --from and --to."
+        ) from exc
+    if is_json(format_output):
+        emit(
+            {
+                "status": "dry_run" if dry_run else "success",
+                "version": parse_migration_filename(up_sql_path.name)[0],
+                "name": name,
+                "filepath": str(up_sql_path.absolute()),
+                "generator": generator,
+                "resolved_command": resolved_cmd,
+            }
+        )
+        return
+    if dry_run:
+        console.print(f"[dim]Resolved command:[/] {verbatim(resolved_cmd)}")
+        console.print(f"[dim]Target file:      [/] {verbatim(up_sql_path)}")
+        return
+    console.print("[green]✅ Migration generated by external generator![/green]")
+    console.print(f"\n📄 File: {verbatim(up_sql_path.absolute())}")
+    console.print("\n💡 Next steps:")
+    console.print("  • Review and edit the generated SQL if needed")
+    console.print("  • Apply: confiture migrate up")
+
+
+def _show_scan(migrations_dir: Path, narrator: Console) -> None:
+    narrator.print("[cyan]🔍 Scanning migrations directory...[/cyan]")
+    narrator.print(f"  Directory: {verbatim(migrations_dir.absolute())}")
+    migration_files = discover_migration_files(migrations_dir)
+    narrator.print(f"  Found {len(migration_files)} migration files:")
+    for f in migration_files:
+        narrator.print(
+            f"    - {verbatim(f.name)} (version: {verbatim(parse_migration_filename(f.name)[0])})"
+        )
+
+
+def _render_dry_run_preview(
+    version: str,
+    name: str,
+    class_name: str,
+    filepath: Path,
+    template: str,
+    warnings: list[str],
+    format_output: str,
+) -> None:
+    if format_output == "json":
+        emit(
+            {
+                "status": "dry_run",
+                "version": version,
+                "name": name,
+                "filepath": str(filepath.absolute()),
+                "class_name": class_name,
+                "template": template,
+                "warnings": warnings,
+            }
+        )
+        return
+    console.print("[cyan]🔍 Dry-run mode - no files will be created[/cyan]\n")
+    console.print("Would create migration:")
+    console.print(f"  Version: {verbatim(version)}")
+    console.print(f"  Name: {verbatim(name)}")
+    console.print(f"  Class: {verbatim(class_name)}")
+    console.print(f"  File: {verbatim(filepath.absolute())}")
+    console.print("\n[dim]Template preview:[/dim]")
+    console.print("[dim]" + "─" * 60 + "[/dim]")
+    console.print(template)
+    console.print("[dim]" + "─" * 60 + "[/dim]")
+
+
+def _write_history_snapshot(
+    config: Path,
+    *,
+    version: str,
+    name: str,
+    snapshot: bool | None,
+    live_snapshot: bool | None,
+    snapshots_dir: Path | None,
+    format_output: str,
+) -> tuple[Path | None, str]:
+    """Write the schema-history snapshot (non-fatal); returns ``(path, mode)``."""
+    settings = _load_environment_if_present(config)
+    should = (
+        snapshot
+        if snapshot is not None
+        else (settings.migration.snapshot_history if settings else True)
+    )
+    if not should:
+        return None, "static"
+    use_live = (
+        live_snapshot
+        if live_snapshot is not None
+        else (settings.migration.live_snapshot if settings else False)
+    )
+    live_db_url = settings.database_url if (use_live and settings is not None) else None
+    try:
+        resolved_dir = snapshots_dir
+        if resolved_dir is None and settings is not None:
+            resolved_dir = Path(settings.migration.snapshots_dir)
+        if resolved_dir is None:
+            resolved_dir = Path("db/schema_history")
+        snap_gen = _core_schema_snapshot.SchemaSnapshotGenerator(snapshots_dir=resolved_dir)
+        env_name, project_dir = config.stem, config.parent.parent.parent
+        if live_db_url:
+            try:
+                return (
+                    snap_gen.write_snapshot(
+                        env_name, version, name, project_dir, database_url=live_db_url
+                    ),
+                    "live",
+                )
+            # Reason: a live snapshot failure of any kind falls back to the static snapshot (documented)
+            except Exception as live_err:
+                if format_output == "text":
+                    console.print(
+                        f"[yellow]⚠️  Live snapshot failed, falling back to static: {verbatim(live_err)}[/yellow]"
+                    )
+        return snap_gen.write_snapshot(env_name, version, name, project_dir), "static"
+    # Reason: snapshot writing is documented non-fatal; any failure degrades to 'static'
+    except Exception as snap_err:
+        if format_output == "text":
+            console.print(
+                f"[yellow]⚠️  Snapshot write failed (non-fatal): {verbatim(snap_err)}[/yellow]"
+            )
+        return None, "static"
+
+
+def _render_generated(
+    version: str,
+    name: str,
+    class_name: str,
+    filepath: Path,
+    *,
+    migrations_dir: Path,
+    snapshot_path: Path | None,
+    snapshot_mode: str,
+    warnings: list[str],
+    format_output: str,
+    verify_path: Path | None = None,
+) -> None:
+    if format_output == "json":
+        emit(
+            {
+                "status": "success",
+                "version": version,
+                "name": name,
+                "filepath": str(filepath.absolute()),
+                "verify_file": str(verify_path.absolute()) if verify_path else None,
+                "class_name": class_name,
+                "migrations_dir": str(migrations_dir.absolute()),
+                "next_available_version": version,
+                "snapshot": str(snapshot_path.absolute()) if snapshot_path else None,
+                "snapshot_mode": snapshot_mode if snapshot_path else None,
+                "warnings": warnings,
+            }
+        )
+        return
+    console.print("[green]✅ Migration generated successfully![/green]")
+    print(f"\n📄 File: {filepath.absolute()}")
+    if verify_path:
+        console.print(f"🔍 Verify: {verbatim(verify_path.absolute())}")
+        console.print(
+            "[dim]   Assertions about data go in the .verify.sql, not in up() — "
+            "`migrate preflight` replays up() against a schema-only database.[/dim]"
+        )
+    if snapshot_path:
+        console.print(f"📸 Snapshot: {verbatim(snapshot_path.absolute())}")
+    console.print("\n✏️  Edit the migration file to add your SQL statements.")
+    console.print("\n💡 Next steps:")
+    console.print("  • Edit file and add SQL")
+    if verify_path:
+        console.print(f"  • Add an assertion to {verbatim(verify_path.name)} (or delete it)")
+    console.print("  • Apply: confiture migrate up")
+    console.print("  • Or verify first: confiture migrate up --dry-run")
+    if verify_path:
+        console.print("  • Then: confiture migrate verify")

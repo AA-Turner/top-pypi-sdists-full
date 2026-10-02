@@ -6,11 +6,11 @@ from pathlib import Path
 
 from schemathesis.baseline import Baseline, BaselineEntry
 from schemathesis.cli.commands.run.warnings import WarningCollector
+from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.events import LoadingFinished
 from schemathesis.cli.summary import SummaryData, WarningData
 from schemathesis.core.failures import RUN_CHECKS_LABEL, is_reproducible_failure
-from schemathesis.core.statistic import ApiStatistic
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
 
@@ -28,7 +28,6 @@ PHASE_STATUS_PRIORITY = {
 class ExecutionContext(BaseExecutionContext):
     """Execution state for `st run`."""
 
-    api_statistic: ApiStatistic | None = None
     errors: set[events.NonFatalError] = field(default_factory=set)
     phases: dict[PhaseName, tuple[Status, PhaseSkipReason | None]] = field(
         default_factory=lambda: dict.fromkeys(PhaseName, (Status.SKIP, None))
@@ -51,7 +50,6 @@ class ExecutionContext(BaseExecutionContext):
         collector = self.warning_collector
         assert collector is not None
         if isinstance(event, LoadingFinished):
-            self.api_statistic = event.statistic
             self.config = event.config
             collector.config = event.config
             collector.on_unmatched_filters(self, event.statistic)
@@ -78,7 +76,8 @@ class ExecutionContext(BaseExecutionContext):
             # after_run failures arrive here.
             if event.failures:
                 self.statistic.record_run_check_failures(event.failures, label=RUN_CHECKS_LABEL)
-                self.exit_code = 1
+                self.exit_code = ExitCode.FAILURES
+            self.on_engine_finished(event.stop_reason)
             self._write_baseline()
         if isinstance(event, events.NonFatalError):
             self.errors.add(event)
@@ -87,7 +86,16 @@ class ExecutionContext(BaseExecutionContext):
             and event.phase.is_enabled
             and event.status in (Status.FAILURE, Status.ERROR)
         ):
-            self.exit_code = 1
+            self.exit_code = ExitCode.FAILURES
+
+    def all_skipped_reason(self) -> str:
+        unit_phases_off = all(
+            self.phases[name][1] in (PhaseSkipReason.DISABLED, PhaseSkipReason.NOT_SUPPORTED)
+            for name in (PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING)
+        )
+        if unit_phases_off and self.phases[PhaseName.STATEFUL_TESTING][1] == PhaseSkipReason.NOT_APPLICABLE:
+            return "No links for stateful testing"
+        return super().all_skipped_reason()
 
     def _write_baseline(self) -> None:
         if self.config.baseline is None:

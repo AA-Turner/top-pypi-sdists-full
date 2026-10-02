@@ -1,0 +1,1552 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""OMN-15597: command-substitution-aware tokenization for the OMN-15382 shape guard.
+
+``_invalid_check_value_reason`` tokenized ``check_value`` with
+``shlex.split(cmd_str, posix=True)`` (OMN-15430). ``shlex`` is a WORD
+SPLITTER, not a shell parser — it has no notion of command substitution, so
+the double quotes *inside* a ``$(...)`` are read as the outer string's
+quotes. On the OMN-15535 binding check::
+
+    state="$(gh pr view 239 ... --jq '.state + " " + (.mergeCommit.oid // "none")')" && test ...
+
+the jq program's ``" "`` closes the outer ``"`` early, shlex splits INSIDE
+the substitution, and the guard judges the jq fragment
+``" + (.mergeCommit.oid // none)')"`` as the command name. ``shutil.which``
+returns ``None`` and the check hard-REDs as
+``INVALID_CHECK_VALUE_NOT_A_COMMAND`` *before it is ever shelled out* — a
+false RED on a string ``bash -o pipefail -c`` runs to exit 0.
+
+Corpus census at ``onex_change_control@1e6b75f8`` (32,595 command
+check_values in ``contracts/OMN-*.yaml``): **59 checks across 33 contracts**
+hard-RED from this tokenizer damage, 0 after the fix.
+
+The fix is ``_split_shell_words``: a single left-to-right scan that keeps a
+real nesting discipline, so a ``$(...)``/```...``` region is copied verbatim
+into its word and its interior never touches the outer quote state.
+
+``bash -n`` is deliberately NOT the oracle — it exits 0 on
+``Recorded product receipt: see PR 123`` too, so parse-validity cannot
+discriminate prose, which is this guard's entire purpose. AC3 asserts that
+directly.
+
+Test groups map 1:1 onto the ticket's acceptance criteria:
+  AC1 — the verbatim pre-amendment OMN-15535 check_value is accepted.
+  AC2 — every dev-side false-RED class from the 59-check census is accepted,
+        and each one really is parseable by a real ``bash``.
+  AC3 — prose still hard-REDs, including under a leading ``!``, and
+        ``bash -n`` exit 0 is proven insufficient on its own.
+  AC4 — parameterised grammar suite over the constructs the ticket lists.
+  AC5 — corpus re-census, committed here so a third party can re-run it from
+        repo state instead of from a script quoted in a PR body.
+
+R2 (2026-08-01). The first fix made the guard's verdict platform-independent
+by allowlisting 29 shell builtins, and the allowlist returns None on sight —
+BEFORE the prose judgement — so seven of those names became a prose-laundering
+surface: ``set``/``export``/``declare``/``unset``/``readonly``/``let``/``read``
+each run a prose check_value to exit 0 in a real shell, which
+``_run_command_check`` then reports as ``status=verified``. The guarding test
+shipped alongside it parameterised over PROSE_SAMPLES, none of which begins
+with any of the 29 words, so it asserted nothing about the change it named.
+Both are fixed here: the seven are handled as no-evidence PREFIXES (skipped
+with their operands, like a leading ``VAR=VAL``), and
+``TestAllowlistAdmissionRule`` now iterates the ACTUAL frozenset against a
+real shell so a future addition that swallows prose fails CI.
+
+R3 (2026-08-01). The prefix-builtin rejection introduced by R2 reused the
+pre-existing "no resolvable executable token after leading VAR=VAL
+assignments/shell operators" message, which misdescribes its own new inputs:
+``read -r a b <<< "$(gh api ...)"`` contains no assignment and no control
+operator, yet the reason blamed both. AC2's second clause requires a
+rejection of something a real shell runs to name the unsupported construct
+EXPLICITLY, so naming an absent one is the same misidentification failure
+this ticket closes, moved to the rejection path.
+``TestAc2RejectionReasonNamesTheConstructThatIsPresent`` pins it: the reason
+now names the prefix builtin that consumed the tokens, and the absence of
+the constructs it must NOT blame is re-derived from the tokens rather than
+asserted by hand. Behaviour (accept/reject) is unchanged by R3.
+
+G2 (2026-08-01). Two evidence-quality residuals of R3, both of which left an
+assertion that could not fail:
+
+1. The AC5 census selected offenders with the substring ``"no resolvable
+   executable token"`` — the message R2 reused. R3 gave the prefix-builtin
+   rejection its OWN wording ("the only command is the no-evidence shell
+   builtin ...") and updated one of the two consumers. The census kept the
+   old substring, so it stopped matching the class it censuses and reported
+   0 for the wrong reason: a synthetic corpus of ``unset FOO`` /
+   ``read -r x < /dev/null`` passed it. The class predicate now lives in the
+   runner (``is_no_evidence_builtin_only_reason``) and both consumers import
+   it, so a third wording change cannot re-vacuate either;
+   ``TestCensusOracleIsNotVacuous`` drives the census helper with a corpus
+   that DOES contain the class and fails if it is not seen.
+2. Both AC5 census tests were ``skipif(_occ_root() is None)`` — they SKIPPED
+   on every hosted runner (no OCC clone) and pinned no SHA, so AC5 had zero
+   standing force, and the live corpus had already moved off the SHA the 59
+   was measured at. AC5 is now satisfied by a COMMITTED corpus snapshot at
+   ``onex_change_control@9089ffa9`` (``omn_15597_occ_census_pinned.py``):
+   the 59 check_values across 33 contracts, re-derived in-test as the class
+   (the vendored PRE-FIX guard rejects every one; the current guard accepts
+   every one) with ``shutil.which`` stubbed to the recorded command set so
+   the verdict does not depend on what is installed on the runner. The
+   live-clone census is retained as an explicitly host-only DRIFT
+   DIAGNOSTIC and is no longer what AC5 rests on.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shlex
+import shutil
+import stat
+import subprocess
+from collections.abc import Iterable
+from pathlib import Path
+
+import pytest
+import yaml
+
+from omnimarket.nodes.node_dod_verify.models.model_dod_verify_state import (
+    EnumEvidenceCheckStatus,
+)
+from omnimarket.nodes.node_dod_verify.services.evidence_collector import (
+    _NO_EVIDENCE_BUILTIN_PREFIXES,
+    _SHELL_CONTROL_OPERATORS,
+    _SHELL_KEYWORD_ALLOWLIST,
+    _VAR_ASSIGNMENT_RE,
+    EvidenceCollector,
+    _invalid_check_value_reason,
+    _split_shell_words,
+    is_no_evidence_builtin_only_reason,
+)
+from tests.unit.nodes.node_dod_verify.omn_15597_occ_census_pinned import (
+    NO_EVIDENCE_BUILTIN_CANDIDATES,
+    OCC_CENSUS_DAMAGE_CLASS_CONTRACT_COUNT,
+    OCC_CENSUS_SHA,
+    OCC_CENSUS_TOTAL_COMMAND_CHECK_VALUES,
+    TOKENIZER_DAMAGE_CLASS,
+    TOKENIZER_DAMAGE_PATH_COMMANDS,
+)
+
+# --------------------------------------------------------------------------
+# Verbatim corpus strings. Every one below is copied character-for-character
+# out of onex_change_control@1e6b75f8; they are the artifact under test, so
+# they must not be paraphrased or shortened.
+# --------------------------------------------------------------------------
+
+# contracts/OMN-15535.yaml :: dod-omn15535-pr-239-merged-at-4bae73ea, the
+# PRE-AMENDMENT value (superseded by OCC#5760/d7b16271 only because this
+# guard rejected it). Proven to exit 0 under ``bash -o pipefail -c`` in the
+# ticket's reproduction table.
+OMN_15535_PRE_AMENDMENT = 'state="$(gh pr view 239 --repo jonahgabriel/steel_onslaught --json state,mergeCommit --jq \'.state + " " + (.mergeCommit.oid // "none")\')" && test "$state" = "MERGED 4bae73ea51a4f3d42d24ccdcaf68d9ab61d1a9a5"'  # onex-allow-test-fixture OMN-15597 reason="verbatim OCC check_value under test; the RED/GREEN proof is invalid if it is altered"
+
+# One verbatim sample per DEV-SIDE JUDGED-TOKEN CLASS observed across the 59
+# censused checks. The key is the fragment the pre-fix guard mistook for the
+# command name — none of which any author ever wrote as a command.
+CENSUS_FALSE_RED_SAMPLES: dict[str, str] = {
+    # contracts/OMN-15239.yaml :: dod-omn15239-pr-225-merged-at-23a88d09
+    "jq-fragment": 'state="$(gh pr view 225 --repo jonahgabriel/steel_onslaught --json state,mergeCommit --jq \'.state + " " + (.mergeCommit.oid // "none")\')" && test "$state" = "MERGED 23a88d09051565270f76cade8bc7b685cd790f38"',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value"
+    # contracts/OMN-14436.yaml :: dod-verify-14436-allowlist-fully-digest-bound
+    "api": 'A=$(gh api "repos/OmniNode-ai/onex_change_control/contents/scripts/ci/dod_runner_legacy_allowlist.txt?ref=7266a4f1b2fff2bf5a362a60bb1f099dd94d1835" --jq .content 2>/dev/null | base64 -d 2>/dev/null); T=$(printf \'%s\' "$A" | grep -vcE \'^[[:space:]]*#|^[[:space:]]*$\'); B=$(printf \'%s\' "$A" | grep -cE \'^OMN-[0-9]+ [0-9a-f]{64}$\'); test "$T" -gt 0 && test "$T" = "$B"',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value"
+    # contracts/OMN-15192.yaml :: dod-omn-15192-b3-anchored-forcepush-invariant
+    "is:pr": 'AS="$(gh api graphql --paginate -f query=\'query($endCursor:String){ search(query:"repo:OmniNode-ai/onex_change_control is:pr label:\\"occ:machine-minted\\" in:title \\"OCC companion for OmniNode-ai\\" created:>2026-07-29T03:01:01Z", type:ISSUE, first:100, after:$endCursor) { pageInfo{hasNextPage endCursor} nodes { ... on PullRequest { number } } } }\' --jq \'.data.search.nodes[].number\' | sort -u | paste -sd, -)" && [ "$AS" = "5466" ]',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value (node selection trimmed only to keep one line readable; the outer nested-quote shape under test is unchanged)"
+    # contracts/OMN-15301.yaml :: dod-omn15301-pr-727-file-scope-supersede-15328
+    # — the unquoted ``VAR=$(cmd -flag)`` shape (OMN-15476 defect-1 family).
+    "-d)": 'd=$(mktemp -d) && gh run download 30347509136 --repo OmniNode-ai/omnibase_infra -n build-manifest-candidate -D "$d" && jq -e \'.prod_pinnable == false\' "$d/build-manifest.json" >/dev/null; rc=$?; rm -rf "$d"; exit $rc',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value (artifact name trimmed; the unquoted $() shape under test is unchanged)"
+    # contracts/OMN-15484.yaml :: dod-OmniNode-ai-omnibase-infra-pr-2570-attempt1
+    "/": "out=\"$(gh api 'repos/OmniNode-ai/omnibase_infra/actions/runs/30565261108/attempts/1/jobs' --jq '.jobs[]|select(.name==\"merge-hold-gate / evaluate\")|.conclusion')\" && printf '%s\\n' \"$out\" | grep -qx success",  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value"
+    # contracts/OMN-15142.yaml :: dod-infra2453-consolidated-env-var-docs-v2 —
+    # a subshell-grouped command; pre-fix the word was ``(gh``.
+    "(gh": "(gh api 'repos/OmniNode-ai/omnibase_infra/contents/scripts/deploy-runners.sh?ref=81407bcb0ae4f1c1d4215637d01ab9000edc3238' --jq .content | base64 -d | grep -q 'DEPLOY_RUNNER_OMNI_HOME')",  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value"
+    # contracts/OMN-9278.yaml :: dod-001 — pre-fix word was ``([``; this was
+    # the last survivor of the census and is why ``(`` had to become a
+    # word-terminating metacharacter.
+    "([": 'state=$(gh pr view 1 --repo OmniNode-ai/omnimarket --json state,baseRefName -q \'[.state, .baseRefName] | @tsv\'); ([ "$(echo "$state" | cut -f1)" = "OPEN" ] || [ "$(echo "$state" | cut -f1)" = "MERGED" ]) && [ "$(echo "$state" | cut -f2)" = "main" ]',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value (PR number generalised)"
+    # contracts/OMN-14587.yaml :: dod-verify-2300-baseline-92-entries-28e6780c
+    # — shlex did not merely mis-split this one, it raised ValueError ("No
+    # closing quotation"), so the guard called a real, bash-parseable string
+    # unparseable.
+    "shlex-ValueError": 'test "$(gh api "repos/OmniNode-ai/omnibase_infra/contents/scripts/ci/canonical_handler_shape_baseline.py?ref=28e6780c342269da6e9057d04d58c68a6bea8c90" --jq .content | base64 -d | grep -cE \'^\\s+"omnibase_infra\\.nodes\\.\')" -eq 92',  # onex-allow-test-fixture OMN-15597 reason="verbatim censused OCC check_value"
+}
+
+# onex_change_control#5762 :: contracts/OMN-15472.yaml
+# dod-deploy-source-probe. Routed to this lane (ledger 2026-07-31T22:12:43Z,
+# lane C3) as another instance of the false-RED class. Measured here: it is
+# NOT one — the assignment is QUOTED with no argument, so even the pre-fix
+# shlex tokenizer produced ``f=$(mktemp)``, which matches
+# _VAR_ASSIGNMENT_RE and is skipped. The genuine ``mktemp`` instance is the
+# UNQUOTED-with-flag ``d=$(mktemp -d)`` form above ("-d)" sample). Pinned
+# here as a regression case so it stays accepted either way.
+OCC_5762_DEPLOY_SOURCE_PROBE = 'f="$(mktemp)" && gh api \'repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_projection_registration/handlers/handler_projection_registration.py?ref=f13ef09c422cbb30fe2e448daf6101e99f0069a8\' --jq .content | base64 -d > "$f" && grep \'DEFAULT_SERVICE_URL = ""\' "$f"'  # onex-allow-test-fixture OMN-15597 reason="verbatim OCC#5762 check_value routed to this lane"
+
+PROSE_SAMPLES = (
+    "Recorded product receipt: see PR 123",
+    "This was verified manually by the operator",
+    "note: do the thing",
+    "Verified by inspection of the merged diff",
+)
+
+# OMN-15597 R2. Prose that leads with a name the round-1 allowlist admitted on
+# sight. Every one of these is run to exit 0 by a real ``bash -o pipefail -c``
+# (measured under 3.2.57 and 5.3.3, stdin at /dev/null except ``read``, which
+# needs only a line on stdin), so while the name was allowlisted the guard
+# returned None, ``_run_command_check`` judged by exit code, and the item
+# reported ``status=verified`` — a vacuous GREEN on the DoD evidence runner.
+#
+# PROSE_SAMPLES above contains none of these words, which is exactly why
+# parameterising the "allowlist is not a prose-laundering surface" test over
+# PROSE_SAMPLES alone asserted nothing about the allowlist.
+BUILTIN_LED_PROSE_SAMPLES: tuple[tuple[str, str], ...] = (
+    ("set", "set up the runtime and verified manually"),
+    ("export", "export the evidence to the ticket"),
+    ("declare", "declare victory"),
+    ("unset", "unset the flag manually"),
+    ("readonly", "readonly evidence recorded"),
+    # Not in the reported five; found by measuring the whole allowlist rather
+    # than the reported subset. ``let`` returns 0 whenever the LAST operand is
+    # a non-zero arithmetic value, and ``read`` returns 0 whenever stdin has a
+    # line to consume — neither is under the check author's control.
+    ("let", "let the record show 3"),
+    ("read", "read the receipt"),
+)
+
+# OMN-15597 R3. check_values whose ONLY command is a no-evidence prefix
+# builtin. The guard rejects these deliberately (they prove nothing and are
+# shape-indistinguishable from the prose row above), but the REJECTION REASON
+# has to name the construct that is actually present. The last two rows are
+# the ones R2 got wrong: they contain no ``VAR=VAL`` assignment and no shell
+# control operator, yet the R2 message blamed exactly those — misidentifying
+# the offending construct on the rejection path is the same failure class
+# this ticket exists to close on the acceptance path (AC2, second clause).
+PREFIX_BUILTIN_ONLY_SAMPLES: tuple[tuple[str, str], ...] = (
+    ("set", "set -euo pipefail"),
+    ("export", "export FOO=bar"),
+    ("unset", "unset FOO"),
+    # No assignment, no operator — a herestring feeding a command
+    # substitution. ``bash -n`` rc=0 and ``bash -o pipefail -c`` rc=0.
+    ("read", 'read -r a b <<< "$(gh api repos/o/r --jq .name)"'),
+    ("read", "read -r x < /dev/null"),
+)
+
+_BASH = shutil.which("bash")
+requires_bash = pytest.mark.skipif(_BASH is None, reason="bash not available")
+
+
+def _bash_parses(cmd_str: str) -> bool:
+    """True when a REAL shell can parse ``cmd_str`` (``bash -n``, no execution)."""
+    assert _BASH is not None
+    return (
+        subprocess.run(
+            [_BASH, "-n", "-c", cmd_str],
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
+    )
+
+
+def _bash_exit_status(cmd_str: str, *, stdin_text: str | None = None) -> int:
+    """Run ``cmd_str`` the way ``_run_command_check`` does and return its status.
+
+    This is the oracle the guard is measured against: a check_value that a
+    real shell runs to exit 0 is a GREEN on the evidence runner, so anything
+    prose-shaped that reaches here is a vacuous GREEN.
+    """
+    assert _BASH is not None
+    completed = subprocess.run(
+        [_BASH, "-o", "pipefail", "-c", cmd_str],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        **(
+            {"input": stdin_text}
+            if stdin_text is not None
+            else {"stdin": subprocess.DEVNULL}
+        ),
+    )
+    return completed.returncode
+
+
+def _run_single_check(
+    tmp_path: Path, check_value: str, ticket_id: str = "OMN-15597"
+) -> object:
+    contract = {
+        "schema_version": "1.0.0",
+        "ticket_id": ticket_id,
+        "dod_evidence": [
+            {
+                "id": "dod-001",
+                "description": "OMN-15597 command-substitution shape guard",
+                "checks": [{"check_type": "command", "check_value": check_value}],
+            }
+        ],
+    }
+    path = tmp_path / f"{ticket_id}.yaml"
+    path.write_text(yaml.dump(contract), encoding="utf-8")
+    return EvidenceCollector().collect(ticket_id, contract_path=str(path))[0]
+
+
+# --------------------------------------------------------------------------
+# AC1 — RED-before / GREEN-after on the exact string.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAc1Omn15535PreAmendmentStringIsAccepted:
+    """Against unmodified ``omnimarket@dev`` these assertions FAIL: the
+    pre-fix guard returns ``first token '" + (.mergeCommit.oid // none)\\')"'
+    is not a resolvable executable ...``. That is the RED half, and it is a
+    property of the guard, not of a mock."""
+
+    def test_guard_accepts_the_verbatim_pre_amendment_check_value(self) -> None:
+        assert _invalid_check_value_reason(OMN_15535_PRE_AMENDMENT, cwd=None) is None
+
+    def test_shell_first_command_word_is_test_not_a_jq_fragment(self) -> None:
+        """The seam this fix actually changes: the word stream. The
+        substitution is ONE word (kept verbatim), so the judged command is
+        ``test`` — the assignment, the ``&&`` and the jq program are never
+        confused for a command name."""
+        words = _split_shell_words(OMN_15535_PRE_AMENDMENT)
+        assert words[0].startswith("state=$(gh pr view 239 ")
+        assert words[0].endswith(")")
+        assert words[1] == "&&"
+        assert words[2] == "test"
+
+    def test_end_to_end_collector_does_not_flag_invalid_shape(
+        self, tmp_path: Path
+    ) -> None:
+        """Through the real EvidenceCollector. The check may still FAIL for
+        unrelated reasons in a hermetic environment (no network / no ``gh``
+        auth); what must not appear is the pre-execution shape rejection."""
+        result = _run_single_check(tmp_path, OMN_15535_PRE_AMENDMENT)
+        assert "INVALID_CHECK_VALUE_NOT_A_COMMAND" not in (result.message or "")
+
+
+# --------------------------------------------------------------------------
+# AC2 — no false RED on anything a real shell runs.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAc2CensusedFalseRedClassesAreAccepted:
+    @pytest.mark.parametrize(
+        "judged_token",
+        list(CENSUS_FALSE_RED_SAMPLES),
+        ids=list(CENSUS_FALSE_RED_SAMPLES),
+    )
+    def test_censused_sample_is_no_longer_rejected(self, judged_token: str) -> None:
+        value = CENSUS_FALSE_RED_SAMPLES[judged_token]
+        reason = _invalid_check_value_reason(value, cwd=None)
+        assert reason is None, (
+            f"still rejected, and the reason names {judged_token!r} — a "
+            f"substitution fragment, not a command the author wrote: {reason}"
+        )
+
+    @requires_bash
+    @pytest.mark.parametrize(
+        "judged_token",
+        list(CENSUS_FALSE_RED_SAMPLES),
+        ids=list(CENSUS_FALSE_RED_SAMPLES),
+    )
+    def test_censused_sample_really_is_shell_parseable(self, judged_token: str) -> None:
+        """The AC2 oracle, driven for real: each sample is something a shell
+        parses and would run to a genuine exit status, so rejecting it was
+        always a false RED."""
+        assert _bash_parses(CENSUS_FALSE_RED_SAMPLES[judged_token])
+
+    def test_occ_5762_deploy_source_probe_is_accepted(self) -> None:
+        assert (
+            _invalid_check_value_reason(OCC_5762_DEPLOY_SOURCE_PROBE, cwd=None) is None
+        )
+
+
+# --------------------------------------------------------------------------
+# AC3 — prose still hard-REDs (non-regression). This is the guard's purpose;
+# widening tokenization must not widen acceptance.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAc3ProseStillRejected:
+    @pytest.mark.parametrize("prose", PROSE_SAMPLES)
+    def test_prose_is_rejected(self, prose: str) -> None:
+        assert _invalid_check_value_reason(prose, cwd=None) is not None
+
+    def test_first_token_ending_in_colon_is_rejected(self) -> None:
+        reason = _invalid_check_value_reason("note: do the thing", cwd=None)
+        assert reason is not None
+        assert "ends with ':'" in reason
+
+    @requires_bash
+    @pytest.mark.parametrize("prose", PROSE_SAMPLES)
+    def test_bash_dash_n_alone_never_grants_acceptance(self, prose: str) -> None:
+        """``bash -n`` exits 0 on all of these. If parse-validity were the
+        oracle, every one would be accepted and the guard would be dead —
+        which is exactly why the fix produces the shell's first command WORD
+        and then applies the prose heuristic to it."""
+        assert _bash_parses(prose), "sample no longer exercises the point"
+        assert _invalid_check_value_reason(prose, cwd=None) is not None
+
+    def test_prose_under_a_leading_negation_is_still_rejected(self) -> None:
+        """``!`` moved out of the keyword allowlist (which accepted the whole
+        check_value on sight) into the skipped-modifier set, so the prose
+        behind it is still judged."""
+        assert _invalid_check_value_reason("! Recorded receipt: see PR 1", cwd=None)
+
+    def test_prose_end_to_end_is_a_failed_check(self, tmp_path: Path) -> None:
+        result = _run_single_check(
+            tmp_path, "Recorded product receipt: uv run pytest x"
+        )
+        assert result.status == EnumEvidenceCheckStatus.FAILED
+        assert "INVALID_CHECK_VALUE_NOT_A_COMMAND" in (result.message or "")
+
+
+# --------------------------------------------------------------------------
+# AC4 — grammar regression suite. Oracle for every row: does a real shell
+# parse it and reach a genuine command?
+# --------------------------------------------------------------------------
+
+GRAMMAR_CASES: tuple[tuple[str, str, bool], ...] = (
+    # (label, check_value, expected_accepted)
+    (
+        "nested-quote-command-substitution",
+        'x="$(gh pr view 1 --jq \'.a + " " + .b\')" && test -n "$x"',
+        True,
+    ),
+    (
+        "unquoted-var-command-substitution",
+        "body=$(gh api repos/o/r --jq .body) && printf '%s' \"$body\" | grep -q x",
+        True,
+    ),
+    ("nested-dollar-paren", 'x="$(echo "$(date -u +%Y)")" && test -n "$x"', True),
+    ("ansi-c-quoting", "printf $'a\\nb\\t' | grep -q a", True),
+    (
+        "trailing-backslash-line-continuation",
+        "gh pr view 1 \\\n  --json state --jq .state",
+        True,
+    ),
+    ("leading-negation", "! test -f /nonexistent/path", True),
+    # Restored to the ``cd``-leading form (2d7abf4d had rewritten it to lead
+    # with ``test`` so it would pass on Linux). Leading with ``cd`` is the
+    # whole point: ``shutil.which("cd")`` resolves on macOS and not on Linux,
+    # so this row is what pins the verdict as platform-INDEPENDENT. The
+    # rewritten string is kept alongside it rather than dropped.
+    ("subshell-group", "(cd /tmp && ls) && echo done", True),
+    ("subshell-group-guarded", "(test -d /tmp && cd /tmp && ls) && echo done", True),
+    ("backtick-substitution", 'test "`date -u +%Y`" = "2026"', True),
+    ("leading-command-substitution", "$(printf ls) /tmp", True),
+    ("bracket-test-builtin", "[ -d /tmp ] && echo ok", True),
+    ("prose-plain", "Recorded product receipt: see PR 123", False),
+    ("prose-sentence", "This was verified manually by the operator", False),
+    ("prose-behind-negation", "! Recorded receipt: see PR 1", False),
+    ("prose-after-assignment", "X=1 Recorded the receipt", False),
+    # bash accepts a trailing backslash (continuation to EOF), so the guard
+    # must too — refusing it would be a NEW false RED of this ticket's class.
+    ("trailing-backslash-at-eof", "echo hi \\", True),
+    ("unterminated-single-quote", "echo 'unbalanced", False),
+    ("unterminated-command-substitution", 'x="$(gh pr view 1" && echo hi', False),
+    ("assignments-and-operators-only", "FOO=bar &&", False),
+    ("empty", "   ", False),
+)
+
+
+@pytest.mark.unit
+class TestAc4GrammarSuite:
+    @pytest.mark.parametrize(
+        ("label", "check_value", "expected_accepted"),
+        GRAMMAR_CASES,
+        ids=[c[0] for c in GRAMMAR_CASES],
+    )
+    def test_grammar_construct_verdict(
+        self, label: str, check_value: str, expected_accepted: bool
+    ) -> None:
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert (reason is None) is expected_accepted, (
+            f"{label}: expected {'accepted' if expected_accepted else 'rejected'}, "
+            f"got reason={reason!r}"
+        )
+
+    @requires_bash
+    @pytest.mark.parametrize(
+        ("label", "check_value"),
+        [(c[0], c[1]) for c in GRAMMAR_CASES if c[2]],
+        ids=[c[0] for c in GRAMMAR_CASES if c[2]],
+    )
+    def test_accepted_constructs_are_shell_parseable(
+        self, label: str, check_value: str
+    ) -> None:
+        """Nothing is accepted that a real shell cannot parse."""
+        assert _bash_parses(check_value), label
+
+    @requires_bash
+    @pytest.mark.parametrize(
+        ("label", "check_value"),
+        [
+            (c[0], c[1])
+            for c in GRAMMAR_CASES
+            if not c[2] and c[0].startswith("unterminated")
+        ],
+        ids=[
+            c[0] for c in GRAMMAR_CASES if not c[2] and c[0].startswith("unterminated")
+        ],
+    )
+    def test_fail_closed_rejections_are_things_bash_also_refuses(
+        self, label: str, check_value: str
+    ) -> None:
+        """Fail-closed parse rejections are not over-reach: bash refuses them too."""
+        assert not _bash_parses(check_value), label
+
+    def test_relative_script_with_declared_cwd_still_resolves(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Round-1 (OMN-15382) non-regression under the new tokenizer."""
+        monkeypatch.setenv("OMNI_HOME", str(tmp_path))
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        script = sub / "verify.sh"
+        script.write_text("#!/bin/sh\necho verified\n", encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+
+        contract = {
+            "schema_version": "1.0.0",
+            "ticket_id": "OMN-15597",
+            "dod_evidence": [
+                {
+                    "id": "dod-001",
+                    "description": "relative script + cwd",
+                    "checks": [
+                        {
+                            "check_type": "command",
+                            "check_value": "./verify.sh",
+                            "cwd": "${OMNI_HOME}/sub",
+                        }
+                    ],
+                }
+            ],
+        }
+        path = tmp_path / "OMN-15597.yaml"
+        path.write_text(yaml.dump(contract), encoding="utf-8")
+        result = EvidenceCollector().collect("OMN-15597", contract_path=str(path))[0]
+        assert result.status == EnumEvidenceCheckStatus.VERIFIED, result.message
+
+    def test_relative_script_that_does_not_exist_is_still_rejected(
+        self, tmp_path: Path
+    ) -> None:
+        reason = _invalid_check_value_reason("./missing.sh", cwd=str(tmp_path))
+        assert reason is not None
+        assert "not a resolvable executable relative to cwd" in reason
+
+
+@pytest.mark.unit
+class TestVerdictIsPlatformIndependentForBuiltins:
+    """The guard resolves the first word with ``shutil.which``, so anything
+    whose acceptance depends on a binary existing on PATH gives a DIFFERENT
+    verdict per platform. macOS ships ``/usr/bin/cd``; Linux does not — so
+    ``(cd /tmp && ls)`` passed on a developer Mac and hard-REDed on a Linux
+    CI runner. 18 checks in the OCC corpus lead with ``cd``.
+
+    These tests pin the builtin verdicts with ``shutil.which`` forced to
+    return ``None``, i.e. they hold on the least-equipped host."""
+
+    @pytest.fixture
+    def no_path_lookup(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The stub's signature tracks the real callee's. OMN-17863 gave
+        # `_invalid_check_value_reason` an optional `path` it forwards to
+        # `shutil.which`, so a one-positional-argument stub raises TypeError
+        # instead of standing in for the lookup — a stub that no longer
+        # matches the function it replaces stops testing the thing it names.
+        # `path` is accepted and IGNORED: this fixture's whole claim is that
+        # the verdict does not depend on a PATH lookup at all.
+        def fake_which(_cmd: str, path: str | None = None) -> None:
+            del path
+            return
+
+        monkeypatch.setattr(
+            "omnimarket.nodes.node_dod_verify.services.evidence_collector.shutil.which",
+            fake_which,
+        )
+
+    @pytest.mark.parametrize(
+        "check_value",
+        [
+            "(cd /tmp && ls) && echo done",
+            "cd /tmp && ls",
+            # The ``_NO_EVIDENCE_BUILTIN_PREFIXES`` names are skipped WITH
+            # their operands (OMN-15597 R2), so the judged command is the one
+            # after the control operator — here a builtin, so the row still
+            # holds with PATH lookup disabled.
+            "export FOO=bar && cd /tmp",
+            "set -e; cd /tmp",
+            "unset FOO && cd /tmp",
+            "read -r x < /dev/null; cd /tmp",
+            "eval 'echo hi'",
+            "source ./env.sh",
+            "trap 'echo bye' EXIT",
+            "exec echo hi",
+        ],
+    )
+    def test_builtin_led_commands_accepted_without_path_lookup(
+        self, no_path_lookup: None, check_value: str
+    ) -> None:
+        assert _invalid_check_value_reason(check_value, cwd=None) is None, check_value
+
+    @pytest.mark.parametrize(
+        ("builtin", "check_value"),
+        PREFIX_BUILTIN_ONLY_SAMPLES,
+        ids=[value for _, value in PREFIX_BUILTIN_ONLY_SAMPLES],
+    )
+    def test_prefix_builtin_alone_is_rejected_as_proving_nothing(
+        self, no_path_lookup: None, builtin: str, check_value: str
+    ) -> None:
+        """A check_value whose ONLY command is a no-evidence prefix builtin is
+        rejected, and the reason NAMES THAT BUILTIN rather than misnaming a
+        construct that is not present.
+
+        This IS a narrowing relative to round 1, and a deliberate one: the
+        guard cannot distinguish ``unset FOO`` from ``unset the flag
+        manually`` by shape, and neither proves anything. Corpus exposure is
+        0 — see TestAc5PinnedCorpusReCensus, which re-runs the census over a
+        committed snapshot of the OCC command corpus at a pinned SHA.
+        """
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert reason is not None, check_value
+        assert repr(builtin) in reason, reason
+        # Same class predicate the census selects on, so this row and the
+        # census cannot drift apart again (OMN-15597 G2).
+        assert is_no_evidence_builtin_only_reason(reason), reason
+
+    @pytest.mark.parametrize("prose", PROSE_SAMPLES)
+    def test_prose_still_rejected_without_path_lookup(
+        self, no_path_lookup: None, prose: str
+    ) -> None:
+        """The builtin allowlist must not become a prose-laundering surface."""
+        assert _invalid_check_value_reason(prose, cwd=None) is not None
+
+    @pytest.mark.parametrize(
+        ("builtin", "prose"),
+        BUILTIN_LED_PROSE_SAMPLES,
+        ids=[name for name, _ in BUILTIN_LED_PROSE_SAMPLES],
+    )
+    def test_allowlisted_builtin_led_prose_rejected_without_path_lookup(
+        self, no_path_lookup: None, builtin: str, prose: str
+    ) -> None:
+        """The row the previous revision was missing.
+
+        ``test_prose_still_rejected_without_path_lookup`` above parameterises
+        over PROSE_SAMPLES, none of which begins with an allowlisted word — so
+        it passes identically with and without the allowlist and asserts
+        nothing about it. These strings DO begin with one.
+        """
+        assert _invalid_check_value_reason(prose, cwd=None) is not None, prose
+
+
+# --------------------------------------------------------------------------
+# AC2, second clause (R3) — when the guard rejects something a real shell
+# parses and runs, the reason must name the unsupported grammar construct
+# EXPLICITLY. R2 rejected ``read -r a b <<< "$(gh api ...)"`` with "no
+# resolvable executable token after leading VAR=VAL assignments/shell
+# operators" — a string that contains neither an assignment nor a control
+# operator. Blaming a construct that is not present is the same
+# misidentification defect as judging a jq fragment to be the command name;
+# it just lands on the rejection path instead of the acceptance path.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAc2RejectionReasonNamesTheConstructThatIsPresent:
+    _OPERATOR_FREE_SAMPLES: tuple[str, ...] = (
+        'read -r a b <<< "$(gh api repos/o/r --jq .name)"',
+        "read -r x < /dev/null",
+        "unset FOO",
+    )
+
+    @pytest.mark.parametrize(
+        ("builtin", "check_value"),
+        PREFIX_BUILTIN_ONLY_SAMPLES,
+        ids=[value for _, value in PREFIX_BUILTIN_ONLY_SAMPLES],
+    )
+    def test_reason_names_the_prefix_builtin_that_consumed_the_tokens(
+        self, builtin: str, check_value: str
+    ) -> None:
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert reason is not None, check_value
+        assert repr(builtin) in reason, reason
+        assert is_no_evidence_builtin_only_reason(reason), reason
+
+    @pytest.mark.parametrize("check_value", _OPERATOR_FREE_SAMPLES)
+    def test_reason_does_not_blame_a_construct_that_is_absent(
+        self, check_value: str
+    ) -> None:
+        """The absence is re-derived from the tokens, not asserted by hand."""
+        tokens = _split_shell_words(check_value)
+        assert not any(_VAR_ASSIGNMENT_RE.match(t) for t in tokens), tokens
+        assert not any(t in _SHELL_CONTROL_OPERATORS for t in tokens), tokens
+
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert reason is not None, check_value
+        assert "VAR=VAL" not in reason, reason
+        assert "shell control operators" not in reason, reason
+
+    @requires_bash
+    @pytest.mark.parametrize("check_value", _OPERATOR_FREE_SAMPLES)
+    def test_those_rejections_really_are_things_a_real_shell_parses(
+        self, check_value: str
+    ) -> None:
+        """AC2's precondition: the rejection only needs an explicit reason
+        because a real shell DOES parse these. Parse-only (``bash -n``) — the
+        herestring row would otherwise reach the network."""
+        assert _bash_parses(check_value), check_value
+
+    def test_assignment_only_value_still_gets_the_generic_reason(self) -> None:
+        """The generic message is not dead code: it is the accurate one when
+        the tokens really were consumed by assignments/operators."""
+        reason = _invalid_check_value_reason("FOO=bar &&", cwd=None)
+        assert reason is not None
+        assert "VAR=VAL" in reason, reason
+
+
+# --------------------------------------------------------------------------
+# AC3 (R2) — the allowlist is not a prose-laundering surface. Driven through
+# the REAL EvidenceCollector.collect(), not the guard function alone, because
+# the defect this closes is only visible end to end: the guard returned None
+# and _run_command_check then judged the item by the shell's exit code.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAc3BuiltinLedProseIsNotLaunderedThroughTheAllowlist:
+    @pytest.mark.parametrize(
+        ("builtin", "prose"),
+        BUILTIN_LED_PROSE_SAMPLES,
+        ids=[name for name, _ in BUILTIN_LED_PROSE_SAMPLES],
+    )
+    def test_guard_rejects_builtin_led_prose(self, builtin: str, prose: str) -> None:
+        reason = _invalid_check_value_reason(prose, cwd=None)
+        assert reason is not None, (
+            f"{prose!r} was ACCEPTED: {builtin!r} is admitted on sight, so the "
+            "prose reaches the shell and its exit code becomes the verdict"
+        )
+
+    @pytest.mark.parametrize(
+        ("builtin", "prose"),
+        BUILTIN_LED_PROSE_SAMPLES,
+        ids=[name for name, _ in BUILTIN_LED_PROSE_SAMPLES],
+    )
+    def test_end_to_end_builtin_led_prose_is_a_failed_check(
+        self, tmp_path: Path, builtin: str, prose: str
+    ) -> None:
+        """RED-before/GREEN-after through the artifact that runs.
+
+        Against the parent commit this returned
+        ``EnumEvidenceCheckStatus.VERIFIED`` with message ``OK (Nms)`` for all
+        seven strings.
+        """
+        result = _run_single_check(tmp_path, prose)
+        assert result.status == EnumEvidenceCheckStatus.FAILED, (
+            f"{prose!r} reported {result.status} — vacuous GREEN on the DoD "
+            "evidence runner"
+        )
+        assert "INVALID_CHECK_VALUE_NOT_A_COMMAND" in (result.message or "")
+
+    @requires_bash
+    @pytest.mark.parametrize(
+        ("builtin", "prose"),
+        BUILTIN_LED_PROSE_SAMPLES,
+        ids=[name for name, _ in BUILTIN_LED_PROSE_SAMPLES],
+    )
+    def test_these_really_would_have_been_vacuous_greens(
+        self, builtin: str, prose: str
+    ) -> None:
+        """Proves the RED above is against exists-but-wrong, not exists-but-harmless.
+
+        Each string exits 0 under the same shell invocation
+        ``_run_command_check`` uses, so accepting it is not a cosmetic
+        laxity — it is a PASS verdict on prose.
+        """
+        stdin_text = "a line of stdin\n" if builtin == "read" else None
+        assert _bash_exit_status(prose, stdin_text=stdin_text) == 0, prose
+
+
+@pytest.mark.unit
+class TestAllowlistAdmissionRule:
+    """The generalising mechanism, not a hand-listed set of strings.
+
+    ``_SHELL_KEYWORD_ALLOWLIST`` short-circuits the prose judgement, so its
+    admission rule is: *no prose-shaped invocation of an admitted name may
+    exit 0*. This iterates the ACTUAL frozenset against a REAL shell, so a
+    future addition that violates the rule fails here instead of shipping a
+    false-GREEN path — which is what happened in round 1, where the guarding
+    test only ever saw strings that could not reach the allowlist.
+    """
+
+    PROSE_TAILS = (
+        "the evidence was recorded manually by the operator",
+        "up the runtime and verified manually",
+        "victory",
+        "evidence recorded",
+        "the record show 3",
+    )
+
+    @requires_bash
+    @pytest.mark.parametrize("name", sorted(_SHELL_KEYWORD_ALLOWLIST))
+    def test_no_allowlisted_name_launders_prose(self, name: str) -> None:
+        for tail in self.PROSE_TAILS:
+            prose = f"{name} {tail}"
+            if _invalid_check_value_reason(prose, cwd=None) is not None:
+                continue  # guard rejected it — nothing reaches the shell
+            assert _bash_exit_status(prose) != 0, (
+                f"{prose!r} is ACCEPTED by the guard AND exits 0 in a real "
+                f"shell: {name!r} must not be in _SHELL_KEYWORD_ALLOWLIST "
+                "(move it to _NO_EVIDENCE_BUILTIN_PREFIXES or drop it)"
+            )
+
+    def test_the_two_sets_are_disjoint(self) -> None:
+        """A prefix builtin must not also be terminal-accepting."""
+        assert not (_SHELL_KEYWORD_ALLOWLIST & _NO_EVIDENCE_BUILTIN_PREFIXES)
+
+    def test_every_reported_swallower_is_out_of_the_allowlist(self) -> None:
+        for name, _prose in BUILTIN_LED_PROSE_SAMPLES:
+            assert name not in _SHELL_KEYWORD_ALLOWLIST, name
+            assert name in _NO_EVIDENCE_BUILTIN_PREFIXES, name
+
+
+@pytest.mark.unit
+class TestUnquotedNewlineIsACommandSeparator:
+    """An unquoted newline separates commands; it is not blank space.
+
+    Found by CodeRabbit on this PR. The prefix-builtin scan consumes operands
+    up to the next CONTROL OPERATOR, so if a newline is lexed as whitespace,
+    ``export FOO=bar\\ngh api ...`` has ``gh api ...`` swallowed as operands of
+    ``export`` and is rejected for having no resolvable executable — a NEW
+    false RED of exactly the class this ticket closes. ``_split_shell_words``
+    emits an unquoted newline as ``;``.
+    """
+
+    @pytest.mark.parametrize(
+        "check_value",
+        [
+            "export FOO=bar\ngh api repos/o/r --jq .name",
+            "set -euo pipefail\ngh api repos/o/r --jq .name",
+            "unset FOO\ngh api repos/o/r --jq .name",
+            "read -r x < /dev/null\ngh api repos/o/r --jq .name",
+            "declare -i n=1\ngh api repos/o/r --jq .name",
+            # No prefix builtin involved — a plain multi-line script body.
+            "cd /tmp\nls\ngh api repos/o/r",
+        ],
+    )
+    def test_multiline_command_after_a_prefix_builtin_is_accepted(
+        self, check_value: str
+    ) -> None:
+        assert _invalid_check_value_reason(check_value, cwd=None) is None, check_value
+
+    @requires_bash
+    @pytest.mark.parametrize(
+        "check_value",
+        [
+            "export FOO=bar\ngh api repos/o/r --jq .name",
+            "cd /tmp\nls\ngh api repos/o/r",
+        ],
+    )
+    def test_those_multiline_forms_really_parse_in_a_real_shell(
+        self, check_value: str
+    ) -> None:
+        assert _bash_parses(check_value)
+
+    def test_newline_is_emitted_as_a_control_operator(self) -> None:
+        assert _split_shell_words("export FOO=bar\ngh api") == [
+            "export",
+            "FOO=bar",
+            ";",
+            "gh",
+            "api",
+        ]
+
+    def test_backslash_newline_is_still_a_continuation_not_a_separator(self) -> None:
+        """The continuation must NOT become a separator — it joins one command."""
+        assert _split_shell_words("gh pr view 1 \\\n  --json state") == [
+            "gh",
+            "pr",
+            "view",
+            "1",
+            "--json",
+            "state",
+        ]
+
+    @pytest.mark.parametrize(
+        "check_value",
+        [
+            'printf "a\nb" | grep -q a',
+            'x="$(printf \'a\nb\')" && test -n "$x"',
+        ],
+    )
+    def test_newlines_inside_quotes_and_substitutions_are_not_separators(
+        self, check_value: str
+    ) -> None:
+        assert _invalid_check_value_reason(check_value, cwd=None) is None, check_value
+
+    def test_multiline_prose_is_still_rejected(self) -> None:
+        """The separator fix must not become a new laundering path."""
+        assert (
+            _invalid_check_value_reason(
+                "export the evidence to the ticket\nverified manually by the operator",
+                cwd=None,
+            )
+            is not None
+        )
+
+
+@pytest.mark.unit
+class TestColonIsRejectedByTheProseBranch:
+    """``:`` was removed from the allowlist; prove that is behaviour-preserving.
+
+    ``: the evidence was recorded`` exits 0 in a real shell, so ``:`` violated
+    the admission rule. It was unreachable — ``first.endswith(":")`` fires
+    first — but an unreachable prose-swallower only invites a reordering that
+    makes it live.
+    """
+
+    @pytest.mark.parametrize(
+        "check_value",
+        [": the evidence was recorded manually", ": && echo hi", ":"],
+    )
+    def test_colon_led_values_are_still_rejected(self, check_value: str) -> None:
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert reason is not None, check_value
+        assert "ends with ':'" in reason
+
+    @requires_bash
+    def test_colon_led_prose_would_otherwise_be_a_vacuous_green(self) -> None:
+        assert _bash_exit_status(": the evidence was recorded manually") == 0
+
+
+# --------------------------------------------------------------------------
+# AC5 — corpus re-census.
+#
+# The census oracle and its two corpora live here. AC5's own falsifier is
+# "the census is replaced with a narrower oracle to reach 0", so the class is
+# selected by the PRE-FIX guard (vendored below, verbatim) and only then
+# handed to the CURRENT guard to clear. Asking the fixed tokenizer whether it
+# still produces fragments would reach 0 by construction.
+# --------------------------------------------------------------------------
+
+# ``_SHELL_KEYWORD_ALLOWLIST`` as it stood in ``omnimarket@a637e4a6^`` — the
+# commit immediately before OMN-15597's first fix. Frozen here, NOT imported:
+# the live allowlist has since changed (R1 added builtins, R2 moved ``!``,
+# ``(`` and ``:`` out), and the census class must be selected by the guard
+# that actually produced the 59, not by today's.
+_PRE_FIX_KEYWORD_ALLOWLIST = frozenset(
+    {
+        "if",
+        "then",
+        "else",
+        "elif",
+        "fi",
+        "for",
+        "while",
+        "until",
+        "do",
+        "done",
+        "case",
+        "esac",
+        "function",
+        "select",
+        "time",
+        "{",
+        "(",
+        "[[",
+        "!",
+        ":",
+    }
+)
+
+
+def _pre_fix_invalid_check_value_reason(
+    cmd_str: str, *, cwd: str | None = None
+) -> str | None:
+    """The PRE-FIX guard, vendored verbatim from ``omnimarket@a637e4a6^``.
+
+    This is the census SELECTOR — the definition of "was hard-RED before the
+    fix". It lives in the test tree, never in ``src``: nothing the runner
+    executes may depend on the broken tokenizer. ``shlex.split`` here is the
+    defect itself, not an oversight.
+    """
+    stripped = cmd_str.strip()
+    if not stripped:
+        return "empty command"
+    try:
+        tokens = shlex.split(stripped, posix=True)
+    except ValueError as exc:
+        return (
+            f"command could not be parsed as shell syntax ({exc}) — this "
+            "looks like prose, not a command"
+        )
+    if not tokens:
+        return "empty command"
+    idx = 0
+    while idx < len(tokens) and (
+        _VAR_ASSIGNMENT_RE.match(tokens[idx]) or tokens[idx] in _SHELL_CONTROL_OPERATORS
+    ):
+        idx += 1
+    if idx >= len(tokens):
+        return (
+            "command has no resolvable executable token after leading "
+            "VAR=VAL assignments/shell operators"
+        )
+    first = tokens[idx]
+    if first.endswith(":"):
+        return f"first token {first!r} looks like prose, not a command (ends with ':')"
+    if first in _PRE_FIX_KEYWORD_ALLOWLIST:
+        return None
+    if os.sep in first or (os.altsep and os.altsep in first):
+        base = Path(cwd) if cwd else Path.cwd()
+        candidate = base / first if not os.path.isabs(first) else Path(first)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return None
+        return (
+            f"first token {first!r} is not a resolvable executable relative "
+            f"to cwd {str(base)!r} — this looks like prose, not a command"
+        )
+    if shutil.which(first) is not None:
+        return None
+    return (
+        f"first token {first!r} is not a resolvable executable or a "
+        "recognized shell keyword — this looks like prose, not a command"
+    )
+
+
+def _prefix_builtin_only_offenders(
+    values: Iterable[tuple[str, str]],
+) -> list[tuple[str, str, str]]:
+    """Corpus entries the guard rejects because their ONLY command is a
+    no-evidence prefix builtin.
+
+    The class predicate is IMPORTED from the runner
+    (``is_no_evidence_builtin_only_reason``) instead of being re-typed as a
+    substring here. Re-typing it is precisely what went blind in R3: the
+    census kept matching ``"no resolvable executable token"`` after that
+    rejection got its own wording, so it censused an empty class and
+    reported 0. ``TestCensusOracleIsNotVacuous`` drives this function with a
+    corpus that DOES contain the class, so the same failure now fails CI.
+    """
+    offenders: list[tuple[str, str, str]] = []
+    for contract, value in values:
+        reason = _invalid_check_value_reason(value, cwd=None)
+        if is_no_evidence_builtin_only_reason(reason):
+            assert reason is not None  # narrowed by the predicate
+            offenders.append((contract, value, reason))
+    return offenders
+
+
+# Guard-INDEPENDENT selection rule for the committed prefix-builtin corpus:
+# the raw string mentions one of the seven names as a word. Derived from the
+# live frozenset so adding an eighth name makes the snapshot's superset claim
+# fail rather than silently under-cover.
+_BUILTIN_WORD_RE = re.compile(
+    r"(?<![\w./-])(" + "|".join(sorted(_NO_EVIDENCE_BUILTIN_PREFIXES)) + r")(?![\w./-])"
+)
+
+
+def _occ_root() -> Path | None:
+    """Same resolution order as ``EvidenceCollector._resolve_occ_root``."""
+    explicit = os.environ.get("ONEX_CC_REPO_PATH", "").strip()
+    if explicit and Path(explicit).is_dir():
+        return Path(explicit)
+    omni_home = os.environ.get("OMNI_HOME", "").strip()
+    if omni_home and (Path(omni_home) / "onex_change_control").is_dir():
+        return Path(omni_home) / "onex_change_control"
+    return None
+
+
+_OCC_ROOT = _occ_root()
+
+
+def _occ_head_sha(occ: Path) -> str:
+    """HEAD of the live clone, so a diagnostic failure names its corpus.
+
+    The pinned census (``OCC_CENSUS_SHA``) is the AC5 corpus; this reports
+    whatever the workstation clone happens to be, which is the whole point of
+    a drift diagnostic.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(occ), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
+def _prefix_shlex_judged_token(cmd_str: str) -> str | None:
+    """Reproduce the PRE-fix judged token: ``shlex`` + the leading-assignment skip.
+
+    This is the damage oracle, and it is deliberately NOT expressed in terms
+    of the current guard: post-fix the current tokenizer never emits a
+    fragment, so asking it "is this still damaged?" would be a narrowed
+    oracle that reaches 0 by construction (the ticket names that as AC5's
+    falsifier). Instead the OLD tokenizer selects the class and the CURRENT
+    guard is then asked to clear it.
+    """
+    try:
+        tokens = shlex.split(cmd_str, posix=True)
+    except ValueError:
+        return None
+    idx = 0
+    while idx < len(tokens) and (
+        _VAR_ASSIGNMENT_RE.match(tokens[idx])
+        or tokens[idx] in _SHELL_CONTROL_OPERATORS
+        or tokens[idx] in {"!", "("}
+    ):
+        idx += 1
+    return tokens[idx] if idx < len(tokens) else None
+
+
+def _occ_command_check_values(occ: Path) -> list[tuple[str, str]]:
+    values: list[tuple[str, str]] = []
+    for path in sorted((occ / "contracts").glob("OMN-*.yaml")):
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # A malformed contract is not this test's subject; skip it rather than
+        # let an unrelated YAML defect mask the census result.
+        except Exception:
+            continue
+        if not isinstance(doc, dict):
+            continue
+        for item in doc.get("dod_evidence") or []:
+            if not isinstance(item, dict):
+                continue
+            for check in item.get("checks") or []:
+                if not isinstance(check, dict):
+                    continue
+                if check.get("check_type") != "command":
+                    continue
+                value = check.get("check_value")
+                if isinstance(value, str) and value.strip():
+                    values.append((path.name, value))
+    return values
+
+
+@pytest.mark.unit
+class TestCensusOracleIsNotVacuous:
+    """The census must be able to SEE the class it censuses.
+
+    This is the guard on the guard. R3 reworded the prefix-builtin rejection
+    and the census kept selecting on the old substring, so it reported
+    "0 offenders" over a corpus in which it could not have found one. These
+    tests fail against that oracle: a synthetic corpus built from the exact
+    values the runner rejects as prefix-builtin-only must come back as
+    offenders, and nothing else may.
+    """
+
+    SYNTHETIC_OFFENDER_CORPUS: tuple[tuple[str, str], ...] = tuple(
+        (f"SYNTHETIC-offender-{index}.yaml", value)
+        for index, (_builtin, value) in enumerate(PREFIX_BUILTIN_ONLY_SAMPLES)
+    )
+
+    SYNTHETIC_CLEAN_CORPUS: tuple[tuple[str, str], ...] = (
+        ("SYNTHETIC-clean-cmd.yaml", OMN_15535_PRE_AMENDMENT),
+        ("SYNTHETIC-clean-prefixed.yaml", "export FOO=bar && gh api repos/o/r"),
+        *(
+            (f"SYNTHETIC-clean-prose-{index}.yaml", prose)
+            for index, prose in enumerate(PROSE_SAMPLES)
+        ),
+    )
+
+    def test_a_corpus_that_contains_the_class_is_seen(self) -> None:
+        """RED against the pre-G2 oracle: it returns [] for all of these."""
+        offenders = _prefix_builtin_only_offenders(self.SYNTHETIC_OFFENDER_CORPUS)
+        assert len(offenders) == len(self.SYNTHETIC_OFFENDER_CORPUS), (
+            "the census cannot see its own class — it would report 0 offenders "
+            "over a corpus that is entirely offenders: "
+            f"saw {[o[0] for o in offenders]}"
+        )
+
+    def test_commands_and_prose_are_not_offenders(self) -> None:
+        """The oracle is class-specific, not "anything the guard rejects".
+
+        Every PROSE_SAMPLES entry IS rejected, and none of them belongs to
+        this class — an oracle that matched any rejection would return them
+        and the census would be permanently red for the wrong reason.
+        """
+        assert _prefix_builtin_only_offenders(self.SYNTHETIC_CLEAN_CORPUS) == []
+        assert all(
+            _invalid_check_value_reason(prose, cwd=None) is not None
+            for prose in PROSE_SAMPLES
+        ), "prose sample no longer exercises the point"
+
+    @pytest.mark.parametrize(
+        ("builtin", "check_value"),
+        PREFIX_BUILTIN_ONLY_SAMPLES,
+        ids=[value for _, value in PREFIX_BUILTIN_ONLY_SAMPLES],
+    )
+    def test_the_pre_g2_substring_oracle_is_blind_to_this_class(
+        self, builtin: str, check_value: str
+    ) -> None:
+        """Pins the defect itself, so it cannot be reintroduced silently.
+
+        The census used to select on ``"no resolvable executable token"``.
+        R3 gave this rejection its own wording; these values carry neither
+        an assignment nor a control operator, so that phrase must NOT appear
+        in their reason — which is exactly why the old oracle matched
+        nothing. If a future edit merges the two messages again, this fails
+        and the merge is visible instead of silently re-vacuating the census.
+        """
+        reason = _invalid_check_value_reason(check_value, cwd=None)
+        assert reason is not None
+        assert "no resolvable executable token" not in reason, reason
+        assert is_no_evidence_builtin_only_reason(reason), reason
+
+
+# The 33 contracts OMN-15597's blast-radius section enumerates by name.
+# TICKET PROSE, transcribed by hand — deliberately NOT in the generated corpus
+# module, so the containment check below compares two independently sourced
+# sets instead of a snapshot against itself.
+_TICKET_ENUMERATED_CONTRACTS: frozenset[str] = frozenset(
+    f"OMN-{number}.yaml"
+    for number in (
+        14436,
+        14454,
+        14466,
+        14467,
+        14470,
+        14471,
+        14473,
+        14486,
+        14504,
+        14509,
+        14516,
+        14548,
+        14714,
+        14980,
+        15192,
+        15239,
+        15283,
+        15299,
+        15301,
+        15328,
+        15365,
+        15366,
+        15370,
+        15375,
+        15376,
+        15383,
+        15391,
+        15484,
+        15488,
+        15490,
+        15493,
+        15529,
+        15535,
+    )
+)
+
+
+@pytest.mark.unit
+class TestAc5PinnedCorpusReCensus:
+    """AC5, satisfied hermetically at a pinned OCC SHA.
+
+    AC5 reads "re-running the census script against the SAME OCC SHA yields
+    0 checks in the tokenizer-damage class (from 59)". The predecessor read
+    a live working clone, which (a) does not exist on a hosted runner — both
+    census tests SKIPPED there, so AC5 gated nothing — and (b) pinned no SHA,
+    while the corpus moves fast (the identical census returns 63 at OCC
+    ``1e6b75f8``, 76 minutes later the same day). Option (a) from the lane
+    brief — fetching the tree in CI — was rejected: a required check that
+    depends on the network is not deterministic, and "fail closed when
+    unreachable" turns every GitHub API blip into a red merge gate.
+
+    So the corpus itself is committed (``omn_15597_occ_census_pinned.py``),
+    and class membership is RE-DERIVED here rather than trusted: the vendored
+    pre-fix guard must reject all 63, the current guard must accept all 63,
+    and a real ``bash`` must parse all 63. ``shutil.which`` is stubbed to the
+    recorded command set, so the verdict is a property of the tokenizer and
+    not of what happens to be installed on the runner.
+
+    On "from 59" versus 63: the ticket's 59 was read with a DIFFERENT oracle
+    at census time and is superseded, not reproduced. The census module's
+    docstring carries the full provenance — do not reconcile the two numbers
+    by quietly editing one of them.
+    """
+
+    @pytest.fixture
+    def pinned_path_lookup(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Resolve exactly the commands the pinned corpus invokes, nothing else.
+
+        Not a weakening: the fragments the pre-fix tokenizer judged
+        (``'" + (.mergeCommit.oid // none)\\')"'``, ``api``, ``is:pr``,
+        ``-d)``, ``/``) are not in that set, so a tokenizer regression is
+        still rejected and still fails this class.
+        """
+
+        # `path` is accepted and ignored for the same reason the sibling
+        # stub above accepts it: OMN-17863 gave the guard an optional
+        # `path` it forwards, and a stub whose signature no longer matches
+        # the function it replaces raises TypeError instead of standing in
+        # for it. The pinned corpus resolves by NAME, so the search path is
+        # irrelevant to this oracle.
+        def fake_which(cmd: str, path: str | None = None) -> str | None:
+            del path
+            if cmd in TOKENIZER_DAMAGE_PATH_COMMANDS:
+                return f"/usr/bin/{cmd}"
+            return None
+
+        monkeypatch.setattr(shutil, "which", fake_which)
+
+    def test_pinned_corpus_is_the_ticket_census_point_under_the_committed_oracle(
+        self,
+    ) -> None:
+        """63 / 35 at OCC ``d7b16271`` — the ticket's SHA, this repo's oracle.
+
+        Two claims, deliberately kept apart. Lane G2 fused them and shipped a
+        green assertion that encoded a false provenance claim (found by the
+        #1998 adversarial verifier, confirmed by lane G3 — Linear comment
+        ``921b6c7b`` on OMN-15597):
+
+        * the SHA **is** this ticket's census point — corroborated here by the
+          ticket's own stated scan total, and by
+          ``test_pinned_corpus_covers_every_contract_the_ticket_enumerates``;
+        * the counts are **not** the ticket's literal 59 / 33. Those were read
+          with a different oracle (the ticket's unbalanced-``$(`` rule, which
+          yields 56 / 32 at this SHA). 63 / 35 is what the oracle committed in
+          this repo yields. The ticket's numbers are superseded, not
+          reproduced, and this class is a strict superset of that 59.
+
+        Fails on a truncated or re-pinned snapshot, so the AC5 numbers cannot
+        drift without someone editing this assertion.
+        """
+        assert OCC_CENSUS_SHA == "d7b162710514caa8e094938bb6d534a9fef04da9"
+        assert OCC_CENSUS_TOTAL_COMMAND_CHECK_VALUES == 32593
+        assert len(TOKENIZER_DAMAGE_CLASS) == 63
+        contracts = {key.split("#")[0] for key in TOKENIZER_DAMAGE_CLASS}
+        assert len(contracts) == 35 == OCC_CENSUS_DAMAGE_CLASS_CONTRACT_COUNT
+
+    def test_pinned_corpus_covers_every_contract_the_ticket_enumerates(self) -> None:
+        """The provenance claim, made falsifiable instead of asserted.
+
+        A cardinality match is not provenance: G2's 59 / 33 at ``9089ffa9``
+        equalled the ticket's numbers over a DIFFERENT contract set, and that
+        corpus structurally could not contain ``OMN-15488`` — the live
+        motivating case (12th steel instance, OMN-15596) that AC5 exists to
+        protect, and whose contract does not exist at that SHA at all. A
+        coincidence cannot satisfy containment of 33 named contracts.
+        """
+        assert len(_TICKET_ENUMERATED_CONTRACTS) == 33, (
+            "the transcribed list must be the ticket's 33 names; a duplicated "
+            "number would silently weaken this check"
+        )
+        contracts = {key.split("#")[0] for key in TOKENIZER_DAMAGE_CLASS}
+        missing = sorted(_TICKET_ENUMERATED_CONTRACTS - contracts)
+        assert not missing, (
+            f"{len(missing)} contracts the ticket enumerates are absent from "
+            f"the pinned census at OCC {OCC_CENSUS_SHA[:8]}: {missing}"
+        )
+        assert {
+            "OMN-15488.yaml#0",
+            "OMN-15488.yaml#1",
+            "OMN-15488.yaml#2",
+        } <= set(TOKENIZER_DAMAGE_CLASS)
+
+    def test_recorded_path_commands_are_command_names_not_fragments(self) -> None:
+        """The stub is only sound if it resolves real command names."""
+        assert TOKENIZER_DAMAGE_PATH_COMMANDS
+        for name in TOKENIZER_DAMAGE_PATH_COMMANDS:
+            assert name, TOKENIZER_DAMAGE_PATH_COMMANDS
+            assert not name.startswith("-"), name
+            assert not any(ch in name for ch in " \"'$()`/"), name
+
+    def test_every_pinned_value_was_hard_red_before_the_fix(
+        self, pinned_path_lookup: None, tmp_path: Path
+    ) -> None:
+        """The RED half of AC5, pinned in the repo instead of in a PR body.
+
+        ``cwd`` is an empty tmp_path so the pre-fix guard's relative-script
+        branch is deterministic rather than a function of the checkout.
+        """
+        accepted = [
+            key
+            for key, value in TOKENIZER_DAMAGE_CLASS.items()
+            if _pre_fix_invalid_check_value_reason(value, cwd=str(tmp_path)) is None
+        ]
+        assert not accepted, (
+            f"{len(accepted)} pinned values were NOT rejected by the pre-fix "
+            f"guard, so the snapshot is not the census class: {accepted[:5]}"
+        )
+
+    def test_the_whole_pinned_class_is_now_accepted(
+        self, pinned_path_lookup: None, tmp_path: Path
+    ) -> None:
+        """AC5: 0 checks remain in the tokenizer-damage class (from 63 here)."""
+        still_red = [
+            (key, reason)
+            for key, value in TOKENIZER_DAMAGE_CLASS.items()
+            if (reason := _invalid_check_value_reason(value, cwd=str(tmp_path)))
+            is not None
+        ]
+        assert not still_red, (
+            f"{len(still_red)} of {len(TOKENIZER_DAMAGE_CLASS)} censused "
+            f"check_values are still hard-RED at OCC {OCC_CENSUS_SHA[:8]}: "
+            f"{still_red[:3]}"
+        )
+
+    @requires_bash
+    def test_every_pinned_value_is_something_a_real_shell_parses(self) -> None:
+        """The AC2 oracle over the pinned class: rejecting them WAS a false RED."""
+        unparseable = [
+            key
+            for key, value in TOKENIZER_DAMAGE_CLASS.items()
+            if not _bash_parses(value)
+        ]
+        assert not unparseable, unparseable[:5]
+
+    def test_no_pinned_corpus_value_is_prefix_builtin_only(self) -> None:
+        """The R2/R3 narrowing has zero exposure on the pinned corpus.
+
+        Rejecting ``unset FOO``-shaped values is only safe if no real
+        contract carries one. Measured over every check_value at the pinned
+        SHA that mentions one of the seven names — the selection is a regex
+        over the raw string, so it does not depend on the guard it audits.
+        """
+        assert NO_EVIDENCE_BUILTIN_CANDIDATES, "candidate snapshot is empty"
+        offenders = _prefix_builtin_only_offenders(
+            NO_EVIDENCE_BUILTIN_CANDIDATES.items()
+        )
+        assert not offenders, offenders[:5]
+
+    def test_candidate_snapshot_matches_its_guard_independent_selection_rule(
+        self,
+    ) -> None:
+        """Re-derives the snapshot's superset claim from the live frozenset."""
+        for key, value in NO_EVIDENCE_BUILTIN_CANDIDATES.items():
+            assert _BUILTIN_WORD_RE.search(value), (key, value)
+
+
+@pytest.mark.unit
+class TestOccLiveCorpusDriftDiagnostic:
+    """HOST-ONLY DIAGNOSTIC — deliberately NOT what AC5 rests on.
+
+    Skips wherever no ``onex_change_control`` clone is reachable, which is
+    every hosted runner, so it can prove nothing on its own — that is the
+    defect ``TestAc5PinnedCorpusReCensus`` above exists to close. Its value
+    is drift detection on a workstation: it re-runs the same census against
+    whatever the local clone currently is, catching a NEW damaged
+    check_value authored after the pin.
+    """
+
+    @pytest.mark.skipif(
+        _OCC_ROOT is None,
+        reason="host-only drift diagnostic: no onex_change_control clone reachable "
+        "(ONEX_CC_REPO_PATH / OMNI_HOME). AC5 is proven by "
+        "TestAc5PinnedCorpusReCensus, which never skips.",
+    )
+    def test_live_corpus_has_no_surviving_tokenizer_damage(self) -> None:
+        """Damage oracle: the PRE-fix ``shlex`` tokenizer judged a token
+        containing an unbalanced ``$(`` — a fragment of a command
+        substitution, not something an author wrote as a command name. For
+        every such check_value the CURRENT guard must not return an INVALID
+        reason naming that fragment.
+        """
+        occ = _OCC_ROOT
+        assert occ is not None
+        values = _occ_command_check_values(occ)
+        assert values, f"no command check_values found under {occ}/contracts"
+
+        damaged: list[tuple[str, str, str]] = []
+        still_red: list[tuple[str, str, str | None]] = []
+        for contract, value in values:
+            judged = _prefix_shlex_judged_token(value)
+            if judged is None:
+                continue
+            if judged.count("$(") == judged.count(")"):
+                continue
+            damaged.append((contract, value, judged))
+            reason = _invalid_check_value_reason(value, cwd=None)
+            if reason is not None and judged in reason:
+                still_red.append((contract, value, reason))
+
+        assert not still_red, (
+            f"{len(still_red)} of {len(damaged)} tokenizer-damaged check_values "
+            f"are still rejected by a fragment-naming reason "
+            f"(live corpus {occ} @ {_occ_head_sha(occ)}, "
+            f"{len(values)} command check_values): {still_red[:3]}"
+        )
+
+    @pytest.mark.skipif(
+        _OCC_ROOT is None,
+        reason="host-only drift diagnostic: no onex_change_control clone reachable "
+        "(ONEX_CC_REPO_PATH / OMNI_HOME). AC5 is proven by "
+        "TestAc5PinnedCorpusReCensus, which never skips.",
+    )
+    def test_live_corpus_has_no_prefix_builtin_only_check_value(self) -> None:
+        """Same class as the pinned test, against the moving corpus.
+
+        Uses the shared, runner-owned predicate — the substring this test
+        used to carry stopped matching the class in R3 and censused nothing.
+        """
+        occ = _OCC_ROOT
+        assert occ is not None
+        offenders = _prefix_builtin_only_offenders(_occ_command_check_values(occ))
+        assert not offenders, (
+            f"live corpus {occ} @ {_occ_head_sha(occ)}: {offenders[:5]}"
+        )
+
+
+# --------------------------------------------------------------------------
+# Word-scanner unit coverage — the seam the guard consumes.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestSplitShellWords:
+    def test_substitution_is_one_word_kept_verbatim(self) -> None:
+        assert _split_shell_words('x="$(a "b" c)" d') == ['x=$(a "b" c)', "d"]
+
+    def test_operators_are_separate_words_without_whitespace(self) -> None:
+        assert _split_shell_words("a&&b||c;d|e&f") == [
+            "a",
+            "&&",
+            "b",
+            "||",
+            "c",
+            ";",
+            "d",
+            "|",
+            "e",
+            "&",
+            "f",
+        ]
+
+    def test_parens_terminate_words(self) -> None:
+        assert _split_shell_words('([ "$x" = "y" ])') == [
+            "(",
+            "[",
+            "$x",
+            "=",
+            "y",
+            "]",
+            ")",
+        ]
+
+    def test_quote_removal_matches_posix_semantics(self) -> None:
+        assert _split_shell_words("'a b' \"c d\" e\\ f") == ["a b", "c d", "e f"]
+
+    def test_line_continuation_is_removed(self) -> None:
+        assert _split_shell_words("a \\\nb") == ["a", "b"]
+
+    def test_ansi_c_escapes_are_decoded(self) -> None:
+        assert _split_shell_words("$'a\\nb'") == ["a\nb"]
+
+    @pytest.mark.parametrize(
+        "bad",
+        ["echo 'x", 'echo "x', "echo $(x", "echo $'x", "echo `x"],
+    )
+    def test_unparseable_input_raises_value_error(self, bad: str) -> None:
+        with pytest.raises(ValueError, match="unterminated"):
+            _split_shell_words(bad)
+
+    def test_trailing_backslash_is_a_continuation_not_an_error(self) -> None:
+        """bash accepts it; so must this, or the fix introduces a new false RED."""
+        assert _split_shell_words("echo hi \\") == ["echo", "hi"]

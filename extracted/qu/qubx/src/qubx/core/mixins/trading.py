@@ -1,0 +1,595 @@
+from typing import Any, cast
+
+from qubx import logger
+from qubx.core.account_manager import AccountManager
+from qubx.core.basics import (
+    FRAMEWORK_CID_PREFIX,
+    Instrument,
+    MarketType,
+    Order,
+    OrderOrigin,
+    OrderRequest,
+    OrderSide,
+    OrderStatus,
+    OrderType,
+    WalletMove,
+    resolve_reduce_only,
+)
+from qubx.core.connector import IConnector
+from qubx.core.events import OrderCancelRejectedEvent, OrderUpdateRejectedEvent
+from qubx.core.exceptions import (
+    InvalidOrderSize,
+    OrderAlreadyTerminal,
+    OrderNotFound,
+    QubxDegradedState,
+    ReadOnlyConnector,
+)
+from qubx.core.interfaces import (
+    IHealthMonitor,
+    IStrategyContext,
+    ITimeProvider,
+    ITradingManager,
+)
+
+
+class ClientIdStore:
+    """Manages generation of unique client order IDs."""
+
+    def __init__(self):
+        self._order_id: int | None = None
+
+    def generate_id(self, time_provider: ITimeProvider, symbol: str) -> str:
+        if self._order_id is None:
+            self._order_id = self._initialize_id_from_timestamp(time_provider)
+        self._order_id += 1
+        return self._create_id(symbol, self._order_id)
+
+    def _initialize_id_from_timestamp(self, time_provider: ITimeProvider) -> int:
+        return time_provider.time().astype("int64") // 100_000_000
+
+    def _create_id(self, symbol: str, order_id: int) -> str:
+        """Create the client id; the FRAMEWORK_CID_PREFIX is load-bearing for
+        order-origin classification (``classify_origin``)."""
+        return f"{FRAMEWORK_CID_PREFIX}{symbol}_{order_id}"
+
+
+class TradingManager(ITradingManager):
+    _context: IStrategyContext
+    _account_manager: AccountManager
+    _health_monitor: IHealthMonitor
+    _strategy_name: str
+
+    _client_id_store: ClientIdStore
+    _exchange_to_connector: dict[str, IConnector]
+    _read_only: bool
+    _deny_trading_when_degraded: bool
+
+    def __init__(
+        self,
+        context: IStrategyContext,
+        connectors: dict[str, IConnector],
+        account_manager: AccountManager,
+        health_monitor: IHealthMonitor,
+        strategy_name: str,
+        read_only: bool = False,
+    ) -> None:
+        self._context = context
+        self._account_manager = account_manager
+        self._health_monitor = health_monitor
+        self._strategy_name = strategy_name
+        self._client_id_store = ClientIdStore()
+        self._exchange_to_connector = dict(connectors)
+        self._read_only = read_only
+        # - set from the initializer once on_init has run (see StrategyContext.start)
+        self._deny_trading_when_degraded = False
+
+    def _ensure_writable(self) -> None:
+        """Single read-only check for the venue-write boundary (trade/cancel/update)."""
+        if self._read_only:
+            raise ReadOnlyConnector("trading is read-only — write rejected")
+
+    def set_deny_trading_when_degraded(self, enabled: bool) -> None:
+        self._deny_trading_when_degraded = enabled
+
+    def _reduce_only_amount(self, instrument: Instrument, amount: float) -> tuple[float, float]:
+        """Clamp *amount* so it can only move the position toward zero. Returns the
+        clamped amount and the current quantity.
+
+        ``0.0`` means it would open or grow the position; a value different from *amount*
+        means a flip through zero was clamped to an exact close. Pure — no logging, no
+        policy: the blacklist drops silently, a degraded context raises.
+        """
+        current = self._current_quantity(instrument)
+        new = current + amount
+        if current == 0 or abs(new) > abs(current):
+            return 0.0, current
+        if (current > 0) != (new > 0) and new != 0:  # - would flip through zero
+            return -current, current
+        return amount, current
+
+    def _current_quantity(self, instrument: Instrument) -> float:
+        """Signed position size, 0.0 when the account has no state for the exchange
+        (get_position returns None for an unknown exchange)."""
+        position = self._account_manager.get_position(instrument)
+        return position.quantity if position is not None else 0.0
+
+    def _ensure_not_degraded(self, instrument: Instrument) -> None:
+        """Refuse to trade while the context is degraded. No-op unless the strategy enabled
+        it in on_init.
+
+        Every order is refused, not only the ones that increase exposure. A reduce-only
+        carve-out holds when the reason is a stale local view, but not when it is the venue:
+        under an exchange maintenance window a closing order cannot reach it either, so
+        accepting one would report a close the strategy never got.
+
+        A degradation with no scope is context-wide and applies to every exchange; one
+        scoped to another exchange leaves this instrument tradeable. ``cancel_order`` is
+        never refused — pulling a resting order lowers exposure and needs no fresh data.
+        """
+        if not self._deny_trading_when_degraded:
+            return
+        info = self._context.status
+        if not info.is_degraded_for(instrument.exchange):
+            return
+        holding = info.degradations_for(instrument.exchange)
+        raise QubxDegradedState(
+            f"[{instrument.symbol}] context is DEGRADED ({', '.join(d.label for d in holding)}) — trading refused",
+            holding,
+        )
+
+    def _blacklist_clamp(self, instrument: Instrument, amount: float) -> float:
+        """Reduce-only for blacklisted instruments: an order may only move the position
+        toward zero, never open or increase exposure. No-op when not blacklisted (always,
+        without an instrument service). Returns the (possibly clamped) amount; 0.0 means
+        'do not send'. A flip through zero is clamped to an exact close."""
+        if not self._context.is_blacklisted(instrument):
+            return amount
+        clamped, current = self._reduce_only_amount(instrument, amount)
+        if clamped != amount:
+            # Routine, expected enforcement (can recur every bar for a strategy that keeps
+            # signalling a blacklisted instrument) -> debug, not warning, to avoid log spam.
+            logger.debug(
+                f"[Blacklist] :: {'blocked' if clamped == 0.0 else 'clamped to close'} "
+                f"{instrument.symbol} (current={current}, amount={amount})"
+            )
+        return clamped
+
+    def trade(
+        self,
+        instrument: Instrument,
+        amount: float,
+        price: float | None = None,
+        time_in_force="gtc",
+        client_id: str | None = None,
+        **options,
+    ) -> Order | None:
+        self._ensure_writable()
+        # - blacklist first: it drops an unwanted order silently, and that must stay silent
+        #   even while degraded. Raising here would recur every bar for a strategy that keeps
+        #   signalling a blacklisted instrument, and 10 in a row stop the strategy.
+        amount = self._blacklist_clamp(instrument, amount)
+        if amount == 0.0:
+            return None
+        self._ensure_not_degraded(instrument)
+        size_adj = self._adjust_size(instrument, amount)
+        side = self._get_side(amount)
+        order_type = self._get_order_type(instrument, price, options)
+        price = self._adjust_price(instrument, price, amount)
+        base_cid = client_id or self._generate_order_client_id(instrument.symbol)
+
+        if resolve_reduce_only(options) is None and self._is_position_reducing(instrument, amount):
+            options["reduceOnly"] = True
+
+        connector = self._get_connector(instrument.exchange)
+        cid = connector.make_client_id(base_cid)
+
+        logger.debug(
+            f"[<g>{instrument.symbol}</g>] :: Sending {order_type} {side} {size_adj} "
+            f"{' @ ' + str(price) if price else ''} -> (client_id: <r>{cid})</r> ..."
+        )
+
+        order = Order(
+            client_order_id=cid,
+            venue_order_id=None,
+            origin=OrderOrigin.FRAMEWORK,
+            type=cast(OrderType, order_type.upper()),
+            instrument=instrument,
+            submitted_at=self._context.time(),
+            quantity=size_adj,
+            price=price,  # None for market orders
+            side=side,
+            status=OrderStatus.SUBMITTED,
+            time_in_force=time_in_force,
+            reduce_only=bool(resolve_reduce_only(options)),
+            # GTX is post-only on the wire (prepare_ccxt_order_payload); keep the record in step
+            post_only=bool(options.get("post_only", False)) or str(time_in_force).upper() == "GTX",
+            options=options,
+        )
+
+        self._health_monitor.record_order_submit_request(
+            exchange=instrument.exchange,
+            client_id=cid,
+            event_time=self._context.time(),
+        )
+
+        request = OrderRequest(
+            client_id=cid,
+            instrument=instrument,
+            quantity=size_adj,
+            price=price,
+            order_type=cast(OrderType, order_type.upper()),
+            side=side,
+            time_in_force=time_in_force,
+            options=options,
+        )
+
+        # Register the order BEFORE submitting. This is required for synchronous
+        # connectors (the simulator): submit_order emits Accepted/Filled events inline,
+        # so the account state machine must already hold the order to resolve them by cid
+        # rather than materialize a phantom EXTERNAL twin. For async (live) connectors the
+        # ordering is harmless — the venue events arrive later and resolve the same order.
+        self._account_manager.add_order(order)
+        try:
+            connector.submit_order(request)
+        except Exception:
+            # A synchronous raise means the order never reached the venue (a framework-side
+            # rejection — bad params, pre-submit error). Drop it so the cache keeps no
+            # phantom in-flight order; the caller is informed by the re-raised exception.
+            self._account_manager.remove_order(connector.exchange_name, cid)
+            raise
+        return order
+
+    def submit_orders(self, order_requests: list[OrderRequest]) -> list[Order]:
+        raise NotImplementedError("Not implemented yet")
+
+    def set_target_position(
+        self, instrument: Instrument, target: float, price: float | None = None, time_in_force="gtc", **options
+    ) -> Order | None:
+        """Trade the difference between the current and target position; None when the
+        difference is below the instrument's min size (no order needed)."""
+        current_position = self._account_manager.get_position(instrument)
+        current_quantity = current_position.quantity if current_position is not None else 0.0
+
+        amount_to_trade = target - current_quantity
+
+        if self._is_below_min_size(instrument, amount_to_trade):
+            logger.debug(
+                f"[<g>{instrument.symbol}</g>] :: Target position {target} is close to current position "
+                f"{current_quantity}, no trade needed"
+            )
+            return None
+
+        logger.debug(
+            f"[<g>{instrument.symbol}</g>] :: Setting target position to {target}, current: {current_quantity}, "
+            f"trading: {amount_to_trade}"
+        )
+
+        return self.trade(
+            instrument=instrument, amount=amount_to_trade, price=price, time_in_force=time_in_force, **options
+        )
+
+    def set_target_leverage(
+        self, instrument: Instrument, leverage: float, price: float | None = None, **options
+    ) -> Order | None:
+        """Trade to a target leverage, given as a fraction of total capital (0.03 = 3%,
+        negative for short). Sizes with the limit price if given, else the quote mid."""
+        total_capital = self._account_manager.get_total_capital(instrument.exchange)
+        if total_capital == 0:
+            logger.warning(f"[<g>{instrument.symbol}</g>] :: Total capital is 0, cannot set target position")
+            return None
+
+        capital_to_use = total_capital * abs(leverage)
+
+        if price is None:
+            quote = self._context.quote(instrument)
+            if quote is None:
+                logger.error(f"[<g>{instrument.symbol}</g>] :: Cannot get current price for leverage calculation")
+                return None
+            calc_price = quote.mid_price()
+        else:
+            calc_price = price
+
+        target_position = (capital_to_use / (calc_price * instrument.quantity_multiplier)) * (1 if leverage > 0 else -1)
+
+        logger.debug(
+            f"[<g>{instrument.symbol}</g>] :: Setting target leverage {leverage * 100:.2f}% "
+            f"(capital: {total_capital:.2f}, to use: {capital_to_use:.2f}, "
+            f"price: {calc_price:.2f}, target: {target_position:.6f})"
+        )
+
+        return self.set_target_position(instrument=instrument, target=target_position, price=price, **options)
+
+    def close_position(self, instrument: Instrument, without_signals: bool = False) -> None:
+        position = self._account_manager.get_position(instrument)
+        quantity = position.quantity if position is not None else 0.0
+
+        if quantity == 0:
+            logger.debug(f"[<g>{instrument.symbol}</g>] :: Position already closed or zero size")
+            return
+
+        if without_signals:
+            closing_amount = -quantity
+            logger.debug(
+                f"[<g>{instrument.symbol}</g>] :: Closing position {quantity} with market order for {closing_amount}"
+            )
+            self.trade(instrument, closing_amount, reduce_only=True)
+        else:
+            logger.debug(
+                f"[<g>{instrument.symbol}</g>] :: Closing position {quantity} by emitting signal with 0 target"
+            )
+            signal = instrument.signal(self._context, 0, comment="Close position trade")
+            self._context.emit_signal(signal)
+
+    def close_positions(self, market_type: MarketType | None = None, without_signals: bool = False) -> None:
+        positions = self._account_manager.get_positions()
+
+        positions_to_close = []
+        for instrument, position in positions.items():
+            if market_type is None or instrument.market_type == market_type:
+                if position.is_open():
+                    positions_to_close.append(instrument)
+
+        if not positions_to_close:
+            logger.debug(f"No open positions to close{f' for market type {market_type}' if market_type else ''}")
+            return
+
+        logger.debug(
+            f"Closing {len(positions_to_close)} positions{f' for market type {market_type}' if market_type else ''}"
+        )
+
+        for instrument in positions_to_close:
+            self.close_position(instrument, without_signals)
+
+    def _normalize_order_ids(self, order_id: str | None, client_order_id: str | None) -> tuple[str | None, str | None]:
+        # Treat empty strings as not provided
+        if order_id is not None and order_id == "":
+            order_id = None
+        if client_order_id is not None and client_order_id == "":
+            client_order_id = None
+
+        if (order_id is None and client_order_id is None) or (order_id is not None and client_order_id is not None):
+            raise ValueError("Exactly one of order_id or client_order_id must be provided")
+        return order_id, client_order_id
+
+    def _resolve_order(self, order_id: str | None, client_order_id: str | None) -> Order | None:
+        if order_id is not None:
+            if (order := self._account_manager.find_order_by_id(order_id)) is not None:
+                return order
+            # Venue-index miss: treat the id as a client id. Under fire-and-forget the venue
+            # id may not be acked yet and legacy callers pass whichever id they hold as
+            # order_id. Framework cids carry the FRAMEWORK_CID_PREFIX ("qubx_") while venue
+            # ids are exchange-assigned (numeric/uuid), so a venue/cid collision that would
+            # misdirect this fallback is implausible.
+            return self._account_manager.find_order_by_client_id(order_id)
+        if client_order_id is not None:
+            return self._account_manager.find_order_by_client_id(client_order_id)
+        return None
+
+    def cancel_order(
+        self, order_id: str | None = None, client_order_id: str | None = None, exchange: str | None = None
+    ) -> bool:
+        """Cancel a specific order.
+
+        Idempotent: cancelling a terminal or already-PENDING_CANCEL order is a no-op
+        that reports success (the venue is already in the desired state).
+        A synchronous connector failure reverts the order to its pre-pending status
+        (via a synthetic OrderCancelRejectedEvent) and re-raises to the caller.
+        """
+        self._ensure_writable()
+        order_id, client_order_id = self._normalize_order_ids(order_id, client_order_id)
+        order = self._resolve_order(order_id, client_order_id)
+        if order is None:
+            raise OrderNotFound(client_order_id or order_id or "")
+
+        if order.status.is_terminal or order.status is OrderStatus.PENDING_CANCEL:
+            return True
+
+        cid = order.client_order_id
+        target_exchange = exchange or order.instrument.exchange
+
+        self._health_monitor.record_order_cancel_request(
+            exchange=target_exchange,
+            client_id=cid,
+            event_time=self._context.time(),
+        )
+        self._account_manager.transition_order(order.instrument.exchange, cid, OrderStatus.PENDING_CANCEL)
+        try:
+            self._get_connector(order.instrument.exchange).cancel_order(order)
+        except Exception as e:
+            # A synchronous raise means the cancel never reached the venue. Route the
+            # synthetic reject through the PM (same path as the reconcile give-up) so the
+            # reducer reverts PENDING_CANCEL via pre_pending and callbacks fire
+            # error-isolated; then re-raise to keep the synchronous-failure contract.
+            self._context.process_event(
+                OrderCancelRejectedEvent(
+                    instrument=order.instrument,
+                    client_order_id=cid,
+                    venue_order_id=order.venue_order_id,
+                    reason=f"cancel request failed before reaching venue: {e}",
+                )
+            )
+            raise
+        return True
+
+    def cancel_orders(self, instrument: Instrument | None = None) -> None:
+        for o in self._account_manager.get_orders(instrument).values():
+            if o.status.is_terminal or o.status is OrderStatus.PENDING_CANCEL:
+                continue
+            self.cancel_order(client_order_id=o.client_order_id, exchange=o.instrument.exchange)
+
+    def update_order(
+        self,
+        price: float | None = None,
+        quantity: float | None = None,
+        order_id: str | None = None,
+        client_order_id: str | None = None,
+        exchange: str | None = None,
+    ) -> None:
+        """Update a live limit order's price and/or quantity.
+
+        ``quantity`` is the order's new TOTAL, including everything already filled
+        (unsigned). ``None`` means "leave unchanged" — at least one of ``price`` /
+        ``quantity`` must be given. ``quantity <= filled_quantity`` raises: Binance and
+        Gate silently CANCEL an order amended to a total at/below the executed quantity,
+        so a shrink below filled must be requested as a cancel, never an update.
+
+        Raises OrderAlreadyTerminal on a settled order (updating a settled order is
+        meaningful misuse); a no-op while a previous update is still in flight.
+        A synchronous connector failure reverts the order to its pre-pending status
+        (via a synthetic OrderUpdateRejectedEvent) and re-raises to the caller.
+        """
+        self._ensure_writable()
+        if price is None and quantity is None:
+            raise ValueError("update_order requires price and/or quantity")
+        order_id, client_order_id = self._normalize_order_ids(order_id, client_order_id)
+        order = self._resolve_order(order_id, client_order_id)
+        if order is None:
+            raise OrderNotFound(client_order_id or order_id or "")
+
+        if order.status.is_terminal:
+            raise OrderAlreadyTerminal(order.client_order_id, order.status)
+        if order.status is OrderStatus.PENDING_UPDATE:
+            return
+
+        instrument = order.instrument
+        self._ensure_not_degraded(instrument)
+        # _adjust_size/_adjust_price use the amount's sign as a direction hint (reducing-order
+        # detection, rounding direction); quantity is unsigned at the public API, so derive the
+        # sign from the order's side once and reuse it for both.
+        side_sign = 1.0 if order.side == "BUY" else -1.0
+        if quantity is not None:
+            if quantity <= 0:
+                raise ValueError(f"update_order quantity must be positive, got {quantity}")
+            quantity = self._adjust_size(instrument, side_sign * quantity)
+            if quantity <= order.filled_quantity:
+                raise ValueError(
+                    f"update_order total {quantity} <= filled {order.filled_quantity} for "
+                    f"{order.client_order_id}: a total at/below filled is a silent venue "
+                    f"cancel — use cancel_order instead"
+                )
+
+        adjusted_price: float | None = None
+        if price is not None:
+            adjusted_price = self._adjust_price(instrument, price, side_sign * (quantity or order.quantity))
+            if adjusted_price is None:
+                raise ValueError(f"Price adjustment failed for {instrument.symbol}")
+
+        cid = order.client_order_id
+        self._account_manager.transition_order(instrument.exchange, cid, OrderStatus.PENDING_UPDATE)
+        try:
+            self._get_connector(instrument.exchange).update_order(order, price=adjusted_price, quantity=quantity)
+        except Exception as e:
+            # Same contract as cancel_order: synthetic reject through the PM reverts
+            # PENDING_UPDATE via pre_pending, then the original exception re-raises.
+            self._context.process_event(
+                OrderUpdateRejectedEvent(
+                    instrument=instrument,
+                    client_order_id=cid,
+                    venue_order_id=order.venue_order_id,
+                    reason=f"update request failed before reaching venue: {e}",
+                )
+            )
+            raise
+
+    def get_min_size(self, instrument: Instrument, amount: float | None = None) -> float:
+        return self._get_min_size(instrument, amount)
+
+    def _generate_order_client_id(self, symbol: str) -> str:
+        return self._client_id_store.generate_id(self._context, symbol)
+
+    def exchanges(self) -> list[str]:
+        return list(self._exchange_to_connector.keys())
+
+    def _is_position_reducing(self, instrument: Instrument, amount: float) -> bool:
+        current_position = self._account_manager.get_position(instrument)
+        current_quantity = current_position.quantity if current_position is not None else 0.0
+        return (current_quantity > 0 and amount < 0 and abs(amount) <= abs(current_quantity)) or (
+            current_quantity < 0 and amount > 0 and abs(amount) <= abs(current_quantity)
+        )
+
+    def _is_below_min_size(self, instrument: Instrument, amount: float) -> bool:
+        return abs(amount) < self._get_min_size(instrument, amount)
+
+    def _get_min_size(self, instrument: Instrument, amount: float | None = None) -> float:
+        min_size_based_on_notional = instrument.min_size
+        if instrument.min_notional > 0 and (quote := self._context.quote(instrument)) is not None:
+            min_size_based_on_notional = instrument.min_notional / (quote.mid_price() * instrument.quantity_multiplier)
+
+        return (
+            instrument.lot_size
+            if amount is not None and self._is_position_reducing(instrument, amount)
+            else max(min_size_based_on_notional, instrument.min_size)
+        )
+
+    def _adjust_size(self, instrument: Instrument, amount: float) -> float:
+        abs_amount = abs(amount)
+        size_adj = instrument.round_size_down(abs_amount)
+        min_size = self._get_min_size(instrument, amount)
+
+        if size_adj >= min_size:
+            return size_adj
+
+        size_adj = instrument.round_size_up(abs_amount)
+        if size_adj >= min_size:
+            return size_adj
+
+        # When amount is already at precision, round_size_up returns the same value.
+        # Round up min_size instead, but only if the gap is within one lot step.
+        if abs_amount + instrument.lot_size >= min_size:
+            return instrument.round_size_up(min_size)
+
+        raise InvalidOrderSize(
+            f"[{instrument.symbol}] Attempt to trade size {abs_amount} less than minimal allowed {min_size} !"
+        )
+
+    def _adjust_price(self, instrument: Instrument, price: float | None, amount: float) -> float | None:
+        if price is None:
+            return price
+        return instrument.round_price_down(price) if amount > 0 else instrument.round_price_up(price)
+
+    def _get_side(self, amount: float) -> OrderSide:
+        return "BUY" if amount > 0 else "SELL"
+
+    def _get_order_type(self, instrument: Instrument, price: float | None, options: dict[str, Any]) -> str:
+        if price is None:
+            return "market"
+        if (stp_type := options.get("stop_type")) is not None:
+            return f"stop_{stp_type}"
+        return "limit"
+
+    def convert_currency(
+        self,
+        exchange: str,
+        from_currency: str,
+        to_currency: str,
+        amount: float,
+        *,
+        limit_price: float | None = None,
+        max_slippage_bps: float = 10.0,
+    ) -> str:
+        self._ensure_writable()
+        return self._get_connector(exchange).convert_currency(
+            from_currency, to_currency, amount, limit_price=limit_price, max_slippage_bps=max_slippage_bps
+        )
+
+    def wallet_moves(self, exchange: str) -> list[WalletMove]:
+        return self._get_connector(exchange).wallet_moves()
+
+    def move_funds(self, exchange: str, currency: str | None, src: str, dst: str, amount: float | None = None) -> str:
+        self._ensure_writable()
+        return self._get_connector(exchange).move_funds(currency, src, dst, amount)
+
+    def debt_repayments(self, exchange: str) -> list[str]:
+        return self._get_connector(exchange).debt_repayments()
+
+    def repay_debt(self, exchange: str, currency: str, amount: float | None = None) -> str:
+        self._ensure_writable()
+        return self._get_connector(exchange).repay_debt(currency, amount)
+
+    def _get_connector(self, exchange: str) -> IConnector:
+        # Connectors are keyed by the canonical exchange (the runner canonicalizes
+        # venue names like BINANCE.PM at the config boundary), so instrument.exchange
+        # always hits directly.
+        if exchange in self._exchange_to_connector:
+            return self._exchange_to_connector[exchange]
+        raise ValueError(f"Connector for exchange {exchange} not found")

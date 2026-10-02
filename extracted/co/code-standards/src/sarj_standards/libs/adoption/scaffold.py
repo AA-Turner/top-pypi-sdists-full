@@ -1,0 +1,2637 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import textwrap
+import tomllib
+from typing import TYPE_CHECKING, Final, Literal, NamedTuple
+
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion, Version
+from repo_standards.core.parser import parse_manifest_bytes
+import yaml
+
+from sarj_standards.libs.filesystem import is_link_like
+from sarj_standards.libs.json_boundary import parse_json
+from sarj_standards.libs.linting import security_tools
+from sarj_standards.libs.typed_containers import is_object_list, is_object_mapping
+from sarj_standards.libs.yaml_boundary import parse_yaml
+
+from . import hooks, launcher, manifest, packagemanager, uvtool
+from .packagemanager import LOCKFILES, Overrides, PackageManager, YarnVariant
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+
+class _JsonObjectResult(NamedTuple):
+    document: dict[str, object] | None
+    error: str | None
+
+
+class _HookMigration(NamedTuple):
+    migrated: str | None
+    error: str | None
+
+
+@dataclass(frozen=True)
+class Ecosystems:
+    python: bool
+    typescript: bool
+    python_root: Path | None = None
+    typescript_root: Path | None = None
+    typescript_install_root: Path | None = None
+    client: PackageManager = PackageManager.NPM
+    yarn: YarnVariant = YarnVariant.CLASSIC
+    swift: bool = False
+    kotlin: bool = False
+    swift_root: Path | None = None
+    kotlin_root: Path | None = None
+    mobile_swift: bool = False
+    actions: bool = False
+    infrastructure: bool = False
+
+    @property
+    def any(self) -> bool:
+        """Whether anything at all was detected."""
+        return self.python or self.typescript or self.swift or self.kotlin or self.actions or self.infrastructure
+
+    @property
+    def mobile(self) -> bool:
+        """Whether the repository has explicit Apple or Android project configuration."""
+        return self.mobile_swift or self.kotlin
+
+
+def configured_ecosystems(ecosystems: Ecosystems, configs: Sequence[str]) -> Ecosystems:
+    python = ecosystems.python and any(name in manifest.PYTHON_CONFIGS for name in configs)
+    typescript = ecosystems.typescript and any(name in manifest.TYPESCRIPT_CONFIGS for name in configs)
+    swift = ecosystems.swift and any(name in manifest.SWIFT_CONFIGS for name in configs)
+    kotlin = ecosystems.kotlin and any(name in manifest.KOTLIN_CONFIGS for name in configs)
+    return replace(
+        ecosystems,
+        python=python,
+        typescript=typescript,
+        python_root=ecosystems.python_root if python else None,
+        typescript_root=ecosystems.typescript_root if typescript else None,
+        typescript_install_root=ecosystems.typescript_install_root if typescript else None,
+        swift=swift,
+        kotlin=kotlin,
+        swift_root=ecosystems.swift_root if swift else None,
+        kotlin_root=ecosystems.kotlin_root if kotlin else None,
+        mobile_swift=ecosystems.mobile_swift and swift,
+        actions=ecosystems.actions and "zizmor" in configs,
+        infrastructure=ecosystems.infrastructure and "checkov" in configs,
+    )
+
+
+@dataclass
+class Plan:
+    ecosystems: Ecosystems
+    root: Path | None = None
+    profile: manifest.Profile = "standard"
+    configs: tuple[str, ...] = ()
+    hook_manager: manifest.HookManager = "pre-commit"
+    writes: list[tuple[Path, str]] = field(default_factory=list)
+    edits: list[tuple[Path, str]] = field(default_factory=list)
+    deletes: list[Path] = field(default_factory=list)
+    skips: list[tuple[Path, str]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+
+DEFAULT_CI_RUNNER: Final = "ubuntu-latest"
+_ESLINT_CONFIG: Final = "eslint.config.mjs"
+_ESLINT_CONFIG_NAMES: Final = (
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "eslint.config.cjs",
+    "eslint.config.ts",
+    "eslint.config.mts",
+    "eslint.config.cts",
+)
+_PYRIGHT_CONFIG: Final = "pyrightconfig.json"
+_PYRIGHT_POLICY_PARENT: Final = ".basedpyright-strict.json"
+_LEGACY_PYRIGHT_POLICY_PARENT: Final = ".pyright-strict.json"
+_STANDALONE_RUFF_CONFIG_NAMES: Final = (".ruff.toml", "ruff.toml")
+_PRECOMMIT_CONFIG_NAMES: Final = (".pre-commit-config.yaml", ".pre-commit-config.yml")
+_CUSTOM_HOOK_SCOPE_KEYS: Final = frozenset({"args", "exclude", "exclude_types", "types", "types_or"})
+_RUFF_REDUNDANT_SELECT_ALL: Final = re.compile(r"(?m)^[ \t]*select\s*=\s*\[\s*['\"]ALL['\"]\s*\]\s*(?:#.*)?\r?\n?")
+_PYTHON_MAJOR: Final = 3
+_LEGACY_WORKFLOW_VERIFY: Final = re.compile(
+    r"(?P<command>(?:[^\s\"']*/)?sarj-standards(?:\s+--root\s+[^\s;&|]+)?)\s+verify\b"
+)
+_SCHEMA_LESS_VERSION_LINE: Final = re.compile(r'(?m)^[ \t]*version\s*=\s*"[^"]*"\s*$')
+_SCHEMA_LESS_CONFIGS_START: Final = re.compile(r"^[ \t]*configs\s*=")
+_FIRST_TOML_TABLE: Final = re.compile(r"(?m)^\s*\[")
+_TOML_TABLE_HEADER: Final = re.compile(r"(?m)^\s*\[\[?(?P<name>[A-Za-z0-9_.-]+)\]\]?\s*(?:#.*)?$")
+_OWNED_MANIFEST_TABLES: Final = frozenset(
+    {"artifacts", "baseline", "capabilities", "ci", "dest", "doctor", "exclude", "hooks", "text", "verify"}
+)
+_OWNED_MANIFEST_ROOT_KEYS: Final = frozenset({"schema", "bundle", "profile", "rule_profile", *_OWNED_MANIFEST_TABLES})
+_GRADLE_PROJECT_FILES: Final = ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
+_ANDROID_PLUGIN: Final = re.compile(
+    r"(?x)(?:"
+    r"\bid\s*(?:\(\s*)?['\"]com\.android\."
+    r"(?:application|library|test|dynamic-feature|asset-pack|privacy-sandbox-sdk)['\"]\s*\)?|"
+    r"\bid\s*(?:\(\s*)?['\"]com\.android\.kotlin\.multiplatform\.library['\"]\s*\)?|"
+    r"\bid\s*(?:\(\s*)?['\"]org\.jetbrains\.kotlin\.android['\"]\s*\)?|"
+    r"\bkotlin\s*\(\s*['\"]android['\"]\s*\)|"
+    r"\balias\s*\(\s*libs\.plugins\.(?:android(?:\.[\w-]+)+|kotlin\.android)\s*\)"
+    r")"
+)
+_KMP_PLUGIN: Final = re.compile(
+    r"\bid\s*(?:\(\s*)?['\"]org\.jetbrains\.kotlin\.multiplatform['\"]\s*\)?|"
+    r"\bkotlin\s*\(\s*['\"]multiplatform['\"]\s*\)|"
+    r"\balias\s*\(\s*libs\.plugins\.kotlin\.multiplatform\s*\)"
+)
+_KMP_MOBILE_TARGET: Final = re.compile(
+    r"\b(?:androidTarget|androidLibrary|ios|iosArm64|iosX64|iosSimulatorArm64)\s*\(|\bandroid\s*\{"
+)
+_GRADLE_APPLY_FALSE: Final = re.compile(r"\bapply\s+false\b")
+_SWIFT_MOBILE_PLATFORM: Final = re.compile(r"\.(?:iOS|tvOS|watchOS|visionOS)\s*\(")
+_XCODE_MOBILE_PLATFORM: Final = re.compile(
+    r"\b(?:IPHONEOS|TVOS|WATCHOS|XROS)_DEPLOYMENT_TARGET\s*=|"
+    r"\bSDKROOT\s*=\s*(?:iphoneos|appletvos|watchos|xros)\b|"
+    r"\bSUPPORTED_PLATFORMS\s*=\s*['\"][^'\"]*"
+    r"(?:iphoneos|iphonesimulator|appletvos|appletvsimulator|watchos|watchsimulator|xros|xrsimulator)\b"
+)
+_MAX_DETECTION_SOURCE_BYTES: Final = 16 * 1024 * 1024
+
+_RUFF_EXTEND = re.compile(r"^[ \t]*\[tool\.ruff\][ \t]*$", re.MULTILINE)
+_RUFF_LINT_SECTION = re.compile(
+    r"(?ms)^(?P<header>[ \t]*\[tool\.ruff\.lint\][ \t]*(?:#[^\n]*)?\n)"
+    r"(?P<body>.*?)(?=^[ \t]*\[|\Z)"
+)
+_RUFF_REPLACEMENT_KEY = re.compile(r"(?m)^(?P<indent>[ \t]*)(?P<key>select|ignore)(?P<equals>[ \t]*=)")
+
+#: Directories a detection walk must not descend into: an installed dependency
+#: carries thousands of `package.json` files and a vendored tree carries the
+#: pyproject of something this repo did not write.
+_SKIP_DIRS: Final = frozenset(
+    {
+        ".git",
+        ".gradle",
+        ".agents",
+        ".build",
+        ".cache",
+        ".claude",
+        ".next",
+        ".open-next",
+        ".turbo",
+        ".uv-cache",
+        ".wrangler",
+        ".yarn",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "build",
+        "coverage",
+        ".tox",
+        ".venv",
+        "Carthage",
+        "DerivedData",
+        "DerivedDataAPI",
+        "DerivedDataDist",
+        "Pods",
+        "SourcePackages",
+        "dist",
+        "fastlane",
+        "generated",
+        "node_modules",
+        "out",
+        "target",
+        "vendor",
+    }
+)
+
+
+def detect(
+    root: Path,
+    *,
+    python_dest: str | None = None,
+    typescript_dest: str | None = None,
+    swift_dest: str | None = None,
+    kotlin_dest: str | None = None,
+) -> Ecosystems:
+    python_root = _override(root, python_dest) or _python_root(root)
+    typescript_root = _override(root, typescript_dest) or _typescript_root(root)
+    explicit_swift_root = _validated_swift_override(root, swift_dest)
+    swift_root = explicit_swift_root or _swift_root(root)
+    kotlin_root = _validated_mobile_override(root, kotlin_dest, language="Kotlin") or _kotlin_root(root)
+    install_root = packagemanager.workspace_root(typescript_root, root) if typescript_root else None
+    client = packagemanager.detect(install_root) if install_root else PackageManager.NPM
+    security = _detect_security_inputs(root)
+    return Ecosystems(
+        python=python_root is not None,
+        typescript=typescript_root is not None,
+        python_root=python_root,
+        typescript_root=typescript_root,
+        typescript_install_root=install_root,
+        client=client,
+        yarn=(
+            packagemanager.yarn_variant(install_root)
+            if install_root is not None and client is PackageManager.YARN
+            else YarnVariant.CLASSIC
+        ),
+        swift=swift_root is not None,
+        kotlin=kotlin_root is not None,
+        swift_root=swift_root,
+        kotlin_root=kotlin_root,
+        mobile_swift=swift_root is not None and _swift_root_is_mobile(swift_root),
+        actions=bool(security.workflows),
+        infrastructure=bool(security.terraform or security.kubernetes),
+    )
+
+
+def detect_adopted(root: Path, adopted: manifest.Manifest) -> Ecosystems:
+    python = bool({"ruff", "pyright"}.intersection(adopted.configs))
+    typescript = "eslint" in adopted.configs
+    swift = bool({"swiftformat", "swiftlint"}.intersection(adopted.configs))
+    kotlin = bool({"ktlint", "detekt"}.intersection(adopted.configs))
+    # An adopted manifest is authoritative. Do not auto-detect disabled
+    # ecosystems: a repository may intentionally contain several unowned mobile
+    # projects, and discovery would make an unrelated legacy migration ambiguous.
+    python_root = _override(root, adopted.python_dest) if python else None
+    typescript_root = _override(root, adopted.typescript_dest) if typescript else None
+    swift_root = _validated_swift_override(root, adopted.swift_dest) if swift else None
+    kotlin_root = _validated_mobile_override(root, adopted.kotlin_dest, language="Kotlin") if kotlin else None
+    install_root = packagemanager.workspace_root(typescript_root, root) if typescript_root else None
+    client = packagemanager.detect(install_root) if install_root else PackageManager.NPM
+    return Ecosystems(
+        python=python,
+        typescript=typescript,
+        python_root=python_root,
+        typescript_root=typescript_root,
+        typescript_install_root=install_root,
+        client=client,
+        yarn=packagemanager.yarn_variant(install_root)
+        if install_root and client is PackageManager.YARN
+        else YarnVariant.CLASSIC,
+        swift=swift,
+        kotlin=kotlin,
+        swift_root=swift_root,
+        kotlin_root=kotlin_root,
+        mobile_swift=swift_root is not None and _swift_root_is_mobile(swift_root),
+        actions="zizmor" in adopted.enabled_capabilities,
+        infrastructure="checkov" in adopted.enabled_capabilities,
+    )
+
+
+def _detect_security_inputs(root: Path) -> security_tools.SecurityInputs:
+    files: list[str] = []
+    for parent, directories, filenames in os.walk(root, topdown=True, followlinks=False):
+        directories[:] = sorted(
+            name for name in directories if name not in _SKIP_DIRS and not is_link_like(Path(parent) / name)
+        )
+        files.extend(
+            str(Path(parent) / name)
+            for name in filenames
+            if name.endswith((".tf", ".tf.json", ".yml", ".yaml")) and not is_link_like(Path(parent) / name)
+        )
+    return security_tools.select_inputs(files, root=root)
+
+
+def _override(root: Path, dest: str | None) -> Path | None:
+    if dest is None:
+        return None
+    lexical = root
+    for part in Path(dest).parts:
+        lexical /= part
+        if is_link_like(lexical):
+            msg = f"destination {dest!r} traverses a symlink or junction: {lexical}"
+            raise ValueError(msg)
+    resolved = (root / dest).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as exc:
+        msg = f"destination {dest!r} escapes repository root {root}"
+        raise ValueError(msg) from exc
+    if not resolved.is_dir():
+        msg = f"destination {dest!r} is not a directory"
+        raise ValueError(msg)
+    return resolved
+
+
+def _validated_mobile_override(
+    root: Path,
+    dest: str | None,
+    *,
+    language: Literal["Swift", "Kotlin"],
+) -> Path | None:
+    selected = _override(root, dest)
+    if selected is None:
+        return None
+    detected = _swift_roots(selected) if language == "Swift" else _kotlin_roots(selected)
+    selected_resolved = selected.resolve()
+    exact = tuple(resolved for path in detected if (resolved := path.resolve()) == selected_resolved)
+    if len(exact) != 1:
+        msg = f"{language.lower()} destination {dest!r} must be one exact configured mobile project root"
+        raise ValueError(msg)
+    return selected
+
+
+def _validated_swift_override(root: Path, dest: str | None) -> Path | None:
+    selected = _override(root, dest)
+    if selected is None:
+        return None
+    if not _is_exact_swift_project_root(selected):
+        msg = f"swift destination {dest!r} must be one exact configured Swift project root"
+        raise ValueError(msg)
+    return selected
+
+
+def _is_exact_swift_project_root(root: Path) -> bool:
+    package = root / "Package.swift"
+    if package.is_file() and not is_link_like(package):
+        return True
+    return any(
+        child.is_dir() and child.name.endswith(".xcodeproj") and not is_link_like(child) for child in root.iterdir()
+    )
+
+
+def _swift_root_is_mobile(root: Path) -> bool:
+    package = root / "Package.swift"
+    if package.is_file() and not is_link_like(package) and _swift_package_is_mobile(package):
+        return True
+    return any(
+        child.is_dir()
+        and child.name.endswith(".xcodeproj")
+        and not is_link_like(child)
+        and _xcode_project_is_mobile(child)
+        for child in root.iterdir()
+    )
+
+
+def _python_root(root: Path) -> Path | None:
+    return _shallowest(root, ("pyproject.toml",))
+
+
+def _typescript_root(root: Path) -> Path | None:
+    lockfiles = tuple(name for name, _ in LOCKFILES)
+    return _shallowest(root, lockfiles) or _shallowest(root, ("package.json",))
+
+
+def _swift_root(root: Path) -> Path | None:
+    projects = _swift_roots(root)
+    if not projects:
+        return None
+    return min(projects, key=lambda path: (len(path.relative_to(root).parts), str(path)))
+
+
+def _swift_roots(root: Path) -> list[Path]:
+    projects = [
+        project
+        for project in _all_roots(root, ("Package.swift",))
+        if not is_link_like(project / "Package.swift") and _swift_package_is_mobile(project / "Package.swift")
+    ]
+    for parent, directories, _filenames in os.walk(root, topdown=True, followlinks=False):
+        directories[:] = sorted(name for name in directories if name not in _SKIP_DIRS)
+        base = Path(parent)
+        configured = _mobile_xcode_projects(base, directories)
+        if configured:
+            projects.append(base)
+            directories[:] = [name for name in directories if name not in configured]
+    return projects
+
+
+def _mobile_xcode_projects(base: Path, directories: list[str]) -> list[str]:
+    return [
+        name
+        for name in directories
+        if name.endswith(".xcodeproj") and not is_link_like(base / name) and _xcode_project_is_mobile(base / name)
+    ]
+
+
+def _swift_package_is_mobile(path: Path) -> bool:
+    source = _read_detection_source(path)
+    return source is not None and _SWIFT_MOBILE_PLATFORM.search(_strip_quoted_literals(source)) is not None
+
+
+def _xcode_project_is_mobile(path: Path) -> bool:
+    source = _read_detection_source(path / "project.pbxproj")
+    return source is not None and _XCODE_MOBILE_PLATFORM.search(source) is not None
+
+
+def _kotlin_root(root: Path) -> Path | None:
+    configured = _kotlin_roots(root)
+    if not configured:
+        return None
+    return min(configured, key=lambda path: (len(path.relative_to(root).parts), str(path)))
+
+
+def _kotlin_roots(root: Path) -> list[Path]:
+    configured: list[Path] = []
+    for parent, directories, filenames in os.walk(root, topdown=True, followlinks=False):
+        directories[:] = sorted(name for name in directories if name not in _SKIP_DIRS)
+        base = Path(parent)
+        project_sources = tuple(base / name for name in _GRADLE_PROJECT_FILES if name in filenames)
+        texts = tuple(_read_detection_source(path) for path in project_sources)
+        combined = _active_gradle_lines(texts)
+        if not combined:
+            continue
+        if _ANDROID_PLUGIN.search(combined) or (_KMP_PLUGIN.search(combined) and _KMP_MOBILE_TARGET.search(combined)):
+            configured.append(_gradle_build_root(base, root))
+    return configured
+
+
+def _active_gradle_lines(texts: tuple[str | None, ...]) -> str:
+    return "\n".join(
+        line
+        for text in texts
+        if text is not None
+        for line in text.splitlines()
+        if _GRADLE_APPLY_FALSE.search(line) is None
+    )
+
+
+def _gradle_build_root(module: Path, repository: Path) -> Path:
+    current = module
+    while current.is_relative_to(repository):
+        if any((current / name).is_file() for name in ("settings.gradle", "settings.gradle.kts")):
+            return current
+        if current == repository:
+            break
+        current = current.parent
+    return module
+
+
+def _read_detection_source(path: Path) -> str | None:
+    try:
+        if is_link_like(path):
+            return None
+        if path.stat().st_size > _MAX_DETECTION_SOURCE_BYTES:
+            return None
+        return _strip_detection_comments(path.read_text(encoding="utf-8"))
+    except OSError, UnicodeError:
+        return None
+
+
+def _strip_detection_comments(source: str) -> str:
+    output: list[str] = []
+    index = 0
+    while index < len(source):
+        current = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+        if current in {'"', "'"}:
+            index = _append_detection_string(source, index, output)
+            continue
+        if current == "/" and following == "*":
+            index = _skip_detection_block_comment(source, index, output)
+            continue
+        if (current == "/" and following == "/") or current == "#":
+            index += 2 if current == "/" else 1
+            while index < len(source) and source[index] != "\n":
+                index += 1
+            continue
+        output.append(current)
+        index += 1
+    return "".join(output)
+
+
+def _skip_detection_block_comment(source: str, index: int, output: list[str]) -> int:
+    index += 2
+    while index < len(source) and source[index : index + 2] != "*/":
+        if source[index] == "\n":
+            output.append("\n")
+        index += 1
+    return min(index + 2, len(source))
+
+
+def _append_detection_string(source: str, index: int, output: list[str]) -> int:
+    quote = source[index]
+    output.append(quote)
+    index += 1
+    escaped = False
+    while index < len(source):
+        current = source[index]
+        output.append(current)
+        index += 1
+        if escaped:
+            escaped = False
+        elif current == "\\":
+            escaped = True
+        elif current == quote:
+            break
+    return index
+
+
+def _strip_quoted_literals(source: str) -> str:
+    output: list[str] = []
+    quote: str | None = None
+    escaped = False
+    for current in source:
+        if quote is None:
+            if current in {'"', "'"}:
+                quote = current
+                output.append(current)
+            else:
+                output.append(current)
+            continue
+        if escaped:
+            escaped = False
+        elif current == "\\":
+            escaped = True
+        elif current == quote:
+            quote = None
+            output.append(current)
+        elif current == "\n":
+            output.append("\n")
+        else:
+            output.append(" ")
+    return "".join(output)
+
+
+def _shallowest(root: Path, names: Sequence[str]) -> Path | None:
+    if any((root / name).is_file() for name in names):
+        return root
+    wanted = frozenset(names)
+    found: list[Path] = []
+    for parent, directories, filenames in os.walk(root, topdown=True, followlinks=False):
+        directories[:] = sorted(name for name in directories if name not in _SKIP_DIRS)
+        if not wanted.isdisjoint(filenames):
+            found.append(Path(parent))
+    if not found:
+        return None
+    return min(found, key=lambda path: (len(path.relative_to(root).parts), str(path)))
+
+
+def _all_roots(root: Path, names: Sequence[str]) -> list[Path]:
+    wanted = frozenset(names)
+    found: list[Path] = []
+    for parent, directories, filenames in os.walk(root, topdown=True, followlinks=False):
+        directories[:] = sorted(name for name in directories if name not in _SKIP_DIRS)
+        if not wanted.isdisjoint(filenames):
+            found.append(Path(parent))
+    return found
+
+
+def build_plan(
+    root: Path,
+    *,
+    force: bool,
+    update_manifest: bool = False,
+    configs: Sequence[str] | None = None,
+    python_dest: str | None = None,
+    typescript_dest: str | None = None,
+    swift_dest: str | None = None,
+    kotlin_dest: str | None = None,
+    profile: manifest.Profile = "standard",
+    hook_manager: manifest.HookManager | None = None,
+    allow_existing_nested_eslint: bool = False,
+) -> Plan:
+    ecosystems = detect(
+        root,
+        python_dest=python_dest,
+        typescript_dest=typescript_dest,
+        swift_dest=swift_dest,
+        kotlin_dest=kotlin_dest,
+    )
+    selected = (
+        tuple(configs)
+        if configs is not None
+        else manifest.default_configs(
+            has_python=ecosystems.python,
+            has_typescript=ecosystems.typescript,
+            has_swift=ecosystems.swift,
+            has_kotlin=ecosystems.kotlin,
+            has_mobile=ecosystems.mobile,
+            has_actions=ecosystems.actions,
+            has_infrastructure=ecosystems.infrastructure,
+        )
+    )
+    selected_hook_manager: manifest.HookManager = hook_manager or hooks.detect_manager(root)
+    plan = Plan(
+        ecosystems=ecosystems,
+        root=root,
+        profile=profile,
+        configs=selected,
+        hook_manager=selected_hook_manager,
+    )
+
+    _report_mobile_roots(root, plan, swift_dest, kotlin_dest)
+    if plan.errors:
+        return plan
+
+    if configs is not None:
+        unsupported = _unsupported_configs(selected, ecosystems)
+        if unsupported:
+            names = ", ".join(unsupported)
+            plan.errors.append(
+                f"cannot scaffold ecosystem-specific config(s) without an owning project: {names}; "
+                "add a supported project marker or select only configs owned by detected ecosystems"
+            )
+            return plan
+
+    if python_dest is None and ecosystems.python_root is not None:
+        _report_independent_roots(root, ecosystems.python_root, ("pyproject.toml",), "Python", plan)
+    if typescript_dest is None and ecosystems.typescript_root is not None:
+        lockfiles = tuple(name for name, _client in LOCKFILES)
+        candidates = lockfiles if _all_roots(root, lockfiles) else ("package.json",)
+        _report_independent_roots(root, ecosystems.typescript_root, candidates, "TypeScript", plan)
+    if not ecosystems.any:
+        if configs is None:
+            plan.notes.append("no language project marker found; adopting repository-wide policy and shared configs")
+        else:
+            plan.notes.append(
+                "no Python, TypeScript, Swift, or mobile Kotlin project found; adopting shared configs only"
+            )
+
+    _plan_manifest(root, plan, force=force, update_existing=update_manifest)
+    _plan_repo_commit_message_policy(root, plan)
+    _plan_retired_repository_launcher(root, plan)
+    _plan_language_configs(root, plan, force=force, allow_existing_nested_eslint=allow_existing_nested_eslint)
+    match plan.hook_manager:
+        case "pre-commit":
+            _plan_precommit(root, plan, force=force)
+        case "lefthook":
+            _plan_retire_precommit_staged_check(root, plan)
+            _plan_lefthook(root, plan)
+        case _:
+            plan.notes.append(f"preserving {plan.hook_manager} hook management; no pre-commit config was generated")
+    _plan_standards_workflow(root, plan, force=force)
+    _plan_commit_policy_workflow(root, plan, force=force)
+    _note_subproject_destinations(root, plan)
+    return plan
+
+
+def _unsupported_configs(selected: Sequence[str], ecosystems: Ecosystems) -> tuple[str, ...]:
+    return tuple(
+        name
+        for name in selected
+        if (name in manifest.PYTHON_CONFIGS and not ecosystems.python)
+        or (name in manifest.TYPESCRIPT_CONFIGS and not ecosystems.typescript)
+        or (name in manifest.SWIFT_CONFIGS and not ecosystems.swift)
+        or (name in manifest.KOTLIN_CONFIGS and not ecosystems.kotlin)
+        or (name in manifest.MOBILE_CONFIGS and not ecosystems.mobile)
+        or (name == "zizmor" and not ecosystems.actions)
+        or (name == "checkov" and not ecosystems.infrastructure)
+    )
+
+
+def _report_mobile_roots(root: Path, plan: Plan, swift_dest: str | None, kotlin_dest: str | None) -> None:
+    for label, explicit, roots, enabled in (
+        ("Swift", swift_dest, _swift_roots(root), any(name in plan.configs for name in manifest.SWIFT_CONFIGS)),
+        ("Kotlin", kotlin_dest, _kotlin_roots(root), any(name in plan.configs for name in manifest.KOTLIN_CONFIGS)),
+    ):
+        if not enabled:
+            continue
+        independent = tuple(dict.fromkeys(path.resolve() for path in roots))
+        if explicit is None and len(independent) > 1:
+            destinations = ", ".join(path.relative_to(root).as_posix() for path in independent)
+            option = "--swift-dest" if label == "Swift" else "--kotlin-dest"
+            plan.errors.append(
+                f"multiple independent {label} mobile roots detected: {destinations}; "
+                f"rerun with {option} for one reviewed owning root"
+            )
+
+
+def _plan_standards_workflow(root: Path, plan: Plan, *, force: bool) -> None:
+    ecosystems = plan.ecosystems
+    selected = plan.configs
+    workflow = root / ".github" / "workflows" / "standards.yml"
+    workflow_contents = github_ci_workflow(root, ecosystems=configured_ecosystems(ecosystems, selected))
+    existing_gates = standards_check_workflows(root)
+    if workflow.is_file() and _is_managed_workflow(workflow):
+        if workflow.read_text(encoding="utf-8") == workflow_contents:
+            plan.skips.append((workflow, "already runs the canonical manifest-driven Standards gate"))
+        else:
+            plan.writes.append((workflow, workflow_contents))
+    elif existing_gates:
+        incompatible = _incompatible_mobile_workflows(existing_gates, ecosystems, selected)
+        if incompatible:
+            names = ", ".join(path.relative_to(root).as_posix() for path in incompatible)
+            plan.errors.append(
+                "existing Standards workflow lacks required mobile runner prerequisites: "
+                f"{names}; Swift requires macOS and Kotlin requires pinned Temurin 21. "
+                "Update the owning workflow or generate the managed Standards workflow."
+            )
+        else:
+            names = ", ".join(path.relative_to(root).as_posix() for path in existing_gates)
+            plan.skips.append((workflow, f"existing workflow already runs the canonical Standards check: {names}"))
+    elif workflow.is_file() and (migrated := _migrate_legacy_workflow_gate(workflow)) is not None:
+        plan.writes.append((workflow, migrated))
+        plan.notes.append("migrated the removed Standards `verify` CI command to the canonical check")
+    elif workflow.is_file() and workflow.read_text(encoding="utf-8") == workflow_contents:
+        plan.skips.append((workflow, "already runs the canonical manifest-driven Standards gate"))
+    else:
+        _record(
+            plan,
+            workflow,
+            workflow_contents,
+            force=force,
+            reason=(
+                "exists; preserve repository-specific CI changes or regenerate explicitly with "
+                "`code-standards show ci --output .github/workflows/standards.yml`"
+            ),
+        )
+
+
+def _incompatible_mobile_workflows(
+    existing_gates: Sequence[Path], ecosystems: Ecosystems, selected: Sequence[str]
+) -> tuple[Path, ...]:
+    return tuple(
+        path
+        for path in existing_gates
+        if not _workflow_supports_mobile(
+            path,
+            swift=configured_ecosystems(ecosystems, selected).swift,
+            kotlin=configured_ecosystems(ecosystems, selected).kotlin,
+        )
+    )
+
+
+def _plan_language_configs(root: Path, plan: Plan, *, force: bool, allow_existing_nested_eslint: bool) -> None:
+    ecosystems = plan.ecosystems
+    selected = plan.configs
+    if (
+        ecosystems.python
+        and ecosystems.python_root is not None
+        and any(name in selected for name in manifest.PYTHON_CONFIGS)
+    ):
+        _plan_python(ecosystems.python_root, plan, force=force)
+    if (
+        ecosystems.typescript
+        and ecosystems.typescript_root is not None
+        and any(name in selected for name in manifest.TYPESCRIPT_CONFIGS)
+    ):
+        _plan_typescript(ecosystems.typescript_root, plan, force=force)
+        # Nested configs are only Standards' concern when ESLint was actually
+        # selected. At this point eslint.strict.mjs is either present or a
+        # target in the config sync plan built by ``plan_init``.
+        if "eslint" in selected and not allow_existing_nested_eslint:
+            _report_unwired_nested_eslint_configs(root, ecosystems.typescript_root, plan)
+
+
+def build_commit_policy_plan(
+    root: Path,
+    *,
+    force: bool,
+    hook_manager: manifest.HookManager | None = None,
+) -> Plan:
+    selected_hook_manager: manifest.HookManager = hook_manager or hooks.detect_manager(root)
+    plan = Plan(
+        ecosystems=Ecosystems(python=False, typescript=False),
+        root=root,
+        configs=(),
+        hook_manager=selected_hook_manager,
+    )
+    _plan_repo_commit_message_policy(root, plan)
+    match selected_hook_manager:
+        case "pre-commit":
+            _plan_precommit_commit_message(root, plan, force=force)
+        case "lefthook":
+            _plan_lefthook_commit_message(root, plan)
+        case _:
+            plan.notes.append("commit policy files were generated without installing a Git hook manager")
+    _plan_commit_policy_workflow(root, plan, force=force)
+    return plan
+
+
+def _is_managed_workflow(path: Path) -> bool:
+    try:
+        first_line = path.read_text(encoding="utf-8").splitlines()[0]
+    except OSError, IndexError:
+        return False
+    return (
+        re.fullmatch(
+            r"# Managed by (?:code-standards|sarj-standards)(?: [0-9]+\.[0-9]+\.[0-9]+)?; regenerate with "
+            r"`code-standards show ci --output \.github/workflows/standards\.yml`\.",
+            first_line,
+        )
+        is not None
+    )
+
+
+def _plan_repo_commit_message_policy(root: Path, plan: Plan) -> None:
+    path = root / ".repo-standards" / "repository.toml"
+    if path.is_file():
+        try:
+            contents = path.read_bytes()
+            migrated = _without_manifest_schema_version(contents)
+            parse_manifest_bytes(migrated)
+        except (OSError, TypeError, ValueError) as exc:
+            plan.errors.append(f"invalid Repo Standards manifest: {exc}")
+            return
+        if migrated != contents:
+            plan.writes.append((path, migrated.decode("utf-8")))
+        else:
+            plan.skips.append((path, "repository policy is already configured"))
+        return
+    repository_id = re.sub(r"[^a-z0-9]+", "-", root.name.casefold()).strip("-")
+    if not repository_id or not repository_id[0].isalpha():
+        repository_id = f"repository-{repository_id}" if repository_id else "local-repository"
+    contents = f'repository_id = "{repository_id}"\ncomponents = []\n'
+    parse_manifest_bytes(contents.encode("utf-8"))
+    plan.writes.append((path, contents))
+
+
+def _without_manifest_schema_version(contents: bytes) -> bytes:
+    lines = contents.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(b"["):
+            break
+        if re.fullmatch(rb"schema_version[ \t]*=[ \t]*[2-7][ \t]*(?:#.*)?(?:\r?\n)?", line):
+            return b"".join((*lines[:index], *lines[index + 1 :]))
+    return contents
+
+
+def _plan_lefthook(root: Path, plan: Plan) -> None:
+    if hooks.lefthook_config(root) is None:
+        plan.errors.append("--hooks lefthook requires lefthook.yml or lefthook.yaml")
+        return
+    lefthook_write: hooks.LefthookWrite | None = None
+    try:
+        if not hooks.lefthook_runs_staged_check(root):
+            lefthook_write = hooks.wire_lefthook_staged_check(root)
+        if not hooks.lefthook_runs_commit_message_check(root, runner_prefix=launcher.repository_command()):
+            lefthook_write = hooks.wire_lefthook_commit_message_check(
+                root,
+                contents=None if lefthook_write is None else lefthook_write.contents,
+            )
+    except ValueError as exc:
+        plan.errors.append(str(exc))
+        return
+    if lefthook_write is not None:
+        plan.writes.append(lefthook_write)
+        plan.notes.append("converged the canonical staged and commit-message checks")
+        return
+    plan.notes.append("preserving validated Lefthook management; no pre-commit config was generated")
+
+
+def _plan_lefthook_commit_message(root: Path, plan: Plan) -> None:
+    runner_prefix = shlex.join(launcher.argv(version=manifest.adopted_version()))
+    if hooks.lefthook_config(root) is None:
+        plan.errors.append("--hooks lefthook requires lefthook.yml or lefthook.yaml")
+        return
+    if hooks.lefthook_runs_commit_message_check(root, runner_prefix=runner_prefix):
+        plan.notes.append("Lefthook already runs the canonical commit-message check")
+        return
+    try:
+        write = hooks.wire_lefthook_commit_message_check(root, runner_prefix=runner_prefix)
+    except ValueError as exc:
+        plan.errors.append(str(exc))
+        return
+    plan.writes.append(write)
+    plan.notes.append("added the canonical commit-message check without changing other Lefthook jobs")
+
+
+def _plan_commit_policy_workflow(root: Path, plan: Plan, *, force: bool) -> None:
+    path = root / ".github" / "workflows" / "commit-policy.yml"
+    contents = commit_policy_github_workflow(managed_ci_runner(root))
+    if path.is_file() and path.read_text(encoding="utf-8").startswith("# Managed by code-standards commit policy;"):
+        if path.read_text(encoding="utf-8") == contents:
+            plan.skips.append((path, "already runs the canonical commit policy"))
+        else:
+            plan.writes.append((path, contents))
+        return
+    _record(
+        plan,
+        path,
+        contents,
+        force=force,
+        reason="exists; preserve repository-specific commit-policy CI",
+    )
+
+
+def _workflow_supports_mobile(path: Path, *, swift: bool, kotlin: bool) -> bool:
+    if not swift and not kotlin:
+        return True
+    try:
+        parsed: object = parse_yaml(path.read_text(encoding="utf-8"))
+    except OSError, yaml.YAMLError:
+        return False
+    repository = path.parents[2]
+    source_checkout = (repository / "packages" / "standards" / "src" / "sarj_standards").resolve() == Path(
+        __file__
+    ).parents[2]
+    jobs = manifest.table_field(manifest.as_table(parsed), "jobs")
+    standards_jobs = tuple(
+        manifest.as_table(raw_job)
+        for raw_job in jobs.values()
+        if any(
+            _run_value_executes_standards_check(command, source_checkout=source_checkout)
+            for command in _workflow_run_commands(raw_job)
+        )
+    )
+    if not standards_jobs:
+        return False
+    return all(_mobile_job_prerequisites(job, swift=swift, kotlin=kotlin) for job in standards_jobs)
+
+
+def _mobile_job_prerequisites(job: Mapping[str, object], *, swift: bool, kotlin: bool) -> bool:
+    runner = job.get("runs-on")
+    if swift and (not isinstance(runner, str) or re.fullmatch(r"macos-(?:14|15|latest)", runner) is None):
+        return False
+    if not kotlin:
+        return True
+    for raw_step in _object_list(job.get("steps")):
+        step = manifest.as_table(raw_step)
+        uses = step.get("uses")
+        inputs = manifest.table_field(step, "with")
+        if (
+            isinstance(uses, str)
+            and re.fullmatch(r"actions/setup-java@[0-9a-f]{40}", uses) is not None
+            and inputs.get("distribution") == "temurin"
+            and str(inputs.get("java-version")) == "21"
+        ):
+            return True
+    return False
+
+
+def _report_independent_roots(
+    repository: Path,
+    selected: Path,
+    names: Sequence[str],
+    label: str,
+    plan: Plan,
+) -> None:
+    independent = [path for path in _all_roots(repository, names) if not path.is_relative_to(selected)]
+    if not independent:
+        return
+    roots = ", ".join(path.relative_to(repository).as_posix() or "." for path in (selected, *independent))
+    option = "--python-dest" if label == "Python" else "--typescript-dest"
+    plan.errors.append(
+        f"multiple independent {label} roots detected: {roots}; run setup in each independent project"
+        f" or select one with {option}"
+    )
+
+
+def _report_unwired_nested_eslint_configs(repository: Path, selected: Path, plan: Plan) -> None:
+    # A selected TypeScript destination is an authority boundary. ESLint roots
+    # in sibling workspaces cannot shadow that project and must not be
+    # rewritten as though they were its descendants.
+    for config_root in _all_roots(selected, _ESLINT_CONFIG_NAMES):
+        if config_root == selected:
+            continue
+        configs = tuple(config_root / name for name in _ESLINT_CONFIG_NAMES if (config_root / name).is_file())
+        strict = selected / "eslint.strict.mjs"
+        if not configs or any(
+            _eslint_wiring_reaches_strict(path, repository, planned_strict=strict) for path in configs
+        ):
+            continue
+        relative = config_root.relative_to(repository).as_posix()
+        if len(configs) == 1 and (wired := _wire_nested_eslint(configs[0], strict)) is not None:
+            plan.writes.append((configs[0], wired))
+            plan.notes.append(f"wired nested ESLint policy in {relative}")
+            continue
+        plan.errors.append(
+            f"nested ESLint config in {relative} would shadow Standards and cannot be merged safely; "
+            f"run setup with --typescript-dest {shlex.quote(relative)} or wire that config to eslint.strict.mjs"
+        )
+
+
+_NAMED_ESLINT_EXPORT = re.compile(r"(?m)^\s*export\s+default\s+(?P<name>[A-Za-z_$][\w$]*)\s*;?\s*$")
+
+
+def _wire_nested_eslint(path: Path, strict: Path) -> str | None:
+    text = path.read_text(encoding="utf-8")
+    exported = _NAMED_ESLINT_EXPORT.search(text)
+    if exported is None:
+        return None
+    name = re.escape(exported.group("name"))
+    if (
+        re.search(
+            rf"(?m)^\s*(?:const|let)\s+{name}(?:\s*:[^=\n]+)?\s*=\s*(?:defineConfig\s*\(\s*)?\[",
+            text[: exported.start()],
+        )
+        is None
+    ):
+        # An imported identifier, function result, or object is not known to be
+        # iterable. Spreading it could make ESLint crash after setup.
+        return None
+    relative = os.path.relpath(strict, path.parent).replace(os.sep, "/")
+    specifier = relative if relative.startswith(".") else f"./{relative}"
+    prefix = f'import sarjStrict from "{specifier}";\n\n'
+    replacement = f"export default [...sarjStrict, ...{exported.group('name')}];"
+    return f"{prefix}{text[: exported.start()]}{replacement}{text[exported.end() :]}"
+
+
+def dest_of(root: Path, subdirectory: Path | None) -> str:
+    if subdirectory is None:
+        return "."
+    return subdirectory.relative_to(root).as_posix() or "."
+
+
+def _note_subproject_destinations(root: Path, plan: Plan) -> None:
+    for label, subdirectory in (
+        ("python", plan.ecosystems.python_root),
+        ("typescript", plan.ecosystems.typescript_root),
+        ("swift", plan.ecosystems.swift_root),
+        ("kotlin", plan.ecosystems.kotlin_root),
+    ):
+        dest = dest_of(root, subdirectory)
+        if dest != ".":
+            plan.notes.append(
+                f"the {label} project is {dest}/, not the repo root, so its configs"
+                f" were written there. Future setup and update runs read the same destinations from"
+                f" {manifest.MANIFEST_NAME}."
+            )
+
+
+def _plan_manifest(root: Path, plan: Plan, *, force: bool, update_existing: bool) -> None:
+    path = manifest.manifest_path(root)
+    current = manifest.load_for_setup(root) if path.is_file() else None
+    desired = _desired_manifest(root, plan, current)
+    contents = desired.render()
+    if current is not None:
+        try:
+            strict = manifest.load(root)
+        except ValueError:
+            strict = None
+        if strict is None:
+            _plan_legacy_manifest(path, contents, desired, plan)
+            return
+        if strict != desired:
+            if not force and not update_existing:
+                plan.skips.append((path, "exists; preserve repository-specific adoption settings"))
+                return
+            current_text = path.read_text(encoding="utf-8")
+            try:
+                updated = _render_manifest_preserving_extensions(current_text, contents)
+            except ValueError as exc:
+                plan.errors.append(str(exc))
+                return
+            plan.writes.append((path, updated))
+            plan.notes.append("updated the manifest to match the requested capabilities")
+            return
+    _record(plan, path, contents, force=force, reason="already declares an adopted version")
+
+
+def _plan_legacy_manifest(path: Path, contents: str, desired: manifest.Manifest, plan: Plan) -> None:
+    legacy_text = path.read_text(encoding="utf-8")
+    if re.search(r"(?m)^\s*schema\s*=", legacy_text):
+        try:
+            migrated = _render_manifest_preserving_extensions(legacy_text, contents)
+        except ValueError as exc:
+            plan.errors.append(str(exc))
+            return
+        plan.writes.append((path, migrated))
+        plan.notes.append("migrated the manifest to the current schema and rule catalog")
+        return
+    plan.writes.append((path, _migrate_schema_less_manifest(legacy_text, desired)))
+    plan.notes.append("migrated the legacy manifest to the current schema")
+    return
+
+
+def _desired_manifest(root: Path, plan: Plan, current: manifest.Manifest | None) -> manifest.Manifest:
+    detected_generated = _generated_python_exclusions(root, plan.ecosystems.python_root)
+    existing_exclusions = () if current is None else current.excluded_paths
+    return manifest.Manifest(
+        version=manifest.adopted_version(),
+        configs=plan.configs,
+        python_dest=dest_of(root, plan.ecosystems.python_root),
+        typescript_dest=dest_of(root, plan.ecosystems.typescript_root),
+        swift_dest=dest_of(root, plan.ecosystems.swift_root),
+        kotlin_dest=dest_of(root, plan.ecosystems.kotlin_root),
+        profile=plan.profile,
+        hook_manager=plan.hook_manager,
+        verify_paths=(".",) if current is None else current.verify_paths,
+        excluded_paths=tuple(dict.fromkeys((*existing_exclusions, *detected_generated))),
+        excluded_rules=() if current is None else current.excluded_rules,
+        exclusion_overrides=() if current is None else current.exclusion_overrides,
+        durable_artifacts=manifest.DEFAULT_DURABLE_ARTIFACTS if current is None else current.durable_artifacts,
+        text_excluded_paths=() if current is None else current.text_excluded_paths,
+        doctor_excluded_paths=() if current is None else current.doctor_excluded_paths,
+        diagnostic_baseline=None if current is None else current.diagnostic_baseline,
+        ci_bootstrap=() if current is None else current.ci_bootstrap,
+        ci_runner=None if current is None else current.ci_runner,
+    )
+
+
+def _plan_retired_repository_launcher(root: Path, plan: Plan) -> None:
+    path = root / launcher.RETIRED_REPOSITORY_LAUNCHER
+    if not path.exists():
+        return
+    if not path.is_file():
+        plan.errors.append(f"retired launcher target must be a regular file: {path}")
+        return
+    if path.read_bytes() != launcher.retired_repository_script().encode():
+        plan.errors.append(f"refusing to remove customized retired launcher: {path}")
+        return
+    plan.deletes.append(path)
+
+
+def _render_manifest_preserving_extensions(  # ruff: ignore[too-many-locals] -- preservation keeps source spans explicit.
+    text: str, rendered: str
+) -> str:
+    try:
+        parsed: object = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        msg = "cannot preserve extensions from an invalid Standards manifest"
+        raise ValueError(msg) from exc
+    data = manifest.as_table(parsed)
+    extensions = frozenset(data).difference(_OWNED_MANIFEST_ROOT_KEYS)
+    for name in extensions:
+        value = data[name]
+        if not isinstance(value, (dict, list)):
+            msg = f"cannot safely rewrite unowned top-level manifest key {name!r}; move it into an extension table"
+            raise TypeError(msg)
+    matches = tuple(_TOML_TABLE_HEADER.finditer(text))
+    preserved: list[str] = []
+    found: set[str] = set()
+    for index, match in enumerate(matches):
+        root_table = match.group("name").split(".", 1)[0]
+        if root_table not in extensions:
+            continue
+        found.add(root_table)
+        start = match.start()
+        while start > 0:
+            previous_end = start - 1
+            previous_start = text.rfind("\n", 0, previous_end) + 1
+            previous = text[previous_start:previous_end].strip()
+            if previous and not previous.startswith("#"):
+                break
+            start = previous_start
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        preserved.append(text[start:end].strip("\n"))
+    missing = extensions.difference(found)
+    if missing:
+        names = ", ".join(sorted(missing))
+        msg = f"cannot safely locate unowned manifest extension table(s): {names}"
+        raise ValueError(msg)
+    if not preserved:
+        return rendered
+    return f"{rendered.rstrip()}\n\n{'\n\n'.join(preserved)}\n"
+
+
+def _migrate_schema_less_manifest(text: str, desired: manifest.Manifest) -> str:
+    version_line = _SCHEMA_LESS_VERSION_LINE.search(text)
+    if version_line is None:  # The legacy loader proves this before planning.
+        return text
+    prefix = f'schema = {manifest.MANIFEST_SCHEMA}\nbundle = "{desired.version}"\nrule_profile = "all"\n'
+    migrated = f"{text[: version_line.start()]}{prefix}{text[version_line.end() :]}"
+    migrated = _without_schema_less_configs(migrated)
+    disabled = tuple(name for name in manifest.ALL_CONFIGS if name not in desired.configs)
+    disabled_text = ", ".join(f'"{name}"' for name in disabled)
+    policy = f"\n[capabilities]\ndisable = [{disabled_text}]\n"
+    table = _FIRST_TOML_TABLE.search(migrated)
+    if table is None:
+        migrated = f"{migrated.rstrip()}\n{policy}"
+    else:
+        migrated = f"{migrated[: table.start()].rstrip()}\n{policy}\n{migrated[table.start() :]}"
+    return _render_manifest_preserving_extensions(migrated, desired.render())
+
+
+def _without_schema_less_configs(text: str) -> str:
+    lines = text.splitlines(keepends=True)
+    kept: list[str] = []
+    skipping = False
+    depth = 0
+    for line in lines:
+        if not skipping and _SCHEMA_LESS_CONFIGS_START.match(line):
+            skipping = True
+        if skipping:
+            depth += line.count("[") - line.count("]")
+            if depth <= 0:
+                skipping = False
+            continue
+        kept.append(line)
+    return "".join(kept)
+
+
+def _generated_python_exclusions(repository: Path, python_root: Path | None) -> tuple[str, ...]:
+    if python_root is None:
+        return ()
+    exclusions: list[str] = []
+    for project in _all_roots(python_root, ("pyproject.toml",)):
+        if project == repository:
+            continue
+        if _is_speakeasy_project(project):
+            exclusions.append(f"{project.relative_to(repository).as_posix()}/**")
+            continue
+        package = _openapi_python_client_package(project)
+        if package is not None:
+            exclusions.append(f"{package.relative_to(repository).as_posix()}/**")
+    return tuple(sorted(set(exclusions)))
+
+
+def _is_speakeasy_project(project: Path) -> bool:
+    if not (project / ".speakeasy" / "gen.yaml").is_file():
+        return False
+    source = project / "src"
+    if not source.is_dir():
+        return False
+    marker = "Code generated by Speakeasy (https://speakeasy.com). DO NOT EDIT."
+    for candidate in sorted(source.rglob("*.py"))[:8]:
+        try:
+            if marker in candidate.read_text(encoding="utf-8", errors="replace")[:512]:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _openapi_python_client_package(project: Path) -> Path | None:
+    generator = project / "generate.py"
+    pyproject = project / "pyproject.toml"
+    if not (project / "codegen.config.yml").is_file() or not generator.is_file():
+        return None
+    try:
+        generator_text = generator.read_text(encoding="utf-8", errors="replace")
+        parsed: object = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return None
+    data = manifest.as_table(parsed)
+    description = manifest.text_field(manifest.table_field(data, "project"), "description") or ""
+    if not description.casefold().startswith("generated ") or "openapi-python-client" not in generator_text:
+        return None
+    tool = manifest.table_field(data, "tool")
+    hatch = manifest.table_field(tool, "hatch")
+    build = manifest.table_field(hatch, "build")
+    targets = manifest.table_field(build, "targets")
+    wheel = manifest.table_field(targets, "wheel")
+    packages = manifest.list_field(wheel, "packages")
+    if len(packages) != 1 or not isinstance(packages[0], str):
+        return None
+    package = (project / packages[0]).resolve()
+    if package.parent != project.resolve() or not package.is_dir() or is_link_like(package):
+        return None
+    return package
+
+
+def _plan_python(root: Path, plan: Plan, *, force: bool) -> None:
+    standalone_ruff = [root / name for name in _STANDALONE_RUFF_CONFIG_NAMES if (root / name).is_file()]
+    if standalone_ruff:
+        names = ", ".join(path.name for path in standalone_ruff)
+        plan.errors.append(
+            f"cannot safely adopt Ruff while standalone config(s) are active in {root}: {names}; "
+            "consolidate their settings into pyproject.toml, remove them, and rerun setup"
+        )
+        return
+    pyproject = root / "pyproject.toml"
+    python_target: str | None = None
+    if pyproject.is_file():
+        text = pyproject.read_text(encoding="utf-8")
+        try:
+            parsed: object = tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            plan.errors.append(f"cannot safely wire {pyproject}: {exc}")
+            return
+        document = manifest.as_table(parsed)
+        project = manifest.table_field(document, "project")
+        requires_python = project.get("requires-python")
+        python_target = _python_target(document)
+        if not _validate_python_project(pyproject, document, requires_python, python_target, plan):
+            return
+        tool = manifest.as_table(document.get("tool"))
+        ruff = manifest.as_table(tool.get("ruff"))
+        _plan_ruff_extension(pyproject, text, ruff, plan)
+    _plan_python_typechecker(root, plan, python_target, force=force)
+
+
+def _validate_python_project(
+    pyproject: Path, document: Mapping[str, object], requires_python: object, python_target: str | None, plan: Plan
+) -> bool:
+    # Transaction validation owns link rejection. Do not inspect a linked
+    # document deeply enough to replace the clearer mutation-safety error.
+    if not is_link_like(pyproject) and (not isinstance(requires_python, str) or python_target is None):
+        plan.errors.append(
+            f"cannot safely adopt the Python 3.14 Standards profile in {pyproject}: "
+            "[project].requires-python must be a valid specifier that includes Python 3.14"
+        )
+        return False
+    if not is_link_like(pyproject) and python_target != "3.14":
+        plan.errors.append(
+            f"cannot safely adopt the Python 3.14 Standards profile in {pyproject}: "
+            f"the project targets Python {python_target}; use a Python 3.14-compatible range or the advisory "
+            "Python 3.15 watch profile"
+        )
+        return False
+    tool = manifest.as_table(document.get("tool"))
+    pyright_tables = tuple(name for name in ("pyright", "basedpyright") if name in tool)
+    if pyright_tables:
+        tables = " and ".join(f"[tool.{name}]" for name in pyright_tables)
+        plan.errors.append(
+            f"cannot safely wire {pyproject}: {tables} cannot inherit the canonical JSON configuration; "
+            "move those settings to pyrightconfig.json, remove the TOML table, then rerun setup"
+        )
+        return False
+    ruff = manifest.as_table(tool.get("ruff"))
+    lint = manifest.as_table(ruff.get("lint"))
+    conflicts = _ruff_policy_conflicts(lint)
+    if conflicts:
+        rendered = ", ".join(f"{first}/{second}" for first, second in conflicts)
+        plan.errors.append(
+            f"cannot safely wire {pyproject}: [tool.ruff.lint] defines both {rendered}; "
+            "combine each pair under the extend-* key, then rerun setup"
+        )
+        return False
+    existing_extend = ruff.get("extend")
+    if existing_extend is not None and existing_extend != ".ruff-strict.toml":
+        plan.errors.append(
+            f"cannot safely wire {pyproject}: [tool.ruff] already extends {existing_extend!r}; "
+            "preserve that config chain manually before adding .ruff-strict.toml"
+        )
+        return False
+    return True
+
+
+def _ruff_policy_conflicts(lint: Mapping[str, object]) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (key, f"extend-{key}")
+        for key in ("select", "ignore")
+        if key in lint and f"extend-{key}" in lint and not (key == "select" and lint.get("select") == ["ALL"])
+    )
+
+
+def _plan_ruff_extension(pyproject: Path, text: str, ruff: Mapping[str, object], plan: Plan) -> None:
+    updated = _extend_ruff_replacement_policy(text)
+    if ruff.get("extend") == ".ruff-strict.toml" and updated != text:
+        plan.writes.append((pyproject, updated))
+    elif ruff.get("extend") == ".ruff-strict.toml":
+        plan.skips.append((pyproject, "already extends .ruff-strict.toml"))
+    elif _RUFF_EXTEND.search(updated):
+        wired = _RUFF_EXTEND.sub('[tool.ruff]\nextend = ".ruff-strict.toml"', updated, count=1)
+        plan.writes.append((pyproject, wired))
+    elif updated != text:
+        plan.writes.append((pyproject, f'{updated}\n[tool.ruff]\nextend = ".ruff-strict.toml"\n'))
+    else:
+        plan.edits.append((pyproject, '\n[tool.ruff]\nextend = ".ruff-strict.toml"\n'))
+
+
+def _plan_python_typechecker(root: Path, plan: Plan, python_target: str | None, *, force: bool) -> None:
+    pyright = root / _PYRIGHT_CONFIG
+    pyright_jsonc = root / "pyrightconfig.jsonc"
+    if pyright_jsonc.is_file():
+        competing = f" alongside {pyright}" if pyright.is_file() else ""
+        plan.errors.append(
+            f"cannot safely wire {pyright_jsonc}{competing}; Pyright JSONC may contain comments and only one "
+            f"extends parent, so compose {_PYRIGHT_POLICY_PARENT} manually before rerunning setup"
+        )
+        return
+    if pyright.is_file():
+        _plan_existing_pyright(pyright, plan, python_target)
+    else:
+        generated_document: dict[str, object] = {"extends": _PYRIGHT_POLICY_PARENT}
+        if python_target is not None:
+            generated_document["pythonVersion"] = python_target
+        _record(
+            plan,
+            pyright,
+            json.dumps(generated_document, indent=2) + "\n",
+            force=force,
+            reason=f'exists; add `"extends": "{_PYRIGHT_POLICY_PARENT}"` yourself',
+        )
+
+
+def _plan_existing_pyright(pyright: Path, plan: Plan, python_target: str | None) -> None:
+    document, error = _json_object(pyright)
+    if error is not None:
+        plan.errors.append(f"cannot safely wire {pyright}: {error}")
+    elif document is not None:
+        existing_pyright_extend = document.get("extends")
+        if existing_pyright_extend not in {None, _LEGACY_PYRIGHT_POLICY_PARENT, _PYRIGHT_POLICY_PARENT}:
+            plan.errors.append(
+                f"cannot safely wire {pyright}: it already extends {existing_pyright_extend!r}; "
+                f"Pyright supports one parent, so preserve that config chain manually before adding "
+                f"{_PYRIGHT_POLICY_PARENT}"
+            )
+            return
+        changed = existing_pyright_extend != _PYRIGHT_POLICY_PARENT
+        document["extends"] = _PYRIGHT_POLICY_PARENT
+        if python_target is not None and "pythonVersion" not in document:
+            document["pythonVersion"] = python_target
+            changed = True
+        if changed:
+            plan.writes.append(
+                (pyright, json.dumps(document, indent=_indent_of(pyright.read_text(encoding=None))) + "\n")
+            )
+        else:
+            plan.skips.append((pyright, f"already extends {_PYRIGHT_POLICY_PARENT}"))
+
+
+def _python_target(document: Mapping[str, object]) -> str | None:
+    requires_python = manifest.table_field(document, "project").get("requires-python")
+    if not isinstance(requires_python, str):
+        return None
+    try:
+        specifiers = SpecifierSet(requires_python)
+    except InvalidSpecifier:
+        return None
+    boundary_versions: list[Version] = []
+    for specifier in specifiers:
+        try:
+            boundary_versions.append(Version(specifier.version.rstrip(".*")))
+        except InvalidVersion:
+            continue
+    for minor in range(8, 16):
+        candidates = [Version(f"3.{minor}.0"), Version(f"3.{minor}.999"), *boundary_versions]
+        if any(
+            candidate.major == _PYTHON_MAJOR and candidate.minor == minor and candidate in specifiers
+            for candidate in candidates
+        ):
+            return f"3.{minor}"
+    return None
+
+
+def _extend_ruff_replacement_policy(text: str) -> str:
+
+    def rewrite_section(section: re.Match[str]) -> str:
+        def rewrite_key(match: re.Match[str]) -> str:
+            replacement = "extend-select" if match.group("key") == "select" else "extend-ignore"
+            return f"{match.group('indent')}{replacement}{match.group('equals')}"
+
+        body = section.group("body")
+        if _RUFF_REPLACEMENT_KEY.search(body) and re.search(r"(?m)^\s*extend-select\s*=", body):
+            body = _RUFF_REDUNDANT_SELECT_ALL.sub("", body)
+        body = _RUFF_REPLACEMENT_KEY.sub(rewrite_key, body)
+        return f"{section.group('header')}{body}"
+
+    return _RUFF_LINT_SECTION.sub(rewrite_section, text)
+
+
+def _json_object(path: Path) -> _JsonObjectResult:
+    try:
+        parsed: object = parse_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return _JsonObjectResult(None, str(exc))
+    if not is_object_mapping(parsed):
+        return _JsonObjectResult(None, "expected a JSON object")
+    document = manifest.as_table(parsed)
+    return _JsonObjectResult(document, None)
+
+
+def _plan_typescript(root: Path, plan: Plan, *, force: bool) -> None:
+    existing_configs = [root / name for name in _ESLINT_CONFIG_NAMES if (root / name).is_file()]
+    if len(existing_configs) > 1:
+        names = ", ".join(path.name for path in existing_configs)
+        plan.errors.append(f"multiple active ESLint flat configs in {root}: {names}; keep one before running setup")
+        return
+    eslint = existing_configs[0] if existing_configs else root / _ESLINT_CONFIG
+    if eslint.is_file():
+        text = eslint.read_text(encoding="utf-8")
+        if _eslint_wiring_reaches_strict(eslint, root, planned_strict=root / "eslint.strict.mjs"):
+            plan.skips.append((eslint, "already imports eslint.strict.mjs"))
+        elif re.search(r"(?m)^[ \t]*export\s+default\s+defineConfig\s*\(\s*\[", text):
+            wired = f'import strict from "./eslint.strict.mjs";\n\n{
+                re.sub(
+                    r"(?m)^[ \t]*export\s+default\s+defineConfig\s*\(\s*\[",
+                    "export default defineConfig([\n  ...strict,",
+                    text,
+                    count=1,
+                )
+            }'
+            plan.writes.append((eslint, wired))
+        elif re.search(r"(?m)^[ \t]*export\s+default\s*\[", text):
+            wired = f'import strict from "./eslint.strict.mjs";\n\n{
+                re.sub(
+                    r"(?m)^[ \t]*export\s+default\s*\[",
+                    "export default [\n  ...strict,",
+                    text,
+                    count=1,
+                )
+            }'
+            plan.writes.append((eslint, wired))
+        else:
+            plan.errors.append(
+                f"cannot safely wire {eslint}; import `./eslint.strict.mjs` and spread it in the exported flat config"
+            )
+    else:
+        _record(plan, eslint, _eslint_entrypoint(), force=force, reason="exists; import ./eslint.strict.mjs from it")
+    client = plan.ecosystems.client
+    install_root = plan.ecosystems.typescript_install_root or root
+    _plan_npm_overrides(install_root, plan, client)
+    typescript_root = plan.ecosystems.typescript_root
+    if (
+        client is PackageManager.YARN
+        and typescript_root is not None
+        and typescript_root.resolve() != install_root.resolve()
+    ):
+        _plan_yarn_workspace_peers(typescript_root, plan)
+    # pnpm 11 reads overrides from pnpm-workspace.yaml even for a standalone
+    # package. Setup creates that policy file below, so the ensuing install is
+    # always a workspace install for pnpm.
+    is_workspace = (
+        client is PackageManager.PNPM or install_root != root or (install_root / "pnpm-workspace.yaml").is_file()
+    )
+    plan.notes.append(
+        f"detected {client} -- install the tested ESLint peer set:\n"
+        f"    {packagemanager.install_command(client, workspace=is_workspace, yarn=plan.ecosystems.yarn)}"
+    )
+    caveat = packagemanager.install_note(client, yarn=plan.ecosystems.yarn)
+    if caveat is not None:
+        plan.notes.append(caveat)
+
+
+_LOCAL_MODULE = re.compile(
+    r"(?m)^\s*(?:import\b[^;\n]*?\bfrom\s+|import\s*|export\b[^;\n]*?\bfrom\s+)"
+    r"[\"'](?P<path>\.[^\"']+)[\"']"
+)
+
+
+def _eslint_wiring_reaches_strict(
+    path: Path,
+    root: Path,
+    seen: set[Path] | None = None,
+    *,
+    planned_strict: Path | None = None,
+) -> bool:
+    visited: set[Path] = set() if seen is None else seen
+    resolved = path.resolve()
+    if resolved in visited or not resolved.is_file():
+        return False
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        return False
+    visited.add(resolved)
+    text = resolved.read_text(encoding="utf-8", errors="replace")
+    for match in _LOCAL_MODULE.finditer(text):
+        target = (resolved.parent / match.group("path")).resolve()
+        if target.name == "eslint.strict.mjs" and (
+            target.is_file() or (planned_strict is not None and target == planned_strict.resolve())
+        ):
+            return True
+        candidates = (target, *(target.with_suffix(suffix) for suffix in (".js", ".mjs", ".cjs", ".ts")))
+        if any(
+            _eslint_wiring_reaches_strict(candidate, root, visited, planned_strict=planned_strict)
+            for candidate in candidates
+        ):
+            return True
+    return False
+
+
+def _plan_npm_overrides(root: Path, plan: Plan, client: PackageManager) -> None:
+    overrides = packagemanager.overrides_for(client)
+    pnpm_workspace = root / "pnpm-workspace.yaml"
+    package_overrides: Overrides | None = overrides
+    if client is PackageManager.PNPM:
+        current = pnpm_workspace.read_text(encoding="utf-8") if pnpm_workspace.is_file() else ""
+        try:
+            merged = _merged_pnpm_workspace(current, overrides.entries)
+        except ValueError as exc:
+            plan.errors.append(f"cannot safely merge pnpm overrides into {pnpm_workspace}: {exc}")
+            return
+        if merged == current and pnpm_workspace.is_file():
+            plan.skips.append((pnpm_workspace, "already carries the pnpm peer overrides"))
+        else:
+            plan.writes.append((pnpm_workspace, merged))
+        package_overrides = None
+    override_target = package_json = root / "package.json"
+    if client is PackageManager.PNPM:
+        override_target = pnpm_workspace
+        rendered_overrides = "".join(
+            f"      {json.dumps(key)}: {json.dumps(value)}\n" for key, value in overrides.entries.items()
+        ).rstrip()
+        printed = f"    overrides:\n{rendered_overrides}"
+    else:
+        printed = textwrap.indent(json.dumps(overrides.as_document(), indent=2), "    ")
+    if not package_json.is_file():
+        plan.errors.append(
+            f"cannot adopt TypeScript in {root}: no package.json exists at the detected install root, so the "
+            f"tested ESLint peers and {client} overrides cannot be installed; select the correct workspace root"
+        )
+        return
+    try:
+        merged = _merged_npm_overrides(package_json.read_text(encoding="utf-8"), package_overrides, client=client)
+    except (TypeError, ValueError) as exc:
+        plan.errors.append(f"cannot safely merge tested ESLint peers into {package_json}: {exc}")
+        return
+    if merged is None:
+        plan.skips.append((package_json, f"already pins the tested ESLint peers and {client} overrides"))
+        return
+    plan.writes.append((package_json, merged))
+    plan.notes.append(
+        f"pinned the tested ESLint peers in {package_json} and merged the {client} overrides into "
+        f"{override_target}:\n{printed}\n"
+        f"    {client} cannot resolve the tree without them -- eslint-plugin-react"
+        " peers eslint <=9.7 and the unicorn floor needs >=10.4."
+    )
+
+
+def _plan_yarn_workspace_peers(typescript_root: Path, plan: Plan) -> None:
+    package_json = typescript_root / "package.json"
+    if not package_json.is_file():
+        plan.errors.append(f"cannot adopt TypeScript in {typescript_root}: package.json is missing")
+        return
+    try:
+        merged = _merged_npm_overrides(package_json.read_text(encoding="utf-8"), None, client=PackageManager.YARN)
+    except (TypeError, ValueError) as exc:
+        plan.errors.append(f"cannot safely merge tested ESLint peers into {package_json}: {exc}")
+        return
+    if merged is None:
+        plan.skips.append((package_json, "Yarn workspace already pins the tested ESLint peers"))
+        return
+    plan.writes.append((package_json, merged))
+    plan.notes.append(
+        f"pinned the tested ESLint peers in Yarn workspace {package_json};"
+        " Plug'n'Play resolves config imports from that workspace rather than its install root"
+    )
+
+
+def _merged_pnpm_workspace(text: str, entries: Mapping[str, object]) -> str:
+    if re.search(r"""(?m)^(?:overrides|"overrides"|'overrides'):[ \t]*[^\s#]""", text):
+        msg = "flow-style `overrides` is unsupported; convert it to a YAML block mapping and rerun setup"
+        raise ValueError(msg)
+    current = packagemanager.pnpm_workspace_values(text)
+    for key, value in entries.items():
+        if key not in current or current[key] == str(value):
+            continue
+        pattern = re.compile(rf"(?m)^(?P<indent>\s*)(?:{re.escape(json.dumps(key))}|{re.escape(key)}):[^\n]*$")
+        text = pattern.sub(rf"\g<indent>{json.dumps(key)}: {json.dumps(value)}", text, count=1)
+    current = packagemanager.pnpm_workspace_values(text)
+    missing = [(key, value) for key, value in entries.items() if current.get(key) != str(value)]
+    if not missing:
+        return text
+    rendered = "".join(f"  {json.dumps(key)}: {json.dumps(value)}\n" for key, value in missing)
+    heading = re.search(r"(?m)^overrides:\s*$", text)
+    if heading is None:
+        prefix = "" if not text or text.endswith("\n") else "\n"
+        return f"{text}{prefix}overrides:\n{rendered}"
+    insertion = heading.end() + (1 if text[heading.end() :].startswith("\n") else 0)
+    return text[:insertion] + rendered + text[insertion:]
+
+
+def _merged_npm_overrides(text: str, overrides: Overrides | None, *, client: PackageManager) -> str | None:
+    parsed: object = parse_json(text)
+    data = manifest.as_table(parsed)
+    if not data:
+        msg = "package.json must contain a non-empty JSON object"
+        raise TypeError(msg)
+    changed = False
+    runtime_dependencies = manifest.table_field(data, "dependencies")
+    existing_peers = manifest.table_field(data, "devDependencies")
+    updated_runtime = dict(runtime_dependencies)
+    updated_peers = dict(existing_peers)
+    for name, peer_version in manifest.eslint_peers().items():
+        # Preserve dependency-section ownership while repairing duplicate peers.
+        if name in runtime_dependencies:
+            current = runtime_dependencies[name]
+            current_major = _semver_major(current)
+            required_major = _semver_major(peer_version)
+            if current != peer_version and (current_major is None or current_major != required_major):
+                msg = (
+                    f"{name} is an application runtime dependency at {current!r}, but Standards requires "
+                    f"{peer_version!r}; setup will not silently change its major version. Move lint tooling to "
+                    "devDependencies or upgrade the runtime dependency explicitly, then rerun setup"
+                )
+                raise ValueError(msg)
+            updated_runtime[name] = peer_version
+            updated_peers.pop(name, None)
+        else:
+            updated_peers[name] = peer_version
+    if updated_runtime != runtime_dependencies:
+        data["dependencies"] = updated_runtime
+        changed = True
+    if updated_peers != existing_peers:
+        data["devDependencies"] = updated_peers
+        changed = True
+    if overrides is not None:
+        changed = _merge_override_entries(data, overrides, client=client) or changed
+    if not changed:
+        return None
+    rendered = json.dumps(data, indent=_indent_of(text), ensure_ascii=False)
+    return rendered + "\n" if text.endswith("\n") else rendered
+
+
+def _merge_override_entries(data: dict[str, object], overrides: Overrides, *, client: PackageManager) -> bool:
+    *outer, final = overrides.key_path
+    container = data
+    for key in outer:
+        container = manifest.table_field(container, key)
+    existing = manifest.table_field(container, final)
+    updated = dict(existing)
+    for name, value in overrides.entries.items():
+        # A consumer may already override the same package for a different
+        # reason, so merge the inner table rather than replacing it.
+        current_value = updated.get(name)
+        current_entry = manifest.table_field(updated, name)
+        new_entry = manifest.as_table(value)
+        if new_entry and current_value is not None and not isinstance(current_value, dict):
+            current_entry = {".": current_value}
+        updated[name] = {**current_entry, **new_entry} if new_entry else value
+    if client is PackageManager.NPM:
+        _align_npm_direct_dependency_overrides(updated)
+    if updated != existing or not _has_path(data, overrides.key_path):
+        _set_path(data, overrides.key_path, updated)
+        return True
+    return False
+
+
+def _align_npm_direct_dependency_overrides(overrides: dict[str, object]) -> None:
+    for name, pinned in manifest.eslint_peers().items():
+        current = overrides.get(name)
+        if isinstance(current, str):
+            if current not in {pinned, f"${name}"}:
+                overrides[name] = f"${name}"
+            continue
+        current_table = manifest.as_table(current)
+        root_spec = current_table.get(".")
+        if root_spec is not None and root_spec not in {pinned, f"${name}"}:
+            overrides[name] = {**current_table, ".": f"${name}"}
+
+
+def _semver_major(value: object) -> int | None:
+    if not isinstance(value, str):
+        return None
+    match = re.match(r"^\s*(?:[~^]|>=?|<=?|=)?\s*v?(?P<major>\d+)(?:\.|\s|$)", value)
+    return int(match.group("major")) if match is not None else None
+
+
+def _has_path(data: Mapping[str, object], key_path: Sequence[str]) -> bool:
+    table: Mapping[str, object] = data
+    for key in key_path[:-1]:
+        table = manifest.table_field(table, key)
+    return key_path[-1] in table
+
+
+def _set_path(data: dict[str, object], key_path: Sequence[str], value: object) -> None:
+    table = data
+    for key in key_path[:-1]:
+        nested = manifest.table_field(table, key)
+        table[key] = nested
+        table = nested
+    table[key_path[-1]] = value
+
+
+def _indent_of(text: str) -> int | str:
+    match = re.search(r"\n(?P<indent>[ \t]+)\S", text)
+    return match.group("indent") if match else 2
+
+
+def _eslint_entrypoint() -> str:
+    return """// Flat config entrypoint. `eslint.strict.mjs` next to this file is SYNCED --
+// `code-standards setup` overwrites it, and `setup --dry-run` fails CI if
+// you edit it. Put every repo-specific decision HERE instead, in the override
+// block below: later entries win, so you can relax a rule, add a framework
+// exemption, or scope one to a directory without forking the canonical file.
+import strict from "./eslint.strict.mjs";
+
+// Bun, Testing Library, and Playwright are opt-in because their global test
+// syntax overlaps other runners. To enable them, replace the import above with:
+//   import { createConfig } from "./eslint.strict.mjs";
+//   const strict = createConfig({
+//     testFrameworks: ["vitest", "bun", "node", "testing-library", "playwright"],
+//     playwrightTestFiles: ["tests/browser/**/*.spec.ts"],
+//   });
+
+export default [
+  ...strict,
+
+  // --- repo-specific overrides -------------------------------------------
+  // Example: your router generates bracketed filenames that unicorn rejects.
+  //
+  // {
+  //   files: ["src/routes/**/*.tsx"],
+  //   rules: {
+  //     "unicorn/filename-case": ["error", {
+  //       cases: { kebabCase: true },
+  //       ignore: [String.raw`^\\[`],
+  //     }],
+  //   },
+  // },
+];
+"""
+
+
+def _plan_precommit(root: Path, plan: Plan, *, force: bool) -> None:
+    existing = [root / name for name in _PRECOMMIT_CONFIG_NAMES if (root / name).is_file()]
+    if len(existing) > 1:
+        plan.errors.append(
+            "multiple pre-commit configurations are active: "
+            + ", ".join(path.name for path in existing)
+            + "; keep one before running setup"
+        )
+        return
+    path = existing[0] if existing else root / _PRECOMMIT_CONFIG_NAMES[0]
+    block = precommit_block()
+    if path.is_file():
+        _plan_existing_precommit(root, path, block, plan)
+        return
+    _record(plan, path, f"repos:\n{block}", force=force, reason="exists")
+
+
+def _plan_existing_precommit(root: Path, path: Path, block: str, plan: Plan) -> None:
+    try:
+        text = path.read_bytes().decode("utf-8")
+        hooks.validate_precommit_configuration(text)
+    except (OSError, UnicodeError, ValueError) as exc:
+        plan.errors.append(f"cannot safely read {path}: {exc}")
+        return
+    runner_prefix = launcher.repository_command()
+    migrated, migration_error = _migrate_official_remote_hook(text, runner_prefix)
+    if migration_error is not None:
+        plan.errors.append(f"cannot safely migrate {path}: {migration_error}")
+        return
+    if migrated is not None:
+        migrated = _match_newline_style(text, migrated)
+        hooks.validate_precommit_configuration(migrated)
+        plan.writes.append((path, migrated))
+        return
+    custom_legacy = re.search(r"(?m)^\s*-\s+id:\s+['\"]?sarj-standards['\"]?\s*$", text) is not None
+    owned_hook = _has_owned_hooks(text)
+    if custom_legacy:
+        if owned_hook and not hooks.precommit_runs_commit_message_check(root):
+            plan.errors.append(
+                "cannot safely converge a customized legacy `sarj-standards` hook beside a "
+                "noncanonical managed hook; keep exactly one canonical hook owner"
+            )
+        elif hooks.precommit_runs_commit_message_check(root):
+            plan.skips.append((path, "preserving custom legacy checks and managed commit messages"))
+        else:
+            missing = _precommit_commit_message_block(
+                runner_prefix,
+                item_indent=_precommit_item_indent(text),
+            )
+            plan.writes.append((path, hooks.insert_precommit_repository(text, missing)))
+            plan.notes.append("preserved custom legacy checks and added managed commit messages")
+    elif owned_hook:
+        canonical = _canonicalize_owned_hooks(text, runner_prefix)
+        canonical = _match_newline_style(text, canonical)
+        if canonical == text:
+            plan.skips.append((path, "already runs the canonical sarj-standards hook"))
+        else:
+            hooks.validate_precommit_configuration(canonical)
+            plan.writes.append((path, canonical))
+    elif re.search(r"(?m)^repos:\s*(?:\[\s*\]\s*)?(?:#.*)?$", text):
+        missing = _precommit_check_block(runner_prefix, item_indent=_precommit_item_indent(text))
+        plan.writes.append((path, hooks.insert_precommit_repository(text, missing)))
+    else:
+        plan.errors.append(f"cannot safely merge hooks into {path}; add this block under `repos:`:\n{block}")
+    return
+
+
+def _plan_precommit_commit_message(root: Path, plan: Plan, *, force: bool) -> None:
+    runner_prefix = shlex.join(launcher.argv(version=manifest.adopted_version()))
+    existing = [root / name for name in _PRECOMMIT_CONFIG_NAMES if (root / name).is_file()]
+    if len(existing) > 1:
+        plan.errors.append(
+            "multiple pre-commit configurations are active: "
+            + ", ".join(path.name for path in existing)
+            + "; keep one before running setup"
+        )
+        return
+    path = existing[0] if existing else root / _PRECOMMIT_CONFIG_NAMES[0]
+    if path.is_file():
+        try:
+            text = path.read_bytes().decode("utf-8")
+            hooks.validate_precommit_configuration(text)
+        except (OSError, UnicodeError, ValueError) as exc:
+            plan.errors.append(f"cannot safely read {path}: {exc}")
+            return
+        if hooks.precommit_runs_commit_message_check(root, runner_prefix=runner_prefix):
+            plan.skips.append((path, "already runs the canonical commit-message hook"))
+            return
+        if any(hook.get("id") == "repo-standards-commit-message" for hook in _all_local_hook_mappings(text)):
+            plan.errors.append(
+                "cannot safely replace a noncanonical repo-standards-commit-message hook; "
+                "remove or rename it before retrying"
+            )
+            return
+        block = _precommit_commit_message_block(
+            runner_prefix,
+            item_indent=_precommit_item_indent(text),
+        )
+        try:
+            updated = hooks.insert_precommit_repository(text, block)
+        except ValueError as exc:
+            plan.errors.append(f"cannot safely merge commit-message hooks into {path}: {exc}")
+            return
+        plan.writes.append((path, updated))
+        return
+    block = _precommit_commit_message_block(runner_prefix)
+    _record(plan, path, f"repos:\n{block}", force=force, reason="exists")
+
+
+def _plan_retire_precommit_staged_check(root: Path, plan: Plan) -> None:
+    existing = [root / name for name in _PRECOMMIT_CONFIG_NAMES if (root / name).is_file()]
+    if len(existing) > 1:
+        plan.errors.append(
+            "multiple pre-commit configurations are active: "
+            + ", ".join(path.name for path in existing)
+            + "; keep one before switching hook managers"
+        )
+        return
+    if not existing:
+        return
+    path = existing[0]
+    text = path.read_text(encoding="utf-8")
+    if not _has_owned_hooks(text):
+        return
+    try:
+        updated = _remove_owned_precommit_hooks(text)
+    except ValueError as exc:
+        plan.errors.append(f"cannot safely retire the Standards pre-commit hook in {path}: {exc}")
+        return
+    plan.writes.append((path, updated))
+    plan.notes.append("removed the generated Standards pre-commit hook because Lefthook is authoritative")
+
+
+def _migrate_official_remote_hook(text: str, runner_prefix: str) -> _HookMigration:
+    official = tuple(
+        block for block in hooks.precommit_repo_blocks(text) if hooks.is_official_standards_repo(block.repository)
+    )
+    if not official:
+        return _HookMigration(None, None)
+    for block in official:
+        error = _official_hook_error(block)
+        if error is not None:
+            return _HookMigration(None, error)
+    first = official[0].start
+    removed = text
+    for block in reversed(official):
+        removed = removed[: block.start] + removed[block.end :]
+    item_indents = {block.indent for block in official}
+    if len(item_indents) != 1:
+        return _HookMigration(None, "official Standards repository blocks use inconsistent indentation")
+    insertion = _precommit_check_block(runner_prefix, item_indent=item_indents.pop())
+    migrated = removed[:first] + insertion + removed[first:]
+    return _HookMigration(_canonicalize_owned_hooks(migrated, runner_prefix), None)
+
+
+def _official_hook_error(block: hooks.PrecommitRepoBlock) -> str | None:
+    try:
+        parsed: object = parse_yaml(f"repos:\n{block.text}")
+    except yaml.YAMLError as exc:
+        return f"official Standards hook contains invalid YAML: {exc}"
+    repos = manifest.list_field(manifest.as_table(parsed), "repos")
+    if len(repos) != 1:
+        return "official Standards repository block is not a single YAML list item"
+    repository = manifest.as_table(repos[0])
+    hook_values = manifest.list_field(repository, "hooks")
+    if not hook_values:
+        return "official Standards repository block has no hooks"
+    for hook_value in hook_values:
+        hook = manifest.as_table(hook_value)
+        hook_id = hook.get("id")
+        custom_keys = sorted(set(hook) - {"id"})
+        is_owned = isinstance(hook_id, str) and (
+            hook_id in {"repo-standards-check", "sarj-standards"} or hook_id.startswith("sarj-")
+        )
+        if not is_owned or custom_keys:
+            detail = (
+                f"hook {hook_id!r} has custom keys {custom_keys}"
+                if custom_keys
+                else f"hook {hook_id!r} is not owned by Standards"
+            )
+            return f"{detail}; preserve its scope manually before replacing the remote block"
+    return None
+
+
+def _precommit_item_indent(text: str) -> int:
+    blocks = hooks.precommit_repo_blocks(text)
+    return blocks[0].indent if blocks else 2
+
+
+def _canonicalize_owned_hooks(text: str, runner_prefix: str) -> str:
+    local_blocks = tuple(
+        block
+        for block in hooks.precommit_repo_blocks(text)
+        if block.repository == "local" and _has_owned_hook_in_block(block.text)
+    )
+    if not local_blocks:
+        return text
+    for block in local_blocks:
+        custom_keys = _owned_hook_custom_keys(block.text)
+        if custom_keys:
+            names = ", ".join(sorted(custom_keys))
+            msg = (
+                f"cannot replace a customized local Sarj hook ({names}); remove those keys or migrate their scope "
+                "to the canonical umbrella hook explicitly"
+            )
+            raise ValueError(msg)
+    keeper = local_blocks[0]
+    canonical = text
+    for block in reversed(local_blocks):
+        replacement = _canonicalize_local_hook_block(
+            block.text,
+            runner_prefix,
+            item_indent=block.indent,
+            insert_canonical=block.start == keeper.start,
+        )
+        canonical = canonical[: block.start] + replacement + canonical[block.end :]
+    return canonical
+
+
+def _remove_owned_precommit_hooks(text: str) -> str:
+    local_blocks = tuple(
+        block
+        for block in hooks.precommit_repo_blocks(text)
+        if block.repository == "local" and _has_owned_hook_in_block(block.text)
+    )
+    updated = text
+    for block in reversed(local_blocks):
+        custom_keys = _owned_hook_custom_keys(block.text)
+        if custom_keys:
+            names = ", ".join(sorted(custom_keys))
+            msg = f"customized local Sarj hook has consumer-owned keys: {names}"
+            raise ValueError(msg)
+        replacement = _canonicalize_local_hook_block(
+            block.text,
+            "",
+            item_indent=block.indent,
+            insert_canonical=False,
+        )
+        try:
+            parsed: object = parse_yaml(f"repos:\n{replacement}")
+        except yaml.YAMLError as exc:
+            msg = "generated local hook block is not valid YAML"
+            raise ValueError(msg) from exc
+        repositories = manifest.list_field(manifest.as_table(parsed), "repos")
+        repository = manifest.as_table(repositories[0]) if repositories else {}
+        if not manifest.list_field(repository, "hooks"):
+            replacement = ""
+        updated = updated[: block.start] + replacement + updated[block.end :]
+    return updated
+
+
+def _has_owned_hooks(text: str) -> bool:
+    return any(
+        _has_owned_hook_in_block(block.text)
+        for block in hooks.precommit_repo_blocks(text)
+        if block.repository == "local"
+    )
+
+
+def _has_owned_hook_in_block(text: str) -> bool:
+    return bool(_owned_hook_mappings(text))
+
+
+def _owned_hook_custom_keys(text: str) -> frozenset[str]:
+    return frozenset(key for hook in _owned_hook_mappings(text) for key in hook if key in _CUSTOM_HOOK_SCOPE_KEYS)
+
+
+def _owned_hook_mappings(text: str) -> tuple[dict[str, object], ...]:
+    try:
+        parsed: object = parse_yaml(f"repos:\n{text}")
+    except yaml.YAMLError as exc:
+        msg = "cannot safely inspect local pre-commit hooks: repository block is invalid YAML"
+        raise ValueError(msg) from exc
+    repositories = manifest.list_field(manifest.as_table(parsed), "repos")
+    repository = manifest.as_table(repositories[0]) if len(repositories) == 1 else {}
+    owned = {"repo-standards-commit-message", "sarj-standards-check", "sarj-standards-drift"}
+    return tuple(
+        hook
+        for raw_hook in manifest.list_field(repository, "hooks")
+        if (hook := manifest.as_table(raw_hook)).get("id") in owned
+    )
+
+
+def _all_local_hook_mappings(text: str) -> tuple[dict[str, object], ...]:
+    found: list[dict[str, object]] = []
+    for block in hooks.precommit_repo_blocks(text):
+        if block.repository != "local":
+            continue
+        try:
+            parsed: object = parse_yaml(f"repos:\n{block.text}")
+        except yaml.YAMLError:
+            continue
+        repositories = manifest.list_field(manifest.as_table(parsed), "repos")
+        repository = manifest.as_table(repositories[0]) if len(repositories) == 1 else {}
+        found.extend(
+            hook for raw_hook in manifest.list_field(repository, "hooks") if (hook := manifest.as_table(raw_hook))
+        )
+    return tuple(found)
+
+
+def _canonicalize_local_hook_block(
+    text: str,
+    runner_prefix: str,
+    *,
+    item_indent: int,
+    insert_canonical: bool,
+) -> str:
+    lines = text.splitlines(keepends=True)
+    spans = _owned_hook_spans(text)
+    if not spans:
+        return text
+    first = spans[0][0]
+    removed = {index for start, end in spans for index in range(start, end)}
+    output: list[str] = []
+    for index, line in enumerate(lines):
+        if insert_canonical and index == first:
+            output.append(_precommit_hook(runner_prefix, hook_indent=item_indent + 4))
+        if index not in removed:
+            output.append(line)
+    return "".join(output)
+
+
+def _owned_hook_spans(text: str) -> tuple[tuple[int, int], ...]:
+    lines = text.splitlines(keepends=True)
+    semantic_ids = tuple(str(hook["id"]) for hook in _owned_hook_mappings(text))
+    textual: list[tuple[str, int, int]] = []
+    for index, line in enumerate(lines):
+        match = re.match(
+            r"^(?P<indent>\s*)-\s+id:\s+['\"]?(?P<id>[^\s'\"#]+)['\"]?\s*(?:#.*)?$",
+            line.rstrip("\r\n"),
+        )
+        if match is None or match["id"] not in semantic_ids:
+            continue
+        textual.append(
+            (
+                match["id"],
+                index,
+                hooks.yaml_list_item_end(lines, index, len(match["indent"])),
+            )
+        )
+    if tuple(item[0] for item in textual) != semantic_ids:
+        msg = "cannot safely locate managed hook mappings in pre-commit YAML"
+        raise ValueError(msg)
+    return tuple((start, end) for _hook_id, start, end in textual)
+
+
+def precommit_block() -> str:
+    return _precommit_check_block(launcher.repository_command())
+
+
+def _match_newline_style(source: str, generated: str) -> str:
+    if "\r\n" in source and "\n" not in source.replace("\r\n", ""):
+        return generated.replace("\r\n", "\n").replace("\n", "\r\n")
+    return generated
+
+
+def _precommit_check_block(runner_prefix: str, *, item_indent: int = 2) -> str:
+    repo_indent = " " * item_indent
+    return (
+        f"{repo_indent}- repo: local\n"
+        f"{repo_indent}  hooks:\n"
+        f"{_precommit_hook(runner_prefix, hook_indent=item_indent + 4)}"
+    )
+
+
+def _precommit_hook(runner_prefix: str, *, hook_indent: int = 6) -> str:
+    item = " " * hook_indent
+    field = " " * (hook_indent + 2)
+    return (
+        f"{item}- id: sarj-standards-check\n"
+        f"{field}name: sarj standards -- staged checks\n"
+        f"{field}entry: {runner_prefix} check --staged --trust-repository-code --\n"
+        f"{field}language: system\n"
+        f"{field}always_run: true\n"
+        f"{field}pass_filenames: true\n"
+        f"{field}require_serial: true\n"
+        f"{field}files: '{hooks.PRECOMMIT_FILES_PATTERN}'\n"
+        f"{field}stages: [pre-commit]\n"
+        f"{_precommit_commit_message_hook(runner_prefix, hook_indent=hook_indent)}"
+    )
+
+
+def _precommit_commit_message_block(runner_prefix: str, *, item_indent: int = 2) -> str:
+    repo_indent = " " * item_indent
+    return (
+        f"{repo_indent}- repo: local\n"
+        f"{repo_indent}  hooks:\n"
+        f"{_precommit_commit_message_hook(runner_prefix, hook_indent=item_indent + 4)}"
+    )
+
+
+def _precommit_commit_message_hook(runner_prefix: str, *, hook_indent: int = 6) -> str:
+    item = " " * hook_indent
+    field = " " * (hook_indent + 2)
+    return (
+        f"{item}- id: repo-standards-commit-message\n"
+        f"{field}name: repo standards -- managed commit message\n"
+        f"{field}entry: {runner_prefix} commit-message\n"
+        f"{field}language: system\n"
+        f"{field}always_run: true\n"
+        f"{field}pass_filenames: true\n"
+        f"{field}require_serial: true\n"
+        f"{field}stages: [commit-msg]\n"
+    )
+
+
+def _record(plan: Plan, path: Path, contents: str, *, force: bool, reason: str) -> None:
+    if path.exists() and not force:
+        plan.skips.append((path, reason))
+        return
+    plan.writes.append((path, contents))
+
+
+def apply(plan: Plan, *, preconditions: Mapping[Path, bytes | None] | None = None) -> None:
+    from . import transaction  # ruff: ignore[import-outside-top-level] -- avoid a scaffold/transaction import cycle
+
+    if plan.root is None:
+        msg = "scaffold plan has no repository root"
+        raise OSError(msg)
+    transaction.validate_targets(
+        plan.root,
+        tuple(path for path, _contents in (*plan.writes, *plan.edits)) + tuple(plan.deletes),
+    )
+    for path, contents in plan.writes:
+        if preconditions is not None and path in preconditions:
+            transaction.assert_expected(plan.root, path, preconditions[path])
+        transaction.atomic_write_text(plan.root, path, contents)
+    for path, addition in plan.edits:
+        if preconditions is not None and path in preconditions:
+            transaction.assert_expected(plan.root, path, preconditions[path])
+        current = path.read_text(encoding="utf-8")
+        transaction.atomic_write_text(plan.root, path, current + addition)
+    for path in plan.deletes:
+        if preconditions is not None and path in preconditions:
+            transaction.assert_expected(plan.root, path, preconditions[path])
+        transaction.remove_file(plan.root, path)
+
+
+def ci_snippet() -> str:
+    lines = [
+        "      - name: sarj standards",
+        f"        run: {launcher.repository_command()} check --trust-repository-code",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> str:
+    root = root.resolve()
+    adopted = manifest.load_for_setup(root)
+    python_dest = "." if adopted is None else adopted.python_dest
+    if ecosystems is None:
+        ecosystems = _workflow_ecosystems(root, adopted)
+    install_root = ecosystems.typescript_install_root or ecosystems.typescript_root
+    runner = launcher.repository_command()
+    runs_on = "macos-15" if ecosystems.swift else _configured_runner(adopted)
+    lines = [
+        "# Managed by code-standards; regenerate with `code-standards show ci --output .github/workflows/standards.yml`.",
+        "name: Standards",
+        "",
+        "on:",
+        "  pull_request:",
+        "  push:",
+        "    branches: [main]",
+        "",
+        "permissions:",
+        "  contents: read",
+        "",
+        "concurrency:",
+        "  group: standards-${{ github.workflow }}-${{ github.ref }}",
+        "  cancel-in-progress: true",
+        "",
+        "jobs:",
+        "  standards:",
+        f"    runs-on: {runs_on}",
+        f"    timeout-minutes: {60 if ecosystems.mobile else 15}",
+        "    steps:",
+    ]
+    if _harden_runner_supported(runs_on):
+        lines.extend(
+            (
+                "      - name: Harden the runner",
+                "        uses: step-security/harden-runner@v2",
+                "        with:",
+                "          egress-policy: audit",
+            )
+        )
+    lines.extend(
+        (
+            "      - uses: actions/checkout@v7",
+            "        with:",
+            "          fetch-depth: 0",
+            "          persist-credentials: false",
+        )
+    )
+    if ecosystems.kotlin:
+        lines.extend(
+            (
+                "      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1",
+                "        with:",
+                "          distribution: temurin",
+                "          java-version: '21'",
+            )
+        )
+    lines.extend(
+        (
+            "      - uses: astral-sh/setup-uv@v10.2.0",
+            "        with:",
+            _setup_uv_version(root, ecosystems.python_root),
+            "          enable-cache: true",
+            "          cache-dependency-glob: |",
+            "            .sarj-standards.toml",
+            "            **/uv.lock",
+        )
+    )
+    if ecosystems.typescript:
+        _append_javascript_ci(
+            lines,
+            root,
+            ecosystems,
+            install_root,
+            configured_runner=not ecosystems.swift and runs_on != DEFAULT_CI_RUNNER,
+        )
+    if ecosystems.python:
+        python_install = python_ci_install_argv(root, python_dest)
+        if python_install:
+            lines.extend(("      - name: Install Python dependencies", f"        run: {shlex.join(python_install)}"))
+    _append_security_ci(lines, ecosystems)
+    for index, command in enumerate(() if adopted is None else adopted.ci_bootstrap, start=1):
+        label = "Bootstrap analysis inputs" if index == 1 else f"Bootstrap analysis inputs ({index})"
+        lines.extend((f"      - name: {label}", "        run: |", f"          {command}"))
+    lines.extend(
+        (
+            "      - name: Run standards",
+            "        env:",
+            "          SARJ_STANDARDS_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}",
+            f"        run: {runner} check --trust-repository-code --format github",
+        )
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _workflow_ecosystems(root: Path, adopted: manifest.Manifest | None) -> Ecosystems:
+    python_override = (
+        None
+        if adopted is None or not any(name in adopted.configs for name in manifest.PYTHON_CONFIGS)
+        else adopted.python_dest
+    )
+    typescript_override = (
+        None
+        if adopted is None or not any(name in adopted.configs for name in manifest.TYPESCRIPT_CONFIGS)
+        else adopted.typescript_dest
+    )
+    swift_override = (
+        None
+        if adopted is None or not any(name in adopted.configs for name in manifest.SWIFT_CONFIGS)
+        else adopted.swift_dest
+    )
+    kotlin_override = (
+        None
+        if adopted is None or not any(name in adopted.configs for name in manifest.KOTLIN_CONFIGS)
+        else adopted.kotlin_dest
+    )
+    detected = detect(
+        root,
+        python_dest=python_override,
+        typescript_dest=typescript_override,
+        swift_dest=swift_override,
+        kotlin_dest=kotlin_override,
+    )
+    return detected if adopted is None else configured_ecosystems(detected, adopted.enabled_capabilities)
+
+
+def _append_security_ci(lines: list[str], ecosystems: Ecosystems) -> None:
+    for name in security_tools.TOOLS:
+        enabled = ecosystems.actions if name == "zizmor" else ecosystems.infrastructure
+        if enabled:
+            argv = (*security_tools.command(name, offline=False), "--version")
+            lines.extend((f"      - name: Prepare pinned {name}", f"        run: {shlex.join(argv)}"))
+
+
+def _append_javascript_ci(
+    lines: list[str], root: Path, ecosystems: Ecosystems, install_root: Path | None, *, configured_runner: bool
+) -> None:
+    if ecosystems.client is PackageManager.BUN:
+        lines.append("      - uses: oven-sh/setup-bun@v2")
+    # Bun projects rely on the runner image's Node for Node-based analyzers. GitHub's image ships a current
+    # Node; other runner images may not, so a configured runner gets the same pinned Node as npm projects.
+    if ecosystems.client is not PackageManager.BUN or configured_runner:
+        lines.extend(
+            (
+                "      - uses: actions/setup-node@v7",
+                "        with:",
+                "          node-version: 24",
+            )
+        )
+        # setup-node prefers the image's cached Node 24, which on other runner images can predate the
+        # declared npm's engine floor; resolving the newest 24.x keeps the configured runner image-independent.
+        if configured_runner:
+            lines.append("          check-latest: true")
+    if (
+        ecosystems.client is PackageManager.NPM
+        and install_root is not None
+        and (npm_version := packagemanager.declared_version(install_root, PackageManager.NPM)) is not None
+    ):
+        lines.extend(
+            (
+                "      - name: Activate declared npm version",
+                f"        run: npm install --global npm@{npm_version} --ignore-scripts",
+            )
+        )
+    javascript_command = _ci_javascript_install(ecosystems.client, ecosystems.yarn)
+    if ecosystems.client in {PackageManager.PNPM, PackageManager.YARN}:
+        javascript_command = f"corepack enable && {javascript_command}"
+    lines.extend(("      - name: Install JavaScript dependencies", f"        run: {javascript_command}"))
+    if install_root is not None and install_root != root:
+        relative_install_root = install_root.relative_to(root).as_posix()
+        lines.append(f"        working-directory: {json.dumps(relative_install_root)}")
+
+
+def _setup_uv_version(root: Path, python_root: Path | None) -> str:
+    source = uvtool.version_file(python_root)
+    if source is None:
+        return "          version: '0.12.18'"
+    return f"          version-file: {json.dumps(source.relative_to(root).as_posix())}"
+
+
+def python_ci_install_argv(root: Path, python_dest: str) -> tuple[str, ...]:
+    python_root = root / python_dest
+    if not (python_root / "uv.lock").is_file():
+        return ()
+    project = () if python_dest == "." else ("--project", python_dest)
+    workspace = ("--all-packages",) if _is_uv_workspace(python_root) else ()
+    return ("uv", "sync", "--locked", *project, *workspace)
+
+
+def _is_uv_workspace(project: Path) -> bool:
+    pyproject = project / "pyproject.toml"
+    try:
+        parsed: object = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return False
+    tool = manifest.table_field(manifest.as_table(parsed), "tool")
+    uv = manifest.table_field(tool, "uv")
+    return bool(manifest.table_field(uv, "workspace"))
+
+
+def standards_check_workflows(root: Path) -> tuple[Path, ...]:
+    directory = root / ".github" / "workflows"
+    if not directory.is_dir():
+        return ()
+    source_checkout = (root / "packages" / "standards" / "src" / "sarj_standards").resolve() == Path(__file__).parents[
+        2
+    ]
+    return tuple(
+        path
+        for path in sorted((*directory.glob("*.yml"), *directory.glob("*.yaml")))
+        if _workflow_runs_standards_check(path, source_checkout=source_checkout)
+    )
+
+
+def _workflow_runs_standards_check(path: Path, *, source_checkout: bool) -> bool:
+    try:
+        parsed: object = parse_yaml(path.read_text(encoding="utf-8"))
+    except OSError, yaml.YAMLError:
+        return False
+    return any(
+        _run_value_executes_standards_check(command, source_checkout=source_checkout)
+        for command in _workflow_run_commands(parsed)
+    )
+
+
+def _run_value_executes_standards_check(command: str, *, source_checkout: bool) -> bool:
+    logical = command.replace("\\\n", " ")
+    for line in logical.splitlines():
+        lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = "#"
+        try:
+            tokens = tuple(lexer)
+        except ValueError:
+            continue
+        if _tokens_execute_standards_check(tokens, source_checkout=source_checkout):
+            return True
+    return False
+
+
+def _tokens_execute_standards_check(tokens: tuple[str, ...], *, source_checkout: bool) -> bool:
+    if not tokens or "--staged" in tokens or any(token in {";", "&&", "||", "|", "&"} for token in tokens):
+        return False
+    prefix = launcher.repository_argv()
+    if tokens[: len(prefix)] == prefix:
+        arguments = tokens[len(prefix) :]
+        return bool(arguments) and arguments[0] == "check"
+    if not source_checkout:
+        return False
+    try:
+        executable_index = next(
+            index for index, token in enumerate(tokens) if Path(token).name in {"code-standards", "sarj-standards"}
+        )
+    except StopIteration:
+        return False
+    command_prefix = tokens[:executable_index]
+    if command_prefix and not (
+        Path(command_prefix[0]).name == "uv"
+        and command_prefix[1:2] == ("run",)
+        and _launcher_options_are_valid(
+            command_prefix[2:],
+            flags=frozenset({"--frozen", "--isolated", "--no-config", "--no-project", "--no-sync"}),
+            valued=frozenset({"--directory", "--project", "--python", "--with"}),
+        )
+    ):
+        return False
+    arguments = tokens[executable_index + 1 :]
+    while arguments and (arguments[0] == "--root" or arguments[0].startswith("--root=")):
+        arguments = arguments[2:] if arguments[0] == "--root" else arguments[1:]
+    return bool(arguments) and arguments[0] == "check"
+
+
+def _launcher_options_are_valid(
+    tokens: tuple[str, ...],
+    *,
+    flags: frozenset[str],
+    valued: frozenset[str],
+) -> bool:
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token in flags:
+            index += 1
+            continue
+        if token in valued and index + 1 < len(tokens):
+            index += 2
+            continue
+        if any(token.startswith(f"{option}=") for option in valued):
+            index += 1
+            continue
+        return False
+    return True
+
+
+def managed_ci_runner(root: Path) -> str:
+    return _configured_runner(manifest.load_for_setup(root))
+
+
+def _configured_runner(adopted: manifest.Manifest | None) -> str:
+    if adopted is None or adopted.ci_runner is None:
+        return DEFAULT_CI_RUNNER
+    return adopted.ci_runner
+
+
+def _harden_runner_supported(runner: str) -> bool:
+    # On Blacksmith, Harden Runner installs its agent only for StepSecurity organizations with TLS inspection
+    # enabled. Without it the job gets no monitoring, yet the post step still polls 10 seconds for the agent.
+    return not runner.startswith("blacksmith-")
+
+
+def commit_policy_github_workflow(runner: str = DEFAULT_CI_RUNNER) -> str:
+    harden = (
+        """\
+      - name: Harden the runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+"""
+        if _harden_runner_supported(runner)
+        else ""
+    )
+    return (
+        """\
+# Managed by code-standards commit policy; regenerate with `code-standards setup`.
+name: Commit policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commit-policy-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commit-policy-v1:
+"""
+        f"    runs-on: {runner}\n"
+        """\
+    timeout-minutes: 5
+    steps:
+"""
+        f"{harden}"
+        """\
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+"""
+        f"      - uses: sarj-ai/repo-standards/pull-request-commits@{manifest.REPO_STANDARDS_REVISION}"
+        f" # v{manifest.REPO_STANDARDS_VERSION}\n"
+    )
+
+
+def _migrate_legacy_workflow_gate(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    migrated, count = _LEGACY_WORKFLOW_VERIFY.subn(r"\g<command> check --trust-repository-code", text)
+    return migrated if count else None
+
+
+def _workflow_run_commands(value: object) -> tuple[str, ...]:
+    if is_object_mapping(value):
+        commands: list[str] = []
+        table = manifest.as_table(value)
+        for key, item in table.items():
+            if key == "run" and isinstance(item, str):
+                commands.append(item)
+            else:
+                commands.extend(_workflow_run_commands(item))
+        return tuple(commands)
+    if is_object_list(value):
+        items = _object_list(value)
+        return tuple(command for item in items for command in _workflow_run_commands(item))
+    return ()
+
+
+def _object_list(value: object) -> list[object]:
+    return value if is_object_list(value) else []
+
+
+def _ci_javascript_install(client: PackageManager, yarn: YarnVariant) -> str:
+    if client is PackageManager.YARN:
+        return (
+            "yarn install --immutable --mode=skip-build"
+            if yarn is YarnVariant.BERRY
+            else "yarn install --frozen-lockfile --ignore-scripts"
+        )
+    return {
+        PackageManager.NPM: "npm ci --no-audit --no-fund --ignore-scripts",
+        PackageManager.PNPM: "pnpm install --frozen-lockfile --ignore-scripts",
+        PackageManager.BUN: "bun install --frozen-lockfile --ignore-scripts",
+    }[client]

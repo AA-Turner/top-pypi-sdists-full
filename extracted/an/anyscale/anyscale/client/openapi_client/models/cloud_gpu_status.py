@@ -37,6 +37,7 @@ class CloudGpuStatus(object):
         'group_by': 'GpuGroupBy',
         'node_rollup': 'GpuNodeRollup',
         'groups': 'list[GpuStatusGroup]',
+        'telemetry_health': 'GpuTelemetryHealth',
         'time': 'int'
     }
 
@@ -45,10 +46,11 @@ class CloudGpuStatus(object):
         'group_by': 'group_by',
         'node_rollup': 'node_rollup',
         'groups': 'groups',
+        'telemetry_health': 'telemetry_health',
         'time': 'time'
     }
 
-    def __init__(self, cloud_id=None, group_by=None, node_rollup=None, groups=None, time=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_id=None, group_by=None, node_rollup=None, groups=None, telemetry_health=None, time=None, local_vars_configuration=None):  # noqa: E501
         """CloudGpuStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -58,6 +60,7 @@ class CloudGpuStatus(object):
         self._group_by = None
         self._node_rollup = None
         self._groups = None
+        self._telemetry_health = None
         self._time = None
         self.discriminator = None
 
@@ -65,6 +68,8 @@ class CloudGpuStatus(object):
         self.group_by = group_by
         self.node_rollup = node_rollup
         self.groups = groups
+        if telemetry_health is not None:
+            self.telemetry_health = telemetry_health
         self.time = time
 
     @property
@@ -121,7 +126,7 @@ class CloudGpuStatus(object):
     def node_rollup(self):
         """Gets the node_rollup of this CloudGpuStatus.  # noqa: E501
 
-        Cloud-wide node counts by state, across all groups. Reflects only the project, instance type and workload type filters.  # noqa: E501
+        Node counts by state across all groups, over the filtered fleet. Reflects every filter except `status`, whose state selection is applied after the rollups are computed.  # noqa: E501
 
         :return: The node_rollup of this CloudGpuStatus.  # noqa: E501
         :rtype: GpuNodeRollup
@@ -132,7 +137,7 @@ class CloudGpuStatus(object):
     def node_rollup(self, node_rollup):
         """Sets the node_rollup of this CloudGpuStatus.
 
-        Cloud-wide node counts by state, across all groups. Reflects only the project, instance type and workload type filters.  # noqa: E501
+        Node counts by state across all groups, over the filtered fleet. Reflects every filter except `status`, whose state selection is applied after the rollups are computed.  # noqa: E501
 
         :param node_rollup: The node_rollup of this CloudGpuStatus.  # noqa: E501
         :type: GpuNodeRollup
@@ -166,6 +171,29 @@ class CloudGpuStatus(object):
             raise ValueError("Invalid value for `groups`, must not be `None`")  # noqa: E501
 
         self._groups = groups
+
+    @property
+    def telemetry_health(self):
+        """Gets the telemetry_health of this CloudGpuStatus.  # noqa: E501
+
+        Whether the cloud's GPU fleet is reporting DCGM telemetry -- distinguishes 'no GPUs' from 'GPUs present but not exporting'. Cloud-wide: reflects no filters.  # noqa: E501
+
+        :return: The telemetry_health of this CloudGpuStatus.  # noqa: E501
+        :rtype: GpuTelemetryHealth
+        """
+        return self._telemetry_health
+
+    @telemetry_health.setter
+    def telemetry_health(self, telemetry_health):
+        """Sets the telemetry_health of this CloudGpuStatus.
+
+        Whether the cloud's GPU fleet is reporting DCGM telemetry -- distinguishes 'no GPUs' from 'GPUs present but not exporting'. Cloud-wide: reflects no filters.  # noqa: E501
+
+        :param telemetry_health: The telemetry_health of this CloudGpuStatus.  # noqa: E501
+        :type: GpuTelemetryHealth
+        """
+
+        self._telemetry_health = telemetry_health
 
     @property
     def time(self):

@@ -12,31 +12,30 @@ from anyscale.formatters import common_formatter
 
 
 @click.group(
-    "sessions", help="Commands to interact with the Sessions API.",
+    "sessions",
+    help="Commands to interact with the Sessions API.",
 )
 def sessions() -> None:
     pass
 
 
-@sessions.command(
-    name="list", short_help="Lists all Sessions belonging to the Project."
-)
+@sessions.command(name="list", short_help="Lists all Sessions belonging to the Project.")
 @click.argument("project_id", required=True)
-@click.option(
-    "--count", type=int, default=10, help="Number of projects to show. Defaults to 10."
-)
+@click.option("--count", type=int, default=10, help="Number of projects to show. Defaults to 10.")
 @click.option(
     "--paging-token",
     required=False,
     help="Paging token used to fetch subsequent pages of projects.",
 )
-def list_sessions(project_id: str, count: int, paging_token: Optional[str],) -> None:
-    """Lists all the non-deleted sessions under PROJECT_ID. """
+def list_sessions(
+    project_id: str,
+    count: int,
+    paging_token: Optional[str],
+) -> None:
+    """Lists all the non-deleted sessions under PROJECT_ID."""
 
     api_client = get_auth_api_client().anyscale_api_client
-    response = api_client.list_sessions(
-        project_id, count=count, paging_token=paging_token
-    )
+    response = api_client.list_sessions(project_id, count=count, paging_token=paging_token)
 
     print(common_formatter.prettify_json(response.to_dict()))
 

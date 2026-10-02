@@ -1,0 +1,355 @@
+Metadata-Version: 2.4
+Name: langchain-moonshot
+Version: 0.1.0
+Summary: An integration package connecting Moonshot AI and LangChain
+Project-URL: Homepage, https://github.com/ArcadiaLin/langchain-moonshot
+Project-URL: Repository, https://github.com/ArcadiaLin/langchain-moonshot
+Project-URL: Issues, https://github.com/ArcadiaLin/langchain-moonshot/issues
+Project-URL: Changelog, https://github.com/ArcadiaLin/langchain-moonshot/blob/main/CHANGELOG.md
+Author: ArcadiaLin
+License-Expression: MIT
+License-File: LICENSE
+Keywords: chat-model,langchain,llm,moonshot,moonshot-ai
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: <4.0,>=3.10
+Requires-Dist: langchain-core<2.0.0,>=1.2.21
+Requires-Dist: langchain-openai<2.0.0,>=1.1.0
+Description-Content-Type: text/markdown
+
+# LangChain Moonshot
+
+`langchain-moonshot` is a standalone LangChain integration package for Moonshot AI chat models.
+
+## Upgrade Notes
+
+`0.1.0` is a breaking rewrite of the package.
+
+- If you are upgrading from `0.0.6` or `0.0.7`, note that the old PyPI releases exposed `OpenAI`, `ChatOpenAI`, and `OpenAIEmbeddings`.
+- Starting with `0.1.0`, this project is rebuilt around `ChatMoonshot` as the primary public integration.
+- The project homepage/repository has moved from `https://github.com/RyanFeiluX/langchain_moonshot` to `https://github.com/ArcadiaLin/langchain-moonshot`.
+
+It provides a `ChatMoonshot` implementation built on top of `langchain-openai`, with Moonshot-specific support for:
+
+- `reasoning_content` in non-streaming and streaming responses
+- `thinking`, `prompt_cache_key`, `safety_identifier`, and `max_completion_tokens`
+- Moonshot model capability profiles
+- tool calling, structured output, and multimodal inputs supported by Moonshot models
+
+## Overview
+
+### Integration details
+
+| Class | Package | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| `ChatMoonshot` | `langchain-moonshot` | alpha | Standalone provider package for Moonshot AI |
+
+### Model features
+
+| Tool calling | Structured output | Image input | Video input | Token-level streaming | Native async | Token usage | Reasoning traces |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install langchain-moonshot
+```
+
+For local development:
+
+```bash
+uv sync --group dev --group test_integration
+```
+
+## Standard Tests
+
+This repository keeps only LangChain standard chat-model tests under `tests/`:
+
+- `tests/unit_tests/test_standard.py`
+- `tests/integration_tests/test_standard.py`
+
+Run the full standard suite in the current `uv` project and write the output to
+`pytest_standard.txt`:
+
+```bash
+RUN_MOONSHOT_INTEGRATION=1 uv run pytest tests/unit_tests/test_standard.py tests/integration_tests/test_standard.py -q > pytest_standard.txt 2>&1
+```
+
+Run only the unit standard tests:
+
+```bash
+uv run pytest tests/unit_tests/test_standard.py -q > pytest_standard.txt 2>&1
+```
+
+Run only the live integration standard tests:
+
+```bash
+RUN_MOONSHOT_INTEGRATION=1 uv run pytest tests/integration_tests/test_standard.py -q > pytest_standard.txt 2>&1
+```
+
+Live integration tests require `RUN_MOONSHOT_INTEGRATION=1` and `MOONSHOT_API_KEY`.
+
+Current standard-test coverage and behavior:
+
+- Default live standard model: `kimi-k2.5` with `thinking=False` and `temperature=0.6`
+- All standard tests in this repository are constrained to `kimi-k2.5`; the suite does not switch to any other Moonshot model
+- Covered by standard tests: serialization, env-based init, tool calling, structured output, `json_mode`, image inputs, streaming, async, and VCR-backed `test_stream_time`
+- Standard tests intentionally keep these capabilities unsupported: forced `tool_choice`, runtime `model` override, PDF inputs, audio inputs, image/PDF tool messages, and Anthropic-style inputs
+- Known expected limitation: `output_version="v1"` streaming tool calls can emit a natural-language preamble before the tool chunk stream, so the standard `test_tool_calling` path for that variant is marked `xfail`
+- Practical boundary: for day-to-day use, prefer `invoke()` or default streaming output for tool calling; do not rely on `output_version="v1"` streamed `content_blocks` as the sole source of tool-call arguments
+
+## Credentials
+
+Create a Moonshot API key in the Moonshot console, then set `MOONSHOT_API_KEY`.
+
+```python
+import getpass
+import os
+
+if not os.getenv("MOONSHOT_API_KEY"):
+    os.environ["MOONSHOT_API_KEY"] = getpass.getpass("Enter your Moonshot API key: ")
+```
+
+If you are using Moonshot's China endpoint explicitly, you can also set:
+
+```python
+os.environ.setdefault("MOONSHOT_API_BASE", "https://api.moonshot.cn/v1")
+```
+
+To enable LangSmith tracing:
+
+```python
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_API_KEY"] = getpass.getpass("Enter your LangSmith API key: ")
+```
+
+## Instantiation
+
+```python
+from langchain_moonshot import ChatMoonshot
+
+llm = ChatMoonshot(
+    model="kimi-k2.5",
+    thinking=True,
+    temperature=1.0,
+    max_retries=2,
+)
+```
+
+## Invocation
+
+```python
+messages = [
+    ("system", "You are a concise bilingual assistant."),
+    ("human", "Summarize why Moonshot reasoning models are useful in two bullet points."),
+]
+
+ai_msg = llm.invoke(messages)
+
+print(ai_msg.text)
+print(ai_msg.additional_kwargs.get("reasoning_content"))
+print(ai_msg.usage_metadata)
+```
+
+## Streaming
+
+```python
+streaming_llm = ChatMoonshot(
+    model="kimi-k2.5",
+    thinking=True,
+    temperature=1.0,
+    stream_usage=True,
+)
+
+full = None
+for chunk in streaming_llm.stream("Explain streaming output in two short bullet points."):
+    if full is None:
+        full = chunk
+    else:
+        full += chunk
+
+    if chunk.text:
+        print(chunk.text, end="")
+
+    reasoning = chunk.additional_kwargs.get("reasoning_content")
+    if reasoning:
+        print(f"\n[reasoning] {reasoning}", end="")
+
+print()
+print(full.usage_metadata if full is not None else None)
+```
+
+## Tool Calling
+
+```python
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import tool
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+@tool
+def multiply(a: int, b: int) -> int:
+    """Multiply two integers."""
+    return a * b
+
+
+llm_with_tools = ChatMoonshot(
+    model="kimi-k2.5",
+    thinking=False,
+    temperature=0.6,
+).bind_tools([add, multiply])
+
+messages = [
+    ("system", "Use the provided math tools before answering."),
+    ("human", "Add 17 and 25, multiply 12 by 13, then summarize the results."),
+]
+
+response = llm_with_tools.invoke(messages)
+print(response.tool_calls)
+
+if response.tool_calls:
+    tool_results = []
+    for tool_call in response.tool_calls:
+        if tool_call["name"] == "add":
+            result = add.invoke(tool_call["args"])
+        else:
+            result = multiply.invoke(tool_call["args"])
+        tool_results.append(
+            ToolMessage(content=str(result), tool_call_id=tool_call["id"])
+        )
+
+    final_response = llm_with_tools.invoke([*messages, response, *tool_results])
+    print(final_response.text)
+```
+
+## Structured Output
+
+Moonshot does not expose a distinct `json_schema` steering path in this package. `ChatMoonshot.with_structured_output(..., method="json_schema")` is intentionally downgraded to `function_calling`.
+
+```python
+from pydantic import BaseModel, Field
+
+
+class WeatherAnswer(BaseModel):
+    city: str = Field(description="City name")
+    summary: str = Field(description="One-sentence weather summary")
+
+
+structured_llm = ChatMoonshot(
+    model="kimi-k2.5",
+    thinking=False,
+    temperature=0.6,
+).with_structured_output(WeatherAnswer)
+
+result = structured_llm.invoke("Summarize today's weather in Shanghai.")
+print(result)
+```
+
+## Multimodal Input
+
+Vision-capable Moonshot models accept OpenAI-style `image_url` content blocks.
+
+```python
+from langchain_core.messages import HumanMessage
+
+vision_llm = ChatMoonshot(
+    model="moonshot-v1-32k-vision-preview",
+)
+
+message = HumanMessage(
+    content=[
+        {"type": "text", "text": "Describe the image and mention one concrete detail."},
+        {
+            "type": "image_url",
+            "image_url": {"url": "data:image/png;base64,<your-base64-image>"},
+        },
+    ]
+)
+
+response = vision_llm.invoke([message])
+print(response.text)
+```
+
+## LangGraph Compatibility
+
+`ChatMoonshot` works as a normal LangChain chat model inside LangGraph agent loops.
+
+```python
+from typing import Annotated, Sequence, TypedDict
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
+
+
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+
+
+tools = [add, multiply]
+model = ChatMoonshot(
+    model="kimi-k2.5",
+    thinking=False,
+    temperature=0.6,
+).bind_tools(tools)
+
+
+def model_call(state: AgentState) -> AgentState:
+    response = model.invoke([("system", "Use tools when needed."), *state["messages"]])
+    return {"messages": [response]}
+
+
+def should_continue(state: AgentState) -> str:
+    last = state["messages"][-1]
+    return "continue" if getattr(last, "tool_calls", None) else "end"
+
+
+graph = StateGraph(AgentState)
+graph.add_node("agent", model_call)
+graph.add_node("tools", ToolNode(tools=tools))
+graph.add_edge(START, "agent")
+graph.add_conditional_edges("agent", should_continue, {"continue": "tools", "end": END})
+graph.add_edge("tools", "agent")
+
+result = graph.compile().invoke(
+    {"messages": [("user", "Add 3 and 4, multiply 12 by 13, then summarize.")]}
+)
+print(result["messages"][-1].content)
+```
+
+## Moonshot-Specific Notes
+
+- `kimi-k2.5` is validated more strictly than generic OpenAI-compatible models.
+- When `thinking=True`, `kimi-k2.5` expects `temperature=1.0`.
+- When `thinking=False`, `kimi-k2.5` expects `temperature=0.6`.
+- For `kimi-k2.5`, `top_p` must remain `0.95`, `n` must remain `1`, and both penalties must remain `0.0`.
+- The integration accepts standard `tool_choice` values for API compatibility.
+- Moonshot does not reliably force tool calls in live tests, so forced `tool_choice` is treated as unsupported in standard tests.
+- For `kimi-k2.5` with `thinking=True`, tool forcing still must remain `tool_choice="auto"` or `"none"`.
+- Moonshot builtin `$web_search` is rejected when `thinking=True`.
+
+## Local Verification
+
+```bash
+uv run ruff check .
+uv run mypy langchain_moonshot tests
+uv run pytest tests/unit_tests/test_standard.py
+RUN_MOONSHOT_INTEGRATION=1 uv run pytest tests/integration_tests/test_standard.py
+RUN_MOONSHOT_INTEGRATION=1 uv run pytest tests/unit_tests/test_standard.py tests/integration_tests/test_standard.py -q > pytest_standard.txt 2>&1
+```

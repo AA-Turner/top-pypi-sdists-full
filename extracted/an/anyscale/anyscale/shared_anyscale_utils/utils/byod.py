@@ -30,9 +30,7 @@ class BYODInfo:
 def decode_byod(id: str) -> BYODInfo:  # noqa: A002
     if not is_byod_id(id):
         raise ValueError(f"Expected id to start with {BYOD_PREFIX}, got {id}")
-    decoded = urllib.parse.parse_qs(
-        base64.b64decode(id[len(BYOD_PREFIX) :]).decode("ascii")
-    )
+    decoded = urllib.parse.parse_qs(base64.b64decode(id[len(BYOD_PREFIX) :]).decode("ascii"))
     return BYODInfo(
         decoded["docker_image_name"][0],
         decoded["python_version"][0],

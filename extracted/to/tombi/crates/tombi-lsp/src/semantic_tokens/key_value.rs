@@ -4,7 +4,7 @@ use crate::semantic_tokens::TokenType;
 
 use super::{AppendSemanticTokens, SemanticTokensBuilder};
 
-impl AppendSemanticTokens for tombi_ast_syntax::KeyValue {
+impl AppendSemanticTokens for tombi_ast_syntax::KeyValue<'_> {
     fn append_semantic_tokens(&self, builder: &mut SemanticTokensBuilder) {
         for comment in self.leading_comments() {
             comment.append_semantic_tokens(builder);
@@ -15,7 +15,7 @@ impl AppendSemanticTokens for tombi_ast_syntax::KeyValue {
         }
 
         if let Some(token) = self.eq() {
-            builder.add_token(TokenType::OPERATOR, token.range())
+            builder.add_token(TokenType::OPERATOR, token.span())
         }
 
         if let Some(value) = self.value() {

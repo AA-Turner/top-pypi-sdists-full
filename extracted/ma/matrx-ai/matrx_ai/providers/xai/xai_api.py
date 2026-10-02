@@ -266,8 +266,6 @@ class XAIChat:
 
             unified_response = UnifiedResponse(messages=[msg], usage=usage)
 
-            from matrx_connect.context.data_types import MediaBlockData
-            from matrx_connect.context.media_block import cloud_file_to_media_block
             synthetic_record = {
                 "id": envelope.file_id,
                 "storage_uri": envelope.storage_uri,
@@ -286,11 +284,13 @@ class XAIChat:
                 "url": envelope.url, "cdn_url": envelope.cdn_url,
                 "download_url": envelope.download_url,
             }
-            await emitter.send_data(MediaBlockData(
-                block=cloud_file_to_media_block(
-                    synthetic_record, url_set=url_set, kind_override="audio",
-                )
-            ))
+            from matrx_ai.providers.media_frames import fitted_media_block
+
+            # Sheds speech_script from the LIVE event only if it would outgrow
+            # the journal frame; the persisted part keeps it.
+            await emitter.send_data(
+                fitted_media_block(synthetic_record, url_set=url_set, kind_override="audio")
+            )
             await asyncio.sleep(0)
 
             return unified_response

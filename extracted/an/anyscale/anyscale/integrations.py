@@ -36,9 +36,7 @@ def get_aws_secret(secret_name: str, **kwargs) -> ProtectedString:
 
     caller_config = kwargs.pop("config", None)
     apn_config = BotoConfig(user_agent_extra=AWS_PRM_USER_AGENT_STRING)
-    config = (
-        caller_config.merge(apn_config) if caller_config is not None else apn_config
-    )
+    config = caller_config.merge(apn_config) if caller_config is not None else apn_config
     client = boto3.client("secretsmanager", config=config, **kwargs)
     response = client.get_secret_value(SecretId=secret_name)
 
@@ -223,9 +221,9 @@ def wandb_send_run_info_hook(run: Any) -> None:
     except ImportError:
         raise Exception("Unable to import wandb.")
 
-    assert isinstance(
-        run, wandb.sdk.wandb_run.Run
-    ), "`run` argument must be of type wandb.sdk.wandb_run.Run"
+    assert isinstance(run, wandb.sdk.wandb_run.Run), (
+        "`run` argument must be of type wandb.sdk.wandb_run.Run"
+    )
 
     if os.environ.get("ANYSCALE_HA_JOB_ID"):
         production_job_id = os.environ.get("ANYSCALE_HA_JOB_ID")
@@ -244,9 +242,7 @@ def wandb_send_run_info_hook(run: Any) -> None:
             ).result
             retry -= 1
         if not production_job.last_job_run_id:
-            log.info(
-                "Unable to find latest job execution for this production Anyscale job."
-            )
+            log.info("Unable to find latest job execution for this production Anyscale job.")
         api_client.put_production_job_wandb_run_details_api_v2_integrations_production_job_wandb_run_details_production_job_id_put(
             production_job_id=production_job_id,
             wand_b_run_details=WandBRunDetails(
@@ -264,9 +260,7 @@ def wandb_send_run_info_hook(run: Any) -> None:
         )
         cluster_id = os.environ.get("ANYSCALE_SESSION_ID")
         if cluster_id:
-            run.config.anyscale_logs = get_endpoint(
-                f"/workspaces/{workspace_id}/{cluster_id}"
-            )
+            run.config.anyscale_logs = get_endpoint(f"/workspaces/{workspace_id}/{cluster_id}")
     elif _try_get_ray_job_id():
         ray_job_id = _try_get_ray_job_id()
         cluster_id = os.environ.get("ANYSCALE_SESSION_ID")
@@ -295,9 +289,7 @@ def wandb_send_run_info_hook(run: Any) -> None:
                     wandb_project_url=run.get_project_url(), wandb_group=run.group
                 ),
             )
-            run.config.anyscale_logs = get_endpoint(
-                f"/interactive-sessions/{ray_job.id}"
-            )
+            run.config.anyscale_logs = get_endpoint(f"/interactive-sessions/{ray_job.id}")
         else:
             log.info("Unable to find Ray job in Anyscale to populate with W&B URL.")
 

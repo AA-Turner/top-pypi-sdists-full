@@ -1,3 +1,0 @@
----
-features:
-  - Add ``ArraySymbol.info()`` method for information about the values an array might take.

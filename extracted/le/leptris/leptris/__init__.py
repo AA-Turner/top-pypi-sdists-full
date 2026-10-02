@@ -1,0 +1,70 @@
+"""leptris — Python bindings for libleptris, shaped like lxml.
+
+Usage:
+
+    from leptris import fromstring
+
+    root = fromstring("<root><item>hi</item></root>")
+    print(root.tag)
+
+Requires libleptris on the library search path (or LEPTRIS_LIB_PATH).
+"""
+
+from __future__ import annotations
+
+__version__ = "1.9.284.0"
+
+from . import sax
+from .api import XML, c14n, fromstring, iterparse, libleptris_version, parse, tostring
+from .document import Document
+from .element import Element
+from .error import (
+    DTDError,
+    LeptrisError,
+    ParseError,
+    XQueryError,
+    XPathError,
+    XSLTError,
+)
+from .xpath import XPath
+from . import html
+from .dtd import DTD, DTDErrorEntry
+from .relaxng import RelaxNG
+from .xmldiff import Diff, DiffOp, diff
+from .plan import Plan, PlanCallback
+from .schematron import Schematron, SchematronError
+from .xquery import XQuery
+from .xslt import XSLT
+from .node import Node
+
+__all__ = [
+    "Document",
+    "Element",
+    "Node",
+    "LeptrisError",
+    "ParseError",
+    "XPathError",
+    "XSLTError",
+    "XQueryError",
+    "RelaxNGError",
+    "RelaxNG",
+    "diff",
+    "Diff",
+    "DiffOp",
+    "PlanCallback",
+    "Plan",
+    "SchematronError",
+    "Schematron",
+    "XML",
+    "XPath",
+    "XQuery",
+    "XSLT",
+    "c14n",
+    "iterparse",
+    "fromstring",
+    "libleptris_version",
+    "parse",
+    "tostring",
+    "html",
+    "sax",
+]

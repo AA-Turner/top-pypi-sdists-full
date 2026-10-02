@@ -1830,8 +1830,17 @@ class VideoPipelineOptions(PipelineOptions):
 
     max_sampled_frames: Annotated[
         int | None,
-        Field(default=None, gt=0, description="Optional cap on sampled frames."),
-    ] = None
+        Field(
+            default=200,
+            gt=0,
+            description=(
+                "Maximum number of frames sampled per video; sampling stops once it "
+                "is reached. The default of 200 bounds memory and output size "
+                "(about 33 minutes at the default 10 s interval). Set to None for "
+                "no limit."
+            ),
+        ),
+    ] = 200
 
     scene_change_smooth_window: Annotated[
         int,
@@ -2183,6 +2192,16 @@ class PdfPipelineOptions(PaginatedPipelineOptions):
             )
         ),
     ] = False
+    use_reading_order_separators: Annotated[
+        bool,
+        Field(
+            description=(
+                "Use visible horizontal and vertical PDF rules as structural signals "
+                "for rule-based reading order. This only affects PDF backends that "
+                "expose visible shape geometry."
+            )
+        ),
+    ] = True
     heading_hierarchy_options: Annotated[
         HeadingHierarchyOptions,
         Field(

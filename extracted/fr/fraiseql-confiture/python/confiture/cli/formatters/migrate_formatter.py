@@ -1,0 +1,492 @@
+"""Formatter for migrate command output.
+
+Handles text, JSON, and CSV formatting for migration results.
+"""
+
+from pathlib import Path
+from typing import Any
+
+from rich.console import Console
+
+from confiture.cli.formatters.common import handle_output
+from confiture.cli.markup import markup, verbatim
+from confiture.exceptions import MigrationError, base_message
+from confiture.models.results import (
+    MigrateDiffResult,
+    MigrateDownResult,
+    MigrateRebuildResult,
+    MigrateUpResult,
+    MigrateValidateResult,
+    VerifyAllResult,
+)
+
+
+def format_migrate_up_result(
+    result: MigrateUpResult,
+    format_type: str,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Format migrate up result in requested format.
+
+    Args:
+        result: MigrateUpResult to format
+        format_type: Output format ('text', 'json', or 'csv')
+        output_path: Optional file path to write output
+        console: Rich console for output
+    """
+    if format_type == "text":
+        # Text output to console
+        format_text(result, console)
+    else:
+        # JSON/CSV output
+        csv_data = (
+            ["version", "name", "duration_ms", "rows_affected"],
+            [
+                [m.version, m.name, str(m.duration_ms), str(m.rows_affected)]
+                for m in result.migrations_applied
+            ],
+        )
+        handle_output(format_type, result.to_dict(), csv_data, output_path, console)
+
+
+def format_text(result: MigrateUpResult, console: Console) -> None:
+    """Format migrate up result as rich text for console output.
+
+    Args:
+        result: MigrateUpResult to format
+        console: Rich console for output
+    """
+    if result.success:
+        if result.dry_run:
+            console.print("[cyan]🔍 Dry-run analysis:[/cyan]")
+        else:
+            console.print("[green]✅ Successfully applied migrations![/green]")
+
+        if result.migrations_applied:
+            console.print(f"\nMigrations: {len(result.migrations_applied)}")
+            for migration in result.migrations_applied:
+                console.print(
+                    f"  • {verbatim(migration.version)}_{verbatim(migration.name)} ({verbatim(migration.duration_ms)}ms)"
+                )
+        else:
+            console.print("\n[yellow]No migrations applied[/yellow]")
+
+        if result.total_duration_ms > 0:
+            console.print(f"\n⏱️ Total time: {verbatim(result.total_duration_ms)}ms")
+
+        if result.checksums_verified:
+            console.print("[cyan]🔐 Checksums verified[/cyan]")
+
+        if result.warnings:
+            console.print("\n[yellow]Warnings:[/yellow]")
+            for warning in result.warnings:
+                console.print(f"  ⚠️ {verbatim(warning)}")
+    else:
+        console.print(f"[red]❌ Migration failed: {verbatim(result.error_summary)}[/red]")
+        if result.migrations_applied:
+            count = len(result.migrations_applied)
+            console.print(
+                f"\n[yellow]⚠️ {verbatim(count)} migration(s) were applied before failure[/yellow]"
+            )
+
+
+def format_migrate_down_result(
+    result: MigrateDownResult,
+    format_type: str,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Format migrate down result in requested format.
+
+    Args:
+        result: MigrateDownResult to format
+        format_type: Output format ('text', 'json', or 'csv')
+        output_path: Optional file path to write output
+        console: Rich console for output
+    """
+    if format_type == "text":
+        # Text output to console
+        format_down_text(result, console)
+    else:
+        # JSON/CSV output
+        csv_data = (
+            ["version", "name", "duration_ms", "rows_affected"],
+            [
+                [m.version, m.name, str(m.duration_ms), str(m.rows_affected)]
+                for m in result.migrations_rolled_back
+            ],
+        )
+        handle_output(format_type, result.to_dict(), csv_data, output_path, console)
+
+
+def format_down_text(result: MigrateDownResult, console: Console) -> None:
+    """Format migrate down result as rich text for console output.
+
+    Args:
+        result: MigrateDownResult to format
+        console: Rich console for output
+    """
+    if result.success:
+        console.print("[green]✅ Successfully rolled back migrations![/green]")
+
+        if result.migrations_rolled_back:
+            console.print(f"\nMigrations: {len(result.migrations_rolled_back)}")
+            for migration in result.migrations_rolled_back:
+                console.print(
+                    f"  • {verbatim(migration.version)}_{verbatim(migration.name)} ({verbatim(migration.duration_ms)}ms)"
+                )
+        else:
+            console.print("\n[yellow]No migrations rolled back[/yellow]")
+
+        if result.total_duration_ms > 0:
+            console.print(f"\n⏱️ Total time: {verbatim(result.total_duration_ms)}ms")
+
+        if result.checksums_verified:
+            console.print("[cyan]🔐 Checksums verified[/cyan]")
+
+        if result.warnings:
+            console.print("\n[yellow]Warnings:[/yellow]")
+            for warning in result.warnings:
+                console.print(f"  ⚠️ {verbatim(warning)}")
+    else:
+        console.print(f"[red]❌ Rollback failed: {verbatim(result.error)}[/red]")
+        if result.migrations_rolled_back:
+            count = len(result.migrations_rolled_back)
+            console.print(
+                f"\n[yellow]⚠️ {verbatim(count)} migration(s) were rolled back before failure[/yellow]"
+            )
+
+
+def format_migrate_diff_result(
+    result: MigrateDiffResult,
+    format_type: str,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Format migrate diff result in requested format.
+
+    Args:
+        result: MigrateDiffResult to format
+        format_type: Output format ('text', 'json', or 'csv')
+        output_path: Optional file path to write output
+        console: Rich console for output
+    """
+    if format_type == "text":
+        format_diff_text(result, console)
+    else:
+        # JSON/CSV output
+        csv_data = (
+            ["type", "details"],
+            [[c.change_type, c.details] for c in result.changes],
+        )
+        handle_output(format_type, result.to_dict(), csv_data, output_path, console)
+
+
+def format_diff_text(result: MigrateDiffResult, console: Console) -> None:
+    """Format migrate diff result as rich text for console output.
+
+    Args:
+        result: MigrateDiffResult to format
+        console: Rich console for output
+    """
+    if not result.success:
+        console.print(f"[red]❌ Diff failed: {verbatim(result.error)}[/red]")
+        return
+
+    if not result.has_changes:
+        console.print("[green]✅ No changes detected. Schemas are identical.[/green]")
+        return
+
+    console.print("[cyan]📊 Schema differences detected:[/cyan]\n")
+
+    for change in result.changes:
+        console.print(f"  [{change.change_type}] {verbatim(change.details)}")
+
+    console.print(f"\n📈 Total changes: {len(result.changes)}")
+
+    if result.migration_generated:
+        console.print(f"\n[green]✅ Migration generated: {verbatim(result.migration_file)}[/green]")
+
+
+def format_migrate_validate_result(
+    result: MigrateValidateResult,
+    format_type: str,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Format migrate validate result in requested format.
+
+    Args:
+        result: MigrateValidateResult to format
+        format_type: Output format ('text', 'json', or 'csv')
+        output_path: Optional file path to write output
+        console: Rich console for output
+    """
+    if format_type == "text":
+        format_validate_text(result, console)
+    else:
+        # JSON/CSV output
+        csv_data = (
+            ["check", "count"],
+            [
+                ["orphaned_files", str(len(result.orphaned_files))],
+                ["duplicate_versions", str(len(result.duplicate_versions))],
+                ["fixed_files", str(len(result.fixed_files))],
+            ],
+        )
+        handle_output(format_type, result.to_dict(), csv_data, output_path, console)
+
+
+def format_validate_text(result: MigrateValidateResult, console: Console) -> None:
+    """Format migrate validate result as rich text for console output.
+
+    Args:
+        result: MigrateValidateResult to format
+        console: Rich console for output
+    """
+    if not result.success:
+        console.print(f"[red]❌ Validation failed: {verbatim(result.error)}[/red]")
+        return
+
+    if result.orphaned_files:
+        console.print("[yellow]⚠️ Orphaned files found:[/yellow]")
+        for f in result.orphaned_files:
+            console.print(f"  • {verbatim(f)}")
+
+    if result.duplicate_versions:
+        console.print("[red]❌ Duplicate migration versions detected:[/red]")
+        for version, files in sorted(result.duplicate_versions.items()):
+            console.print(f"  Version {verbatim(version)}:")
+            for f in files:
+                console.print(f"    • {verbatim(f)}")
+
+    if result.fixed_files:
+        console.print("[green]✅ Files fixed:[/green]")
+        for f in result.fixed_files:
+            console.print(f"  • {verbatim(f)}")
+
+    if result.warnings:
+        console.print("\n[yellow]Warnings:[/yellow]")
+        for warning in result.warnings:
+            console.print(f"  ⚠️ {verbatim(warning)}")
+
+    if result.success and not result.orphaned_files and not result.duplicate_versions:
+        console.print("[green]✅ All validation checks passed[/green]")
+
+
+def format_rebuild_result(
+    result: MigrateRebuildResult,
+    format_type: str,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Format rebuild result in requested format.
+
+    Args:
+        result: MigrateRebuildResult to format.
+        format_type: Output format ('text', 'json', or 'csv').
+        output_path: Optional file path to write output.
+        console: Rich console for output.
+    """
+    if format_type == "text":
+        _format_rebuild_text(result, console)
+    else:
+        csv_data = (
+            ["version", "name", "duration_ms"],
+            [[m.version, m.name, str(m.duration_ms)] for m in result.migrations_marked],
+        )
+        handle_output(format_type, result.to_dict(), csv_data, output_path, console)
+
+
+def _format_rebuild_text(result: MigrateRebuildResult, console: Console) -> None:
+    """Format rebuild result as rich text for console output."""
+    if result.success:
+        if result.dry_run:
+            console.print("[cyan]🔍 DRY RUN — no changes made[/cyan]")
+        else:
+            console.print("[green]✅ Rebuild complete[/green]")
+
+        if result.schemas_dropped:
+            console.print(f"\n  Schemas dropped: {verbatim(', '.join(result.schemas_dropped))}")
+        console.print(f"  DDL statements executed: {verbatim(result.ddl_statements_executed)}")
+        console.print(f"  Migrations marked: {len(result.migrations_marked)}")
+
+        if result.seeds_applied is not None:
+            console.print(f"  Seed files applied: {verbatim(result.seeds_applied)}")
+
+        if result.verified is not None:
+            status = (
+                "[green]✅ verified[/green]" if result.verified else "[red]❌ pending found[/red]"
+            )
+            console.print(f"  Post-rebuild verify: {markup(status)}")
+
+        if result.total_duration_ms > 0:
+            console.print(f"\n  ⏱️  Total time: {verbatim(result.total_duration_ms)}ms")
+
+        if result.warnings:
+            console.print("\n[yellow]Warnings:[/yellow]")
+            for warning in result.warnings:
+                console.print(f"  ⚠️  {verbatim(warning)}")
+    else:
+        console.print(f"[red]❌ Rebuild failed: {verbatim(result.error)}[/red]")
+
+
+def _sql_execution_details(error_message: str, console: Any) -> None:
+    """The statement, the database error and a hint keyed on the error text."""
+    console.print("  Error Type: SQL Execution Error")
+    parts = error_message.split(" | ")
+    sql_part = next((part for part in parts if part.startswith("SQL: ")), None)
+    error_part = next((part for part in parts if part.startswith("Error: ")), None)
+
+    sql_content = sql_part[5:].strip() if sql_part else None
+    if sql_content is not None:
+        console.print(
+            f"  SQL Statement: {verbatim(sql_content[:100])}{verbatim('...' if len(sql_content) > 100 else '')}"
+        )
+
+    if error_part:
+        db_error = error_part[7:].strip()
+        console.print(f"  Database Error: {verbatim(db_error.split(chr(10))[0])}")
+        _sql_error_hints(db_error.lower(), sql_content, console)
+
+
+def _sql_error_hints(error_msg: str, sql_content: str | None, console: Any) -> None:
+    if "syntax error" in error_msg:
+        console.print("\n[yellow]🔍 SQL Syntax Error Detected:[/yellow]")
+        console.print("  • Check for typos in SQL keywords, table names, or column names")
+        console.print("  • Verify quotes, parentheses, and semicolons are properly balanced")
+        if sql_content is not None:
+            console.print(f'  • Test the SQL manually: psql -c "{verbatim(sql_content)}"')
+    elif "does not exist" in error_msg:
+        _missing_object_hints(error_msg, console)
+    elif "already exists" in error_msg:
+        console.print("\n[yellow]🔍 Object Already Exists:[/yellow]")
+        console.print("  • Use IF NOT EXISTS clauses for safe creation")
+        console.print("  • Check if migration was partially applied")
+    elif "permission denied" in error_msg:
+        console.print("\n[yellow]🔍 Permission Error:[/yellow]")
+        console.print("  • Verify database user has required privileges")
+        console.print("  • Check GRANT statements in earlier migrations")
+
+
+def _missing_object_hints(error_msg: str, console: Any) -> None:
+    if "schema" in error_msg:
+        console.print("\n[yellow]🔍 Missing Schema Error:[/yellow]")
+        console.print("  • Create the schema first: CREATE SCHEMA IF NOT EXISTS schema_name;")
+        console.print("  • Or use the public schema by default")
+    elif "table" in error_msg or "relation" in error_msg:
+        console.print("\n[yellow]🔍 Missing Table Error:[/yellow]")
+        console.print("  • Ensure dependent migrations ran first")
+        console.print("  • Check table name spelling and schema qualification")
+    elif "function" in error_msg:
+        console.print("\n[yellow]🔍 Missing Function Error:[/yellow]")
+        console.print("  • Define the function before using it")
+        console.print("  • Check function name and parameter types")
+
+
+def _framework_error_hints(error_msg: str, console: Any) -> None:
+    if "already been applied" in error_msg:
+        console.print("\n[yellow]🔍 Migration Already Applied:[/yellow]")
+        console.print("  • Check migration status: confiture migrate status")
+        console.print("  • This migration may have run successfully before")
+    elif "connection" in error_msg:
+        console.print("\n[yellow]🔍 Database Connection Error:[/yellow]")
+        console.print("  • Verify database is running and accessible")
+        console.print("  • Check connection string in config file")
+        console.print("  • Test connection: psql 'your-connection-string'")
+
+
+def show_migration_error_details(
+    failed_migration: Any,
+    exception: BaseException,
+    applied_count: int,
+    console: Console,
+) -> None:
+    """Show detailed error information for a failed migration with actionable guidance.
+
+    Args:
+        failed_migration: The Migration instance that failed
+        exception: The exception that was raised
+        applied_count: Number of migrations that succeeded before this one
+        console: Rich Console to print to
+    """
+
+    console.print("\n[red]Failed Migration Details:[/red]")
+    console.print(f"  Version: {verbatim(failed_migration.version)}")
+    console.print(f"  Name: {verbatim(failed_migration.name)}")
+    console.print(
+        f"  File: db/migrations/{verbatim(failed_migration.version)}_{verbatim(failed_migration.name)}.py"
+    )
+
+    # #211: classify on the base message — hint text is guidance, not signal.
+    error_message = base_message(exception)
+
+    if "SQL execution failed" in error_message:
+        _sql_execution_details(error_message, console)
+
+    elif isinstance(exception, MigrationError):
+        console.print("  Error Type: Migration Framework Error")
+        console.print(f"  Message: {verbatim(exception)}")
+        _framework_error_hints(base_message(exception).lower(), console)
+
+    else:
+        console.print(f"  Error Type: {verbatim(type(exception).__name__)}")
+        console.print(f"  Message: {verbatim(exception)}")
+
+    console.print("\n[yellow]🛠️  General Troubleshooting:[/yellow]")
+    console.print(
+        f"  • View migration file: cat db/migrations/{verbatim(failed_migration.version)}_{verbatim(failed_migration.name)}.py"
+    )
+    console.print("  • Check database logs for more details")
+    console.print("  • Test SQL manually in psql")
+
+    if applied_count > 0:
+        console.print(
+            f"  • {verbatim(applied_count)} migration(s) succeeded - database is partially updated"
+        )
+        console.print("  • Fix the error and re-run: confiture migrate up")
+        console.print(
+            f"  • Or rollback and retry: confiture migrate down --steps {verbatim(applied_count)}"
+        )
+    else:
+        console.print("  • No migrations applied yet - database state is clean")
+        console.print("  • Fix the error and re-run: confiture migrate up")
+
+
+def format_verify_results(result: VerifyAllResult, console: Console) -> None:
+    """Rich text output for migrate verify results.
+
+    Args:
+        result: VerifyAllResult with all verification outcomes
+        console: Rich console for output
+    """
+    console.print("\n[bold]Migration verification:[/bold]\n")
+    for r in result.results:
+        if r.status == "verified":
+            console.print(
+                f"  [green]OK[/green]   {verbatim(r.version)}_{verbatim(r.name)} — verified"
+            )
+        elif r.status == "failed":
+            if r.actual_value is not None:
+                detail = f"returned: {r.actual_value}"
+            else:
+                detail = r.error or "unknown"
+            console.print(
+                f"  [red]FAIL[/red] {verbatim(r.version)}_{verbatim(r.name)} — FAILED ({verbatim(detail)})"
+            )
+            if r.verify_file:
+                console.print(f"       File: {verbatim(r.verify_file)}")
+        elif r.status == "no_file":
+            console.print(f"  [dim]SKIP[/dim] {verbatim(r.version)} — no verify file")
+        elif r.status == "skipped":
+            # Distinct from "no file": the sidecar is there and waiting to be
+            # filled in, which is a different nudge to the reader.
+            console.print(
+                f"  [dim]SKIP[/dim] {verbatim(r.version)} — verify file has no assertion yet"
+            )
+
+    console.print(
+        f"\nSummary: {verbatim(result.verified_count)} verified, {verbatim(result.failed_count)} failed, "
+        f"{verbatim(result.skipped_count)} skipped ({verbatim(result.total_applied)} total applied)\n"
+    )

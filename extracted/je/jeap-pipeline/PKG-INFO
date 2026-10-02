@@ -1,0 +1,62 @@
+Metadata-Version: 2.5
+Name: jeap_pipeline
+Version: 1.10.1
+Summary: A collection of Python modules and libraries for CI/CD pipelines in the jEAP context.
+Project-URL: Homepage, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib
+Project-URL: Issues, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib
+Author-email: Laris Jacobs <laris.jacobs@bit.admin.ch>, Jose Alvarez Morales <jose.alvarezmorales@bit.admin.ch>, Oliver Santschi <oliver.santschi@bit.admin.ch>, Fabien Cerf <fabien.cerf@bit.admin.ch>, Matthias Fritschi <matthias.fritschi@bit.admin.ch>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: boto3==1.43.89
+Requires-Dist: markdown-it-py==4.2.0
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: requests==2.34.2
+Provides-Extra: dev
+Requires-Dist: build==1.6.0; extra == 'dev'
+Requires-Dist: pip-licenses==5.5.5; extra == 'dev'
+Requires-Dist: pytest==9.1.1; extra == 'dev'
+Requires-Dist: twine==7.0.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# jEAP Python Pipeline Library
+
+`jeap-python-pipeline-lib` is a collection of reusable Python modules that standardize CI/CD pipeline
+operations in the **jEAP** context — ECS deployment checks on AWS, recording deployments in the jEAP
+Deployment Log service, Pact Broker `can-i-deploy` checks, Message Contract Service operations,
+business-process test runs, and GitHub / Remedy integrations.
+
+It is published to PyPI as [`jeap-pipeline`](https://pypi.org/project/jeap-pipeline/) and imported as
+`jeap_pipeline`. There is no CLI — pipelines call the functions from small Python steps.
+
+```bash
+pip install jeap-pipeline
+```
+
+## Documentation
+
+| Topic | File |
+|---|---|
+| Install and first use | [docs/getting-started.md](docs/getting-started.md) |
+| Module catalog (what the library provides) | [docs/modules.md](docs/modules.md) |
+| ECS deployment checks & failure diagnostics | [docs/ecs-deployment.md](docs/ecs-deployment.md) |
+| Documentation validation for the jEAP doc service | [docs/doc-validation.md](docs/doc-validation.md) |
+| Documentation upload to the jEAP doc service | [docs/doc-upload.md](docs/doc-upload.md) |
+| Building, testing and publishing the library | [docs/development.md](docs/development.md) |
+
+## Changelog
+
+Versioned with [Semantic Versioning](https://semver.org/); changes are recorded in
+[CHANGELOG.md](./CHANGELOG.md) ([Keep a Changelog](https://keepachangelog.com/) format). Keep
+[publiccode.yml](publiccode.yml) in sync.
+
+## Note
+
+This repository is part of the open source distribution of jEAP. See
+[github.com/jeap-admin-ch/jeap](https://github.com/jeap-admin-ch/jeap) for more information.
+
+## License
+
+This repository is Open Source Software licensed under the [Apache License 2.0](./LICENSE).

@@ -1,0 +1,372 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import asyncio
+
+import pytest
+
+import a11
+from a11 import _native
+from a11.data.types import Chunk, NodeFragment, WireMessage
+from a11.net.http2 import Http2Client, Http2Server
+from a11.net.signalling import (
+    SignallingMessage,
+    SignallingMessageType,
+    SignallingService,
+    WebSocketSignallingClient,
+    WebSocketSignallingServer,
+)
+from a11.net.webrtc_wire_stream import WebRtcWireServer, WebRtcWireStream
+from a11.net.websocket_wire_stream import (
+    WebSocketServerOptions,
+    WebSocketWireServer,
+    WebSocketWireStream,
+)
+from a11.net.wire_stream import WireStreamWithRecv
+
+
+def _message(payload: bytes) -> WireMessage:
+    return WireMessage(
+        node_fragments=[NodeFragment(id="native", data=Chunk(data=payload))]
+    )
+
+
+def test_public_network_types_are_native_classes():
+    names = (
+        "Http2Client",
+        "Http2Server",
+        "HttpProtocolPreference",
+        "HttpSseClientWireStream",
+        "HttpSseServer",
+        "SignallingService",
+        "WebRtcWireServer",
+        "WebRtcWireStream",
+        "WebSocketSignallingClient",
+        "WebSocketSignallingServer",
+        "WebSocketWireServer",
+        "WebSocketWireStream",
+    )
+    for name in names:
+        assert getattr(a11, name) is getattr(_native, name)
+
+
+@pytest.mark.asyncio
+async def test_nghttp2_websocket_wire_stream_exchanges_chunked_messages():
+    accepted_future = asyncio.get_running_loop().create_future()
+
+    async def on_stream(stream):
+        accepted = WireStreamWithRecv(stream)
+        await accepted.accept()
+        accepted_future.set_result(accepted)
+
+    options = WebSocketServerOptions()
+    options.path = "/wire"
+    options.framing.split_size = 1024
+    server = WebSocketWireServer.create(on_stream, options)
+    try:
+        client_options = _native.WebSocketClientOptions()
+        client_options.framing.split_size = 1024
+        client_options.headers = {"x-a11-test": "native"}
+        raw_client = WebSocketWireStream.connect(
+            f"ws://127.0.0.1:{server.port}/wire",
+            websocket_options=client_options,
+        )
+        client = WireStreamWithRecv(raw_client)
+        await asyncio.wait_for(client.start(), timeout=5)
+        accepted = await asyncio.wait_for(accepted_future, timeout=5)
+
+        message = _message(b"native-websocket" * 32_768)
+        client.send(message)
+        assert await asyncio.wait_for(accepted.receive(), timeout=10) == message
+
+        accepted.send(_message(b"response"))
+        assert await asyncio.wait_for(client.receive(), timeout=5) == _message(
+            b"response"
+        )
+
+        client.half_close({"client": b"done"})
+        accepted.half_close({"server": b"done"})
+        await asyncio.wait_for(
+            asyncio.gather(
+                client.drain_outgoing_messages(),
+                accepted.drain_outgoing_messages(),
+            ),
+            timeout=5,
+        )
+        assert await asyncio.wait_for(client.receive(), timeout=5) is None
+        assert await asyncio.wait_for(accepted.receive(), timeout=5) is None
+    finally:
+        server.stop()
+
+
+@pytest.mark.asyncio
+async def test_websocket_wire_stream_exchanges_over_http1():
+    """The native WebSocket transport interoperates over RFC 6455 / HTTP/1.1."""
+    accepted_future = asyncio.get_running_loop().create_future()
+
+    async def on_stream(stream):
+        accepted = WireStreamWithRecv(stream)
+        await accepted.accept()
+        accepted_future.set_result(accepted)
+
+    options = WebSocketServerOptions()
+    options.path = "/wire"
+    server = WebSocketWireServer.create(on_stream, options)
+    try:
+        client_options = _native.WebSocketClientOptions()
+        # Force the client onto HTTP/1.1; the cleartext server sniffs and
+        # accepts the RFC 6455 upgrade over an HTTP/1.1 connection.
+        client_options.http2_options.client_preference = (
+            a11.HttpProtocolPreference.HTTP11
+        )
+        raw_client = WebSocketWireStream.connect(
+            f"ws://127.0.0.1:{server.port}/wire",
+            websocket_options=client_options,
+        )
+        client = WireStreamWithRecv(raw_client)
+        await asyncio.wait_for(client.start(), timeout=5)
+        accepted = await asyncio.wait_for(accepted_future, timeout=5)
+
+        message = _message(b"http1-websocket")
+        client.send(message)
+        assert await asyncio.wait_for(accepted.receive(), timeout=10) == message
+    finally:
+        server.stop()
+
+
+@pytest.mark.asyncio
+async def test_http2_extended_connect_exposes_duplex_body_streams():
+    async def handler(request, response):
+        assert request.protocol == "echo"
+        assert request.body_stream is not None
+        response.send_headers(200, {"x-transport": "nghttp2"})
+        async for data in request.body_stream:
+            response.write(b"echo:" + data)
+        response.finish()
+
+    server = Http2Server.create(handler=handler)
+    client = None
+    try:
+        client = await asyncio.wait_for(
+            Http2Client.connect("127.0.0.1", server.port), timeout=5
+        )
+        stream = client.extended_connect("echo", "/duplex")
+        head = await asyncio.wait_for(stream.headers(), timeout=5)
+        assert head.status == 200
+        assert ("x-transport", "nghttp2") in head.headers
+
+        stream.write(b"one")
+        stream.write(b"two")
+        stream.finish()
+        # Joined, not compared chunk by chunk: a duplex body is a byte stream, and
+        # HTTP/2 DATA framing is not a message boundary. Two writes issued back to
+        # back may reach the peer as one frame -- which is what happens now that a
+        # write is posted to the loop rather than awaited -- and a proxy could
+        # re-frame them anyway. Order and bytes are the contract; chunking is not.
+        assert b"".join([chunk async for chunk in stream]) == b"echo:oneecho:two"
+        await asyncio.wait_for(stream.wait_done(), timeout=5)
+    finally:
+        if client is not None:
+            client.close()
+        server.stop()
+
+
+@pytest.mark.asyncio
+async def test_websocket_signalling_binds_network_client_and_service():
+    service = SignallingService.create()
+    signalling_server = WebSocketSignallingServer.create(service)
+    client = None
+    received = asyncio.get_running_loop().create_future()
+
+    async def on_message(message):
+        received.set_result(message)
+
+    endpoint = service.connect("receiver", on_message)
+    try:
+        client = await asyncio.wait_for(
+            WebSocketSignallingClient.connect(
+                f"ws://127.0.0.1:{signalling_server.port}", "client"
+            ),
+            timeout=5,
+        )
+        client.send(
+            SignallingMessage(
+                type=SignallingMessageType.CANDIDATE,
+                recipient="receiver",
+                candidate="candidate:1 1 UDP 1 127.0.0.1 1234 typ host",
+                mid="0",
+            )
+        )
+        message = await asyncio.wait_for(received, timeout=5)
+        assert message.sender == "client"
+        assert message.recipient == "receiver"
+        assert message.mid == "0"
+    finally:
+        endpoint.close()
+        if client is not None:
+            client.close()
+        signalling_server.stop()
+        service.stop()
+
+
+@pytest.mark.asyncio
+async def test_webrtc_wire_stream_exchanges_fragmented_messages():
+    signalling = SignallingService.create()
+    accepted_future = asyncio.get_running_loop().create_future()
+
+    async def on_stream(stream):
+        accepted = WireStreamWithRecv(stream)
+        await accepted.accept()
+        accepted_future.set_result(accepted)
+
+    server = WebRtcWireServer.create("server", signalling, on_stream)
+    try:
+        client = WireStreamWithRecv(
+            WebRtcWireStream.create_client("client", "server", signalling)
+        )
+        await asyncio.wait_for(client.start(), timeout=15)
+        accepted = await asyncio.wait_for(accepted_future, timeout=15)
+
+        message = _message(b"native-webrtc" * 20_000)
+        client.send(message)
+        assert await asyncio.wait_for(accepted.receive(), timeout=15) == message
+
+        accepted.send(_message(b"reply"))
+        assert await asyncio.wait_for(client.receive(), timeout=15) == _message(
+            b"reply"
+        )
+
+        client.half_close({"client": b"done"})
+        accepted.half_close({"server": b"done"})
+        await asyncio.wait_for(
+            asyncio.gather(
+                client.drain_outgoing_messages(),
+                accepted.drain_outgoing_messages(),
+            ),
+            timeout=15,
+        )
+    finally:
+        server.stop()
+        signalling.stop()
+
+
+@pytest.mark.asyncio
+async def test_webrtc_server_accepts_peers_through_a_remote_signalling_server():
+    """A server reachable through a signalling server it dialled out to.
+
+    The deployment the in-process `SignallingService` cannot describe: the
+    serving process is behind NAT and registers with a rendezvous rather than
+    hosting one, so its signalling is a *transport* it connected as a client.
+    The `WebSocketSignallingServer` here stands in for that rendezvous.
+    """
+    rendezvous = SignallingService.create()
+    signalling_server = WebSocketSignallingServer.create(rendezvous)
+    url = f"ws://127.0.0.1:{signalling_server.port}"
+    accepted_future = asyncio.get_running_loop().create_future()
+
+    async def on_stream(stream):
+        accepted = WireStreamWithRecv(stream)
+        await accepted.accept()
+        accepted_future.set_result(accepted)
+
+    server_signalling = await asyncio.wait_for(
+        WebSocketSignallingClient.connect(url, "remote-server"), timeout=10
+    )
+    # No identity argument: the server listens as whatever the transport
+    # registered under, so the two cannot drift apart.
+    server = WebRtcWireServer.create(server_signalling, on_stream)
+    client_signalling = None
+    try:
+        assert server.identity == "remote-server"
+
+        client_signalling = await asyncio.wait_for(
+            WebSocketSignallingClient.connect(url, "remote-client"), timeout=10
+        )
+        client = WireStreamWithRecv(
+            WebRtcWireStream.create_client("remote-server", client_signalling)
+        )
+        await asyncio.wait_for(client.start(), timeout=20)
+        accepted = await asyncio.wait_for(accepted_future, timeout=20)
+
+        message = _message(b"through-a-rendezvous")
+        client.send(message)
+        assert await asyncio.wait_for(accepted.receive(), timeout=20) == message
+
+        accepted.send(_message(b"reply"))
+        assert await asyncio.wait_for(client.receive(), timeout=20) == _message(
+            b"reply"
+        )
+
+        client.half_close()
+        accepted.half_close()
+        await asyncio.wait_for(
+            asyncio.gather(
+                client.drain_outgoing_messages(),
+                accepted.drain_outgoing_messages(),
+            ),
+            timeout=20,
+        )
+    finally:
+        # Stopping the server closes the transport it took over, so that one is
+        # not closed here.
+        server.stop()
+        if client_signalling is not None:
+            client_signalling.close()
+        signalling_server.stop()
+        rendezvous.stop()
+
+
+def test_the_path_mtu_search_can_be_turned_off_and_bounded():
+    """Pinning the MTU is something a caller can say, not only a C++ default.
+
+    Path MTU discovery raises the association MTU once a burst of padded
+    heartbeats is acknowledged, and a burst of probes can be luckier than a
+    stream of data. When it is, packets at the raised size are dropped in
+    flight -- which produces no local send error, so the association sits
+    wedged until the black-hole detector notices. A peer on a path it cannot
+    characterise (a TURN relay, anything across the internet) wants to hold the
+    configured MTU instead, and until these were bound it had no way to ask.
+    """
+    configuration = _native.WebRtcConfiguration()
+    # The defaults the C++ header declares, so a change to either is visible
+    # here rather than only in whatever it breaks.
+    assert configuration.path_mtu_discovery is True
+    assert configuration.max_discovered_mtu == 9216
+    assert configuration.probe_timeout == a11.timing.Duration.milliseconds(500)
+    assert configuration.path_mtu_raise_interval == a11.timing.Duration.seconds(
+        600
+    )
+    assert (
+        configuration.path_mtu_startup_retry
+        == a11.timing.Duration.milliseconds(250)
+    )
+
+    # Pinned: discovery off, and the ceiling brought down to the floor so that
+    # even a build that ignored the flag could not raise above it.
+    configuration.path_mtu_discovery = False
+    configuration.mtu = 1280
+    configuration.max_discovered_mtu = 1280
+    configuration.validate()
+    assert configuration.path_mtu_discovery is False
+    assert configuration.max_discovered_mtu == 1280
+
+    # The timers are durations, and take what every other duration here takes.
+    configuration.probe_timeout = a11.timing.Duration.seconds(2)
+    configuration.path_mtu_raise_interval = a11.timing.Duration.seconds(60)
+    configuration.path_mtu_startup_retry = a11.timing.Duration.milliseconds(50)
+    configuration.validate()
+    assert configuration.probe_timeout == a11.timing.Duration.seconds(2)
+    assert configuration.path_mtu_raise_interval == a11.timing.Duration.seconds(
+        60
+    )

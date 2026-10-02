@@ -77,9 +77,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
     _POLLING_INTERVAL_SECONDS = 10.0
     _WAIT_TIMEOUT_SECONDS = 1800.0
 
-    _BACKEND_SESSION_STATE_TO_WORKSPACE_STATE: ClassVar[
-        Dict[SessionState, WorkspaceState]
-    ] = {
+    _BACKEND_SESSION_STATE_TO_WORKSPACE_STATE: ClassVar[Dict[SessionState, WorkspaceState]] = {
         SessionState.STOPPED: WorkspaceState.TERMINATED,
         SessionState.TERMINATED: WorkspaceState.TERMINATED,
         SessionState.STARTINGUP: WorkspaceState.STARTING,
@@ -137,12 +135,11 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         validate_resource_name(name)
 
         compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
-            compute_config=config.compute_config, cloud=config.cloud,  # type: ignore
+            compute_config=config.compute_config,
+            cloud=config.cloud,  # type: ignore
         )
 
-        project_id = self.client.get_project_id(
-            parent_cloud_id=cloud_id, name=config.project
-        )
+        project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
 
         build_id = None
 
@@ -163,10 +160,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
 
         dynamic_requirements = None
-        if (
-            config.requirements
-            and self._image_sdk.enable_image_build_for_tracked_requirements
-        ):
+        if config.requirements and self._image_sdk.enable_image_build_for_tracked_requirements:
             requirements = (
                 parse_requirements_file(config.requirements)
                 if isinstance(config.requirements, str)
@@ -342,9 +336,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             id=id, name=name, cloud=cloud, project=project
         )
 
-        assert (
-            self.status(id=workspace_model.id) == WorkspaceState.RUNNING
-        ), "Workspace must be running to generate SSH config file"
+        assert self.status(id=workspace_model.id) == WorkspaceState.RUNNING, (
+            "Workspace must be running to generate SSH config file"
+        )
 
         head_node_ip = self.client.get_cluster_head_node_ip(workspace_model.cluster_id)
         ssh_key = self.client.get_cluster_ssh_key(workspace_model.cluster_id)
@@ -361,9 +355,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if ssh_config_path is None:
             ssh_config_path = tempfile.mkdtemp()
 
-        key_path = _store_ssh_key(
-            ssh_key.key_name, ssh_key.private_key, ssh_config_path
-        )
+        key_path = _store_ssh_key(ssh_key.key_name, ssh_key.private_key, ssh_config_path)
 
         ssh_config = SSH_TEMPLATE.format(
             head_node_ip=head_node_ip, key_path=key_path, name=workspace_model.name
@@ -394,9 +386,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         # Prefer the HTTPS tunnel (legacy port-22 SSH is unreachable on k8s);
         # direct_ssh forces the legacy path, else fall back to it when HTTPS
         # can't be built. argv list (no shell) keeps the ProxyCommand intact.
-        proxy_cmd = (
-            None if direct_ssh else self._build_https_proxy_command(workspace_model.id)
-        )
+        proxy_cmd = None if direct_ssh else self._build_https_proxy_command(workspace_model.id)
         if proxy_cmd is not None:
             ssh_cmd = (
                 [
@@ -413,12 +403,14 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 + ANYSCALE_WORKSPACES_SSH_OPTIONS
                 + [host_name, command]
             )
-            return subprocess.run(ssh_cmd, check=kwargs.pop("check", False), **kwargs,)
+            return subprocess.run(
+                ssh_cmd,
+                check=kwargs.pop("check", False),
+                **kwargs,
+            )
 
         return subprocess.run(
-            ["ssh"]
-            + ANYSCALE_WORKSPACES_SSH_OPTIONS
-            + ["-F", config_file, host_name, command],
+            ["ssh"] + ANYSCALE_WORKSPACES_SSH_OPTIONS + ["-F", config_file, host_name, command],
             check=kwargs.pop("check", False),
             **kwargs,
         )
@@ -436,9 +428,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         )
         return self.client.get_workspace_default_dir_name(workspace_model.id)
 
-    def _parse_rsync_dry_run_output(
-        self, dry_run_output: str
-    ) -> Tuple[List[str], List[str]]:
+    def _parse_rsync_dry_run_output(self, dry_run_output: str) -> Tuple[List[str], List[str]]:
         """Parse rsync dry-run output to detect file changes vs additions.
         Note that --itemize-changes is needed to detect file changes.
         Format is like "<fcsT...... test.py" where:
@@ -469,8 +459,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         return modifying_files, deleting_files
 
     def _dry_run_rsync(self, rsync_command: List[str], delete: bool):
-        """Run rsync with --dry-run and warn if files are being deleted.
-        """
+        """Run rsync with --dry-run and warn if files are being deleted."""
 
         # --itemize-changes is needed to detect file changes
         dry_run_options = ["--dry-run", "--itemize-changes"]
@@ -500,9 +489,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             click.echo(
                 "Detected files that exist in the destination but not in the source. The files will not be deleted by default. You can add '--delete' option to delete the files:"
             )
-            click.echo(
-                "\n".join([click.style(file, fg="red") for file in deleting_files])
-            )
+            click.echo("\n".join([click.style(file, fg="red") for file in deleting_files]))
 
     def _get_https_public_hostname(self, cluster) -> Optional[str]:
         """Extract public hostname from cluster for HTTPS connection."""
@@ -531,9 +518,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 return cluster_access_token.decode("utf-8")
             return str(cluster_access_token)
         except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
-            self._logger.debug(
-                f"Failed to get cluster access token: {type(e).__name__}"
-            )
+            self._logger.debug(f"Failed to get cluster access token: {type(e).__name__}")
             return None
 
     def _create_https_proxy_command(
@@ -548,9 +533,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ) as proxy_path:
                 proxy_script_path = str(proxy_path)
         except (ModuleNotFoundError, ImportError) as e:
-            self._logger.debug(
-                f"Failed to create HTTPS proxy command: {type(e).__name__}"
-            )
+            self._logger.debug(f"Failed to create HTTPS proxy command: {type(e).__name__}")
             return None
 
         return " ".join(
@@ -582,18 +565,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             if not cluster_access_token:
                 return None
 
-            return self._create_https_proxy_command(
-                public_hostname, cluster_access_token
-            )
+            return self._create_https_proxy_command(public_hostname, cluster_access_token)
         except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
-            self._logger.debug(
-                f"Failed to build HTTPS proxy command: {type(e).__name__}"
-            )
+            self._logger.debug(f"Failed to build HTTPS proxy command: {type(e).__name__}")
             return None
 
-    def _build_https_ssh_command(
-        self, workspace_id: str, config_file: str
-    ) -> Optional[str]:
+    def _build_https_ssh_command(self, workspace_id: str, config_file: str) -> Optional[str]:
         """Build an SSH command string with WebSocket ProxyCommand for rsync -e.
 
         Returns None if HTTPS connection cannot be set up. The ProxyCommand is
@@ -615,7 +592,10 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         )
 
     def _execute_rsync_with_ssh_cmd(
-        self, ssh_cmd: str, base_rsync_args: List[str], delete: bool,
+        self,
+        ssh_cmd: str,
+        base_rsync_args: List[str],
+        delete: bool,
     ) -> None:
         """Execute rsync with the given SSH command."""
         # Use -c (--checksum) to avoid retransmitting files that haven't changed
@@ -627,9 +607,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         # Add --progress for real-time feedback (shows filenames and per-file transfer progress)
         args_with_progress = args + ["--progress"]
         try:
-            subprocess.run(
-                args_with_progress, check=True, capture_output=True, text=True
-            )
+            subprocess.run(args_with_progress, check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             self._logger.error(f">>> Error running rsync command: {e}")
             self._logger.error(f">>> stdout: {e.stdout}")
@@ -714,9 +692,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 # Use HTTPS if it can be configured, otherwise use direct SSH
                 # Note: No automatic fallback on transfer failure - if HTTPS fails mid-transfer,
                 # the operation fails and user can retry with --direct-ssh flag
-                https_ssh_cmd = self._build_https_ssh_command(
-                    workspace_model.id, config_file
-                )
+                https_ssh_cmd = self._build_https_ssh_command(workspace_model.id, config_file)
                 if https_ssh_cmd:
                     ssh_cmd = https_ssh_cmd
                 else:
@@ -782,7 +758,10 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         )
 
     def update(
-        self, *, id: Optional[str], config: UpdateWorkspaceConfig  # noqa: A002
+        self,
+        *,
+        id: Optional[str],  # noqa: A002
+        config: UpdateWorkspaceConfig,  # noqa: A002
     ) -> str:
         workspace = self.client.get_workspace(id=id)  # type: ignore
 
@@ -809,7 +788,8 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         compute_config_id = None
         if config.compute_config:
             compute_config_id, _ = self.resolve_compute_config_and_cloud_id(
-                compute_config=config.compute_config, cloud=None,  # type: ignore
+                compute_config=config.compute_config,
+                cloud=None,  # type: ignore
             )
 
         build_id = None
@@ -830,10 +810,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
 
         dynamic_requirements = None
-        if (
-            config.requirements
-            and self._image_sdk.enable_image_build_for_tracked_requirements
-        ):
+        if config.requirements and self._image_sdk.enable_image_build_for_tracked_requirements:
             requirements = (
                 parse_requirements_file(config.requirements)
                 if isinstance(config.requirements, str)
@@ -877,9 +854,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         return id  # type: ignore
 
-    def _convert_cluster_state_to_workspace_state(
-        self, state: SessionState
-    ) -> WorkspaceState:
+    def _convert_cluster_state_to_workspace_state(self, state: SessionState) -> WorkspaceState:
         return cast(
             WorkspaceState,
             self._BACKEND_SESSION_STATE_TO_WORKSPACE_STATE.get(  # type: ignore
@@ -887,16 +862,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ),
         )
 
-    def _convert_env_var_list_to_dict(
-        self, env_vars: Optional[List[str]]
-    ) -> Dict[str, str]:
+    def _convert_env_var_list_to_dict(self, env_vars: Optional[List[str]]) -> Dict[str, str]:
         if not env_vars:
             return {}
         return dict([env_var.split("=", 1) for env_var in env_vars])
 
-    def _convert_requirements_str_to_list(
-        self, requirements: Optional[str]
-    ) -> List[str]:
+    def _convert_requirements_str_to_list(self, requirements: Optional[str]) -> List[str]:
         if not requirements:
             return []
         return [req for req in requirements.split("\n") if req]
@@ -931,9 +902,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             config=config,
         )
 
-    def _fetch_workspace_config(
-        self, workspace: ExperimentalWorkspace
-    ) -> WorkspaceConfig:
+    def _fetch_workspace_config(self, workspace: ExperimentalWorkspace) -> WorkspaceConfig:
         """Fetch full workspace configuration (expensive, makes multiple API calls).
 
         Optimizes performance by parallelizing independent API calls using ThreadPoolExecutor.
@@ -943,9 +912,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         # First fetch cluster (needed for subsequent calls)
         cluster = self.client.get_workspace_cluster(workspace.id)
         if not cluster:
-            raise ValueError(
-                f"Workspace cluster with ID '{workspace.cluster_id}' was not found."
-            )
+            raise ValueError(f"Workspace cluster with ID '{workspace.cluster_id}' was not found.")
 
         # Parallelize all independent API calls
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
@@ -954,15 +921,11 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 "image_uri": executor.submit(
                     self._image_sdk.get_image_uri_from_build_id, cluster.build_id
                 ),
-                "image_build": executor.submit(
-                    self._image_sdk.get_image_build, cluster.build_id
-                ),
+                "image_build": executor.submit(self._image_sdk.get_image_build, cluster.build_id),
                 "compute": executor.submit(
                     self.get_user_facing_compute_config, workspace.compute_config_id
                 ),
-                "cloud": executor.submit(
-                    self.client.get_cloud, cloud_id=workspace.cloud_id
-                ),
+                "cloud": executor.submit(self.client.get_cloud, cloud_id=workspace.cloud_id),
                 "project": executor.submit(
                     self.client.get_project, project_id=workspace.project_id
                 ),
@@ -981,12 +944,8 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if not results["image_build"]:
             raise ValueError(f"Failed to get image build {cluster.build_id}.")
 
-        env_vars = self._convert_env_var_list_to_dict(
-            results["artifacts"].environment_variables
-        )
-        requirements = self._convert_requirements_str_to_list(
-            results["artifacts"].requirements
-        )
+        env_vars = self._convert_env_var_list_to_dict(results["artifacts"].environment_variables)
+        requirements = self._convert_requirements_str_to_list(results["artifacts"].requirements)
 
         return WorkspaceConfig(
             name=workspace.name,
@@ -1051,16 +1010,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         MAX_PAGE_SIZE = 100
 
         if page_size is not None and not (1 <= page_size <= MAX_PAGE_SIZE):
-            raise ValueError(
-                f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
-            )
+            raise ValueError(f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive.")
 
         # Resolve cloud and project to IDs
         cloud_id = self.client.get_cloud_id(cloud_name=cloud) if cloud else None
         project_id = (
-            self.client.get_project_id(parent_cloud_id=cloud_id, name=project)
-            if project
-            else None
+            self.client.get_project_id(parent_cloud_id=cloud_id, name=project) if project else None
         )
 
         # Normalize state filter
@@ -1085,7 +1040,8 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                     page_token=None,
                     max_items=0,
                     fetch_page=lambda _: SimpleNamespace(
-                        results=[], metadata=SimpleNamespace(next_paging_token=None),
+                        results=[],
+                        metadata=SimpleNamespace(next_paging_token=None),
                     ),
                     parse_fn=None,
                 )
@@ -1121,12 +1077,11 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
 
             results = response.results if response.results else []
-            next_token = (
-                response.metadata.next_paging_token if response.metadata else None
-            )
+            next_token = response.metadata.next_paging_token if response.metadata else None
 
             return SimpleNamespace(
-                results=results, metadata=SimpleNamespace(next_paging_token=next_token),
+                results=results,
+                metadata=SimpleNamespace(next_paging_token=next_token),
             )
 
         return ResultIterator(
@@ -1161,9 +1116,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
             resource_id = model.id  # type: ignore
 
-        self.client.upsert_resource_tags(
-            ResourceTagResourceType.WORKSPACE, resource_id, tags
-        )
+        self.client.upsert_resource_tags(ResourceTagResourceType.WORKSPACE, resource_id, tags)
 
     def remove_tags(
         self,
@@ -1190,9 +1143,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
             resource_id = model.id  # type: ignore
 
-        self.client.delete_resource_tags(
-            ResourceTagResourceType.WORKSPACE, resource_id, keys
-        )
+        self.client.delete_resource_tags(ResourceTagResourceType.WORKSPACE, resource_id, keys)
 
     def list_tags(
         self,
@@ -1211,9 +1162,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             )
             resource_id = model.id  # type: ignore
 
-        records = self.client.list_resource_tags(
-            ResourceTagResourceType.WORKSPACE, resource_id
-        )
+        records = self.client.list_resource_tags(ResourceTagResourceType.WORKSPACE, resource_id)
         return {r.key: r.value for r in records if r and r.key is not None}
 
 
@@ -1257,7 +1206,6 @@ def _normalize_state_filter_to_backend(
             backend_states.append(s)
         else:
             raise TypeError(
-                "'state_filter' entries must be WorkspaceState or str, "
-                f"got {type(s).__name__}"
+                f"'state_filter' entries must be WorkspaceState or str, got {type(s).__name__}"
             )
     return backend_states if backend_states else None

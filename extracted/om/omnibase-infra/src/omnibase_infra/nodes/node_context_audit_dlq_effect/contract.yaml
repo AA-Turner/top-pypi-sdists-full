@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeContextAuditDlqEffect
+#
+# Dead letter queue for context audit events that failed processing.
+# Consumes failed context audit events for retry or investigation.
+#
+# Related Tickets:
+#   - OMN-5240: Context audit DLQ topic
+#   - OMN-7114: Register missing topics in provisioner
+name: "node_context_audit_dlq_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_type: "EFFECT_GENERIC"
+description: >
+  Effect node for context audit dead letter queue. Receives context audit events that failed normal processing for retry or manual investigation. Published by the omniclaude context audit pipeline.
+
+input_model:
+  name: "ModelContextAuditDlqInput"
+  module: "omnibase_infra.nodes.node_context_audit_dlq_effect"
+  description: "Input for context audit DLQ processing (stub)."
+output_model:
+  name: "ModelContextAuditDlqOutput"
+  module: "omnibase_infra.nodes.node_context_audit_dlq_effect"
+  description: "Output for context audit DLQ processing (stub)."
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  # OMN-18013: this subscription is TRUE and is deliberately kept, even though
+  # this contract declares no handler_routing. ContextAuditConsumer
+  # (services/observability) is a real, live consumer of this topic, and this
+  # contract is where the topic is OWNED for provisioning — TopicProvisioner
+  # creates it from this declaration (OMN-7114). Deleting it de-provisioned a
+  # topic a live consumer reads, which is a strictly worse failure than the one
+  # the deletion was meant to fix.
+  #
+  # Nothing was wrong in handler_wiring and nothing was changed there for this
+  # contract. Because `handler_routing` is ABSENT, _prepare_contract_wiring
+  # short-circuits `contract.handler_routing is None` to a SKIPPED result with
+  # subscription_topics=[] BEFORE the subscribe decision, so auto-wiring never
+  # created a dispatcher-less subscription here — the consume/DLQ/commit loop
+  # this comment once described did not exist. The
+  # subscriber-dispatcher-resolution finding was a FALSE POSITIVE and the gate
+  # now mirrors the same skip. (`no_live_dispatcher` does NOT cover this shape —
+  # it is guarded by `bool(prepared_wirings)`, False at zero entries. The
+  # present-but-EMPTY routing shape is caught by the OMN-14141 phantom-wiring
+  # guard, fail-closed.)
+  subscribe_topics:
+    - "onex.evt.omniclaude.context-audit-dlq.v1"
+  publish_topics: []
+consumed_events:
+  - topic: "onex.evt.omniclaude.context-audit-dlq.v1"
+    event_type: "ContextAuditDlqEvent"
+    message_category: "EVENT"
+    description: "Context audit events that failed normal processing"
+metadata:
+  description: "Routes failed context audit events to the dead letter queue for manual review and reprocessing"
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-31"
+  tags:
+    - effect
+    - dlq
+    - context-audit
+    - omniclaude

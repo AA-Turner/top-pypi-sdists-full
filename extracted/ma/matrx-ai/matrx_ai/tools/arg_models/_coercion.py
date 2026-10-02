@@ -45,6 +45,29 @@ def coerce_json_container(value: Any) -> Any:
     return value
 
 
+_PAIR_NAME_KEYS = ("field", "field_name", "name", "key", "column")
+
+
+def coerce_field_values(value: Any) -> Any:
+    """Best-effort: the honest spellings of ONE row's ``{field: value}`` object.
+
+    Accepts the object itself, its JSON-string form, and a list of
+    ``{"field": ..., "value": ...}`` pairs (``field_name``/``name``/``key``/``column``
+    also name the field) — each resolves to exactly the same row. Anything else is
+    returned unchanged so the caller can refuse it with the shape it wants. Never raises.
+    """
+    coerced = coerce_json_container(value)
+    if isinstance(coerced, list) and coerced and all(isinstance(p, dict) for p in coerced):
+        row: dict[str, Any] = {}
+        for pair in coerced:
+            name = next((pair[k] for k in _PAIR_NAME_KEYS if isinstance(pair.get(k), str)), None)
+            if name is None or "value" not in pair or len(pair) != 2:
+                return coerced
+            row[name] = pair["value"]
+        return row
+    return coerced
+
+
 def coerce_object(value: Any, *, field: str, purpose: str = "key/value pairs") -> Any:
     """Coerce a value expected to be a JSON OBJECT (dict). Accepts a
     JSON-string object; passes ``None`` through (for Optional fields); raises a

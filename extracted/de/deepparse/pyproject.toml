@@ -1,0 +1,12 @@
+[tool.black]
+target-version = ['py310', 'py311', 'py312', 'py313']
+
+line-length = 120
+skip-string-normalization = true
+extend-exclude = "/(slides)/"
+
+[tool.pylint.ini_options]
+DJANGO_SETTINGS_MODULE = "settings"
+
+[build-system]
+requires = ["setuptools", "wheel"]

@@ -137,6 +137,59 @@ class GetAuditLogsResponse(_message.Message):
         self, logs: _Optional[_Iterable[_Union[AuditLog, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
 
+class GetTeamAuditLogsRequest(_message.Message):
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "endpoint_filter",
+        "limit",
+        "cursor",
+        "timestamp_lower_bound_inclusive",
+        "timestamp_upper_bound_exclusive",
+        "agent_id_filter",
+        "outcome_filters",
+    )
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FILTER_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_LOWER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    OUTCOME_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    endpoint_filter: _containers.RepeatedScalarFieldContainer[str]
+    limit: int
+    cursor: str
+    timestamp_lower_bound_inclusive: _timestamp_pb2.Timestamp
+    timestamp_upper_bound_exclusive: _timestamp_pb2.Timestamp
+    agent_id_filter: str
+    outcome_filters: _containers.RepeatedScalarFieldContainer[AuditLogOutcome]
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        endpoint_filter: _Optional[_Iterable[str]] = ...,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        timestamp_lower_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        timestamp_upper_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        agent_id_filter: _Optional[str] = ...,
+        outcome_filters: _Optional[_Iterable[_Union[AuditLogOutcome, str]]] = ...,
+    ) -> None: ...
+
+class GetTeamAuditLogsResponse(_message.Message):
+    __slots__ = ("logs", "next_cursor")
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    logs: _containers.RepeatedCompositeFieldContainer[AuditLog]
+    next_cursor: str
+    def __init__(
+        self, logs: _Optional[_Iterable[_Union[AuditLog, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
+    ) -> None: ...
+
 class AuditedEndpointField(_message.Message):
     __slots__ = ("name", "type")
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -185,6 +238,16 @@ class GetAuditedEndpointsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetAuditedEndpointsResponse(_message.Message):
+    __slots__ = ("endpoints",)
+    ENDPOINTS_FIELD_NUMBER: _ClassVar[int]
+    endpoints: _containers.RepeatedCompositeFieldContainer[AuditedEndpoint]
+    def __init__(self, endpoints: _Optional[_Iterable[_Union[AuditedEndpoint, _Mapping]]] = ...) -> None: ...
+
+class GetTeamAuditedEndpointsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetTeamAuditedEndpointsResponse(_message.Message):
     __slots__ = ("endpoints",)
     ENDPOINTS_FIELD_NUMBER: _ClassVar[int]
     endpoints: _containers.RepeatedCompositeFieldContainer[AuditedEndpoint]

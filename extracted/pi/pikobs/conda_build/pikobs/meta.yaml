@@ -1,0 +1,46 @@
+{% set name = "pikobs" %}
+{% set version = "2.0.7." %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: "../.."
+
+build:
+  number: 1
+
+requirements:
+  host:
+    - dask
+    - pip
+    - python
+    - python >=3.8.0
+    - cartopy
+    - matplotlib
+    - numpy
+  run:
+    - dask
+    - cartopy
+    - python
+    - python >=3.8.0
+    - pytz
+    - scipy
+    - matplotlib 
+    - numpy
+test:
+  imports:
+    - pikobs
+about:
+  home: "https://gitlab.science.gc.ca/dlo001/pikobss"
+  license: GPL-3.0-or-later
+  license_family: GPL3
+  license_file: 
+  summary: "pikobs"
+  doc_url: 
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - dlo001

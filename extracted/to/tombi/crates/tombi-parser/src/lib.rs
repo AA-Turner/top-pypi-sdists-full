@@ -11,16 +11,18 @@ mod token_set;
 pub use error::{Error, ErrorKind};
 use itertools::Itertools;
 pub use parsed::ParseResult;
-use tombi_ast_syntax::{SyntaxKind, SyntaxNode};
+#[cfg(test)]
+use tombi_ast_syntax::SyntaxNode;
+use tombi_ast_syntax::{SyntaxKind, SyntaxTree};
 
-pub fn parse(source: &str) -> ParseResult {
+pub fn parse(source: &str) -> ParseResult<'_> {
     let (syntax, errors, line_ending) = parse_syntax::<tombi_ast_syntax::Root>(source);
     ParseResult::new(syntax, errors, line_ending)
 }
 
-fn parse_syntax<P: parse::Parse>(
-    source: &str,
-) -> (SyntaxNode, Vec<crate::Error>, tombi_text::LineEnding) {
+fn parse_syntax<'src, P: parse::Parse>(
+    source: &'src str,
+) -> (SyntaxTree<'src>, Vec<crate::Error>, tombi_text::LineEnding) {
     let lexed = tombi_lexer::lex(source);
     let mut p = crate::parser::Parser::new(source, &lexed.tokens);
 
@@ -28,7 +30,8 @@ fn parse_syntax<P: parse::Parse>(
 
     let (events, synthetic_tokens, errs) = p.finish();
 
-    let syntax = build_syntax_tape(source, &lexed.tokens, &synthetic_tokens, &events);
+    let line_index = tombi_text::LineIndex::from_line_starts(source, lexed.line_starts);
+    let syntax = build_syntax_tape(line_index, &lexed.tokens, &synthetic_tokens, &events);
 
     let mut errors = lexed.errors.into_iter().map(Into::into).collect_vec();
 
@@ -37,13 +40,13 @@ fn parse_syntax<P: parse::Parse>(
     (syntax, errors, lexed.line_ending)
 }
 
-fn build_syntax_tape(
-    source: &str,
+fn build_syntax_tape<'src>(
+    line_index: tombi_text::LineIndex<'src>,
     tokens: &[tombi_lexer::Token],
     synthetic_tokens: &[tombi_lexer::Token],
     events: &[crate::event::Event],
-) -> SyntaxNode {
-    let mut builder = tombi_ast_syntax::SyntaxTreeBuilder::with_capacity(source, events.len());
+) -> SyntaxTree<'src> {
+    let mut builder = tombi_ast_syntax::SyntaxTreeBuilder::with_capacity(line_index, events.len());
     let mut offset = tombi_text::Offset::default();
 
     builder::intersperse_trivia(tokens, synthetic_tokens, events, |step| match step {
@@ -68,7 +71,7 @@ enum TreePattern {
 }
 
 #[cfg(test)]
-fn tree_patterns(node: &SyntaxNode) -> Vec<TreePattern> {
+fn tree_patterns(node: &SyntaxNode<'_>) -> Vec<TreePattern> {
     fn convert(tree: tombi_ast_syntax::DebugTree) -> TreePattern {
         match tree {
             tombi_ast_syntax::DebugTree::Node { kind, children } => TreePattern::Node(
@@ -97,7 +100,7 @@ pub enum SyntaxTreePattern {
 }
 
 #[cfg(test)]
-pub fn syntax_node_to_patterns(node: &SyntaxNode) -> Vec<SyntaxTreePattern> {
+pub fn syntax_node_to_patterns(node: &SyntaxNode<'_>) -> Vec<SyntaxTreePattern> {
     fn convert(pattern: TreePattern) -> SyntaxTreePattern {
         match pattern {
             TreePattern::Token(kind, text) => SyntaxTreePattern::Token(kind, text),
@@ -186,7 +189,8 @@ macro_rules! test_parser {
         fn $name() {
             tombi_test_lib::init_log();
 
-            let p = $crate::parse(textwrap::dedent($source).trim());
+            let source = textwrap::dedent($source);
+            let p = $crate::parse(source.trim());
 
             log::debug!("root: {:#?}", p.root());
 
@@ -202,7 +206,8 @@ macro_rules! test_parser {
         fn $name() {
             tombi_test_lib::init_log();
 
-            let p = $crate::parse(textwrap::dedent($source).trim());
+            let source = textwrap::dedent($source);
+            let p = $crate::parse(source.trim());
 
             let root = p.root();
             log::debug!("root: {root:#?}");
@@ -227,7 +232,8 @@ macro_rules! test_parser {
         fn $name() {
             tombi_test_lib::init_log();
 
-            let p = $crate::parse(textwrap::dedent($source).trim());
+            let source = textwrap::dedent($source);
+            let p = $crate::parse(source.trim());
 
             log::debug!("root: {:#?}", p.root());
 
@@ -260,13 +266,22 @@ macro_rules! test_parser {
         fn $name() {
             tombi_test_lib::init_log();
 
-            let p = $crate::parse(textwrap::dedent($source).trim());
+            let source = textwrap::dedent($source);
+            let source = source.trim();
+            let p = $crate::parse(source);
 
             log::debug!("root: {:#?}", p.root());
 
+            let line_index = p.line_index();
             pretty_assertions::assert_eq!(
-                p.errors,
-                vec![$($crate::Error::new($error_kind, (($line1, $column1), ($line2, $column2)).into())),*]
+                p.errors
+                    .iter()
+                    .map(|error| (
+                        error.kind(),
+                        line_index.range(error.span(), tombi_text::EncodingKind::GraphemeCluster)
+                    ))
+                    .collect::<Vec<_>>(),
+                vec![$(($error_kind, tombi_text::Range::from((($line1, $column1), ($line2, $column2))))),*]
             );
         }
     };
@@ -276,7 +291,8 @@ macro_rules! test_parser {
         fn $name() {
             tombi_test_lib::init_log();
 
-            let $parsed = $crate::parse(textwrap::dedent(&$source).trim());
+            let source = textwrap::dedent(&$source);
+            let $parsed = $crate::parse(source.trim());
 
             assert!($assertion);
         }

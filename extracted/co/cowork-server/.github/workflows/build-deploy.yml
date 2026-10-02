@@ -1,0 +1,217 @@
+# The cowork-server image build, defined once.
+#
+# `dev-build-deploy.yml` and `staging-build-deploy.yml` were the same build and
+# scan twice, and `prod-build-deploy.yml` was a third copy of nothing but the unit
+# tests and a notify job that `publish.yml` already ran on the same event.
+#
+# What actually ships this repo is the PyPI wheel, not a container image: the
+# desktop app installs `cowork-server` from PyPI (or git, per channel), so
+# `publish.yml` and `publish-staging.yml` are the real deploy path. The image
+# build exists for the per-PR environments and for the staging/prod Helm deploy
+# below.
+#
+# ON PERMISSIONS. A called workflow can never exceed its caller's grant, and that
+# cap is checked when the workflow FILE IS LOADED, not when a job runs. A job here
+# naming a scope any one caller does not grant rejects that caller's whole run as a
+# `startup_failure` with zero jobs — and with no job in the run, no notify job can
+# So the rule for every job in this file: declare only what EVERY caller grants.
+# Nothing here declares a PR scope, which is why the per-PR environment comment is
+# NOT in this file — it lives in the pull-request caller, where the grant belongs.
+# Putting it here would have forced the push callers to grant `pull-requests: write`
+# on the release path just so the file would load.
+#
+# Do not reach for "inherit it instead": a job that declares nothing is invisible to
+# the permission gate, so a caller that forgets the grant fails at RUN time with an
+# opaque HTTP 403 rather than failing the lint. Declaring the scope is what makes
+# the relationship checkable. The shared `workflow-lint.yml` verifies it on every
+# PR.
+
+name: Build and Deploy
+
+on:
+
+  workflow_call:
+    inputs:
+      build-environment:
+        description: "Image flavour and tag prefix (development | staging | production)"
+        type: string
+        required: true
+      build-runner:
+        description: "Runner label for deploy and integration; build stays on mdb-dev"
+        type: string
+        default: mdb-dev
+      pr-environment:
+        description: "Run the per-PR environment rollout and its access comment"
+        type: boolean
+        default: false
+      deploy-enabled:
+        description: >-
+          Run the Helm rollout for a long-lived environment. Defaults on, so
+          staging is unaffected; a caller sets it false for an environment that
+          has nothing deployed yet, where a rollout can only fail.
+        type: boolean
+        default: true
+
+    outputs:
+      pr-env-deployed:
+        description: >-
+          "true" only when the per-PR environment actually rolled out. The
+          pipeline succeeding does not mean one exists: without the `deploy`
+          label the rollout is skipped and everything else still passes, so a
+          caller keying off the pipeline result advertises URLs for an
+          environment nobody created.
+        value: ${{ jobs.deploy-pr-env.outputs.deployed }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  build:
+    # Always build on dev runner because thats where buildkit is
+    runs-on: mdb-dev
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    env:
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # hatch-vcs derives the version by describing against tags, and the
+          # default fetch-depth of 1 fetches none of them — so the image
+          # reported 0.0.0.dev1+g<sha> while the wheel from the same commit
+          # reported a real CalVer (ENG-1796). `publish.yml`'s own publish job
+          # already checks out with fetch-depth: 0 for exactly this reason;
+          # this build was the one path that did not.
+          #
+          # WHY THIS AND NOT A BUILD ARG. setuptools-scm's Docker guidance, and
+          # the anton half of ENG-1796, both compute the version on the runner
+          # and pass SETUPTOOLS_SCM_PRETEND_VERSION_FOR_<dist> in — which keeps
+          # .git out of the context entirely, so there is no deletion step and
+          # no ordering contract to guard. That is the cleaner shape in the
+          # abstract, and it is the right one for anton, where .dockerignore
+          # excludes .git and the image is single-stage: a build arg is the only
+          # option there that does not ship history to every pod.
+          #
+          # Here the trade runs the other way. This repo already keeps .git in
+          # the context deliberately (.dockerignore says so) and already has a
+          # builder/final boundary to delete it behind, so fetching tags is the
+          # smaller change against the existing design rather than a redesign of
+          # it. The cost is real and worth naming: one deletion step plus the
+          # ordering contract between it and `uv sync`, both pinned by tests.
+          # If that ever needs touching again, prefer the build arg.
+          #
+          # NOTE this makes .git full history rather than a single commit, and
+          # the Dockerfile COPYs the build context into the builder stage. It
+          # deletes .git after the sync so the runtime image does not carry it.
+          fetch-depth: 0
+      - uses: mindsdb/github-actions/setup-env@main
+      - id: build
+        uses: mindsdb/github-actions/build-push-ecr@main
+        with:
+          module-name: ${{ env.CI_REPOSITORY_SLUG }}
+          build-for-environment: ${{ inputs.build-environment }}
+
+  scan:
+    runs-on: mdb-dev
+    needs: [build]
+    name: Scan Minds Image
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mindsdb/github-actions/snyk-docker-scan@main
+        with:
+          image: ${{ needs.build.outputs.image }}
+          snyk-token: ${{ secrets.SNYK_TOKEN }}
+          # Advisory on a PR, blocking on a deploy branch: an upstream CVE should
+          # not stop someone iterating, and should stop a release.
+          allow-vulns: ${{ inputs.pr-environment && 'true' || '' }}
+
+  deploy-pr-env:
+    runs-on: ${{ inputs.build-runner }}
+    needs: [build]
+    if: inputs.pr-environment && contains(github.event.pull_request.labels.*.name, 'deploy')
+    environment:
+      name: pr-cowork-server-${{ github.event.pull_request.number }}
+      url: https://pr-cowork-server-${{ github.event.pull_request.number }}.dev.mindshub.ai
+    outputs:
+      deployed: ${{ steps.rollout.outputs.deployed }}
+    steps:
+      - uses: mindsdb/github-actions/argocd-pr-env-deploy@main
+        with:
+          argocd-token: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          gh-token: ${{ secrets.GH_PULL_REQUEST_READ_TOKEN }}
+      - name: Record that the environment is up
+        id: rollout
+        run: echo "deployed=true" >> "$GITHUB_OUTPUT"
+
+  integration-tests-pr-env:
+    needs: [deploy-pr-env]
+    uses: ./.github/workflows/tests-integration.yml
+    with:
+      deploy-env: pr-cowork-server-${{ github.event.pull_request.number }}
+      runner: ${{ inputs.build-runner }}
+    secrets: inherit
+
+  deploy:
+    runs-on: ${{ inputs.build-runner }}
+    # `scan` too: it is blocking on a deploy branch (see `allow-vulns` above), and
+    # needing only `build` meant a failing scan and a rollout ran side by side.
+    needs: [build, scan]
+    # Only the two long-lived environments have a cluster to deploy to. A
+    # `development` build is either a PR (handled by `deploy-pr-env`) or nothing.
+    # `deploy-enabled` gates it further: having a cluster is not the same as
+    # having something deployed in it, and a rollout into an environment that
+    # was never stood up fails every run without saying anything useful.
+    if: inputs.deploy-enabled && (inputs.build-environment == 'staging' || inputs.build-environment == 'production')
+    env:
+      # `build-environment` names the image flavour (production); the Helm chart,
+      # namespace and Slack message name the environment (prod). One is not the
+      # other, so map once here rather than at each use.
+      DEPLOY_ENV: ${{ inputs.build-environment == 'production' && 'prod' || 'staging' }}
+    environment:
+      # Spelled out rather than `env.DEPLOY_ENV`: `environment` is resolved before
+      # the job's `env` block exists, and only takes github/needs/strategy/matrix/
+      # vars/inputs.
+      name: ${{ inputs.build-environment == 'production' && 'prod' || 'staging' }}
+      url: ${{ vars.MDB_ENV_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mindsdb/github-actions/setup-env@main
+      - name: Notify of deployment starting
+        id: slack
+        uses: mindsdb/github-actions/slack-deploy-msg@main
+        with:
+          channel-id: ${{ secrets.SLACK_DEPLOYMENTS_CHANNEL_ID }}
+          status: 'started'
+          color: '#0099CC'
+          env-name: ${{ env.DEPLOY_ENV }}
+          env-url: ${{ vars.MDB_ENV_URL }}
+          slack-token: ${{ secrets.GH_ACTIONS_SLACK_BOT_TOKEN }}
+      - uses: DevOps-Nirvana/aws-helm-multi-deploy-nodocker@v8
+        with:
+          environment-slug: ${{ env.DEPLOY_ENV }}
+          k8s-namespace: ${{ env.DEPLOY_ENV }}
+          # build-push-ecr tags the image `<build-for-environment>-<sha>`, so this
+          # is the image flavour, not DEPLOY_ENV.
+          image-tag: ${{ inputs.build-environment }}-${{ env.SLUG }}
+          timeout: 600s
+      - name: Notify of deployment finish
+        uses: mindsdb/github-actions/slack-deploy-msg@main
+        if: always()
+        with:
+          channel-id: ${{ secrets.SLACK_DEPLOYMENTS_CHANNEL_ID }}
+          status: "${{ job.status == 'success' && 'finished' || 'failed' }}"
+          color: "${{ job.status == 'success' && '#00C851' || '#FF4444' }}"
+          env-name: ${{ env.DEPLOY_ENV }}
+          env-url: ${{ vars.MDB_ENV_URL }}
+          slack-token: ${{ secrets.GH_ACTIONS_SLACK_BOT_TOKEN }}
+          update-message-id: ${{ steps.slack.outputs.ts }}
+
+  integration-tests:
+    needs: [deploy]
+    uses: ./.github/workflows/tests-integration.yml
+    with:
+      deploy-env: ${{ inputs.build-environment == 'production' && 'prod' || 'staging' }}
+      runner: ${{ inputs.build-runner }}
+    secrets: inherit

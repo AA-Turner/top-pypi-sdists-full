@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: jixia
+Version: 1.0.5
+Summary: Python binding for jixia
+Project-URL: Source, https://github.com/frenzymath/jixia_py
+Author-email: Tony Beta Lambda <tonybetalambda@gmail.com>
+License-Expression: MIT
+Keywords: lean,programming language,proof assistant
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Other
+Classifier: Topic :: File Formats :: JSON :: JSON Schema
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: pydantic>=2.10
+Provides-Extra: docs
+Requires-Dist: autodoc-pydantic; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Description-Content-Type: text/markdown
+
+jixia_py
+===
+
+The Python binding of [jixia](https://github.com/frenzymath/jixia).

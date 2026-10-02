@@ -57,9 +57,7 @@ connections:
 
     def _validate_type(self, type: ConnectionType) -> ConnectionType:  # noqa: A002
         if not isinstance(type, ConnectionType):
-            raise TypeError(
-                f"'type' must be a 'ConnectionType' (it is {type.__class__})."
-            )
+            raise TypeError(f"'type' must be a 'ConnectionType' (it is {type.__class__}).")
         return type
 
     name: str = field(

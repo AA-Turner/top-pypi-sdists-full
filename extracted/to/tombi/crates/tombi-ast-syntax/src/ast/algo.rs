@@ -1,11 +1,11 @@
 use itertools::Itertools;
 use tombi_ast_syntax::SyntaxNode;
 
-pub fn ancestors_at_position(
-    node: &SyntaxNode,
-    position: tombi_text::Position,
-) -> impl Iterator<Item = SyntaxNode> {
-    let nodes = match node.token_at_position(position) {
+pub fn ancestors_at_offset<'t>(
+    node: &SyntaxNode<'t>,
+    offset: tombi_text::Offset,
+) -> impl Iterator<Item = SyntaxNode<'t>> + use<'t> {
+    let nodes = match node.token_at_offset(offset) {
         crate::TokenAtOffset::None => Vec::new(),
         crate::TokenAtOffset::Single(token) => token.parent_ancestors().collect(),
         crate::TokenAtOffset::Between(left, right) => [

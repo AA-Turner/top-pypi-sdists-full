@@ -36,9 +36,7 @@ job_config:
     max_retries: 5
 """
 
-    job_config: Union[Dict, JobConfig] = field(
-        metadata={"docstring": "Configuration of the job."}
-    )
+    job_config: Union[Dict, JobConfig] = field(metadata={"docstring": "Configuration of the job."})
 
     def _validate_job_config(self, job_config: Union[Dict, JobConfig]) -> JobConfig:
         if isinstance(job_config, dict):
@@ -129,9 +127,7 @@ name: my-schedule
 state: ENABLED
 """
 
-    config: ScheduleConfig = field(
-        metadata={"docstring": "Configuration of the schedule."}
-    )
+    config: ScheduleConfig = field(metadata={"docstring": "Configuration of the schedule."})
 
     def _validate_config(self, config: ScheduleConfig):
         if not isinstance(config, ScheduleConfig):
@@ -147,7 +143,9 @@ state: ENABLED
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
 
-    name: str = field(metadata={"docstring": "Name of the schedule."},)
+    name: str = field(
+        metadata={"docstring": "Name of the schedule."},
+    )
 
     def _validate_name(self, name: str):
         if not isinstance(name, str):

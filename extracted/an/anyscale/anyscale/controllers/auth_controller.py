@@ -43,9 +43,7 @@ class AuthController:
                 return
 
             # get token
-            self.log.log(
-                f"Please copy your credentials from {self.url} and paste them below."
-            )
+            self.log.log(f"Please copy your credentials from {self.url} and paste them below.")
             token = click.prompt("Enter your credentials", hide_input=True).strip()
 
         # sanity check
@@ -63,9 +61,7 @@ class AuthController:
             self.log.info("Not authenticated", block_label=block_label)
         else:
             self.log.info("Successfully authenticated as:", block_label=block_label)
-            self.log.info(
-                self._auth_info_to_formatted_string(result), block_label=block_label
-            )
+            self.log.info(self._auth_info_to_formatted_string(result), block_label=block_label)
 
         self.log.close_block()
 
@@ -83,9 +79,7 @@ class AuthController:
         if not os.path.exists(self.path):
             raise click.ClickException("Credentials file does not exist.")
 
-        if ask and not click.confirm(
-            f"Are you sure you want to remove {CREDENTIALS_FILE}?"
-        ):
+        if ask and not click.confirm(f"Are you sure you want to remove {CREDENTIALS_FILE}?"):
             self.log.log("Canceled")
             return
 

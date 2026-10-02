@@ -45,7 +45,7 @@ STRUCTURED_OUTPUT_SCHEMA: dict[str, object] = {
     "properties": {
         "summary": {
             "type": "string",
-            "description": "Two or three sentences: what failed and whether the RC is implicated.",
+            "description": "Two to four plain sentences leading with the conclusion: what failed, whether the RC is implicated, and the recommended action (or why there is no clear call).",
         },
         "groups": {
             "type": "array",
@@ -69,6 +69,10 @@ STRUCTURED_OUTPUT_SCHEMA: dict[str, object] = {
                         "type": "string",
                         "enum": ["yes", "no", "unclear"],
                     },
+                    "error_message": {
+                        "type": "string",
+                        "description": "Representative `failureType` and trimmed error message, with no customer identifiers.",
+                    },
                     "notes": {"type": "string"},
                 },
                 "required": ["label", "actor_count", "failure_origin"],
@@ -78,7 +82,11 @@ STRUCTURED_OUTPUT_SCHEMA: dict[str, object] = {
             "type": "string",
             "description": "One of: unpause, finalize, unpin-then-unpause, rollback, leave-paused, or none-clear; with one sentence of reasoning.",
         },
-        "caveats": {"type": "array", "items": {"type": "string"}},
+        "caveats": {
+            "type": "array",
+            "description": "Data gaps, plausible alternative explanations, and what would change the recommendation.",
+            "items": {"type": "string"},
+        },
     },
     "required": ["summary", "groups", "recommendation", "caveats"],
 }
@@ -96,6 +104,18 @@ def _gate_snapshot(gate: HealthGateResult) -> str:
         f"sync signal have at least one failed RC sync ({gate.failure_percent:.1%}); "
         f"{gate.failure_count} failed syncs"
     )
+
+
+def _connector_kind(rollout: ConnectorRolloutRecord) -> str:
+    return (
+        "destination" if rollout.connector_name.startswith("destination-") else "source"
+    )
+
+
+def _release_pr_line(release_pr_url: str | None) -> str:
+    if release_pr_url:
+        return f"- Release PR: {release_pr_url}"
+    return "- Release PR: not resolved by AutoPilot"
 
 
 def _thread_instructions(thread: SlackPostResult | None) -> str:
@@ -122,9 +142,12 @@ def build_investigation_prompt(
     rc_version: str,
     gate: HealthGateResult,
     thread: SlackPostResult | None,
+    release_pr_url: str | None = None,
 ) -> str:
     """Return the prompt handed to a newly created investigation session."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    kind = _connector_kind(rollout)
+    other_kind = "source" if kind == "destination" else "destination"
     return f"""\
 # Paused Rollout Report: {rollout.connector_name} {rc_version}
 
@@ -141,6 +164,7 @@ thread, not this session, so the thread reply must stand on its own.
 - Paused at: {now}
 - Gate reason: {gate.reason}
 - Gate snapshot: {_gate_snapshot(gate)}
+{_release_pr_line(release_pr_url)}
 
 ## Order of work
 1. `query_prod_rollout_monitoring_stats` for rollout `{rollout.rollout_id}`
@@ -154,17 +178,14 @@ thread, not this session, so the thread reply must stand on its own.
    `limit` until the result is no longer capped; if a result stays capped,
    say so in the write-up and mark the affected groups incomplete:
    - `query_prod_failed_sync_attempts_for_connector` (by
-     `source_definition_id` `{rollout.actor_definition_id}`, `lookback_days`
+     `{kind}_definition_id` `{rollout.actor_definition_id}`, `lookback_days`
      covering the rollout) gives each failed attempt's `failure_summary`
      (`failureOrigin`, `failureType`, message), `actor_id`,
      `organization_id` and `customer_tier`.
-   - `query_prod_recent_syncs_for_connector` (same definition ID,
+   - `query_prod_recent_syncs_for_connector` (same `{kind}_definition_id`,
      `status_filter="all"`) gives each connection's recent job outcomes and
      its *current* pin (`pin_origin`, `pinned_version_id`), but not the
-     version each job ran on or when the pin was created. For a destination
-     rollout pass `destination_definition_id` instead; the failed-attempts
-     tool is source-only, so use this tool's `status_filter="failed"` rows
-     there.
+     version each job ran on or when the pin was created.
    - `query_prod_connector_versions` (by `connector_definition_id`
      `{rollout.actor_definition_id}`) lists the version IDs; pick the RC and
      GA `version_id` values and pass each to
@@ -191,30 +212,49 @@ thread, not this session, so the thread reply must stand on its own.
    `query_prod_recent_syncs_for_connector_version` (job-stamped version IDs),
    which is unfiltered; use it only after approval in step 3, otherwise report
    the actor-level comparison and say that is what it is.
+5. Split the failures by `failureOrigin`. This is a {kind} rollout, so
+   `failureOrigin={kind}` failures are the ones that can implicate the RC.
+   `platform` and `replication` failures are normally not attributable to
+   the RC; report them as their own groups rather than as evidence either
+   way. Treat `failureOrigin={other_kind}` failures as a judgment call: a
+   source data-type or schema change can surface as a destination error, so
+   check whether they started after the pin before dismissing them. Group
+   failures with no `failure_summary` as `unknown`. In `groups`, report
+   `airbyte_platform`, `persistence`, `normalization` and `dbt` origins as
+   `platform` and name the raw origin in the label.
 
-## What to produce
-1. A summary of the failing connections grouped by cause, failure origin
-   (source / destination / platform / replication) and organization. Call out
+## Write-up
+The reader is a human summoned to decide what to do with this rollout, often
+without having seen it before. Optimize for that decision: conclusion first,
+then the evidence behind it, then the alternatives. Use Slack mrkdwn with bold
+section labels and short bullets, no tables wider than a phone screen. Leave
+out detail that would not change the decision; it stays in this session.
+1. *Summary* (first, two to four plain sentences): what failed, whether the
+   RC is implicated, and the recommended action with its main reason. When
+   the evidence does not clearly favor one action, say "no clear call" and
+   name what would settle it.
+2. *Release*: the release PR link above, so the reader can look at the
+   change.
+3. *Evidence*: the failing groups by cause and `failureOrigin`, each with its
+   actor count, whether it plausibly traces to the RC, and a representative
+   error (`failureType` plus the trimmed message); the RC-vs-GA health
+   comparison (actor-level, or job-level if approved), kept distinct from the
+   gate's metric, which counts every pinned actor with at least one failed RC
+   sync (including actors that failed once weeks ago and never ran again);
    correlated failures (one customer outage counted many times) and stale
-   failures (connections that failed once and never ran again).
-2. The RC-vs-GA health comparison (actor-level, or job-level if approved),
-   kept distinct from the gate's metric, which counts every pinned actor with
-   at least one failed RC sync — including actors that failed once weeks ago
-   and never ran again.
-3. Per group, whether the failure plausibly traces to the RC. Treat
-   destination failures as a judgment call: a source data-type or schema
-   change can surface as a destination error, so do not dismiss them blindly.
-4. The recovery options (unpause, finalize to GA, unpin failing actors then
-   unpause, roll back, leave paused) with trade-offs, and a recommendation
-   only when the evidence clearly favors one.
+   failures (connections that failed once and never ran again); and data gaps
+   (failing actors not visible under the tier filter, capped results).
+4. *Alternatives*: the other recovery options that are plausible here
+   (unpause, finalize to GA, unpin failing actors then unpause, roll back,
+   leave paused), each with when it would be the right call and its risk;
+   plus any plausible alternative explanation of the failures and what would
+   change the recommendation.
 
 ## When done
 - {_thread_instructions(thread)}
-  Keep it to what an operator needs: the grouped summary, the RC-vs-GA
-  comparison versus the gate metric, the recommendation (or "no clear call"), and the
-  caveats. Slack mrkdwn, no tables wider than a phone screen.
 - Then call `provide_structured_output` with `summary`, `groups`,
-  `recommendation` and `caveats` matching the same conclusions.
+  `recommendation` and `caveats` matching the same conclusions; put the
+  alternatives and data gaps in `caveats`.
 
 ## Guardrails
 - Do NOT unpause, finalize, cancel, unpin or otherwise mutate the rollout or
@@ -238,16 +278,25 @@ def build_repause_message(
     rc_version: str,
     gate: HealthGateResult,
     thread: SlackPostResult | None,
+    release_pr_url: str | None = None,
 ) -> str:
     """Return the follow-up message sent when a rollout pauses again."""
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    release_line = f"Release PR: {release_pr_url}\n" if release_pr_url else ""
+    kind = _connector_kind(rollout)
     return (
         f"Rollout `{rollout.rollout_id}` ({rollout.connector_name} {rc_version}) "
         f"paused again at {now}.\n"
         f"Gate reason: {gate.reason}\n"
         f"Gate snapshot: {_gate_snapshot(gate)}.\n"
+        f"{release_line}"
         "Re-run the analysis against the current failing set, say what changed "
-        "since the previous pause, and update the recommendation. "
+        "since the previous pause, and update the recommendation. Get failure "
+        "messages from `query_prod_failed_sync_attempts_for_connector` with "
+        f"`{kind}_definition_id` `{rollout.actor_definition_id}` and split them "
+        f"by `failureOrigin`: `{kind}` failures can implicate the RC. Keep the same "
+        "write-up structure: summary and recommendation first, then evidence, "
+        "then alternatives. "
         f"{_thread_instructions(thread)} Then call `provide_structured_output` "
         "again with the updated conclusions. Same guardrails apply: no rollout "
         "or pin mutations without HITL approval."
@@ -299,13 +348,15 @@ def start_investigation_session(
     gate: HealthGateResult,
     thread: SlackPostResult | None,
     lookup: SessionLookup,
+    release_pr_url: str | None = None,
 ) -> devin_api.DevinSessionRef | None:
     """Start (or continue) the Devin investigation for a rollout pause.
 
     `lookup` comes from `lookup_investigation_session`; an existing session is
     unarchived if needed and sent a follow-up with the new gate snapshot and
     `thread`, otherwise a new session is created with the investigation
-    prompt. Returns `None` when the Devin API is not configured
+    prompt. `release_pr_url` is passed to both so the write-up can link the
+    change. Returns `None` when the Devin API is not configured
     or a call fails, so the pause and its Slack alert proceed regardless. Two
     AutoPilot runs pausing the same rollout within the same minute could both
     create a session; that is accepted rather than adding a claim step.
@@ -327,7 +378,9 @@ def start_investigation_session(
                 existing = devin_api.unarchive_session(existing.session_id)
             devin_api.send_session_message(
                 existing.session_id,
-                build_repause_message(rollout, rc_version, gate, thread),
+                build_repause_message(
+                    rollout, rc_version, gate, thread, release_pr_url
+                ),
             )
         except SESSION_ERRORS as exc:
             logger.warning(
@@ -347,7 +400,9 @@ def start_investigation_session(
 
     try:
         created = devin_api.create_session(
-            build_investigation_prompt(rollout, rc_version, gate, thread),
+            build_investigation_prompt(
+                rollout, rc_version, gate, thread, release_pr_url
+            ),
             title=(
                 f"Paused Rollout Report: {rollout.connector_name} {rc_version} "
                 f"({rollout.rollout_id[:8]})"

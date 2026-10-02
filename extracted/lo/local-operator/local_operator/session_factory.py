@@ -1,0 +1,5723 @@
+"""Session composition root for the CLI-facing entry points.
+
+Why this module exists: ``cli.py`` (interactive + exec), ``exec_worker.py``
+(detached background runs) and later the server facade all need the SAME
+wiring from parsed args plus the three legacy managers to a harness
+:class:`~local_operator.session.protocol.SessionProtocol`. Centralizing this
+wiring keeps precedence rules, transcript-directory policy, lazy knowledge
+integration, and the lazy-import discipline in exactly one place.
+
+Constraints honored here (docs/REWRITE.md):
+
+- No module-level imports of providers / session internals / semantic indexes /
+  TUI. Every engine import happens inside functions, so importing this module
+  is cheap and stays valid while parallel rewrite streams are mid-flight.
+- Hosting/model resolution precedence: **agent > CLI flag > config file**
+  (the legacy bootstrap order, minus the server-only request overrides).
+- User skills and packaged guides are wired end-to-end: discovery + index build
+  at session creation, first-task semantic selection, and chained
+  ``skill://``/``guide://`` resolution. Any knowledge failure degrades to an
+  empty listing with a warning — never a crashed startup.
+
+``create_session`` is async: the TUI's committed factory contract is
+``Callable[[], Awaitable[SessionProtocol]]`` and the eager skill-index build
+needs an await. Headless callers wrap it in ``asyncio.run``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import functools
+import inspect
+import json
+import logging
+import os
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, cast
+
+from local_operator.ansi import sanitize_prompt_line
+
+# Stdlib-only and tiny, like ``paths`` below: safe at module level on the
+# startup path that ``test_import_graph`` guards.
+from local_operator.ecosystem_instructions import (
+    content_digest,
+    log_ecosystem_provenance,
+    read_ecosystem_instructions,
+)
+from local_operator.harness.approval import ApprovalUnavailableError
+from local_operator.harness.rows import is_harness_chrome, is_harness_notice_row
+from local_operator.harness.types import AgentMessage, Message
+
+# Imported as an alias: ``config_dir`` is a parameter/local name in other
+# functions here, and a module-level import of the same spelling would read
+# like one of them.
+from local_operator.paths import config_dir as app_config_dir
+
+# Pure path policy, no engine — see local_operator/resume.py for why it is
+# its own module rather than living here.
+from local_operator.resume import ResumeNotFound, resume_dir
+
+if TYPE_CHECKING:
+    # Type-only imports: this module's whole discipline is that the heavy
+    # engine, registry and provider modules load lazily inside the functions
+    # that need them. Annotations are strings under ``from __future__ import
+    # annotations``, so naming the real types here costs nothing at runtime.
+    from local_operator.agents import AgentData, AgentRegistry
+    from local_operator.compaction.api import CompactionSettings
+    from local_operator.config import ConfigManager
+    from local_operator.harness.types import AgentTool
+    from local_operator.mcp.manager import McpManager
+    from local_operator.model.configure import SessionStreamFn
+    from local_operator.providers.auth_store import AuthStore
+    from local_operator.session.goal import GoalState
+    from local_operator.session.protocol import SessionProtocol
+    from local_operator.session.runtime.publication import PublicationGate
+    from local_operator.session.session import Session
+    from local_operator.skills.discovery import Skill
+    from local_operator.skills.index import SkillIndex
+    from local_operator.variables import VariableStore
+
+logger = logging.getLogger("local_operator.session_factory")
+
+#: Hard cap on the operator's custom instructions, in characters (~16k tokens
+#: at 4 chars/token). Generous for hand-written standing rules, small enough
+#: that a file pasted over by accident cannot silently consume the context
+#: window of every request — the content rides the cached prompt prefix.
+MAX_USER_INSTRUCTIONS_CHARS = 64_000
+
+#: Floor held for the selected agent's own profile prompt, so a large global
+#: file cannot crowd the chosen profile out entirely. A floor and not a fixed
+#: slice: whichever source is smaller than its share leaves the remainder to
+#: the other, so neither is taxed for room the other never uses.
+_AGENT_INSTRUCTIONS_RESERVE = 16_000
+
+#: Floor held for imported user-scope instructions (``~/.agents/AGENTS.md``;
+#: see :mod:`local_operator.ecosystem_instructions`). Its OWN share, because
+#: adding a third source to a two-way split silently converts one of the two
+#: existing guarantees into a shared one — the operator's file and the selected
+#: profile would start evicting each other because of a file neither of them
+#: knows about. Sized to match the profile's reserve: an imported file is
+#: standing preference of the same kind and the same order of magnitude.
+_ECOSYSTEM_INSTRUCTIONS_RESERVE = 16_000
+
+#: Floor on a shared span before ``Overlaps:`` claims it is worth removing.
+#: The containment test has no natural lower bound — a single ``-`` present in
+#: both files is literal containment — and a WARNING row advertising a one-
+#: character cost is exactly the warning operators learn to ignore, which is
+#: the failure this row was added to avoid. 200 characters is roughly a
+#: paragraph of standing rules: below it the row would cost more attention than
+#: the duplication costs context (200 chars ≈ 50 tokens on the cached prefix,
+#: and 0.3% of the 64,000-character budget), and no realistic shared rule set
+#: is smaller. Deliberately not scaled to file size: the operator is being told
+#: about an absolute cost re-paid on every request, not a ratio.
+_OVERLAP_MIN_CHARS = 200
+
+
+#: Modules whose import dominates :func:`create_session`, measured rather than
+#: guessed: on this machine ``mcp`` costs 443 ms and ``httpx`` 234 ms to import,
+#: and the engine entries below another 195 ms between them. Everything here is
+#: imported lazily by the factory or by something it calls, which is what makes
+#: session construction a ~700 ms burst of import machinery.
+#:
+#: Third-party names sit alongside our own deliberately: the cost is theirs, and
+#: naming only our modules would warm the cheap half of the problem.
+#:
+#: ``tools.registry`` and ``classification`` were the two heaviest groups this
+#: list still omitted, and their absence was measurable rather than theoretical:
+#: with the entries below resident, the factory's own synchronous stretch still
+#: measured a median 135.5 ms of CPU and 127.2 ms of CONTIGUOUS loop stall
+#: (``_prepare``, interleaved arms, a fresh process and a matched idle control
+#: per arm; raw output under ``.perf/bench/lane11/``). Warming these two as well
+#: takes it to 81.6 ms and 77.3 ms — a median 53.9 ms of CPU and 55.8 ms of
+#: stall less, in 4 of 4 interleaved pairs, against 187 and 33 modules left for
+#: the factory to import. They are the same shape of work as every other entry
+#: here — imported lazily by the factory or by something it calls, and never at
+#: module scope (see ``test_import_graph.py``, which pins that importing this
+#: module stays off these stacks).
+_WARM_IMPORTS: tuple[str, ...] = (
+    "mcp",
+    "httpx",
+    "httpcore",
+    "truststore",
+    "local_operator.classification",
+    "local_operator.compaction.api",
+    "local_operator.mcp.manager",
+    "local_operator.model.configure",
+    "local_operator.model.discovery",
+    "local_operator.providers.auth_store",
+    "local_operator.session.session",
+    "local_operator.skills.discovery",
+    "local_operator.tools.registry",
+)
+
+
+def warm_session_imports() -> None:
+    """Pay :func:`create_session`'s import cost, off whatever loop is running.
+
+    ``create_session`` is a coroutine, but its body is one long SYNCHRONOUS
+    stretch — the awaits are few and none of them yield until the imports are
+    done — so a caller with a live event loop is frozen for the whole of it.
+    Under the TUI that is a ~700 ms window in which no frame is painted and no
+    keypress is handled: the user types the first words of their prompt into a
+    screen that does not move, and the characters all appear at once when it
+    unfreezes.
+
+    Importing is CPU and file I/O, both of which drop the GIL, so running this
+    in a worker thread (``await asyncio.to_thread(warm_session_imports)``)
+    turns that one long stall into interleaved sub-frame ones — measured at
+    16 ms worst case, against 699 ms for the unwarmed factory. The factory
+    itself is unchanged: it still imports what it needs, and finds it cached.
+
+    The TOKENIZER rides along, and not for the same reason as the modules
+    above: it is not an import, so nothing else warms it, but its first use
+    sits inside the first turn's critical path all the same (122 ms to build
+    cl100k_base's rank table — see
+    :func:`local_operator.compaction.tokens.warm_tokenizer`). A TUI pays that
+    cost once and keeps it; paying it at BOOT instead means the user's first
+    prompt does not.
+
+    Never raises. An optional extra that is not installed (``mcp``) or a module
+    that fails to import is the factory's problem to report, in the factory's
+    own words, at the point where it actually needs it.
+    """
+    import importlib
+
+    for name in _WARM_IMPORTS:
+        try:
+            importlib.import_module(name)
+        except Exception:  # noqa: BLE001 — a warm-up must never be the failure
+            logger.debug("prewarm skipped %s", name, exc_info=True)
+
+    # Both of these are guarded INCLUDING their imports, so this function keeps
+    # the contract its docstring states. Neither callee raises on its own; the
+    # import statement is the half a caller cannot see, and this one runs from
+    # a boot thread where a raise would surface as a silent missing warm.
+    try:
+        from local_operator.compaction.tokens import warm_tokenizer
+
+        warm_tokenizer()
+    except Exception:  # noqa: BLE001 — a warm-up must never be the failure
+        logger.debug("tokenizer prewarm skipped", exc_info=True)
+
+    # And the bytecode cache, for the environments where a later process
+    # cannot write its own: see ``local_operator.bytecode``. It is a no-op
+    # unless this interpreter is under ``PYTHONDONTWRITEBYTECODE`` with a
+    # ``PYTHONPYCACHEPREFIX``, and it is backgrounded because the work belongs
+    # to the NEXT process, not to this one.
+    try:
+        from local_operator.bytecode import warm_bytecode_cache_in_background
+
+        warm_bytecode_cache_in_background()
+    except Exception:  # noqa: BLE001 — a warm-up must never be the failure
+        logger.debug("bytecode prewarm skipped", exc_info=True)
+
+
+def coerce_compaction_settings(raw: object) -> CompactionSettings | None:
+    """Coerce ``values.compaction`` into a :class:`CompactionSettings` (CL-01).
+
+    ``ConfigManager`` returns the YAML shape verbatim — a plain ``dict`` — but
+    the session consumes attribute-style settings. ``None`` and already-typed
+    settings pass through; a dict is validated; an invalid dict degrades to
+    defaults with a warning (a bad compaction block must never block startup).
+
+    Anything else (``compaction: some-string`` in the YAML) is out of
+    contract and reads as "no block": handing the session a junk object would
+    only defer the failure to the first compaction check.
+    """
+    if raw is None:
+        return None
+    from pydantic import ValidationError
+
+    from local_operator.compaction.api import CompactionSettings
+
+    if isinstance(raw, CompactionSettings):
+        return raw
+    if not isinstance(raw, dict):
+        return None
+
+    try:
+        return CompactionSettings.model_validate(raw)
+    except ValidationError as exc:
+        print(
+            f"\033[1;33mWarning: invalid 'compaction' config, using defaults: {exc}\033[0m",
+            file=sys.stderr,
+        )
+        return CompactionSettings()
+
+
+#: Sampling knobs copied from an agent record onto ``configure_model`` when
+#: the agent sets them. Names match both ``AgentData`` and the committed
+#: ``configure_model`` keyword arguments (stream B).
+_AGENT_SAMPLING_FIELDS: tuple[str, ...] = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "max_tokens",
+    "frequency_penalty",
+    "presence_penalty",
+    "stop",
+    "seed",
+)
+
+
+def resolve_agent(args: argparse.Namespace, agent_registry: AgentRegistry) -> AgentData | None:
+    """Resolve the session's agent record, creating it when named.
+
+    Mirrors the legacy ``main()`` behavior: ``--agent-id`` (exec) selects by
+    id and fails loudly on a miss; ``--agent``/``--agent-name`` selects by
+    name and CREATES the agent when it does not exist yet. Returns ``None``
+    for the default ephemeral session.
+
+    Lazy-imports ``AgentEditFields`` so module import never pulls in the
+    agent registry's heavy dependencies.
+    """
+    agent_id = getattr(args, "agent_id", None)
+    if agent_id:
+        try:
+            return agent_registry.get_agent(agent_id)
+        except KeyError as exc:
+            raise ValueError(f"No agent found with ID: {agent_id}") from exc
+
+    name = getattr(args, "agent_name", None)
+    if not name:
+        return None
+    agent = agent_registry.get_agent_by_name(name)
+    if agent is not None:
+        return agent
+
+    from local_operator.agents import AgentEditFields  # lazy: heavy module
+
+    return agent_registry.create_agent(
+        AgentEditFields(
+            name=name,
+            security_prompt=None,
+            hosting=None,
+            model=None,
+            description=None,
+            last_message=None,
+            temperature=None,
+            tags=[],
+            categories=[],
+            top_p=None,
+            top_k=None,
+            max_tokens=None,
+            stop=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            seed=None,
+            current_working_directory=None,
+        )
+    )
+
+
+class HostingNotConfiguredError(ValueError):
+    """Raised when no hosting provider is resolved at all.
+
+    A dedicated subclass (rather than a bare ``ValueError`` matched by message)
+    so two callers can treat this ONE condition as "first-run setup", not
+    "error": the CLI preflight lets the interactive TUI open in a setup state
+    instead of dying, and the TUI's boot-failure handler shows the guided
+    ``/login`` affordance rather than a red "session failed to start". It stays
+    a ``ValueError`` subclass so every existing ``except ValueError`` that
+    reported the legacy message shape keeps working unchanged.
+    """
+
+
+class HostingUnknownError(HostingNotConfiguredError):
+    """Raised when hosting names a provider the registry does not own.
+
+    A SUBCLASS of :class:`HostingNotConfiguredError`, and that is the whole
+    point of the fix it belongs to. The two conditions had been treated
+    asymmetrically: "nothing configured" was a guided first-run state, while
+    "configured to garbage" (a typo, a hand-edited config, a provider id
+    removed by an upgrade) was a fatal crash. The user's remedy is IDENTICAL in
+    both cases -- ``/login`` / ``/provider`` / ``/model`` from inside the app --
+    so the recoverable classification has to cover both, or a one-character typo
+    in ``config.yml`` locks the user out of the only surface that can repair it.
+    Reported as ``Unsupported hosting platform: anthropicxyq`` from deep inside
+    ``configure_model``, it left every session dead AND every provider-switch
+    command answering "session is still starting...", because ``_session``
+    stayed ``None``.
+
+    Subclassing rather than adding a sibling means the existing
+    recoverable-setup handling (the CLI preflight's
+    ``except HostingNotConfiguredError``, the TUI's ``isinstance`` check in
+    ``_on_boot_failed``) picks this up with no change, and cannot be updated for
+    one condition while forgetting the other. The two stay DISTINGUISHABLE by
+    type, which is what lets each surface say "nothing configured" or
+    "configured to an unknown provider 'X'" rather than one vague message
+    covering both.
+
+    Do NOT "simplify" this back into a bare ``ValueError`` at the resolver, and
+    do not relax ``configure_model``'s own guard: that guard is a correct
+    programming-error backstop for callers that bypass this resolver, and the
+    bug was that bad CONFIG could reach it, not that it existed.
+
+    The offending value is carried as :attr:`hosting` rather than left to be
+    re-parsed out of the message text: the TUI needs to name it in phrasing of
+    its own (action-first, because its splash truncates from the right), and
+    scraping it back out of a sentence is how the two surfaces drift apart the
+    first time either is reworded.
+    """
+
+    def __init__(self, message: str, hosting: str = "", source: str = "config") -> None:
+        super().__init__(message)
+        self.hosting = hosting
+        #: WHERE the bad value came from: ``"config"``, ``"flag"`` (``--hosting``)
+        #: or ``"agent"`` (an agent record). Carried because the in-app repair
+        #: writes the CONFIG FILE, so it can only fix the config case: precedence
+        #: is agent > flag > config, and a login that rewrites config while the
+        #: bad value comes from argv or an agent record changes nothing the next
+        #: boot will read. The UI uses this to avoid promising a repair it cannot
+        #: perform — telling the user to run `/login` against a `--hosting` typo
+        #: is a loop, and a wrong instruction is worse than none.
+        self.source = source
+
+
+class HostingNotChatError(HostingNotConfiguredError):
+    """Raised when hosting names a provider that serves no chat completions.
+
+    The fourth member of the recoverable family, and a SIBLING of
+    :class:`HostingUnknownError` rather than a reuse of it: ``typesafe`` IS a
+    known provider with a shipped paste-a-key login, so "not a known provider"
+    would be false, and the ``/login`` that message prescribes has already
+    happened — the remedy is `/model`, which is ALSO only reachable from inside
+    the app, which is why this belongs to the family at all. Reported as a bare
+    ``ValueError`` it would land in the red "session failed to start" branch
+    with ``_session`` None, and every provider command would answer "session is
+    still starting...": the terminal state this family exists to remove.
+
+    The condition it names: a provider whose wire rejects ``chat/completions``
+    on every host we reach it through (TypeSafe's Jev —
+    ``ProviderDefinition.decision_only``). Booting a session on one produced a
+    turn that could never be answered, with the failure arriving as a provider
+    error nobody can read as "that hosting was never chattable".
+
+    ``source`` is carried for the same reason its sibling carries it: the
+    in-app repair writes the CONFIG FILE, so it can fix only the config case,
+    and telling a user to run `/model` against a ``--hosting`` value is a loop
+    that cannot terminate.
+    """
+
+    def __init__(self, message: str, hosting: str = "", source: str = "config") -> None:
+        super().__init__(message)
+        #: The decision-only provider id that was selected as a hosting.
+        self.hosting = hosting
+        #: Where the value came from: ``"config"``, ``"flag"`` (``--hosting``)
+        #: or ``"agent"`` (an agent record) — see :attr:`HostingUnknownError.source`.
+        self.source = source
+
+
+class ModelNotConfiguredError(HostingNotConfiguredError):
+    """Raised when hosting is a real provider but no model can be resolved for it.
+
+    A SIBLING of :class:`HostingUnknownError` under the recoverable base, for the
+    same reason that class exists: the user's remedy is reachable only from
+    inside the app, so the condition has to reach the surface that offers it.
+    Raised as a bare ``ValueError`` it missed the ``isinstance`` gate in the
+    TUI's ``_on_boot_failed``, landed in the red "session failed to start" branch
+    with ``_session`` None and ``_setup_state`` False, and left every provider
+    command answering "session is still starting..." -- the exact terminal state
+    this error family was introduced to remove.
+
+    That is reachable through the app's OWN repair: logging in to a provider with
+    no known default model (``alibaba-token-plan``) writes a registry-VALID
+    hosting with an empty model, so the next boot arrives here. Before this
+    class the user was stuck HARDER after the repair than before it -- ``/login``
+    wrote nothing because hosting was now valid, and ``/model`` had no session to
+    talk to.
+
+    DISTINCT from ``HostingUnknownError`` rather than reusing it, because the
+    diagnosis differs and the surfaces say so: hosting is fine here, the MODEL is
+    missing, and telling a user whose provider is correct that it "is not a known
+    provider" sends them to fix the one thing that is not broken. The hosting is
+    carried for the same reason its sibling carries it -- so the UI can name it
+    without re-parsing a sentence.
+
+    Recoverable does NOT mean permissive: the non-interactive paths (headless
+    REPL, ``exec``, non-tty) still fail fast on this in ``_preflight_hosting_model``,
+    because a scripted run has no one to answer the prompt and must not limp
+    along picking a model nobody chose.
+    """
+
+    def __init__(self, message: str, hosting: str = "") -> None:
+        super().__init__(message)
+        #: The provider that resolved fine but has no model. Unlike its sibling
+        #: this needs no ``source``: hosting came from somewhere valid, and the
+        #: remedy (`/model`, which writes config) is the same wherever the empty
+        #: model came from.
+        self.hosting = hosting
+
+
+#: How the user changes a bad hosting value, per source. Keyed by
+#: :attr:`HostingUnknownError.source`, because the remedy genuinely differs: only
+#: the config case is fixed by `login`/`config edit`, and naming the wrong one
+#: sends the user round a loop that cannot terminate.
+_HOSTING_SOURCE_REMEDY = {
+    "config": (
+        "Set a supported one with `local-operator config edit hosting <provider>` "
+        "or `local-operator login <provider>` (e.g. openai, anthropic, google); "
+        "`local-operator provider` lists them all."
+    ),
+    "flag": (
+        "It came from the --hosting flag, so correct that flag (e.g. "
+        "--hosting openai); `local-operator provider` lists the supported ids."
+    ),
+    "agent": (
+        "It came from the agent's own record, which overrides config, so update "
+        "the agent's hosting; `local-operator provider` lists the supported ids."
+    ),
+    "team": (
+        "It came from the team's stored model suggestion, so update the team (or "
+        "pass --hosting/--model for this run); `local-operator provider` lists "
+        "the supported ids."
+    ),
+}
+
+#: How a user leaves a DECISION-ONLY hosting, per source. The mirror of
+#: :data:`_HOSTING_SOURCE_REMEDY` above, keyed the same way for the same reason:
+#: `/model` writes the config file, so it repairs neither a `--hosting` argument
+#: nor an agent record and promising it there would be a loop.
+_HOSTING_NOT_CHAT_REMEDY = {
+    "config": (
+        "Point it at a chat provider with `/model` (or `local-operator config "
+        "edit hosting <provider>`); the key you stored is still used, by the "
+        "resource-classification layer."
+    ),
+    "flag": (
+        "It came from the --hosting flag, so correct that flag (e.g. --hosting "
+        "openai); `/model` cannot repair an argument."
+    ),
+    "agent": (
+        "It came from the agent's own record, which overrides config, so update "
+        "the agent's hosting instead."
+    ),
+    "team": (
+        "It came from the team's stored model suggestion, so update the team (or "
+        "pass --hosting/--model naming a chat provider for this run)."
+    ),
+}
+
+
+def _not_chat_hosting_message(hosting: str, source: str = "config") -> str:
+    """Error text for a hosting that can serve no chat completion at all.
+
+    Names what the provider IS (a decision model reached through the
+    classification layer, or a speech provider whose wire serves only
+    speech-to-text) as well as what it cannot do, because the value is a real,
+    working provider with a shipped login: a bare "unsupported hosting" would
+    read as a typo the user should go and re-check in the console they just
+    pasted a key from.
+    """
+    from local_operator.providers.registry import (
+        decision_only_message,
+        is_speech_only,
+        speech_only_message,
+    )
+
+    remedy = _HOSTING_NOT_CHAT_REMEDY.get(source, _HOSTING_NOT_CHAT_REMEDY["config"])
+    # The FACT comes from the registry's one sentence — whichever class the
+    # provider is — which ``build_model_spec`` refuses a live switch with too:
+    # the two surfaces explain the same provider, so they must not drift into
+    # two spellings of it. The REMEDY stays local because it is per-surface —
+    # this one knows whether the value came from the config file, a flag, an
+    # agent record or a stored row.
+    fact = (
+        speech_only_message(hosting) if is_speech_only(hosting) else decision_only_message(hosting)
+    )
+    return f"{fact} {remedy}"
+
+
+def _refuse_non_chat(provider: str, source: str) -> None:
+    """Raise ``HostingNotChatError`` when ``provider`` can serve no chat turn.
+
+    One spelling for a check that sits at several doors — the resolved config /
+    agent / flag hosting, a resume's ``--hosting``/``--model`` pair, and the
+    desktop pick boundary's own gate — because the failure it reports is the
+    same fact every time (a decision-only provider like TypeSafe's Jev, or a
+    speech-only one like ElevenLabs) and its message is the only place that
+    fact is explained (see :func:`_not_chat_hosting_message`).
+
+    Deliberately a raise rather than a predicate: every caller that needs the
+    answer needs the SAME outcome from it, and a caller that wants to *report*
+    instead of raise (the pick boundary, which answers a 422) does its own check
+    where its own error shape lives.
+    """
+    from local_operator.providers.registry import is_decision_only, is_speech_only
+
+    if is_decision_only(provider) or is_speech_only(provider):
+        raise HostingNotChatError(_not_chat_hosting_message(provider, source), provider, source)
+
+
+def _unknown_hosting_message(hosting: str, source: str = "config") -> str:
+    """Error text for a hosting id the provider registry does not know.
+
+    Names the offending value AND the remedy, because the message this replaces
+    ("Unsupported hosting platform: anthropicxyq") named only the value and left
+    the user to guess what a supported one looks like. Concrete provider ids are
+    inlined rather than generated from the registry, matching
+    :func:`_no_model_message` directly below -- a short, stable example list
+    reads better than a dump of every id, and spelling the examples out is
+    already this module's convention.
+
+    Used by the non-interactive fail-fast paths (headless REPL, ``exec``,
+    non-tty). The TUI writes its own action-first phrasing for the same
+    condition, because its splash line truncates from the right.
+    """
+    where = {
+        "config": "in your configuration",
+        "flag": "passed with --hosting",
+        "agent": "on the agent record",
+        "team": "on the team's model suggestion",
+    }.get(source, "in your configuration")
+    remedy = _HOSTING_SOURCE_REMEDY.get(source, _HOSTING_SOURCE_REMEDY["config"])
+    return f"Hosting '{hosting}' {where} is not a known provider. {remedy}"
+
+
+def _no_model_message(hosting: str) -> str:
+    """Error text for a provider with no known default model.
+
+    Names two or three concrete, current model ids so the user has something to
+    type rather than a bare "model is not configured" that leaves them to guess
+    the vocabulary. Kept beside the resolver, stdlib-only, so the preflight path
+    stays off the model-configuration stack.
+    """
+    return (
+        f"Model name is not configured for hosting '{hosting}', and no default "
+        "is known for it. Set one with `local-operator config edit model_name "
+        "<model>` or the --model flag (e.g. gpt-6-astra, claude-opus-5-5, "
+        "deepseek-flash)."
+    )
+
+
+def resolve_hosting_model(
+    agent: AgentData | None, args: argparse.Namespace, config_manager: ConfigManager
+) -> tuple[str, str]:
+    """Apply the precedence agent > CLI flag > config file.
+
+    Raises ``ValueError`` with the legacy message shapes when either value is
+    missing, so the CLI's red-banner handler reports it exactly like before.
+    The pair-only shape every existing caller expects; the composition root
+    uses :func:`resolve_hosting_model_with_source` to distinguish deliberate
+    resume overrides from synthesized bootstrap arguments.
+    """
+    hosting, model_name, _source = resolve_hosting_model_with_source(agent, args, config_manager)
+    return hosting, model_name
+
+
+def _team_suggestion_pair(args: argparse.Namespace) -> tuple[str | None, str | None]:
+    """The team-launch model suggestion as a whole pair, or ``(None, None)``.
+
+    ``_make_default_session_factory`` carries the resolved team's stored
+    suggestion on the session args as its own attribute; this is that
+    attribute's ONE reader. A WHOLE pair or nothing: a half pair is not
+    expressible anywhere in this feature, and a hand-edited ``team.yml`` must
+    degrade to "no suggestion" rather than let one empty member steer hosting
+    while the other steers nothing.
+    """
+
+    suggestion = getattr(args, "team_model_suggestion", None)
+    if suggestion is None:
+        return None, None
+    hosting = str(getattr(suggestion, "hosting", "") or "").strip()
+    model = str(getattr(suggestion, "model", "") or "").strip()
+    if not hosting or not model:
+        return None, None
+    return hosting, model
+
+
+def resolve_hosting_model_with_source(
+    agent: AgentData | None, args: argparse.Namespace, config_manager: ConfigManager
+) -> tuple[str, str, str]:
+    """Resolve conversation identity, retaining the provenance of real overrides.
+
+    New: agent > CLI > team suggestion > defaults. Resume: deliberate CLI
+    override > durable selection > birth precedence for legacy histories with
+    no usable evidence. Agent/profile edits and synthesized bootstrap
+    arguments are not overrides; a team's stored model suggestion sits below
+    all of those and above the config default (design §4.4).
+    """
+    # Resolve durable identity BEFORE validating global defaults or building a
+    # provider client. A removed/invalid default cannot make a valid saved
+    # conversation impossible to resume. Bootstrap callers pass resolved pairs
+    # too, so their values are not automatically deliberate resume overrides.
+    from local_operator.providers.registry import (
+        get_provider_definition,
+        is_decision_only,
+        is_speech_only,
+    )
+    from local_operator.session.model_selection import (
+        read_model_selection,
+        refused_decision_only_selection,
+    )
+
+    directory = None
+    resume = getattr(args, "resume", None)
+    if resume:
+        try:
+            directory = resume_dir(config_manager.config_dir, str(resume))
+        except (ResumeNotFound, ValueError, FileNotFoundError):
+            # A viewer may own only a freshly minted id, with no directory yet.
+            pass
+    elif getattr(args, "train", False):
+        # The legacy unnamed --train/server persistence path uses the registry's
+        # stable autosave id, not a new conversation on each request.
+        agent_id = str(agent.id) if agent is not None else "autosave"
+        directory = Path(config_manager.config_dir) / "agents" / agent_id
+    saved = read_model_selection(directory) if directory is not None else None
+    explicit = getattr(args, "model_selection_override", True)
+    flag_hosting = getattr(args, "hosting", None) if explicit else None
+    flag_model = getattr(args, "model", None) if explicit else None
+    if saved is not None:
+        if flag_hosting or flag_model:
+            from local_operator.model.defaults import default_model_for
+
+            provider = flag_hosting or saved.provider
+            model = flag_model or default_model_for(provider)
+            if get_provider_definition(provider) is None:
+                raise HostingUnknownError(
+                    _unknown_hosting_message(provider, "flag"), provider, "flag"
+                )
+            # A deliberate override naming a provider that can serve no chat
+            # turn gets the same refusal as the config path, and it has to be
+            # HERE rather than after the default-model lookup: such a provider
+            # has no default model, so the lookup would report "no model
+            # configured" — a message about a symptom, for a pair that can never
+            # run whatever model it names.
+            _refuse_non_chat(provider, "flag")
+            if not model:
+                raise ModelNotConfiguredError(_no_model_message(provider), provider)
+            return provider, model, "flag"
+        return saved.provider, saved.model_id, "resume"
+
+    # NO usable stored selection. Fall back to the birth precedence — but first ask
+    # whether the journal HELD one this build refuses to run as a chat model. The
+    # reader refuses such a row (``model_selection._selection``), so the row never
+    # becomes ``saved`` and this is the only place the refusal can still be
+    # EXPLAINED: silently resuming the conversation on the configured hosting would
+    # hide that its own stored identity was the thing that cannot chat, and the
+    # message here is the one the config path already produces, with the same
+    # recoverable outcome (the app's setup state, where ``/model`` answers it).
+    #
+    # Skipped when the caller named a hosting/model deliberately: a flag is a
+    # statement about this run, and refusing it because the journal is poisoned
+    # would block the very exit the message prescribes.
+    if not (flag_hosting or flag_model):
+        refused = refused_decision_only_selection(directory) if directory is not None else None
+        if refused is not None:
+            raise HostingNotChatError(
+                _not_chat_hosting_message(refused, "resume"), refused, "resume"
+            )
+
+    agent_hosting: str | None = getattr(agent, "hosting", None) if agent is not None else None
+    flag_hosting: str | None = getattr(args, "hosting", None)
+    # THE TEAM LAUNCH'S SUGGESTION, below every deliberate choice (design
+    # §4.4): an `--agent` row, an explicit --hosting/--model flag and a
+    # resumed session's durable selection all still win; the team pair fills
+    # in only where the config default would have. Read as a WHOLE pair off
+    # the session args attribute ``_make_default_session_factory`` fills --
+    # never as synthesized flags, because resume treats a typed flag as a
+    # deliberate override and this is a stored suggestion (and "team" is
+    # deliberately absent from ``session.session._restore_selected_model``'s
+    # skip-set, so a journalled selection still wins on resume).
+    team_hosting, team_model = _team_suggestion_pair(args)
+    hosting = (
+        agent_hosting or flag_hosting or team_hosting or config_manager.get_config_value("hosting")
+    )
+    agent_model: str | None = getattr(agent, "model", None) if agent is not None else None
+    flag_model: str | None = getattr(args, "model", None)
+    # WHERE THE HOSTING VALUE CAME FROM — the repair prompt's subject, so it
+    # stays keyed on the hosting fields alone.
+    hosting_source = (
+        "agent"
+        if agent_hosting
+        else "flag" if flag_hosting else "team" if team_hosting else "config"
+    )
+    # WHAT CHOSE THE RUN — the returned source, and the one the live-config
+    # rule reads. An agent profile outranks a flag outranks the team's stored
+    # suggestion outranks the file, exactly as for the values: naming EITHER
+    # field is choosing.
+    model_source = (
+        "agent"
+        if (agent_hosting or agent_model)
+        else (
+            "flag"
+            if explicit and (flag_hosting or flag_model)
+            else "team" if (team_hosting or team_model) else "config"
+        )
+    )
+    model_name: str | None = (
+        agent_model or flag_model or team_model or config_manager.get_config_value("model_name")
+    )
+    if not hosting:
+        raise HostingNotConfiguredError("Hosting platform is not configured.")
+    # Validate the RESOLVED hosting here, in the same preflight that already
+    # catches the not-configured case, rather than letting a garbage value sail
+    # through and detonate in `configure_model` deep inside boot. WHERE this is
+    # detected is what makes it recoverable: this is the one point both the CLI
+    # preflight and the TUI boot handler classify, so the same condition raised
+    # here reaches the guided setup state while raised later it reaches the red
+    # "session failed to start" this fix exists to remove.
+    #
+    # Checked through `get_provider_definition`, NOT a membership test against
+    # provider ids: that function resolves legacy aliases (`noop` -> `test`), so
+    # an id test would newly reject an alias the engine still accepts and turn a
+    # working config into a setup prompt. It is also the exact lookup
+    # `configure_model` performs, so this accepts precisely what the engine
+    # accepts -- a preflight stricter than the engine is its own outage.
+    if get_provider_definition(hosting) is None:
+        # Before the default-model lookup below: an unknown provider has no
+        # default model either, so checking the model first reported the missing
+        # model (a symptom) and buried the unknown provider (the cause).
+        raise HostingUnknownError(
+            _unknown_hosting_message(hosting, hosting_source), hosting, hosting_source
+        )
+    if is_decision_only(hosting) or is_speech_only(hosting):
+        # A KNOWN provider that can never serve a chat completion (TypeSafe's
+        # Jev, every host rejects ``chat/completions``; or ElevenLabs, whose wire
+        # serves speech-to-text only). Refused HERE, at the same preflight as an
+        # unknown id, for the same reason: this is the one point every front end
+        # classifies, so the condition reaches the guided setup state where
+        # ``/model`` supplies a chat provider, instead of booting a session that
+        # dies on its first turn with a provider error nobody can read as "that
+        # hosting was never chattable". NOT ``HostingUnknownError``: saying "not
+        # a known provider" about a provider this build ships a login for would
+        # be false, and the repair it prescribes (``/login``) is already done.
+        _refuse_non_chat(hosting, hosting_source)
+    if not model_name:
+        # A hosting with no model is not a dead end: every mainstream provider
+        # has a reasonable default, so resolve to it rather than raising. Only
+        # a provider with no known default (a custom/unregistered hosting) still
+        # errors, and its message now names current models to choose from.
+        from local_operator.model.defaults import default_model_for
+
+        model_name = default_model_for(hosting)
+        if not model_name:
+            # RECOVERABLE, not fatal: a provider with no known default is a
+            # config the user can still fix from inside the app (`/model`), and
+            # this is a config the app itself writes -- `/login` into a provider
+            # with no default clears the model deliberately. Raised as a plain
+            # ValueError it bypassed the TUI's recoverable-error gate and became
+            # the dead "session failed to start" state, which is what made the
+            # sanctioned repair leave the user worse off than the corruption it
+            # repaired. The message is unchanged -- it names concrete model ids,
+            # and the fail-fast paths still print exactly it.
+            raise ModelNotConfiguredError(_no_model_message(hosting), hosting)
+    return hosting, model_name, model_source
+
+
+def default_convert_to_llm(messages: list[AgentMessage]) -> list[Message]:
+    """Render transcript entries into the LLM-visible message list.
+
+    Thin alias over the engine's single converter
+    (:func:`local_operator.harness.render._default_convert_to_llm`, reached here
+    through ``local_operator.session.session``'s re-export). Two
+    renderings of the same entry type is exactly what let the snapcompact
+    path diverge — the host converter replayed the archive's full text while
+    dropping the frames, so a compaction pass reduced nothing. One renderer,
+    imported, keeps the frame replay and the entry-id passthrough in the
+    request path.
+    """
+    from local_operator.session.session import _default_convert_to_llm
+
+    return _default_convert_to_llm(list(messages))
+
+
+def _fullscreen_app_owns_terminal() -> bool:
+    """True when a Textual app currently holds the terminal.
+
+    Reading input from stdin then is not "interactive", it is a DEADLOCK: the
+    app has the terminal in raw mode and consumes every keystroke, so a thread
+    parked on ``input()`` waits for a line nobody can type and the turn awaiting
+    approval never resumes. Probed through Textual's own active-app context var
+    (import-guarded, because the TUI is an optional extra and this module sits on
+    the headless path too).
+    """
+    try:
+        from textual.app import active_app
+    except Exception:  # textual absent: nothing can own the terminal
+        return False
+    return active_app.get(None) is not None
+
+
+def _approval_mode_is_auto(config_manager: Any) -> bool:
+    """Whether the operator's saved default approves unattended runs.
+
+    ``tool_approval_mode: auto`` is the standing instruction that a run with
+    nobody to ask must not park or deny on an approval prompt — the same
+    semantic ``--yolo`` carries for a single run. The key is already read by
+    ``spawn_owned_session`` and ``exec_control.start_exec_control`` to seed the
+    gates of the runs THEY supervise ("same key, same default, same
+    degrade-to-ask"); the gate built HERE — the one a headless ``lop exec`` run
+    decides on when no front end has installed an approval handler — never read
+    it, so an operator whose config said auto still had every write/exec call
+    refused with "run with --yolo to auto-approve" (the 2026-09-28 incident's
+    addendum). Reading it at this ONE seam keeps the gate and every posture
+    readout equal by construction: there is no separate handle to report a
+    value the deciding gate ignores.
+
+    Degrades to ``ask`` — never a crash, and never an implicit approval: a
+    missing or odd config must fail toward asking, not toward approving.
+    """
+    try:
+        stored = config_manager.get_config_value("tool_approval_mode", "ask")
+    except Exception:  # noqa: BLE001 — a missing/odd config means "ask", never a crash
+        return False
+    return str(stored).strip().lower() == "auto"
+
+
+def _make_request_approval(yolo: bool) -> Callable[[str, str], Awaitable[bool]]:
+    """Build the tool-approval gate.
+
+    ``--yolo`` auto-approves every tier (read/write/exec). Otherwise approval
+    is an interactive y/N prompt — which can only happen on a tty; headless
+    runs deny, so a background job never hangs waiting for input it will
+    never get. A non-tty denial is NEVER silent (CL-04): the user must see
+    why the tool was rejected and how to change it (``--yolo``) — printed to
+    stderr, and raised as :class:`ApprovalUnavailableError` so the transcript
+    names the real cause rather than attributing the refusal to a user who was
+    never asked.
+
+    A full-screen front end must REPLACE this gate with its own surface
+    (``SessionProtocol.set_approval_handler``); the check below is the safety
+    net for the window before it does, and for a UI that forgets to. Denying is
+    the only safe answer there — the alternative is the hang described in
+    :func:`_fullscreen_app_owns_terminal`, which looks to the user like the
+    agent froze mid-task.
+    """
+    if yolo:
+
+        async def auto_approve(tool_name: str, description: str) -> bool:
+            return True
+
+        return auto_approve
+
+    async def prompt_approval(tool_name: str, description: str) -> bool:
+        # ``sys.stdin`` is checked for ``None`` BEFORE ``isatty()`` is called
+        # because a launcher or daemoniser may start the process with fd 0
+        # CLOSED, and Python leaves ``sys.stdin`` as ``None`` for that shape
+        # rather than raising on it. ``lop exec`` without ``--tools`` reaches
+        # this gate on the ordinary path, so the unguarded call was not a
+        # corner: it raised ``'NoneType' object has no attribute 'isatty'`` out
+        # of the gate, and the loop answers a raising gate as an approval-gate
+        # FAULT — the call still did not run (fail closed), but the operator was
+        # told "This is a harness fault, not a refusal by the user" instead of
+        # the actionable CL-04 notice below, which is the same notice a pipe
+        # emits. An absent stdin has to read the way a pipe does: nobody can be
+        # asked. Same guard, and the same reason, as ``exec_startup``'s
+        # declaration gate at its ``sys.stdin`` test.
+        stdin_is_tty = sys.stdin is not None and sys.stdin.isatty()
+        if not stdin_is_tty:
+            print(
+                f"approval required but no tty; run with --yolo to auto-approve "
+                f"(tool '{tool_name}')",
+                file=sys.stderr,
+            )
+            # Then REFUSE IN A TYPED WAY rather than returning ``False``.
+            # Every call site renders a ``False`` as "User denied approval ..."
+            # — its copy for a person who answered, which is a lie here: this
+            # gate never reached a person. Only THIS gate raises, because it is
+            # the one that KNOWS there is no terminal to ask on; an interactive
+            # gate keeps returning ``False`` for a real refusal. The call sites
+            # catch this type and render the reason and the remedies instead
+            # (see ``harness/loop.py`` and ``tools/builtin.py``).
+            #
+            # The CL-04 notice above stays exactly as it was, and on purpose:
+            # it is what a stderr reader can act on while the transcript shows
+            # the same refusal, and its spelling is pinned by tests.
+            raise ApprovalUnavailableError(tool_name, "no terminal is attached")
+        if _fullscreen_app_owns_terminal():
+            # error, not warning: reaching this branch means a front end that owns
+            # the terminal did not install an approval handler, which is a wiring
+            # BUG, and the user pays for it with a tool that refuses for no
+            # visible reason. Named remedies so whoever reads the log can act.
+            #
+            # Deliberately not stderr, unlike the non-tty branch above: a stray
+            # stderr write under a full-screen app paints over the frame and stays
+            # there (see tests/unit/tui/test_logger_silence.py), so the CL-04
+            # spelling is unavailable here. The TUI routes this file's records to
+            # a rotating log, which is where this lands.
+            logger.error(
+                "approval for %r denied: a full-screen UI owns the terminal and "
+                "installed no approval handler — install one via "
+                "SessionProtocol.set_approval_handler, or run with --yolo to "
+                "auto-approve every tier",
+                tool_name,
+            )
+            return False
+        try:
+            # Sanitised HERE as well as at the source. This is a second
+            # human-facing approval surface, it renders onto a real terminal
+            # with no widget between it and the escape codes, and the cost of
+            # the belt-and-braces is one function call on a path that is about
+            # to block on human input anyway.
+            answer = await asyncio.to_thread(
+                input,
+                "Allow tool '{}' ({})? [y/N] ".format(
+                    sanitize_prompt_line(tool_name, limit=120),
+                    sanitize_prompt_line(description),
+                ),
+            )
+        except (EOFError, KeyboardInterrupt):
+            return False
+        return answer.strip().lower() in ("y", "yes")
+
+    return prompt_approval
+
+
+def _payload_user_text(payload: dict[str, Any]) -> str:
+    """The text a stored ``role="user"`` payload carries, joined and stripped.
+
+    The twin of the join the scan below performs, kept as its own function so
+    the indexed path can ask the chrome recogniser the same question the scan
+    does without a second copy of the block-flattening rule.
+    """
+    blocks = payload.get("content") or []
+    return "".join(block.get("text", "") for block in blocks if isinstance(block, dict)).strip()
+
+
+def _latest_user_query(transcript: Any) -> str:
+    """Extract the skill-selection query from the transcript.
+
+    Per-turn selection embeds the last user message plus the latest
+    compaction summary (docs/REWRITE.md section C). Reads the committed
+    ``Transcript.entries()`` shape (``.type``, ``.payload``); any deviation
+    degrades to an empty query, which skips selection — skill selection must
+    never break a session.
+
+    Picks the newest row the OPERATOR wrote. A harness notice (the
+    ``harness_injected`` stamp, or one of the notice heads a compaction block
+    carried forward — see ``harness/rows.py``) is stored as a
+    ``role="user"`` row and is not a query: handing selection the harness's
+    prose would search the skills index for "[model switch] You are now
+    running as …" and freeze the result against it as the block's task id.
+    The same holds for a CHROME prompt that lost its stamp — a goal
+    continuation a pre-stamp build spooled reads as a plain user row — so the
+    scan also applies the shared :func:`is_harness_chrome` recogniser.
+    """
+    try:
+        # Production transcripts index these at durable append time. Keep the
+        # historical fallback for embedders/test stores exposing entries only.
+        if hasattr(transcript, "latest_user_entry"):
+            newest_user = transcript.latest_user_entry()
+            candidates: Any = [transcript.latest_entry("compaction"), newest_user]
+            newest_payload = getattr(newest_user, "payload", None) or {}
+            if newest_user is not None and (
+                is_harness_notice_row(newest_payload)
+                or is_harness_chrome(_payload_user_text(newest_payload))
+            ):
+                # The indexed path names ONE user row, so a notice OR a chrome
+                # prompt there would end the scan with nothing to select on.
+                # Fall back to the journal and walk back to the newest row the
+                # operator wrote.
+                candidates = transcript.entries()
+            entries = [entry for entry in candidates if entry is not None]
+        else:
+            entries = transcript.entries()
+    except Exception:  # noqa: BLE001 — degradation is the contract
+        return ""
+    user_text = ""
+    summary = ""
+    for entry in reversed(entries):
+        entry_type = getattr(entry, "type", None)
+        payload = getattr(entry, "payload", None) or {}
+        if not summary and entry_type == "compaction":
+            # A snapcompact entry's summary is reading instructions for the
+            # archive frames, not conversation content — as a selection query
+            # it is constant boilerplate that would drown the user's actual
+            # words. The archive's text_tail is the newest slice of the real
+            # transcript, so prefer it (bounded: selection wants a signal, not
+            # the whole edge).
+            preserve = payload.get("preserve_data") or {}
+            snap = preserve.get("snapcompact") if isinstance(preserve, dict) else None
+            # Prefer text_tail, then text_head: a small archive stores ALL its
+            # text in text_head with an empty tail, and falling straight
+            # through to the summary there re-created the boilerplate-noise
+            # defect for exactly the sessions with the least other signal.
+            edge = ""
+            if isinstance(snap, dict):
+                for key in ("text_tail", "text_head"):
+                    candidate = snap.get(key)
+                    if isinstance(candidate, str) and candidate.strip():
+                        edge = candidate.strip()[-2000:]
+                        break
+            summary = edge or str(payload.get("summary", "")).strip()
+        if not user_text and entry_type == "message" and payload.get("role") == "user":
+            if is_harness_notice_row(payload):
+                continue
+            candidate = _payload_user_text(payload)
+            if is_harness_chrome(candidate):
+                # A harness prompt that lost its stamp — a continuation row a
+                # pre-stamp build spooled — is still not a query the operator
+                # wrote: handing selection the harness's prose searches the
+                # skills index for "Continue working toward this goal: …" and
+                # freezes the block's task id against it. The same shared
+                # recogniser every display surface makes the call with.
+                continue
+            user_text = candidate
+        if user_text and summary:
+            break
+    return "\n".join(part for part in (user_text, summary) if part)
+
+
+def _latest_compaction_id(transcript: Any) -> str | None:
+    """Entry id of the newest compaction marker, or ``None`` without one.
+
+    This is the freeze key for the knowledge block: selection normally
+    freezes after the first query so the prompt-cache prefix stays warm, but
+    a compaction rewrites the transcript head anyway — the cache is already
+    invalidated — so a NEW id here licenses one re-selection (see
+    :func:`_select_knowledge_block`). Same contract as
+    :func:`_latest_user_query`: any transcript deviation degrades to
+    ``None`` (treated as "no compaction yet"), never breaks the turn.
+    """
+    try:
+        if hasattr(transcript, "latest_entry"):
+            entry = transcript.latest_entry("compaction")
+            return entry.id if entry is not None else None
+        entries = transcript.entries()
+    except Exception:  # noqa: BLE001 — degradation is the contract
+        return None
+    for entry in reversed(entries):
+        if getattr(entry, "type", None) == "compaction":
+            entry_id = getattr(entry, "id", None)
+            return str(entry_id) if entry_id else None
+    return None
+
+
+def _env_details(cwd: str | None = None) -> str:
+    """Volatile environment facts for the env block (date rides there too,
+    added by ``build_system_blocks``). Kept tiny and byte-stable within a
+    run: no timestamps, no process ids. ``cwd`` comes from the session's
+    working directory, never the process-global value at call time."""
+    import platform
+
+    return (
+        f"Platform: {platform.system()} {platform.release()} ({platform.machine()})\n"
+        f"Python: {platform.python_version()}\n"
+        f"Working directory: {cwd if cwd is not None else os.getcwd()}"
+    )
+
+
+#: The SERVER-OWNED shape of a configuration run: the preamble a run is built
+#: with, and the tool declaration that gives it its reach.
+#:
+#: WHY THE SHAPE IS THE SERVER'S. A configuration run writes agent instructions
+#: that every LATER session of that profile obeys, so its authority is a
+#: persistent privilege surface. A renderer that picked the tools, or a prompt
+#: that merely ASKED the model to behave, would put that authority in the client
+#: and in the model's goodwill. Both halves below are therefore stated here, in
+#: code versioned with the backend, and applied by the composition root that
+#: builds the session -- never by a caller.
+#:
+#: WHY AN OP SCOPE AND NOT JUST TWO NAMES. ``agent`` is ONE tool with several
+#: ``op=`` values, two of which a bounded run must not have: ``reset`` overwrites
+#: instructions the operator wrote, and ``sync`` fetches from the hub using their
+#: stored credentials. Declaring ``agent`` for "add or edit a profile" without an
+#: op scope hands out both, which is the gap the op scope exists to close (see
+#: ``Session.set_tool_inventory``'s ``ops`` argument).
+#:
+#: ``team_delete`` needs no op scope -- it is its own tool and is simply not
+#: named -- and that is deliberate on the product's side too: no desktop op and no
+#: page control deletes a profile or a team today, so a conversational delete
+#: would be the first delete in the product.
+AGENTS_CONFIG_TOOLS: tuple[str, ...] = ("agent", "team")
+
+#: The ops of :data:`AGENTS_CONFIG_TOOLS` a configuration run may reach, per tool
+#: name. Every declared tool is listed: an omission would mean "every op this
+#: build's tool accepts", which is the state a declaration without a scope is in
+#: and exactly the state this mapping exists to avoid.
+AGENTS_CONFIG_TOOL_OPS: dict[str, tuple[str, ...]] = {
+    "agent": ("list", "show", "search", "install", "create", "update"),
+    "team": ("list", "show", "create", "update"),
+}
+
+#: The preamble injected as the run's ``<configuration-run>`` system block.
+#:
+#: IN CODE, NOT A SEED. A packaged seed would appear in every operator's agent
+#: list (``profile_catalogue`` is a projection over the registry, and the registry
+#: answers with the seeds), which is a product surface for something nobody chose
+#: to install; and a seed can be edited, which would make the run's boundary a
+#: thing the operator can be talked out of. The trade-off is stated rather than
+#: hidden: the operator cannot tune this.
+#:
+#: IT SAYS BOTH HALVES. What the run is for, so it does not answer the operator's
+#: question as if it were a chat; and what it may NOT do, so a refusal it earns
+#: from the declaration is explained rather than looked like a bug. The exclusion
+#: is nevertheless ENFORCED by the inventory and not by these sentences -- a
+#: prompt is a statement, and the declaration is the mechanism.
+AGENTS_CONFIG_PREAMBLE = """This session is a CONFIGURATION RUN: the operator started it from the
+Agents page to author reusable agents and teams by conversation. It is not their
+conversation with you -- they watch this run on that page, and nothing here
+reaches any other chat.
+
+What you do here: find, create and update agent profiles and teams with the
+`agent` and `team` tools, then say plainly what you changed.
+
+What you cannot do here, and must not promise: reset or sync an agent profile
+(`agent reset` / `agent sync` overwrite instructions the operator wrote or fetch
+from the hub with their credentials), delete a team, run shell commands, or read
+and write files. Those tools are genuinely unreachable in this session, not
+merely discouraged -- if a call is refused, say so and offer the manual path
+instead of retrying.
+
+Prefer the smallest change that answers the request, and prefer reporting what
+you did over asking permission you cannot be given."""
+
+
+def apply_config_run_shape(session: Any) -> bool:
+    """Apply :data:`AGENTS_CONFIG_PREAMBLE` and the tool declaration to ``session``.
+
+    WHEN A SESSION IS A CONFIGURATION RUN, and how this knows: the session's OWN
+    ``desktop.json`` marker carries ``purpose: "agents-config"`` (written by the
+    desktop ``create`` that made it). Reading the MARKER rather than a parameter
+    is the design the desktop side states and the reason it can hold: the marker
+    is the document that outlives the request, so a run RESUMED hours later -- or
+    booted by a successor daemon, or attached to by a second window -- is shaped
+    identically without anything having to remember to pass a flag. It is the
+    same read ``retention.read_desktop_purpose`` serves the origin stamp with.
+
+    THE DURABLE ORIGIN IS THE SECOND WITNESS, and it is what makes this FAIL
+    CLOSED. ``read_desktop_purpose`` is deliberately tolerant (an unreadable or
+    hand-edited marker answers "no purpose"), which on its own makes a damaged
+    marker indistinguishable from an ordinary conversation -- and the one thing
+    that must never happen is a session that every listing still HIDES (its
+    ``origin.json`` is untouched) booting UNBOUNDED, with nothing anywhere saying
+    so. So the two records are read together: a purpose this build knows, OR an
+    origin of ``agent-config``, means the run's shape applies. The origin is
+    written FIRST by the create path precisely because it is the durable record,
+    and every other half of this feature (``is_user_session``, the door,
+    ``active_config_run``) already keys on it.
+
+    Returns whether it applied anything, which is what the tests assert on --
+    the alternative is a test that inspects private state to find out whether a
+    public path ran.
+
+    NO-OP FOR EVERY OTHER SESSION: a session with neither the purpose nor the
+    origin is an ordinary conversation, and this touches nothing.
+    """
+    directory = getattr(getattr(session, "transcript", None), "directory", None)
+    if not directory:
+        return False
+    from local_operator.resume import ORIGIN_AGENT_CONFIG, session_origin
+    from local_operator.session.retention import (
+        AGENTS_CONFIG_PURPOSE,
+        read_desktop_purpose,
+    )
+
+    session_dir = Path(directory)
+    recorded = read_desktop_purpose(session_dir)
+    if recorded != AGENTS_CONFIG_PURPOSE:
+        if session_origin(session_dir) != ORIGIN_AGENT_CONFIG:
+            return False
+        # The origin says run, the marker does not carry (or no longer parses to)
+        # the purpose. Shapes the run anyway, and says so: the alternative is the
+        # fail-OPEN direction, where the same damage silently hands the run the
+        # full builtin inventory while it stays hidden from every list.
+        logger.warning(
+            "a configuration run (%s) carries no usable purpose in its marker; "
+            "shaping it from its origin instead",
+            session_dir.name,
+        )
+    session.set_run_preamble(AGENTS_CONFIG_PREAMBLE)
+    session.set_tool_inventory(AGENTS_CONFIG_TOOLS, ops=AGENTS_CONFIG_TOOL_OPS)
+    return True
+
+
+@dataclass(frozen=True)
+class InstructionSource:
+    """One contributor to the assembled custom instructions, as assembled.
+
+    The accounting half of :func:`resolve_user_instructions`, and the reason
+    that function exists at all. ``lop config instructions`` answers "what
+    instructions am I actually running" from these records rather than from its
+    own reimplementation of the budget arithmetic below — a report derived from
+    a second copy of that arithmetic would drift from the prompt on the first
+    change to either, which is the same class of divergence (documentation
+    disagreeing with the code in the same install) that issue #822 reported.
+
+    ``chars`` is what the source held; ``included`` is what survived the
+    collapse and the cap, so a row can state the difference rather than
+    reporting the smaller number as the whole truth. ``path`` is ``None`` for
+    the agent profile, whose prompt comes from the registry database and has no
+    file an operator could open.
+    """
+
+    label: str
+    path: Path | None
+    chars: int
+    included: int
+    collapsed: bool
+    truncated: bool
+    #: The file exists but could not be read (permissions, a fifo swapped in).
+    #: Distinct from a zero-length file: one is a mistake to fix, the other is
+    #: the ordinary state of an install that simply has no such file, and
+    #: reporting both as "empty" sends the operator to the wrong one.
+    unreadable: bool = False
+    #: 1-based ASSEMBLY INDEX of an earlier source this one shares text with,
+    #: and how many characters that is. The superset arrangement — shared rules
+    #: plus a lop-only overlay in ``system_prompt.md`` — is the case the digest
+    #: collapse cannot catch, so both copies ride the cached prefix of every
+    #: request. Without this the frame is identical to two genuinely distinct
+    #: files, and "two rows with non-zero Included" is true of every healthy
+    #: multi-source install, so it cannot be the diagnosis.
+    #:
+    #: An index rather than a label because labels are not unique: several
+    #: override paths all render as ``imported``, so a label named a row the
+    #: operator could not pick out of the box, and the remedy (edit one of these
+    #: two files) needs exactly that.
+    #:
+    #: Containment rather than equality, and it does not double-report the
+    #: collapse: an imported file byte-identical to ``system_prompt.md`` is
+    #: dropped upstream and arrives with empty ``text``, so it is excluded from
+    #: the test. An agent PROFILE equal to an earlier source is a different
+    #: matter — profiles are never collapsed — and is flagged, correctly: both
+    #: copies really are in the prompt.
+    overlaps_index: int | None = None
+    overlap_chars: int = 0
+    #: Which way round the containment runs: ``True`` when THIS source holds all
+    #: of the earlier one, ``False`` when this source sits wholly inside it. The
+    #: two arrangements have different remedies — trim the superset, or delete
+    #: the subset — so the row has to say which one the operator is looking at,
+    #: and a single "these overlap" would send half of them to the wrong file.
+    overlap_contains: bool = True
+
+
+def resolve_user_instructions(
+    agent_prompt: str = "",
+    *,
+    log_provenance: bool = True,
+) -> tuple[str, list[InstructionSource]]:
+    """Assemble the custom instructions AND account for where they came from.
+
+    Split out of :func:`load_user_instructions` — whose docstring carries the
+    behavioural contract — so the provenance surface reads the same assembly
+    the prompt does. See :class:`InstructionSource` for why a second
+    implementation of this arithmetic was not acceptable.
+
+    The returned records are in ASSEMBLY order, which is the fact operators get
+    wrong and the reason the report exists at all.
+
+    ``log_provenance=False`` is for the ONE caller whose entire output already
+    IS the provenance (``lop config instructions``): there the INFO record
+    would print the same file and size to stderr immediately above the box
+    reporting it, so the command would contradict nothing and repeat
+    everything. Every session path leaves it on — the log is the only trace a
+    running session leaves of an import it did not name.
+    """
+    parts: list[str] = []
+    # ``is_file()`` follows symlinks deliberately: pointing the file at a
+    # dotfiles checkout is a normal way to version instructions.
+    path = app_config_dir() / "system_prompt.md"
+    try:
+        if path.is_file():
+            parts.append(path.read_text(encoding="utf-8-sig", errors="replace"))
+    except OSError:
+        pass
+
+    # Each source is bounded on its OWN budget before joining. Capping only
+    # the joined string let a full-size global file consume the whole budget
+    # and silently discard the selected agent's profile prompt entirely,
+    # inverting the documented layering: the machine-wide file would discard
+    # the profile the operator explicitly chose.
+    #
+    # The split is a FLOOR each way, never a flat tax. Subtracting the
+    # reserve unconditionally cut a 64k global file to 48k even with no agent
+    # selected, handing the 16k to nobody; capping the profile at the reserve
+    # unconditionally did the mirror image to a large profile when the global
+    # file was small. So each source may spend whatever the other leaves,
+    # down to its own guaranteed share.
+    global_raw = "\n\n".join(part.strip() for part in parts if part.strip())
+    agent_raw = agent_prompt.strip()
+    # The digest is handed down so a shared file byte-identical to the native
+    # one is dropped rather than duplicated into every cached request.
+    ecosystem_records = read_ecosystem_instructions(
+        skip_digests=frozenset({content_digest(global_raw)} if global_raw else ())
+    )
+    if log_provenance:
+        log_ecosystem_provenance(ecosystem_records)
+    ecosystem_raw = "\n\n".join(record.text for record in ecosystem_records if record.text).strip()
+
+    # The "\n\n" joins are only emitted between sources that SURVIVE, so the
+    # characters are only withheld then. Keyed off the agent text alone, a
+    # profile that fits the documented cap exactly was truncated by two
+    # characters while a global file of the same size passed whole.
+    present = sum(1 for raw in (ecosystem_raw, global_raw, agent_raw) if raw)
+    separator = 2 * max(0, present - 1)
+    # Bounded in ascending order of ownership: the imported file first, then
+    # the profile, and the operator's own file takes the remainder. Each may
+    # spend what the others leave, down to its own floor — so a lone 64k source
+    # is still whole, and no source is taxed for room the others never use.
+    ecosystem_text = _bound_instructions(
+        ecosystem_raw,
+        "imported user-scope instructions",
+        max(
+            _ECOSYSTEM_INSTRUCTIONS_RESERVE,
+            MAX_USER_INSTRUCTIONS_CHARS - len(global_raw) - len(agent_raw) - separator,
+        ),
+    )
+    agent_text = _bound_instructions(
+        agent_raw,
+        "the selected agent's profile",
+        max(
+            _AGENT_INSTRUCTIONS_RESERVE,
+            MAX_USER_INSTRUCTIONS_CHARS - len(ecosystem_text) - len(global_raw) - separator,
+        ),
+    )
+    global_text = _bound_instructions(
+        global_raw,
+        str(path),
+        MAX_USER_INSTRUCTIONS_CHARS - len(ecosystem_text) - len(agent_text) - separator,
+    )
+
+    # The whole-source cap is reported per imported FILE rather than against
+    # the joined block: with several override paths the operator needs to know
+    # which file lost text, and the join is what the budget acts on. The budget
+    # truncates that joined block from the TAIL, so a cut larger than the last
+    # file also eats the tail of the file before it. Charging the whole cut to
+    # the last contributor therefore credited earlier files with text that never
+    # reached the prompt — rows summing to 107,998 "included" characters inside a
+    # 64,000-character total, with the file that actually lost 44k carrying no
+    # truncation flag. Walking the SURVIVING length forward instead reproduces
+    # how the block was actually cut, so each file is credited only what its own
+    # span contributed.
+    #
+    # ``remaining`` is measured against the ASSEMBLED block rather than the raw
+    # one, which means the truncation marker rides with the file whose tail it
+    # replaced. That is deliberate: it keeps ``sum(included) + separators ==
+    # len(assembled)`` exactly true, and a report whose own rows do not add up to
+    # its own total is the defect class this whole surface exists to close.
+    remaining = len(ecosystem_text)
+    emitted = False
+    sources: list[InstructionSource] = []
+    # What each source actually held, positionally parallel to ``sources``, for
+    # the containment test below. Empty for a source that contributed nothing.
+    raw_texts: list[str] = []
+    for record in ecosystem_records:
+        if record.text:
+            if emitted:
+                # The "\n\n" join before this file, charged to neither side.
+                remaining = max(0, remaining - 2)
+            included = min(record.chars, remaining)
+            remaining -= included
+            emitted = emitted or included > 0
+        else:
+            # Collapsed, empty or unreadable: contributed nothing, and consumed
+            # no separator either.
+            included = 0
+        raw_texts.append(record.text)
+        sources.append(
+            InstructionSource(
+                label="imported",
+                path=record.path,
+                chars=record.chars,
+                included=included,
+                collapsed=record.collapsed,
+                # Truncated by the per-FILE 64 KiB read cap, or by the shared
+                # instructions budget landing on this file. Guarded on
+                # ``record.text`` so a collapsed file — which also has
+                # ``included`` 0 against a non-zero ``chars`` — is not reported
+                # as truncated on top of being reported as collapsed.
+                truncated=record.truncated or (bool(record.text) and included < record.chars),
+                unreadable=record.unreadable,
+            )
+        )
+    raw_texts.append(global_raw)
+    sources.append(
+        InstructionSource(
+            label="system_prompt.md",
+            path=path,
+            chars=len(global_raw),
+            included=len(global_text),
+            collapsed=False,
+            truncated=len(global_text) < len(global_raw),
+        )
+    )
+    if agent_raw:
+        raw_texts.append(agent_raw)
+        sources.append(
+            InstructionSource(
+                label="agent profile",
+                path=None,
+                chars=len(agent_raw),
+                included=len(agent_text),
+                collapsed=False,
+                truncated=len(agent_text) < len(agent_raw),
+            )
+        )
+
+    # Duplicate content the collapse cannot catch. The digest collapse is keyed
+    # on the WHOLE file, so a native file that is a superset of the shared one
+    # ships both copies in every cached request — the expensive arrangement, and
+    # the one the frame could not previously distinguish from two healthy
+    # distinct files. A plain containment test on text already in hand: no new
+    # read, no new arithmetic, and CPython's substring search over a handful of
+    # sources bounded at 64,000 characters is not work worth avoiding.
+    #
+    # SYMMETRIC, because the cost is. An earlier version asked only whether a
+    # LATER source contained an EARLIER one, which is silent on the natural
+    # migration: rules move into ``~/.agents/AGENTS.md`` and grow there while the
+    # old ``system_prompt.md`` is left behind as a subset. Both copies ship in
+    # every request and no row fired — and the guide read that silence as an
+    # all-clear, which is issue #822's own shape (a claim the code does not
+    # make). Measured at 41 µs for 64 KiB-in-64 KiB, so the second direction is
+    # free.
+    #
+    # Restricted to sources that survived WHOLE (``included == chars``) so the
+    # row can say both copies are sent without qualification: a source the
+    # budget already cut carries a ``Truncated:`` row, and claiming a verbatim
+    # duplicate of text that was itself partly dropped would be the report
+    # asserting something the prompt does not do.
+    whole = [
+        (index, raw)
+        for index, (source, raw) in enumerate(zip(sources, raw_texts))
+        if raw and source.included == source.chars
+    ]
+    for position, (index, raw) in enumerate(whole):
+        for earlier_index, earlier_raw in whole[:position]:
+            # Equal-length texts satisfy both directions; "contains" is tried
+            # first so an agent profile identical to an earlier source keeps
+            # reading as the superset case rather than flipping on tie order.
+            if len(earlier_raw) >= _OVERLAP_MIN_CHARS and earlier_raw in raw:
+                contains, shared_chars = True, len(earlier_raw)
+            elif len(raw) >= _OVERLAP_MIN_CHARS and raw in earlier_raw:
+                contains, shared_chars = False, len(raw)
+            else:
+                continue
+            sources[index] = replace(
+                sources[index],
+                # 1-based: the box numbers its rows from 1, and an index the
+                # operator cannot match to a printed row is not an answer.
+                overlaps_index=earlier_index + 1,
+                overlap_chars=shared_chars,
+                overlap_contains=contains,
+            )
+            break
+
+    # Imported first, native second, profile last: later text is read as the
+    # more specific instruction, so lop's own file outranks the shared one and
+    # the chosen profile outranks both.
+    assembled = "\n\n".join(part for part in (ecosystem_text, global_text, agent_text) if part)
+    return assembled, sources
+
+
+def load_user_instructions(agent_prompt: str = "") -> str:
+    """Read the operator's standing custom instructions for the system prompt.
+
+    Source of truth is ``<config_dir>/system_prompt.md`` — the same file the
+    desktop UI's Settings "Instructions" box and the
+    ``/v1/config/system-prompt`` endpoint write, so the three surfaces cannot
+    drift into separate notions of "custom instructions".
+
+    ``agent_prompt`` is the selected agent profile's own ``system_prompt.md``.
+    It is appended rather than allowed to replace the global file: an agent is
+    a specialization ("you review Python"), not a reason to forget the
+    operator's machine-wide preferences, and a profile that genuinely must
+    override one can say so in its own text.
+
+    Instructions shared with other agent tools (``~/.agents/AGENTS.md``, see
+    :mod:`local_operator.ecosystem_instructions`) are read too, PREPENDED so
+    the operator's own file is read last and wins on conflict, and skipped
+    entirely when their content is identical to ``system_prompt.md`` — the
+    common case for anyone who currently generates the native file from the
+    shared one with a sync script. Those files are never written by lop, so
+    ``system_prompt.md`` remains the single write target of Settings →
+    Instructions and ``GET``/``PATCH /v1/config/system-prompt``.
+
+    Failures degrade instead of breaking startup: an unreadable file is
+    skipped, and undecodable bytes are REPLACED rather than dropping the whole
+    file, because a stray bad byte in a long instructions file should cost the
+    operator one glyph and not every preference they wrote. Either way a bad
+    edit never costs a session.
+
+    The result is bounded at :data:`MAX_USER_INSTRUCTIONS_CHARS`. This rides
+    the CACHED head block, so it is re-sent as the prefix of every request in
+    every session and every subagent: an accidentally huge file (a log pasted
+    over the wrong path) would otherwise cost context and money on every call,
+    and on a small-context model would fail the session at startup with
+    nothing pointing at the cause. Truncation is explicit — the marker tells
+    the model its instructions were cut rather than letting it act on half a
+    rule — and a warning names the source and the limit.
+
+    ``utf-8-sig`` strips a BOM that a Windows editor writes; without it the
+    ``\ufeff`` survives into the prompt ahead of the first rule.
+    """
+    return resolve_user_instructions(agent_prompt)[0]
+
+
+def _bound_instructions(text: str, source: str, limit: int) -> str:
+    """Cap one instruction source so it cannot silently eat the context window.
+
+    ``source`` names the origin in the warning: passing the global path for
+    text that came from an agent profile would send the operator looking for
+    a file that may not even exist. The marker is counted INSIDE ``limit``, so
+    the return value never exceeds it — including when ``limit`` is too small
+    to hold the marker at all, where the marker is dropped rather than
+    appended past the budget.
+    """
+    if len(text) <= limit:
+        return text
+    marker = f"\n\n[... custom instructions truncated at {limit} characters ...]"
+    if limit < len(marker):
+        marker = ""
+    logger.warning(
+        "custom instructions from %s are %d chars; truncating to %d "
+        "(they are re-sent with every request)",
+        source,
+        len(text),
+        limit,
+    )
+    return text[: max(0, limit - len(marker))].rstrip() + marker
+
+
+def _build_variable_store(cwd: str, config_manager: ConfigManager) -> VariableStore:
+    """Construct the session's VariableStore for the list/read variable
+    tools. Config ``variables`` ride above the project file and environment;
+    no values are ever written into the system prompt (that is the whole
+    point — the model lists names and reads single values on demand)."""
+    from local_operator.variables import VariableStore
+
+    config_values: dict[str, str] | None = None
+    try:
+        raw = config_manager.get_config_value("variables", None)
+        if isinstance(raw, dict):
+            config_values = {str(k): str(v) for k, v in raw.items() if v is not None}
+    except Exception:  # noqa: BLE001 — a config read failure must not block tools
+        config_values = None
+    return VariableStore(cwd=cwd, config_values=config_values)
+
+
+#: ``values.classification.maxRecommendations`` as the WIRING needs it when no
+#: seam was built from the package (a test double, or a host that supplied its
+#: own classifier). The package's ``DEFAULT_MAX_RECOMMENDATIONS`` is the
+#: consumer default the settings registry is pinned to; this copy exists so the
+#: request path never has to import the package, and
+#: ``tests/unit/test_session_factory_classification.py`` pins the two together.
+DEFAULT_CLASSIFICATION_MAX_RECOMMENDATIONS = 3
+
+#: ``values.classification.maxCandidates`` as the WIRING needs it when no seam was
+#: built from the package (a test double, or a host that supplied its own
+#: classifier). Same reason as the constant above: the request path must not import
+#: the package for a number, and the same test pins this to the registry row.
+DEFAULT_CLASSIFICATION_MAX_CANDIDATES = 12
+
+#: ``values.classification.timeoutMs`` — the CALL's deadline, as the wiring needs it.
+#:
+#: The shipped service enforces the same number itself (``timeout_s``, read from the
+#: same key), and that is the deadline the breaker counts against. The wiring keeps
+#: its own copy for one purpose only — capping the turn's WAIT by it
+#: (:func:`_classification_wait_s`), so a wait budget configured larger than the
+#: call could ever take does not spend itself on nothing. It is NOT a deadline
+#: around the call: killing a call the turn has stopped waiting for would throw away
+#: an answer the next message could have used. Same pinning as above.
+DEFAULT_CLASSIFICATION_TIMEOUT_MS = 1500
+
+#: ``values.classification.waitMs`` — how long a TURN waits for a recommendation
+#: before it stops waiting and lets the call finish in the background.
+#:
+#: This is the operator's latency budget in one number ("our own overhead under
+#: 100 ms, ideally under 50 ms, per user message"), and it is deliberately NOT the
+#: call's deadline: ``timeoutMs`` says how long the VENDOR may take, and on a real
+#: roster that is ~250 ms median — waiting for it would put the vendor's model time
+#: on the turn's critical path, which the budget explicitly excludes.
+#:
+#: WHAT IT ACTUALLY COSTS, measured on the real path (27-candidate roster, default
+#: settings, ``scripts/classification_latency_probe.py``) and reported as the
+#: DIFFERENCE against the layer being off, so the pre-existing cost of the turn path
+#: is not claimed as ours:
+#:
+#: - a warm message against a VENDOR THAT DOES NOT ANSWER inside the wait costs the
+#:   WAIT: **+50.9 to +52.1 ms median** over four runs (ON 52.75-53.80 ms, OFF
+#:   1.69-2.73 ms). That is the number the budget is about, and it is bounded by
+#:   ``waitMs`` — never by the vendor's ~250 ms answer, which is what puts this key
+#:   between the turn and the model;
+#: - a vendor that answers INSIDE the wait — a cache hit, or a leg that fails at once
+#:   — costs **~0 to +2 ms**, because the turn stops waiting the moment it has an
+#:   answer. Measured with a dead credential the whole steady state reads ~+0.4 ms for
+#:   this reason, so a run must say which arm it measured (the committed script prints
+#:   the service's own cost/skip lines and warns when nothing was delivered);
+#: - a session's FIRST message costs **+22 to +32 ms** more (four runs here, 26.7-31.1
+#:   ms in the reviewer's): one-off setup before the first await, which no wait budget
+#:   can bound. It is NOT the client construction — the paired arms with and without
+#:   ``ClassificationService.warm_up`` (which moves a measured tens-of-milliseconds
+#:   first ``httpx.AsyncClient`` to session build) came out level at 30.7 vs 32.0 ms —
+#:   and ``build_state`` measures 0.05 ms. Open in the contract, not explained here.
+#:
+#: So: an uncached message costs the wait the operator configured (~51 ms, inside the
+#: 100 ms ceiling and AT the 50 ms ideal rather than under it), a message that finds an
+#: answer already in hand costs ~nothing, and a session's first message pays a few tens
+#: of milliseconds once. Anything slower than the wait is delivered by the next message
+#: instead (see ``_harvest_classification``).
+DEFAULT_CLASSIFICATION_WAIT_MS = 50
+
+#: How many background classification calls may be outstanding before the oldest is
+#: abandoned. A session that keeps sending messages into a vendor that never answers
+#: would otherwise accumulate one live task per message: the service's own deadline
+#: normally retires each of them, and the breaker stops new ones after three
+#: failures, so this is the belt for a seam that does neither. Dropping a task is a
+#: cancelled ADVISORY call, never a lost turn.
+_MAX_OUTSTANDING_CLASSIFICATION_CALLS = 4
+
+
+@dataclass
+class _KnowledgeHooks:
+    """Session-owned semantic knowledge and progressive-disclosure resolvers.
+
+    User skills and packaged guides share one index. Registered agent metadata
+    gets a separate local-only index: it can select the generic agents guide,
+    but names and descriptions never enter the prompt or a remote embedding
+    request. Selection is reused within each task and refreshed on the next user row.
+    """
+
+    index: SkillIndex | None = None
+    agent_hint_index: SkillIndex | None = None
+    skills_by_name: dict[str, Skill] = field(default_factory=dict)
+    guides_by_name: dict[str, Skill] = field(default_factory=dict)
+    #: The roots ``skills_by_name`` was discovered from, kept so the skill
+    #: resolver can rescan THE SAME set on a miss. Recomputing them at resolve
+    #: time would be subtly different: ``default_skill_roots`` filters
+    #: ecosystem roots by existence, so a root created mid-session would change
+    #: the list and quietly widen what the session scans.
+    skill_roots: list[Path] = field(default_factory=list)
+    frozen_block: str | None = None
+    #: Compaction entry id observed when ``frozen_block`` was computed. A
+    #: change here (a new compaction marker) re-opens selection once — the
+    #: transcript head is being rewritten anyway, so the prompt cache the
+    #: freeze protects is already gone.
+    frozen_compaction_id: str | None = None
+    #: The query ``frozen_block`` was selected with. Needed because the provider hands
+    #: an EMPTY query to a render whose freeze it believes is unchanged (see its own
+    #: comment), so a re-render that must supersede the block cannot re-derive it — and
+    #: re-selecting with ``""`` would drop the skills the frozen block carried, which is
+    #: what a review round reproduced before this existed.
+    frozen_query: str = ""
+    #: The task id whose in-turn answer has already been harvested. The freeze is not the
+    #: only thing a later render of the same message can have lost — a skill-tree change
+    #: mid-turn invalidates it — so the skip of the classification leg keys on THIS rather
+    #: than on ``frozen_block`` being present (review round 2, R2-2).
+    classification_answered_task_id: str | None = None
+    # A new admitted user row is a task boundary, unlike tool continuations.
+    # Selection updates enter history as host state, so refreshing here no
+    # longer rewrites the historical system prefix.
+    frozen_task_id: str | None = None
+    mcp_resolver: Callable[[str], str | None] | None = None
+    # Takes the frozen selection query. Configured names are populated before
+    # deferred connection work begins, closing the first-turn race without
+    # making connection completion part of the prompt-cache key.
+    mcp_catalogue: Callable[[str], str] | None = None
+    #: Names of the configured MCP servers, published by ``_seed_mcp_routing``
+    #: before any connection work. Read by the classification roster, which needs
+    #: the server id for a candidate and never its tools.
+    mcp_server_names: tuple[str, ...] = ()
+    #: The projects store behind the ``project``/``project_delete`` tools, read by
+    #: the classification roster as the ``project`` kind's source and by the roster
+    #: cache key as the projects fingerprint (§8 of the projects design). ``None``
+    #: on a hooks object built without one (tests, or a boot whose store could not
+    #: be read): the roster then offers no project rows and the cache key's term
+    #: simply never moves, which is the layer's pre-projects behaviour rather than
+    #: a degraded one.
+    project_registry: Any | None = None
+    #: The session-management tools THIS session actually holds, as roster rows
+    #: for the ``tool`` kind (see :func:`_tool_roster_rows`). WRITTEN BY THE
+    #: SESSION, not here: the factory's construction-time context lacks the
+    #: session-owned ``createIf`` gates, so a snapshot taken beside it would
+    #: hold only the unconditional tools — five of the six missing (agent
+    #: review round 1, PR #1863). ``Session.set_knowledge_hooks`` sets it from
+    #: the FINAL inventory and re-derives it on every later inventory write; a
+    #: hooks object that never attaches carries ``()`` and behaves exactly as
+    #: before the kind existed.
+    tool_roster: tuple[Any, ...] = ()
+    #: The classification seam (docs/design/classification-layer.md §7): an
+    #: object exposing ``async recommend_resources(request) -> Recommendation``.
+    #: ONE method — the seam used to publish ``notice(recommendation)`` as well, and
+    #: that render path is deleted (the layer draws nothing into the transcript), so a
+    #: host's own classifier that still publishes one is simply never asked for it.
+    #: ``None`` means the layer is
+    #: off, unavailable, or its package failed to import — and that the prompt is
+    #: exactly what it was before this seam existed.
+    #:
+    #: Built ONCE per session by ``_attach_classification`` when
+    #: ``values.classification.auto`` is on, rather than at the first user
+    #: message: the package's cold import is ~1.8 s of cumulative import time
+    #: (``python -X importtime``), and a turn's prompt build must not pay for an
+    #: import. Tests inject a double here and never touch the package.
+    #:
+    #: The MONITOR gate additionally uses ``async decide(state=..., question=...)``
+    #: when the object publishes it (monitor-tool.md §8.2): the scheduler's
+    #: callback resolves this attribute per call, and an object without
+    #: ``decide`` — a host's own classifier — simply has no gate and every
+    #: change is delivered (the fail-open posture, never a required method).
+    classifier: Any | None = None
+    #: The classification roster (one row per candidate resource) and the inputs
+    #: it was derived from. Built ONCE per roster, never per user message: the
+    #: walk and the row allocation are session-shaped work, and re-deriving them
+    #: on every turn is what would push the wiring's added latency toward the
+    #: per-message budget (see :func:`_classification_roster`).
+    classification_roster: tuple[Any, ...] | None = None
+    #: ``(index, row count, mcp server names, skill-tree fingerprint, projects
+    #: fingerprint)`` — the identity of the inputs the cached roster was built
+    #: from. The index OBJECT, not just its size: a rebuild replaces it, and its
+    #: ``skills`` list is never mutated in place.
+    classification_roster_key: tuple[Any, ...] | None = None
+    #: The skill tree's signature (roots + per-file ``(mtime_ns, size)``; see
+    #: ``skills/discovery.roots_fingerprint``) as of the last roster build and of the
+    #: last knowledge-block render. ``None`` means "no roots to watch" — the unit
+    #: tests' doubles, or a provider built without discovery — and then nothing below
+    #: can fire. The two are separate because the two surfaces rebuild on different
+    #: cadences: the roster is per message, the block is frozen per task.
+    skills_fingerprint: tuple[object, ...] | None = None
+    knowledge_fingerprint: tuple[object, ...] | None = None
+    #: The block ``frozen_block`` held just before a skill-tree change invalidated it.
+    #: Kept because a SUBAGENT's knowledge block is built synchronously from
+    #: ``frozen_block``: without this, a child spawned in the window between the
+    #: invalidation and the next render would inherit an EMPTY directory instead of
+    #: yesterday's one, which is a worse failure than a stale line.
+    superseded_block: str = ""
+    #: ``values.classification.maxRecommendations`` as read at session build.
+    #: Carried because the REQUEST's own cap field is an upper bound over the
+    #: package's reader (``min(request, settings)``), so leaving it at the
+    #: dataclass default would silently cap a configured 5 at 3.
+    classification_max_recommendations: int = DEFAULT_CLASSIFICATION_MAX_RECOMMENDATIONS
+    #: ``values.classification.maxCandidates`` as read at session build. Read on the
+    #: message path by ``_classification_request``, which SHORTLISTS a roster larger
+    #: than this per kind rather than sending its first N in discovery order (see the
+    #: package's ``shortlist``).
+    classification_max_candidates: int = DEFAULT_CLASSIFICATION_MAX_CANDIDATES
+    #: The package's ``shortlist`` callable, captured at attach time. ``None`` when no
+    #: real seam was built (the layer is off, or a host injected its own classifier),
+    #: in which case the message path sends the roster unchanged instead of importing
+    #: the package for one function. Typed as returning a tuple of rows rather than as
+    #: ``Callable[..., Any]`` so the message path needs no cast and no re-wrapping.
+    classification_shortlist: Callable[..., tuple[Any, ...]] | None = None
+    #: ``values.classification.waitMs`` in SECONDS, as read at session build (the
+    #: same NEW_SESSIONS snapshot the service got). The turn waits at most this
+    #: long; see :data:`DEFAULT_CLASSIFICATION_WAIT_MS` for why it is not the
+    #: call's deadline.
+    classification_wait_s: float = DEFAULT_CLASSIFICATION_WAIT_MS / 1000.0
+    #: Calls that are STILL RUNNING after their own turn stopped waiting. Harvested
+    #: with a ``done()`` check — never awaited — on every render of block 3, which is
+    #: once per model STEP of the message that started them and once per later user
+    #: message. Each entry carries the task id it was computed for, because whether an
+    #: answer belongs to the message being rendered decides where it is delivered:
+    #: into THIS turn's next step, or onto the next user message.
+    classification_outstanding: list[_OutstandingClassification] = field(default_factory=list)
+    #: Recommendations that have not reached a prompt yet, oldest first. Consumed
+    #: exactly once, by the render that carries them.
+    #: NO ``late`` FLAG: it used to say whether an answer MISSED the message it was
+    #: computed for, and its only reader was the deleted notice sentence's attribution.
+    #: Where an answer goes is decided before it reaches this list
+    #: (``classification_answered_task_id``, and the pending slot itself), so the flag
+    #: was data no code read — the second shape this removal exists to delete.
+    classification_pending: list[Any] = field(default_factory=list)
+
+
+#: The capability line a configured MCP server contributes when no release-owned
+#: hint covers it. It is the SAME text ``mcp/resources.py``'s
+#: ``render_mcp_suggestions`` uses for a custom server, restated because that
+#: module spells it inline and there is no exported constant to import — and
+#: because the alternative, parsing it back out of the rendered catalogue, would
+#: make the classifier's option text depend on a template.
+_MCP_DEFAULT_CAPABILITY = "Configured MCP server."
+
+#: The advisory block's fixed furniture (§7). The wording is the contract's:
+#: "may help", never imperative, never exclusive, and never a claim that a
+#: recommended resource is authoritative for the turn. A wrong recommendation
+#: must cost a line of context, not a wrong action.
+_RECOMMENDATION_BLOCK_OPEN = "<resource_recommendations>"
+_RECOMMENDATION_BLOCK_PREAMBLE = (
+    "These may help with this request — read the ones that actually fit, ignore the rest:"
+)
+_RECOMMENDATION_BLOCK_CLOSE = "</resource_recommendations>"
+
+
+@dataclass(frozen=True)
+class _ClassificationCandidate:
+    """One row of the roster the classifier is offered.
+
+    Field-for-field the contract's ``Candidate`` (§4), and read by ATTRIBUTE on
+    both sides, so the package's own dataclass is interchangeable with this one.
+    The wiring carries its own row for two reasons that both outlast the
+    implementation detail: the layer is optional, so the turn path must not
+    import the package (the offline path is byte-identical down to its import
+    graph), and the unit tests inject a classifier double that never sees the
+    real types.
+
+    ``description`` is HARNESS-OWNED text only (§6): a skill's or guide's own
+    description as discovered from the local filesystem, an MCP server's name
+    plus a release-owned capability hint, a ``project`` row's operator's-OWN
+    stored project metadata routed back to the operator's own model (the same
+    accepted case the package ``Candidate`` docstring names), or a ``tool``
+    row's registration text — the description the tool itself ships, which is
+    release-owned exactly like the schema it belongs to. Config-authored or
+    remote-authored prose here would re-open the prompt-injection surface
+    ``mcp/resources.py`` deliberately excludes — the option text is the one
+    part of the request the model reads as a rubric.
+    """
+
+    kind: str
+    name: str
+    description: str
+    resource_url: str
+
+
+@dataclass(frozen=True)
+class _RecommendationRequest:
+    """One classification pass: the user's message, optional context, the roster.
+
+    Structurally the contract's ``RecommendationRequest`` (§4), including the
+    field NAMES the package's service reads (``user_message``, ``context``,
+    ``candidates``, ``max_recommendations``), for the reason
+    :class:`_ClassificationCandidate` records.
+
+    ``context`` is ``None`` here and that is the documented optional case (§5):
+    a short already-redacted representative line would have to come from the
+    transcript, and the hooks do not hold one — the provider does. With nothing
+    to add, the state is the user message plus the roster, which is exactly what
+    the layer says it does when a caller has no context to give.
+    """
+
+    user_message: str
+    context: str | None
+    candidates: tuple[_ClassificationCandidate, ...]
+    max_recommendations: int
+
+
+def _registered_agent_hints(agent_registry: AgentRegistry) -> list[Skill]:
+    """Build bounded, local-only routing rows from meaningful agent metadata.
+
+    A registry can grow indefinitely, and descriptions are user content. Each
+    row is capped before hashing/embedding and the first 512 deterministic rows
+    are used. Empty autosave-style profiles provide no routing signal and are
+    skipped. The rows are never rendered by ``render_block``.
+    """
+    from local_operator.skills.discovery import Skill
+
+    try:
+        agents = sorted(
+            agent_registry.list_agents(),
+            key=lambda agent: (str(agent.name).lower(), str(agent.name), str(agent.id)),
+        )[:512]
+    except Exception:  # noqa: BLE001 — hints are optional enrichment
+        return []
+
+    hints: list[Skill] = []
+    agents_dir = Path(agent_registry.config_dir) / "agents"
+    for agent in agents:
+        semantic_parts = [
+            sanitize_prompt_line(str(agent.description or "")),
+            " ".join(sanitize_prompt_line(str(tag)) for tag in (agent.tags or [])),
+            " ".join(sanitize_prompt_line(str(category)) for category in (agent.categories or [])),
+        ]
+        semantic = " ".join(part for part in semantic_parts if part).strip()
+        if not semantic:
+            continue
+        agent_dir = agents_dir / str(agent.id)
+        hints.append(
+            Skill(
+                name=f"registered-agent-{agent.id}",
+                description=f"{sanitize_prompt_line(str(agent.name))}: {semantic}"[:512],
+                file_path=agent_dir / "agent.yml",
+                base_dir=agent_dir,
+                source=str(agents_dir),
+                resource_type="agent_hint",
+            )
+        )
+    return hints
+
+
+def _knowledge_credential(key: str, config_dir: Path) -> str | None:
+    """Resolve an embedder key for the session's semantic backend.
+
+    A provider-class ``LOP_PROVIDER_<key>`` STORE row, then an exported variable.
+    ``provider_secret_value`` is namespace-scoped, so an ordinary agent secret
+    under this name is simply not found here. The legacy ``credentials.env`` leg
+    is GONE (PR2a): an embedder key the operator never stored or exported
+    resolves to nothing.
+
+    A NAMED function rather than an inline closure so the plaintext sweep
+    (``tests/unit/secrets/test_no_reader_resolves_the_plaintext_file.py``) can
+    drive THIS resolver directly. A removed leg that no callable reaches is a
+    removal nothing exercises, which is the gap that sweep exists to close.
+    """
+    from local_operator.providers.registry import provider_secret_value
+
+    stored = provider_secret_value(key, base=config_dir)
+    if stored:
+        return stored
+    return os.environ.get(key) or None
+
+
+def _seed_mcp_routing(hooks: _KnowledgeHooks, cwd: str) -> None:
+    """Expose configured names before deferred live connections can race turn one."""
+    try:
+        from local_operator.mcp.config import load_all_mcp_configs
+        from local_operator.mcp.resources import render_mcp_suggestions
+
+        names = tuple(load_all_mcp_configs(cwd)[0])
+        hooks.mcp_catalogue = lambda query: render_mcp_suggestions(names, query)
+        # Published for the classification roster, which needs a server's NAME
+        # (plus the harness-owned capability hint) as a candidate. Set beside the
+        # catalogue closure so both read the same discovery result, and before
+        # any connection work, so a first-turn classification is complete on a
+        # cold cache.
+        hooks.mcp_server_names = names
+    except Exception:  # noqa: BLE001 — MCP hints remain optional enrichment
+        logger.debug("early MCP name discovery failed", exc_info=True)
+
+
+async def _setup_knowledge(
+    config_dir: Path,
+    agent_registry: AgentRegistry,
+    warnings_out: list[str],
+    cwd: str | Path | None = None,
+) -> _KnowledgeHooks:
+    """Discover and index user skills, packaged guides, and private agent hints.
+
+    Guide bodies are release resources and therefore exist in every install;
+    only their short descriptions join the ordinary skill descriptions sent to
+    the configured semantic backend. Agent hints always use ``LocalEmbedder``.
+    Any layer can fail independently without making session startup fail.
+
+    No credential carrier is threaded in, deliberately: the embedder's
+    credential closure below reads a provider-class STORE row and the process
+    environment, and the store is reached by config ROOT through
+    ``provider_secret_value``. Carrying one was the shape the retired plaintext
+    leg needed (PR2a), and an unused parameter reads as a live dependency the
+    next reader would wire back up.
+    """
+    hooks = _KnowledgeHooks()
+    try:
+        from local_operator.guides import discover_guides
+        from local_operator.skills.api import (
+            SkillIndex,
+            default_backend_from_env,
+            default_skill_roots,
+            discover_skills,
+        )
+        from local_operator.skills.embeddings import LocalEmbedder
+
+        # The SESSION's cwd, not the process's. A session created with an
+        # explicit cwd (bootstrap, the scheduler, owned runtimes) otherwise
+        # discovered project-local skills for whatever directory the process
+        # happened to start in -- every other consumer here already takes the
+        # session's cwd, and this one silently did not.
+        hooks.skill_roots = default_skill_roots(Path(cwd) if cwd is not None else None)
+        #: The baseline the freshness checks compare against, taken HERE because the
+        #: tree has just been walked: recording it at first use instead would make a
+        #: session's first message look like a change and pay a second full scan.
+        hooks.skills_fingerprint = _skills_fingerprint(hooks)
+        skills, discovery_warnings = discover_skills(hooks.skill_roots)
+        warnings_out.extend(discovery_warnings)
+        guides = discover_guides()
+        hooks.skills_by_name = {skill.name: skill for skill in skills}
+        hooks.guides_by_name = {guide.name: guide for guide in guides}
+        resources = sorted(
+            [*skills, *guides],
+            key=lambda item: (
+                item.resource_type,
+                item.name.lower(),
+                item.name,
+                str(item.file_path),
+            ),
+        )
+
+        if resources:
+            backend = default_backend_from_env(
+                functools.partial(_knowledge_credential, config_dir=config_dir)
+            )
+            try:
+                hooks.index = SkillIndex(resources, backend, cache_dir=config_dir / "cache")
+                await hooks.index.build()
+                warnings_out.extend(hooks.index.warnings)
+            except Exception as exc:  # noqa: BLE001 — direct reads still work
+                hooks.index = None
+                if not isinstance(backend, LocalEmbedder):
+                    warnings_out.append(
+                        f"Knowledge embedding backend failed; using local routing: {exc}"
+                    )
+                    try:
+                        hooks.index = SkillIndex(
+                            resources,
+                            LocalEmbedder(),
+                            cache_dir=config_dir / "cache",
+                        )
+                        await hooks.index.build()
+                    except Exception as fallback_exc:  # noqa: BLE001
+                        warnings_out.append(
+                            "Knowledge selection unavailable, continuing without routing: "
+                            f"{fallback_exc}"
+                        )
+                        hooks.index = None
+                else:
+                    warnings_out.append(
+                        f"Knowledge selection unavailable, continuing without routing: {exc}"
+                    )
+
+        agent_hints = _registered_agent_hints(agent_registry)
+        if agent_hints and "agents" in hooks.guides_by_name:
+            try:
+                hooks.agent_hint_index = SkillIndex(
+                    agent_hints,
+                    LocalEmbedder(),
+                    cache_dir=config_dir / "cache",
+                )
+                await hooks.agent_hint_index.build()
+            except Exception as exc:  # noqa: BLE001 — generic guide routing remains
+                warnings_out.append(f"Registered-agent semantic hints unavailable: {exc}")
+                hooks.agent_hint_index = None
+    except Exception as exc:  # noqa: BLE001 — knowledge is optional enrichment
+        warnings_out.append(f"Knowledge guides unavailable, continuing without them: {exc}")
+        hooks = _KnowledgeHooks()
+    return hooks
+
+
+def _classification_section(config_manager: ConfigManager) -> Mapping[str, Any]:
+    """``values.classification`` as it stands at session build.
+
+    A SNAPSHOT, deliberately, and not the live mapping the stream fn holds: the
+    section is scoped NEW_SESSIONS in ``settings_io`` (the service is built per
+    session), so an edit lands on the next session and the page's tag is true.
+    """
+    values = _classification_values(config_manager)
+    section = values.get("classification") if isinstance(values, Mapping) else None
+    return section if isinstance(section, Mapping) else {}
+
+
+def _classification_values(config_manager: ConfigManager) -> dict[str, Any]:
+    """A shallow snapshot of ``config.yml``'s ``values`` for the layer.
+
+    The package reads ``settings.get("classification", {})`` — the same shape
+    ``values.effort.auto`` established (``model/effort_classifier.py``) — so the
+    whole values mapping is what it is handed.
+    """
+    values = getattr(config_manager.get_config(), "values", None)
+    return dict(values) if isinstance(values, Mapping) else {}
+
+
+def _classification_enabled(section: Mapping[str, Any]) -> bool:
+    """Whether ``values.classification.auto`` turns the layer on.
+
+    THE ONE decision the wiring makes for itself, and it is read WITHOUT
+    importing the package: this runs at session build, and ``auto: false`` must
+    leave the process's import graph exactly as it was before the layer existed.
+    With the key ABSENT the answer is the default — ON since 2026-09-18, so the
+    package IS imported on the default path — which is why the absent case is
+    still answered here, without the ``settings_io`` import, rather than by
+    importing the constant it mirrors. The two values it can return are pinned by
+    ``tests/unit/test_session_factory_classification.py`` to the package's
+    ``DEFAULT_AUTO`` and the registry row's default, so a flip in either place
+    fails a test instead of silently disagreeing with this one.
+
+    Read through ``settings_io.strict_bool``, the same reading the service's own
+    ``enabled`` property applies, so a hand-edited ``auto: "false"`` is off here
+    and there — two readings of one toggle is how a switch ends up honoured by
+    one path and ignored by another. The FALLBACK for an unreadable value is the
+    default for the same reason: ``DEFAULT_AUTO`` is what the service would read
+    from the same garbage, so a typo cannot leave the page painting "on" for a
+    layer the wiring skipped.
+    """
+    raw = section.get("auto")
+    if raw is None:
+        # The absent case is answered without the settings_io import, which is
+        # the whole point of this function existing separately.
+        return True
+    from local_operator.settings_io import strict_bool
+
+    return strict_bool(raw, True)
+
+
+def _attach_classification(
+    hooks: _KnowledgeHooks,
+    config_manager: ConfigManager,
+    warnings_out: list[str],
+) -> None:
+    """Build the classification seam when the layer is switched on (§7, §9).
+
+    Built HERE, at session construction, rather than lazily on the first user
+    message — and that ordering is a latency decision, not a style one: the
+    package's cold import measured ~1.8 s of cumulative import time
+    (``python -X importtime`` over ``local_operator.classification``), which must
+    not land inside a turn's prompt build. Session construction already spends
+    seconds on skill discovery and embeddings, so the one-off cost sits where the
+    operator is already waiting. That cost is now on the DEFAULT path: ``auto``
+    absent means ON, so a stock install pays this import once per session build.
+    Only an explicit ``auto: false`` skips it — the knob is still a real off, and
+    the reason the default is worth its price is on ``DEFAULT_AUTO``.
+
+    The seam's keep-alive CLIENT is warmed here too, for the same reason and with a
+    number: see ``ClassificationService.warm_up`` (tens of milliseconds of SSL-context
+    setup — 19-81 ms across six fresh-process runs — once per process, otherwise paid by
+    a session's first call; the same docstring records that the first message did not
+    measurably get faster in paired runs).
+
+    Degrades rather than failing the boot, exactly as the sibling knowledge
+    wiring does: a layer that cannot be built is a line in ``warnings_out`` and a
+    ``classifier`` of ``None``, which is byte-for-byte today's prompt.
+    """
+    section = _classification_section(config_manager)
+    if not _classification_enabled(section):
+        return
+    values = _classification_values(config_manager)
+    try:
+        from local_operator.classification import (
+            ClassificationService,
+            max_candidates,
+            max_recommendations,
+            setting_int,
+            shortlist,
+        )
+
+        hooks.classifier = ClassificationService(
+            config_dir=config_manager.config_dir, settings=values
+        )
+        # The message path's shortlist, captured HERE so that path never imports
+        # the package (see ``_classification_request``).
+        hooks.classification_shortlist = shortlist
+        # …and its keep-alive client is built HERE, not on the first message: tens of
+        # milliseconds of SSL-context setup (19-81 ms across six fresh-process runs),
+        # paid before the call's first await, so no wait budget can bound it. No
+        # connection is opened — the object only — and the paired-run caveat on what
+        # this buys is in ``ClassificationService.warm_up``.
+        #
+        # ``getattr`` and a try of its own: warming is an OPTIMISATION, so a seam that
+        # does not publish it (the seam contract is ``recommend_resources`` alone, and
+        # the tests inject exactly that) keeps working, and a warm-up
+        # that fails must not cost the layer — the shared handler below would turn
+        # both into ``classifier = None``, i.e. a session with no classification
+        # because a prewarm went wrong.
+        warm_up = getattr(hooks.classifier, "warm_up", None)
+        if callable(warm_up):
+            try:
+                warm_up()
+            except Exception:  # noqa: BLE001 — the layer still works, just colder
+                logger.debug("classification: prewarm failed", exc_info=True)
+        # The REQUEST's own cap field is an upper bound over the service's reader
+        # (``min(request, settings)``), so it has to be the configured value:
+        # left at the dataclass default it would silently cap a configured 5 at
+        # 3. Read through the package's own reader, in the one branch that has
+        # already imported the package.
+        hooks.classification_max_recommendations = max_recommendations(values)
+        # Same reader the package uses for the same key, so the wiring's shortlist
+        # cap and the package's own ``select_candidates`` cap cannot drift into two
+        # different numbers.
+        hooks.classification_max_candidates = max_candidates(values)
+        # ``waitMs`` through the SAME reader the package uses for its integers
+        # (``setting_int``): a hand-edited ``waitMs: "80"`` is a typo we can read,
+        # ``waitMs: true`` is refused (``True`` is an ``int`` in Python, and a
+        # boolean there would mean a 1 ms wait), and ``0`` means "use the default"
+        # exactly as it does for ``timeoutMs``. This key is the WIRING's own — the
+        # package never reads it — but it is a §8 number and is parsed like one.
+        hooks.classification_wait_s = (
+            setting_int(values, "waitMs", DEFAULT_CLASSIFICATION_WAIT_MS) / 1000.0
+        )
+    except Exception as exc:  # noqa: BLE001 — the layer is optional enrichment
+        warnings_out.append(f"Resource classification unavailable: {exc}")
+        hooks.classifier = None
+
+
+def _skills_fingerprint(hooks: _KnowledgeHooks) -> tuple[object, ...] | None:
+    """The skill tree's change-detector, or ``None`` when there is nothing to watch.
+
+    ``None`` means "cannot tell", and every caller treats it as "do not refresh":
+    a hooks object with no roots (the unit tests' doubles, a provider built
+    without discovery) must behave exactly as it did before this existed.
+
+    Cost is the reason this is affordable on a per-message path at all:
+    ``roots_fingerprint`` stats every skill directory the bounded-depth scan
+    would register (per-file ``(mtime_ns, size)``, because editing a ``SKILL.md``
+    in place bumps no directory's mtime) and measured ~0.29 ms across 8 flat
+    roots / 57 skills (grouped libraries add one ``scandir`` per grouping
+    folder), against 17-25 ms for the full scan it decides whether to run. Never
+    raises: a filesystem fault reads as "no fingerprint", which costs a refresh
+    rather than a turn.
+    """
+    roots = list(getattr(hooks, "skill_roots", ()) or ())
+    if not roots:
+        return None
+    try:
+        from local_operator.skills.discovery import roots_fingerprint
+
+        return roots_fingerprint(roots)
+    except Exception:  # noqa: BLE001 — a fingerprint is an optimisation, never a gate
+        logger.debug("classification: skill fingerprint failed", exc_info=True)
+        return None
+
+
+def _projects_fingerprint(hooks: _KnowledgeHooks) -> tuple[int, float] | None:
+    """The projects store's change-detector: ``(count, max(updated_at))`` (§8).
+
+    ``None`` means "no store to watch" — a hooks object built without a registry
+    (the unit tests' doubles, a boot whose store could not be read) — and, like
+    the skill fingerprint, this is an optimisation and a change signal, never a
+    gate: a read fault reads as "cannot tell" and the roster keeps what it has.
+
+    The pair is the design's own key, and it moves for every store mutation a
+    session must notice: a create moves the count, an update moves
+    ``updated_at``, a delete moves at least one of the two — while an update the
+    store itself refused as a no-op (identical text on a fresh record) writes
+    nothing and correctly changes nothing here.
+    """
+    registry = hooks.project_registry
+    if registry is None:
+        return None
+    try:
+        projects = registry.list_projects()
+    except Exception:  # noqa: BLE001 — a fingerprint is an optimisation, never a gate
+        logger.debug("classification: project fingerprint failed", exc_info=True)
+        return None
+    return (len(projects), max((project.updated_at for project in projects), default=0.0))
+
+
+def _refresh_knowledge_freshness(hooks: _KnowledgeHooks) -> tuple[object, ...] | None:
+    """Re-open the frozen knowledge block when the skill tree changed under it.
+
+    Returns the fingerprint it computed, so the caller can record it once the
+    block has actually been rendered.
+
+    WHY THE FREEZE IS THE THING TO BREAK
+    -----------------------------------
+    Selection is frozen per admitted user message (``frozen_task_id``) so a long
+    tool loop does not re-render the block every step. That freeze is also what
+    hides a skill installed mid-conversation for the rest of the session — and
+    from every SUBAGENT, since a child's knowledge directory is the parent's
+    frozen block. A fingerprint change (one skill authored, edited or deleted) is
+    the signal that the snapshot is no longer the truth, and it is cheap enough
+    to check once per admitted message.
+
+    The previous block is parked in ``superseded_block`` rather than dropped: a
+    child's block is built SYNCHRONOUSLY, so a child spawned between this
+    invalidation and the next render inherits yesterday's directory instead of an
+    empty one.
+    """
+    fingerprint = _skills_fingerprint(hooks)
+    if fingerprint is None or hooks.knowledge_fingerprint is None:
+        return fingerprint
+    if fingerprint == hooks.knowledge_fingerprint:
+        return fingerprint
+    if hooks.frozen_block:
+        hooks.superseded_block = hooks.frozen_block
+    hooks.frozen_block = None
+    hooks.frozen_task_id = None
+    hooks.frozen_compaction_id = None
+    # ... and the query it was selected with, which only ever exists to reproduce a
+    # frozen block this invalidation has just retired (review round 2, NIT-2).
+    hooks.frozen_query = ""
+    return fingerprint
+
+
+def _classification_roster(hooks: _KnowledgeHooks) -> tuple[_ClassificationCandidate, ...]:
+    """The candidate roster, cached against the inputs it was derived from.
+
+    ONCE PER ROSTER, never once per user message. The walk below and the row it
+    allocates per resource are session-shaped work; re-deriving them on every
+    turn is exactly the per-message overhead the latency budget forbids. A warm
+    turn therefore serializes the user message and nothing else.
+
+    THE FOURTH INPUT IS THE SKILL TREE. The index object and the server names
+    catch a rebuild and a fan-out, but neither moves when a skill is installed or
+    edited underneath a running session — and the roster is the surface whose
+    whole job is to make the operator's installed resources reachable. A
+    fingerprint of the tree (``_skills_fingerprint``, ~0.3 ms, no scan) is the
+    "that changed" signal, so a skill authored mid-conversation is a candidate on
+    the very next message, in the parent session and in any child started
+    afterwards.
+
+    THE FIFTH IS THE PROJECTS STORE (§8 of the projects design). Projects are
+    written from OUTSIDE this session's turn — the ``project`` tool, the desktop,
+    a sibling session — so the same rule applies: ``(count, max(updated_at))``
+    over the store (``_projects_fingerprint``, one stat when warm) is the signal
+    that makes a create/update/delete a roster change on the very next message,
+    without a session restart. A hooks object with no registry carries a stable
+    ``None`` term, so nothing here fires for a host without a store.
+
+    THE SIXTH IS THE TOOL ROSTER (agent review round 1, PR #1863). The ``tool``
+    kind's rows are re-derived from the session's live inventory on every write
+    (``Session.set_knowledge_hooks`` / ``_refresh_tool_roster``), so the tuple
+    itself is the change signal: a tool that appears or disappears between
+    messages — MCP discovery landing, ``ask`` rescued by its handler — compares
+    unequal here and the cached roster is rebuilt. The rows are a handful of
+    small frozen objects, so the comparison stays per-message cheap.
+    """
+    index = hooks.index
+    fingerprint = _skills_fingerprint(hooks)
+    key: tuple[Any, ...] = (
+        index,
+        len(getattr(index, "skills", ()) or ()),
+        hooks.mcp_server_names,
+        fingerprint,
+        _projects_fingerprint(hooks),
+        hooks.tool_roster,
+    )
+    if hooks.classification_roster is not None and hooks.classification_roster_key == key:
+        return hooks.classification_roster
+    roster = _build_classification_roster(hooks)
+    hooks.classification_roster = roster
+    hooks.classification_roster_key = key
+    # Only a REAL fingerprint becomes the baseline. Recording a ``None`` (no roots to
+    # watch) would permanently disarm the freshness check for a session whose roots
+    # appear later — ``_current_skill_resources`` compares against this value, and
+    # ``None`` there means "never rescan" (agent review round 1).
+    if fingerprint is not None:
+        hooks.skills_fingerprint = fingerprint
+    return roster
+
+
+def _current_skill_resources(hooks: _KnowledgeHooks) -> list[Any]:
+    """The router's resources, plus whatever the skill tree has gained since it indexed.
+
+    THE INDEX IS A SNAPSHOT, and that is deliberate: its vectors cover the whole
+    matrix, so a rebuild re-embeds everything and belongs at session build, not in
+    a turn. The consequence is that a skill authored mid-conversation is invisible
+    to ``index.select`` for the rest of the session — and the roster, derived from
+    the same snapshot, could not offer it either, which is how a freshly authored
+    skill stayed unreachable even though its body was already readable
+    (``skills/api.py``'s miss-path refresh).
+
+    An advisory ROSTER does not need vectors: names and descriptions are enough,
+    so the fix is a fingerprint-gated ``discover_skills`` — 17-25 ms, and only
+    when the tree actually changed (the free ~0.3 ms check decides). The result is
+    a UNION, not a replacement: the index's rows stay (a transient scan failure
+    must not empty a roster that was working), and disk wins on a name collision
+    because it is the newer truth for that name.
+
+    The refreshed rows are written into ``hooks.skills_by_name`` IN PLACE for the
+    reason ``skills/api.py`` spells out: the skill resolver and every running child
+    hold that dict object, and rebinding the name would leave them on the stale one.
+    """
+    known: list[Any] = list(getattr(hooks.index, "skills", ()) or ())
+    fingerprint = _skills_fingerprint(hooks)
+    if (
+        fingerprint is None
+        or hooks.skills_fingerprint is None
+        or fingerprint == hooks.skills_fingerprint
+    ):
+        return known
+    try:
+        from local_operator.skills.discovery import discover_skills
+
+        discovered, _warnings = discover_skills(list(hooks.skill_roots))
+    except Exception:  # noqa: BLE001 — the roster must survive a scan fault
+        logger.debug("classification: live skill rescan failed", exc_info=True)
+        return known
+    if not discovered:
+        return known
+    hooks.skills_by_name.update({skill.name: skill for skill in discovered})
+    # KEYED ON (kind, name), not name alone. The index holds user skills AND the
+    # packaged guides in one list, and a user skill named after a guide (`tunnel`,
+    # `browser`, `mcp`, …) is a real collision: keying on the name alone let the
+    # skill EVICT the guide from the roster, so a resource the router still offers
+    # silently stopped being a candidate (agent review round 1). ``skills_by_name``
+    # above stays name-keyed because that is the resolver's own mapping and both
+    # entries are legitimately readable under their URL protocols.
+    merged: dict[tuple[str, str], Any] = {
+        (_resource_kind(item), str(item.name)): item for item in known
+    }
+    for skill in discovered:
+        merged[(_resource_kind(skill), str(skill.name))] = skill
+    # SORTED, matching how ``_setup_knowledge`` sorts the index it builds, so the
+    # roster's order is the same before and after a rescan rather than an artefact
+    # of which filesystem entry came back first.
+    return sorted(
+        merged.values(),
+        key=lambda item: (
+            _resource_kind(item),
+            str(item.name).lower(),
+            str(item.name),
+            str(item.file_path),
+        ),
+    )
+
+
+def _resource_kind(item: Any) -> str:
+    """The routing kind of a knowledge row (``skill`` / ``guide`` / ``agent_hint``)."""
+    return str(getattr(item, "resource_type", "") or "")
+
+
+def _build_classification_roster(hooks: _KnowledgeHooks) -> tuple[_ClassificationCandidate, ...]:
+    """One row per resource the router itself can see (§7 step 1).
+
+    Hidden skills are skipped because the router skips them
+    (``SkillIndex.select`` filters ``hide``) — offering the model a resource the
+    harness will not select would suggest a capability that does not exist. A row
+    without a description is dropped for the same reason the index drops one: the
+    description IS the routing signal, and an unnamed option is a coin flip.
+    """
+    from local_operator.skills.protocol import resource_url
+
+    rows: list[_ClassificationCandidate] = []
+    for resource in _current_skill_resources(hooks):
+        if getattr(resource, "hide", False):
+            continue
+        kind = str(getattr(resource, "resource_type", "") or "")
+        if kind not in ("skill", "guide"):
+            continue
+        name = str(getattr(resource, "name", "") or "")
+        description = str(getattr(resource, "description", "") or "")
+        if not name or not description:
+            continue
+        rows.append(_ClassificationCandidate(kind, name, description, resource_url(kind, name)))
+    for server in hooks.mcp_server_names:
+        name = str(server or "")
+        if not name:
+            continue
+        rows.append(
+            _ClassificationCandidate(
+                "mcp", name, _mcp_capability_hint(name), resource_url("mcp", name)
+            )
+        )
+    rows.extend(_project_roster_rows(hooks))
+    rows.extend(hooks.tool_roster)
+    return tuple(rows)
+
+
+#: The session-management tools the ``tool`` kind may offer, in the order the
+#: roster carries them (``sessions`` first: the incident this kind answers was
+#: a resumed-sessions turn; then the messaging pair; then the job trio).
+#: MEMBERSHIP IS THE WHOLE GATE — a tool this session does not hold is simply
+#: not in the built list (``sessions``/``task``/``wait``/``jobs`` are gated on
+#: the delegation surface, ``hub`` on subagent comms), so the roster can never
+#: point the model at a capability the session lacks.
+_TOOL_ROSTER_NAMES: tuple[str, ...] = ("sessions", "send", "hub", "task", "wait", "jobs")
+
+#: One tool row's description bound — the same scannable-row precedent the
+#: project kind applies (``_PROJECT_ROSTER_DESCRIPTION_LIMIT``), so neither
+#: kind can crowd the others' lines out of the state before the ladder trims.
+_TOOL_ROSTER_DESCRIPTION_LIMIT = 160
+
+
+def _tool_roster_rows(tools: Sequence[Any]) -> tuple[_ClassificationCandidate, ...]:
+    """The ``tool`` kind's rows: the session-management tools this session holds.
+
+    WHY A KIND AT ALL (the incident): "the incident left sessions stopped —
+    resume them and message Aida" is exactly the shape that fails when the
+    model does not reach for ``sessions``/``send``. Making the tools part of
+    the classification state lets the decision pass offer them beside skills
+    and servers, with their own harness-owned text as the fitting evidence.
+
+    The description is the tool's OWN registration text (see
+    :func:`_tool_candidate_description`), never a prose copy kept here — a
+    tool that rewrote its description cannot drift from the row that offers
+    it. The ``tool://`` URL resolves through the audit lane's reader
+    (``tools/tool_docs.py``, PR #1862); the block still carries its weight in
+    the advisory framing ("may help") and the row's own text rather than the
+    URL, because following it is a second step the model may never take.
+    """
+    by_name: dict[str, Any] = {}
+    for tool in tools:
+        name = str(getattr(tool, "name", "") or "")
+        if name:
+            by_name[name] = tool
+    rows: list[_ClassificationCandidate] = []
+    for name in _TOOL_ROSTER_NAMES:
+        tool = by_name.get(name)
+        if tool is None:
+            continue
+        rows.append(
+            _ClassificationCandidate(
+                "tool", name, _tool_candidate_description(tool), f"tool://{name}"
+            )
+        )
+    return tuple(rows)
+
+
+def _tool_candidate_description(tool: Any) -> str:
+    """``<first sentence of the tool's own description>``, collapsed and bounded.
+
+    The first sentence is what a scannable row wants — the tool's one-line
+    purpose, in the release-owned wording potential callers already read — and
+    the bound (plus the collapse) is the project kind's injection rule: a row
+    is exactly one line, so a crafted description cannot forge a block line.
+    The label is the fallback when a tool ships no usable description.
+    """
+    description = " ".join(str(getattr(tool, "description", "") or "").split())
+    text = description or " ".join(str(getattr(tool, "label", "") or "").split())
+    for terminator in (". ", "! ", "? "):
+        index = text.find(terminator)
+        if index != -1:
+            text = text[: index + 1]
+            break
+    if len(text) > _TOOL_ROSTER_DESCRIPTION_LIMIT:
+        text = text[: _TOOL_ROSTER_DESCRIPTION_LIMIT - 1].rstrip() + "…"
+    return text
+
+
+#: How many project rows one roster carries (§8): the newest twelve, by
+#: ``updated_at`` desc — the kind the ladder drops first when the state is over
+#: budget (``context.KIND_DROP_ORDER``). Recency IS the selection order, so the
+#: cap is applied here, where the rows are ordered: past it, older projects are
+#: simply not offered, even when a message names one — the roster never exceeds
+#: the layer's per-kind cap, so the message-aware shortlist never sees more than
+#: it can carry. §8 chose recency over reachability for this kind (review round
+#: 1 / QA round 1).
+_PROJECT_ROSTER_LIMIT = 12
+
+#: One project roster row's description bound (§8's "(truncated)"; the design
+#: states the cap exists and not its size). 160 is this repo's one scannable-row
+#: precedent — ``_ROW_CAP`` in the team/agent/project tools, cited by the design
+#: for `/project list` — applied so a cap-sized (2000-char) project description
+#: cannot crowd the other kinds' lines out of the state before the ladder's own
+#: trimming runs.
+_PROJECT_ROSTER_DESCRIPTION_LIMIT = 160
+
+
+def _project_roster_rows(hooks: _KnowledgeHooks) -> list[_ClassificationCandidate]:
+    """The ``project`` kind's rows: the operator's newest projects (§8).
+
+    ``updated_at`` desc, ties broken by name (deterministic across runs), capped
+    at :data:`_PROJECT_ROSTER_LIMIT`. The description is ``"<status> · <desc>"``
+    — the status leads because it is what a decision usually turns on (a
+    ``done``/``archived`` project is rarely where a message's work goes) — and a
+    project with no description is its status alone, never a dangling separator.
+
+    The description is COLLAPSED to one line (``" ".join(text.split())``), not
+    merely stripped: it is the first free text any candidate kind carries, and a
+    description containing a newline would forge a block line — one carrying
+    ``</resource_recommendations>`` would close the advisory block and spill the
+    rest into the prompt as top-level text (review round 1, blocker). Collapsing
+    makes the row exactly one line, so the tag can never be closed from inside;
+    the 160-char bound is applied AFTER the collapse so it bounds what travels.
+
+    Provenance: operator-authored text routed back to the operator's own model —
+    the §6-accepted case of a user skill's description (see
+    ``_ClassificationCandidate``) — never remote-authored.
+    """
+    registry = hooks.project_registry
+    if registry is None:
+        return []
+    try:
+        projects = registry.list_projects()
+    except Exception:  # noqa: BLE001 — one unreadable store must not fail the roster
+        logger.debug("classification: project roster read failed", exc_info=True)
+        return []
+    ordered = sorted(projects, key=lambda project: (-project.updated_at, project.name.casefold()))
+    rows: list[_ClassificationCandidate] = []
+    for project in ordered[:_PROJECT_ROSTER_LIMIT]:
+        summary = " ".join((project.description or "").split())
+        description = f"{project.status} · {summary}" if summary else str(project.status)
+        if len(description) > _PROJECT_ROSTER_DESCRIPTION_LIMIT:
+            description = description[: _PROJECT_ROSTER_DESCRIPTION_LIMIT - 1].rstrip() + "…"
+        rows.append(
+            _ClassificationCandidate(
+                "project", project.name, description, f"project:{project.name}"
+            )
+        )
+    return rows
+
+
+def _mcp_capability_hint(server: str) -> str:
+    """The harness-owned capability line for one configured MCP server (§6).
+
+    ``_CAPABILITY_HINTS`` is imported rather than restated: it is release-owned
+    routing authority (``mcp/resources.py``'s module docstring is explicit that
+    neither config nor remote servers may supply this text), and a second copy
+    here would be free to drift from the one the catalogue renders. The private
+    name is the only access there is; adding a public accessor would mean editing
+    a module outside this slice, and the import is what keeps the two readings of
+    "what this server is for" identical.
+    """
+    from local_operator.mcp.resources import _CAPABILITY_HINTS
+
+    return _CAPABILITY_HINTS.get(server.casefold(), _MCP_DEFAULT_CAPABILITY)
+
+
+def _classification_request(hooks: _KnowledgeHooks, query: str) -> _RecommendationRequest:
+    """The request for one user message, over the CACHED roster.
+
+    The roster is the cached object — identity is asserted by
+    ``test_a_warm_request_only_carries_the_message_and_the_cached_roster`` — and it
+    is SHORTLISTED here because this is the only place on the path that knows the
+    message. ``shortlist`` returns the roster unchanged (the same object) whenever
+    every kind already fits ``maxCandidates``, so a catalogue that fits pays one
+    length check and behaves exactly as it did before the shortlist existed.
+    """
+    roster = _classification_roster(hooks)
+    # The shortlist arrives on the hooks from ``_attach_classification``, the one
+    # place that has already imported the package: this function runs on the message
+    # path, where the wiring's rule is that a session with the layer OFF never
+    # imports it (agent review round 1). A seam injected by a host or a test carries
+    # no shortlist and gets the roster unchanged, which is the pre-shortlist
+    # behaviour rather than a degraded one.
+    shortlist_fn = hooks.classification_shortlist
+    candidates: tuple[_ClassificationCandidate, ...] = roster
+    if shortlist_fn is not None:
+        # ``tuple(...)`` is identity-preserving for the roster tuple that shortlist
+        # hands back unchanged, so the warm path still carries the cached object.
+        candidates = cast(
+            tuple[_ClassificationCandidate, ...],
+            tuple(shortlist_fn(roster, query, hooks.classification_max_candidates)),
+        )
+    return _RecommendationRequest(
+        user_message=query,
+        context=None,
+        candidates=candidates,
+        max_recommendations=hooks.classification_max_recommendations,
+    )
+
+
+def _classification_deadline_s(service: Any) -> float:
+    """The harness-side ceiling on one classification CALL, in seconds.
+
+    The shipped service publishes ``timeout_s`` (``values.classification.timeoutMs``)
+    and enforces it internally. The wiring knows the same number for a different
+    reason: it caps the turn's WAIT by it (see :func:`_classification_wait_s`), and
+    it is what a seam that publishes no deadline of its own is taken to honour. A
+    seam that ignores it cannot hold a turn open, because the turn stops waiting at
+    ``waitMs`` — which is the guarantee this layer actually owes a user message.
+    """
+    value = getattr(service, "timeout_s", None)
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+        return float(value)
+    return DEFAULT_CLASSIFICATION_TIMEOUT_MS / 1000.0
+
+
+#: What the budgeted task returns when the probe found nothing to ask. Not a
+#: ``Recommendation``: it exists so that "no provider" is distinguishable from "the
+#: vendor answered with nothing", which is what keeps the no-provider path free of both
+#: a block and a log line (``_harvest_classification`` drops anything without resources,
+#: and this has none by construction).
+_NO_PROVIDER = object()
+
+
+def _classification_wait_s(hooks: _KnowledgeHooks, service: Any) -> float:
+    """How long THIS turn waits for an answer, in seconds.
+
+    ``values.classification.waitMs``, capped by the call's own deadline: waiting
+    longer than the call could possibly take would spend budget on nothing.
+    """
+    return min(hooks.classification_wait_s, _classification_deadline_s(service))
+
+
+async def _classification_call(service: Any, request: Any) -> Any:
+    """One service call, with its cost logged WHERE IT LANDS.
+
+    A task body rather than an inline await, because on a real roster the vendor's
+    ~250 ms outlives the turn's 50 ms wait: the log line has to be written by
+    whoever finishes the call, not by a turn that has already moved on. There is no
+    error handling here on purpose — ``recommend_resources`` never raises (except
+    cancellation, which propagates), and a foreign seam that raises leaves a task
+    whose exception :func:`_harvest_classification` drops.
+    """
+    recommendation = await service.recommend_resources(request)
+    _log_classification_cost(recommendation)
+    return recommendation
+
+
+@dataclass(frozen=True)
+class _OutstandingClassification:
+    """One background call, with the message it was computed for.
+
+    The task id is the whole reason this is a record rather than the bare task. When
+    an answer lands, the harness has to know whether it belongs to the message being
+    rendered — in which case it is delivered into that turn's next model step, before
+    the model does its real work — or to a message the user has already moved past,
+    which is the older behaviour of carrying it to the next message.
+    """
+
+    task: Any
+    task_id: str | None
+
+
+def _prune_outstanding(hooks: _KnowledgeHooks) -> None:
+    """Bound the background calls one session may leave running.
+
+    See :data:`_MAX_OUTSTANDING_CLASSIFICATION_CALLS`: the oldest is abandoned
+    (cancelled, never awaited) rather than kept, because it is an advisory call
+    whose turn is long gone and the alternatives are worse — piling one live task
+    per message against a vendor that never answers, or blocking the turn on the
+    answer the budget just said to skip.
+    """
+    while len(hooks.classification_outstanding) > _MAX_OUTSTANDING_CLASSIFICATION_CALLS:
+        abandoned = hooks.classification_outstanding.pop(0)
+        if not abandoned.task.done():
+            abandoned.task.cancel()
+
+
+def _task_outcome(task: Any) -> Any | None:
+    """A finished task's result, or ``None`` for anything else it could be.
+
+    ``CancelledError`` included: an abandoned or cancelled call has no outcome to
+    deliver, and reading it must not raise into the turn doing the harvesting.
+    """
+    try:
+        return task.result()
+    except BaseException:  # noqa: BLE001 — cancellation, a seam fault, anything
+        return None
+
+
+def _harvest_classification(hooks: _KnowledgeHooks, *, task_id: str | None = None) -> bool:
+    """Move every FINISHED background call into the pending slot. Never blocks.
+
+    Called before every render of block 3 — once per model step of the message that
+    started the call, and once per later user message. ``done()`` is the only test
+    that matters: a turn must never wait for a call it already gave up on, so a call
+    still running stays outstanding and is looked at again. A recommendation with no
+    resources is dropped here rather than queued — it has nothing to deliver, and a
+    session whose answers are always empty must append nothing at all.
+
+    Returns ``True`` when an answer for ``task_id`` ITSELF just arrived. That is the
+    signal :func:`_select_knowledge_block` uses to supersede this turn's frozen block
+    so the NEXT model step of the same turn carries the advisory. Measured on this
+    machine (2026-09-18): the vendor takes 540-1500 ms against a 50 ms wait, so
+    without this the answer for a message could never reach the message — it rode the
+    NEXT user message instead, which is how a Slack question was answered with a
+    suggestion about MCP guides (live child session, `guide://mcp` for a message whose
+    roster clearly contained `mcp://slack`).
+    """
+    if not hooks.classification_outstanding:
+        return False
+    arrived_in_turn = False
+    running: list[_OutstandingClassification] = []
+    for call in hooks.classification_outstanding:
+        if not call.task.done():
+            running.append(call)
+            continue
+        recommendation = _task_outcome(call.task)
+        if recommendation is None or not getattr(recommendation, "resources", ()):
+            continue
+        # Belongs to the message being rendered, or to one already gone. ``task_id``
+        # is None for callers that never had a task (legacy paths), which keeps their
+        # behaviour: everything harvested is treated as late.
+        in_turn = task_id is not None and call.task_id is not None and call.task_id == task_id
+        hooks.classification_pending.append(recommendation)
+        if in_turn:
+            hooks.classification_answered_task_id = task_id
+        arrived_in_turn = arrived_in_turn or in_turn
+    hooks.classification_outstanding = running
+    return arrived_in_turn
+
+
+async def _classification_recommendation(
+    hooks: _KnowledgeHooks, query: str, *, task_id: str | None = None
+) -> Any | None:
+    """One classification pass for one user message, waited on for ``waitMs``. NEVER raises.
+
+    Runs INSIDE the gather that also runs the embedder selection (see
+    :func:`_select_knowledge_block`), so everything synchronous in it — the
+    roster lookup, the service's state build and its serialization — is paid
+    CONCURRENTLY with the selection rather than before or after it. That is what
+    keeps the added wall-clock to the difference instead of the sum, and it is
+    why the request is built here rather than by the caller.
+
+    THE TURN'S PATIENCE IS NOT THE CALL'S DEADLINE. The turn waits
+    ``values.classification.waitMs`` (50 ms by default); the call is bounded by
+    ``values.classification.timeoutMs``, which the service enforces itself. When
+    the answer misses the wait, the turn does NOT pay the difference: the call is
+    left running (``shield``, so the wait's own cancellation cannot reach it),
+    kept in ``classification_outstanding``, and delivered when this turn renders its
+    knowledge block again — its next model step while the turn runs, else the next user
+    message. Two
+    properties follow:
+
+    - the added wall-clock per user message is bounded by the wait, whatever the
+      vendor does — measured against a real roster the vendor takes ~250 ms, and
+      the budget explicitly excludes that model time;
+    - the breaker keeps counting the VENDOR's deadline, once per call, inside the
+      service. The outer deadline this replaced started microseconds before the
+      service's own, so when it won, the service's ``_record_failure`` landed
+      after the turn had already been handed its empty block, and the warm-up
+      reported three failures across four messages (QA round 1, Q1).
+
+    A cancelled WAIT is deliberately not a cancelled call: "this turn has waited
+    enough" and "throw that work away" are different statements, and only the
+    second is a user's cancel.
+    """
+    service = hooks.classifier
+    if service is None:
+        return None
+    # The probe runs INSIDE the budgeted, shielded task, not before it. Resolution is
+    # not free and is not always local: ``resolve_vendor`` can refresh an expired
+    # Radient OAuth grant over the network (see ``cascade.py``), so awaiting it inline
+    # before the task would put that I/O OUTSIDE ``waitMs`` — the one thing the budget
+    # exists to bound. Inside the task it is waited on exactly as long as any other part
+    # of the call, so the turn's added wall-clock stays bounded by ``wait_s`` on every
+    # path — including the no-provider one, where the turn waits only for the probe and
+    # logs nothing unless that probe itself outlives ``wait_s``.
+    #
+    # A seam without the probe (an injected classifier, a host's own) keeps the old
+    # behaviour: the probe is an optimisation for the shipped service, not a new
+    # requirement on the seam.
+    probe = getattr(service, "provider_available", None)
+
+    async def _probe_then_call() -> Any:
+        if probe is not None:
+            try:
+                available = bool(await probe())
+            except Exception:  # noqa: BLE001 — a probe fault must not change the prompt
+                logger.debug("classification: provider probe failed", exc_info=True)
+                available = True
+            if not available:
+                logger.debug(
+                    "classification: no recommender provider has a credential; nothing to ask"
+                )
+                return _NO_PROVIDER
+        try:
+            request = _classification_request(hooks, query)
+        except Exception:  # noqa: BLE001 — a roster fault must not fail a turn
+            logger.warning("classification: could not build the request", exc_info=True)
+            return None
+        return await _classification_call(service, request)
+
+    wait_s = _classification_wait_s(hooks, service)
+    task = asyncio.create_task(_probe_then_call())
+    hooks.classification_outstanding.append(_OutstandingClassification(task, task_id))
+    _prune_outstanding(hooks)
+    try:
+        recommendation = await asyncio.wait_for(asyncio.shield(task), timeout=wait_s)
+    except asyncio.TimeoutError:
+        # NOT a failure and NOT an empty answer: whatever the budgeted task is doing —
+        # asking a vendor, or still resolving the credentials that decide whether there is
+        # a vendor to ask — the turn is not waiting any longer. The prompt is unchanged
+        # either way (§7), so the line says only that there is no recommendation yet and
+        # where one would go if it came: it must not assert a call in flight or an answer
+        # owed, because on the slow-resolution-no-provider path neither is true
+        # (review round 3, N1).
+        logger.info(
+            "classification: no recommendation within %.0f ms; the turn continues without "
+            "one (an answer that arrives later is delivered to this turn's next step, or — "
+            "if the turn ends first — to the next user message)",
+            wait_s * 1000,
+        )
+        return None
+    except asyncio.CancelledError:
+        # A cancelled TURN is a user's cancel, and they mean the WORK is over, not
+        # merely that this turn stopped waiting: the answer would otherwise be
+        # delivered onto the next message, which is how a "stop" quietly produces a
+        # recommendation for the question the user walked away from. (The WAIT's own
+        # timeout is the branch above, and it deliberately does NOT do this — "this
+        # turn has waited enough" and "throw that work away" are different
+        # statements. Review round 2, NIT 1: the comment here used to claim that
+        # distinction while the code left the task running either way.)
+        task.cancel()
+        hooks.classification_outstanding = [
+            outstanding
+            for outstanding in hooks.classification_outstanding
+            if outstanding.task is not task
+        ]
+        raise
+    except Exception:  # noqa: BLE001 — the layer may never fail a turn (§4)
+        logger.warning("classification: recommendation failed", exc_info=True)
+        return None
+    # Delivered to THIS turn, so the harvest must not deliver it a second time.
+    hooks.classification_outstanding = [
+        outstanding
+        for outstanding in hooks.classification_outstanding
+        if outstanding.task is not task
+    ]
+    return recommendation
+
+
+def _recommendation_line(resource: Any) -> str:
+    """One body line of the advisory block: the URL, plus a project's own state.
+
+    Every kind but one renders as its URL — the URL is what the model reads
+    next. A project has no reader behind ``project:<name>`` (it is a token for
+    the ``project`` tool, not a document), so its line also carries the roster
+    row's ``"<status> · <description>"`` text, which is what lets the model
+    judge whether the project fits the request at all.
+
+    A deliberate second copy of the package's rule
+    (``classification.recommend._recommendation_line``): the turn path must not
+    import the package, so the two exist and
+    ``tests/unit/classification/test_block_parity.py`` compares their renderers'
+    outputs line for line.
+    """
+    url = str(getattr(resource, "resource_url", "") or "")
+    if str(getattr(resource, "kind", "") or "") == "project":
+        description = str(getattr(resource, "description", "") or "")
+        if description:
+            return f"- {url} — {description}"
+    return f"- {url}"
+
+
+def _classification_block(
+    hooks: _KnowledgeHooks,
+    recommendation: Any,
+    *,
+    picked: Sequence[Skill],
+    catalogue: str,
+    already: set[str] | None = None,
+    limit: int | None = None,
+    rendered_urls: list[str] | None = None,
+) -> str:
+    """Render §7's advisory block for ONE recommendation, or ``""``.
+
+    THE WIRING RENDERS THIS, not the package's ``render_block``, and dedupe is
+    the whole reason: dropping what the prompt already contains needs to know
+    what the embedder selected and what the MCP catalogue already advertises, and
+    the wiring is the only layer that knows either. The package keeps its own
+    renderer for callers with nothing to dedupe against.
+
+    Anything already selected is dropped rather than demoted: a line telling the
+    model to read what the skills block has just told it to read immediately is
+    noise that costs context and teaches nothing.
+
+    ``already`` is the SAME test one step further out: resources an earlier
+    section of THIS prompt already carries. One turn can deliver two answers (the
+    one a previous message harvested, then this message's own), and a shared
+    ``limit`` — the per-message cap minus what has already been spent — is what
+    keeps the pair inside ``maxRecommendations`` instead of doubling it.
+
+    ``rendered_urls`` comes back through an OUT-LIST rather than a tuple return, and
+    the reason is outside this module: ``tests/unit/classification/test_block_parity.py``
+    compares this function's return value against the package's ``render_block`` line
+    for line, and that comparison is worth more than a tidier signature. The caller
+    needs the difference between what the recommendation CARRIED and what survived the
+    dedupe or the cap — that is what feeds ``carried`` for the next answer in the same
+    prompt — and this is how it learns it.
+    """
+    from local_operator.skills.protocol import resource_url
+
+    rendered: set[str] = set(already or ())
+    for resource in picked:
+        kind = str(getattr(resource, "resource_type", "") or "")
+        name = str(getattr(resource, "name", "") or "")
+        if name and kind in ("skill", "guide"):
+            rendered.add(resource_url(kind, name))
+    budget = hooks.classification_max_recommendations if limit is None else limit
+    if budget <= 0:
+        return ""
+    urls: list[str] = []
+    body: list[str] = []
+    for resource in getattr(recommendation, "resources", ()) or ():
+        url = str(getattr(resource, "resource_url", "") or "")
+        if not url or url in rendered or url in urls:
+            continue
+        # The catalogue advertises at most one server, by exactly this URL, so a
+        # recommendation repeating it would spend a line on something the same
+        # prompt already says.
+        if catalogue and url in catalogue:
+            continue
+        urls.append(url)
+        body.append(_recommendation_line(resource))
+        if len(urls) >= budget:
+            break
+    if not urls:
+        return ""
+    if rendered_urls is not None:
+        rendered_urls.extend(urls)
+    lines = [
+        _RECOMMENDATION_BLOCK_OPEN,
+        _RECOMMENDATION_BLOCK_PREAMBLE,
+        *body,
+        _RECOMMENDATION_BLOCK_CLOSE,
+    ]
+    return "\n".join(lines)
+
+
+def _log_classification_cost(recommendation: Any) -> None:
+    """Record what one pass cost, at INFO, on the vendor's own figures.
+
+    NOT accrued into ``Session.accrue_spend``, and that omission is deliberate
+    rather than an oversight. That path is the frontend store's per-CALL
+    accounting: it moves ``last_identity`` (which the status band reads as the
+    model that priced the session), it feeds the turn-end remainder the store
+    reconciles, and ``accrue_spend`` bumps ``_spend_live_calls`` — the flag that
+    CANCELS the one-time ledger rebuild for a pre-ledger session. Writing a
+    decision call through it would suppress that rebuild, quietly dropping the
+    restored history's dollars from a resumed session's total. The cost is
+    therefore logged here in the vendor's own units, and the accounting path is
+    left to the slice that owns it. ``Recommendation`` carries the vendor's token
+    counts as of the 2026-09-18 cost change, so the line reports the real per-call
+    figures; a field this seam does not publish still prints ``-``.
+    """
+    vendor = getattr(recommendation, "vendor", None)
+    if not vendor:
+        # No leg answered, so nothing was spent; the skip reason is the useful
+        # line and it is logged at debug because it is the ordinary state of a
+        # machine with no decision credential.
+        logger.debug(
+            "classification: no recommendation (skipped=%s)",
+            getattr(recommendation, "skipped", None),
+        )
+        return
+    cost = getattr(recommendation, "cost_usd", None)
+    latency = getattr(recommendation, "latency_s", 0.0)
+    logger.info(
+        "classification: vendor=%s model=%s tokens=%s/%s cost=%s latency=%.3fs resources=%d",
+        vendor,
+        getattr(recommendation, "model", "-"),
+        _token_count(getattr(recommendation, "input_tokens", None)),
+        _token_count(getattr(recommendation, "output_tokens", None)),
+        f"${cost:.6f}" if isinstance(cost, (int, float)) else "-",
+        float(latency) if isinstance(latency, (int, float)) else 0.0,
+        len(getattr(recommendation, "resources", ()) or ()),
+    )
+
+
+def _token_count(value: Any) -> str:
+    """One token figure for the cost line: the count, or ``-`` when there is no figure.
+
+    ``-`` covers three shapes that all mean "nothing to report": a seam that
+    publishes no counts, a field set to ``None`` (a cache hit, which spent
+    nothing, and a 200 whose vendor omitted ``usage``), and a non-integer.
+    Printing ``None`` would read as a figure. Printing ``0`` would be worse: a
+    vendor CAN report zero — the Radient route bills with output tokens zero — so
+    a real zero has to stay distinguishable from an absent one. That distinction
+    is made in ``vendors._count`` (absent → ``None``), not here.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return "-"
+    return str(value)
+
+
+async def _empty_selection() -> list[Skill]:
+    """The selection leg of the gather when the session has no index at all."""
+    return []
+
+
+async def _select_knowledge_block(
+    hooks: _KnowledgeHooks,
+    query: str,
+    *,
+    compaction_id: str | None = None,
+    cwd: str | None = None,
+    task_id: str | None = None,
+) -> str:
+    """Reuse routing within a task, refresh for a new user or compaction row.
+
+    ``task_id`` is an admitted USER message identity, never a tool-step ID, so
+    long tool loops pay one selection while a new task can discover different
+    guidance. Production Session appends changes after history instead of
+    changing the system prefix. Legacy callers omitting task_id retain their
+    compaction-only selection contract. ``cwd`` supports skill globs.
+
+    The classification layer rides the SAME cadence (docs/design/
+    classification-layer.md §7): this function already runs once per admitted
+    user message per ``task_id`` + ``compaction_id``, which is exactly the
+    once-per-message cadence the layer wants, so it needs no freeze machinery of
+    its own. Its call is gathered with the selection below, its block is appended
+    after the catalogue, and when it is off, unavailable, unanswered or empty the
+    joined block is byte-identical to what this function returned before the
+    layer existed (asserted in ``tests/unit/test_session_factory_classification.py``).
+
+    The turn only WAITS ``values.classification.waitMs`` for the answer. An answer
+    that arrives later is not lost: the next admitted user message re-renders this
+    block (that is what the per-message cadence buys here) and the late answer is
+    appended then, which the harness journals as a ``[session-state]`` update —
+    the existing channel for late host state, so nothing here has to rewrite the
+    cached prefix or invent a second notification path.
+    """
+    # A SKILL THE TREE GAINED SINCE THE LAST RENDER, checked BEFORE the freeze below:
+    # the freeze is exactly what would hide it, and the fingerprint is the only
+    # signal that the snapshot is no longer the truth. Called here as well as in the
+    # provider (``_frozen_knowledge_query``) because the provider decides whether a
+    # query is even handed over, and invalidating after that decision would re-render
+    # the block with nothing selected.
+    fingerprint = _refresh_knowledge_freshness(hooks)
+    # HARVEST BEFORE THE FREEZE, because a harvest that arrives for THIS task is
+    # exactly what must break it. A call that finished while this session was idle,
+    # or while this message's own turn was running, belongs to the prompt being built:
+    # the first rides in as a late answer, the second as an in-turn one. A ``done()``
+    # check per outstanding call — never a wait.
+    arrived_in_turn = _harvest_classification(hooks, task_id=task_id)
+    if (
+        hooks.frozen_block is not None
+        and hooks.frozen_compaction_id == compaction_id
+        and hooks.frozen_task_id == task_id
+        and not arrived_in_turn
+    ):
+        return hooks.frozen_block
+    # THIS MESSAGE ALREADY HAS ITS ANSWER — now, or on an earlier render of the same
+    # task — so this render must deliver it and never ask again. Keyed on the task rather
+    # than on ``frozen_block``: an invalidated freeze (a skill installed or edited
+    # mid-turn) still has an answer waiting, and asking a second time would spend a vendor
+    # call for a message that already has one (review round 2, R2-2).
+    already_answered = arrived_in_turn or (
+        task_id is not None and hooks.classification_answered_task_id == task_id
+    )
+    if arrived_in_turn and not query.strip() and hooks.frozen_query.strip():
+        # AN IN-TURN ANSWER SUPERSEDES THE FREEZE, so everything below must reproduce the
+        # block the freeze replaced — with the same query. The provider decided this render
+        # was unchanged and handed ``""``; the query that actually selected the frozen block
+        # is the only one that reproduces it.
+        query = hooks.frozen_query
+
+    picked: list[Skill] = []
+    recommendation: Any | None = None
+    query = query.strip()
+    if query:
+        # cwd rides as a keyword ONLY when set: test doubles and alternate
+        # index shapes in the wild implement ``select(query, ...)`` with the
+        # historical signature, and there is no globs matching to do without
+        # a cwd anyway.
+        select_kwargs: dict[str, Any] = {"cwd": Path(cwd)} if cwd else {}
+        if hooks.classifier is not None and not already_answered:
+            # Not when this message already has an answer: a second call would duplicate
+            # the work and could deliver its own answer later, for a message that already
+            # has one.
+            # ONE gather, so the classification's latency is the DIFFERENCE
+            # against the embedder selection rather than the sum (§7 step 2) —
+            # and the request build, which is where the package serializes the
+            # state, happens inside the gathered coroutine for the same reason.
+            #
+            # The classification coroutine bounds ITS own wait and never raises,
+            # so a vendor outage costs the recommendation and nothing else; the
+            # selection leg keeps its existing contract exactly, so its exception
+            # still propagates to the provider's guard. Nothing here wraps the
+            # gather in a deadline of its own: a deadline over the gather would
+            # either wait for the classification (the budget) or abandon the
+            # selection (the prompt).
+            selection = (
+                hooks.index.select(query, **select_kwargs)
+                if hooks.index is not None
+                else _empty_selection()
+            )
+            selected, recommendation = await asyncio.gather(
+                selection, _classification_recommendation(hooks, query, task_id=task_id)
+            )
+            picked = selected
+        elif hooks.index is not None:
+            picked = await hooks.index.select(query, **select_kwargs)
+        if hooks.agent_hint_index is not None:
+            matching_agents = await hooks.agent_hint_index.select(query, k=1)
+            agents_guide = hooks.guides_by_name.get("agents")
+            if matching_agents and agents_guide is not None and agents_guide not in picked:
+                picked.append(agents_guide)
+                picked.sort(
+                    key=lambda item: (
+                        item.resource_type,
+                        item.name.lower(),
+                        item.name,
+                        str(item.file_path),
+                    )
+                )
+
+    from local_operator.skills.api import render_block
+
+    sections = [section for section in [render_block(picked)] if section]
+    catalogue = ""
+    if hooks.mcp_catalogue is not None:
+        catalogue = hooks.mcp_catalogue(query)
+        if catalogue:
+            sections.append(catalogue)
+    # DELIVERY. Appended LAST, after the skills block and the catalogue, because
+    # this is the weakest claim in the prompt: advisory, deduped against both, and
+    # the one thing a model may ignore in full.
+    #
+    # Late answers go first — they are older, they were computed for an EARLIER
+    # message, and letting this turn's fresh answer take the per-message cap first
+    # would starve them for as long as the vendor keeps missing the wait. The
+    # pending list is consumed here, so an answer reaches a prompt exactly once.
+    #
+    # The BLOCKS are per answer (each is that answer's own text, capped and deduped
+    # in order). There is no per-message announcement to accompany them any more:
+    # the one-line notice was deleted with the render path it belongs to (see
+    # ``classification.service``), because it put an internal resource-selection
+    # step under the reply the user was reading. Delivery below is unchanged — the
+    # block still reaches the prompt, and the cost line still reaches the log.
+    pending, hooks.classification_pending = hooks.classification_pending, []
+    answers: list[Any] = list(pending)
+    if recommendation is not None:
+        answers.append(recommendation)
+    carried: set[str] = set()
+    for answer in answers:
+        urls: list[str] = []
+        block = _classification_block(
+            hooks,
+            answer,
+            picked=picked,
+            catalogue=catalogue,
+            already=carried,
+            limit=hooks.classification_max_recommendations - len(carried),
+            rendered_urls=urls,
+        )
+        if not block:
+            # Nothing survived the dedupe or the cap: the prompt already carries
+            # every resource this answer named, so there is nothing to append.
+            continue
+        sections.append(block)
+        carried.update(urls)
+    hooks.frozen_block = "\n\n".join(sections)
+    hooks.frozen_compaction_id = compaction_id
+    hooks.frozen_task_id = task_id
+    hooks.frozen_query = query
+    # The block is now the truth at THIS fingerprint, so the next tree change is what
+    # re-opens it. Recorded after the render, never before: a render that raised must
+    # not claim it captured the new tree. The parked previous render is dropped HERE
+    # for the same reason — once this render exists, a child reading the fallback
+    # would otherwise be handed a superseded directory even when the current one is
+    # legitimately EMPTY (agent review round 1).
+    hooks.knowledge_fingerprint = fingerprint
+    hooks.superseded_block = ""
+    return hooks.frozen_block
+
+
+def _make_knowledge_resolver(hooks: _KnowledgeHooks) -> Callable[[str], str | None]:
+    """Chain lazy knowledge protocols without mixing their namespaces."""
+    from local_operator.guides import make_guide_resolver
+    from local_operator.skills.api import make_skill_resolver
+
+    guide_resolver = make_guide_resolver(hooks.guides_by_name)
+    # Passing the roots turns on the miss-path rescan, which is what makes a
+    # skill authored mid-session readable -- here and in subagents already
+    # running, because they inherit this closure and it mutates
+    # ``hooks.skills_by_name`` IN PLACE. Guides are packaged release resources
+    # and cannot change at runtime, so the guide resolver takes no roots.
+    skill_resolver = make_skill_resolver(hooks.skills_by_name, hooks.skill_roots)
+
+    def resolver(url: str) -> str | None:
+        guide_result = guide_resolver(url)
+        if guide_result is not None:
+            return guide_result
+        skill_result = skill_resolver(url)
+        if skill_result is not None:
+            return skill_result
+        if hooks.mcp_resolver is not None:
+            return hooks.mcp_resolver(url)
+        return None
+
+    return resolver
+
+
+@dataclass
+class _SessionPlan:
+    """Everything needed to construct the session, split out so
+    ``build_initial_blocks`` can render the startup system prompt without
+    instantiating the facade (benchmark hook, orchestrator duty).
+
+    ``auth_store`` rides along (CL-08): callers own its lifetime — folded
+    into ``session.dispose`` by :func:`create_session`, closed directly by
+    :func:`build_initial_blocks` (which never constructs a session).
+    """
+
+    session_kwargs: dict[str, Any]
+    system_blocks_provider: Callable[..., Awaitable[list[str]]]
+    knowledge_hooks: _KnowledgeHooks
+    auth_store: AuthStore | None = None
+    #: The mesh credential binding's recorder when this root records bindings
+    #: (a credential placement document plus an identity); attached to the
+    #: session's serving path by :func:`attach_credential_binding`.
+    credential_binding: Any | None = None
+    # Acquired before transcript construction and transferred to Session.dispose;
+    # benchmark-only preparation releases it directly because no Session exists.
+    session_lease: Any | None = None
+
+
+def _make_system_blocks_provider(
+    tools: list[AgentTool],
+    transcript: Any,
+    hooks: _KnowledgeHooks,
+    cwd: str | None = None,
+    goal_state: "GoalState | None" = None,
+    user_instructions: str = "",
+    repo_guidance: str = "",
+    variable_store: "VariableStore | None" = None,
+) -> Callable[..., Awaitable[list[str]]]:
+    """Build the per-turn system-prompt closure.
+
+    Semantic routing refreshes only at admitted user/compaction boundaries.
+    Unchanged desired blocks reuse a small immutable snapshot. Session persists
+    its initial prefix and journals later state changes at the conversation
+    tail; inspecting this closure directly remains read-only.
+
+    ``goal_state`` is the SAME holder the session facade exposes through
+    ``set_goal``, which is how a ``/goal`` edit reaches the next model step's
+    prompt without rebuilding the session. ``variable_store`` is the same
+    store the session injects into every tool context, so a ``/credential``
+    store reaches the next turn's ``<session-credentials>`` block the same
+    way.
+
+    ``user_instructions`` is captured once by the caller and closed over
+    rather than re-read here: it lands in the byte-stable head block, so
+    re-reading the file per turn would let a mid-session edit silently
+    invalidate the whole cached prefix. Editing the file takes effect on
+    the next session, which is also what makes a session's prompt reproducible.
+    """
+
+    environment = _env_details(cwd)
+    # The HOST capability answer, taken ONCE at construction and passed to every
+    # render (see ``prompts_api.host_capability_probes`` for the measured
+    # incident). It is read here for the same reason ``user_instructions`` and
+    # ``repo_guidance`` above are: it reaches block 0, and a block-0 change
+    # starts a NEW persisted prefix epoch for the live session — so a probe that
+    # moves with the desktop app's heartbeat would reprice every session on the
+    # machine from a timer no one asked for. Also published on the provider
+    # below, so ``Session._reconcile_tool_inventory`` renders the inventory
+    # note from the SAME answer instead of probing again.
+    from local_operator.prompts_api import host_capability_probes
+
+    host_has_browser, host_has_console = host_capability_probes()
+    cached_key: tuple[Any, ...] | None = None
+    cached_blocks: list[str] = []
+
+    async def provider(model_label: str = "") -> list[str]:
+        nonlocal cached_key, cached_blocks
+        # ``model_label`` is passed live by the Session on each provider step, so
+        # a deliberate ``set_model`` or a failover fallback is reflected in the
+        # env block at the next safe call boundary without rebuilding this
+        # closure. The benchmark/preflight caller passes the spec label directly.
+        from local_operator.prompts_api import (
+            CHANNEL_ASK,
+            CHANNEL_NONE,
+            build_system_blocks,
+        )
+
+        task = transcript.latest_user_entry() if hasattr(transcript, "latest_user_entry") else None
+        task_id = task.id if task is not None else None
+        compaction_id = _latest_compaction_id(transcript)
+        # BEFORE the freeze test, because this function is what decides whether
+        # ``_select_knowledge_block`` is handed a QUERY at all: a frozen block means
+        # ``query=""``, so invalidating the freeze inside the callee (where it is also
+        # checked, for direct callers) would arrive too late to re-derive the query and
+        # the block would re-render with nothing selected.
+        _refresh_knowledge_freshness(hooks)
+        unchanged = (
+            hooks.frozen_block is not None
+            and hooks.frozen_task_id == task_id
+            and hooks.frozen_compaction_id == compaction_id
+        )
+        query = "" if unchanged else _latest_user_query(transcript)
+        try:
+            knowledge_block = await _select_knowledge_block(
+                hooks,
+                query,
+                compaction_id=compaction_id,
+                cwd=cwd,
+                task_id=task_id,
+            )
+        except Exception:  # noqa: BLE001 — never break the turn
+            knowledge_block = ""
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        goal = goal_state.text if goal_state is not None else ""
+        # The goal block is withheld once the goal is DONE: `mark_done` keeps the
+        # text so the surfaces can strike through what was achieved, and a block
+        # gated on the text alone kept handing the model a finished objective as
+        # the standing one to pursue. Read beside the text so the cache key below
+        # moves with it.
+        goal_status = goal_state.status if goal_state is not None else ""
+        team_brief = goal_state.team_brief if goal_state is not None else ""
+        agent_brief = goal_state.agent_brief if goal_state is not None else ""
+        run_brief = goal_state.run_brief if goal_state is not None else ""
+        names = (
+            variable_store.credential_names()
+            if variable_store is not None and hasattr(variable_store, "credential_names")
+            else []
+        )
+        # BOTH halves are read LIVE, at turn start: the answers change when a
+        # viewer attaches or detaches and when a front end installs its ask hook,
+        # and reading them here is what keeps the cost O(1) in the number of those
+        # events (round 2, operator requirement 4). ``interactivity()`` is the
+        # TRI-STATE reading — ``None`` on a host that installed no runtime probe
+        # (an ``exec`` run, a scheduled run, a plain CLI), which renders no
+        # ``<interactivity>`` block at all rather than claiming an interface
+        # nobody measured (review round 1, MINOR 6 / Q3). The channel is the live
+        # ask-hook answer, which THIS closure cannot get from ``tools``: the hook
+        # is installed after construction, so the list below never gains ``ask``.
+        #
+        # ``CHANNEL_NONE`` — not ``CHANNEL_HUB`` — is the right answer for a
+        # top-level session with no hook: a session's own ``hub`` reaches its
+        # SUBAGENTS, so it is no route from here to the operator.
+        interactive = goal_state.interactivity() if goal_state is not None else None
+        can_ask = goal_state.can_ask() if goal_state is not None else None
+        channel = None if can_ask is None else (CHANNEL_ASK if can_ask else CHANNEL_NONE)
+        key = (
+            knowledge_block,
+            date_str,
+            goal,
+            goal_status,
+            team_brief,
+            agent_brief,
+            run_brief,
+            tuple(names),
+            model_label,
+            interactive,
+            channel,
+            tuple((tool.name, tool.description) for tool in tools),
+        )
+        if key == cached_key:
+            return list(cached_blocks)
+        cached_blocks = build_system_blocks(
+            tools,
+            knowledge_block,
+            environment,
+            date_str,
+            goal=goal,
+            goal_status=goal_status,
+            user_instructions=user_instructions,
+            repo_guidance=repo_guidance,
+            credentials=names,
+            team_brief=team_brief,
+            agent_brief=agent_brief,
+            run_brief=run_brief,
+            model_label=model_label,
+            # Read LIVE, at turn start. Absent a runtime probe this is ``None``
+            # and the block is omitted, which is the byte-shape every host that
+            # never installed one had before the positive arm existed; see the
+            # tri-state note above and ``GoalState.interactivity``.
+            interactive=interactive,
+            channel=channel,
+            host_has_browser=host_has_browser,
+            host_has_console=host_has_console,
+        )
+        cached_key = key
+        return list(cached_blocks)
+
+    # A host-supplied arbitrary block provider retains its historical dynamic
+    # semantics. Production providers opt into Session's persisted-prefix
+    # protocol explicitly; benchmarks can still call this builder read-only.
+    setattr(provider, "append_only_state", True)
+    setattr(provider, "repo_guidance", repo_guidance)
+    setattr(provider, "knowledge_hooks", hooks)
+    # The frozen host answer, for the session's own re-render of block 1. Two
+    # renderers of one note must not be able to disagree, and the alternative
+    # (block 1 probing live while block 0 is pinned) would journal a state delta
+    # on every heartbeat flip with no authority behind it.
+    setattr(provider, "host_has_browser", host_has_browser)
+    setattr(provider, "host_has_console", host_has_console)
+    return provider
+
+
+def _transcript_dir_and_agent_id(
+    agent: AgentData | None, args: argparse.Namespace, agent_registry: AgentRegistry
+) -> tuple[Path, str, bool]:
+    """Pick where this session's JSONL transcript lives (CL-02).
+
+    ``--resume <id>`` wins over every rule below: it names an existing session
+    directory, and reusing it is what makes the transcript replay (the same
+    mechanism ``--train`` uses for an agent directory).
+
+    The THIRD element is ``is_new``: this call brings a SESSION directory into
+    existence — a conversation the operator has not been using. It is returned
+    rather than recomputed by the caller because only this frame sees the directory
+    at the moment before anything creates it — the adopt branch below creates it
+    itself, and the lease the caller takes creates it too, so a `not path.exists()`
+    read one frame later answers "no" for every session (review round 3, F1: that is
+    exactly how the escape stamp silently never fired on the phone's first message
+    and the desktop draft). `False` for an ``agents/`` directory, which is not a
+    session at all and which the branch below may well create itself (review round
+    4, F4: the wording is "a session directory", not "any directory").
+
+    Legacy ``--train`` semantics:
+
+    - named agent + ``--train`` -> the agent's own directory, so history is
+      replayed at startup and appended after each turn;
+    - named agent WITHOUT ``--train`` -> an ephemeral per-session directory:
+      history is neither replayed from nor appended to the agent dir;
+    - no agent but ``--train`` -> the registry's autosave agent (legacy
+      ``create_autosave_agent`` semantics);
+    - otherwise an ephemeral per-session directory under ``sessions/``: the
+      default agent must not persist its session.
+    """
+    config_dir = Path(agent_registry.config_dir)
+    resume = getattr(args, "resume", None)
+    # `is not None`, not truthiness: `--resume ""` is a user error and must be
+    # refused, where silently starting a NEW session would look like a resume
+    # that lost the history.
+    if resume is not None:
+        # ADOPT vs RESUME. Under the viewer model the session id is minted in
+        # the TUI before anything exists on disk: `lop` opens a viewer bound
+        # to nothing, and the runtime the first message engages is what
+        # materialises the directory. So a runtime asked for an id with no
+        # directory is not a failed resume — it is the FIRST engage of a
+        # session that has only ever been a name, and refusing it (as
+        # `resume_dir` must, for a human typing `--resume`) would make every
+        # new detached session fail to start.
+        #
+        # Gated on the runtime's own env flag rather than applied generally,
+        # because the strictness is load-bearing everywhere else: a human's
+        # `--resume typo` must still say "no session to resume" rather than
+        # silently opening an empty conversation under that name.
+        if os.environ.get("LOP_RUNTIME_ADOPT_SESSION") == "1":
+            requested = str(resume)
+            # The adopt branch relaxes the "must already exist" rule, NOT the
+            # "must be one path component" rule. `resume_dir` enforces both
+            # together, and dropping the second along with the first let
+            # `../../escape` resolve outside `sessions/` (round 1, R3). Not
+            # user-reachable today — `cli.py` runs `resolve_resume_id` first
+            # and viewer ids are `uuid4().hex[:12]` — but the remaining
+            # feeders (the wake index, the supervisor's cwd) are derived from
+            # filenames, and this is the one branch that opted out of a
+            # strictness the comment above calls load-bearing.
+            if requested in ("", ".", "..") or Path(requested).name != requested:
+                raise ValueError(f"not a session id: {requested!r}")
+            adopted = config_dir / "sessions" / requested
+            # Read BEFORE the mkdir below: the answer belongs to this moment, and
+            # `is_new` is what the escape stamp turns on (see the docstring).
+            is_new = not adopted.exists()
+            # Under `LOP_RUNTIME_DEFER_MATERIALISE` the directory is NOT
+            # created here: a speculative warm engage (a viewer's first
+            # keystroke, before the user has committed to a message) must
+            # leave nothing on disk when the draft is abandoned. The first
+            # real write materialises it — see `Transcript.__init__`.
+            defer = os.environ.get("LOP_RUNTIME_DEFER_MATERIALISE") == "1"
+            if is_new and not defer:
+                # `parents` because a fresh config dir has no sessions/ yet;
+                # `exist_ok` because two contenders may race here and the
+                # lease, not this mkdir, is what arbitrates between them.
+                adopted.mkdir(parents=True, exist_ok=True)
+            # `is_new` is true for a deferred engage too: the directory is still
+            # this run's to create, and a harness that asked for the run has its
+            # stamp written. The stamp does not decide whether the directory
+            # exists — `acquire_session_lease` and `claim_session` materialise it
+            # below either way (measured: an unmarked warm engage leaves an empty
+            # `sessions/<id>/`) — it adds `origin.json` inside it, which is what
+            # keeps a harness's engage out of the operator's listings.
+            return adopted, str(agent.id) if agent is not None else "main", is_new
+        resumed = resume_dir(config_dir, str(resume))
+        # `resume_dir` only answers an EXISTING conversation, so this is the
+        # operator's own work by construction.
+        return resumed, str(agent.id) if agent is not None else "main", False
+    train = bool(getattr(args, "train", False))
+    if agent is not None:
+        agent_id = str(agent.id)
+        if train:
+            return config_dir / "agents" / agent_id, agent_id, False
+        session_dir = config_dir / "sessions" / uuid.uuid4().hex[:12]
+        return session_dir, agent_id, True
+    if train:
+        try:
+            autosave = agent_registry.create_autosave_agent()
+            agent_id = str(autosave.id)
+            return config_dir / "agents" / agent_id, agent_id, False
+        except Exception:  # noqa: BLE001 — fall through to ephemeral
+            pass
+    session_dir = config_dir / "sessions" / uuid.uuid4().hex[:12]
+    # A fresh id: nothing can exist there yet, which is what makes it new.
+    return session_dir, "main", True
+
+
+#: These passes describe the config-root store, not one session. Keep one
+#: daemon worker handle per process for /new and /resume, while the lock and
+#: short completion window also coalesce separate runtime processes.
+_STORE_MAINTENANCE_THREAD: threading.Thread | None = None
+_STORE_MAINTENANCE_STOP: threading.Event | None = None
+_STORE_MAINTENANCE_DONE: threading.Event | None = None
+
+#: Let session construction and first paint win the I/O race before the store
+#: walks begin. The delay is inside the daemon, not the default executor, whose
+#: shutdown can otherwise hold Runner.close for Python's 300-second bound.
+_STORE_MAINTENANCE_IDLE_DELAY_SECONDS = 0.75
+_STORE_MAINTENANCE_LOCK_RETRY_INITIAL_SECONDS = 0.05
+_STORE_MAINTENANCE_LOCK_RETRY_MAX_SECONDS = 1.0
+_STORE_MAINTENANCE_LOCK_NAME = ".store-maintenance.lock"
+_STORE_MAINTENANCE_STAMP_NAME = ".store-maintenance.json"
+_STORE_MAINTENANCE_STAMP_SCHEMA = 1
+_STORE_MAINTENANCE_STAMP_VERSION = 1
+_STORE_MAINTENANCE_STAMP_TTL_SECONDS = 60.0
+_STORE_MAINTENANCE_PASS_NAMES = (
+    "session cleanup policy",
+    "orphan process-group sweep",
+    "session origin backfill",
+    "session title backfill",
+    "analytics session-name backfill",
+    "analytics session-daily rollup backfill",
+)
+
+
+def _wait_for_store_maintenance_idle_window(stop_event: threading.Event) -> bool:
+    """Wait off-loop; return false when a test reset cancels the delayed run."""
+    return not stop_event.wait(_STORE_MAINTENANCE_IDLE_DELAY_SECONDS)
+
+
+def reset_store_maintenance_for_tests() -> None:
+    """Stop a delayed test worker and forget its process-local dispatch handle.
+
+    A running callback cannot be safely cancelled; tests that block one must
+    release it before reset. The daemon flag is the final process-exit boundary,
+    while this event prevents a not-yet-started test pass from entering a later
+    test's temporary store.
+    """
+    global _STORE_MAINTENANCE_THREAD, _STORE_MAINTENANCE_STOP, _STORE_MAINTENANCE_DONE
+    stop_event = _STORE_MAINTENANCE_STOP
+    if stop_event is not None:
+        stop_event.set()
+    _STORE_MAINTENANCE_THREAD = None
+    _STORE_MAINTENANCE_STOP = None
+    _STORE_MAINTENANCE_DONE = None
+
+
+async def await_store_maintenance_for_tests() -> None:
+    """Wait for this process's daemon pass without binding it to an event loop.
+
+    Polling the thread-owned event is intentional: the worker may outlive the
+    loop that dispatched it, so no callback may be scheduled back onto that
+    loop. Tests use this only; production startup never waits for maintenance.
+    """
+    done = _STORE_MAINTENANCE_DONE
+    if done is None:
+        return
+    while not done.is_set():
+        await asyncio.sleep(0.01)
+
+
+def request_store_maintenance_stop() -> bool:
+    """Ask this process's store-maintenance walk to stop at its next directory.
+
+    THE PRODUCTION SETTER for the event every check in this module reads, and the
+    reason those checks are worth having: without it the event had no writer
+    outside a test reset, so a runtime that had committed to LEAVING kept
+    walking a store that costs minutes (measured: 10,737 session directories at
+    16.7-38.4 ms each, i.e. 3-7 minutes per pass, two session passes and two
+    analytics passes per boot) while the process waited only on its own drain.
+    The runtime's one departure commit calls this — :func:`local_operator.session
+    .runtime.process._commit_to_leaving`, right after the drain latches — so the
+    request is the departure's own act rather than a re-badged test seam.
+
+    The per-PASS checks around this (the entry check, the between-passes check,
+    the lock-loser backoff) are worth the gap between two passes; the four
+    store-walking passes take this same event as a per-DIRECTORY predicate, which
+    is worth one directory instead. Nothing here starts, joins or waits for the
+    worker: a departure must not be made to wait on the very walk it is asking to
+    end, and the walk is a daemon thread no production path joins.
+
+    Returns True when this process had a walk to ask, False when it did not (no
+    dispatch yet, or maintenance already finished) — the common case, and not an
+    error. A partial sweep leaves no completion stamp, so the next boot resumes
+    rather than trusts (see :func:`_run_store_maintenance`).
+    """
+    stop_event = _STORE_MAINTENANCE_STOP
+    if stop_event is None:
+        return False
+    stop_event.set()
+    return True
+
+
+def _acquire_store_maintenance_lock(config_dir: Path) -> int | None:
+    """Try the config-root mutex once; return None for a live peer's lock.
+
+    The nonblocking primitive is shared with wake writes so platform-specific
+    flock/byte-range behavior stays consistent. The lockfile is deliberately
+    persistent: unlinking it could split holders across two different inodes.
+    """
+    from local_operator.procstate import O_BINARY
+    from local_operator.wakes.lock import _try_lock
+
+    path = config_dir / _STORE_MAINTENANCE_LOCK_NAME
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | O_BINARY, 0o600)
+    try:
+        if _try_lock(fd):
+            return fd
+        os.close(fd)
+        return None
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _release_store_maintenance_lock(fd: int) -> None:
+    """Release the cross-process mutex; closing also drops it after errors."""
+    from local_operator.wakes.lock import _unlock
+
+    try:
+        _unlock(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def _store_maintenance_stamp_is_fresh(config_dir: Path, pass_names: list[str]) -> bool:
+    """Recognize only a current pass-set stamp still inside the retry window."""
+    path = config_dir / _STORE_MAINTENANCE_STAMP_NAME
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return False
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        # A malformed record cannot prove completion; because the caller holds
+        # the exclusive root lock, a conservative rerun is safe.
+        return False
+    if not isinstance(payload, dict):
+        return False
+    completed_at = payload.get("completed_at")
+    if (
+        payload.get("schema") != _STORE_MAINTENANCE_STAMP_SCHEMA
+        or payload.get("version") != _STORE_MAINTENANCE_STAMP_VERSION
+        or payload.get("passes") != pass_names
+        or isinstance(completed_at, bool)
+        or not isinstance(completed_at, (int, float))
+    ):
+        return False
+    try:
+        age = time.time() - float(completed_at)
+    except (OverflowError, ValueError):
+        # JSON permits integers too large for float conversion; they cannot be
+        # a valid wall-clock completion time and must not suppress a safe retry.
+        return False
+    return 0 <= age <= _STORE_MAINTENANCE_STAMP_TTL_SECONDS
+
+
+def _write_store_maintenance_stamp(config_dir: Path, pass_names: list[str]) -> None:
+    """Atomically publish completion only after every pass has succeeded."""
+    path = config_dir / _STORE_MAINTENANCE_STAMP_NAME
+    payload = {
+        "schema": _STORE_MAINTENANCE_STAMP_SCHEMA,
+        "version": _STORE_MAINTENANCE_STAMP_VERSION,
+        "passes": pass_names,
+        "completed_at": time.time(),
+    }
+    fd, raw_tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=config_dir)
+    tmp_path = Path(raw_tmp)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _run_store_maintenance(
+    config_manager: ConfigManager,
+    config_dir: Path,
+    live_dir: Path | None,
+    *,
+    stop_event: threading.Event | None = None,
+) -> bool:
+    """Run the six idempotent store passes under one daemon-owned lock.
+
+    Separate runtime processes can start more than the 0.75-second idle delay
+    apart, so mutual exclusion alone does not suppress their duplicate walks.
+    A versioned 60-second completion stamp coalesces a launch burst; cleanup
+    and orphan-group reaping may consequently wait up to 60 seconds after a
+    completed sweep. A crash or any failed pass writes no fresh stamp, so the
+    next launch retries — and so does a pass that STOOD DOWN mid-walk because
+    this process is leaving: the four store-walking passes check the stop once
+    per directory and RETURN their partial count rather than raising, so what
+    refuses the stamp is the guard on the sequence below
+    (``all_passes_succeeded and not stop.is_set()``). That is the same event
+    read at the end, which is why a walk that left early can never publish a
+    completed sequence, and why no separate "was this pass partial" state is
+    needed here. The sidecar backfills use atomic/idempotent
+    writes and the analytics rollup advances only over committed days, making an
+    interrupted sequence safe to resume.
+
+    The lock is acquired after the idle window and before reading the stamp,
+    then held through all serial passes and the atomic stamp replace. No
+    ``to_thread`` call is used: this function runs in one dedicated daemon
+    thread so a blocked filesystem callback cannot become a default-executor
+    worker that ``Runner.close`` waits to join for up to five minutes.
+    """
+    stop = stop_event or threading.Event()
+    if stop.is_set():
+        return True
+    try:
+        lock_fd = _acquire_store_maintenance_lock(config_dir)
+    except OSError:
+        # A lock I/O error cannot establish mutual exclusion. Unlike a busy
+        # peer, it is not retryable evidence of an owner that may soon exit.
+        logger.debug("store maintenance lock unavailable; skipping", exc_info=True)
+        return True
+    if lock_fd is None:
+        # A competing runtime owns the persistent lock inode. Only that owner
+        # may inspect or publish the stamp; this one daemon returns a retry
+        # signal and will check after it acquires the same lock.
+        return False
+
+    try:
+        from local_operator.analytics.backfill import (
+            backfill_analytics_session_daily,
+            backfill_analytics_session_names,
+        )
+        from local_operator.resume import (
+            backfill_session_origins,
+            backfill_session_titles,
+        )
+        from local_operator.session.cleanup import cleanup_from_config
+        from local_operator.tools.group_reaper import sweep_orphan_groups
+
+        # NO pass here deletes a session directory on its own judgement. The
+        # cleanup pass is OFF unless the user enabled its explicit policy, and
+        # the group reaper acts only on a provably dead owner. The lock serializes
+        # those store-wide decisions with other runtime processes.
+        passes: list[tuple[str, Callable[[], Any]]] = [
+            (
+                "session cleanup policy",
+                lambda: cleanup_from_config(config_manager, config_dir, live_dir=live_dir),
+            ),
+            ("orphan process-group sweep", lambda: sweep_orphan_groups(config_dir)),
+            (
+                "session origin backfill",
+                lambda: backfill_session_origins(config_dir, should_stop=stop.is_set),
+            ),
+            (
+                "session title backfill",
+                lambda: backfill_session_titles(config_dir, should_stop=stop.is_set),
+            ),
+            (
+                "analytics session-name backfill",
+                lambda: backfill_analytics_session_names(config_dir, should_stop=stop.is_set),
+            ),
+            (
+                "analytics session-daily rollup backfill",
+                lambda: backfill_analytics_session_daily(config_dir, should_stop=stop.is_set),
+            ),
+        ]
+        pass_names = [label for label, _ in passes]
+        if tuple(pass_names) != _STORE_MAINTENANCE_PASS_NAMES:
+            raise RuntimeError("store maintenance pass names differ from the stamp schema")
+        try:
+            if _store_maintenance_stamp_is_fresh(config_dir, pass_names):
+                return True
+        except OSError:
+            # Malformed records are retried, but a real I/O failure leaves the
+            # completion state unknown, so fail closed without running passes.
+            logger.debug("store maintenance completion stamp unreadable; skipping", exc_info=True)
+            return True
+
+        all_passes_succeeded = True
+        for label, work in passes:
+            if stop.is_set():
+                all_passes_succeeded = False
+                break
+            try:
+                work()
+            except Exception:  # noqa: BLE001 — best-effort; never disturb a session
+                all_passes_succeeded = False
+                logger.debug("%s failed", label, exc_info=True)
+
+        if all_passes_succeeded and not stop.is_set():
+            try:
+                _write_store_maintenance_stamp(config_dir, pass_names)
+            except OSError:
+                # Fail closed: without a trustworthy completion record, do
+                # not let each later process repeat the six store-wide walks.
+                logger.debug(
+                    "store maintenance completion stamp write failed; skipping", exc_info=True
+                )
+        return True
+    finally:
+        _release_store_maintenance_lock(lock_fd)
+
+
+def _store_maintenance_thread_main(
+    config_manager: ConfigManager,
+    config_dir: Path,
+    live_dir: Path | None,
+    stop_event: threading.Event,
+    done_event: threading.Event,
+) -> None:
+    """Own one bounded retry loop without touching an event loop.
+
+    One process owns at most this single daemon thread. A lock loser waits with
+    capped exponential backoff, then retries. Once an owner completes, the next
+    successful acquire checks its fresh completion stamp under the same lock and
+    exits without another scan. Reset signals ``stop_event`` and wakes the waits.
+    """
+    try:
+        if not _wait_for_store_maintenance_idle_window(stop_event):
+            return
+        retry_delay = _STORE_MAINTENANCE_LOCK_RETRY_INITIAL_SECONDS
+        while not stop_event.is_set():
+            try:
+                acquired = _run_store_maintenance(
+                    config_manager, config_dir, live_dir, stop_event=stop_event
+                )
+            except Exception:  # noqa: BLE001 — housekeeping never fails session start
+                logger.debug("store maintenance worker failed", exc_info=True)
+                return
+            if acquired:
+                return
+            # Another process owns the lock. Back off rather than abandon retry
+            # or spin. The next successful acquire checks the stamp while
+            # holding the lock, and reset wakes this bounded wait immediately.
+            if stop_event.wait(retry_delay):
+                return
+            retry_delay = min(retry_delay * 2, _STORE_MAINTENANCE_LOCK_RETRY_MAX_SECONDS)
+    finally:
+        done_event.set()
+
+
+def _start_store_maintenance(
+    config_manager: ConfigManager, config_dir: Path, live_dir: Path | None
+) -> None:
+    """Dispatch one daemon worker per process without blocking session startup.
+
+    The process-local thread guard avoids repeated dispatches on /new and
+    /resume. The cross-process file lock and bounded completion stamp arbitrate
+    separate runtime processes sharing this config root.
+    """
+    global _STORE_MAINTENANCE_THREAD, _STORE_MAINTENANCE_STOP, _STORE_MAINTENANCE_DONE
+    if _STORE_MAINTENANCE_THREAD is not None:
+        return
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+
+    stop_event = threading.Event()
+    done_event = threading.Event()
+    worker = threading.Thread(
+        target=_store_maintenance_thread_main,
+        args=(config_manager, config_dir, live_dir, stop_event, done_event),
+        name="store-maintenance",
+        daemon=True,
+    )
+    _STORE_MAINTENANCE_STOP = stop_event
+    _STORE_MAINTENANCE_DONE = done_event
+    _STORE_MAINTENANCE_THREAD = worker
+    try:
+        worker.start()
+    except RuntimeError:
+        _STORE_MAINTENANCE_THREAD = None
+        _STORE_MAINTENANCE_STOP = None
+        _STORE_MAINTENANCE_DONE = None
+        logger.debug("store maintenance worker could not start", exc_info=True)
+
+
+async def _prepare(
+    args: argparse.Namespace,
+    config_manager: ConfigManager,
+    agent_registry: AgentRegistry,
+    *,
+    has_ui: bool,
+    cwd: str | None = None,
+) -> _SessionPlan:
+    """Shared wiring core used by :func:`create_session` and
+    :func:`build_initial_blocks`. Returns the Session kwargs plus the blocks
+    provider; raises ``ValueError`` when hosting/model config is missing.
+    ``cwd`` (default: process cwd) is the single working-directory source for
+    the tool context, the session and MCP discovery."""
+    # Resolving a saved model now reads its journal, which can be large. Keep
+    # agent/profile I/O and identity resolution off the loop together, before
+    # the contiguous lease/claim critical section below. Snapshot the command
+    # first so /new or /resume cannot retarget an in-flight factory at the await.
+    args = argparse.Namespace(**vars(args))
+
+    # The configured birth-default effort (``model_effort``). Imported here, in
+    # the same local style as ``configure_model`` below, because this module is
+    # on the startup import path that ``test_import_graph`` guards and the
+    # reader is only needed once per session build.
+    from local_operator.model.effort import configured_effort
+
+    def resolve_birth():
+        agent = resolve_agent(args, agent_registry)
+        hosting, model_name, model_source = resolve_hosting_model_with_source(
+            agent, args, config_manager
+        )
+        # Read in the same OFF-LOOP thread as the model resolution (a config read
+        # is cheap, but there is no reason to hop back to the loop for it). This
+        # is a BIRTH default only: the journal restore in ``Session.__init__``
+        # runs after the spec is built and re-derives it (clamping), so a
+        # conversation resumed on a stored selection outranks this value by
+        # design — ``model_effort`` must not fight the per-conversation journal
+        # (design §0.1).
+        #
+        # ``birth_effort`` is the deliberate per-launch choice (the desktop
+        # draft's chip) and outranks the configured default for THIS
+        # construction only; it is a separate name from the CLI's ``effort``
+        # because that one is applied after construction by ``exec_session`` and
+        # raises where this one must clamp (see ``spawn_owned_session``). Only
+        # an explicit selection carries it, so every other caller — and every
+        # session that omits a model — reads the configured default unchanged.
+        return (
+            agent,
+            (hosting, model_name, model_source),
+            getattr(args, "birth_effort", None) or configured_effort(config_manager),
+        )
+
+    agent, (hosting, model_name, model_source), effort_default = await asyncio.to_thread(
+        resolve_birth
+    )
+    yolo = bool(getattr(args, "yolo", False))
+
+    transcript_dir, agent_id, is_new = _transcript_dir_and_agent_id(agent, args, agent_registry)
+
+    # Whether no conversation existed at this path before this call, read from
+    # the frame that resolves the id — `_transcript_dir_and_agent_id`'s own
+    # docstring says why recomputing it here answers "no" for every session.
+    # Consumed by the escape stamp further down.
+    fresh_directory = is_new
+
+    from local_operator.session.retention import claim_session
+    from local_operator.session_lease import acquire_session_lease
+
+    if transcript_dir.parent.name == "sessions":
+        # B-M1'S OTHER HALF: A SESSION MID-HANDOFF IS NOT OPENED HERE EITHER.
+        #
+        # Ownership is acquired at this boundary, and this boundary is where every
+        # open path in the product meets: ``lop -r <id>``, ``lop exec``, the TUI's
+        # in-process open and a booting runtime all reach the lease through here,
+        # NOT through the relay's engage guard. So an opener arriving between a
+        # move's ``prepare`` and its commit took the lease, and the commit — which
+        # only looked at ``prepare`` — deleted the directory out from under it
+        # (review round 1, B-M1). Two consequences, both fixed by refusing BEFORE
+        # the acquire: the move's commit now finds no live holder, and a refusal
+        # here cannot leave a lease claim behind for a runtime that never started
+        # (which is what made a move fail with "open in another process" after a
+        # single refused resume).
+        #
+        # Recovery runs first, so a journal entry left by a relay that died does not
+        # brick the conversation (M-3).
+        from local_operator.session.placement import handoff_guard_refusal
+        from local_operator.session.runtime.launch import (
+            RuntimeStartupError,
+            recover_stale_handoff,
+        )
+
+        # The ROOT the journal actually lives under, derived from the directory
+        # itself rather than from the registry: a relocated store (``--config-dir``,
+        # an isolated test root, a scratch clone) writes its journal beside its own
+        # ``sessions/``, and asking the registry would read another install's.
+        handoff_config_dir = transcript_dir.parent.parent
+        recover_stale_handoff(handoff_config_dir, transcript_dir.name)
+        handed_off = handoff_guard_refusal(handoff_config_dir, transcript_dir.name)
+        if handed_off:
+            raise RuntimeStartupError(handed_off)
+
+    # Sole-writer ownership is acquired at the shared construction boundary,
+    # before transcript creation. Edge checks remain useful UX, but only O_EXCL
+    # can make two simultaneous cold resumes safe. Agent training directories
+    # retain their established non-session semantics and are not leased here.
+    session_lease = (
+        acquire_session_lease(transcript_dir) if transcript_dir.parent.name == "sessions" else None
+    )
+
+    # CLAIM BEFORE creating the directory, and in that order. The claim marker
+    # is what tells anything scanning the store (the user-enabled cleanup
+    # policy, the picker, the mobile daemon) that this directory belongs to a
+    # live run; ``claim_session`` creates the directory itself and writes the
+    # marker in one step, so there is no instant at which this directory
+    # exists empty-and-unclaimed. Nothing deletes on that signal by default,
+    # but the ordering is what makes the claim guard airtight when cleanup IS
+    # enabled, and it costs nothing to keep.
+    #
+    # ``claim_session`` refuses agent directories itself (the gate lives with
+    # the marker, not here), so the explicit ``mkdir`` below is what creates
+    # the directory in the ``--train``/named-agent case, which is deliberately
+    # never claimed and never scanned.
+    claim_session(transcript_dir)
+    transcript_dir.mkdir(parents=True, exist_ok=True)
+    if transcript_dir.parent.name == "sessions":
+        # A session an AGENT'S SHELL opened (`agent_shell.py`) is marked as
+        # machine-started, so it can never be offered as a chat the operator
+        # opened. Two routes reach here that way — the documented escape hatch
+        # for harness/QA runs, and an ALLOWED `lop exec` from a session whose
+        # role may delegate (operator, 2026-09-19) — and since the relaxation
+        # the second is unremarkable enough that this stamp is the only thing
+        # keeping such a run out of the picker, sidebar and phone list.
+        #
+        # HERE rather than in the exec path, where it started: this is the one
+        # place every session gets its directory — foreground exec, the detached
+        # worker, the interactive viewer's runtime, the server — and the
+        # exec-only version left the interactive path unstamped while the docs
+        # promised it (review round 2, F1). ``fresh_directory`` keeps
+        # `--resume` honest: adopting the operator's own conversation must not
+        # hide their chat.
+        #
+        # ``workstream`` chooses WHICH machine-started value is written: the
+        # operator asked for this one as a long-lived parallel workstream
+        # (`lop exec --workstream`), so it is listed with its opener recorded
+        # rather than hidden. ``getattr`` because this namespace is the narrow
+        # one each entry point builds, and the interactive path has no such
+        # field — an absent field reads as "off", never as an error.
+        from local_operator.agent_shell import stamp_agent_shell_session
+
+        stamp_agent_shell_session(
+            transcript_dir,
+            created_here=fresh_directory,
+            delegated_workstream=bool(getattr(args, "workstream", False)),
+        )
+
+        # Stamp the store as ours. The cleanup policy refuses to remove
+        # anything from an unmarked ``sessions/`` directory, and this is the
+        # one place the harness knows it is writing into its own store —
+        # cleanup itself never marks, so it can never authorise its own
+        # target. Idempotent and best-effort.
+        from local_operator.session.cleanup import mark_store
+
+        mark_store(transcript_dir.parent)
+
+    # The lease/claim above stay synchronous and on the loop — sole-writer
+    # ordering (lease before transcript creation) is an invariant, and putting a
+    # yield inside that window is how two cold resumes lose the race the lease
+    # exists to arbitrate. Whole-store maintenance is dispatched only after
+    # ``create_session`` finishes ALL construction; starting it here lets the
+    # runner contend as soon as the model configuration below yields to a worker.
+
+    # --- model + stream fn (stream B contracts) ---------------------------
+    from local_operator.env import get_env_config
+    from local_operator.model.configure import configure_model, create_stream_fn
+
+    chat_kwargs: dict[str, Any] = {}
+    if agent is not None:
+        for field_name in _AGENT_SAMPLING_FIELDS:
+            value = getattr(agent, field_name, None)
+            if value is not None:
+                chat_kwargs[field_name] = value
+    # OFF THE EVENT LOOP. `configure_model` is synchronous, and for a model the
+    # shipped registry does not fully describe it fetches the provider's live
+    # listing over a BLOCKING httpx client (see
+    # `model.configure._info_from_discovery`). On the TUI's loop that is a
+    # frozen screen and a swallowed keystroke buffer for as long as the
+    # provider takes to answer — up to `discovery.DEFAULT_TIMEOUT_S`, 10 s, on
+    # a bad network. A thread costs nothing here: every caller is already
+    # awaiting this line, and the work is a network wait plus a memoised
+    # lookup.
+    model_configuration = await asyncio.to_thread(
+        functools.partial(
+            configure_model,
+            hosting=hosting,
+            model_name=model_name,
+            config_dir=config_manager.config_dir,
+            env_config=get_env_config(),
+            # The standing config effort, CLAMPED inside ``configure_model``
+            # against this spec's own ladder. Carried unconditionally, even when
+            # ``model_source`` is ``"flag"``: a ``--model`` flag chooses a
+            # MODEL, not an effort, and the clamp makes it safe to keep the
+            # configured level across that choice (design D3).
+            reasoning_effort=effort_default,
+            **chat_kwargs,
+        )
+    )
+    spec = model_configuration.spec
+
+    # ONE CONSTRUCTION SITE, and ``build_auth_store`` returns the very same
+    # ``AuthStore`` on a device that borrows nothing — no network, no placement, or
+    # nothing shared with this device (build plan §5, design §5.1). It swaps in
+    # ``network.credentials.store.MeshAwareAuthStore`` only when another device owns
+    # a credential this one is a holder for, which is the only state in which the
+    # broker rung can fire. ``AuthStore`` is still imported here because the rest of
+    # this module's annotations name it.
+    from local_operator.network.credentials import build_auth_store
+
+    auth_store = build_auth_store(config_manager.config_dir)
+    # A fork inherits its PARENT's provider cache key. The fork's transcript is
+    # a byte-identical copy, so its first request reproduces the parent's cached
+    # prefix exactly and should be routed to it rather than opening a fresh one.
+    # Credential stickiness deliberately stays on this session's own id — see
+    # ``create_stream_fn``. Empty for any session that is not a fork, which is
+    # the ordinary case and costs one sidecar read at construction.
+    from local_operator.fork import fork_parent
+
+    stream_fn = create_stream_fn(
+        auth_store,
+        settings=config_manager.get_config().values,
+        session_id=transcript_dir.name,
+        cache_lineage_id=fork_parent(transcript_dir) or None,
+    )
+
+    # --- tools + lazy knowledge (streams A and C) --------------------------
+    from local_operator.harness.types import ToolContext
+    from local_operator.tools.registry import create_tools
+
+    config_dir = Path(agent_registry.config_dir)
+    effective_cwd = cwd if cwd is not None else os.getcwd()
+    knowledge_warnings: list[str] = []
+    hooks = await _setup_knowledge(config_dir, agent_registry, knowledge_warnings, effective_cwd)
+    # Configuration discovery is local filesystem work and must precede the
+    # first prompt. The TUI deliberately defers live MCP connections; deriving
+    # names only from the eventual manager let the knowledge block freeze empty
+    # before that background task won the race.
+    _seed_mcp_routing(hooks, effective_cwd)
+    # The classification seam, built here because the package's cold import must
+    # not land inside a turn (see ``_attach_classification``). Built unless
+    # values.classification.auto is explicitly off — the default is ON, so the
+    # import happens for a stock install.
+    _attach_classification(hooks, config_manager, knowledge_warnings)
+    for warning in knowledge_warnings:
+        print(f"\033[1;33mWarning: {warning}\033[0m", file=sys.stderr)
+
+    # THE HEADLESS GATE HONOURS THE OPERATOR'S SAVED DEFAULT. ``--yolo`` still
+    # wins for one run (and pins, downstream); without it,
+    # ``tool_approval_mode: auto`` — the key whose default comment has always
+    # described exactly this gate ("a ``lop exec`` running in CI") — now
+    # reaches the gate this run decides on. Built from the flag ALONE before
+    # this, a config that said auto still refused every write/exec call of an
+    # exec-launched headless session (the 2026-09-28 incident's addendum), and
+    # the posture surfaces had to carve an exception around a gate that ignored
+    # the file they report against.
+    request_approval = _make_request_approval(yolo or _approval_mode_is_auto(config_manager))
+    # The variables surface behind list_variables/read_variable: config
+    # overrides ride above the project file and process environment, and
+    # values stay out of the system prompt (read on demand, not baked).
+    #
+    # Built once and handed to BOTH contexts. The factory context below is what
+    # `create_tools` inspects to decide which tools exist; the context a tool
+    # actually executes against is rebuilt by `Session._build_tool_context` on
+    # every turn, so a store installed only here reached the createIf check and
+    # nothing else — `list_variables` advertised itself and then read a bare
+    # process-env store, in every session.
+    variable_store = _build_variable_store(effective_cwd, config_manager)
+    from local_operator.projects import ProjectRegistry
+    from local_operator.teams import TeamRegistry
+
+    # R7-2: the session must start even when `teams/` cannot be read.
+    #
+    # `TeamRegistry.__init__` performs crash recovery, and that can fail for
+    # reasons that have nothing to do with the session being built — a stranded
+    # `.<id>.backup.*` under a directory whose permissions changed, a full
+    # filesystem. Constructing it unguarded made a subdirectory the user may
+    # never have touched abort the whole boot: no model, no tools, no
+    # transcript, and an error naming only the teams registry as the remedy.
+    #
+    # So the failure degrades ONE feature instead of the session. The context
+    # gets no registry, which is exactly the state `build_team_tool`'s createIf
+    # and the TUI's `_team_registry()` already handle (the `team` tool is not
+    # offered, `/team` says teams are unavailable). The reason is surfaced in
+    # the same warning channel as the knowledge-discovery failures above rather
+    # than swallowed, so the user is told what to fix.
+    #
+    # The registry ITSELF still refuses to answer with a half-truth: a
+    # construction-time recovery failure is remembered and re-raised by the
+    # first real read (see `TeamRegistry._raise_if_recovery_failed`), so the
+    # CLI and tool guards keep reporting it rather than showing an empty list.
+    team_registry: TeamRegistry | None
+    try:
+        team_registry = TeamRegistry(config_dir)
+    except Exception as exc:  # noqa: BLE001 — one feature must not fail boot
+        team_registry = None
+        print(
+            f"\033[1;33mWarning: teams are unavailable this session: {exc}\033[0m",
+            file=sys.stderr,
+        )
+    # The projects registry gets the same degrade-one-feature handling, for the
+    # same reason: a store the user may never have touched must not take down
+    # the whole boot. `ProjectRegistry` construction is read-only (it creates
+    # nothing), so this guard covers a genuinely unreadable `projects/`.
+    project_registry: ProjectRegistry | None
+    try:
+        project_registry = ProjectRegistry(config_dir)
+    except Exception as exc:  # noqa: BLE001 — one feature must not fail boot
+        project_registry = None
+        print(
+            f"\033[1;33mWarning: projects are unavailable this session: {exc}\033[0m",
+            file=sys.stderr,
+        )
+    # The classification roster's ``project`` kind reads the store THROUGH this
+    # hook, and the roster cache's projects fingerprint is derived from the same
+    # object (§8 of the projects design). Assigned here because the hooks object
+    # is built earlier (``_setup_knowledge``) than the registries; ``None`` (a
+    # store this boot could not read) leaves the kind empty and nothing else
+    # changes.
+    hooks.project_registry = project_registry
+    tool_context = ToolContext(
+        cwd=effective_cwd,
+        session_id=transcript_dir.name,
+        agent_id=agent_id,
+        has_ui=has_ui,
+        request_approval=request_approval,
+        variables=variable_store,
+        # Role profiles and the ``agent`` tool are backed by this registry; a
+        # host without one keeps working off the packaged starters.
+        agent_registry=agent_registry,
+        team_registry=team_registry,
+        project_registry=project_registry,
+        web_search_settings=config_manager.get_config_value("web_search", None),
+        web_fetch_settings=config_manager.get_config_value("web_fetch", None),
+    )
+    tools = create_tools(tool_context)
+    # The classification roster's ``tool`` kind is deliberately NOT populated
+    # here: this context carries none of the session-owned ``createIf`` gates,
+    # so a snapshot would miss ``sessions``/``task``/``wait``/``jobs``/``hub``
+    # (agent review round 1, PR #1863). ``Session.set_knowledge_hooks``
+    # refreshes the roster from the session's FINAL inventory instead.
+
+    from local_operator.session.goal import GoalState
+    from local_operator.session.transcript import Transcript
+
+    # See `_transcript_dir_and_agent_id`: a speculatively warmed runtime must
+    # not materialise a session directory the user may never commit to. The
+    # flag is read here rather than threaded through the signature because it
+    # is set by `_spawn_runtime` on the child's environment and consumed only
+    # on this path.
+    # Construction publishes immutable birth metadata before this runtime is
+    # discoverable. Its fsync (and existing full-history replay) must not park
+    # sibling sessions on the event loop; publication cannot be delayed until
+    # the first turn without changing an empty live row's creation sort key.
+    transcript = await asyncio.to_thread(
+        Transcript,
+        transcript_dir,
+        defer_materialise=os.environ.get("LOP_RUNTIME_DEFER_MATERIALISE") == "1",
+    )
+    # The mesh credential binding recorder: created with the transcript in hand
+    # (it appends the durable rows), gated on THIS root holding a credential
+    # placement document plus an identity — deliberately NOT on
+    # ``build_auth_store``'s predicate, so an owner device that borrows nothing
+    # still records the §5.5 owner→borrower direction. A 0-peer root gets
+    # ``None``, no feed is wired, and its transcript stays byte-identical.
+    from local_operator.session.credential_binding import recorder_for_session
+
+    credential_binding = recorder_for_session(
+        transcript,
+        config_dir=config_manager.config_dir,
+        session_id=transcript_dir.name,
+    )
+    # One holder shared by the prompt provider and the session facade, so a
+    # ``/goal`` change lands in the next model step without a session rebuild.
+    goal_state = GoalState()
+    # Read once, at session construction: see the provider's docstring for why
+    # this must not be re-read per turn. A profile's own prompt is layered on
+    # top of the global file rather than replacing it.
+    agent_prompt = ""
+    if agent is not None:
+        try:
+            agent_prompt = agent_registry.get_agent_system_prompt(str(agent.id))
+        # ``ValueError`` covers ``UnicodeDecodeError``, which is NOT an
+        # ``OSError``: a mis-encoded profile prompt used to raise straight
+        # through here and kill session startup. The registry now reads with
+        # ``errors="replace"`` so that specific route can no longer raise, but
+        # the guard stays for any other decode path a registry might take —
+        # an unreadable profile must never cost the operator their session.
+        # Logged rather than swallowed in silence. The guard is deliberately
+        # broader than its motivating decode error, because a profile prompt is
+        # not worth a failed session whatever the registry raises reading it --
+        # but a session that quietly drops the agent the operator selected
+        # looks like the profile was empty, so the reason has to be findable.
+        except (KeyError, OSError, ValueError) as exc:
+            logger.warning(
+                "could not read the system prompt for agent %s (%s: %s); "
+                "continuing without the profile's own instructions",
+                agent.id,
+                type(exc).__name__,
+                exc,
+            )
+            agent_prompt = ""
+    user_instructions = load_user_instructions(agent_prompt)
+    # Repo guidance (AGENTS.md/CLAUDE.md ancestors) joins the same read-once
+    # contract: the head block must stay byte-stable for the session, so the
+    # filesystem is consulted here and never again.
+    from local_operator.context_files import load_repo_guidance
+
+    try:
+        repo_guidance = load_repo_guidance(effective_cwd)
+    except Exception:  # noqa: BLE001 — never block session construction
+        repo_guidance = ""
+
+    system_blocks_provider = _make_system_blocks_provider(
+        tools,
+        transcript,
+        hooks,
+        cwd=effective_cwd,
+        goal_state=goal_state,
+        user_instructions=user_instructions,
+        repo_guidance=repo_guidance,
+        variable_store=variable_store,
+    )
+
+    # The MONITOR gate's callable (``docs/design/monitor-tool.md`` §8): the
+    # scheduler asks it for one materiality class per changed monitor, and a
+    # ``None`` ("no classifier") or a raise means DELIVER, never swallow.
+    #
+    # Resolved PER CALL, the ``attach_classification_dispose`` convention and
+    # for its reason: ``hooks.classifier`` is an injectable attribute (tests
+    # swap it after ``create_session`` returns — the documented way to inject
+    # one), so capturing the service here would pin whichever object happened
+    # to be there at construction. The import is function-local because this
+    # module is the composition root and the adapter's package must not
+    # import the classification package at module scope (see the module's own
+    # docstring for the cold-import budget).
+    from local_operator.monitors.classify import monitor_classify
+    from local_operator.session.naming import title_fit_check
+
+    session_kwargs: dict[str, Any] = dict(
+        model=spec,
+        stream_fn=stream_fn,
+        tools=tools,
+        transcript=transcript,
+        agent_id=agent_id,
+        system_blocks_provider=system_blocks_provider,
+        convert_to_llm=default_convert_to_llm,
+        compaction_settings=coerce_compaction_settings(
+            config_manager.get_config_value("compaction", None)
+        ),
+        yolo=yolo,
+        has_ui=has_ui,
+        cwd=effective_cwd,
+        # Session keeps the historical parameter name, but the chained
+        # resolver handles both guide:// and skill:// without namespace leaks.
+        skill_resolver=_make_knowledge_resolver(hooks),
+        request_approval=request_approval,
+        goal_state=goal_state,
+        variables=variable_store,
+        agent_registry=agent_registry,
+        team_registry=team_registry,
+        project_registry=project_registry,
+        # One shared classification seam for the message path AND the monitor
+        # gate; see the comment above for why it resolves per call.
+        monitor_classify=monitor_classify(lambda: hooks.classifier),
+        # ... and the naming errand's fit check rides the SAME seam, composed
+        # here for the same two reasons (one service per session; the lambda
+        # resolves it per call so a seam injected after construction — how the
+        # tests swap one in — is the one that answers). Its own adapter, not
+        # ``monitor_classify``: a different question over different state, and
+        # borrowing the monitor question would have the vendor answer the wrong
+        # one. ``hooks.classifier`` is ``None`` whenever the layer is off, which
+        # the adapter reports as "no classifier" rather than raising.
+        title_fit_check=title_fit_check(lambda: hooks.classifier),
+        # Provenance distinguishes deliberate resume flags from persisted
+        # identity; no provenance subscribes a session to mutable defaults.
+        model_source=model_source,
+    )
+    return _SessionPlan(
+        session_kwargs=session_kwargs,
+        system_blocks_provider=system_blocks_provider,
+        knowledge_hooks=hooks,
+        auth_store=auth_store,
+        credential_binding=credential_binding,
+        session_lease=session_lease,
+    )
+
+
+def _collapse_sdk_missing_failures(
+    failures: dict[str, str], discovery_key: str, sdk_missing_error: str
+) -> dict[str, str]:
+    """Collapse an all-servers-failed-for-a-missing-SDK map to one entry.
+
+    When the MCP SDK is not installed the manager fails every configured server
+    with the SAME install instruction. Reported ONCE, as the setup problem it
+    is: N identical 90-character notices (one toast line plus one transcript
+    error per server, every launch) is noise proportional to server count for a
+    single cause, and it accuses the servers of a fault that is not theirs.
+    Compared by identity against the manager's own constant rather than by
+    substring, so re-wording it cannot silently disable this. Anything else is
+    returned unchanged. Shared by the boot snapshot and the settled re-report so
+    both surfaces collapse the same way.
+    """
+    if failures and set(failures.values()) == {sdk_missing_error}:
+        return {discovery_key: sdk_missing_error}
+    return failures
+
+
+def _fire_mcp_sink(session: Session) -> None:
+    """Tell the front end that ``mcp_startup`` moved.
+
+    Shared by the wiring's three completion points — the two degradation
+    arms (no MCP layer; discovery raised) and the gate snapshot — because a
+    deferred-boot TUI learns about ALL of them the same way: it installed
+    its sink while the manager was still absent and needs exactly one
+    nudge per outcome to re-run its wiring and report.
+
+    A VIEWER is a front end too, and it is told through the frontend-state
+    push rather than through a sink: a runtime child has no in-process app to
+    call (``_on_mcp_startup_settled`` is None there), so this is the only hop
+    the outcome has toward the screen. It has to happen in the arms WITHOUT a
+    manager as well — when discovery raises or the MCP layer cannot import, the
+    function returns before ``attach_mcp_dispose`` (which is what normally
+    refreshes the store for the manager arm), so a viewer bound before the
+    wiring keeps the empty outcome it was seeded with and never learns a round
+    ran at all. Measured on the deferred path with discovery raising: 0 pushes
+    carrying ``mcp_startup`` in the 3 s after the wiring, against a viewer told
+    correctly by the same code on the eager path.
+
+    Guarded like the settle path's own lookup: a session without a sink
+    (headless, an unadopted session) is the normal case, and a sink that raises
+    must never take the wiring down with it.
+    """
+    sink = getattr(session, "_on_mcp_startup_settled", None)
+    if sink is not None:
+        try:
+            sink(getattr(session, "mcp_startup", None))
+        except Exception:  # noqa: BLE001 — a UI hook must never break the wiring
+            logger.debug("session _on_mcp_startup_settled raised", exc_info=True)
+    # The store is the other front end, and the one a bound viewer reads. Same
+    # call the settle path makes, for the same reason.
+    #
+    # GUARDED, and deliberately not like the eager path's unguarded call: this
+    # runs inside the deferred wiring task, whose caller swallows the exception
+    # with a warning, so a raising refresh here would skip the `attach_mcp_dispose`
+    # that follows on the manager arm — no `disconnect_all` hook, no incident or
+    # recovery callbacks — and leave that as one line in a log. A front end hook
+    # must not be able to take the wiring down with it, which is the same rule
+    # the sink above states.
+    refresh = getattr(session, "refresh_frontend_state", None)
+    if callable(refresh):
+        try:
+            refresh()
+        except Exception:  # noqa: BLE001 — see above: a UI hook must not break the wiring
+            logger.warning("MCP outcome refresh of the frontend store failed", exc_info=True)
+
+
+def _accepted_kwargs(callee: Callable[..., Any], **candidates: Any) -> dict[str, Any]:
+    """``candidates`` narrowed to the keyword arguments ``callee`` accepts.
+
+    **Why narrow rather than pass.** ``discover_and_load_mcp_tools`` grew the
+    additive ``secret_base``/``register_secret`` seam, and this repo patches
+    discovery with the pre-seam signature (``(cwd, auth_store=None)``) in about
+    twenty places: passing the keywords unconditionally turned every one of those
+    doubles into a ``TypeError``, which ``wire_mcp_into_session``'s degradation
+    handler then reported as "no MCP tools" — silent, and 22 tests red on the PR
+    head (QA Q3). The same shape reaches any embedder's own discovery wrapper, so
+    the seam tolerates a callee that predates it instead of demanding it grow two
+    parameters: a callee declaring both names (the real function) gets both, a
+    callee taking ``**kwargs`` gets both, and a pre-seam callee gets exactly the
+    call it was written for.
+
+    What that costs is stated rather than implied: for such a callee the seam is
+    NOT applied, so its manager resolves against the process config dir and
+    registers no redaction sink. That is correct for a double (which returns its
+    own canned result and builds no manager) and is why the fallback is a
+    signature probe rather than a ``try``/``except TypeError`` retry — a retry
+    would also swallow a ``TypeError`` raised from inside the real discovery.
+    """
+    try:
+        parameters = inspect.signature(callee).parameters
+    except (TypeError, ValueError):  # a C callable: assume it takes the seam
+        return dict(candidates)
+    if any(param.kind is inspect.Parameter.VAR_KEYWORD for param in parameters.values()):
+        return dict(candidates)
+    return {name: value for name, value in candidates.items() if name in parameters}
+
+
+async def wire_mcp_into_session(
+    session: Session,
+    builtin_tools: list[AgentTool],
+    cwd: str,
+    knowledge_hooks: _KnowledgeHooks | None = None,
+    auth_store: AuthStore | None = None,
+    *,
+    has_ui: bool = False,
+    _deferred_boot: bool = False,
+) -> McpManager | None:
+    """Discover MCPs but expose their schemas only after explicit reads.
+
+    Startup connects and caches servers exactly as before, but the session
+    begins with its non-MCP tools only. A bounded ``<mcps>`` catalogue tells
+    the model which servers exist. ``read mcp://<server>`` lists tools without
+    loading schemas; ``read mcp://<server>/<tool>`` activates exactly one tool.
+    Live list-changed events refresh only schemas the model already selected.
+    This keeps an unused MCP server at O(server names), not O(all tool schemas),
+    on every provider request.
+
+    ``has_ui`` selects how failures are announced, never whether they are
+    recorded. Full-screen clients read ``session.mcp_startup``; headless callers
+    get the warning on stderr. Any failure degrades to an empty catalogue, so
+    MCP enrichment never becomes a session startup requirement. Returns the
+    manager for the caller to dispose, or ``None``.
+    """
+    from local_operator.session.mcp_status import MCP_DISCOVERY_KEY, McpStartupOutcome
+
+    if knowledge_hooks is None:
+        knowledge_hooks = _KnowledgeHooks()
+
+    try:
+        from local_operator.mcp import discover_and_load_mcp_tools
+        from local_operator.mcp.manager import MCP_SDK_MISSING_ERROR
+    except ImportError:
+        if not has_ui:
+            print(
+                "\033[1;33mWarning: MCP support unavailable, continuing without MCP tools\033[0m",
+                file=sys.stderr,
+            )
+        # This does NOT catch a missing MCP SDK. Every SDK import in the package
+        # is either ``TYPE_CHECKING`` or function-local, so ``local_operator.mcp``
+        # imports cleanly with the SDK absent and that case lands in the error
+        # loop below instead. What reaches here is our OWN package failing to
+        # import — a partial or broken install. An EMPTY outcome is still the
+        # right record for it: without the config layer we cannot read the config
+        # files, so we do not know whether this machine wanted MCP at all, and
+        # "MCP is broken" on a host that never used it is noise.
+        session.mcp_startup = McpStartupOutcome()
+        if _deferred_boot:
+            _fire_mcp_sink(session)
+        return None
+
+    try:
+        # The owner's config root (which store the references resolve against) and
+        # its redaction sink, taken from the session rather than defaulted: a
+        # manager built without them would read the wrong store and register
+        # nothing for the MCP sinks to scrub. Both are getattr-probed because a
+        # reduced host may implement neither, and the manager treats `None` as
+        # "no registration" rather than requiring a stub.
+        variables = getattr(session, "variables", None)
+        manager, mcp_tools, errors = await discover_and_load_mcp_tools(
+            cwd,
+            auth_store=auth_store,
+            **_accepted_kwargs(
+                discover_and_load_mcp_tools,
+                secret_base=getattr(session, "config_dir", None),
+                register_secret=getattr(variables, "register_redaction", None),
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 — degradation is the contract
+        # Discovery raising IS reportable, unlike the import gap above: reaching
+        # this line means the config layer was present and still could not be
+        # read, so the user has an MCP setup that is not working.
+        if not has_ui:
+            print(
+                f"\033[1;33mWarning: MCP discovery failed, continuing without MCP tools: "
+                f"{exc}\033[0m",
+                file=sys.stderr,
+            )
+        session.mcp_startup = McpStartupOutcome(failures={MCP_DISCOVERY_KEY: str(exc)})
+        if _deferred_boot:
+            _fire_mcp_sink(session)
+        return None
+
+    # One pass over the error entries: the record keys on the BARE server name
+    # (the discovery wrapper reports paths as ``mcp:<server>``) because that is
+    # what the user typed in ``.mcp.json`` and what ``/mcp`` lists back. Entries
+    # WITHOUT that prefix are the layer failing rather than a server — the
+    # wrapper's synthetic hard-failure entry says ``.mcp.json`` — so they take
+    # the same key the raising arm above uses. One synthetic key, not three
+    # spellings of "not a server".
+    failures: dict[str, str] = {}
+    for entry in errors:
+        path = str(entry.get("path", "?"))
+        message = str(entry.get("error", "unknown error"))
+        failures[path.partition("mcp:")[2] or MCP_DISCOVERY_KEY] = message
+
+    failures = _collapse_sdk_missing_failures(failures, MCP_DISCOVERY_KEY, MCP_SDK_MISSING_ERROR)
+
+    settling = False
+    try:
+        settling = manager.startup_settling()
+    except Exception:  # noqa: BLE001 — a missing accessor must not break wiring
+        logger.debug("MCP startup_settling() unavailable", exc_info=True)
+
+    # Which of ``failures`` were the NETWORK, read beside the settling flag and
+    # NOT through the manager's public map: this wiring is exercised with
+    # reduced manager doubles, and an accessor a double does not implement must
+    # degrade to "nothing was recorded as connectivity" — which renders exactly
+    # the pre-change copy — rather than take the whole MCP startup wiring down
+    # with an AttributeError. Taken as a frozenset here so the outcome's field
+    # type is the same on both the gate snapshot and the settle re-report.
+    network_failures: frozenset[str] = frozenset()
+    try:
+        network_failures = frozenset(
+            name for name in manager.startup_network_failures() if name in failures
+        )
+    except Exception:  # noqa: BLE001 — a missing accessor must not break wiring
+        logger.debug("MCP startup_network_failures() unavailable", exc_info=True)
+
+    # Headless callers are one-shot and do not stay alive for the settle
+    # re-report, so they print what the gate knows. But a PROVISIONAL failure
+    # (a server still connecting past the gate) must not be announced as a hard
+    # failure on stderr either — the same false alarm the toast used to raise.
+    # While settling, print only the failures already terminal at the gate; a
+    # server still deferred is neither connected nor failed yet, and its entry
+    # (if any) is a not-yet-final one the settled re-report owns.
+    if not has_ui and not settling:
+        for name, message in failures.items():
+            subject = "MCP discovery" if name == MCP_DISCOVERY_KEY else f"MCP server {name}"
+            print(f"\033[1;33mWarning: {subject}: {message}\033[0m", file=sys.stderr)
+
+    session.mcp_startup = McpStartupOutcome(
+        configured=tuple(manager.get_all_server_names()),
+        connected=tuple(manager.get_connected_servers()),
+        failures=failures,
+        tool_count=len(mcp_tools),
+        settling=settling,
+        network_failures=network_failures,
+    )
+    # The gate snapshot above is also the moment the wiring's MANAGER first
+    # exists. On the deferred boot path the TUI adopted the session before
+    # this line ran, found ``mcp_manager`` None, and installed its settle
+    # sink in that state — so tell it now. Without this hop the sink waits
+    # for SETTLE, which a manager with nothing deferred never fires: the
+    # band's live subscriptions and the boot toast would depend on a
+    # callback that a fast, fully-connected round never triggers.
+    # FIRED ONLY on the deferred boot path (``_deferred_boot``): there the
+    # front end adopted the session before this wiring ran, and the sink it
+    # installed in that state is the one route the wiring's completion has
+    # back into the app. The synchronous path keeps its existing contract
+    # — the sink fires on SETTLE only, exactly as the factory's settle test
+    # pins — because an already-adopted session gets its live wiring from
+    # the caller's own return path, not from a mid-function nudge.
+    if _deferred_boot:
+        _fire_mcp_sink(session)
+
+    # Re-report once the round settles: the boot snapshot above was taken at the
+    # 250 ms gate while OAuth HTTP servers were still connecting. When the last
+    # deferred server reaches a terminal state, rebuild ``session.mcp_startup``
+    # from the manager's COMBINED tally (every failure, the final connected set)
+    # and hand it to whatever front-end sink the session installed. Wired even
+    # when ``settling`` is False right now: a fast machine can still defer a
+    # server between this read and the callback install, and an unused callback
+    # is free.
+    def _on_startup_settled() -> None:
+        # A deferred server's tools arrive WITH the settle, so an opted-in server
+        # that missed the gate is picked up here rather than never — the cold
+        # cache case, where the connect outlasts the 250 ms gate. Guarded
+        # separately from the report below: a preload fault must not cost the
+        # front end its settle report, which is the failure this callback exists
+        # to deliver.
+        try:
+            apply_preload(manager.get_tools())
+        except Exception:  # noqa: BLE001 — a preload fault must not disarm the report
+            logger.debug("MCP preload on settle failed", exc_info=True)
+        try:
+            settled_failures = _collapse_sdk_missing_failures(
+                manager.startup_failures(), MCP_DISCOVERY_KEY, MCP_SDK_MISSING_ERROR
+            )
+            # Guarded exactly like the gate snapshot's read: a reduced manager
+            # double (or a host whose manager predates the accessor) must lose
+            # the grouping, not the settled re-report that is the ONLY surface
+            # a network failure reaches when it misses the startup gate.
+            settled_network: frozenset[str] = frozenset()
+            try:
+                settled_network = frozenset(manager.startup_network_failures())
+            except Exception:  # noqa: BLE001 — a missing accessor must not break wiring
+                logger.debug("MCP startup_network_failures() unavailable", exc_info=True)
+            # ``_collapse_sdk_missing_failures`` may fold the failure map down to
+            # the single ``discovery`` key, and a name it dropped must not
+            # survive in the network set as a phantom: the toast asks "are ALL
+            # the reported failures network ones", so a stale name beside an
+            # SDK-less single entry is still not a network story.
+            settled_network = frozenset(
+                name for name in settled_network if name in settled_failures
+            )
+            outcome = McpStartupOutcome(
+                configured=tuple(manager.get_all_server_names()),
+                connected=tuple(manager.get_connected_servers()),
+                failures=settled_failures,
+                tool_count=len(manager.get_tools()),
+                settling=False,
+                network_failures=settled_network,
+            )
+        except Exception:  # noqa: BLE001 — a settle rebuild must never break the manager
+            logger.debug("MCP settled outcome rebuild failed", exc_info=True)
+            return
+        # A declaration made while servers were still connecting had nothing to
+        # grant (see ``Session.materialize_declared_tools``). Re-run it now that
+        # the round has settled, so a bounded runtime never ends up with its
+        # declaration enforced and its declared MCP tools still unreachable.
+        materialize = getattr(session, "materialize_declared_tools", None)
+        if callable(materialize):
+            try:
+                materialize()
+            except Exception:  # noqa: BLE001 — a grant must not break the settle path
+                logger.debug("declared-tool materialization failed", exc_info=True)
+        session.mcp_startup = outcome
+        if hasattr(session, "_frontend_state_store"):
+            session.refresh_frontend_state()
+        if not has_ui:
+            # A late failure that the gate never printed still deserves the
+            # stderr line the settling guard above withheld.
+            for name, message in settled_failures.items():
+                subject = "MCP discovery" if name == MCP_DISCOVERY_KEY else f"MCP server {name}"
+                print(f"\033[1;33mWarning: {subject}: {message}\033[0m", file=sys.stderr)
+        sink = getattr(session, "_on_mcp_startup_settled", None)
+        if sink is not None:
+            try:
+                sink(outcome)
+            except Exception:  # noqa: BLE001 — a UI hook must never break the manager
+                logger.debug("session _on_mcp_startup_settled raised", exc_info=True)
+
+    manager.on_startup_settled = _on_startup_settled
+
+    # The NON-MCP base is READ BACK from the session on every refresh, not
+    # snapshotted once. Session capability tools live in that inventory even
+    # though ``builtin_tools`` predates them, and some of them are merged in
+    # AFTER this wiring runs: the TUI installs its ask handler in
+    # ``_adopt_session``, long after the factory returned, and a frozen base
+    # would silently un-advertise ``ask`` again the first time the model
+    # activated any MCP tool. What is subtracted is the set this function last
+    # installed itself, so classification never depends on ``get_tool_meta``
+    # still answering for a server that has since dropped away. The snapshot
+    # below survives only as the fallback for a host that exposes no inventory
+    # to read back.
+    base_inventory = list(
+        getattr(session, "_tools", None) or getattr(session, "tools", None) or builtin_tools
+    )
+    installed_mcp: set[str] = set()
+    enabled_origins: set[tuple[str, str]] = set()
+    deferred_origins: set[tuple[str, str]] = set()
+    setattr(session, "_mcp_deferred_origins", deferred_origins)
+
+    def selected_tools(source: list[AgentTool]) -> list[AgentTool]:
+        selected: list[AgentTool] = []
+        for tool in source:
+            meta = manager.get_tool_meta(tool.name) or {}
+            origin = (str(meta.get("server_name", "")), str(meta.get("mcp_tool_name", "")))
+            if origin in enabled_origins:
+                selected.append(tool)
+        return selected
+
+    def refresh_selected(source: list[AgentTool]) -> bool:
+        """Rebind the session's inventory to the currently selected MCP tools.
+
+        Returns whether the swap reaches the NEXT MODEL CALL, for the resolver's
+        reply (see ``Session.refresh_tools``): the tools array is published at
+        most ONCE per turn, so a grow or a shrink that lands after this turn's
+        first provider call is deferred to the next turn.
+
+        A REMOVAL THEREFORE NEVER MOVES THE PUBLISHED ARRAY MID-TURN, which is
+        the rule ``Session._reconcile_web_tools`` follows and a shrink through
+        here used to bypass. The reason is the cache prefix: the tools array
+        rides ahead of the conversation, so removing one tool from it reprices
+        every message behind it. What IS immediate is the inventory — this still
+        swaps the live set, so the removed tool stops resolving at once and the
+        prompt's inventory block reports the change through its usual delta.
+
+        THE MODEL THAT CALLS THE SCHEMA IT CAN STILL SEE GETS A TYPED REFUSAL,
+        ``Tool not found: <name>`` (``harness/loop.py``'s synthetic unknown-tool
+        fault), not the tool's own answer. The approval gate runs only after a
+        tool RESOLVES, and nothing here resolves — the top-level fallback
+        resolver serves names in ``_mcp_deferred_origins`` only. That refusal is
+        the accepted cost of holding the array still, and the transport is why
+        it is the right one: a server that dropped away cannot answer for
+        itself, so leaving it resolvable would buy a transport error where the
+        model could have had a planning refusal. ``_reconcile_web_tools``
+        reaches the opposite conclusion about the INVENTORY on the same class of
+        edit — it defers that change to the turn boundary — because a web tool
+        that is still resolvable has a per-call gate that answers "disabled";
+        see its docstring. The two policies differ on purpose.
+        """
+        live = list(getattr(session, "_tools", None) or getattr(session, "tools", None) or ())
+        base = [tool for tool in live if tool.name not in installed_mcp] or base_inventory
+        selected = selected_tools(source)
+        installed_mcp.clear()
+        installed_mcp.update(tool.name for tool in selected)
+        return session.refresh_tools(base + selected)
+
+    def activate(server_name: str, raw_tool_name: str) -> bool:
+        enabled_origins.add((server_name, raw_tool_name))
+        return refresh_selected(manager.get_tools())
+
+    def preload_opted_in_tools(source: list[AgentTool]) -> bool:
+        """Activate the whole inventory of every server that opted into it.
+
+        WHY THIS EXISTS. MCP tools are lazy by design: a server's schemas are a
+        permanent per-request context tax, so a tool enters ``session.tools``
+        only once a ``read mcp://`` enables it. That default is right for a
+        situational server and wrong for one whose workflow NAMES its tools — a
+        tool the model cannot see is a tool the model does not use, so on such a
+        workflow laziness degrades the work instead of saving context. A server
+        whose config sets ``preload_tools`` says it is the second kind.
+
+        THE ALLOWLIST STILL WINS, and not by a re-check here: the manager applies
+        ``disabled_tools``/``enabled_tools`` when it BUILDS a tool, before this
+        ever sees it, so an excluded tool is not in ``source`` at all (see
+        ``McpManager._tool_is_enabled``, which filters cached/deferred and live
+        tools alike). Re-filtering here would be a second, weaker copy of a rule
+        the manager already enforces at the one place it cannot be bypassed.
+
+        Returns True when the selected set grew, so a caller can skip a needless
+        tool-list rebind when nothing changed.
+        """
+        added = False
+        for tool in source:
+            meta = manager.get_tool_meta(tool.name) or {}
+            server_name = str(meta.get("server_name", ""))
+            raw_name = str(meta.get("mcp_tool_name", ""))
+            if not server_name or not raw_name:
+                continue
+            cfg = manager.get_server_config(server_name)
+            if cfg is None or not bool(getattr(cfg, "preload_tools", False)):
+                continue
+            if (server_name, raw_name) not in enabled_origins:
+                enabled_origins.add((server_name, raw_name))
+                added = True
+        return added
+
+    def apply_preload(source: list[AgentTool]) -> None:
+        """Grow the selection for opted-in servers, rebinding only if it grew."""
+        if preload_opted_in_tools(source):
+            refresh_selected(manager.get_tools())
+
+    from local_operator.mcp.resources import make_mcp_resolver, render_mcp_catalogue
+
+    def defer(server_name: str, raw_tool_name: str) -> None:
+        deferred_origins.add((server_name, raw_tool_name))
+
+    prior = getattr(session, "_fallback_tool_resolver", None)
+
+    def resolve_deferred(name: str) -> AgentTool | None:
+        for tool in manager.get_tools():
+            meta = manager.get_tool_meta(tool.name) or {}
+            origin = (str(meta.get("server_name", "")), str(meta.get("mcp_tool_name", "")))
+            if tool.name == name and origin in deferred_origins:
+                return tool
+        return prior(name) if prior is not None else None
+
+    if hasattr(session, "set_fallback_tool_resolver"):
+        session.set_fallback_tool_resolver(resolve_deferred)
+    knowledge_hooks.mcp_resolver = make_mcp_resolver(manager, activate, defer=defer)
+    # Once the manager exists, compaction-time reselection sees reloads. The
+    # already frozen first-task block remains byte-stable until compaction.
+    knowledge_hooks.mcp_catalogue = lambda query: render_mcp_catalogue(manager, query)
+    # Same freshness, for the classification roster. ``_seed_mcp_routing`` fills
+    # the names from the config before any connection work; the manager's own
+    # list is the configured set as it stands NOW, so a reload between the two
+    # cannot leave the catalogue naming a server the roster does not offer. The
+    # roster's cache key includes these names, so the refresh is what rebuilds
+    # it.
+    knowledge_hooks.mcp_server_names = tuple(manager.get_all_server_names())
+
+    def on_tools_changed(new_mcp_tools: list[AgentTool]) -> None:
+        # Reconnects and tools/list_changed can replace AgentTool objects. Keep
+        # the selected origins and swap in only their fresh schemas.
+        # Preload FIRST, so a reconnect that brings a previously-deferred opted-in
+        # server online surfaces its tools in this same rebind rather than one
+        # event later — the server's tools becoming reachable is exactly the
+        # moment an opted-in server expects to see them.
+        preload_opted_in_tools(new_mcp_tools)
+        refresh_selected(new_mcp_tools)
+        if hasattr(session, "_frontend_state_store"):
+            session.refresh_frontend_state()
+
+    manager.set_on_tools_changed(on_tools_changed)
+    # The initial pass, AFTER the callback is installed so a server that settles
+    # during it cannot slip between the two. Servers still past the gate
+    # contribute nothing yet; ``_on_startup_settled`` picks those up below, which
+    # is what makes preload work on a cold cache where the connect outlasts the
+    # 250 ms gate.
+    apply_preload(manager.get_tools())
+    return manager
+
+
+def attach_mcp_dispose(session: Session, manager: McpManager) -> None:
+    """Fold ``manager.disconnect_all()`` into the session's dispose path.
+
+    The CLI/TUI/exec all call ``session.dispose()`` exactly once, so hanging
+    MCP teardown off it tears the servers down everywhere without teaching
+    each caller about the manager. The manager is also exposed as
+    ``mcp_manager`` for diagnostics.
+    """
+    # BEFORE the disconnect hook, deliberately: dispose runs hooks in
+    # REGISTRATION order, and ``disconnect_all`` bumps the manager's epoch, so
+    # the revalidation poller has to be cancelled first or a tick could register
+    # a connection into a manager that is tearing down.
+    #
+    # ``disconnect_all`` also DRAINS the refresh exchanges its cancellation
+    # detached, so a rotation still in flight is persisted — which is only
+    # possible because the credential store's own close is registered
+    # ``last=True`` (``attach_auth_dispose``) and therefore runs after this
+    # hook, whatever order the two were registered in. That pairing is the fix
+    # for the lost rotation (see ``attach_auth_dispose``); it is noted here
+    # because this is the hook whose writes depend on it.
+    _attach_mcp_auth_revalidation(session, manager)
+    session.add_dispose_hook(manager.disconnect_all)
+    session.mcp_manager = manager
+    if hasattr(session, "_frontend_state_store"):
+        # GUARDED like its sibling in ``_fire_mcp_sink``, and for a sharper
+        # reason than symmetry: this runs from the same task that swallows
+        # exceptions (``_wire_mcp_background`` logs "background MCP wiring
+        # failed" and carries on), and it sits BETWEEN ``disconnect_all``'
+        # registration above and the two sink installs below. An unguarded raise
+        # here therefore skips the incident and recovery sinks ENTIRELY — no
+        # death notice and no healing notice, on every host, including the ones
+        # this composition root exists to serve — while the only trace is one
+        # warning about wiring (review round 1, MINOR-1 / QA Q1). The push is a
+        # UI/store concern and must not be able to disarm the manager's sinks.
+        try:
+            session.refresh_frontend_state()
+        except Exception:  # noqa: BLE001 — a store push must not disarm the sinks
+            logger.warning("MCP outcome refresh of the frontend store failed", exc_info=True)
+    # Breaker incidents become session incidents: the model learns a server's
+    # tools are gone instead of hammering them (MCP-07's observable half).
+    manager.on_incident = session._on_mcp_incident
+    # ...and the RECOVERY half, installed here rather than in the TUI for the
+    # same reason the failure is: this is the composition root every host goes
+    # through, so a CLI, headless, exec or server session gets the notice too.
+    # A recovery bolted onto the TUI's ``/mcp login`` worker would cover one of
+    # the six routes back to a usable server and leave every other host holding
+    # a death notice for a server that came back \u2014 the asymmetry itself was
+    # the bug. Subagents deliberately do NOT reach this function (they BORROW
+    # the parent's manager), so a child never overwrites the parent's sink.
+    manager.on_recovery = session._on_mcp_recovery
+
+
+def _attach_mcp_auth_revalidation(session: Session, manager: McpManager) -> None:
+    """Poll the SHARED credential store for servers this session gave up on.
+
+    The credential store is shared by every running process; propagation of a
+    fresh grant was not. A session that hit an auth failure held the server
+    blocked for its entire lifetime, so completing ``/mcp reauth`` in one
+    session left every other running session dead — measured on this machine as
+    sessions booted at 08:52 still reporting ``notion [disconnected]`` at 13:30
+    against a grant re-authed at 12:31 with eight hours of life left.
+
+    It lives HERE, beside ``on_incident``/``on_recovery``, for the reason those
+    do: this is the composition root every host goes through, so the CLI,
+    headless, exec and server hosts heal too. Bolting it onto the TUI would
+    cover one of six routes. Subagents deliberately never reach this function
+    (they BORROW the parent's manager), so a child starts no second poller
+    against its parent's servers — adding the task anywhere else loses that.
+
+    Degrades to "this host does not revalidate" rather than failing the boot
+    when there is no running loop, exactly as ``attach_config_watch`` does: a
+    synchronous embedding is left as it was before this seam existed.
+    """
+    # Imported here rather than at module scope: ``McpManager`` itself is a
+    # TYPE_CHECKING-only import in this module, and the MCP package is an
+    # optional extra, so an install without it must still import the factory.
+    from local_operator.mcp.manager import AUTH_REVALIDATE_INTERVAL_S
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.debug("no running loop: MCP auth revalidation not attached")
+        return
+
+    async def _revalidate_forever() -> None:
+        while True:
+            await asyncio.sleep(AUTH_REVALIDATE_INTERVAL_S)
+            try:
+                healed = await manager.revalidate_auth_blocked()
+            except Exception:  # noqa: BLE001 — a poll must never kill the session
+                logger.debug("MCP auth revalidation tick failed", exc_info=True)
+                continue
+            if healed:
+                logger.info("MCP servers recovered after a peer re-auth: %s", ", ".join(healed))
+
+    task = loop.create_task(_revalidate_forever())
+    # Cancelled through the SAME dispose helper the boot wiring uses, which
+    # AWAITS the task's quietus so a tick already inside a connect finishes its
+    # own cleanup. ``revalidate_auth_blocked`` also re-checks ``_disposed`` and
+    # the epoch after its await, as every other reconnect path does, so the
+    # ordering above is defence in depth rather than the only guard.
+    session.add_dispose_hook(_cancel_task(task))
+
+
+def _cancel_task(task: "asyncio.Task[Any]") -> Callable[[], Awaitable[None] | None]:
+    """A dispose hook that cancels one task and awaits its quietus.
+
+    Used for the TUI boot path's background MCP wiring: a session disposed
+    while wiring is still in flight must not leave the task running against
+    a torn-down session (the wiring writes ``session.mcp_startup`` and merges
+    tools into it). Returning an awaitable is part of the dispose-hook
+    contract — hooks may be coroutines — so the cancellation is AWAITED
+    before the rest of teardown proceeds, and a wiring coroutine already
+    inside ``wire_mcp_into_session`` gets to run its own finally blocks.
+    """
+
+    async def _hook() -> None:
+        if not task.done():
+            task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 — teardown proceeds
+            pass
+
+    return _hook
+
+
+def attach_classification_dispose(session: Session, hooks: "_KnowledgeHooks | None") -> None:
+    """Fold the classification seam's ``aclose()`` into the session's dispose path.
+
+    The shipped service opens ONE keep-alive ``httpx.AsyncClient`` per session
+    (that client is §5a rule 3 — a fresh TCP + TLS handshake per call would spend
+    the whole latency budget before the request left the process) and memoizes the
+    resolved credential and the roster lines for that session's life. Its
+    ``aclose`` is documented as "the session owner calls this on dispose", and
+    this is that owner: the composition root every front end goes through, beside
+    ``attach_auth_dispose`` and ``attach_stream_dispose``, which exist for the
+    same reason. Without it the pool and the memos are pinned once per SESSION,
+    and the server and phone planes keep sessions alive for hours.
+
+    Registered as ``getattr`` rather than typed onto the seam, matching
+    ``attach_auth_dispose`` and ``attach_stream_dispose`` beside it: a host's own
+    classifier need not publish an ``aclose``, and an injected test double
+    typically does not. A seam without one
+    is not an error — it simply owns no resource this harness has to release.
+
+    ONE hook, in ONE order, and the order is the point. The calls this session left
+    running are cancelled FIRST, before anything closes the client they are using:
+    with ``waitMs`` at its 50 ms default against a ~250 ms answer, a session disposed
+    right after a message always has one in flight, and closing the keep-alive client
+    under it turned that call into a transport error with a traceback — an answer
+    nobody could use any more, reported as a failure (review round 2, MINOR 2). The
+    service's own ``aclose`` cancels what it still has in flight for the same
+    reason; this half cancels the wiring's wrappers so the session lets go of them
+    too.
+
+    The seam is resolved AT DISPOSE TIME rather than captured here, because it is an
+    injectable attribute (``hooks.classifier``) and a hook that closed the object
+    that happened to be there at REGISTRATION would leave a host's injected seam
+    open. That is not hypothetical: the test that covers this path swaps the seam
+    after ``create_session`` returns, which is the documented way to inject one, and
+    the captured-bound-method version sailed straight past it.
+    """
+    if hooks is None:
+        return
+
+    def _release_the_seam() -> Any:
+        """Cancel what is running, then close the seam. Returns the awaitable."""
+        for call in hooks.classification_outstanding:
+            if not call.task.done():
+                call.task.cancel()
+        hooks.classification_outstanding.clear()
+        hooks.classification_pending.clear()
+        # ``getattr`` rather than a typed call, matching ``attach_auth_dispose`` and
+        # ``attach_stream_dispose``: a host's own classifier need not publish
+        # an ``aclose``, and a seam without one simply owns no resource this harness
+        # has to release. The returned value is handed straight back to the dispose
+        # runner, which awaits what it gets (``Session.dispose``).
+        close = getattr(hooks.classifier, "aclose", None)
+        return close() if callable(close) else None
+
+    session.add_dispose_hook(cast("Callable[[], Awaitable[None] | None]", _release_the_seam))
+
+
+def attach_auth_dispose(session: Session, auth_store: AuthStore | None) -> None:
+    """Fold ``auth_store.close()`` into the session's dispose path (CL-08).
+
+    The ``AuthStore`` opens a SQLite connection per session; every front end
+    calls ``session.dispose()`` exactly once, so registering here guarantees
+    the connection (and its file lock) is released everywhere without
+    teaching each caller.
+
+    Registered ``last=True``, and that is a correctness property rather than a
+    tidy-up: this store is what MCP teardown WRITES to. A refresh exchange
+    detached mid-POST when the session began disposing still persists the
+    authorization server's rotation seconds later — the response is the only
+    copy of the new refresh token — and closing the store first swallowed that
+    write at DEBUG while ``store_refresh_result`` still reported success,
+    leaving the row holding the SPENT token plus a live
+    ``grant_refresh_unconfirmed`` marker. Every later connect then refused to
+    refresh for up to an hour and told the user to run ``/mcp reauth``, which
+    deletes the credential and demands a browser grant; measured on this machine
+    as 96 refusal lines / 48 refused connects over 14.4 h across the four
+    servers whose access tokens live 30-60 minutes. So the store must outlive
+    both ``manager.disconnect_all`` and the bounded refresh drain that follows
+    it, and it must do so WITHOUT depending on the order the MCP hooks happen to
+    be registered in — the deferred wiring path registers its own from a
+    background task, after this one, and a session disposed before that task
+    finished has no MCP hook at all.
+    """
+    if auth_store is None:
+        return
+    session.add_dispose_hook(auth_store.close, last=True)
+
+
+def attach_credential_binding(
+    session: Session,
+    recorder: Any | None,
+    auth_store: Any | None,
+    stream_fn: SessionStreamFn,
+) -> None:
+    """Bind the mesh credential binding recorder into the session's serve path.
+
+    Two feeds, one object (see ``session/credential_binding.py``): a
+    mesh-aware store gets the sink that reports a borrow with the owner's real
+    ``credential_id`` from the grant ref (and its own local branch's sticky
+    row), while the stream function gets the recorder for the PLAIN-store
+    direction — an owner device that borrows nothing still records the account
+    that serves it, off the same sticky read the boundary already takes.
+    ``auth_store`` is typed loosely on purpose: on borrow-capable roots it is
+    the ``MeshAwareAuthStore`` wrapper, which is not an ``AuthStore`` subclass,
+    and the seams installed are the optional ``set_serve_sink`` and
+    ``set_binding_reader``.
+
+    Slice B adds the other two directions of the same object: the store's
+    reader — resolution consults the newest row after the local tiers miss, and
+    to honour ``policy: owner`` (``store.set_binding_reader``) — and the
+    notice seam, where an account change journals ONE operator-visible row
+    through the session. The device id is bound here because it is the one fact
+    the rendering needs that neither row carries ("it is now using your login
+    on this device" vs "the owner moved"); the handler is optional for fake
+    sessions in tests.
+
+    A ``None`` recorder — every root without a placement document or without an
+    identity — wires nothing, so those sessions run byte-identical. Bound AFTER
+    construction because the runtime has to exist before it can be reported
+    into, and folded into dispose so a row the last turn left pending is
+    flushed rather than lost to teardown.
+    """
+    if recorder is None:
+        return
+    sink = getattr(auth_store, "set_serve_sink", None)
+    if callable(sink):
+        sink(recorder.observe_serve)
+    reader = getattr(auth_store, "set_binding_reader", None)
+    if callable(reader):
+        reader(recorder.recall_for)
+    install = getattr(stream_fn, "set_credential_binding", None)
+    if callable(install):
+        install(recorder)
+    notice = getattr(session, "_on_credential_binding_change", None)
+    if callable(notice):
+        # ``device_id`` is keyword-bound: the recorder's handler contract is
+        # ``(new, previous)`` — pinned by slice A's cells — and the recorder is
+        # the only object that knows which device "this device" is.
+        recorder.set_change_handler(functools.partial(notice, device_id=recorder.device_id))
+    session.add_dispose_hook(recorder.drain)
+
+
+def attach_stream_dispose(session: Session, stream_fn: SessionStreamFn) -> None:
+    """Fold the session's shared ``httpx.AsyncClient`` close into dispose.
+
+    ``create_stream_fn`` builds one client per session and hangs its close on
+    the returned object; without this seam the pool leaks for the process
+    lifetime (one per turn on the server facade).
+    """
+    session.add_dispose_hook(stream_fn.close)
+
+
+def attach_config_watch(session: Session, config_dir: Path) -> None:
+    """Subscribe ``session`` to live ``config.yml`` changes; unsubscribe on dispose.
+
+    The config-watch seam (see :mod:`local_operator.config_watch`). Starts the
+    PROCESS's watcher if this is the first session to ask — ``start`` is
+    idempotent, so a ``/new`` in the same process finds it running — and hangs
+    the session's listener on it. The watcher itself is process-scoped and is
+    NOT stopped on dispose: the next session in this process needs it, and the
+    loop closing reaps the task. Only the subscription is per-session, which
+    is why the unsubscriber and not a ``stop`` is the dispose hook.
+
+    Every front end (TUI, headless, exec worker, owned phone session) reaches
+    this through ``create_session``, so they all follow config for free.
+    ``AttachedSession`` followers never get here: the owner applies the change
+    and the follower renders what the owner projects.
+
+    Degrades to "this session does not follow config" on any failure rather
+    than failing the boot: a watcher that cannot start (no loop in an unusual
+    embedding, a config directory that cannot be opened) leaves the session
+    exactly as it was before this seam existed.
+    """
+    try:
+        from local_operator.config_watch import process_watcher
+
+        watcher = process_watcher(config_dir)
+        watcher.start(asyncio.get_running_loop())
+        session.add_dispose_hook(watcher.subscribe(session._apply_config_change))
+    except Exception:  # noqa: BLE001 — boot must not depend on the watcher
+        logger.warning("config watcher could not be attached to the session", exc_info=True)
+
+
+#: The module chain ``wire_mcp_into_session`` imports before its first await,
+#: plus the chain its discovery path imports later (``local_operator.mcp.manager``
+#: reaches ``local_operator.mcp.auth`` at module scope, and the connect path
+#: imports ``mcp.types`` from INSIDE a function, so it is paid on the first
+#: connect rather than at package import).
+#:
+#: The figures that made this a tuple with a comment: measured on a loaded host
+#: with a single HTTP server declared on a CLOSED port (nothing spawned, the
+#: refusal immediate), ``import local_operator.mcp.manager`` was 2.0-2.7 s and
+#: ``import mcp`` 8.3 s, and a loop-gap probe over the same wiring measured the
+#: event loop BLOCKED for 10.38 s of a 10.41 s span. The wiring is import time,
+#: not I/O, which is why ordering alone cannot make it cheap.
+_MCP_WIRING_IMPORTS: tuple[str, ...] = (
+    (
+        # ``wire_mcp_into_session``'s OWN function-local imports. They are not in the
+        # factory's warm list because nothing else on the boot path wants them.
+        "local_operator.session.mcp_status",
+        "local_operator.mcp",
+    )
+    + tuple(
+        # ... DERIVED from the factory's own warm list rather than restated. The two
+        # lists describe the same import chain, and a second hand-maintained copy is
+        # how they would drift: add a module to the wiring and the loop stall comes
+        # back silently, with every gate still green because the correspondence is
+        # what proves the warm covers the wiring's synchronous prefix.
+        name
+        for name in _WARM_IMPORTS
+        if name == "mcp" or name.startswith("local_operator.mcp")
+    )
+    + (
+        # The SDK submodules the discovery path imports from INSIDE functions, so
+        # they are paid on the first connect rather than at package import and the
+        # factory's list cannot see them.
+        "mcp.types",
+        "mcp.client.stdio",
+        "mcp.client.streamable_http",
+    )
+)
+
+
+def _warm_mcp_wiring_imports() -> None:
+    """Import the MCP wiring's module chain, for a caller that is NOT the loop.
+
+    WHY THIS EXISTS, given the deferred wiring already exists. The deferral was
+    written so MCP cannot sit between the user and a bound session, and it did
+    not achieve that: the work is synchronous module import (see
+    ``_MCP_WIRING_IMPORTS``), so wherever it runs on a single-threaded loop it
+    takes the loop for that whole duration. The engaging client's own round
+    trips — the attach welcome, the prompt admission — queue behind it, so
+    moving it after publication moves the cost into the dial instead of removing
+    it (measured: ``dial`` absorbed 10.4 s while publication got 1.5 s earlier).
+
+    A worker thread is what keeps the loop serving. The import costs the same
+    wall time and the same CPU; what changes is that the process keeps answering
+    while it happens.
+
+    Failures are swallowed PER MODULE on purpose: a machine without the MCP SDK
+    is a supported configuration, and ``wire_mcp_into_session`` already handles
+    its absence and records an outcome. A warm that raised would replace that
+    recorded degradation with a boot fault.
+    """
+    import importlib
+
+    for name in _MCP_WIRING_IMPORTS:
+        try:
+            importlib.import_module(name)
+        except Exception:  # noqa: BLE001 — an absent SDK is the wiring's own case
+            logger.debug("MCP import warm skipped %s", name, exc_info=True)
+
+
+async def create_session(
+    args: argparse.Namespace,
+    config_manager: ConfigManager,
+    agent_registry: AgentRegistry,
+    *,
+    has_ui: bool = False,
+    cwd: str | None = None,
+    _force_local_takeover: bool = False,
+    defer_mcp_wiring: bool = False,
+    mcp_publication_gate: "PublicationGate | None" = None,
+) -> "SessionProtocol":
+    """Build a fully-wired harness session from parsed CLI args.
+
+    This is THE factory shared by ``cli.py`` (interactive TUI / headless
+    REPL), ``exec_mode.run_exec`` (foreground exec) and ``exec_worker``
+    (background exec). All engine modules are imported lazily inside; the
+    caller only needs the three legacy managers plus an argparse namespace
+    carrying ``hosting``, ``model``, ``agent_name``/``agent_id``, ``yolo``
+    and ``train``.
+
+    ``cwd`` is the session's working directory; ``None`` means the process
+    cwd (legacy behaviour). Hosts that must relocate a session (the
+    scheduler's per-agent directory) pass it explicitly instead of mutating
+    the process-global cwd across awaits — every other session builder in
+    the same process would otherwise read the wrong directory.
+
+    ``defer_mcp_wiring`` is the TUI boot path's OPT-IN to having MCP servers
+    wired in the background after the session is returned, so the first
+    frame does not wait for the 250 ms discovery gate. Every other caller
+    keeps the old contract — a returned session has MCP wiring completed
+    (or degraded and recorded) — because headless/exec runs have no front
+    end to re-read ``mcp_startup`` when the background round settles; they
+    would silently miss both the tool merge and the failure report. The
+    deferral is safe for the TUI only because MCP tools are lazy by default
+    (see :func:`wire_mcp_into_session`): a turn started before wiring
+    settles sees the same non-MCP tool surface as a session whose servers
+    missed the gate today, and the ``refresh_selected`` merge lands
+    mid-session exactly as a late ``list_changed`` event already does. A server
+    that opted into ``preload_tools`` is no exception — its tools land through
+    that same mid-session merge, one wiring pass later, because its schemas
+    cannot exist before its connection does.
+
+    ``mcp_publication_gate`` is the RUNTIME CHILD's half of that deferral,
+    and it exists because deferring the dispatch did not defer the work. The
+    background task's first instruction is a function-local import of the MCP
+    SDK plus the config parse, and a task cannot run until the loop is free —
+    in ``process.amain`` the first free instant is ``await
+    _drain_inbox_into(handle)``, which sits BEFORE ``RecordPublisher``. So a
+    declared server's SDK import ran to completion inside the pre-publication
+    window anyway: measured 2.3 s on a machine with two servers declared, in
+    14 of 14 runs, all of it before the record was written and therefore in
+    front of the user. ``spawn_owned_session`` passes an event here and
+    ``RuntimeServer._serve`` sets it the moment the record exists, so the
+    wiring starts where ``serving.spawn_owned_session`` says it should —
+    after the record, riding it.
+
+    ``None`` means NO GATE, and that default is the whole safety of this change:
+    a latch that applied to a caller which never publishes a record would park
+    its MCP wiring for the session's life — MCP silently never wired, which is
+    the failure the latch exists to prevent, arrived at from the other side. So
+    the gate is only ever created by ``spawn_owned_session``, the one spawn site
+    whose runtime publishes.
+
+    Who exercises the ungated path in this tree: ``tests/`` (it is the default),
+    and two operator scripts that build an in-process Session for a screenshot
+    or a cleanup sweep (``scripts/evidence_session_cleanup.py``,
+    ``scripts/cleanup_notice_shot.py``). The TUI process does NOT — on this
+    release its owner path is gone from ``lop`` (see ``cli.py``'s "THE OWNER
+    PATH IS GONE" note, which says the TUI process never builds a ``Session``)
+    and no TUI code passes ``defer_mcp_wiring=True``, so nothing about the
+    TUI's own import behaviour changes here. The ungated branch is kept as the
+    default because it is the honest answer for a caller with no publisher,
+    not because a TUI depends on it.
+
+    Raises ``ValueError`` (caught by the CLI's red-banner handler) when the
+    hosting/model configuration is missing.
+    """
+
+    # Create the agent's working-directory home HERE, lazily, rather than
+    # unconditionally in main() before dispatch (where it hardcoded the path
+    # and ignored the override). A session is a path that actually runs a task,
+    # so an agent whose cwd is the default ``~/local-operator-home`` has a real
+    # directory to land in. Best-effort: a session must not fail to build just
+    # because the workspace root could not be created (a read-only home), so a
+    # creation error degrades to the process cwd the same way an unset cwd does.
+    from local_operator.paths import ensure_agent_home_dir
+    from local_operator.session.session import Session
+
+    try:
+        ensure_agent_home_dir()
+    except OSError:
+        pass
+
+    effective_cwd = cwd if cwd is not None else os.getcwd()
+
+    # A full-screen TUI resuming a session already owned elsewhere consumes
+    # that owner's v4 event relay through AttachedSession. This lives at the
+    # shared session-factory seam (not in cli.py) so cold ``--resume`` and any
+    # future TUI launcher cannot accidentally construct a second writer or
+    # invent another attach UI. Headless/exec callers still take the lease and
+    # get the existing refusal: they have no full front end to host the facade.
+    resume_id = getattr(args, "resume", None)
+    if resume_id is not None and not _force_local_takeover:
+        from local_operator.mobile.attach_client import find_runtime_record
+        from local_operator.session.attached import AttachedSession
+        from local_operator.session.remote_open import (
+            open_remote_viewer,
+            remote_row_for,
+            unreachable_peer_sentence,
+        )
+
+        root = Path(agent_registry.config_dir)
+        # A SESSION ANOTHER DEVICE HOLDS IS NOT LOOKED UP HERE (mesh build plan §0
+        # finding 2), and WHICH RUN CAN OPEN IT is decided in one place rather than
+        # in a caller's claim about itself. The peer lookup is cache-first and pays
+        # one ``is_dir`` for a local id, so asking it unconditionally is the cheap
+        # half of the same question the CLI's pre-check already asked.
+        peer_row = await asyncio.to_thread(remote_row_for, str(resume_id), root)
+        if peer_row is not None and not has_ui:
+            # NO FRONT END, SO NO VIEWER: a headless REPL or `--message` run hosts no
+            # attach UI, which is the rule the takeover refusal below states for the
+            # local case. Falling through instead reached ``resume_dir`` and reported
+            # "no session '<a peer's id>' to resume" — a TYPO on a conversation the
+            # sidebar lists — after the CLI's own pre-check had already promised to
+            # open it (measured, with the output piped).
+            label = peer_row.owner_label or peer_row.owner_device
+            if not peer_row.reachable:
+                raise ValueError(unreachable_peer_sentence(str(resume_id), peer_row))
+            raise ValueError(
+                f"{resume_id} lives on {label}, and this run has no full-screen front "
+                f"end to open a viewer in. Drive it with `lop network sessions --peer "
+                f"{label} --engage {resume_id}`, or bring it home with `lop sessions "
+                f"move {resume_id} --to local`."
+            )
+        if has_ui:
+
+            async def refuse_takeover() -> "SessionProtocol":
+                raise RuntimeError("a remote viewer never takes over a session")
+
+            remote_viewer = await open_remote_viewer(
+                str(resume_id),
+                config_dir=root,
+                takeover=refuse_takeover,
+                # THE ROW ALREADY RESOLVED, so the placement and the seed come from
+                # one read: a second lookup here would be a second chance for the
+                # two to disagree about which device holds the conversation.
+                row=peer_row,
+            )
+            if remote_viewer is not None:
+                return remote_viewer
+            record, owner = await asyncio.to_thread(find_runtime_record, root, str(resume_id))
+            if owner is not None and owner != os.getpid():
+                if record is None or record.protocol < 4:
+                    raise ValueError(
+                        f"session {resume_id} is open in an older Local Operator process "
+                        f"(pid {owner}); update or close it, then resume again"
+                    )
+
+                async def takeover_factory() -> "SessionProtocol":
+                    # Owner death is the one time this process may try the writer
+                    # path. The lease is still the arbiter: racing followers call
+                    # this concurrently, one wins, losers get SessionLeaseHeldError
+                    # and AttachedSession rediscovers the winner.
+                    return await create_session(
+                        args,
+                        config_manager,
+                        agent_registry,
+                        has_ui=True,
+                        cwd=effective_cwd,
+                        _force_local_takeover=True,
+                    )
+
+                return await AttachedSession.connect(
+                    record,
+                    str(resume_id),
+                    config_dir=root,
+                    takeover_factory=takeover_factory,
+                )
+
+    plan = await _prepare(
+        args,
+        config_manager,
+        agent_registry,
+        has_ui=has_ui,
+        cwd=effective_cwd,
+    )
+    try:
+        session = Session(**plan.session_kwargs)
+    except BaseException:
+        # Construction never transferred ownership to Session.dispose, so the
+        # factory must relinquish its generation without touching a successor.
+        if plan.session_lease is not None:
+            plan.session_lease.release()
+        raise
+    if plan.session_lease is not None:
+        session.add_dispose_hook(plan.session_lease.release)
+
+    # The classification roster's ``tool`` kind is derived from this session's
+    # FINAL tool inventory: ``Session.__init__`` has already merged the
+    # capability tools the factory's context could not build, and later
+    # inventory writes (MCP discovery, ``ask``) refresh the roster again — see
+    # ``Session.set_knowledge_hooks``. Attached before any turn can run, and
+    # before the seams below, so nothing reads a roster this factory could not
+    # have known (agent review round 1, PR #1863).
+    session.set_knowledge_hooks(plan.knowledge_hooks)
+
+    # THE SERVER-OWNED SHAPE OF A CONFIGURATION RUN, applied here rather than passed
+    # in by the caller that asked for one: `purpose` is a fact about the SESSION
+    # (it is in the marker), and this is the one place every front end's session is
+    # built, so a run cannot be created without its shape however it was launched.
+    # Before the seams below, deliberately: the tool declaration must be in force
+    # BEFORE MCP wiring can merge anything into the inventory (the wiring happens
+    # at the bottom of this function and re-filters through the declaration
+    # anyway), and the preamble must be on the volatile tail before the first
+    # frozen prefix is taken. See `apply_config_run_shape` for what it reads.
+    apply_config_run_shape(session)
+
+    # Auth seam (CL-08): the AuthStore's SQLite connection is owned by this
+    # session; fold its close into dispose so every front end releases the
+    # file lock on the single ``session.dispose()`` call.
+    attach_auth_dispose(session, plan.auth_store)
+    # Binding seam: the durable credential binding's recorder (when this root
+    # records bindings) reports into the store and the stream, and drains on
+    # dispose.
+    attach_credential_binding(
+        session,
+        plan.credential_binding,
+        plan.auth_store,
+        plan.session_kwargs["stream_fn"],
+    )
+    # Classification seam: the layer's keep-alive client and memos are released on
+    # dispose (there is no notice to bind any more — that render path is deleted).
+    # Stream seam: release the session's shared httpx connection pool on
+    # dispose (one leaked pool per turn on the server facade otherwise).
+    # The classification seam's client and memos are per SESSION, so the
+    # keep-alive client has to be released with everything else the root owns.
+    attach_classification_dispose(session, plan.knowledge_hooks)
+    attach_stream_dispose(session, plan.session_kwargs["stream_fn"])
+    # Config seam: follow ``config.yml`` while the session lives, so an edit in
+    # another pane (or on the page in this one) reaches compaction, retry and
+    # the job cap without a ``/new``. The manager's directory, not
+    # ``paths.config_dir()``: they agree in production, and where a caller
+    # passed a manager on another directory that is the file to follow.
+    attach_config_watch(session, Path(getattr(config_manager, "config_dir", app_config_dir())))
+
+    # MCP seam (MCP-20): merge discovered MCP tools in, subscribe to live
+    # changes, and fold server teardown into session.dispose. Degrades to
+    # zero MCP tools on any failure. ``has_ui`` routes the announcement: a
+    # front end with a full-screen terminal reads session.mcp_startup instead
+    # of being written over by a stderr warning.
+    #
+    # DEFERRED wiring is the runtime child's opt-in (``defer_mcp_wiring``): it
+    # was written for the TUI's in-process Session, which this release no longer
+    # builds in that process at all (``cli.py``: the owner path is gone from
+    # ``lop``). The caller that matters today is the runtime child, and the gate
+    # it passes below is what keeps the wiring off the record's own publication
+    # path.
+    #
+    # The session returns immediately and the same wiring runs as a background
+    # task. The task is tracked on the session's dispose hooks so a quit
+    # mid-wiring cancels it (a ``disconnect_all`` on a half-wired manager is
+    # exactly the teardown the manager already handles); nothing else differs —
+    # the outcome lands in ``session.mcp_startup`` and the settle sink fires
+    # when a front end has installed it, which is the same late-attach the 250 ms
+    # gate already produces for slow OAuth servers.
+    if defer_mcp_wiring:
+
+        async def _wire_mcp_background() -> None:
+            # Runs on the session's loop but OFF the boot critical path. An
+            # exception here is the wiring's own degradation contract
+            # (``wire_mcp_into_session`` never raises for provider reasons);
+            # a genuine coding fault is logged rather than killing the task
+            # silently, and the session keeps its non-MCP surface — the same
+            # state a machine with no ``.mcp.json`` boots into.
+            #
+            # A GATED task parks HERE, before its first instruction, which is
+            # the whole point: the SDK import below is synchronous, so on a
+            # single-threaded loop it does not merely take time — it takes the
+            # loop. Waiting on the publication latch is what keeps that import
+            # out of the runtime's pre-publication window; without the wait the
+            # task's first step lands on the drain's first await and the record
+            # is held back behind an integration we deliberately do not gate
+            # the session on. ``None`` means no publisher, so there is nothing
+            # to wait for (see the parameter's docstring).
+            if mcp_publication_gate is not None:
+                await mcp_publication_gate.wait()
+            # KEEP THE LOOP. The latch above fixes the ORDERING — the wiring no
+            # longer holds the record back — and ordering alone does not deliver
+            # it, because the wiring's first instruction is a synchronous import
+            # of the MCP SDK and a task cannot run until the loop is free. Landing
+            # that import on the loop right after publication simply moves the
+            # stall to the client's own dial and welcome (measured: dial absorbed
+            # 10.4 s while publication gained 1.5 s). Warming the same chain in a
+            # worker thread is what makes the saving reach the user.
+            await asyncio.to_thread(_warm_mcp_wiring_imports)
+            try:
+                manager = await wire_mcp_into_session(
+                    session,
+                    list(plan.session_kwargs["tools"]),
+                    effective_cwd,
+                    knowledge_hooks=plan.knowledge_hooks,
+                    auth_store=plan.auth_store,
+                    has_ui=has_ui,
+                    _deferred_boot=True,
+                )
+                if manager is not None:
+                    attach_mcp_dispose(session, manager)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 — boot must survive a wiring fault
+                logger.warning("background MCP wiring failed", exc_info=True)
+
+        wiring_task = asyncio.get_running_loop().create_task(_wire_mcp_background())
+        # Dispose-during-wiring cancels the task. Folded as a hook rather than
+        # tracking the task on the Session: every front end already calls
+        # ``session.dispose()`` once, so this is the one place teardown can
+        # live without teaching each caller about the boot path.
+        session.add_dispose_hook(_cancel_task(wiring_task))
+        # Dispatch at the last synchronous point before returning. A task cannot
+        # execute until this coroutine gives the loop back to its caller, so the
+        # runner's idle window begins only after construction has completed.
+        _start_store_maintenance(
+            config_manager,
+            Path(agent_registry.config_dir),
+            Path(session._transcript.directory),
+        )
+        return session
+
+    mcp_manager = await wire_mcp_into_session(
+        session,
+        list(plan.session_kwargs["tools"]),
+        effective_cwd,
+        knowledge_hooks=plan.knowledge_hooks,
+        auth_store=plan.auth_store,
+        has_ui=has_ui,
+    )
+    if mcp_manager is not None:
+        attach_mcp_dispose(session, mcp_manager)
+    # Headless and exec callers wire MCP eagerly, so dispatch after that await as
+    # well: every successful create_session return gets the same uncontended
+    # construction boundary regardless of front end.
+    _start_store_maintenance(
+        config_manager,
+        Path(agent_registry.config_dir),
+        Path(session._transcript.directory),
+    )
+    return session
+
+
+async def build_initial_blocks(
+    args: argparse.Namespace,
+    config_manager: ConfigManager,
+    agent_registry: AgentRegistry,
+) -> list[str]:
+    """Render the session's initial system blocks WITHOUT running a turn.
+
+    Benchmark hook (orchestrator duty): lets
+    ``scripts/bench_context_budget.py`` measure the startup prompt size
+    (instructions + tools inventory + skills + env) against the <=30k start
+    budget without instantiating the session facade.
+    """
+    plan = await _prepare(args, config_manager, agent_registry, has_ui=False)
+    # No session facade is built on this path, so the lease and store lifetimes
+    # end here rather than waiting for a Session.dispose that cannot happen.
+    if plan.session_lease is not None:
+        plan.session_lease.release()
+    # No session facade is built on this path, so the store's lifetime ends
+    # here: close it directly (CL-08) to release the SQLite lock. Pass the
+    # spec's label so the measured startup prompt includes the model line the
+    # real session will carry (the benchmark budget must not under-count it).
+    spec = plan.session_kwargs.get("model")
+    model_label = f"{spec.provider}/{spec.model_id}" if spec is not None else ""
+    try:
+        return await plan.system_blocks_provider(model_label)
+    finally:
+        if plan.auth_store is not None:
+            try:
+                plan.auth_store.close()
+            except Exception:  # noqa: BLE001
+                pass

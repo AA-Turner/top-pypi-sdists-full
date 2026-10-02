@@ -1,0 +1,62 @@
+---
+name: log_persistence_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_log_projection.handlers.handler_log_projection.ModelLogEntry
+description: >
+  Persists structured log events to Postgres for historical trace queries.
+  Enables the trace explorer to query beyond live Kafka retention window.
+
+terminal_event: onex.evt.omnimarket.log-persistence-completed.v1
+
+handler:
+  module: omnimarket.nodes.node_log_persistence_effect.handlers.handler_log_persistence_effect
+  class: NodeLogPersistenceEffect
+  input_model: omnimarket.nodes.node_log_projection.handlers.handler_log_projection.ModelLogEntry
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: log_persistence
+      handler:
+        name: NodeLogPersistenceEffect
+        module: omnimarket.nodes.node_log_persistence_effect.handlers.handler_log_persistence_effect
+
+db_io:
+  db_tables:
+    - name: log_entries
+      database_ref: application
+      schema: omninode_internal
+      migration: "0000_create_log_entries.sql"
+      access: write
+      role: log_entries
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.platform.log-entry.v1
+  publish_topics:
+    - onex.evt.omnimarket.log-persistence-completed.v1
+
+descriptor:
+  node_archetype: effect
+  purity: effectful
+  idempotent: true
+  timeout_ms: 10000
+  runtime_profiles:
+    - effects
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.platform.log-entry.v1
+    producer: "omnimarket.logging.structured_logger.StructuredLogger.publish (structured_logger.py:131) -- the process-wide log emitter, not a node contract"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.log-persistence-completed.v1

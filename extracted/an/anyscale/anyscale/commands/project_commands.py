@@ -52,10 +52,18 @@ def _create_project_list_table(show_header: bool) -> Table:
     table = Table(show_header=show_header, expand=True)
     # NAME and ID: larger ratios, can wrap but never truncate
     table.add_column(
-        "NAME", no_wrap=False, overflow="fold", ratio=3, min_width=15,
+        "NAME",
+        no_wrap=False,
+        overflow="fold",
+        ratio=3,
+        min_width=15,
     )
     table.add_column(
-        "ID", no_wrap=False, overflow="fold", ratio=2, min_width=12,
+        "ID",
+        no_wrap=False,
+        overflow="fold",
+        ratio=2,
+        min_width=12,
     )
     # all other columns will wrap as needed
     for heading in (
@@ -65,7 +73,11 @@ def _create_project_list_table(show_header: bool) -> Table:
         "PARENT CLOUD ID",
     ):
         table.add_column(
-            heading, no_wrap=False, overflow="fold", ratio=1, min_width=8,
+            heading,
+            no_wrap=False,
+            overflow="fold",
+            ratio=1,
+            min_width=8,
         )
     return table
 
@@ -101,9 +113,7 @@ def _parse_sort_option(
     key = raw.lower()
     if key not in allowed:
         allowed_names = ", ".join(sorted(allowed.values()))
-        raise click.BadParameter(
-            f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}"
-        )
+        raise click.BadParameter(f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}")
 
     return ProjectSortField(allowed[key]), order
 
@@ -168,9 +178,7 @@ def project_cli() -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -244,17 +252,19 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--name", "-n", type=str, help="A string to filter projects by name.",
+    "--name",
+    "-n",
+    type=str,
+    help="A string to filter projects by name.",
 )
 @click.option(
-    "--creator", "-u", type=str, help="The ID of a creator to filter projects.",
+    "--creator",
+    "-u",
+    type=str,
+    help="The ID of a creator to filter projects.",
 )
-@click.option(
-    "--cloud-id", "cloud", type=str, help="ID of a parent cloud to filter projects."
-)
-@click.option(
-    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
-)
+@click.option("--cloud-id", "cloud", type=str, help="ID of a parent cloud to filter projects.")
+@click.option("--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id.")
 @click.option(
     "--include-defaults/--exclude-defaults",
     default=True,
@@ -262,7 +272,9 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
     help="Whether to include default projects.",
 )
 @click.option(
-    "--max-items", type=int, help="The maximum number of projects to return.",
+    "--max-items",
+    type=int,
+    help="The maximum number of projects to return.",
 )
 @click.option(
     "--page-size",
@@ -417,7 +429,11 @@ def list(  # noqa: A001, PLR0913
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--name", "-n", type=str, required=True, help="Name of the project.",
+    "--name",
+    "-n",
+    type=str,
+    required=True,
+    help="Name of the project.",
 )
 @click.option(
     "--cloud-id",
@@ -426,11 +442,12 @@ def list(  # noqa: A001, PLR0913
     required=True,
     help="ID of the parent cloud for the project.",
 )
+@click.option("--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id.")
 @click.option(
-    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
-)
-@click.option(
-    "--description", "-d", type=str, help="Description of the project.",
+    "--description",
+    "-d",
+    type=str,
+    help="Description of the project.",
 )
 @click.option(
     "--initial-cluster-config",
@@ -545,16 +562,12 @@ def delete(id: str):  # noqa: A002
     required=True,
     help="ID of the parent cloud for the project.",
 )
-@click.option(
-    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
-)
+@click.option("--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id.")
 @click.option(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",

@@ -55,9 +55,7 @@ CUSTOMER_HOSTED_HEADER = """\
 Some features are only available on customer-hosted clouds. Reach out to support@anyscale.com for info.
 :::"""
 
-CUSTOMER_HOSTED_QUALIFIER = (
-    "Only available on [customer-hosted clouds](#customer-hosted-only)."
-)
+CUSTOMER_HOSTED_QUALIFIER = "Only available on [customer-hosted clouds](#customer-hosted-only)."
 
 
 def _escape_mdx_content(text: Optional[str]) -> str:
@@ -203,9 +201,7 @@ class MarkdownGenerator:
             output_files[m.filename] = output
 
             # Generate legacy documentation if any legacy content exists
-            legacy_content = self._generate_legacy_content(
-                m, legacy_sdks, legacy_models
-            )
+            legacy_content = self._generate_legacy_content(m, legacy_sdks, legacy_models)
             if legacy_content:
                 legacy_filename = f"legacy/{m.filename}"
                 output_files[legacy_filename] = legacy_content
@@ -215,16 +211,12 @@ class MarkdownGenerator:
     def _generate_sdks(self, m: Module) -> str:
         # Skip SDK functions decorated with `hidden=True` — they remain
         # callable but are absent from the public reference.
-        visible = [
-            t for t in (m.sdk_commands or []) if not getattr(t, "__hidden__", False)
-        ]
+        visible = [t for t in (m.sdk_commands or []) if not getattr(t, "__hidden__", False)]
         if not visible:
             return ""
         output = f"## {m.title} SDK\n"
         for t in visible:
-            output += "\n" + self._gen_markdown_for_sdk_command(
-                t, sdk_prefix=m.sdk_prefix
-            )
+            output += "\n" + self._gen_markdown_for_sdk_command(t, sdk_prefix=m.sdk_prefix)
 
         return output
 
@@ -274,12 +266,8 @@ class MarkdownGenerator:
         else:
             output = f"## {m.legacy_title or m.title} Models <span class='label-h2 label-legacy'>Legacy</span>\n"
         for model_str in m.legacy_sdk_models:
-            legacy_model = next(
-                model for model in legacy_models if model.name == model_str
-            )
-            output += "\n" + self._gen_markdown_for_legacy_model(
-                legacy_model, for_legacy_file
-            )
+            legacy_model = next(model for model in legacy_models if model.name == model_str)
+            output += "\n" + self._gen_markdown_for_legacy_model(legacy_model, for_legacy_file)
 
         return output
 
@@ -318,9 +306,7 @@ class MarkdownGenerator:
         return output
 
     def _generate_legacy_clis(self, m: Module, for_legacy_file: bool = False) -> str:
-        return self._generate_clis(
-            m, is_legacy_cli=True, for_legacy_file=for_legacy_file
-        )
+        return self._generate_clis(m, is_legacy_cli=True, for_legacy_file=for_legacy_file)
 
     def _generate_legacy_content(
         self, m: Module, legacy_sdks: List[LegacySDK], legacy_models: List[LegacyModel]
@@ -331,9 +317,7 @@ class MarkdownGenerator:
         """
         legacy_cli = self._generate_legacy_clis(m, for_legacy_file=True)
         legacy_sdk = self._generate_legacy_sdks(m, legacy_sdks, for_legacy_file=True)
-        legacy_model = self._generate_legacy_models(
-            m, legacy_models, for_legacy_file=True
-        )
+        legacy_model = self._generate_legacy_models(m, legacy_models, for_legacy_file=True)
 
         # If no legacy content exists, return empty string
         if not (legacy_cli or legacy_sdk or legacy_model):
@@ -438,9 +422,7 @@ class MarkdownGenerator:
             f"Unhandled type: {t}. Either this type should not be in our public APIs, or you must add handling for it to the doc generator."
         )
 
-    def _gen_example_tabs(
-        self, t: Union[Callable, ModelBaseType, AnyscaleCommand]
-    ) -> str:
+    def _gen_example_tabs(self, t: Union[Callable, ModelBaseType, AnyscaleCommand]) -> str:
         """Generate a tab section that contains yaml, python, and/or CLI examples for the type.
 
         The examples are pulled from magic attributes:
@@ -464,22 +446,16 @@ class MarkdownGenerator:
 
         if isinstance(t, ModelBaseType):
             if not skip_py_example and not py_example:
-                raise ValueError(
-                    f"Model '{t.__name__}' is missing a '__doc_py_example__'."
-                )
+                raise ValueError(f"Model '{t.__name__}' is missing a '__doc_py_example__'.")
             if t.__name__.endswith("Config") and not yaml_example:
                 raise ValueError(
                     f"Config model '{t.__name__}' is missing a '__doc_yaml_example__'."
                 )
         if (
-            isinstance(
-                t, (AnyscaleCommand, DeprecatedAnyscaleCommand, LegacyAnyscaleCommand)
-            )
+            isinstance(t, (AnyscaleCommand, DeprecatedAnyscaleCommand, LegacyAnyscaleCommand))
             and not cli_example
         ):
-            raise ValueError(
-                f"CLI command '{t.name}' is missing a '__doc_cli_example__'."
-            )
+            raise ValueError(f"CLI command '{t.name}' is missing a '__doc_cli_example__'.")
         if (
             not isinstance(t, ModelBaseType)
             and not isinstance(
@@ -487,9 +463,7 @@ class MarkdownGenerator:
             )
             and not py_example
         ):
-            raise ValueError(
-                f"SDK command '{t.__name__}' is missing a '__doc_py_example__'."
-            )
+            raise ValueError(f"SDK command '{t.__name__}' is missing a '__doc_py_example__'.")
 
         md = "#### Examples\n\n"
         md += "<Tabs>\n"
@@ -500,9 +474,7 @@ class MarkdownGenerator:
             except Exception as e:  # noqa: BLE001
                 # For CLI commands, use t.name; for SDK functions/models, use t.__name__
                 name = getattr(t, "name", getattr(t, "__name__", str(t)))
-                raise ValueError(
-                    f"'{name}.__doc_yaml_example__' is not valid YAML syntax"
-                ) from e
+                raise ValueError(f"'{name}.__doc_yaml_example__' is not valid YAML syntax") from e
 
             yaml_example = yaml_example.strip("\n")
             md += '<TabItem value="yamlconfig" label="YAML">\n'
@@ -515,9 +487,7 @@ class MarkdownGenerator:
             except Exception as e:  # noqa: BLE001
                 # For CLI commands, use t.name; for SDK functions/models, use t.__name__
                 name = getattr(t, "name", getattr(t, "__name__", str(t)))
-                raise ValueError(
-                    f"'{name}.__doc_py_example__' is not valid Python syntax"
-                ) from e
+                raise ValueError(f"'{name}.__doc_py_example__' is not valid Python syntax") from e
 
             py_example = py_example.strip("\n")
             md += '<TabItem value="pythonsdk" label="Python">\n'
@@ -661,11 +631,7 @@ class MarkdownGenerator:
         md += f"`{cli_prefix} {c.name} {usage_str}`\n\n"
         md += _escape_mdx_content(strip_sphinx_docstring(info_dict["help"])) + "\n\n"
 
-        options = [
-            param
-            for param in info_dict["params"]
-            if param["param_type_name"] == "option"
-        ]
+        options = [param for param in info_dict["params"] if param["param_type_name"] == "option"]
         if options:
             md += "**Options**\n\n"
             for param in options:
@@ -676,9 +642,7 @@ class MarkdownGenerator:
 
                 name = "/".join(param["opts"] + param.get("secondary_opts", []))
                 help_str = param.get("help", None)
-                assert (
-                    help_str
-                ), f"Missing help string for option '{name}' in command '{c.name}'"
+                assert help_str, f"Missing help string for option '{name}' in command '{c.name}'"
                 md += f"- **`{name}`**: {_escape_mdx_content(help_str)}\n"
             md += "\n"
 
@@ -702,9 +666,7 @@ class MarkdownGenerator:
         md = f"### `{sdk_prefix}.{c.__name__}`\n\n"
 
         if not c.__doc__:
-            raise ValueError(
-                f"SDK command '{sdk_prefix}.{c.__name__}' is missing a docstring."
-            )
+            raise ValueError(f"SDK command '{sdk_prefix}.{c.__name__}' is missing a docstring.")
 
         md += _escape_mdx_content(strip_sphinx_docstring(c.__doc__)) + "\n"
 
@@ -721,9 +683,9 @@ class MarkdownGenerator:
                 if name in hidden_args:
                     continue
 
-                assert (
-                    param.annotation is not inspect.Parameter.empty
-                ), f"SDK command '{sdk_prefix}.{c.__name__}' is missing a type hint for argument '{name}'"
+                assert param.annotation is not inspect.Parameter.empty, (
+                    f"SDK command '{sdk_prefix}.{c.__name__}' is missing a type hint for argument '{name}'"
+                )
                 type_str = "(" + self._model_type_to_string(param.annotation) + ")"
                 if param.default != inspect.Parameter.empty:
                     type_str += f" = {param.default!s}"

@@ -1,0 +1,270 @@
+Metadata-Version: 2.5
+Name: omnibase_infra
+Version: 0.38.61
+Summary: ONEX Infrastructure - Service integration and database infrastructure tools
+Author-email: "OmniNode.ai" <contact@omninode.ai>
+License: MIT
+License-File: LICENSE
+Requires-Python: >=3.12
+Requires-Dist: a2a-sdk<2.0.0,>=0.3.4
+Requires-Dist: aiofiles<26.0.0,>=23.2.1
+Requires-Dist: aiohttp<4.0.0,>=3.14.3
+Requires-Dist: aiokafka[snappy]<0.15.0,>=0.11.0
+Requires-Dist: asyncpg<0.32.0,>=0.29.0
+Requires-Dist: aws-msk-iam-sasl-signer-python<2.0.0,>=1.0.2
+Requires-Dist: circuitbreaker<3.0.0,>=2.0.0
+Requires-Dist: click<9.0.0,>=8.3.3
+Requires-Dist: confluent-kafka<3.0.0,>=2.12.0
+Requires-Dist: cryptography<51.0.0,>=46.0.3
+Requires-Dist: dependency-injector<5.0.0,>=4.48.1
+Requires-Dist: fastapi<0.142.0,>=0.120.1
+Requires-Dist: grpcio<2.0.0,>=1.62.0
+Requires-Dist: httpx<0.29.0,>=0.28.1
+Requires-Dist: infisicalsdk<2.0.0,>=1.0.15
+Requires-Dist: jinja2<4.0.0,>=3.1.6
+Requires-Dist: jsonschema<5.0.0,>=4.20.0
+Requires-Dist: mcp<3.0.0,>=1.25.0
+Requires-Dist: neo4j<7.0.0,>=5.15.0
+Requires-Dist: omnibase-compat==0.5.7
+Requires-Dist: omnibase-core<0.48.0,>=0.47.24
+Requires-Dist: omnibase-spi==0.23.5
+Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.27.0
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-asyncpg<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-kafka-python<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-redis<0.66,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation<0.66,>=0.48b0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.27.0
+Requires-Dist: packaging<27.0,>=23.0
+Requires-Dist: prometheus-client<0.27.0,>=0.19.0
+Requires-Dist: psycopg2-binary<3.0.0,>=2.9.10
+Requires-Dist: pydantic-settings<3.0.0,>=2.2.1
+Requires-Dist: pydantic<3.0.0,>=2.11.7
+Requires-Dist: pyjwt>=2.15.1
+Requires-Dist: python-multipart>=0.0.30
+Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: qdrant-client<2.0.0,>=1.16.0
+Requires-Dist: redis<9.0.0,>=6.0.0
+Requires-Dist: rich<16.0.0,>=13.7.0
+Requires-Dist: sigstore<5.0.0,>=4.0.0
+Requires-Dist: slowapi<0.2.0,>=0.1.9
+Requires-Dist: sqlparse<0.7.0,>=0.6.0
+Requires-Dist: starlette>=1.3.1
+Requires-Dist: structlog<27.0.0,>=23.2.0
+Requires-Dist: tenacity<10.0.0,>=9.0.0
+Requires-Dist: textual<9.0.0,>=0.89.0
+Requires-Dist: uvicorn<0.55.0,>=0.32.0
+Requires-Dist: watchdog>=4.0.0
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/omninode-inline-white.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/omninode-inline-full-color.svg">
+    <img alt="omninode" src="docs/assets/brand/omninode-inline-full-color.svg" width="420">
+  </picture>
+</p>
+
+# omnibase_infra
+
+Production infrastructure runtime for ONEX (OmniNode eXecution).
+
+[![CI](https://github.com/OmniNode-ai/omnibase_infra/actions/workflows/ci.yml/badge.svg)](https://github.com/OmniNode-ai/omnibase_infra/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`omnibase_infra` owns the infrastructure implementation layer for ONEX:
+runtime hosting, Kafka event transport, contract-driven handler loading,
+registration workflows, Infisical-backed configuration, operational runbooks,
+and infrastructure nodes that perform external I/O.
+
+It depends on `omnibase_core` for shared models and validation primitives, and
+on `omnibase_spi` for protocol boundaries. Core must not import this package.
+
+## What This Repo Owns
+
+| Area | Current source |
+|------|----------------|
+| Runtime host process and service kernel | `src/omnibase_infra/runtime/` |
+| Kafka event bus and DLQ support | `src/omnibase_infra/event_bus/` |
+| Contract-driven handler discovery | `src/omnibase_infra/runtime/handler_plugin_loader.py` |
+| Registration orchestration and storage effects | `src/omnibase_infra/nodes/node_registration_*` |
+| Infrastructure handlers for DB, HTTP, Consul, secrets, Kafka, LLM, graph, vector, and filesystem integrations | `src/omnibase_infra/handlers/` |
+| Config discovery and prefetch | `src/omnibase_infra/runtime/config_discovery/` |
+| Operational scripts and CLIs | `scripts/` |
+
+Prose for every row above lives in the knowledge base — see [Documentation](#documentation).
+
+## Documentation
+
+**This repository holds code, not prose.** Every architecture note, pattern,
+decision record, guide, reference page, and runbook that used to live under
+`docs/` now lives in one of the two knowledge bases. There are no pointer stubs
+in the tree — this section is the pointer, and the `kb-doc-gate` check
+(`.kb-doc-gate.yaml`, `mode: strict`) keeps it that way.
+
+| Home | What is there |
+|------|---------------|
+| [`OmniNode-ai/knowledge-base`](https://github.com/OmniNode-ai/knowledge-base) (public) | Platform documentation anyone can read: `architecture/`, `reference/`, `guides/`, `runbooks/`, and the ADR ledger. This repository's pages are prefixed `omnibase-infra-`. |
+
+| Need | Where |
+|------|-------|
+| Run locally / first-time bootstrap | `runbooks/omnibase-infra-quickstart.md`; the full bootstrap sequence is not part of this repository |
+| Understand the handler architecture | `reference/omnibase-infra-handler-protocol-driven-architecture.md` (internal) |
+| Work on contracts | `reference/omnibase-infra-contract-yaml-reference.md` (public) |
+| Node archetypes and registration | `reference/omnibase-infra-node-archetypes.md` (internal), `reference/omnibase-infra-node-registration-orchestrator.md` (public) |
+| Operate Kafka / DLQ / the event bus | `runbooks/omnibase-infra-event-bus-operations.md`, `runbooks/omnibase-infra-dlq-replay.md` (public) |
+| Validate changes | `reference/omnibase-infra-validation-framework.md` (internal) |
+| Decision records for this repo | `reference/omnibase-infra-adr-*.md` (public) |
+
+## Install
+
+Library or CLI use:
+
+```bash
+uv add omnibase-infra
+```
+
+Repository development:
+
+```bash
+git clone https://github.com/OmniNode-ai/omnibase_infra.git
+cd omnibase_infra
+uv sync
+```
+
+The packaged distribution includes the Python package and console scripts. The
+repo-local `scripts/` directory is for development, operational bootstrap, and
+CI support, and requires a clone.
+
+## Common Commands
+
+### Local infrastructure lifecycle
+
+The repo ships a top-level `Makefile` with user-facing infra entrypoints.
+All Docker/Compose/Keycloak orchestration lives here, never in
+the public `omnibase` shell.
+
+```bash
+# Start core infra bundle (postgres, redpanda, valkey, infisical)
+make up
+
+# Add Keycloak (auth bundle) on top of core
+make up-auth
+
+# Reconcile Keycloak clients from desired-clients.json
+make seed-keycloak
+
+# Seed Infisical from ONEX contracts (writes with --execute)
+make seed-infisical
+
+# Show running containers
+make status
+
+# Stop the core bundle ONLY (auth/runtime stay running)
+make down
+
+# Stop the auth bundle (keycloak)
+make down-auth
+
+# Stop everything (runtime + auth + core, in safe teardown order)
+make down-all
+
+# List all targets
+make help
+```
+
+`make` targets detect a missing/stopped Docker daemon and emit an actionable
+error before doing anything destructive. They also detect a missing
+`~/.omnibase/.env` and point at remediation rather than failing with a stack
+trace. The full first-time bootstrap sequence is not part of this repository.
+
+### Laptop profile: the stack plus your own runtime
+
+The `local` catalog bundle runs postgres, redpanda, valkey, the migrations and
+your own ONEX runtime (main and effects, with omnimarket installed) in
+containers, under the compose project `omnibase-infra-local`. It needs Docker
+with Compose v2, `uv`, `make`, `openssl` and `git`, and no credentials beyond
+two passwords it generates. It publishes host ports 5436, 19092, 16379, 8085
+and 8086.
+
+```bash
+git clone https://github.com/OmniNode-ai/omnibase_infra.git
+cd omnibase_infra
+
+# Writes ~/.omnibase/local.env (two generated passwords) and
+# ~/.omnibase/local.bifrost.yaml (the model your runtime delegates to).
+make local-env
+# Edit the ONE line marked model_endpoint in ~/.omnibase/local.bifrost.yaml:
+# the /v1/chat/completions URL of an OpenAI-compatible server that serves the
+# model id omnimarket's routing contract declares (Qwen3.8-27B today).
+
+make up-local        # builds the runtime image and boots everything
+make status-local    # migration gate, both runtime /health bodies, delegate consumer
+make delegate-local PROMPT="Reply with exactly one word: hello"
+make down-local      # stop (keeps data); make down-local-volumes deletes it
+```
+
+A cold boot provisions the broker's topics before the main runtime reports
+`healthy`; allow several minutes. `make delegate-local` prints one JSON result
+and the path of the run's `receipt.json` inside the effects container
+(`docker exec omnibase-infra-local-runtime-effects cat <path>`). The delegation
+is projected to `delegation_events` in the local `omnidash_analytics` database.
+Every service connects as the postgres superuser, so row-level security is not
+exercised by this profile.
+
+### Development and testing
+
+```bash
+# Run unit tests
+uv run pytest tests/unit
+
+# Run the infra validation suite
+uv run python scripts/validate.py all --verbose
+
+# Start the runtime CLI entrypoint
+uv run onex-runtime
+
+# Inspect operational status
+uv run onex-status
+```
+
+Some operational flows require Docker, Kafka/Redpanda, PostgreSQL, Valkey, and
+the secrets manager. The runbooks for bringing those up are not part of this
+repository.
+
+## Runtime Shape
+
+ONEX infra uses four node archetypes:
+
+| Archetype | Role |
+|-----------|------|
+| `ORCHESTRATOR` | Coordinates workflows and publishes events |
+| `REDUCER` | Owns pure FSM state transitions and emits intents |
+| `COMPUTE` | Performs deterministic transformations with no side effects |
+| `EFFECT` | Performs external I/O through infrastructure handlers |
+
+Node behavior is declared in `contract.yaml`. Node classes are intentionally
+thin; runtime behavior comes from contracts, handlers, registries, and the
+runtime host.
+
+## Documentation Policy
+
+Documentation does not live in this repository. The allowed markdown set is
+this `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `SECURITY.md`, anything under
+`.claude/` or `.github/`, and test fixtures a test actually opens as data. The
+`kb-doc-gate` required check enforces that list in `strict` mode, so a new
+document under `docs/` fails CI rather than quietly re-growing the tree.
+
+New prose goes to [the public knowledge base](https://github.com/OmniNode-ai/knowledge-base) by default. Prose that
+would name real internal topology, the lab or CI fleet, deploy lanes, or the
+secrets manager does not go to a public destination at all. Dated point-in-time
+artifacts — evidence bundles, audit snapshots, run transcripts — are not
+documentation and are not migrated; definition-of-done evidence is tracked in
+the change-control evidence system.
+
+## License
+
+[MIT](LICENSE)

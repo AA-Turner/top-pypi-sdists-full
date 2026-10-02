@@ -1,0 +1,119 @@
+# Copyright 2021 Agnostiq Inc.
+#
+# This file is part of Covalent.
+#
+# Licensed under the Apache License 2.0 (the "License"). A copy of the
+# License may be obtained with this software package or at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Use of this file is prohibited except in compliance with the License.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Lattices schema"""
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, func
+
+from covalent_ui.api.v1.database.config.db import Base
+
+
+class Lattice(Base):
+    """Lattice
+
+    Attributes:
+        id: primary key id
+        dispatch_id: id of the dispatch
+        electron_id: id of node if the lattice is actually a sublattice
+        name: name of the lattice function
+        status: workflow status
+        electron_num: Total number of electron in a workflow
+        completed_electron_num: Total number of completed electron in a workflow
+        storage_type: Storage backend type for data files ("local", "s3")
+        storage_path: Bucket name (dispatch_id)
+        function_filename: Name of the file containing the serialized function
+        function_string_filename: Name of the file containing the function string
+        error_filename: Name of the file containing an error message for the electron
+        results_filename: Name of the file containing the serialized output
+        inputs_filename: Name of the file containing the serialized input data
+        is_active: Status of the record, 1: active and 0: inactive
+        created_at: created timestamp
+        updated_at: updated timestamp
+        started_at: started timestamp
+        completed_at: completed timestamp
+    """
+
+    __tablename__ = "lattices"
+    id = Column(Integer, primary_key=True)
+    dispatch_id = Column(String(64), nullable=False)
+
+    # id of node if the lattice is actually a sublattice
+    electron_id = Column(Integer)
+
+    # name of the lattice function
+    name = Column(Text, nullable=False)
+
+    # name of the file containing the lattice function's docstring
+    docstring_filename = Column(Text)
+
+    # Workflow status
+    status = Column(String(24), nullable=False)
+
+    # Number of nodes in the lattice
+    electron_num = Column(Integer, nullable=False)
+
+    # Number of completed nodes in the lattice
+    completed_electron_num = Column(Integer, nullable=False)
+
+    # Storage backend type for data files ("local", "s3")
+    storage_type = Column(Text)
+
+    # Bucket name (dispatch_id)
+    storage_path = Column(Text)
+
+    # Name of the file containing the serialized function
+    function_filename = Column(Text)
+
+    # Name of the file containing the function string
+    function_string_filename = Column(Text)
+
+    # Short name describing the executor ("local", "dask", etc)
+    executor = Column(Text)
+
+    # JSONified executor attributes
+    executor_data = Column(Text)
+
+    # Short name describing the workflow executor ("local", "dask", etc)
+    workflow_executor = Column(Text)
+
+    # JSONified workflow executor attributes
+    workflow_executor_data = Column(Text)
+
+    # Name of the file containing an error message for the workflow
+    error_filename = Column(Text)
+
+    # Name of the file containing the serialized input data
+    inputs_filename = Column(Text)
+
+    # name of the file containing the serialized output
+    results_filename = Column(Text)
+
+    # Name of the file containing the default electron dependencies
+    hooks_filename = Column(Text)
+
+    # Results directory (will be deprecated soon)
+    results_dir = Column(Text)
+
+    # Dispatch id of the root lattice in a hierarchy of sublattices
+    root_dispatch_id = Column(String(64), nullable=True)
+
+    # Name of the column which signifies soft deletion of a lattice
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, onupdate=func.now(), server_default=func.now())
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)

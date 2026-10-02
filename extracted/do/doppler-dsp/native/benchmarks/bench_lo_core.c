@@ -1,0 +1,120 @@
+/* bench_lo_core.c — the integer-NCO carrier oscillator.
+ *
+ * Benchmarks the three ways to generate a phasor stream:
+ *   step   — inline single-sample lo_step()      (tracking-loop hot path)
+ *   steps  — block dp_lo_steps()                     (bulk synthesis, SIMD)
+ *   cexpf  — double-phase accumulator + cexpf()   (the baseline lo replaces)
+ *
+ * The point of the integer NCO is that step is at least as fast as the
+ * cexpf baseline (usually much faster — a LUT load vs a transcendental)
+ * AND has bounded, predictable phase; this bench captures the throughput.
+ */
+#include "doppler/dp_complex.h"
+#include "doppler/lo/lo_core.h"
+#include "jm_bench.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+
+static void
+report (const char *name, const double *times)
+{
+  double s = 0.0;
+  for (int r = 0; r < ITERATIONS; r++)
+    s += times[r];
+  printf ("  %-8s %8.1f MSa/s\n", name,
+          (double)BENCH_N / (s / ITERATIONS) / 1e6);
+}
+
+int
+main (void)
+{
+  float _Complex *out = malloc (BENCH_N * sizeof (*out));
+  if (!out)
+    {
+      fprintf (stderr, "OOM\n");
+      return 1;
+    }
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== lo benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  /* --- step: inline single-sample lo_step() (the loop hot path) --- */
+  {
+    dp_lo_state_t  s;
+    volatile float sink = 0.0f;
+    dp_lo_init (&s, 0.123);
+    for (int i = 0; i < 16; i++)
+      sink += crealf (lo_step (&s)); /* warmup */
+
+    double times[ITERATIONS];
+    for (int r = 0; r < ITERATIONS; r++)
+      {
+        t0 = jm_bench_now_ns ();
+        for (int i = 0; i < BENCH_N; i++)
+          out[i] = lo_step (&s);
+        t1 = jm_bench_now_ns ();
+        sink += crealf (out[BENCH_N - 1]);
+        times[r] = jm_bench_elapsed_sec (t0, t1);
+      }
+    jm_bench_add (&_bench, "step", times, ITERATIONS, BENCH_N);
+    report ("step", times);
+    (void)sink;
+  }
+
+  /* --- steps: block generator (SIMD bulk path) --- */
+  {
+    dp_lo_state_t *lo = dp_lo_create (0.123);
+    dp_lo_steps (lo, 16, out, 16); /* warmup */
+
+    double times[ITERATIONS];
+    for (int r = 0; r < ITERATIONS; r++)
+      {
+        t0 = jm_bench_now_ns ();
+        dp_lo_steps (lo, BENCH_N, out, BENCH_N);
+        t1       = jm_bench_now_ns ();
+        times[r] = jm_bench_elapsed_sec (t0, t1);
+      }
+    jm_bench_add (&_bench, "steps", times, ITERATIONS, BENCH_N);
+    report ("steps", times);
+    dp_lo_destroy (lo);
+  }
+
+  /* --- cexpf baseline: double-phase accumulator + cexpf() --- */
+  {
+    volatile float sink  = 0.0f;
+    double         phase = 0.0, w = 0.123 * 2.0 * M_PI;
+    for (int i = 0; i < 16; i++)
+      {
+        sink += crealf (cexpf ((float)phase * I));
+        phase += w;
+      }
+    double times[ITERATIONS];
+    for (int r = 0; r < ITERATIONS; r++)
+      {
+        t0 = jm_bench_now_ns ();
+        for (int i = 0; i < BENCH_N; i++)
+          {
+            out[i] = cexpf ((float)phase * I);
+            phase += w;
+          }
+        t1 = jm_bench_now_ns ();
+        sink += crealf (out[BENCH_N - 1]);
+        times[r] = jm_bench_elapsed_sec (t0, t1);
+      }
+    jm_bench_add (&_bench, "cexpf_baseline", times, ITERATIONS, BENCH_N);
+    report ("cexpf", times);
+    (void)sink;
+  }
+
+  jm_bench_write_json (&_bench, "lo");
+  free (out);
+  return 0;
+}

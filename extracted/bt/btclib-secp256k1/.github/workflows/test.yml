@@ -1,0 +1,1178 @@
+---
+name: test
+
+# the merge gate: everything this package ships, built, inspected and
+# installed, and the suite run on the one cell a reviewer should wait for.
+# That cell is the `coverage` job below -- ubuntu-latest on the
+# interpreter .python-version pins -- and every other cell of the suite is
+# os-ubuntu.yml's, os-macos.yml's or os-windows.yml's, run weekly and before a
+# release. os-ubuntu.yml's header is the argument for the split; the numbers
+# behind it are here, next to the jobs they were measured on.
+#
+# **The wheel builds for all six images stay here**, and that is the line
+# this file draws against the sentinels: the release publishes the
+# artifacts of this run, so a wheel not built here is a wheel not on PyPI.
+# They are not what stretched a run either -- the four macOS wheel jobs
+# finished at 24.6 minutes against the 23.5 of the ubuntu-latest build
+# beside them. Four macOS jobs queue; thirty-one contended.
+#
+# macOS was where the wait first showed, and the split is a measurement
+# rather than a preference. Over six pull request runs of this workflow,
+# ninety-eight jobs each, thirty-five of them on the two macOS images: a
+# macOS job waited 20.8 and 19.0 minutes on average for a runner, against
+# 2.1 to 2.6 elsewhere, and the wait grows with the number of cells asking
+# at once -- in the slowest of the six the macOS suite cells took the last
+# thirty places before the aggregate, their queue rising from 16.7 to 70.2
+# minutes, and the run took 95 minutes for 105 minutes of work spread over
+# 98 jobs. The command that re-derives it, for whoever doubts the split
+# later:
+#
+#     id=$(gh run list --workflow=test.yml --limit 1 \
+#         --json databaseId --jq '.[0].databaseId')
+#     gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100"
+#
+# The Windows cells were the second, and a different number moved them: the
+# plan caps how many jobs the organization may run at once, shared across
+# every repository in it, and this workflow set asked for seventy-three on
+# every commit. REPOSITORY.md's Plan-gated settings has that figure and the
+# command that re-derives it. The twenty-one Windows suite cells were 27.3
+# of the 112.9 runner-minutes, the largest family of jobs in the run and
+# ahead of every wheel build. os-windows.yml has the rest of that
+# measurement.
+#
+# The ubuntu suite cells are the third, against the same ceiling: two
+# images times every interpreter, on the platform whose cells are the
+# cheapest to wait for and therefore the last a gate gives up. What
+# decides them is that the gate asks one question of the suite and the
+# calendar asks the rest, which is what os-ubuntu.yml's header argues.
+
+on:
+  push:
+    # main only: a push to a branch that has an open pull request would
+    # run this workflow twice, once per event, and the two runs land in
+    # different concurrency groups for every pull_request action except
+    # closed on a merge -- see that trigger's own comment below, and the
+    # concurrency block, for why closed is the exception and how the
+    # group now avoids it. The pull_request run is the one worth
+    # keeping, because it tests the merge commit and is the only run a
+    # fork's pull request produces at all.
+    # main keeps a trigger of its own because a merge creates a commit
+    # that is not the one the pull request tested, and nothing else would
+    # ever test it. Tag pushes are covered by the release workflow
+    branches: [main]
+  pull_request:
+    # ready_for_review, so a pull request marked ready gets the run the
+    # draft condition below withheld while it was a draft: the default
+    # types do not include it, and without it a readied pull request
+    # would wait for its next push to be checked at all.
+    # closed joins them for a different reason: merging or closing a pull
+    # request is neither a push nor a synchronize, so a run still held in
+    # this pull request's own concurrency group survives it --
+    # cancel-in-progress only fires when a new run lands in that group,
+    # and nothing otherwise does. Landing the closed event there is what
+    # lets it supersede the stale run instead of leaving it to finish on
+    # a branch nobody is going to look at again; every job below
+    # declines the real work on it, the merge commit being main's own
+    # push trigger's question. "This pull request's own group" is the
+    # part github.ref alone got wrong: for a closed, merged pull request
+    # it resolves to the base branch's ref, the same one the push
+    # trigger's own run computes, so the closed run landed in *that*
+    # group instead and would cancel the run testing the actual merge
+    # commit -- observed doing exactly that to bitcoin-core-rpc's own
+    # main, after btclib-org/bitcoin-core-rpc#136 merged there. The
+    # concurrency block below groups by the pull request's own number
+    # instead, immune to that collision under any action
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+  # allows the release workflow to reuse the whole build/test pipeline
+  workflow_call:
+    inputs:
+      version-suffix:
+        description: >
+          Appended to the version in pyproject.toml before anything is
+          built, by every build job. A release passes nothing and ships
+          the version the tree declares; the rehearsal passes a .dev
+          suffix, which is how it reaches TestPyPI with a version that
+          index has not already consumed.
+        type: string
+        default: ""
+      concurrency-suffix:
+        description: >
+          Appended to the concurrency group, and the release workflow is
+          the only caller that passes one. See the group below.
+        type: string
+        default: ""
+  # the escape hatch: the matrix on demand for a branch whose pull
+  # request is not open yet
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, pip dependencies, build scripts) can read the token, so it
+# must not be able to write to the repository
+permissions:
+  contents: read
+
+# cancel superseded runs on the same branch/PR; named literally rather
+# than through github.workflow, and discriminated by an input rather than
+# left to github.ref alone, for the three reasons given in lint.yml
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}${{ inputs.concurrency-suffix }}
+  cancel-in-progress: true
+
+jobs:
+  # the cheapest job in the workflow, and the one that decides whether the
+  # rest of it runs at all: a pull request that edits only prose no
+  # artifact carries cannot change what any of the jobs below build, and
+  # was spending the whole matrix to prove it. Every root job takes this
+  # one as a `needs` and reads its output; the jobs downstream of those
+  # skip on their own, a job whose needs are skipped being skipped too.
+  #
+  # test-passed takes this job as a `needs` too, so a failure here fails
+  # the gate instead of skipping every job below and being read as a
+  # pass; `needs.changes.outputs.code` is undefined in an expression
+  # unless the job reading it names `changes` in its own `needs`, which
+  # every job below already does.
+  #
+  # The event handling, the pagination and the decision are
+  # btclib-org/.github's own, called at @main so a fix there reaches
+  # this tree in one landing (section 10 of its README.md); what
+  # stays here is which of this tree's own files are prose, in
+  # `with:` below (issue btclib-org/.github#35)
+  changes:
+    name: Decide whether the matrix has anything to check
+    uses: btclib-org/.github/.github/workflows/reusable-changes.yml@main
+    # A job's permissions replace the workflow's map rather than adding
+    # to it. This job held only pull-requests: read before the call --
+    # it made no checkout of its own, so contents: read cost nothing to
+    # leave off -- but the callee's own `changes` job declares both, and
+    # a scope it declares that this block leaves off is a
+    # startup_failure before any job in the run starts, with no job log
+    # to read. So contents: read is named here too, alongside
+    # pull-requests: read for the file list of a pull request.
+    permissions:
+      contents: read
+      pull-requests: read # a pull request's file list, for the changes job
+    with:
+      # the allowlist is what nothing built reads: the prose files of
+      # the root and of .github, and neither README.md nor a file
+      # under docs/, which the sdist carries. README.md is off it
+      # because it is the package's own long description, which
+      # check-dist renders with twine and rates with pyroma, so an
+      # edit to it is a change the matrix can fail on. AUTHORS.md is
+      # off it for a reason of its own rather than by oversight: the
+      # wheel carries it as a license file, `WHEEL_LICENSE_FILES` in
+      # .github/scripts/verify_wheel_contents.py names it and
+      # tests/wheel_contents_test.py asserts it is there, so adding it
+      # would skip the matrix on a change check-dist reads.
+      #
+      # The mutation configuration and the detect-secrets baselines are
+      # on it for the same reason as the prose and were measured off it:
+      # a change to bindings.toml alone cost 23 jobs and 45.7
+      # runner-minutes (#239), and cosmic-ray takes that path as an
+      # argument from mutation.yml, which is a workflow the matrix does
+      # not contain. A baseline is detect-secrets' own output, read by a
+      # hook -- and by lint.yml, which has no changed-file gate at all,
+      # so a malformed one is still caught by the job that catches it
+      # today.
+      #
+      # Anchored on the *file* and not on the directory, which is the
+      # same staleness this comment declines below in the direction that
+      # looks cheap: `^\.github/mutation/` would exempt in advance any
+      # file a later change drops there, and tests already load a
+      # script by path one directory over (`.github/scripts/`), so such
+      # a script would skip the matrix and take its own test with it.
+      # `.toml` rather than `bindings\.toml` so a second configuration
+      # needs no edit here; a script belongs in .github/scripts/, which
+      # is where all of them are, and `git ls-files .github/scripts` is
+      # what counts them rather than a number here.
+      #
+      # A workflow is *not* on it, deliberately, and that is the answer
+      # to the other half of #239 rather than an omission. Which
+      # workflows the matrix reads is a judgement -- this file and what
+      # it calls, plus release.yml -- and naming the rest would be right
+      # today and stale the first time a sentinel is folded into the
+      # gate or one of these is split out, both of which have happened
+      # here. A stale list of that kind skips a matrix that should have
+      # run, which is the expensive direction; leaving every workflow
+      # change to run everything is the cheap one, at the cost this
+      # comment now records
+      #
+      # a literal block scalar rather than a quoted one on the key's own
+      # line, for the reason .pre-commit-config.yaml's own
+      # local-link-prefix and no-downstream-name-in-package hooks give
+      # for their `entry:`: the pattern has no space in it, so yamllint
+      # reads it as one unbreakable word and its 100-column rule
+      # (allow-non-breakable-words) does not fire on it
+      prose-pattern: |-
+        ^(CHANGELOG|CLAUDE|CONTRIBUTING|RELEASE_NOTES|RELEASING|REPOSITORY|REVIEWING|SECURITY)\.md$|^\.github/[^/]*\.md$|^\.github/mutation/[^/]*\.toml$|^\.secrets\..*baseline$
+
+  # coverage is a property of the python wrapper layer, not of the
+  # platform: measuring it once is enough, and the fail_under ratchet in
+  # pyproject.toml is what makes the number mean something.
+  # Once per platform, and once per linkage: `_load_lib` has a branch
+  # per linkage and any given build has one of them, so this job runs
+  # the suite against a static extension and against a dynamic one, and
+  # the tests marked zkp against a build with BTCLIB_LIBSECP256K1_ZKP
+  # set. It names each run's data file and gates their union: no run
+  # here meets the ratchet alone, each carrying --cov-fail-under=0 for
+  # what it does not reach, so the Report the union, gated at 100% step
+  # below is where the ratchet is asked for. That is section 8 of the
+  # organization standard, at "where an optional native dependency
+  # splits the code", and the alternative it rejects is an exclude_also
+  # naming the linked-in branch -- honest only where the dynamic build
+  # is not shipped, and this repository ships both
+  coverage:
+    name: Measure coverage, gated at 100%
+    # a draft pull request is work in progress: every push to one spends
+    # the whole matrix on a tree its author is not asking anyone to
+    # review yet. Skipping here does not leave the gate below reading a
+    # false pass: test-passed's own first step fails outright rather
+    # than skip while draft, so a draft pull request still gets a
+    # failing check under that name, just not from this job's own work
+    # (btclib-org/.github#1327). A run on the merge result still happens
+    # the moment the pull request is marked ready, which is why
+    # ready_for_review is a trigger type above.
+    # A closed pull request spends none either: the trigger above takes
+    # the closed event only to let cancel-in-progress supersede a run
+    # still holding in this ref's group, and every job in this workflow
+    # carries the same skip on close, test-passed's own `if:` included
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    # every job below caps its own runtime, this one included: the default
+    # is six hours, and with tens of jobs compiling C a single hang is
+    # measured in runner days rather than minutes. The values sit well
+    # above what these jobs are observed to take — nine minutes for a
+    # wheel build, under three for a job that compiles the extension
+    # once — so a slow runner is not a failure, while a hung one is.
+    # This one compiles it per linkage, as a cell of os-ubuntu.yml does
+    # under a cap of 40
+    timeout-minutes: 30
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # the wheels of the test group, not the extension: the root
+          # project is installed editable, so its build hook (and the
+          # CMake build of the vendored library) runs on every job either
+          # way. What this saves is the download, keyed on uv.lock
+          enable-cache: true
+
+      # the static extension, which is what a CPython wheel carries and
+      # what a bare `uv run pytest` builds: `_load_lib` returns
+      # `module.lib` there. The interpreter comes from .python-version,
+      # as it does for a developer, and --cov comes from addopts.
+      # --cov-fail-under=0 for the same reason the two steps below carry
+      # it: btclib_secp256k1.zkp.musig (#607 onward) is a line neither
+      # this run nor the dynamic one below can execute without
+      # BTCLIB_LIBSECP256K1_ZKP, so this run is short of 100 by
+      # construction too, and none of the three steps is "the ratchet"
+      # on its own any more -- only the union after Report the union
+      # below is. One command, not a sync followed by a run: uv run
+      # syncs the environment itself, so the flags belong on this line —
+      # left off, it syncs the default groups, which are wider than
+      # test's own. --locked asserts that uv.lock matches
+      # pyproject.toml, which a plain sync would quietly fix by
+      # re-locking instead
+      - name: Run the suite against a static build
+        run: >
+          uv run --locked --no-default-groups --group test pytest
+          --cov-fail-under=0
+        env:
+          # not the default `.coverage`: the two steps below each write
+          # their own run beside this one and the three are combined
+          # afterwards, so a shared name would leave each overwriting
+          # the last. COVERAGE_FILE is --data-file's environment
+          # variable, coverage's own, so pytest writes here without a
+          # second flag naming what [tool.coverage.run] already decides
+          COVERAGE_FILE: coverage-data-static
+
+      # the other branch of `_load_lib`: cffi in ABI mode, dlopening the
+      # shared object shipped beside the module. --cov-fail-under=0 and
+      # not --no-cov, this run's data being one third of the union
+      # below: the linked-in branch the step above takes is the one
+      # line it cannot execute, so it is short of 100 by construction,
+      # and zero is what leaves it reporting rather than failing on
+      # that.
+      # tests/conftest.py hands an explicit threshold back untouched,
+      # which is what lets this flag reach the report at all.
+      # --reinstall-package with --no-cache because the extension the
+      # step above installed is the other linkage, and neither the
+      # environment nor the build cache is keyed on the variable that
+      # chooses between them
+      - name: Run the suite against a dynamic build
+        env:
+          BTCLIB_LIBSECP256K1_DYNAMIC: "true"
+          COVERAGE_FILE: coverage-data-dynamic
+        run: >
+          uv run --locked --no-default-groups --group test
+          --reinstall-package btclib-secp256k1 --no-cache pytest
+          --cov-fail-under=0
+
+      # zkp/musig.py (#607 onward) runs for real only under
+      # BTCLIB_LIBSECP256K1_ZKP, which neither run above sets: no line
+      # of it is reachable there, by construction, the same way the
+      # linked-in branch of _load_lib is not reachable from the run
+      # above this one. -m zkp rather than the whole suite again: the
+      # static and dynamic runs already cover every line the flag does
+      # not gate, so this run only has to supply what they cannot --
+      # tests/conftest.py sets this selection's own floor to zero on its
+      # own, --cov-fail-under=0 making that explicit rather than relied
+      # on. --reinstall-package and --no-cache for the reason the
+      # dynamic run above needs them: neither the environment nor the
+      # build cache is keyed on this variable, only on the source tree
+      - name: Run the tests marked zkp against the flagged build
+        env:
+          BTCLIB_LIBSECP256K1_ZKP: "true"
+          COVERAGE_FILE: coverage-data-zkp
+        run: >
+          uv run --locked --no-default-groups --group test
+          --reinstall-package btclib-secp256k1 --no-cache pytest
+          -m zkp --cov-fail-under=0
+
+      # what the three data files are for: a line none of the three runs
+      # executes is what the union reports, where each run on its own
+      # reports what only the other two cover as a miss. combine writes
+      # the default `.coverage`, which is what report then reads
+      - name: Combine the three runs
+        run: >
+          uv run --locked --no-default-groups --group test
+          coverage combine coverage-data-static coverage-data-dynamic
+          coverage-data-zkp
+
+      # no --fail-under here: coverage reads [tool.coverage.report]'s
+      # own, which is the ratchet -- none of the three steps above meets
+      # it alone any more, each carrying its own --cov-fail-under=0 for
+      # a different line the flag or the linkage keeps it from
+      # executing, so this report is the first and only place 100 is
+      # actually asked for. A copy of the number in this file is one a
+      # maintainer never runs
+      - name: Report the union, gated at 100%
+        run: >
+          uv run --locked --no-default-groups --group test
+          coverage report
+
+  # secp256k1-zkp (btclib-org/btclib-secp256k1#603, #605): one job, one
+  # platform, one interpreter, static only -- the matrix does not learn
+  # the flag, the same argument the coverage job's own header gives for
+  # measuring coverage once. Linux and not macOS or Windows for the same
+  # reason build-dynamic below picks ubuntu-latest first among its own
+  # four: the cheapest cell to schedule, and nothing about the fourth
+  # build path in scripts/cffi_build.py is platform-specific in a way
+  # the three ordinary paths are not already covered for elsewhere.
+  # BTCLIB_LIBSECP256K1_ZKP=true is passed to every step outside the
+  # explicit builds below, so this job is not silently comparable to a
+  # run of it that never uses the flag
+  zkp:
+    name: Build the flagged secp256k1-zkp extension, and run its tests
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BTCLIB_LIBSECP256K1_ZKP: "true"
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      # the editable install's own build hook is what compiles the
+      # extension, exactly as the coverage job's static run above does
+      # for the primary one -- so this import is a real gate on the
+      # fourth build path, independent of whether any test below
+      # exercises it: a CMake configure failure, a header this build
+      # cannot preprocess, or a link error all fail here, before pytest
+      # is ever invoked. --reinstall-package and --no-cache for the
+      # reason the coverage job's own dynamic run gives: neither uv's
+      # build cache nor the venv it restores is keyed on
+      # BTCLIB_LIBSECP256K1_ZKP, only on the source tree, so a cache
+      # entry this workflow's own coverage job populated for the
+      # unflagged build is indistinguishable from this one's without it
+      - name: Build the flagged extension, and prove it imports
+        run: >
+          uv run --locked --no-default-groups --group test
+          --reinstall-package btclib-secp256k1 --no-cache
+          python -c "import _btclib_secp256k1_zkp as m; print(m.lib)"
+
+      # the tests marked zkp, over btclib_secp256k1.zkp.musig (#607) and
+      # the modules #608 and #609 add. Nothing here tolerates exit 5,
+      # pytest's own "no tests ran": a selection that collects nothing
+      # -- a renamed marker, a moved file, a -m matching no test -- is a
+      # real failure. -m alone already sets this run's own coverage
+      # floor to zero (tests/conftest.py), so --no-cov only saves the
+      # report nobody would read for a selection this narrow
+      - name: Run the tests marked zkp
+        run: >
+          uv run --locked --no-default-groups --group test
+          pytest -m zkp --no-cov
+
+  build-cibuildwheel:
+    name: Build wheels on ${{ matrix.os }}
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    # the interpreter uv runs the build tools with is the one setup-python
+    # installed below, and never one of uv's own: there is no managed
+    # CPython for windows aarch64, so on windows-11-arm what uv downloads
+    # is an emulated x86-64 build, and cibuildwheel reads the host
+    # architecture off the interpreter it is running on — this job would
+    # quietly produce win_amd64 wheels on the arm64 runner. With downloads
+    # off, an interpreter that is missing is a job that fails instead
+    env:
+      UV_PYTHON_DOWNLOADS: never
+    strategy:
+      # as for the test matrices, and here it costs more: with the
+      # default, one platform failing (or one flaky runner) cancels the
+      # five builds in flight beside it, so a rerun is the only way to
+      # learn whether they would have succeeded. On the release path the
+      # cancelled jobs are artifacts the publish job then has to do
+      # without
+      fail-fast: false
+      matrix:
+        # ubuntu-latest/macos-26-intel are x86_64,
+        # ubuntu-24.04-arm/macos-latest are arm64; windows-latest and
+        # windows-11-arm build natively with MSVC, which picks its target
+        # from the host, so win_amd64 and win_arm64 need no configuration
+        # of their own. The vendored library is built with CMake
+        # everywhere, provisioned as a build requirement: no runner needs
+        # a toolchain installed by hand.
+        # Actions drops x86_64 macOS in August 2027, after which no runner
+        # can build a macosx x86_64 wheel at all
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-26-intel
+          - macos-latest
+          - windows-latest
+          - windows-11-arm
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      # the interpreter the dev-version action runs and the one uv runs the
+      # build tools with, which is why it stays even though cibuildwheel
+      # needs none of its own: the interpreters it builds wheels for are
+      # the ones it installs itself
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          # section 1 of the organization standard counts a release
+          # candidate as released, and setup-python matches one only under
+          # this flag, which leaves a version with a final release on that
+          # final. Every setup-python step below carries it for that reason
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      # skipped on every trigger but a release rehearsal: the inputs
+      # context is empty unless this workflow was called, and an empty
+      # string is what the release passes for a tag push
+      - name: Make the version unique for TestPyPI (rehearsal only)
+        uses: ./.github/actions/dev-version # zizmor: ignore[self-repository]
+        if: inputs.version-suffix != ''
+        with:
+          suffix: ${{ inputs.version-suffix }}
+
+      # cibuildwheel from the build group of pyproject.toml, pinned by
+      # uv.lock, rather than from `pip install -U`, which fetched whatever
+      # the index held that morning: what it decides — the interpreters,
+      # the manylinux images, the identifiers the skip in
+      # [tool.cibuildwheel] names — is this matrix, so a release of it
+      # belongs in a pull request that runs the matrix rather than in a
+      # push that did not touch it. --only-group omits the project, so
+      # this installs no extension of its own; the build frontend
+      # cibuildwheel then runs per interpreter comes from the same group.
+      # --locked, here as in the check-dist job: the dev-version step
+      # above rewrites the version in pyproject.toml on the rehearsal
+      # path and re-locks in the same step, so the lock agrees with the
+      # tree this builds whichever path the run took, and the flag asserts
+      # that agreement instead of skipping it (btclib-org/.github#128)
+      #
+      # what a pull request has to answer about any of these images is
+      # whether this tree still builds there, and that is answered by the
+      # first wheel: the toolchain, the CMake build of the vendored
+      # library and the cffi extension are what differ per platform, and
+      # they do not differ per interpreter. The rest of an image's wheels
+      # are that build again for another ABI tag, which is why a pull
+      # request builds the two below and not every interpreter.
+      #
+      # Every image, ubuntu included: nothing on a pull request reads past
+      # the wheels this selects. check-dist installs one wheel by path and
+      # takes it from build-dynamic, which builds whole, and pip's
+      # selection among a directory of wheels tagged for several
+      # interpreters is asked nowhere -- os-ubuntu.yml's header carries
+      # that trade and what answers the rest of the question instead.
+      #
+      # A push to main, a release and a rehearsal all build everything --
+      # in a called workflow github.event_name is the caller's, which is
+      # never pull_request -- so the interpreters this does not reach on a
+      # branch are reached by the run that follows the merge, and the
+      # release publishes nothing this shortcut has touched
+      #
+      # cp311 is the floor requires-python declares, and building it is
+      # what lets a pull request reach the standard library of the patch
+      # release cibuildwheel pins that interpreter to on the macOS and
+      # Windows images. A newer interpreter alone leaves that to the push
+      # to main, so a keyword absent from that patch passes a pull request
+      # and fails there -- #529 is that failure, on 3.10.11.
+      #
+      # cp315t is the free-threaded build of the interpreter
+      # .python-version pins, and the second pattern selects it on every
+      # image: pyproject.toml declares the Free Threading classifier on
+      # the ground that the gate refuses a landing that breaks that wheel,
+      # so the required check has to build it and run the suite against
+      # it. It is the interpreter os-ubuntu.yml, os-macos.yml and
+      # os-windows.yml name as 3.15t.
+      - name: Build the oldest and the free-threaded interpreter, on a pull request
+        if: github.event_name == 'pull_request'
+        # bash, and the two Windows images are the whole of the reason:
+        # the default shell there is PowerShell, where "$GITHUB_ENV" is
+        # not the variable but a literal, so this wrote a file of that
+        # name and cibuildwheel built all seven wheels anyway -- the step
+        # green, the log showing cp310 through cp314t, and only the
+        # unchanged job duration to say so
+        shell: bash
+        run: echo "CIBW_BUILD=cp311-* cp315t-*" >> "$GITHUB_ENV"
+
+      # what every member of the wheels this uploads carries as its
+      # timestamp. hatchling stamps the members it writes at a constant
+      # of its own where this is unset, and the repair cibuildwheel runs
+      # after each build reads it for the members it rewrites --
+      # auditwheel, which repacks from a directory it extracted the
+      # wheel into, rewrites every one of them, and takes the clock of
+      # the moment where the variable is unset. The commit date rather
+      # than hatchling's constant, which is the value and the reason
+      # build-sdist below pins for the sdist: one release's files then
+      # agree on when they were built, and a rebuild recovers the date
+      # from the tag it rebuilds. [tool.cibuildwheel.linux]'s
+      # environment-pass carries it into the container, which inherits
+      # nothing from this job
+      - name: Pin the build timestamp to the commit
+        # bash, for the Windows images of this matrix: see the step
+        # above, whose comment has what PowerShell does with "$GITHUB_ENV"
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # this job's own matrix carries windows-latest and windows-11-arm,
+      # the same reason the step above already declares shell: bash --
+      # see its comment. This step is one plain command and runs
+      # identically under PowerShell today; the hazard is the same one
+      # that step's comment names for the next edit that is not
+      # (issue btclib-org/btclib#1148)
+      - name: Build wheels
+        shell: bash
+        run: uv run --locked --only-group build cibuildwheel
+
+      - name: Upload the wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: static-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*
+
+  build-dynamic:
+    name: Build dynamic wheel on ${{ matrix.os }}
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    # see build-cibuildwheel; here the platform tag of the wheel is the
+    # interpreter's own, so substituting the interpreter substitutes the
+    # tag
+    env:
+      UV_PYTHON_DOWNLOADS: never
+    strategy:
+      # see build-cibuildwheel
+      fail-fast: false
+      matrix:
+        # ubuntu-latest/macos-26-intel are x86_64,
+        # ubuntu-24.04-arm/macos-latest are arm64
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-26-intel, macos-latest]
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      # see build-cibuildwheel
+      - name: Make the version unique for TestPyPI (rehearsal only)
+        uses: ./.github/actions/dev-version # zizmor: ignore[self-repository]
+        if: inputs.version-suffix != ''
+        with:
+          suffix: ${{ inputs.version-suffix }}
+
+      # a dynamic wheel compiles no extension, so nothing derives its
+      # platform tag from a toolchain: without this the macOS version in
+      # the tag is the runner's own, and pip on any older macOS refuses a
+      # wheel that would have loaded there. CMake reads the same variable
+      # (CMAKE_OSX_DEPLOYMENT_TARGET defaults to it), so the vendored
+      # library is built for the floor its tag then claims. 11.0 is where
+      # arm64 macOS starts; 10.13 is what cibuildwheel gives the static
+      # x86_64 wheels of CPython 3.12 and later, and the Xcode of the
+      # macOS 26 image still compiles for it
+      - name: Set the macOS deployment target
+        if: runner.os == 'macOS'
+        # the expression is a step env var rather than text spliced into
+        # the script: what reaches the shell is then a value and never a
+        # fragment of a command, which is the shape zizmor asks for
+        env:
+          TARGET: ${{ matrix.os == 'macos-26-intel' && '10.13' || '11.0' }}
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=$TARGET" >> "$GITHUB_ENV"
+
+      # the wheel this uploads is repaired too, by the auditwheel or
+      # delocate step below rather than by cibuildwheel: see
+      # build-cibuildwheel, whose step this is and whose comment has the
+      # reason
+      - name: Pin the build timestamp to the commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # the build group and --locked: see build-cibuildwheel
+      - name: Build wheel
+        run: BTCLIB_LIBSECP256K1_DYNAMIC=true uv run --locked --only-group build python -m build -w
+
+      # auditwheel and delocate decide the platform tag this wheel ends up
+      # carrying, which is what pip matches against, so they are pinned
+      # with the rest of the build group rather than installed with -U
+      - name: Repair wheel (Linux)
+        if: runner.os == 'Linux'
+        run: uv run --locked --only-group build auditwheel repair dist/*
+
+      - name: Repair wheel (macOS)
+        if: runner.os == 'macOS'
+        run: uv run --locked --only-group build delocate-wheel -w wheelhouse dist/*
+
+      - name: Upload the wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dynamic-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*
+
+  build-sdist:
+    name: Build sdist
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # see build-cibuildwheel
+    env:
+      UV_PYTHON_DOWNLOADS: never
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      # see build-cibuildwheel
+      - name: Make the version unique for TestPyPI (rehearsal only)
+        uses: ./.github/actions/dev-version # zizmor: ignore[self-repository]
+        if: inputs.version-suffix != ''
+        with:
+          suffix: ${{ inputs.version-suffix }}
+
+      # what the build below and the normalizer after it both read.
+      # hatchling's sdist writer honours this when it is set and falls
+      # back to a fixed constant, 1580601600, when it is not -- so this
+      # step is what makes the published mtime the tagged commit's own
+      # date rather than that constant, section 12 of the organization
+      # standard asking every publisher for it regardless of what its own
+      # backend already does. The commit date, not the tag's: a
+      # lightweight tag has none of its own to prefer, and this job's
+      # checkout is the commit a release tags
+      - name: Pin the build timestamp to the commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # the build group and --locked: see build-cibuildwheel
+      - name: Build source
+        run: uv run --locked --only-group build python -m build -s
+
+      # insurance rather than the fix: the step above already leaves the
+      # sdist's own mtime at SOURCE_DATE_EPOCH, and this rewrites it again
+      # so that the published value stays this repository's choice
+      # regardless of what a future hatchling release does with the
+      # variable. The script's own docstring has the measurement of what
+      # else hatchling already writes the same way, untouched here.
+      # --no-project, so this runs on the interpreter actions/setup-python
+      # already installed and touches nothing this job is about to publish
+      - name: Make the sdist's determinism this tree's own
+        run: |
+          uv run --no-project --python 3.15 \
+            .github/scripts/normalize_sdist.py dist/
+          sha256sum dist/*
+
+      # and what nothing said at all: what the archive contains, as a
+      # document rather than as a check. It describes the sdist and not
+      # the wheels -- the script's own docstring has why -- and it is
+      # reproducible for the reason the step above is: SOURCE_DATE_EPOCH
+      # is its timestamp and the sdist's digest its serial number, so a
+      # rebuild of a released tag writes this file too, and
+      # release.yml's `attest` job signs it beside the archive. Into a
+      # directory of its own and not dist/: the publish jobs download
+      # this job's artifact into a dist/ they hand to an index whole, and
+      # an index takes distribution files
+      - name: Write the bill of materials
+        run: |
+          uv run --no-project --python 3.15 \
+            .github/scripts/generate_sbom.py dist/ sbom/
+
+      - name: Upload the source distribution
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+      # an artifact of its own, for the reason the step that writes it
+      # gives: release.yml's `attest` and `github-release` jobs both hand
+      # every file in it to a signature or a release, the same way they
+      # do the sdist's
+      - name: Upload the bill of materials
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom/
+
+  # installing from sdist is the one path that has to compile the
+  # vendored libsecp256k1 on the user's machine: the wheel jobs never
+  # exercise it, so a broken sdist would only be discovered on PyPI.
+  # Nothing upstream of here makes this job redundant, and it is worth
+  # saying why, because for a pure python package it would be: `uv build`
+  # builds the sdist and then the wheel *from* it, so whatever the wheel
+  # contains proves the sdist carried it. No wheel of this package is
+  # built that way — cibuildwheel and `python -m build -w` both build from
+  # the source tree, per platform and per interpreter, because a wheel
+  # here is a compiled artifact and the sdist is not its input. What the
+  # sdist has to carry is therefore checked nowhere else: the whole
+  # vendored submodule tree, the CMake toolchain file, the build scripts
+  # named in cffi_modules, and the headers the cdef is preprocessed from,
+  # every one of them listed by hand in the sdist include of
+  # pyproject.toml. An omission there is invisible until something
+  # compiles from it, which is what this job does.
+  # Windows is in the matrix because it is the platform where that build
+  # is least like the others: MSVC compiles the extension while a gcc on
+  # the PATH preprocesses the headers for cffi, and what the sdist has to
+  # carry for it is not what a POSIX build reads
+  suite-sdist:
+    name: >-
+      Install from the sdist and run the suite on ${{ matrix.os }}${{
+      matrix.architecture && format(' ({0})', matrix.architecture) }}
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'closed' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is os-macos.yml's, for the reason the header gives; what that
+        # workflow runs there is a source build of the same tree, which is
+        # what an install from the sdist is
+        os: [ubuntu-latest, windows-latest]
+        # the wheel jobs all build with an interpreter of the runner's own
+        # architecture, so nothing else exercises a build whose target is
+        # not the host: an emulated x86-64 interpreter on Windows arm64,
+        # which is what uv installs there by default, and where CMake
+        # taking the host architecture left every libsecp256k1 symbol
+        # unresolved at link time. This is the platform where an
+        # architecture can be requested that is not the runner's, and the
+        # sdist is the path that compiles on the user's machine
+        include:
+          - os: windows-11-arm
+            architecture: x64
+    needs: build-sdist
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # tests/module_flags_test.py reads each vendored submodule's
+          # CMakeLists.txt, so the suite this job runs needs them on
+          # disk. Nothing else in the job does: what installs is
+          # `pip install dist/*.tar.gz`, which builds the sdist it
+          # downloaded in a directory of its own, and what this checkout
+          # supplies is tests/ and pyproject.toml. The thinness this job
+          # is for is in the install -- no uv, no lock, pip resolving as
+          # a user does -- and the checkout is no part of it
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+          # empty for every other entry, which leaves setup-python its
+          # default, the architecture of the runner
+          architecture: ${{ matrix.architecture }}
+
+      - name: Download the source distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sdist
+          path: dist
+
+      # bash on every runner, Windows included: pip does not expand the
+      # glob itself, and PowerShell does not expand it for a native
+      # command either, so the default shell there would hand pip the
+      # pattern verbatim.
+      #
+      # pip and pytest unpinned, unlike every tool that comes from a group
+      # of pyproject.toml, and deliberately: this job holds no uv and no
+      # lock, because its subject is pip resolving and building a
+      # published artifact the way a user does, and pinning pytest would
+      # reintroduce the resolution it exists to exclude. The price is that
+      # filterwarnings = error makes a pytest release able to fail this
+      # job on a day nothing here changed; that is the same signal the
+      # published workflow carries, a fact about what a user hits, and it
+      # surfaces in a pull request.
+      # pytest-cov beside pytest for the reason [tool.cibuildwheel]'s
+      # test-requires names: addopts carries --cov, and an interpreter
+      # without the plugin answers "unrecognized arguments: --cov" and
+      # collects nothing. pathspec for the reason pyproject.toml's
+      # `test` group gives, and named here because this job installs the
+      # sdist into an interpreter of its own: neither that group nor
+      # test-requires reaches it, so this is the third environment the
+      # suite runs in and the third that has to say what it needs
+      - name: Install from sdist
+        shell: bash
+        run: |
+          python -m pip install -U pip pytest pytest-cov pathspec
+          python -m pip install --verbose dist/*.tar.gz
+
+      # this job's matrix carries windows-latest and windows-11-arm, the
+      # same reason the step above already declares shell: bash. `pytest
+      # --no-cov` has no POSIX-only syntax and runs identically under
+      # PowerShell today; the hazard is the next edit that adds some
+      # (issue btclib-org/btclib#1148).
+      # --no-cov because what this job asks is whether an sdist installs
+      # and its suite passes, which is a question about pip and the
+      # build: coverage is measured and gated once, on the coverage job
+      - name: Test
+        shell: bash
+        run: pytest --no-cov
+
+  build-windows:
+    name: "Build on Linux for Windows"
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && needs.changes.outputs.code == 'true'
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # see build-cibuildwheel
+    env:
+      UV_PYTHON_DOWNLOADS: never
+
+    needs: changes
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+      # see build-cibuildwheel
+      - name: Make the version unique for TestPyPI (rehearsal only)
+        uses: ./.github/actions/dev-version # zizmor: ignore[self-repository]
+        if: inputs.version-suffix != ''
+        with:
+          suffix: ${{ inputs.version-suffix }}
+
+      - name: Install dependencies
+        run: sudo apt install -y mingw-w64
+
+      # nothing repairs this wheel, so hatchling writes every member of
+      # it and the constant it falls back to would be deterministic on
+      # its own: what the pin buys here is that the file this uploads
+      # carries the same instant as the rest of the release rather than
+      # that constant. See build-cibuildwheel
+      - name: Pin the build timestamp to the commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      # the build group and --locked: see build-cibuildwheel. The `wheel`
+      # this used to install with it is a setuptools-era requirement:
+      # hatchling writes the wheel itself, and nothing here invokes that
+      # package
+      - name: Build Windows wheel
+        run: |
+          BTCLIB_LIBSECP256K1_CROSS_COMPILE=true CFFI_PLATFORM=Windows \
+            uv run --locked --only-group build python -m build -w
+
+      - name: Upload the wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dynamic-wheels-windows
+          path: dist/*
+
+  # the same validation PyPI applies on upload, run before the release
+  # workflow reaches the point of no return: broken metadata or a README
+  # that does not render cannot be fixed by reuploading, a version can
+  # only be yanked and burnt
+  check-dist:
+    name: Inspect the distribution files and install one
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-cibuildwheel, build-dynamic, build-sdist, build-windows]
+
+    steps:
+      # for the check-wheel-contents configuration in pyproject.toml
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # the wheels of the check group, the three tools below among
+          # them, keyed on uv.lock
+          enable-cache: true
+
+      - name: Download the wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*-wheels-*"
+          merge-multiple: true
+          path: dist
+
+      - name: Download the source distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sdist
+          path: dist
+
+      - name: Show distributions
+        run: ls -l dist
+
+      # the three tools below come from the check group of
+      # pyproject.toml, pinned by uv.lock, rather than from uvx, which
+      # fetches whatever the index holds at run time: pyroma is run with a
+      # --min ratchet, and a release of it adding a test would otherwise
+      # fail a release that changed nothing. --only-group omits the
+      # project, so none of this compiles an extension
+      - name: Check metadata and long description
+        run: uv run --locked --only-group check twine check --strict dist/*
+
+      - name: Check wheel contents
+        run: uv run --locked --only-group check check-wheel-contents dist/*.whl
+
+      # what check-wheel-contents cannot phrase without also refusing the
+      # compiled artifact this project's wheels legitimately carry outside
+      # any package tree: docs/source/package-content-policy.md has the
+      # three questions this answers and why check-wheel-contents --package
+      # is not one flag away from asking them here. --no-project, so it
+      # runs on the interpreter uv already fetched and installs nothing
+      - name: Check what the wheels contain
+        run: |
+          uv run --no-project --python 3.15 \
+            .github/scripts/verify_wheel_contents.py dist/*.whl
+
+      # one wheel installed by path into an environment holding nothing,
+      # its dependencies resolved from PyPI, and imported from an empty
+      # directory where nothing can resolve to the source tree: what this
+      # asks is whether the metadata a user's pip reads is enough to make
+      # the wheel importable, which a requirement dropped from it would
+      # fail. The dynamic wheel is the subject because it is the one that
+      # needs cffi at run time, a static extension carrying its own.
+      # Importing it is the whole of what runs here -- the suite against
+      # this artifact is a cost os-ubuntu.yml's header records
+      - name: Install a wheel with its dependencies resolved from PyPI
+        run: |
+          # the glob itself, not ls parsed by a pipeline: nullglob is what
+          # makes an unmatched pattern an empty array rather than the
+          # pattern read as a filename
+          shopt -s nullglob
+          wheels=("$PWD"/dist/*py3-none-manylinux*x86_64.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "::error::dist holds no dynamic linux x86_64 wheel"
+            exit 1
+          fi
+          wheel=${wheels[0]}
+          echo "installing $wheel"
+          cd "$RUNNER_TEMP"
+          uv run --isolated --no-project --python 3.15 --with "$wheel" \
+            python -c "import btclib_secp256k1 as m; print(m.__version__, m.lib)"
+
+      # what twine cannot see: metadata that is valid but poor, a missing
+      # classifier or url, a version PyPI would sort in a way nobody
+      # meant. Run on the sdist rather than on the source tree, so it
+      # rates the metadata that was actually built and shipped; --min 10
+      # is a ratchet, the score being 10 today
+      - name: Rate the packaging metadata
+        run: uv run --locked --only-group check pyroma --min 10 dist/*.tar.gz
+
+  # one context for the branch rule, instead of the matrices' own. A rule
+  # naming `Build wheels on ubuntu-24.04-arm` names a context that stops
+  # being produced the moment the matrix changes, and a required check
+  # that produces no run blocks every merge with nothing in the tree to
+  # explain why -- the rule living outside the repository. So the rule
+  # names this job, and a job added to this workflow belongs in the
+  # `needs` below or it gates nothing. REPOSITORY.md carries the branch
+  # rule itself.
+  #
+  # The name carries the workflow because a context is keyed by name alone:
+  # two workflows with a job named the same thing produce one ambiguous
+  # check, and os-ubuntu.yml, os-macos.yml and os-windows.yml are three more
+  # workflows whose jobs run the suite.
+  #
+  # `if: !cancelled()` because a job with unmet `needs` is skipped, and a
+  # skipped check is not a failed one: without it a failing matrix cell
+  # would leave this context reported as skipped, which satisfies a
+  # required check rather than blocking on it. A cancellation of this
+  # run itself, though, is no evidence either way -- the concurrency
+  # group superseding it with a newer push -- and `always()` used to
+  # carry that into an explicit failure below despite the run's own
+  # cancellation already speaking for it. `!cancelled()` skips this job
+  # in that case instead, which satisfies the check the way any other
+  # skip does, while a job cancelled on its own rather than by the run's
+  # own cancellation still fails below
+  test-passed:
+    name: "test: every job passed"
+    # The draft flag is not part of this condition: a skipped required
+    # check reads as passing, and this job's own check run does not exist
+    # until every job above has settled, so declining it here while draft
+    # would leave the draft's skip as the only check of this name on the
+    # sha until a later run's own aggregate exists. The closed condition
+    # stays, added at the trigger above: a closed pull request has
+    # nothing left to become ready (btclib-org/.github#1327)
+    if: ${{ !cancelled() && github.event.action != 'closed' }}
+    needs:
+      - changes
+      - coverage
+      - zkp
+      - build-cibuildwheel
+      - build-dynamic
+      - build-sdist
+      - suite-sdist
+      - build-windows
+      - check-dist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # a skipped required check reads as passing, so the draft flag
+      # moves from the job's own `if:` above into this first step: the
+      # job still runs while draft, and reports a failure instead of a
+      # skip (btclib-org/.github#1327)
+      - name: Fail while this pull request is a draft
+        if: github.event.pull_request.draft
+        run: |
+          echo "::error::this pull request is a draft"
+          exit 1
+      - name: Fail unless every job above succeeded or was legitimately skipped
+        # the loop reads the whole needs context rather than naming each job, so
+        # a job added to needs above is covered without touching this. "skipped"
+        # is not a failure on its own: coverage, zkp, build-cibuildwheel,
+        # build-dynamic, build-sdist and build-windows are each conditional on
+        # changes' own output, so a prose-only pull request skips every one of
+        # them by design, and reading that as a defect would fail the gate the
+        # changes job exists to let pass cheaply. changes is named in needs
+        # directly though, so its own failure still shows up as "failure" in the
+        # results and still fails this job.
+        #
+        # This step used to decide with a `case` denylist over a space-joined
+        # `join(needs.*.result, ' ')`: its blindness was passing any result this
+        # file did not anticipate, the empty string included -- not word
+        # splitting, which that single string comparison never did
+        # (btclib-org/btclib#1454's own title: "shell loop passes vacuously").
+        #
+        # The loop below decides one field at a time, and word splitting does
+        # not hand it every field: a trailing empty one is dropped and an empty
+        # join gives no iteration at all, so the loop by itself would pass on
+        # the results beside the empty one, or on nothing. The `case` before it
+        # is what refuses those, and the comma separator is what lets it: an
+        # empty result is an empty field, and the commas wrapped around
+        # `$results` make an empty first field, an empty last one, an empty one
+        # between two others and an empty join a single pattern.
+        #
+        # An allowlist of the two legitimate results rather than a denylist of
+        # the bad ones, so a result this file does not anticipate fails the gate
+        # instead of passing it for not being named (btclib-org/.github#537).
+        #
+        # `join(needs.*.result, ',')` interpolates a closed set: each
+        # element is one of `success`, `failure`, `cancelled`, `skipped`
+        # or absent, all written by GitHub, so no fork-controlled string
+        # -- a branch name, a title, a body -- reaches this shell
+        run: | # zizmor: ignore[template-injection]
+          results='${{ join(needs.*.result, ',') }}'
+          echo "results: $results"
+          case ",$results," in
+            *,,*)
+              echo "::error::a job this gate depends on reported no result"
+              exit 1
+              ;;
+          esac
+          IFS=,
+          for result in $results; do
+            case "$result" in
+              success | skipped) ;;
+              *)
+                echo "::error::a job this gate depends on reported $result"
+                exit 1
+                ;;
+            esac
+          done

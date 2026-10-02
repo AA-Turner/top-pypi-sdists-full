@@ -30,6 +30,7 @@ from lazr.restfulclient.resource import ServiceRoot
 
 from launchpadlib.credentials import (
     AccessToken,
+    AuthorizeRequestTokenWithBrowser,
     Credentials,
 )
 
@@ -271,6 +272,64 @@ class TestRequestTokenAuthorizationEngine(unittest.TestCase):
         )
 
 
+class TestAuthorizeRequestTokenWithBrowser(unittest.TestCase):
+    """Tests for the AuthorizeRequestTokenWithBrowser class.
+
+    Constructing the engine does not open a browser or touch the
+    network, so these tests only check how the app is identified.
+    """
+
+    def test_app_must_be_identified(self):
+        # You must provide application_name or consumer_name.
+        self.assertRaises(
+            ValueError, AuthorizeRequestTokenWithBrowser, SERVICE_ROOT
+        )
+
+    def test_application_name_does_desktop_integration(self):
+        # Passing application_name does a desktop-wide integration.
+        engine = AuthorizeRequestTokenWithBrowser(
+            SERVICE_ROOT, application_name="name"
+        )
+        self.assertEqual(engine.application_name, "name")
+        self.assertEqual(engine.allow_access_levels, ["DESKTOP_INTEGRATION"])
+
+    def test_consumer_name_does_app_integration(self):
+        # Passing consumer_name (without application_name) uses that
+        # consumer directly instead of a system-wide consumer.
+        engine = AuthorizeRequestTokenWithBrowser(
+            SERVICE_ROOT, consumer_name="consumer"
+        )
+        self.assertEqual(engine.consumer.key, "consumer")
+        self.assertEqual(engine.application_name, "consumer")
+
+    def test_consumer_name_forwards_allow_access_levels(self):
+        # For an application-specific integration the requested access
+        # levels are offered to the end-user (and end up in the
+        # authorization URL).
+        engine = AuthorizeRequestTokenWithBrowser(
+            SERVICE_ROOT,
+            consumer_name="consumer",
+            allow_access_levels=["READ_PUBLIC", "READ_PRIVATE"],
+        )
+        self.assertEqual(
+            engine.allow_access_levels, ["READ_PUBLIC", "READ_PRIVATE"]
+        )
+        url = engine.authorization_url("request-token")
+        self.assertIn("allow_permission=READ_PUBLIC", url)
+        self.assertIn("allow_permission=READ_PRIVATE", url)
+
+    def test_application_name_takes_precedence_over_consumer_name(self):
+        # If both are given, application_name wins and a desktop-wide
+        # integration is performed; consumer_name is ignored.
+        engine = AuthorizeRequestTokenWithBrowser(
+            SERVICE_ROOT,
+            application_name="name1",
+            consumer_name="name2",
+        )
+        self.assertEqual(engine.application_name, "name1")
+        self.assertEqual(engine.allow_access_levels, ["DESKTOP_INTEGRATION"])
+
+
 class TestLaunchpadLoginWithCredentialsFile(unittest.TestCase):
     """Tests for Launchpad.login_with() with a credentials file."""
 
@@ -379,7 +438,7 @@ class TestLaunchpadLoginWith(KeyringTest):
         launchpadlib_dir = os.path.join(self.temp_dir, "launchpadlib")
         # Verify a newly created-by-hand directory is insecure
         os.mkdir(launchpadlib_dir)
-        os.chmod(launchpadlib_dir, 0o755)
+        os.chmod(launchpadlib_dir, 0o755)  # noqa: S103
         self.assertTrue(os.path.isdir(launchpadlib_dir))
         statinfo = os.stat(launchpadlib_dir)
         mode = stat.S_IMODE(statinfo.st_mode)
@@ -631,7 +690,7 @@ class TestLaunchpadLoginWith(KeyringTest):
         )
         credentials = Credentials(
             "app name",
-            consumer_secret="consumer_secret:42",
+            consumer_secret="consumer_secret:42",  # noqa: S106
             access_token=AccessToken("access_key:84", "access_secret:168"),
         )
         credentials.save_to_path(credentials_file_path)
@@ -712,6 +771,129 @@ class TestLaunchpadLoginWith(KeyringTest):
         # You can pass in a value for the 'max_failed_attempts'
         # argument, even though that argument doesn't do anything.
         NoNetworkLaunchpad.login_with("not important", max_failed_attempts=5)
+
+    def test_login_with_forwards_allow_access_levels(self):
+        # login_with() forwards consumer_name and allow_access_levels
+        # to the authorization engine through the factory, so a
+        # named-consumer login can request specific access levels
+        # without constructing an engine by hand.
+        launchpad = NoNetworkLaunchpad.login_with(
+            consumer_name="consumer",
+            allow_access_levels=["READ_PUBLIC", "READ_PRIVATE"],
+        )
+        self.assertEqual(
+            launchpad.authorization_engine.consumer.key, "consumer"
+        )
+        self.assertEqual(
+            launchpad.authorization_engine.allow_access_levels,
+            ["READ_PUBLIC", "READ_PRIVATE"],
+        )
+
+    def test_cached_credentials_for_same_consumer_are_reused(self):
+        # If the cached credential was issued to the consumer we're
+        # logging in as, it is reused without a fresh authorization.
+        ignore, filename = tempfile.mkstemp()
+        self.addCleanup(os.remove, filename)
+        cached = Credentials(
+            consumer_name="consumer",
+            consumer_secret="consumer_secret:42",  # noqa: S106
+            access_token=AccessToken("access_key:84", "access_secret:168"),
+        )
+        cached.save_to_path(filename)
+        store = UnencryptedFileCredentialStore(filename)
+
+        launchpad = NoNetworkLaunchpad.login_with(
+            consumer_name="consumer", credential_store=store
+        )
+        # The cached access token was reused; no fresh authorization.
+        self.assertEqual(
+            launchpad.credentials.access_token.key, "access_key:84"
+        )
+        self.assertEqual(
+            launchpad.authorization_engine.access_tokens_obtained, 0
+        )
+
+    def test_cached_credentials_for_different_consumer_are_ignored(self):
+        # A file-based credential store returns whatever credential is
+        # in the file, regardless of which consumer we ask for. If the
+        # cached credential was issued to a different consumer,
+        # login_with() must not reuse it (doing so fails with a
+        # bad-token error and triggers a confusing reauthorization);
+        # instead it authorizes afresh as the requested consumer.
+        ignore, filename = tempfile.mkstemp()
+        self.addCleanup(os.remove, filename)
+        cached = Credentials(
+            consumer_name="old-consumer",
+            consumer_secret="consumer_secret:42",  # noqa: S106
+            access_token=AccessToken("access_key:84", "access_secret:168"),
+        )
+        cached.save_to_path(filename)
+        store = UnencryptedFileCredentialStore(filename)
+
+        launchpad = NoNetworkLaunchpad.login_with(
+            consumer_name="new-consumer", credential_store=store
+        )
+        # The cached credential was not reused; we authorized afresh as
+        # the requested consumer.
+        self.assertEqual(launchpad.credentials.consumer.key, "new-consumer")
+        self.assertEqual(
+            launchpad.authorization_engine.access_tokens_obtained, 1
+        )
+
+    def test_cached_credentials_for_shared_system_wide_consumer_are_reused(
+        self,
+    ):
+        # System-wide consumers are keyed by hostname and are often shared
+        ignore, filename = tempfile.mkstemp()
+        self.addCleanup(os.remove, filename)
+        cached = Credentials(
+            consumer_name="System-wide: Ubuntu (other-host)",
+            consumer_secret="consumer_secret:42",  # noqa: S106
+            access_token=AccessToken("access_key:84", "access_secret:168"),
+        )
+        cached.save_to_path(filename)
+        store = UnencryptedFileCredentialStore(filename)
+
+        launchpad = NoNetworkLaunchpad.login_with(
+            "application", credential_store=store
+        )
+        # The shared system-wide credential was reused; no fresh auth.
+        self.assertEqual(
+            launchpad.credentials.access_token.key, "access_key:84"
+        )
+        self.assertEqual(
+            launchpad.authorization_engine.access_tokens_obtained, 0
+        )
+
+    def test_cached_named_credentials_for_system_wide_consumer_are_ignored(
+        self,
+    ):
+        # A named credential left in a file-based store must not be reused
+        # for a system-wide (desktop integration) login: the requested
+        # consumer is system-wide but the cached one is a specific named
+        # consumer, so we authorize afresh rather than silently adopting an
+        # unrelated token.
+        ignore, filename = tempfile.mkstemp()
+        self.addCleanup(os.remove, filename)
+        cached = Credentials(
+            consumer_name="named-consumer",
+            consumer_secret="consumer_secret:42",  # noqa: S106
+            access_token=AccessToken("access_key:84", "access_secret:168"),
+        )
+        cached.save_to_path(filename)
+        store = UnencryptedFileCredentialStore(filename)
+
+        launchpad = NoNetworkLaunchpad.login_with(
+            "application", credential_store=store
+        )
+        # The cached named credential was not reused; we authorized afresh
+        # as the requested system-wide consumer.
+        self.assertNotEqual(
+            launchpad.credentials.consumer.key, "named-consumer"
+        )
+        self.assertEqual(
+            launchpad.authorization_engine.access_tokens_obtained, 1
+        )
 
 
 class TestDeprecatedLoginMethods(KeyringTest):
@@ -859,7 +1041,7 @@ class TestMultipleSites(unittest.TestCase):
         launchpadlib_dir = os.path.join(self.temp_dir, "launchpadlib")
         keyring = InMemoryKeyring()
         # Be paranoid about the keyring starting out empty.
-        assert not keyring.data, "oops, a fresh keyring has data in it"
+        assert not keyring.data, "keyring has data"  # noqa: S101
         with fake_keyring(keyring):
             # Create stored credentials for the same application but against
             # two different sites (service roots).
@@ -876,7 +1058,7 @@ class TestMultipleSites(unittest.TestCase):
 
         # There should only be two sets of stored credentials (this assertion
         # is of the test mechanism, not a test assertion).
-        assert len(keyring.data.keys()) == 2
+        assert len(keyring.data.keys()) == 2  # noqa: S101
 
         application_key_1 = list(keyring.data.keys())[0][1]
         application_key_2 = list(keyring.data.keys())[1][1]

@@ -1,0 +1,96 @@
+import json
+from urllib.parse import urlparse
+
+import httpx
+
+from mindee.error.mindee_error import MindeeSourceError
+from mindee.parsing.common.string_dict import StringDict
+
+
+def validate_url_for_source(url: str) -> None:
+    """
+    Validates that a URL is safe to send to the Mindee server.
+
+    Rejects any URL that follow non-HTTPS schemes.
+
+    :param url: The URL string to validate.
+    :raises MindeeSourceError: If the URL fails any security check.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        raise MindeeSourceError("Invalid URL") from exc
+
+    if parsed.scheme.lower() != "https":
+        raise MindeeSourceError("URL must be HTTPS")
+
+
+def is_valid_sync_response(response: httpx.Response) -> bool:
+    """
+    Checks if the synchronous response is valid. Returns True if the response is valid.
+
+    :param response: a requests response object.
+    :return: bool
+    """
+    if not response or response.is_error:
+        return False
+    try:
+        response_json = response.json()
+    except httpx.DecodingError:
+        return False
+    # EXTREMELY rare edge case where raw html is sent instead of json.
+    return isinstance(response_json, dict)
+
+
+def is_valid_async_response(response: httpx.Response) -> bool:
+    """
+    Checks if the asynchronous response is valid. Also checks if it is a valid synchronous response.
+
+    Returns True if the response is valid.
+
+    :param response: an httpx response object.
+    :return: bool
+    """
+    if not is_valid_sync_response(response):
+        return False
+    response_json = json.loads(response.content)
+    # Checks invalid status codes within the bounds of ok responses.
+    if response.status_code and (
+        response.status_code < 200 or response.status_code > 302
+    ):
+        return False
+    if "job" in response_json:
+        return not response_json["job"].get("error")
+    if "execution" in response_json:
+        return not response_json["execution"].get("error")
+    return False
+
+
+def clean_request_json(response: httpx.Response) -> StringDict:
+    """
+    Checks and correct the response error format depending on the two possible kind of returns.
+
+    :param response: Raw request response.
+    :return: Returns the job error if the error is due to parsing, returns the http error otherwise.
+    """
+    response_json = response.json()
+    if response.is_error:
+        response_json["status_code"] = response.status_code
+        return response_json
+    corrected_json = response_json
+    if (
+        "api_request" in response_json
+        and "status_code" in response_json["api_request"]
+        and isinstance(response_json["api_request"]["status_code"], (int, str))
+        and str(response_json["api_request"]["status_code"]).isdigit()
+        and int(response_json["api_request"]["status_code"]) >= 400
+    ):
+        corrected_json["status_code"] = int(response_json["api_request"]["status_code"])
+    if (
+        "job" in response_json
+        and "error" in response_json["job"]
+        and response_json["job"]["error"]
+    ):
+        corrected_json["error"] = response_json["job"]["error"]
+        corrected_json["status_code"] = 500
+    return corrected_json

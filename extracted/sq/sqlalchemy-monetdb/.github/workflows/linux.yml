@@ -1,0 +1,55 @@
+name: Linux
+
+on:
+  push:
+
+  schedule:
+    - cron:  '15 2 * * *'
+
+jobs:
+  linux-test:
+    runs-on: ubuntu-24.04
+    env:
+      DATABASE: test
+    #continue-on-error: true
+    services:
+      monetdb:
+        image: "monetdb/dev-builds:Dec2025"
+        env:
+          MDB_CREATE_DBS: '${{ env.DATABASE }}'
+          MDB_DB_ADMIN_PASS: monetdb
+        ports:
+          - 50000:50000
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.30"
+          enable-cache: true
+
+      - name: Set up .venv, show dependency versions
+        run: uv sync
+
+      - name: Prepare database
+        run: uv run test/prepare-db.py '${{ env.DATABASE }}'
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Switch .venv to oldest possible dependencies
+        run: uv sync --resolution=lowest-direct
+
+      - name: Run tests with oldest dependencies
+        run: uv run --resolution=lowest-direct pytest

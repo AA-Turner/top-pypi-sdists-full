@@ -30,7 +30,8 @@ pub async fn handle_did_change(backend: &Backend, params: DidChangeTextDocumentP
     // diagnostics against the previous version. The TOML version is reused from the
     // previous parse here and refined below only if the edit actually changed it
     // (e.g. an edited `#:schema` directive).
-    let (need_publish_diagnostics, previous_toml_version) = {
+    let text_changed = latest_text.is_some();
+    let (need_publish_diagnostics, previous_toml_version, document_source) = {
         let mut document_sources = backend.document_sources.write().await;
         let Some(document) = document_sources.get_mut(&text_document_uri) else {
             return;
@@ -41,12 +42,16 @@ pub async fn handle_did_change(backend: &Backend, params: DidChangeTextDocumentP
             .is_none_or(|version| version < text_document.version);
         let previous_toml_version = document.toml_version;
 
-        if let Some(text) = latest_text.as_ref() {
+        if let Some(text) = latest_text {
             document.set_text(text, previous_toml_version);
         }
         document.version = Some(text_document.version);
 
-        (need_publish_diagnostics, previous_toml_version)
+        (
+            need_publish_diagnostics,
+            previous_toml_version,
+            document.clone(),
+        )
     };
 
     backend
@@ -57,9 +62,10 @@ pub async fn handle_did_change(backend: &Backend, params: DidChangeTextDocumentP
 
     // Refine the TOML version if this edit changed it, and re-apply only when the
     // document has not been superseded by a newer change in the meantime.
-    if let Some(text) = latest_text.as_ref() {
+    if text_changed {
+        // The edited text is already parsed above, so its AST is reused here.
         let toml_version = backend
-            .text_document_toml_version(&text_document_uri, text)
+            .text_document_toml_version(&text_document_uri, &document_source.ast())
             .await;
 
         if toml_version != previous_toml_version {
@@ -71,7 +77,7 @@ pub async fn handle_did_change(backend: &Backend, params: DidChangeTextDocumentP
                 if document.version != Some(text_document.version) {
                     return;
                 }
-                document.set_text(text, toml_version);
+                document.set_toml_version(toml_version);
             }
 
             backend

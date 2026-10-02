@@ -35,16 +35,14 @@ class ServiceAccountSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateServiceAccountSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateServiceAccountSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_DOCSTRINGS,
+        doc_py_example=_CREATE_EXAMPLE,
+        arg_docstrings=_CREATE_DOCSTRINGS,
     )
     def create(self, name: str) -> str:  # noqa: F811
-        """Create a service account and return the API key.
-        """
+        """Create a service account and return the API key."""
         return self._private_sdk.create(name)
 
     @sdk_docs(
@@ -54,35 +52,36 @@ class ServiceAccountSDK:
     def create_api_key(  # noqa: F811
         self, email: Optional[str] = None, name: Optional[str] = None
     ) -> str:
-        """Create an API key for the service account and return the API key.
-        """
+        """Create an API key for the service account and return the API key."""
         return self._private_sdk.create_api_key(email, name)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_DOCSTRINGS,
     )
-    def list(self, max_items: int = 20,) -> List[ServiceAccount]:  # noqa: F811
-        """List service accounts.
-        """
-        return self._private_sdk.list(max_items=max_items,)
+    def list(
+        self,
+        max_items: int = 20,
+    ) -> List[ServiceAccount]:  # noqa: F811
+        """List service accounts."""
+        return self._private_sdk.list(
+            max_items=max_items,
+        )
 
     @sdk_docs(
-        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_DOCSTRINGS,
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_DOCSTRINGS,
     )
     def delete(  # noqa: F811
         self, email: Optional[str] = None, name: Optional[str] = None
     ):
-        """Delete a service account.
-        """
+        """Delete a service account."""
         return self._private_sdk.delete(email, name)
 
     @sdk_docs(
         doc_py_example=_ROTATE_API_KEYS_EXAMPLE,
         arg_docstrings=_ROTATE_API_KEYS_DOCSTRINGS,
     )
-    def rotate_api_key(
-        self, email: Optional[str] = None, name: Optional[str] = None
-    ) -> str:  # noqa: F811
-        """Rotate all api keys of a service account and return the new API key.
-        """
+    def rotate_api_key(self, email: Optional[str] = None, name: Optional[str] = None) -> str:  # noqa: F811
+        """Rotate all api keys of a service account and return the new API key."""
         return self._private_sdk.rotate_api_keys(email, name)

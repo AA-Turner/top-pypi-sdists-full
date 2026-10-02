@@ -1,0 +1,24 @@
+# Manifest for the uncommitted local inverted-tree workbook pool (#656).
+# Workbook paths with source = "committed" are relative to tests/fixtures/.
+# All other paths are relative to tests/fixtures/local/.
+# Graph building derives OFFSET / INDEX / INDIRECT domains from series
+# `domain` / `from_workbook` on the bindings sidecar.
+
+[[entry]]
+id = "tiny_dsa"
+source = "committed"
+workbook = "inverted_tree/tiny_dsa/tiny-dsa.xlsx"
+bindings = "inverted_tree/tiny_dsa/bindings"
+max_cells = 200
+
+[[entry]]
+id = "qcraft"
+workbook = "qcraft/qcraft-toolv10.xlsx"
+bindings = "qcraft/bindings"
+max_cells = 20000
+
+[[entry]]
+id = "lic_dsf"
+workbook = "lic_dsf/lic-dsf.xlsx"
+bindings = "lic_dsf/bindings"
+max_cells = 20000

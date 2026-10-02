@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .models import ChatContinuation
+
+
+class CodexError(Exception):
+    """Base exception for the codex-app-server-sdk package."""
+
+
+class CodexTransportError(CodexError):
+    """Raised when the underlying transport fails or disconnects unexpectedly."""
+
+
+class CodexTimeoutError(CodexError):
+    """Raised when a request or turn wait exceeds its timeout policy."""
+
+
+class CodexTurnInactiveError(CodexTimeoutError):
+    """Raised when a running turn emits no matching events for too long.
+
+    Attributes:
+        continuation: Opaque token used to resume the same running turn.
+        idle_seconds: Resolved inactivity timeout that triggered this exception.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        continuation: ChatContinuation,
+        idle_seconds: float,
+    ) -> None:
+        """Create a turn inactivity timeout error.
+
+        Args:
+            message: Human-readable timeout description.
+            continuation: Continuation token for resuming interrupted wait.
+            idle_seconds: Timeout value in seconds that was exceeded.
+        """
+        super().__init__(message)
+        self.continuation = continuation
+        self.idle_seconds = idle_seconds
+
+
+class CodexProtocolError(CodexError):
+    """Raised when JSON-RPC or app-server protocol reports an error."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: int | None = None,
+        data: Any = None,
+    ) -> None:
+        """Create a protocol error.
+
+        Args:
+            message: Human-readable description.
+            code: Optional JSON-RPC error code.
+            data: Optional protocol-provided error payload.
+        """
+        super().__init__(message)
+        self.code = code
+        self.data = data

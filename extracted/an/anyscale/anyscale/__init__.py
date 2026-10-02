@@ -103,6 +103,7 @@ __version__ = version.__version__
 
 ANYSCALE_ENV = os.environ.copy()
 
+
 # Remove this code once AnyscaleSDK is removed
 # Keep the old import for backwards compatibility but warn
 def __getattr__(name):
@@ -135,7 +136,9 @@ class Anyscale:
         headers: Optional[Dict[str, str]] = None,
     ):
         auth_block = AuthenticationBlock(
-            cli_token=auth_token, host=_host, raise_structured_exception=True,
+            cli_token=auth_token,
+            host=_host,
+            raise_structured_exception=True,
         )
 
         _validate_headers(headers)
@@ -160,9 +163,7 @@ class Anyscale:
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
         self._image_sdk = ImageSDK(client=self._anyscale_client)
-        self._organization_invitation_sdk = OrganizationInvitationSDK(
-            client=self._anyscale_client
-        )
+        self._organization_invitation_sdk = OrganizationInvitationSDK(client=self._anyscale_client)
         self._policy_sdk = PolicySDK(client=self._anyscale_client)
         self._project_sdk = ProjectSDK(client=self._anyscale_client)
         self._user_group_sdk = UserGroupSDK(client=self._anyscale_client)
@@ -174,7 +175,11 @@ class Anyscale:
 
     @classmethod
     def _init_private(
-        cls, *, client: AnyscaleClientInterface, logger: BlockLogger, timer: Timer,
+        cls,
+        *,
+        client: AnyscaleClientInterface,
+        logger: BlockLogger,
+        timer: Timer,
     ):
         # Private constructor used to inject fakes for testing.
         obj = cls.__new__(cls)
@@ -197,10 +202,14 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._schedule_sdk = ScheduleSDK(  # noqa: SLF001
-            client=client, logger=logger, timer=timer,
+            client=client,
+            logger=logger,
+            timer=timer,
         )
         obj._scheduler_sdk = SchedulerSDK(  # noqa: SLF001
-            client=client, logger=logger, timer=timer,
+            client=client,
+            logger=logger,
+            timer=timer,
         )
         obj._image_sdk = ImageSDK(client=client, logger=logger)  # noqa: SLF001
         obj._organization_invitation_sdk = OrganizationInvitationSDK(  # noqa: SLF001
@@ -224,7 +233,9 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._workspace_sdk = WorkspaceSDK(  # noqa: SLF001
-            client=client, logger=logger, timer=timer,
+            client=client,
+            logger=logger,
+            timer=timer,
         )
         return obj
 

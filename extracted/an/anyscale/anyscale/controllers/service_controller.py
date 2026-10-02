@@ -78,9 +78,7 @@ class ServiceController(BaseController):
         )
 
     def get_authenticated_user_id(self) -> str:
-        user_info_response = (
-            self.internal_api_client.get_user_info_api_v2_userinfo_get()
-        )
+        user_info_response = self.internal_api_client.get_user_info_api_v2_userinfo_get()
         return user_info_response.result.id
 
     def _get_services_by_name(
@@ -120,9 +118,7 @@ class ServiceController(BaseController):
 
         return services_list[:max_items]
 
-    def _get_service_id_from_name(
-        self, service_name: str, project_id: Optional[str]
-    ) -> str:
+    def _get_service_id_from_name(self, service_name: str, project_id: Optional[str]) -> str:
         """Get the ID for a service by name.
 
         If project_id is specified, filter to that project, else don't filter on project_id and
@@ -186,9 +182,7 @@ class ServiceController(BaseController):
             project_id = project_id or service_config.project_id
             service_id = self._get_service_id_from_name(service_config.name, project_id)
         else:
-            raise click.ClickException(
-                "Service ID, name, or config file must be specified."
-            )
+            raise click.ClickException("Service ID, name, or config file must be specified.")
 
         return service_id
 
@@ -239,9 +233,7 @@ class ServiceController(BaseController):
             service_config.max_surge_percent is not None
             and service_config.rollout_strategy == "IN_PLACE"
         ):
-            raise ValueError(
-                "--max-surge-percent is not supported for IN_PLACE rollouts."
-            )
+            raise ValueError("--max-surge-percent is not supported for IN_PLACE rollouts.")
 
         return service_config
 
@@ -310,22 +302,16 @@ class ServiceController(BaseController):
 
         self._overwrite_runtime_env_in_v2_ray_serve_config(config)
 
-        apply_service_model: ApplyServiceModel = self._format_apply_service_model(
-            config
-        )
+        apply_service_model: ApplyServiceModel = self._format_apply_service_model(config)
         service: ServiceModel = self.sdk._rollout_service(  # noqa: SLF001
             apply_service_model
         ).result
         self.log.info(f"Service {service.id} rollout initiated.")
-        self.log.info(
-            f'View the service in the UI at {get_endpoint(f"/services/{service.id}")}'
-        )
+        self.log.info(f"View the service in the UI at {get_endpoint(f'/services/{service.id}')}")
 
         url = service.base_url
         auth_token = service.auth_token
-        self.log.info(
-            "You can query the service endpoint using the curl request below:"
-        )
+        self.log.info("You can query the service endpoint using the curl request below:")
         self.log.info(f"curl -H 'Authorization: Bearer {auth_token}' {url}")
 
         send_workspace_notification(
@@ -333,7 +319,9 @@ class ServiceController(BaseController):
             WorkspaceNotification(
                 body=f"Service {service.name} rollout initiated.",
                 action=WorkspaceNotificationAction(
-                    type="navigate-service", title="View Service", value=service.id,
+                    type="navigate-service",
+                    title="View Service",
+                    value=service.id,
                 ),
             ),
         )
@@ -366,12 +354,8 @@ class ServiceController(BaseController):
     def rollback(self, service_id: str, max_surge_percent: Optional[int] = None):
         service: ServiceModel = self.anyscale_api_client.rollback_service(
             service_id,
-            rollback_service_model=RollbackServiceModel(
-                max_surge_percent=max_surge_percent
-            ),
+            rollback_service_model=RollbackServiceModel(max_surge_percent=max_surge_percent),
         ).result
 
         self.log.info(f"Service {service.id} rollback initiated.")
-        self.log.info(
-            f'View the service in the UI at {get_endpoint(f"/services/{service.id}")}'
-        )
+        self.log.info(f"View the service in the UI at {get_endpoint(f'/services/{service.id}')}")

@@ -6,9 +6,7 @@ from anyscale.anyscale_pydantic import BaseModel
 
 # Used for data-gplane role.
 AMAZON_S3_FULL_ACCESS_POLICY_NAME = "AmazonS3FullAccess"
-AMAZON_S3_FULL_ACCESS_POLICY_ARN = (
-    f"arn:aws:iam::aws:policy/{AMAZON_S3_FULL_ACCESS_POLICY_NAME}"
-)
+AMAZON_S3_FULL_ACCESS_POLICY_ARN = f"arn:aws:iam::aws:policy/{AMAZON_S3_FULL_ACCESS_POLICY_NAME}"
 
 AMAZON_ECR_READONLY_ACCESS_POLICY_NAME = "AmazonEC2ContainerRegistryReadOnly"
 AMAZON_ECR_READONLY_ACCESS_POLICY_ARN = (
@@ -43,6 +41,7 @@ ANYSCALE_IAM_PERMISSIONS_EC2_STEADY_STATE: Dict[str, Any] = {
                 # Populates metadata about what is available
                 # in the account.
                 "ec2:DescribeAvailabilityZones",
+                "ec2:DescribeCapacityReservations",
                 "ec2:DescribeInstanceTypes",
                 "ec2:DescribeRegions",
                 "ec2:DescribeAccountAttributes",
@@ -195,9 +194,7 @@ def get_anyscale_iam_permissions_ec2_restricted(cloud_id: str) -> Dict[str, Any]
     }
 
 
-ANYSCALE_IAM_POLICY_NAME_SERVICE_STEADY_STATE = (
-    "Anyscale_IAM_Policy_Service_Steady_State"
-)
+ANYSCALE_IAM_POLICY_NAME_SERVICE_STEADY_STATE = "Anyscale_IAM_Policy_Service_Steady_State"
 ANYSCALE_IAM_PERMISSIONS_SERVICE_STEADY_STATE = {
     "Version": "2012-10-17",
     "Statement": [
@@ -310,9 +307,7 @@ ANYSCALE_IAM_PERMISSIONS_SERVICE_STEADY_STATE = {
             "Action": "iam:CreateServiceLinkedRole",
             "Resource": "*",
             "Condition": {
-                "StringLike": {
-                    "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
-                }
+                "StringLike": {"iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"}
             },
         },
     ],

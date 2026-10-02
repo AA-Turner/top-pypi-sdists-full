@@ -98,7 +98,7 @@ class GpuStatusGroup(object):
     def rollup(self):
         """Gets the rollup of this GpuStatusGroup.  # noqa: E501
 
-        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects only the project, instance type and workload type filters.  # noqa: E501
+        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects every filter except `status`, whose state selection is applied after the rollups are computed.  # noqa: E501
 
         :return: The rollup of this GpuStatusGroup.  # noqa: E501
         :rtype: GpuStatusRollup
@@ -109,7 +109,7 @@ class GpuStatusGroup(object):
     def rollup(self, rollup):
         """Sets the rollup of this GpuStatusGroup.
 
-        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects only the project, instance type and workload type filters.  # noqa: E501
+        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects every filter except `status`, whose state selection is applied after the rollups are computed.  # noqa: E501
 
         :param rollup: The rollup of this GpuStatusGroup.  # noqa: E501
         :type: GpuStatusRollup

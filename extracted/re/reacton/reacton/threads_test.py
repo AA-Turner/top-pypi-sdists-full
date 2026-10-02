@@ -1,0 +1,562 @@
+import logging
+import sys
+import threading
+
+import pytest
+
+import reacton
+import reacton.ipywidgets as w
+
+TIMEOUT = 10
+
+
+def test_state_change_from_another_thread_after_the_last_check_is_rendered():
+    # A setter on another thread leaves the render to a running render loop. When it runs just
+    # after the loop took its last look at _rerender_needed, its change must still be rendered.
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        b, setters["b"] = reacton.use_state(0)
+        return w.Button(description=f"{a} {b}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    other = threading.Thread(target=lambda: setters["b"](1))
+
+    def set_b_on_other_thread():
+        rc._on_render_loop_done = None
+        other.start()
+        # the setter returns at once when it leaves the render to us,
+        # or it waits for our render lock when it renders the change itself
+        other.join(0.5)
+
+    rc._on_render_loop_done = set_b_on_other_thread
+    setters["a"](1)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert box.children[0].description == "1 1"
+    rc.close()
+
+
+def test_state_changes_from_another_thread_are_not_a_render_loop():
+    # Another thread changes state once during each render pass (a progress bar, for instance),
+    # more often than the "Too many renders" limit allows for a render loop.
+    n = 60
+    setters = {}
+    remaining = [0]
+    go, done = threading.Semaphore(0), threading.Semaphore(0)
+
+    @reacton.component
+    def Test():
+        trigger, setters["trigger"] = reacton.use_state(0)
+        progress, setters["progress"] = reacton.use_state(0)
+        if remaining[0] > 0:
+            go.release()  # the other thread changes state during this pass
+            assert done.acquire(timeout=TIMEOUT)
+        return w.Button(description=f"{trigger} {progress}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+
+    def report_progress():
+        for i in range(n):
+            assert go.acquire(timeout=TIMEOUT)
+            setters["progress"](i + 1)
+            remaining[0] -= 1
+            done.release()
+
+    other = threading.Thread(target=report_progress)
+    other.start()
+    remaining[0] = n
+    setters["trigger"](1)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert box.children[0].description == f"1 {n}"
+    rc.close()
+
+
+@pytest.mark.parametrize("request_render", ["set_state", "update", "render", "force_update"])
+def test_render_request_while_holding_a_user_lock_does_not_deadlock(request_render):
+    # Another thread holds its own lock while it asks for a render (a state change, update(), render()
+    # or force_update()), and the render on this thread takes that lock in an effect. If the other
+    # thread waits for the render lock (held by this thread), this thread waits for the user lock
+    # (held by the other thread): a deadlock. The effect uses a timeout to break it.
+    user_lock = threading.RLock()
+    deadlocked = []
+    setters = {}
+
+    @reacton.component
+    def Test(label=""):
+        a, setters["a"] = reacton.use_state(0)
+        b, setters["b"] = reacton.use_state(0)
+
+        def effect():
+            if user_lock.acquire(timeout=2):
+                user_lock.release()
+            else:
+                deadlocked.append(True)
+
+        reacton.use_effect(effect, [a])
+        return w.Button(description=f"{label}{a} {b}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    requests = {
+        "set_state": lambda: setters["b"](1),
+        "update": lambda: rc.update(Test(label="new ")),
+        "render": lambda: rc.render(Test(label="new ")),
+        "force_update": lambda: rc.force_update(),
+    }
+    expected = {"set_state": "1 1", "update": "new 1 0", "render": "new 1 0", "force_update": "1 0"}
+
+    def request_holding_user_lock():
+        with user_lock:
+            requests[request_render]()
+
+    other = threading.Thread(target=request_holding_user_lock)
+
+    class RequestAtRenderStart(logging.Filter):
+        # "Render phase: " is logged after the render took the render lock, but before it renders
+        def filter(self, record):
+            if str(record.msg).startswith("Render phase: ") and other.ident is None:
+                other.start()
+                # returns at once when the other thread does not wait for the render lock
+                other.join(0.5)
+            return True
+
+    logger = logging.getLogger("reacton")
+    level = logger.level
+    request = RequestAtRenderStart()
+    logger.setLevel(logging.INFO)
+    logger.addFilter(request)
+    try:
+        setters["a"](1)
+    finally:
+        logger.removeFilter(request)
+        logger.setLevel(level)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert not deadlocked, "the other thread waited for the render lock while it held the user lock"
+    assert box.children[0].description == expected[request_render]
+    rc.close()
+
+
+def _run_in_thread(target):
+    # a thread that is still alive after TIMEOUT hangs; errors[0] is what target raised, if anything
+    errors: list = []
+
+    def run():
+        try:
+            target()
+        except BaseException as e:
+            errors.append(e)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    thread.join(TIMEOUT)
+    return thread, errors
+
+
+def test_close_from_its_own_render_raises_instead_of_hanging():
+    # close() waits for the render lock, which its own render holds: it would wait for itself
+    close_errors: list = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+
+        def effect():
+            if a == 1:
+                try:
+                    rc.close()
+                except RuntimeError as e:
+                    close_errors.append(e)
+
+        reacton.use_effect(effect, [a])
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    thread, errors = _run_in_thread(lambda: setters["a"](1))
+    assert not thread.is_alive(), "close() from its own render hangs"
+    assert not errors, errors
+    assert len(close_errors) == 1
+    rc.close()
+
+
+def test_close_during_or_after_close_returns():
+    # an effect cleanup, which runs during close(), calls close() again: that must not wait for the
+    # render lock that the first close() holds. A close() after close() is a no-op as well.
+    @reacton.component
+    def Test():
+        reacton.use_effect(lambda: lambda: rc.close(), [])  # the cleanup calls close()
+        return w.Button()
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    thread, errors = _run_in_thread(rc.close)
+    assert not thread.is_alive(), "close() from a cleanup during close() hangs"
+    assert not errors, errors
+    rc.close()
+
+
+def test_render_loop_for_another_thread_is_bounded():
+    # Another thread changes state during every render pass, and does not stop (a loop without a
+    # pause). The thread that renders must not keep rendering those changes forever: it would not
+    # return, and close() waits for it. It stops with "Too many renders", which names the cause.
+    setters = {}
+    stop = threading.Event()
+    go, done = threading.Semaphore(0), threading.Semaphore(0)
+
+    @reacton.component
+    def Test():
+        trigger, setters["trigger"] = reacton.use_state(0)
+        progress, setters["progress"] = reacton.use_state(0)
+        if trigger and not stop.is_set():
+            go.release()  # the other thread changes state during this pass
+            done.acquire(timeout=TIMEOUT)
+        return w.Button(description=f"{trigger} {progress}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+
+    def report_progress():
+        i = 0
+        while not stop.is_set():
+            if go.acquire(timeout=0.1):
+                i += 1
+                setters["progress"](i)
+                done.release()
+
+    other = threading.Thread(target=report_progress, daemon=True)
+    other.start()
+    thread, errors = _run_in_thread(lambda: setters["trigger"](1))
+    returned_by_itself = not thread.is_alive()
+    stop.set()
+    thread.join(TIMEOUT)
+    other.join(TIMEOUT)
+    assert returned_by_itself, "the render kept rendering the changes of another thread"
+    assert len(errors) == 1 and "another thread" in str(errors[0]).lower(), errors
+    rc.close()
+
+
+def test_many_changes_after_the_last_look_in_a_row_do_not_recurse():
+    # A change after the last look of the render loop is rendered after the render lock is released
+    # (see the lost-update test above). When that happens many times in a row, the renders must not
+    # nest (a RecursionError).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    n = 2000
+
+    def change_after_the_last_look():
+        a = int(box.children[0].description)
+        if 0 < a < n:
+            setters["a"](a + 1)  # a render is running: this only marks _rerender_needed
+
+    rc._on_render_loop_done = change_after_the_last_look
+    setters["a"](1)
+    assert box.children[0].description == f"{n}"
+    rc.close()
+
+
+def test_own_render_loop_stops_after_about_50_passes():
+    # A component that changes its own state on every render: "Too many renders" after about 50
+    # passes. The higher limit is only for changes from other threads, not for every render that a
+    # state change (from outside a render) started.
+    renders = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        renders.append(a)
+        if a > 0:
+            setters["a"](a + 1)  # never stops
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    renders.clear()
+    with pytest.raises(RuntimeError, match="Too many renders"):
+        setters["a"](1)
+    assert len(renders) < 60, len(renders)
+    rc.close()
+
+
+def test_force_update_after_the_last_look_is_rendered():
+    # force_update() from another thread, just after the render loop took its last look (an event
+    # handler that routes an exception to the render does this). It must mark before it looks at
+    # _is_rendering, like a setter, or the render that is ending does not see it, and no render
+    # follows. update() does the same (it calls force_update()).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    other = threading.Thread(target=rc.force_update)
+
+    def force_update_on_other_thread():
+        rc._on_render_loop_done = None
+        other.start()
+        other.join(TIMEOUT)
+
+    rc._on_render_loop_done = force_update_on_other_thread
+    render_count = rc.render_count
+    setters["a"](1)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert rc.render_count == render_count + 2, "no render for the forced update"  # a=1, then the forced update
+    rc.close()
+
+
+def test_render_on_a_closed_render_context_leaves_nothing_behind():
+    # A render that gets the render lock after close() returns without a pass. It left its thread as
+    # the lock owner: a later close() or render() on that thread raised, as if called in its own render.
+    @reacton.component
+    def Test():
+        return w.Button(description="hi")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    rc.close()
+    rc.render()
+    rc.close()
+    rc.render()
+
+
+def test_close_right_after_a_render_released_the_render_lock():
+    # close() on another thread, right after a render released the render lock. The render read the
+    # errors of its pass after the release, from a tree that close() had torn down (AttributeError).
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    close_errors: list = []
+
+    class LockWithHook:
+        # the render lock, which runs close() on another thread right after the first release
+        def __init__(self, lock):
+            self._lock = lock
+            self.armed = True
+
+        def acquire(self, blocking=True):
+            return self._lock.acquire(blocking)
+
+        def release(self):
+            self._lock.release()
+            if self.armed:
+                self.armed = False
+                thread, errors = _run_in_thread(rc.close)
+                close_errors.extend(errors)
+
+        def locked(self):
+            return self._lock.locked()
+
+        def __enter__(self):
+            self._lock.acquire()
+
+        def __exit__(self, *args):
+            self.release()
+
+    rc.thread_lock = LockWithHook(rc.thread_lock)  # type: ignore
+    setters["a"](1)
+    assert not close_errors, close_errors
+    assert rc._closing
+
+
+def test_exception_right_after_the_render_lock_is_taken_does_not_leak_it():
+    # An exception on the first line after the render lock is taken (an interrupt, or a cancel from a
+    # trace function, like solara's cancel_guard) must still release the lock: a leaked render lock
+    # stops every later render.
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    core_file = reacton.core.__file__
+    fired: list = []
+
+    class Cancelled(Exception):
+        pass
+
+    def trace(frame, event, arg):
+        if not fired and frame.f_code.co_filename == core_file and rc.thread_lock.locked() and not rc._is_rendering:
+            fired.append((frame.f_code.co_name, frame.f_lineno))
+            raise Cancelled()
+        return trace
+
+    def set_a_with_trace():
+        sys.settrace(trace)
+        try:
+            setters["a"](1)
+        finally:
+            sys.settrace(None)
+
+    thread, errors = _run_in_thread(set_a_with_trace)
+    assert fired, "the trace function never ran while the render lock was taken"
+    assert len(errors) == 1 and isinstance(errors[0], Cancelled), errors
+    assert not rc.thread_lock.locked(), f"the render lock leaked after an exception at {fired}"
+    setters["a"](2)
+    assert box.children[0].description == "2"
+    rc.close()
+
+
+def test_render_from_its_own_render_raises():
+    # render() from its own render would leave the render to itself (it holds the render lock)
+    render_errors: list = []
+    setters = {}
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+
+        def effect():
+            if a == 1:
+                try:
+                    rc.render(Test())
+                except RuntimeError as e:
+                    render_errors.append(e)
+
+        reacton.use_effect(effect, [a])
+        return w.Button(description=f"{a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    thread, errors = _run_in_thread(lambda: setters["a"](1))
+    assert not thread.is_alive(), "render() from its own render hangs"
+    assert not errors, errors
+    assert len(render_errors) == 1 and "Recursive render" in str(render_errors[0]), render_errors
+    rc.close()
+
+
+def test_state_change_during_a_render_only_marks():
+    # D3: a state change from another thread during a running render only marks. It does not try the
+    # render lock: the running render loop sees the mark.
+    setters = {}
+    go, done = threading.Semaphore(0), threading.Semaphore(0)
+    armed = [False]
+
+    @reacton.component
+    def Test():
+        a, setters["a"] = reacton.use_state(0)
+        b, setters["b"] = reacton.use_state(0)
+        if armed[0]:
+            armed[0] = False
+            go.release()  # the other thread changes state during this pass
+            assert done.acquire(timeout=TIMEOUT)
+        return w.Button(description=f"{a} {b}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    render_calls = []
+    render_once = rc._render_once
+
+    def counting_render_once(*args, **kwargs):
+        render_calls.append(threading.current_thread())
+        return render_once(*args, **kwargs)
+
+    rc._render_once = counting_render_once  # type: ignore
+
+    def set_b():
+        assert go.acquire(timeout=TIMEOUT)
+        setters["b"](1)
+        done.release()
+
+    other = threading.Thread(target=set_b)
+    other.start()
+    armed[0] = True
+    setters["a"](1)
+    other.join(TIMEOUT)
+    assert other not in render_calls, "the state change during a render tried the render lock"
+    assert box.children[0].description == "1 1"
+    rc.close()
+
+
+def test_element_request_right_after_a_pass_took_the_element_is_rendered():
+    # D4: a pass first clears _rerender_needed, then takes _element_next. An element request that lands
+    # right after the take leaves its mark set, so one more pass renders its element.
+    setters = {}
+
+    @reacton.component
+    def Test(label="old"):
+        a, setters["a"] = reacton.use_state(0)
+        return w.Button(description=f"{label} {a}")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    renderer = threading.current_thread()
+    other = threading.Thread(target=lambda: rc.update(Test(label="new")))
+
+    class RequestRightAfterTheTake(type(rc)):  # type: ignore
+        @property
+        def _element_next(self):
+            element = self.__dict__["_element_next"]
+            if other.ident is None and self._lock_thread is renderer:
+                # the renderer takes the element for its pass: another thread requests a new one now
+                other.start()
+                other.join(TIMEOUT)
+            return element
+
+        @_element_next.setter
+        def _element_next(self, element):
+            self.__dict__["_element_next"] = element
+
+    rc.__class__ = RequestRightAfterTheTake
+    setters["a"](1)
+    other.join(TIMEOUT)
+    assert not other.is_alive()
+    assert box.children[0].description == "new 1"
+    rc.close()
+
+
+def test_two_close_calls_at_the_same_time_tear_down_once():
+    # D8: two close() calls both pass the first _closing check. The second waits for the render lock,
+    # and must check again once it has it: a second teardown of a torn-down tree fails.
+    @reacton.component
+    def Test():
+        return w.Button(description="hi")
+
+    box, rc = reacton.render(Test(), handle_error=False)
+    second: list = []
+
+    class LockWithHook:
+        # the render lock; the first close() starts the second one after it took the lock
+        def __init__(self, lock):
+            self._lock = lock
+            self.second_waits = threading.Event()
+
+        def acquire(self, blocking=True):
+            return self._lock.acquire(blocking)
+
+        def release(self):
+            self._lock.release()
+
+        def locked(self):
+            return self._lock.locked()
+
+        def __enter__(self):
+            if not second:
+                self._lock.acquire()
+                second.append(threading.Thread(target=lambda: second.append(_run_in_thread(rc.close)[1])))
+                second[0].start()
+                # the second close() passed its first check, and waits for the lock
+                assert self.second_waits.wait(TIMEOUT)
+            else:
+                self.second_waits.set()
+                self._lock.acquire()
+
+        def __exit__(self, *args):
+            self._lock.release()
+
+    rc.thread_lock = LockWithHook(rc.thread_lock)  # type: ignore
+    rc.close()
+    second[0].join(TIMEOUT)
+    assert second[1:] == [[]], second[1:]  # the second close() raised nothing

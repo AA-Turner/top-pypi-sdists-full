@@ -1,0 +1,86 @@
+---
+name: node_context_pack_builder_compute
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+description: >
+  Pure deterministic assembly of ModelContextPack from resolved context
+  artifacts and a validated context profile. The node performs no I/O and
+  treats cache hits as external advisory metadata, not compute truth.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: context_pack_builder
+      handler:
+        name: HandlerContextPackBuilder
+        module: omnimarket.nodes.node_context_pack_builder_compute.handlers.handler_context_pack_builder
+
+handler:
+  module: omnimarket.nodes.node_context_pack_builder_compute.handlers.handler_context_pack_builder
+  class: HandlerContextPackBuilder
+  input_model: omnimarket.pack.model_context_pack_builder_request.ModelContextPackBuilderRequest
+  output_model: omnimarket.pack.model_context_pack_builder_result.ModelContextPackBuilderResult
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 1000
+
+inputs:
+  contract_hash:
+    type: str
+    required: true
+  generated_at:
+    type: str
+    required: true
+    description: Caller-supplied timezone-aware ISO8601 UTC timestamp.
+  profile:
+    type: object
+    required: true
+  artifacts:
+    type: array
+    required: false
+
+outputs:
+  status:
+    type: str
+    enum: [ok, failed]
+  context_pack:
+    type: object
+    required: false
+    nullable: true
+  pack_hash:
+    type: str
+    required: false
+    nullable: true
+  failure_class:
+    type: str
+    required: false
+    nullable: true
+  errors:
+    type: array
+  warnings:
+    type: array
+
+terminal_event: onex.evt.omnimarket.context-pack-build-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.context-pack-build-requested.v1
+  publish_topics:
+    - onex.evt.omnimarket.context-pack-build-completed.v1
+    - onex.evt.omnimarket.context-pack-build-failed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.context-pack-build-completed.v1
+  - onex.evt.omnimarket.context-pack-build-failed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.context-pack-build-requested.v1

@@ -1,0 +1,181 @@
+Metadata-Version: 2.4
+Name: centml
+Version: 0.7.1
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic-settings<3,>=2.0
+Requires-Dist: Requests==2.33.0
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: pyjwt>=2.8.0
+Requires-Dist: cryptography==50.0.0
+Requires-Dist: websockets>=16.0
+Requires-Dist: pyte>=0.8.0
+Requires-Dist: platform-api-python-client==4.31.0
+Requires-Dist: click>=8.4.1
+Requires-Dist: typing-extensions>=4.5
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+
+# centml-python-client
+![](https://github.com/CentML/centml-python-client/actions/workflows/unit_tests.yml/badge.svg)
+
+### Installation
+
+To install without cloning, run the following command:
+```bash
+pip install git+https://github.com/CentML/centml-python-client.git@main
+```
+
+Alternatively to build from source, clone this repo then inside the project's base directory, run the following command:
+```bash
+pip install . 
+```
+
+### Authentication
+
+For interactive use, authenticate once with the CLI. SDK examples reuse the stored
+credentials and refresh them when needed.
+
+```bash
+centml login
+python examples/sdk/validate_auth.py
+```
+
+For service-to-service use, provide both service-account environment variables:
+
+```bash
+export CENTML_SERVICE_ACCOUNT_ID="<service-account-id>"
+export CENTML_SERVICE_ACCOUNT_SECRET="<service-account-secret>"
+python examples/sdk/validate_auth.py
+```
+
+`CENTML_PLATFORM_API_URL` can be set when targeting a non-production API.
+
+### Dynamo SDK example
+
+The Dynamo example uses SDK authentication separately from the bearer token that
+protects the deployed inference endpoint:
+
+```bash
+export CENTML_CLUSTER_ID="<cluster-id>"
+export CENTML_HARDWARE_INSTANCE_ID="<hardware-instance-id>"
+export CENTML_ENDPOINT_BEARER_TOKEN="<new-endpoint-token>"
+# Required only for gated Hugging Face models:
+export HF_TOKEN="<hugging-face-token>"
+
+python examples/sdk/create_dynamo.py
+```
+
+Use `python examples/sdk/get_clusters.py` and
+`python examples/sdk/manage_hardware_instances.py` to discover the required IDs.
+Creating the example reserves GPU capacity and may incur usage charges. It does not
+delete the deployment automatically.
+
+### Deployment logs SDK example
+
+`fetch_logs()` is the one way to read deployment logs: it fetches one pod's stored
+log lines within a time window (`start_time`/`end_time`, epoch ms, inclusive) and
+yields them lazily, oldest first, as chunks of `DeploymentLogEvent` — each line at
+most once, holding only a short dedup window in memory however long the stream.
+`chunk_size` (1 to 5000) is the number of lines requested from the server per
+round trip and each server page that carries window lines becomes one chunk, so
+a bulk read of history wants a large `chunk_size` — the log read path is
+rate-limited upstream, and a small `chunk_size` over a large window multiplies
+requests. Discover pod names with `get_deployment_pods()`
+(terminated pods still within log retention are included). `start_time` defaults
+to the moment of the call; with `end_time` set the iterator terminates once the
+window is delivered or the store has no more lines to give, whichever comes
+first:
+
+```python
+for chunk in cclient.fetch_logs(DEPLOYMENT_ID, REVISION, pod, start_time=t1_ms, end_time=t2_ms):
+    for event in chunk:
+        print(event.message)
+```
+
+Without `end_time` the same generator tails: it never terminates, and once caught
+up it yields an empty chunk each time nothing new is stored yet — the caller
+decides when to sleep or break:
+
+```python
+import time
+
+for chunk in cclient.fetch_logs(DEPLOYMENT_ID, REVISION, pod):
+    if not chunk:
+        time.sleep(2)
+        continue
+    for event in chunk:
+        print(event.message)
+```
+
+`python examples/sdk/get_deployment_logs.py` runs both. `get_deployment_logs()`,
+`get_deployment_logs_range()` and `deployment_log_session()` still work but are
+deprecated in favor of `fetch_logs()` and emit a `DeprecationWarning` on use.
+
+### Un-installation
+
+To uninstall `centml`, simply do:
+```bash
+pip uninstall centml
+```
+
+### CLI
+Once installed, use the centml CLI tool with the following command:
+```bash
+centml 
+```
+
+If you want tab completion, run
+```bash
+source scripts/completions/completion.<shell language>
+```
+Shell language can be: bash, zsh, fish
+(Hint: add `source /path/to/completions/completion.<shell language>` to your `~/.bashrc`, `~/.zshrc` or `~/.config/fish/completions/centml.fish`)
+
+### Tests
+To run tests, first install required packages:
+```bash
+pip install -r requirements-dev.txt
+cd tests
+```
+
+When running on a local machine, it is recommended to run tests with the following command. This skips tests that require a GPU.
+```bash
+pytest --sanity
+```
+
+To run all the tests, use:
+```bash
+pytest
+```
+
+### Common Issues
+
+- **`SSL` certificate on `MacOS`**
+
+    Sometimes, you will see issues when using command like `centml cluster [CMD]`, where the output might look like:
+
+    ```logs
+
+    File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/urllib3/util/retry.py", line 519, in increment
+
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+
+    urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.centml.com', port=443):
+
+    Max retries exceeded with url: /deployments
+
+    (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1007)')))
+    ```
+
+    **Solution**:
+    To fix this issue, navigate to your `python` installation directory and run the `Install Certificates.command` file located there.
+
+    For example, if you are using `python3.10`, the file path would be:
+    `
+    /Applications/Python 3.10/Install Certificates.command
+    `

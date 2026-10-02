@@ -6,6 +6,7 @@ import torch
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGroup, ParamsT
+from pytorch_optimizer.optimizer.foreach_utils import group_tensors_by_device_and_dtype
 
 
 class StableAdamW(BaseOptimizer):
@@ -114,6 +115,16 @@ class StableAdamW(BaseOptimizer):
         if self.maximize:
             torch._foreach_neg_(grads)
 
+        if not group['weight_decouple']:
+            self.apply_weight_decay_foreach(
+                params, grads, lr, group['weight_decay'], weight_decouple=False, fixed_decay=False
+            )
+
+        torch._foreach_lerp_(exp_avgs, grads, weight=beta1_comp)
+
+        torch._foreach_mul_(exp_avg_sqs, beta2_hat)
+        torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1.0 - beta2_hat)
+
         step_sizes: List[float] = [
             -lr / self.get_stable_adamw_rms(grad, exp_avg_sq, eps=eps_p2)
             for grad, exp_avg_sq in zip(grads, exp_avg_sqs)
@@ -122,11 +133,6 @@ class StableAdamW(BaseOptimizer):
         if group['weight_decay'] != 0.0 and group['weight_decouple']:
             wd_step_sizes = [1.0 + group['weight_decay'] * step_size for step_size in step_sizes]
             torch._foreach_mul_(params, wd_step_sizes)
-
-        torch._foreach_lerp_(exp_avgs, grads, weight=beta1_comp)
-
-        torch._foreach_mul_(exp_avg_sqs, beta2_hat)
-        torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1.0 - beta2_hat)
 
         de_noms = torch._foreach_sqrt(exp_avg_sqs)
         torch._foreach_add_(de_noms, eps)
@@ -167,19 +173,27 @@ class StableAdamW(BaseOptimizer):
 
             p, grad, exp_avg, exp_avg_sq = self.view_as_real(p, grad, exp_avg, exp_avg_sq)
 
+            self.maximize_gradient(grad, maximize=self.maximize)
+
+            if not group['weight_decouple']:
+                self.apply_weight_decay(
+                    p, grad, group['lr'], group['weight_decay'], weight_decouple=False, fixed_decay=False
+                )
+
             exp_avg.lerp_(grad, weight=beta1_comp)
             exp_avg_sq.mul_(beta2_hat).addcmul_(grad, grad, value=1.0 - beta2_hat)
 
             lr: float = group['lr'] / self.get_stable_adamw_rms(grad, exp_avg_sq, eps=eps_p2)
 
-            self.apply_weight_decay(
-                p,
-                grad=grad,
-                lr=lr,
-                weight_decay=group['weight_decay'],
-                weight_decouple=group['weight_decouple'],
-                fixed_decay=False,
-            )
+            if group['weight_decouple']:
+                self.apply_weight_decay(
+                    p,
+                    grad=grad,
+                    lr=lr,
+                    weight_decay=group['weight_decay'],
+                    weight_decouple=True,
+                    fixed_decay=False,
+                )
 
             if group['kahan_sum'] and p.dtype in (torch.float16, torch.bfloat16):
                 kahan_comp = state['kahan_comp']
@@ -207,14 +221,14 @@ class StableAdamW(BaseOptimizer):
                 params, grads, state_dict = self.collect_trainable_params(
                     group, self.state, state_keys=['exp_avg', 'exp_avg_sq', 'kahan_comp']
                 )
-                if params:
+                for batch in group_tensors_by_device_and_dtype(params, grads, state_dict):
                     self._step_foreach(
                         group,
-                        params,
-                        grads,
-                        state_dict['exp_avg'],
-                        state_dict['exp_avg_sq'],
-                        state_dict['kahan_comp'],
+                        batch['params'],
+                        batch['grads'],
+                        batch['exp_avg'],
+                        batch['exp_avg_sq'],
+                        batch['kahan_comp'],
                     )
             else:
                 self._step_per_param(group)

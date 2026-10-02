@@ -1,0 +1,93 @@
+#include "doppler/interp_table/interp_table_core.h"
+
+#include <math.h>
+#include <string.h>
+
+dp_interp_table_state_t *
+dp_interp_table_create (const double _Complex *table, size_t table_len,
+                        int method)
+{
+  if (table_len == 0)
+    return NULL;
+  dp_interp_table_state_t *obj = malloc (sizeof (*obj));
+  if (!obj)
+    return NULL;
+  obj->table = malloc (table_len * sizeof (double _Complex));
+  if (!obj->table)
+    {
+      free (obj);
+      return NULL;
+    }
+  memcpy (obj->table, table, table_len * sizeof (double _Complex));
+  obj->n      = table_len;
+  obj->method = method;
+  return obj;
+}
+
+void
+dp_interp_table_destroy (dp_interp_table_state_t *state)
+{
+  if (!state)
+    return;
+  free (state->table);
+  free (state);
+}
+
+void
+dp_interp_table_reset (dp_interp_table_state_t *state)
+{
+  (void)state;
+}
+
+size_t
+dp_interp_table_execute_max_out (dp_interp_table_state_t *state)
+{
+  (void)state;
+  return 0; /* one value per input point, so outputs == inputs */
+}
+
+/* Wraps a floor'd index into [0, n) (dp_fmod_pos: fmod() alone keeps a
+ * negative dividend's sign). */
+static JM_FORCEINLINE size_t
+wrap_index (double floor_pt, size_t n)
+{
+  return (size_t)dp_fmod_pos (floor_pt, (double)n);
+}
+
+size_t
+dp_interp_table_execute (dp_interp_table_state_t *state, const double *in,
+                         size_t n_in, double _Complex *out, size_t max_out)
+{
+  /* Emission stops at the caller's capacity (jm gh-138). This block is
+     1:1 and stateless, so a truncated call simply drops the tail --
+     there is no delay line to desynchronise. */
+  if (n_in > max_out)
+    n_in = max_out;
+  const double _Complex *table = state->table;
+  size_t                 n     = state->n;
+  for (size_t i = 0; i < n_in; i++)
+    {
+      double point    = in[i];
+      double floor_pt = floor (point);
+      size_t lo       = wrap_index (floor_pt, n);
+
+      if (state->method == 0) /* floor */
+        {
+          out[i] = table[lo];
+          continue;
+        }
+
+      size_t hi   = (lo + 1 >= n) ? 0 : lo + 1;
+      double frac = point - floor_pt;
+
+      if (state->method == 1) /* nearest (ties round up) */
+        {
+          out[i] = (frac > 0.5) ? table[hi] : table[lo];
+          continue;
+        }
+
+      /* linear */
+      out[i] = table[lo] + frac * (table[hi] - table[lo]);
+    }
+  return n_in;
+}

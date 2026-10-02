@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - RSD Orchestrator
+#
+# Coordinates the fetch -> score -> store cycle for RSD priority scoring.
+#
+name: "node_rsd_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+runtime_profiles: [main]
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+description: >
+  Orchestrates the RSD priority scoring workflow: receive command, dispatch data fetch, dispatch score computation, dispatch state storage, emit completion event.
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.rsd.score.v1"
+    # OMN-17427: `onex.evt.rsd.data-fetched.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-17427: `onex.evt.rsd.scores-calculated.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-18013: `onex.evt.rsd.scores-stored.v1` DELETED from subscribe_topics. No handler_routing entry owned it
+    # (_topics_for_handler_entry returned no match, so ZERO dispatch routes existed) AND
+    # no contract anywhere in the corpus publishes it, so nothing could ever arrive on it
+    # either. Re-add it with its publisher and its handler entry, in one diff.
+  publish_topics:
+    - "onex.evt.rsd.score-complete.v1"
+    - "onex.evt.rsd.score-failed.v1"
+  # OMN-13852: DLQ destination for any unroutable inbound message. The
+  # MessageDispatchEngine derives this same name from the event_type domain
+  # ("rsd") on a NO_DISPATCHER fall-through; declaring it here ensures the
+  # topic is provisioned (ContractTopicExtractor / create_kafka_topics) so the
+  # dead-letter escape hatch targets a real topic instead of silently dropping.
+  dlq_topics:
+    - "onex.dlq.omnibase-infra.rsd.v1"
+input_model:
+  name: "ModelRsdCommand"
+  module: "omnibase_infra.nodes.node_rsd_orchestrator.models.model_rsd_command"
+  description: "Command to initiate RSD priority scoring cycle."
+output_model:
+  name: "ModelRsdResult"
+  module: "omnibase_infra.nodes.node_rsd_orchestrator.models.model_rsd_result"
+  description: "Final scoring result with ranked tickets and rank changes."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - event_model:
+        name: "ModelRsdCommand"
+        module: "omnibase_infra.nodes.node_rsd_orchestrator.models.model_rsd_command"
+      # OMN-13852: per-handler event_type disambiguates which subscribe topic this
+      # handler owns. Without it, _topics_for_handler_entry hits the multi-handler
+      # ambiguity guard, registers ZERO routes, and every inbound message falls
+      # through to NO_DISPATCHER (the live-proven silent drop).
+      event_type: "rsd.score"
+      message_category: "COMMAND"
+      handler:
+        name: "HandlerRsdInitiate"
+        module: "omnibase_infra.nodes.node_rsd_orchestrator.handlers.handler_rsd_initiate"
+      output_events:
+        - "ModelRsdDataFetchRequest"
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "rsd_scoring_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "RSD 5-factor priority scoring workflow"
+    execution_graph:
+      nodes:
+        - node_id: "fetch_data"
+          node_type: EFFECT_GENERIC
+          description: "Fetch ticket data, dependencies, agent requests, plan overrides"
+        - node_id: "compute_scores"
+          node_type: COMPUTE_GENERIC
+          description: "Calculate RSD 5-factor priority scores"
+          depends_on: ["fetch_data"]
+        - node_id: "store_state"
+          node_type: REDUCER_GENERIC
+          description: "Store scores and compute rank changes"
+          depends_on: ["compute_scores"]
+    coordination_rules:
+      execution_mode: sequential
+      parallel_execution_allowed: false
+      max_parallel_branches: 1
+      failure_recovery_strategy: fail_fast
+      max_retries: 0
+      timeout_ms: 30000
+metadata:
+  description: "RSD priority scoring workflow orchestrator"
+  author: "OmniNode Team"
+  created: "2026-04-01"
+  tags:
+    - "orchestrator"
+    - "rsd"
+    - "priority-engine"
+    - "scoring"

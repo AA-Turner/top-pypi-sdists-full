@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import datetime
 import difflib
+import json
 from typing import TYPE_CHECKING
 
 from jsonschema_rs import ValidationErrorKind
 
-from schemathesis.config._validator import CONFIG_SCHEMA
+from schemathesis.config._validator import CONFIG_SCHEMA, InstancePath
 from schemathesis.core.errors import SchemathesisError
 from schemathesis.core.transforms import resolve_path
 
@@ -17,25 +19,17 @@ class ConfigError(SchemathesisError):
     """Invalid configuration."""
 
     @classmethod
-    def from_validation_error(cls, error: ValidationError) -> ConfigError:
-        message = error.message
-        if error.kind.name == "enum":
-            message = _format_enum_error(error)
-        elif error.kind.name in _BOUND_PREDICATES:
-            message = _format_bound_error(error, _BOUND_PREDICATES[error.kind.name])
-        elif error.kind.name == "required":
-            message = _format_required_error(error)
-        elif error.kind.name == "type":
-            message = _format_type_error(error)
-        elif error.kind.name == "minProperties":
-            message = _format_min_properties_error(error)
-        elif error.kind.name == "additionalProperties":
-            message = _format_additional_properties_error(error)
-        elif error.kind.name == "anyOf":
-            message = _format_anyof_error(error)
-        elif error.kind.name == "oneOf":
-            message = _format_oneof_error(error)
-        return cls(message)
+    def from_validation_error(cls, error: ValidationError, replaced: dict[InstancePath, object]) -> ConfigError:
+        return cls(_format_validation_error(error, replaced))
+
+    @classmethod
+    def from_temporal_value(cls, path: InstancePath, value: object) -> ConfigError:
+        section = path_to_section_name(list(path[:-1]))
+        return cls(
+            f"Error in {section} section:\n  Type error:\n\n"
+            f"  - '{path[-1]}' -> Dates and times are not supported, but got {_type_name(value)}: "
+            f"{_format_value(value)}. Quote the value to pass it as a string."
+        )
 
     @classmethod
     def from_invalid_value(cls, *, section: str, name: str, value: object, valid: list[str]) -> ConfigError:
@@ -46,16 +40,38 @@ class ConfigError(SchemathesisError):
                 suggestion = f" Did you mean '{match}'?"
         return cls(
             f"Error in {section} section:\n  Invalid value:\n\n"
-            f"  - '{name}' -> {value!r} is not a valid value.{suggestion}\n\n"
-            f"Valid values are: {', '.join(repr(item) for item in valid)}."
+            f"  - '{name}' -> {_format_value(value)} is not a valid value.{suggestion}\n\n"
+            f"Valid values are: {', '.join(_format_value(item) for item in valid)}."
         )
 
     @classmethod
     def from_invalid_type(cls, *, section: str, name: str, value: object, expected: str) -> ConfigError:
         return cls(
             f"Error in {section} section:\n  Type error:\n\n"
-            f"  - '{name}' -> Must be {expected}, but got {type(value).__name__}."
+            f"  - '{name}' -> Must be {expected}, but got {_type_name(value)}: {_format_value(value)}"
         )
+
+
+def _format_validation_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
+    if error.kind.name == "enum":
+        return _format_enum_error(error, replaced)
+    if error.kind.name in _BOUND_PREDICATES:
+        return _format_bound_error(error, _BOUND_PREDICATES[error.kind.name])
+    if error.kind.name == "required":
+        return _format_required_error(error)
+    if error.kind.name == "type":
+        return _format_type_error(error, replaced)
+    if error.kind.name == "minProperties":
+        return _format_min_properties_error(error)
+    if error.kind.name == "additionalProperties":
+        return _format_additional_properties_error(error)
+    if error.kind.name == "anyOf":
+        return _format_anyof_error(error, replaced)
+    if error.kind.name == "oneOf":
+        return _format_oneof_error(error, replaced)
+    if error.kind.name == "uniqueItems":
+        return _format_unique_items_error(error)
+    return error.message
 
 
 _BOUND_PREDICATES = {
@@ -87,7 +103,7 @@ def _format_required_error(error: ValidationError) -> str:
     return f"Error in {section} section:\n  Missing required properties:\n\n{details}\n\n"
 
 
-def _format_enum_error(error: ValidationError) -> str:
+def _format_enum_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
     variants = resolve_path(CONFIG_SCHEMA, error.schema_path)
     assert isinstance(variants, list)
     valid_values = sorted(variants)
@@ -114,35 +130,94 @@ def _format_enum_error(error: ValidationError) -> str:
     valid_values_str = ", ".join(repr(v) for v in valid_values)
     return (
         f"Error in {section} section:\n  Invalid value:\n\n"
-        f"  - {description} -> '{error.instance}' is not a valid value.{suggestion}\n\n"
+        f"  - {description} -> {_format_value(_original_instance(error, replaced))} is not a valid value.{suggestion}\n\n"
         f"Valid values are: {valid_values_str}."
     )
 
 
-def _format_type_error(error: ValidationError) -> str:
+_JSON_TYPES = {
+    bool: "boolean",
+    int: "integer",
+    float: "number",
+    str: "string",
+    list: "array",
+    dict: "object",
+    type(None): "null",
+}
+
+_TYPE_PHRASES = {
+    "object": "an object",
+    "array": "an array",
+    "number": "a number",
+    "boolean": "a boolean",
+    "string": "a string",
+    "integer": "an integer",
+    "null": "null",
+}
+
+
+_TEMPORAL_TYPES = {
+    datetime.date: "date",
+    datetime.datetime: "datetime",
+    datetime.time: "time",
+}
+
+
+def _original_instance(error: ValidationError, replaced: dict[InstancePath, object]) -> object:
+    return replaced.get(tuple(error.instance_path), error.instance)
+
+
+def _type_name(value: object) -> str:
+    kind = type(value)
+    # Values passed through the Python API may have types with no TOML counterpart.
+    return _JSON_TYPES.get(kind) or _TEMPORAL_TYPES.get(kind) or kind.__name__
+
+
+def _format_value(value: object) -> str:
+    if isinstance(value, str):
+        return f"'{value}'"
+    if isinstance(value, datetime.date | datetime.time):
+        # TOML spells a zero UTC offset as `Z`
+        text = value.isoformat()
+        if text.endswith("+00:00"):
+            return text.removesuffix("+00:00") + "Z"
+        return text
+    # TOML spelling for non-string values, e.g. `true` rather than `True`.
+    return json.dumps(value, default=str)
+
+
+def _format_type_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
     expected = resolve_path(CONFIG_SCHEMA, error.schema_path)
     assert isinstance(expected, str | list)
-    section = path_to_section_name(list(error.instance_path)[:-1] if error.instance_path else [])
-    assert error.instance_path
-
-    type_phrases = {
-        "object": "an object",
-        "array": "an array",
-        "number": "a number",
-        "boolean": "a boolean",
-        "string": "a string",
-        "integer": "an integer",
-        "null": "null",
-    }
-    message = f"Error in {section} section:\n  Type error:\n\n  - '{error.instance_path[-1]}' -> Must be "
-
     if isinstance(expected, list):
-        message += f"one of: {' or '.join(expected)}"
+        expectation = f"one of: {' or '.join(expected)}"
     else:
-        message += type_phrases[expected]
-    actual = type(error.instance).__name__
-    message += f", but got {actual}: {error.instance}"
-    return message
+        expectation = _TYPE_PHRASES[expected]
+    return _type_error_message(error, expectation, replaced)
+
+
+def _type_error_message(error: ValidationError, expectation: str, replaced: dict[InstancePath, object]) -> str:
+    assert error.instance_path
+    section = path_to_section_name(list(error.instance_path)[:-1])
+    instance = _original_instance(error, replaced)
+    return (
+        f"Error in {section} section:\n  Type error:\n\n"
+        f"  - '{error.instance_path[-1]}' -> Must be {expectation}, but got {_type_name(instance)}: {_format_value(instance)}"
+    )
+
+
+def _format_unique_items_error(error: ValidationError) -> str:
+    assert error.instance_path
+    assert isinstance(error.instance, list)
+    section = path_to_section_name(list(error.instance_path)[:-1])
+    duplicates: list[object] = []
+    for index, item in enumerate(error.instance):
+        if item in error.instance[:index] and item not in duplicates:
+            duplicates.append(item)
+    details = "\n".join(
+        f"  - '{error.instance_path[-1]}' -> {_format_value(item)} is listed more than once." for item in duplicates
+    )
+    return f"Error in {section} section:\n  Duplicate values:\n\n{details}"
 
 
 def _format_additional_properties_error(error: ValidationError) -> str:
@@ -176,7 +251,7 @@ def _format_min_properties_error(error: ValidationError) -> str:
     return error.message  # pragma: no cover
 
 
-def _format_anyof_error(error: ValidationError) -> str:
+def _format_anyof_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
     if list(error.schema_path) == ["$defs", "OperationConfig", "anyOf"]:
         section = path_to_section_name(error.instance_path)
         return (
@@ -185,32 +260,36 @@ def _format_anyof_error(error: ValidationError) -> str:
         )
     elif list(error.schema_path) == ["properties", "workers", "anyOf"]:
         return (
-            f"Invalid value for 'workers': {error.instance!r}\n\n"
+            f"Invalid value for 'workers': {_format_value(_original_instance(error, replaced))}\n\n"
             f"Expected either:\n"
             f"  - A positive integer (e.g., workers = 4)\n"
             f'  - The string "auto" for automatic detection (workers = "auto")'
         )
-    elif list(error.schema_path) == ["$defs", "WarningConfig", "anyOf"]:
-        enum_error = _find_enum_error(error)
-        if enum_error is not None:
-            return _format_enum_error(enum_error)
-    return error.message  # pragma: no cover
+    raw_branches = resolve_path(CONFIG_SCHEMA, error.schema_path)
+    assert isinstance(raw_branches, list)
+    branches = [_resolve_reference(branch) for branch in raw_branches]
+    assert isinstance(error.kind, ValidationErrorKind.AnyOf)
+    assert error.kind.context is not None
+    instance_type = _JSON_TYPES[type(error.instance)]
+    for branch, errors in zip(branches, error.kind.context, strict=True):
+        # The value has the right type for this branch, so its nested error is the precise one
+        if branch.get("type") == instance_type and errors:
+            return _format_validation_error(errors[0], replaced)
+    phrases: list[str] = []
+    for branch in branches:
+        branch_type = branch.get("type")
+        if isinstance(branch_type, str):
+            branch_phrases = [_TYPE_PHRASES[branch_type]]
+        else:
+            values = branch["enum"] if "enum" in branch else [branch["const"]]
+            assert isinstance(values, list)
+            branch_phrases = [_format_value(value) for value in values]
+        phrases.extend(phrase for phrase in branch_phrases if phrase not in phrases)
+    expectation = ", ".join(phrases[:-1]) + f" or {phrases[-1]}" if len(phrases) > 1 else phrases[0]
+    return _type_error_message(error, expectation, replaced)
 
 
-def _find_enum_error(error: ValidationError) -> ValidationError | None:
-    """Find the enum violation nested inside `anyOf` branches."""
-    if error.kind.name == "enum":
-        return error
-    if isinstance(error.kind, ValidationErrorKind.AnyOf) and error.kind.context:
-        for errors in error.kind.context:
-            for nested in errors:
-                found = _find_enum_error(nested)
-                if found is not None:
-                    return found
-    return None
-
-
-def _format_oneof_error(error: ValidationError) -> str:
+def _format_oneof_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
     """Format oneOf validation errors, particularly for auth.openapi."""
     schema_path = list(error.schema_path)
     if schema_path[:2] == ["$defs", "DictionaryDefinition"]:
@@ -225,6 +304,11 @@ def _format_oneof_error(error: ValidationError) -> str:
             and isinstance(error.instance, dict)
             and error.instance
         ):
+            # A wrong value type is more precise than any scheme mismatch
+            for errors in error.kind.context:
+                for one_of_error in errors:
+                    if one_of_error.kind.name == "type" and len(one_of_error.instance_path) > len(error.instance_path):
+                        return _format_type_error(one_of_error, replaced)
             # Each subschema in `oneOf` may have multiple errors
             for errors in error.kind.context:
                 for one_of_error in errors:
@@ -278,6 +362,15 @@ def _format_dictionary_definition_oneof(error: ValidationError) -> str:
         "  Must define either `values` (inline entries) "
         "or `from-file` (path to a libFuzzer/AFL-format file)."
     )
+
+
+def _resolve_reference(schema: dict[str, object]) -> dict[str, object]:
+    reference = schema.get("$ref")
+    if isinstance(reference, str):
+        resolved = resolve_path(CONFIG_SCHEMA, reference.removeprefix("#/").split("/"))
+        assert isinstance(resolved, dict)
+        return resolved
+    return schema
 
 
 def path_to_section_name(path: list[int | str]) -> str:

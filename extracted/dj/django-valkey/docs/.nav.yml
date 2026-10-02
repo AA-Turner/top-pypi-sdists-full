@@ -1,0 +1,14 @@
+sort:
+  sections: first
+
+nav:
+  - installation.md
+
+  - configure
+  - async
+  - cluster
+  - commands
+
+  - migration_from_django_redis.md
+  - customize.md
+  - changes.md

@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    New ``--message`` option can be used to include a custom patchset message
+    when pushing.

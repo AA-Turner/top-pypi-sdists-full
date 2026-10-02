@@ -1,0 +1,82 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - CI Fix Effect (OMN-8993)
+name: node_ci_fix_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  LLM-routed CI fix effect. Receives a ModelCiFixCommand, uses the routing
+  policy's primary logical route to diagnose the failing CI job and generate a
+  patch. Applies the patch locally and re-runs tests as a gate.
+  Scaffold only — real LLM + patch logic lands in OMN-8994 (Wave 2).
+
+handler:
+  module: omnimarket.nodes.node_ci_fix_effect.handlers.handler_ci_fix
+  class: HandlerCiFixEffect
+  input_model: omnimarket.nodes.node_ci_fix_effect.models.model_ci_fix_command.ModelCiFixCommand
+
+handler_routing:
+  default_handler: omnimarket.nodes.node_ci_fix_effect.handlers.handler_ci_fix:HandlerCiFixEffect
+
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: false
+  timeout_ms: 120000
+  runtime_profiles:
+    - effects
+
+model_routing:
+  ci_fixer:
+    primary: "ci_fixer_primary"
+    fallback: "ci_fixer_fallback"
+    fallback_allowed_roles:
+      - "ci_fixer"
+    max_tokens: 2048
+    transport: "http"
+    patch_allowlist_patterns:
+      - "^src/"
+      - "^tests/"
+      - "^\\.github/workflows/"
+    model_endpoints:
+      # OMN-10644: no static base_url or model_id literal. Both are read from env
+      # vars at load time. Operators MUST configure LLM_CODER_FAST_URL /
+      # LLM_CODER_URL (and matching *_MODEL_NAME) for this node to function;
+      # the handler fails loud at contract load when an env var is unset.
+      ci_fixer_primary:
+        base_url_env: LLM_CODER_FAST_URL
+        model_id_env: LLM_CODER_FAST_MODEL_NAME
+        timeout_seconds: 120.0
+      ci_fixer_fallback:
+        base_url_env: LLM_CODER_URL
+        model_id_env: LLM_CODER_MODEL_NAME
+        timeout_seconds: 120.0
+    ci_override:
+      primary: "ci_fixer_primary"
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so the handler reads the ref
+  # name from here — not a bare source literal. Value is resolved at the effect
+  # boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for API calls (REST + GraphQL)."
+    required: true
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-ci-fix.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-ci-fix-attempted.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.pr-ci-fix.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-ci-fix-attempted.v1

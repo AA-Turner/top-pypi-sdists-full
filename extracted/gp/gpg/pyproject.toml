@@ -1,0 +1,63 @@
+[project]
+name = "gpg"
+
+# The version is written into the setup.py file by configure.
+dynamic = ["version"]
+
+# Note: description appears as Summary in egg-info file.
+description = "Python bindings to the GPGME API of the GnuPG cryptography library."
+
+license = {text = "LGPL2.1+ (the library), GPL2+ (tests and examples)"}
+authors = [{name = "The GnuPG hackers", email = "gnupg-devel@gnupg.org"}]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Communications :: Email",
+    "Topic :: Security :: Cryptography",
+]
+urls = {homepage = "https://www.gnupg.org"}
+
+# Which versions should be supported? https://devguide.python.org/versions/
+requires-python = ">= 3.6"
+
+[project.readme]
+# Note: long-description appears as Description in egg-info file.
+text = """Dynamically generated bindings to the C API of the GNU Privacy Guard.
+
+The GPG Made Easy (GPGME) library provides a high-level API in C to all the
+component software and libraries in the GnuPG Project, including GPG itself
+(the GnuPG OpenPGP implementation), libgcrypt, libgpg-error, libassuan and
+more.
+
+The official CPython bindings to GPGME are generated during the compiling
+process of GPGME itself and built for the specific C header and include files
+produced when GPGME is compiled using SWIG.  This provides access to over two
+thousand functions, methods and values via both the lower level dynamically
+generated bindings and a more intuitively pythonic higher level layer.
+
+While the lower level, dynamically generated bindings provide access to
+everything which GPGME itself provides; the higher level layer is easier to use
+by Python developers, provides access to the vast majority of functionality
+developers would want from GnuPG and is extensively documented.
+
+GPGME and these bindings is available here:
+
+    https://gnupg.org/software/gpgme/index.html
+"""
+content-type = "text/plain"
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools", "swig"]
+build-backend = "setuptools.build_meta"

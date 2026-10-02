@@ -1,0 +1,24 @@
+name: node_platform_readiness
+version: "1.0.0"
+description: "Unified platform readiness gate — tri-state PASS/WARN/FAIL across verification dimensions"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_platform_readiness: "omnimarket.nodes.node_platform_readiness"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: false
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "aiohttp"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["readiness", "gate", "verification", "platform"]
+pack: "diagnostics"
+display_name: "Platform Readiness"
+node_role: "probe"

@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-10580 (hardens OMN-10554): leaked-literals gate — BLOCKING MODE.
+#
+# This workflow runs `scripts/validation/check_leaked_literals.sh blocking all`
+# on every PR and on merge_group entry. Any unannotated leaked literal causes
+# exit 1 and blocks merge.
+#
+# To permit a legitimate occurrence, add an inline annotation on the same line:
+#   # onex-allow-internal-ip OMN-XXXXX reason="<concrete reason>"
+#   # onex-allow-local-path OMN-XXXXX reason="<concrete reason>"
+#   # onex-allow-test-fixture OMN-XXXXX reason="<concrete reason>"
+#   # onex-allow-raw-env OMN-XXXXX reason="<concrete reason>"
+#   # onex-allow-model-id OMN-XXXXX reason="<concrete reason>"
+#
+# OMN-17320: this job ALSO enforces the delegated exposed-identifier class --
+# a salted-SHA256 denylist of customer identifiers that must never re-enter this
+# PUBLIC repo (scripts/validation/check_exposed_identifiers.py). It is wired here,
+# inside an already-required context, rather than as its own workflow so that it
+# blocks the moment it lands: no branch-protection edit, and no new job to
+# classify against tests/unit/scripts/ci/test_ci_summary_gate.py's completeness
+# test. Its annotation class is:
+#   # onex-allow-exposed-identifier OMN-XXXXX reason="<concrete reason>"
+# and unlike the classes above it has NO file-level waiver and NO self-exempt
+# files -- the gate is subject to its own rule.
+#
+# Provenance: OMN-17288 scrubbed a live tenant slug + UUID from five files here;
+# three hours later omnimarket#2239 reintroduced the slug with every gate green.
+#
+# See knowledge-base-internal:reference/omnimarket-leaked-literals-gate.md for the full governance policy.
+#
+# This job is a REQUIRED STATUS CHECK. The job name
+# "Leaked Literals Gate" must match branch protection rules.
+
+name: Leaked Literals Gate
+
+on:
+  pull_request:
+    # OMN-16171: `edited` is intentionally absent. This gate reads only source
+    # at the head SHA -- never the PR body or title -- so its verdict on an
+    # unchanged SHA is identical every time, while OCC's evidence-stamp bots
+    # rewrite PR bodies routinely and each such edit re-queued this whole
+    # workflow against an already-saturated fleet. The body/title/base-parsing
+    # gates and every occ-preflight eval-path caller KEEP `edited`; that split
+    # is machine-checked in tests/unit/workflows/test_edited_trigger_scope_omn16171.py.
+    types: [opened, synchronize, reopened]
+    branches: [main, dev]
+  merge_group:
+
+# OMN-19643: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+permissions:
+  contents: read
+
+jobs:
+  leak-gate:
+    name: Leaked Literals Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run leak gate in blocking mode
+        run: |
+          bash scripts/validation/check_leaked_literals.sh blocking all

@@ -1,0 +1,272 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Contract topology parser for node_dependency_health_sweep.
+
+Walks search_roots for contract.yaml files, builds the pub/sub topic graph,
+detects orphan topics (published but never subscribed with no external consumer
+declaration and no allowlist entry), and finds hardcoded topic literals in
+source files that are not declared in any contract.
+
+Topic authority: contract.yaml is the single source of truth. TopicBase enum
+is used as a best-effort cross-validation signal only (guarded with try/except).
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from datetime import UTC, date, datetime
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from omnimarket.nodes.node_dependency_health_sweep.models.model_graph_types import (
+    ModelTopologyGraph,
+)
+
+logger = logging.getLogger(__name__)
+
+# Matches onex.cmd.* and onex.evt.* topic strings anywhere in source text.
+_TOPIC_LITERAL_RE = re.compile(
+    r"onex\.(cmd|evt)\.[a-z0-9_\-]+(?:\.[a-z0-9][a-z0-9\-]*)+\.v[0-9]+"
+)
+
+# Source file extensions to scan for hardcoded topic literals.
+_SOURCE_EXTENSIONS = {".py", ".ts", ".tsx", ".yaml", ".yml"}
+
+# Files whose topic-looking strings are explicitly produced by the contract
+# system (these are the contracts themselves — exclude to avoid self-reporting).
+_SKIP_FILENAMES = {"contract.yaml", "dep_health_allowlist.yaml"}
+
+# Path components that indicate a test or fixture context.  Topic literals in
+# these files may be synthetic / placeholder values and are exempt from the
+# UNDECLARED_TOPIC check.  Use "test-literal-ok" inline comments as the
+# preferred per-line escape hatch when a test genuinely exercises a real topic
+# that happens to be undeclared.
+_SKIP_UNDECLARED_PATH_PARTS = frozenset({"tests", "test", "fixtures", "fixture"})
+
+# File name patterns for test modules (matched against the file stem).
+_TEST_FILE_RE = re.compile(r"^(test_.+|.+_test)$")
+
+
+class ContractTopologyParser:
+    """Parse contract.yaml files under search_roots and build a topology graph."""
+
+    def parse(self, search_roots: list[Path]) -> ModelTopologyGraph:
+        """Walk search_roots, collect contract pub/sub topics, return topology graph.
+
+        Args:
+            search_roots: List of root directories to search recursively.
+
+        Returns:
+            ModelTopologyGraph with nodes, pub/sub edges, orphan topics,
+            and undeclared topics.
+        """
+        all_contracts: list[dict[str, Any]] = []
+        # Track which contract.yaml each published topic came from (topic → path)
+        all_contracts_with_paths: list[tuple[dict[str, Any], Path]] = []
+        all_known_topics: set[str] = set()
+        externally_consumed: set[str] = set()
+        allowlisted: set[str] = set()
+
+        for root in search_roots:
+            # Load allowlist if present at root level
+            allowlist_path = root / "dep_health_allowlist.yaml"
+            if allowlist_path.is_file():
+                self._load_allowlist(allowlist_path, allowlisted)
+
+            # Discover and parse all contract.yaml files
+            for contract_path in sorted(root.rglob("contract.yaml")):
+                data = self._load_yaml(contract_path)
+                if data is None:
+                    continue
+                all_contracts.append(data)
+                all_contracts_with_paths.append((data, contract_path))
+
+                # Collect externally_consumed_topics declared at contract level
+                for topic in data.get("externally_consumed_topics", []):
+                    externally_consumed.add(str(topic))
+
+                # Collect all declared topics (pub + sub) into the known set
+                event_bus = data.get("event_bus") or {}
+                for topic in event_bus.get("publish_topics", []) or []:
+                    all_known_topics.add(str(topic))
+                for topic in event_bus.get("subscribe_topics", []) or []:
+                    all_known_topics.add(str(topic))
+
+        # Build node list, pub/sub edge lists from parsed contracts.
+        # Also track which contract.yaml each published topic came from.
+        nodes: list[str] = []
+        pub_edges: list[tuple[str, str, str]] = []
+        sub_edges: list[tuple[str, str, str]] = []
+
+        published: set[str] = set()
+        subscribed: set[str] = set()
+        # topic_sources: maps topic → absolute path of the contract that declares it
+        topic_sources: dict[str, str] = {}
+
+        for data, contract_path in all_contracts_with_paths:
+            node_name: str = str(data.get("name", ""))
+            if node_name and node_name not in nodes:
+                nodes.append(node_name)
+
+            event_bus = data.get("event_bus") or {}
+
+            for topic in event_bus.get("publish_topics", []) or []:
+                topic_str = str(topic)
+                pub_edges.append((node_name, topic_str, "pub"))
+                published.add(topic_str)
+                # First-publisher wins; keeps the map stable
+                topic_sources.setdefault(topic_str, str(contract_path.resolve()))
+
+            for topic in event_bus.get("subscribe_topics", []) or []:
+                topic_str = str(topic)
+                sub_edges.append((node_name, topic_str, "sub"))
+                subscribed.add(topic_str)
+
+        # Orphan: published but no subscriber, not externally consumed, not allowlisted
+        orphan_topics = [
+            t
+            for t in published
+            if t not in subscribed
+            and t not in externally_consumed
+            and t not in allowlisted
+        ]
+
+        # Scan source files for hardcoded topic literals not in any contract.
+        # Allowlisted topics (from dep_health_allowlist.yaml) are also excluded —
+        # they may use non-standard service names that the topic-naming lint rejects
+        # but are still legitimate runtime topics.
+        undeclared_topics, undeclared_topic_sources = self._find_undeclared_topics(
+            search_roots, all_known_topics, allowlisted
+        )
+
+        # Best-effort TopicBase cross-validation (INFO only — does not affect graph)
+        self._cross_check_topic_base(all_known_topics)
+
+        return ModelTopologyGraph(
+            nodes=sorted(nodes),
+            pub_edges=pub_edges,
+            sub_edges=sub_edges,
+            orphan_topics=sorted(orphan_topics),
+            undeclared_topics=sorted(undeclared_topics),
+            topic_sources=topic_sources,
+            undeclared_topic_sources=undeclared_topic_sources,
+        )
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _load_yaml(self, path: Path) -> dict[str, Any] | None:
+        try:
+            with path.open() as fh:
+                data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                return None
+            return data
+        except Exception:
+            logger.warning("Failed to parse %s — skipping", path)
+            return None
+
+    def _load_allowlist(self, path: Path, allowlisted: set[str]) -> None:
+        data = self._load_yaml(path)
+        if data is None:
+            return
+        today = datetime.now(UTC).date()
+        for entry in data.get("allowlist", []) or []:
+            if isinstance(entry, dict) and "topic" in entry:
+                raw_expiry = entry.get("expires_at")
+                if raw_expiry is not None:
+                    # OMN-20181: expires_at is enforced. An expired or unreadable
+                    # expiry does not suppress anything, so the finding it hid
+                    # surfaces again and the gate judges it. It never raises:
+                    # the same parser sweeps other repos' allowlists, and one
+                    # stale row there must not crash the whole sweep.
+                    try:
+                        expires_at = date.fromisoformat(str(raw_expiry))
+                    except ValueError:
+                        logger.warning(
+                            "%s: invalid expires_at %r for topic %s (expected "
+                            "YYYY-MM-DD); entry not honored",
+                            path,
+                            raw_expiry,
+                            entry["topic"],
+                        )
+                        continue
+                    if expires_at < today:
+                        logger.warning(
+                            "%s: expired allowlist entry for topic %s "
+                            "(expires_at=%s, today=%s); entry not honored, "
+                            "remove it or fix the topic edge",
+                            path,
+                            entry["topic"],
+                            expires_at,
+                            today,
+                        )
+                        continue
+                allowlisted.add(str(entry["topic"]))
+
+    def _find_undeclared_topics(
+        self,
+        search_roots: list[Path],
+        known_topics: set[str],
+        allowlisted: set[str] | None = None,
+    ) -> tuple[set[str], dict[str, str]]:
+        """Scan source files for topic string literals not declared in any contract.
+
+        Test files (test_*.py / *_test.py) and files under tests/fixtures
+        directories are excluded: their topic literals are often synthetic
+        placeholders that should not require contract declarations.
+
+        Allowlisted topics (from dep_health_allowlist.yaml) are also excluded:
+        they may use non-standard service names that the topic-naming lint rejects
+        but are still legitimate runtime topics (e.g. onex.evt.diagnostic.*).
+
+        Returns:
+            Tuple of (undeclared_topics set, undeclared_topic_sources dict mapping
+            topic literal → absolute path of the first source file where it appears).
+        """
+        effective_known = known_topics | (allowlisted or set())
+        undeclared: set[str] = set()
+        undeclared_sources: dict[str, str] = {}
+        for root in search_roots:
+            for ext in _SOURCE_EXTENSIONS:
+                for src_file in root.rglob(f"*{ext}"):
+                    if src_file.name in _SKIP_FILENAMES:
+                        continue
+                    # Skip test modules and files under test/fixture directories
+                    parts_lower = {p.lower() for p in src_file.parts}
+                    if parts_lower & _SKIP_UNDECLARED_PATH_PARTS:
+                        continue
+                    if _TEST_FILE_RE.match(src_file.stem):
+                        continue
+                    try:
+                        text = src_file.read_text(errors="replace")
+                    except Exception:
+                        continue
+                    for match in _TOPIC_LITERAL_RE.finditer(text):
+                        topic = match.group(0)
+                        if topic not in effective_known:
+                            undeclared.add(topic)
+                            # First-occurrence file wins; keeps the map stable
+                            undeclared_sources.setdefault(
+                                topic, str(src_file.resolve())
+                            )
+        return undeclared, undeclared_sources
+
+    def _cross_check_topic_base(self, known_topics: set[str]) -> None:
+        """Cross-validate contract topics against TopicBase enum (INFO only)."""
+        try:
+            from omniclaude.hooks.topics import TopicBase
+
+            topic_base_values = {e.value for e in TopicBase}
+            for topic in known_topics:
+                if topic not in topic_base_values:
+                    logger.info(
+                        "Contract topic %r not found in TopicBase enum (INFO only)",
+                        topic,
+                    )
+        except ImportError:
+            pass

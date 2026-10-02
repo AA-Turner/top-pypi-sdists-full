@@ -1,0 +1,19 @@
+[project]
+name = "dna_features_viewer"
+version = "3.1.5"
+license = "MIT"
+authors = [{ name = "Zulko" }]
+description = "Plot features from DNA sequences (e.g. Genbank) with Python"
+readme = "pypi-readme.rst"
+keywords = ["DNA", "Sequence", "Feature", "Genbank", "Biopython", "Matplotlib"]
+dependencies = ["matplotlib>=3", "Biopython", "packaging"]
+
+[project.urls]
+Homepage = "https://github.com/Edinburgh-Genome-Foundry/DnaFeaturesViewer"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = ["docs*", "examples*", "tests*"]

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: ovos_m2v_pipeline
+Version: 0.0.9
+Summary: Model2Vec intent engine for OVOS
+Home-page: https://github.com/TigreGotico/ovos-m2v-pipeline
+Author: JarbasAI
+License: Apache License 2.0
+Keywords: natural language processing
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: License :: OSI Approved :: Apache Software License
+Description-Content-Type: text/markdown
+Requires-Dist: ovos-workshop<9.0.0,>=0.1.7
+Requires-Dist: ovos-plugin-manager<3.0.0,>=0.5.0
+Requires-Dist: ovos-bus-client
+Requires-Dist: ovos-config
+Requires-Dist: ovos-utils<1.0.0,>=0.3.4
+Requires-Dist: model2vec[inference]
+Dynamic: author
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary

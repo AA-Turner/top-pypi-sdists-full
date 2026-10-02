@@ -9,8 +9,10 @@ from typing import Any, Dict, Optional, Union
 from anyscale.api import configure_tcp_keepalive
 from anyscale.sdk.anyscale_client.models.production_job import ProductionJob
 from anyscale.sdk.anyscale_client.models.ha_job_states import HaJobStates
+from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 from anyscale.utils.runtime_env import upload_and_rewrite_working_dir
+from anyscale.utils.ssl_ca_cert_util import get_ssl_ca_cert_from_env
 from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi
 from anyscale.version import __version__ as version
@@ -131,7 +133,8 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         # Adds base path "v0" for API endpoints
         endpoint_url = host.rstrip("/") + "/v0"
         configuration = anyscale_client.Configuration(host=endpoint_url)
-        configuration.proxy = os.environ.get("https_proxy")
+        configuration.proxy, configuration.proxy_headers = get_proxy_config(configuration.host)
+        configuration.ssl_ca_cert = get_ssl_ca_cert_from_env()
         configuration.connection_pool_maxsize = 100
         configuration.retries = build_rate_limit_retry()
         if auth_token is None:

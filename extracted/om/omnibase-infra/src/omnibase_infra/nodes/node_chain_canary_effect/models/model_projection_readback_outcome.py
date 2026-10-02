@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""What one projection readback attempt found, or why it made no claim.
+
+OMN-18060. The readback used to return ``(fsm_state | None, error)`` and the
+handler classified the two-state tuple. That shape has no room for the third
+thing this leg can now say: *the readback could have run and I declined to run
+it* — a DSN that arrived on the command line, or a DSN whose role carries
+``SUPERUSER`` / ``BYPASSRLS``.
+
+Encoding a refusal as ``(None, "some message")`` would have classified it as
+``ERROR``, which reads as "the store did not answer". That distinction is the
+whole diagnostic: an error sends you to look at the database, a refusal sends
+you to look at how the canary was wired. So the transport returns a typed
+outcome and the classification lives in one place.
+
+There is deliberately no field on this model that could carry a DSN.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_projection_readback_status import (
+    EnumProjectionReadbackStatus,
+)
+
+TypeDelegationTrafficClass = Literal["unclassified", "organic", "synthetic"]
+DELEGATION_TRAFFIC_CLASSES: frozenset[str] = frozenset(
+    ("unclassified", "organic", "synthetic")
+)
+
+
+class ModelProjectionReadbackOutcome(BaseModel):
+    """One projection readback attempt, as a fact rather than a verdict."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: EnumProjectionReadbackStatus = Field(
+        description="What the readback established, or why it established nothing"
+    )
+    state: str = Field(
+        default="",
+        description=(
+            "The FSM state the projection holds for this correlation id. "
+            "Non-empty only for TERMINAL and STRANDED."
+        ),
+    )
+    traffic_class: TypeDelegationTrafficClass = Field(
+        default="unclassified",
+        description=(
+            "The typed traffic classification stored beside the projection row. "
+            "Unclassified includes legacy rows whose provenance was omitted."
+        ),
+    )
+    error: str = Field(
+        default="",
+        description=(
+            "Why no claim is made, for the non-passing members — or, for the "
+            "members that DO make a negative claim, how that claim was "
+            "reached. OMN-18872: ROW_ABSENT and STRANDED carry how long the "
+            "bounded poll ran and how many reads it took, because an absence "
+            "found after one read and an absence found after two minutes of "
+            "polling are different findings and the first one was this leg's "
+            "defect. Sanitized: never carries the DSN, and never carries a "
+            "credential."
+        ),
+    )
+
+
+__all__ = [
+    "DELEGATION_TRAFFIC_CLASSES",
+    "ModelProjectionReadbackOutcome",
+    "TypeDelegationTrafficClass",
+]

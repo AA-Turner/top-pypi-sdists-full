@@ -1,0 +1,98 @@
+Metadata-Version: 2.4
+Name: mlOpus
+Version: 1.6.3
+Summary: MLOps tools for research and development.
+Author-email: Lariel Fernandes <lariel.c2.fernandes@gmail.com>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/lariel-fernandes/mlopus
+Classifier: Environment :: Console
+Classifier: Operating System :: Unix
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Information Technology
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: <4,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pytz>=2024
+Requires-Dist: dacite>=1.5
+Requires-Dist: pyyaml>=5
+Requires-Dist: urllib3>=1.25
+Requires-Dist: pydantic<3,>=2.8
+Requires-Dist: packaging>=22
+Requires-Dist: rclone-python>=0.1
+Requires-Dist: importlib-metadata>=6.8
+Requires-Dist: jinja2>=3.1
+Requires-Dist: toml>=0.10
+Provides-Extra: kedro
+Requires-Dist: kedro<2,>=0.19; extra == "kedro"
+Provides-Extra: search
+Requires-Dist: mongomock<5,>=4.1; extra == "search"
+Provides-Extra: mlflow
+Requires-Dist: mlflow-skinny<3,>=2.9; extra == "mlflow"
+Dynamic: license-file
+
+# MLOpus
+[![Test Coverage](https://lariel-fernandes.github.io/mlopus/coverage/coverage.svg)](https://lariel-fernandes.github.io/mlopus/coverage)
+
+A collection of MLOps tools for AI/ML/DS research and development.
+
+### Main features:
+- **Agnostic experiment tracking and model registry:**
+  - Compatible with any "MLflow-like" provider through plugins.
+  - Search entities in MongoDB Query Language with predicate push-down to the MLflow provider.
+  - Local cache for artifacts and entity metadata.
+  - Offline mode to work with local cache only.
+  - Support for nested tags/params/metrics and JSON-encoded tags/params for non-scalar types.
+  - Not dependent on env vars, global vars or a single global active run.
+
+
+- **Artifact Schemas**:
+  - Packaging framework for models and datasets.
+  - Can be used with or without MLflow and/or Kedro.
+  - Schemas can be registered by alias at the experiment, run, model or model version.
+  - Artifacts catalog for type-safe, configuration-based artifact loading/downloading in serving applications.
+
+
+- **Extended Kedro support:**
+  - Dynamic pipeline and hook evaluation with direct access to the Kedro config loader.
+  - Artifact Schemas can be used in the Kedro datasets catalog.
+  - Extend the Kedro CLI with project-specific options, callbacks and param modifiers.
+  - Artifacts hook to set up pipeline inputs and/or collect outputs (optionally schema-aware).
+  - Highly customizable MLflow tracker hook for storing any pipeline information in experiment runs.
+
+Check the [tutorials](https://github.com/lariel-fernandes/mlopus/tree/main/examples)
+for a friendly walkthrough of (almost) everything you can do with MLOpus.
+
+Have a look at the [architecture guide](https://github.com/lariel-fernandes/mlopus/blob/main/docs/architecture.md)
+for an overview of how these and other features work.
+
+A minimal API reference is also available [here](https://lariel-fernandes.github.io/mlopus/docs/api/latest).
+
+### Installation
+
+**Recommended software:**
+- [Rclone CLI](https://rclone.org/install/#script-installation) (required for artifact transfer from/to cloud storage)
+
+**Optional extras:**
+- `mlflow`: Enables support for the default MLflow plugin, which handles communication with open-source MLflow servers.
+- `search`: Enables searching entities with MongoDB query syntax
+- `kedro`: Enables Kedro tools (e.g.: hooks, datasets, CLI extensions, etc)
+
+**Using pip:**
+```bash
+pip install mlopus[mlflow,kedro,search]
+```
+
+**Using Poetry:**
+```bash
+poetry add mlopus --extras "mlflow,kedro,search"
+```
+
+**Using UV:**
+```bash
+uv add mlopus --extra mlflow --extra kedro  --extra search
+```

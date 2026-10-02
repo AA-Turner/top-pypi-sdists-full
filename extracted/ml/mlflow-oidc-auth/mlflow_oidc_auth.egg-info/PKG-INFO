@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-oidc-auth
-Version: 8.4.0
+Version: 9.0.2
 Summary: Authentication and access control for MLflow: SSO (OIDC, SAML), SCIM provisioning and per-resource permissions
 Maintainer-email: Alexander Kharkevich <alex@kharkevich.org>
 License-Expression: Apache-2.0
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mlflow<4,>=3.14.0
+Requires-Dist: mlflow<4,>=3.16.0
 Requires-Dist: python-dotenv<2
 Requires-Dist: requests<3,>=2.32.5
 Requires-Dist: truststore>=0.10

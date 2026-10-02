@@ -189,9 +189,9 @@ class BlockLogger:
         """
         if not self.log_output:
             return
-        assert (
-            auto_close or self.current_block is None or self.current_block == "Output"
-        ), f"Block {self.current_block} is already open. Please close before opening block {block_label}."
+        assert auto_close or self.current_block is None or self.current_block == "Output", (
+            f"Block {self.current_block} is already open. Please close before opening block {block_label}."
+        )
 
         if auto_close:
             self.close_block()
@@ -203,7 +203,7 @@ class BlockLogger:
         )
 
     def close_block(self, block_label: Optional[str] = None) -> None:
-        """ Closes the current block
+        """Closes the current block
         If a label is specified, it must match the current open block label.
         raise an AssertionError if we try to close a different block
 
@@ -212,9 +212,9 @@ class BlockLogger:
         if not self.log_output:
             return
         if block_label:
-            assert (
-                self.current_block == block_label
-            ), f"Attempting to close block {block_label}, but block {self.current_block} is currently open."
+            assert self.current_block == block_label, (
+                f"Attempting to close block {block_label}, but block {self.current_block} is currently open."
+            )
         self.current_block = None
         print(file=self._out, flush=True)
 
@@ -225,9 +225,7 @@ class BlockLogger:
     def zero_time(self) -> None:
         self.t0 = time.time()
 
-    def info(
-        self, *msg: str, block_label: Optional[str] = None, end: str = "\n"
-    ) -> None:
+    def info(self, *msg: str, block_label: Optional[str] = None, end: str = "\n") -> None:
         if not self.log_output:
             return
         # Resolved once because a record is up to three prints, and re-resolving could
@@ -235,9 +233,9 @@ class BlockLogger:
         stream = self._out
         if block_label:
             # Check block_label if provided.
-            assert (
-                self.current_block == block_label
-            ), f"Attempting to log to block {block_label}, but block {self.current_block} is currently open."
+            assert self.current_block == block_label, (
+                f"Attempting to log to block {block_label}, but block {self.current_block} is currently open."
+            )
             print(INDENT * self.indent_level, end="", file=stream)
             print(*msg, file=stream, flush=True)
         else:
@@ -278,7 +276,9 @@ class BlockLogger:
             return
         print(
             "{}{}[Warning]{} ".format(
-                colorama.Style.NORMAL, colorama.Fore.YELLOW, colorama.Style.RESET_ALL,
+                colorama.Style.NORMAL,
+                colorama.Fore.YELLOW,
+                colorama.Style.RESET_ALL,
             ),
             end="",
             file=sys.stderr,
@@ -321,7 +321,8 @@ class BlockLogger:
         )
 
         click.confirm(
-            "", abort=True,
+            "",
+            abort=True,
         )
 
         if self.spinner_manager:
@@ -341,8 +342,7 @@ class BlockLogger:
 
     @contextmanager
     def indent(self):
-        """ Indent all output within the context
-        """
+        """Indent all output within the context"""
         try:
             self.indent_level += 1
             yield
@@ -381,16 +381,14 @@ class BlockLogger:
 
 
 class LogsLogger(BlockLogger):
-    """ This logger is used to print customer logs to STDOUT with no decoration
-    """
+    """This logger is used to print customer logs to STDOUT with no decoration"""
 
     def log(self, msg: str):
         print(msg)
 
 
 class StringLogger(LogsLogger):
-    """ This logger is used to print customer logs to a string with no decoration
-    """
+    """This logger is used to print customer logs to a string with no decoration"""
 
     def __init__(self):
         super().__init__(False)
@@ -400,8 +398,7 @@ class StringLogger(LogsLogger):
         self.out_string += f"{msg}\n"
 
     def is_interactive_cli_enabled(self) -> bool:
-        """Check if shell is interactive
-        """
+        """Check if shell is interactive"""
         return False
 
 
@@ -415,9 +412,7 @@ class CloudSetupLogger(LogsLogger):
         self.cloud_resource_errors: List[CloudAnalyticsEventCloudProviderError] = []
         super().__init__(log_output, t0, spinner_manager)
 
-    def log_resource_exception(
-        self, resource: CloudAnalyticsEventCloudResource, exc: Exception
-    ):
+    def log_resource_exception(self, resource: CloudAnalyticsEventCloudResource, exc: Exception):
         """
         Record the error in the logger if the exception is an unhandled exception
         """
@@ -436,7 +431,10 @@ class CloudSetupLogger(LogsLogger):
             GoogleAPICallError, HttpError = try_import_gcp_exceptions()
             if isinstance(exc, GoogleAPICallError):
                 self.log_resource_error(
-                    resource, exc.reason, exc.code, "GoogleAPICallError",
+                    resource,
+                    exc.reason,
+                    exc.code,
+                    "GoogleAPICallError",
                 )
                 return
             elif isinstance(exc, HttpError):
@@ -460,7 +458,10 @@ class CloudSetupLogger(LogsLogger):
         else:
             unhandled_exception = f"UnknownExceptionType_{exc.__class__.__name__}"
             self.log_resource_error(
-                resource, None, None, unhandled_exception,
+                resource,
+                None,
+                None,
+                unhandled_exception,
             )
             return
 
@@ -480,10 +481,7 @@ class CloudSetupLogger(LogsLogger):
         if unhandled_exception:
             formatted_error_str = f"{formatted_error_str},{unhandled_exception}"
         for error in self.cloud_resource_errors:
-            if (
-                error.cloud_resource == cloud_resource
-                and error.error_code == formatted_error_str
-            ):
+            if error.cloud_resource == cloud_resource and error.error_code == formatted_error_str:
                 # deduplicated errors
                 return
         self.cloud_resource_errors.append(

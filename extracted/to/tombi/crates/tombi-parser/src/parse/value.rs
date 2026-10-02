@@ -9,7 +9,7 @@ use crate::{
     token_set::TS_COMMEMT_OR_LINE_END,
 };
 
-impl Parse for tombi_ast_syntax::Value {
+impl Parse for tombi_ast_syntax::Value<'_> {
     fn parse(p: &mut Parser<'_>) {
         let n = peek_leading_comments(p);
         match p.nth(n) {
@@ -32,8 +32,8 @@ impl Parse for tombi_ast_syntax::Value {
             BARE_KEY => {
                 // NOTE: This is a hack to make code completion more comfortable.
 
-                let key_range = p.nth_range(n);
-                p.error(crate::Error::new(ExpectedValue, key_range));
+                let key_span = p.nth_span(n);
+                p.error(crate::Error::new(ExpectedValue, key_span));
                 let m = p.start();
                 leading_comments(p);
                 {
@@ -73,19 +73,19 @@ fn skip_too_deep_value(p: &mut Parser<'_>) {
 
     leading_comments(p);
 
-    let start_range = p.current_range();
-    let mut end_range = start_range;
+    let start_span = p.current_span();
+    let mut end_span = start_span;
     let mut bracket_depth: usize = 0;
     loop {
         match p.current() {
             EOF => break,
             T!('[') | T!('{') => {
                 bracket_depth += 1;
-                end_range = p.current_range();
+                end_span = p.current_span();
                 p.bump_any();
             }
             T!(']') | T!('}') => {
-                end_range = p.current_range();
+                end_span = p.current_span();
                 p.bump_any();
                 bracket_depth -= 1;
                 if bracket_depth == 0 {
@@ -93,7 +93,7 @@ fn skip_too_deep_value(p: &mut Parser<'_>) {
                 }
             }
             _ => {
-                end_range = p.current_range();
+                end_span = p.current_span();
                 p.bump_any();
             }
         }
@@ -101,7 +101,7 @@ fn skip_too_deep_value(p: &mut Parser<'_>) {
 
     p.error(crate::Error::new(
         RecursionLimitExceeded,
-        start_range + end_range,
+        start_span + end_span,
     ));
 
     trailing_comment(p);
@@ -130,13 +130,13 @@ fn parse_invalid_value(p: &mut Parser<'_>, n: usize) {
         leading_comments(p);
     }
 
-    let start_range = p.current_range();
-    let mut end_range = start_range;
+    let start_span = p.current_span();
+    let mut end_span = start_span;
     while !p.at_ts(TS_COMMEMT_OR_LINE_END) {
-        end_range = p.current_range();
+        end_span = p.current_span();
         p.bump_any();
     }
-    p.error(crate::Error::new(ExpectedValue, start_range + end_range));
+    p.error(crate::Error::new(ExpectedValue, start_span + end_span));
 
     trailing_comment(p);
 

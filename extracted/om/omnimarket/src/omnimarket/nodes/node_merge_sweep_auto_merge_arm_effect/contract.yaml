@@ -1,0 +1,82 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Merge Sweep Auto-Merge Arm Effect (OMN-8960)
+name: node_merge_sweep_auto_merge_arm_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+# OMN-14151: legacy arm surface, superseded by the merge-queue governor's
+# single gated arm path (node_pr_arm_gate_compute + node_pr_lifecycle_merge_effect).
+# entry_points deregistered from pyproject.toml/metadata.yaml; handler
+# hard-gated fail-closed (OMNIMARKET_LEGACY_MERGE_ARM_ENABLED, default False).
+# OMN-15053: this handler landed omnimarket#1879 on 2026-07-24 via a direct
+# /onex:merge_sweep dispatch. Gate now fails LOUD (raises
+# LegacyMergeArmDisabledError) instead of a silent no-op when disabled.
+lifecycle: deprecated
+
+description: >
+  Arms GitHub auto-merge via GraphQL enablePullRequestAutoMerge (SQUASH strategy).
+  Serial-in-handler execution per Phase 1 audit. Idempotent: re-arming an already-armed
+  PR returns success. NEVER calls gh pr merge --auto; always uses GraphQL mutation.
+
+handler:
+  module: omnimarket.nodes.node_merge_sweep_auto_merge_arm_effect.handlers.handler_auto_merge_arm
+  class: HandlerAutoMergeArmEffect
+  input_model: omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request.ModelAutoMergeArmCommand
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: merge_sweep_auto_merge_arm
+      handler:
+        name: HandlerAutoMergeArmEffect
+        module: omnimarket.nodes.node_merge_sweep_auto_merge_arm_effect.handlers.handler_auto_merge_arm
+
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: true
+  timeout_ms: 15000
+  runtime_profiles:
+    - effects
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so the handler reads the ref
+  # name from here — not a bare source literal. Value is resolved at the effect
+  # boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for GraphQL auto-merge mutation."
+    required: true
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-auto-merge-arm.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-auto-merge-armed.v1
+    - onex.evt.omnimarket.pr-auto-merge-unarmed-clean-alert.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.pr-auto-merge-arm.v1
+
+# Per-event-class topic routing (OMN-13322). The runtime topic router maps the
+# emitted event's class name ("Model" + event_type) to its declared topic, so
+# the completion and the unarmed-CLEAN alert each land on their own topic.
+published_events:
+  - topic_suffix: "onex.evt.omnimarket.pr-auto-merge-armed.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimarket.pr-auto-merge-armed.v1"
+    event_type: "AutoMergeArmedEvent"
+    trigger: "Auto-merge arm attempted (armed=True or armed=False)"
+    description: "Completion event proving the arm effect ran for a CLEAN PR."
+  - topic_suffix: "onex.evt.omnimarket.pr-auto-merge-unarmed-clean-alert.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimarket.pr-auto-merge-unarmed-clean-alert.v1"
+    event_type: "AutoMergeUnarmedCleanAlertEvent"
+    trigger: "CLEAN PR could not be armed for auto-merge"
+    description: "Alert naming the failed-to-arm case (closes never-ran vs failed-to-arm ambiguity, omnibase_core#1280)."
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-auto-merge-unarmed-clean-alert.v1

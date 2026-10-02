@@ -1,0 +1,69 @@
+Metadata-Version: 2.1
+Name: autoimport
+Version: 1.6.1
+Summary: Autoimport missing python libraries.
+Home-page: https://github.com/lyz-code/autoimport
+Author-Email: Lyz <lyz@riseup.net>
+License: GPL-3.0-only
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Utilities
+Classifier: Natural Language :: English
+Project-URL: Issues, https://github.com/lyz-code/autoimport/issues
+Project-URL: Homepage, https://github.com/lyz-code/autoimport
+Project-URL: Documentation, https://lyz-code.github.io/autoimport
+Requires-Python: >=3.8
+Requires-Dist: click>=8.1.3
+Requires-Dist: autoflake>=1.4
+Requires-Dist: pyprojroot>=0.2.0
+Requires-Dist: sh>=1.14.2
+Requires-Dist: maison<2.0.0,>=1.4.0
+Requires-Dist: xdg>=6.0.0
+Description-Content-Type: text/markdown
+
+# Autoimport
+
+[![Actions Status](https://github.com/lyz-code/autoimport/workflows/Tests/badge.svg)](https://github.com/lyz-code/autoimport/actions)
+[![Actions Status](https://github.com/lyz-code/autoimport/workflows/Build/badge.svg)](https://github.com/lyz-code/autoimport/actions)
+[![Coverage Status](https://coveralls.io/repos/github/lyz-code/autoimport/badge.svg?branch=main)](https://coveralls.io/github/lyz-code/autoimport?branch=main)
+
+Autoimport missing python libraries.
+
+Throughout the development of a python program you continuously need to manage
+the python import statements either because you need one new object or because
+you no longer need it. This means that you need to stop writing whatever you
+were writing, go to the top of the file, create or remove the import statement
+and then resume coding.
+
+This workflow break is annoying and almost always unnecessary. `autoimport`
+solves this problem if you execute it whenever you have an import error, for
+example by configuring your editor to run it when saving the file.
+
+## Help
+
+See [documentation](https://lyz-code.github.io/autoimport) for more details.
+
+## Installing
+
+```bash
+pip install autoimport
+```
+
+## Contributing
+
+For guidance on setting up a development environment, and how to make
+a contribution to *autoimport*, see [Contributing to
+autoimport](https://lyz-code.github.io/autoimport/contributing).
+
+## License
+
+GPLv3

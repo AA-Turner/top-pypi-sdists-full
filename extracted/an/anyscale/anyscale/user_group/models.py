@@ -33,17 +33,13 @@ print(f"{user_group.id}: {user_group.name}")
         if not isinstance(org_id, str):
             raise TypeError("org_id must be a string.")
 
-    created_at: datetime = field(
-        metadata={"docstring": "When the user group was created."}
-    )
+    created_at: datetime = field(metadata={"docstring": "When the user group was created."})
 
     def _validate_created_at(self, created_at: datetime):
         if not isinstance(created_at, datetime):
             raise TypeError("created_at must be a datetime.")
 
-    updated_at: datetime = field(
-        metadata={"docstring": "When the user group was last updated."}
-    )
+    updated_at: datetime = field(metadata={"docstring": "When the user group was last updated."})
 
     def _validate_updated_at(self, updated_at: datetime):
         if not isinstance(updated_at, datetime):

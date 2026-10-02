@@ -119,12 +119,12 @@ def set(  # noqa: A001
         # Use "_" as placeholder since the URL path requires a resource_id parameter
         resource_id = "_"
     elif resource_id is None:
-        raise ValueError(
-            f"resource_id is required for resource type '{resource_type}'."
-        )
+        raise ValueError(f"resource_id is required for resource type '{resource_type}'.")
 
     return _private_sdk.set(  # type: ignore
-        resource_type=resource_type, resource_id=resource_id, config=config,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        config=config,
     )
 
 
@@ -157,12 +157,11 @@ def get(
         # Use "_" as placeholder since the URL path requires a resource_id parameter
         resource_id = "_"
     elif resource_id is None:
-        raise ValueError(
-            f"resource_id is required for resource type '{resource_type}'."
-        )
+        raise ValueError(f"resource_id is required for resource type '{resource_type}'.")
 
     return _private_sdk.get(  # type: ignore
-        resource_type=resource_type, resource_id=resource_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
     )
 
 

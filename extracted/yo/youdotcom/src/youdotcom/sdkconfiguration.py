@@ -1,0 +1,56 @@
+
+
+from ._version import (
+    __openapi_doc_version__,
+    __user_agent__,
+    __version__,
+)
+from .httpclient import AsyncHttpClient, HttpClient
+from .utils import Logger, RetryConfig, remove_suffix
+from dataclasses import dataclass, field
+from typing import Callable, Dict, Optional, Tuple, Union
+from youdotcom import models
+from youdotcom.types import OptionalNullable, UNSET
+
+
+SERVERS = [
+    "https://api.you.com",
+]
+"""Contains the list of servers available to the SDK"""
+
+
+@dataclass
+class SDKConfiguration:
+    client: Union[HttpClient, None]
+    client_supplied: bool
+    async_client: Union[AsyncHttpClient, None]
+    async_client_supplied: bool
+    debug_logger: Logger
+    security: Optional[Union[models.Security, Callable[[], models.Security]]] = None
+    server_url: Optional[str] = ""
+    server_idx: Optional[int] = 0
+    language: str = "python"
+    openapi_doc_version: str = __openapi_doc_version__
+    sdk_version: str = __version__
+    user_agent: str = __user_agent__
+    retry_config: OptionalNullable[RetryConfig] = field(default_factory=lambda: UNSET)
+    timeout_ms: Optional[int] = None
+    # Optional caller-identity fields consumed by
+    # ``utils.attribution.build_client_info_header`` and emitted in the
+    # ``X-Client-Info`` header on every outbound request. All four default
+    # to ``None`` so existing callers (and every existing test) keep
+    # working without any change. ``app_name`` / ``app_version`` become the
+    # ``client=`` segment, which is omitted entirely when ``app_name`` is
+    # unset.
+    app_name: Optional[str] = None
+    app_version: Optional[str] = None
+    app_title: Optional[str] = None
+    app_url: Optional[str] = None
+
+    def get_server_details(self) -> Tuple[str, Dict[str, str]]:
+        if self.server_url is not None and self.server_url:
+            return remove_suffix(self.server_url, "/"), {}
+        if self.server_idx is None:
+            self.server_idx = 0
+
+        return SERVERS[self.server_idx], {}

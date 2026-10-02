@@ -1,0 +1,63 @@
+from __future__ import absolute_import
+
+from abc import ABCMeta
+
+from checkout_sdk.checkout_configuration import CheckoutConfiguration
+from checkout_sdk.checkout_sdk_builder import CheckoutSdkBuilder
+from checkout_sdk.checkout_api import CheckoutApi
+from checkout_sdk.exception import CheckoutArgumentException
+from checkout_sdk.oauth_credentials import OAuthSdkCredentials
+
+
+class OAuthSdk(CheckoutSdkBuilder, metaclass=ABCMeta):
+    _client_id: str = ''
+    _client_secret: str = ''
+    _authorization_uri: str = ''
+    _scopes: list = []
+
+    def __init__(self):
+        super().__init__()
+
+    def client_credentials(self, client_id: str, client_secret: str):
+        self._client_id = client_id
+        self._client_secret = client_secret
+        return self
+
+    def authorization_uri(self, authorization_uri: str):
+        self._authorization_uri = authorization_uri
+        return self
+
+    def scopes(self, scopes: list):
+        self._scopes = scopes
+        return self
+
+    def build(self):
+        self._validate_environment_settings()
+        environment_subdomain = self._environment_subdomain
+
+        if self._authorization_uri and environment_subdomain is not None:
+            raise CheckoutArgumentException(
+                'authorization_uri and environment_subdomain cannot both be set - the token '
+                'endpoint is derived from your subdomain; combine authorization_uri with '
+                'use_legacy_domain() if you need a custom token host')
+
+        # Determine the authorization URI based on subdomain configuration
+        if self._authorization_uri:
+            # Use custom authorization URI if explicitly provided
+            authorization_uri = self._authorization_uri
+        elif environment_subdomain is not None:
+            authorization_uri = environment_subdomain.authorization_uri
+        else:
+            authorization_uri = self._environment.authorization_uri
+
+        configuration = CheckoutConfiguration(
+            credentials=OAuthSdkCredentials.init(http_client=self._http_client,
+                                                 environment=self._environment,
+                                                 client_id=self._client_id,
+                                                 client_secret=self._client_secret,
+                                                 scopes=self._scopes,
+                                                 authorization_uri=authorization_uri),
+            environment=self._environment,
+            http_client=self._http_client,
+            environment_subdomain=environment_subdomain)
+        return CheckoutApi(configuration)

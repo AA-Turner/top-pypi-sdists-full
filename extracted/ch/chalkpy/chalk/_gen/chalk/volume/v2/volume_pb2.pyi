@@ -1115,3 +1115,60 @@ class GetFileResponse(_message.Message):
         chunked: _Optional[_Union[ChunkedFileContent, _Mapping]] = ...,
         not_modified: bool = ...,
     ) -> None: ...
+
+class GetVolumeCredentialsRequest(_message.Message):
+    __slots__ = ("volume", "access_mode")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    ACCESS_MODE_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    access_mode: VolumeAccessMode
+    def __init__(
+        self,
+        volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
+        access_mode: _Optional[_Union[VolumeAccessMode, str]] = ...,
+    ) -> None: ...
+
+class GetVolumeCredentialsResponse(_message.Message):
+    __slots__ = ("volume", "bucket_uri", "prefixes", "expires_at", "aws", "gcp")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_URI_FIELD_NUMBER: _ClassVar[int]
+    PREFIXES_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    AWS_FIELD_NUMBER: _ClassVar[int]
+    GCP_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    bucket_uri: str
+    prefixes: _containers.RepeatedScalarFieldContainer[str]
+    expires_at: _timestamp_pb2.Timestamp
+    aws: AwsSessionCredentials
+    gcp: GcpAccessToken
+    def __init__(
+        self,
+        volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
+        bucket_uri: _Optional[str] = ...,
+        prefixes: _Optional[_Iterable[str]] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        aws: _Optional[_Union[AwsSessionCredentials, _Mapping]] = ...,
+        gcp: _Optional[_Union[GcpAccessToken, _Mapping]] = ...,
+    ) -> None: ...
+
+class AwsSessionCredentials(_message.Message):
+    __slots__ = ("access_key_id", "secret_access_key", "session_token")
+    ACCESS_KEY_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ACCESS_KEY_FIELD_NUMBER: _ClassVar[int]
+    SESSION_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    access_key_id: str
+    secret_access_key: str
+    session_token: str
+    def __init__(
+        self,
+        access_key_id: _Optional[str] = ...,
+        secret_access_key: _Optional[str] = ...,
+        session_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class GcpAccessToken(_message.Message):
+    __slots__ = ("access_token",)
+    ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    access_token: str
+    def __init__(self, access_token: _Optional[str] = ...) -> None: ...

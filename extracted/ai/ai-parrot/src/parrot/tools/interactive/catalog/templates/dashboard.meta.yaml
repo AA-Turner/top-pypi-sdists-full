@@ -1,8 +1,0 @@
-name: dashboard
-description: >-
-  KPI cards above a responsive grid of charts. Ideal for metrics overviews and
-  monitoring summaries.
-default_theme: light
-allowed_bundles:
-  - echarts
-  - gridjs

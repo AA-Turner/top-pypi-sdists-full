@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import mechbench_schema as ms
+import pytest
+
+from mechbench_compute import model_ref as model_ref_mod
+from mechbench_compute.protocol import ProtocolExecutor, ProtocolSpec
+
+from tests.test_resume import _Calls, _fake_generate_substrate
+
+BASE = "fake/base@rev"
+LABEL = "someone/proj/adapters/big"
+ADAPTER_BYTES = b"\x00" * 300_000
+
+
+def _resolved_ref() -> model_ref_mod.ModelRef:
+    return model_ref_mod.ModelRef(
+        base_kind="hf", base=BASE, adapter_labels=(LABEL,),
+        adapter_payloads=({"data": ADAPTER_BYTES,
+                           "lora": {"rank": 8, "alpha": 16, "scale": 2.0,
+                                    "target_modules": ["q_proj", "v_proj"]}},),
+    )
+
+
+def _spec(fidelity: str):
+    graph = {"dataflow": 2, "nodes": [{
+        "id": "gen", "block": "text/generate",
+        "params": {"model": {"$param": "model"}, "n": 2, "seed": 7, "fidelity": fidelity},
+        "inputs": {"records": [{"id": "flash", "user": "Write a story."}]},
+    }], "edges": []}
+    return ProtocolSpec(kind="pipeline", prompt="", model_id=None, extra={
+        "graph": graph,
+        "params": {"model": {"base": {"hf": BASE},
+                               "adapters": [{"bench": LABEL}]}},
+    })
+
+
+@pytest.fixture
+def adapted_run(monkeypatch):
+    calls = _Calls()
+    _fake_generate_substrate(monkeypatch, calls)
+    ref = _resolved_ref()
+    monkeypatch.setattr(model_ref_mod, "resolve", lambda mval, **kw: ref)
+    monkeypatch.setattr(ProtocolExecutor, "_record_model",
+                        lambda self, *a, **k: None, raising=False)
+    return ref
+
+
+def _collection(out):
+    payload = out.payload if hasattr(out, "payload") else out
+    return payload["outputs"]["gen"]
+
+
+def _items(fidelity, ref):
+    items = _collection(ProtocolExecutor().run(_spec(fidelity)))["items"]
+    assert len(items) == 2
+    return items
+
+
+class TestTheRecordedModel:
+    def test_metadata_model_is_the_wire_form(self, adapted_run):
+        ref = adapted_run
+        for it in _items("trace", ref):
+            assert it["metadata"]["model"] == ref.to_wire()
+            assert it["metadata"]["model"] == {
+                "base": {"hf": BASE}, "adapters": [{"bench": LABEL}]}
+
+    def test_generation_span_model_is_the_wire_form(self, adapted_run):
+        ref = adapted_run
+        for it in _items("trace", ref):
+            assert it["trace"]["generation_spans"][0]["model"] == ref.to_wire()
+
+    def test_tokenizer_is_the_base_id_not_a_repr(self, adapted_run):
+        for it in _items("trace", adapted_run):
+            assert it["trace"]["tokenizer"] == BASE
+
+    def test_a_base_model_string_still_passes_through(self, monkeypatch):
+        calls = _Calls()
+        _fake_generate_substrate(monkeypatch, calls)
+        graph = {"dataflow": 2, "nodes": [{
+            "id": "gen", "block": "text/generate",
+            "params": {"model": BASE, "n": 1, "seed": 7, "fidelity": "trace"},
+            "inputs": {"records": [{"id": "flash", "user": "Write."}]}}],
+            "edges": []}
+        out = ProtocolExecutor().run(ProtocolSpec(
+            kind="pipeline", prompt="", model_id=None, extra={"graph": graph}))
+        it = _collection(out)["items"][0]
+        assert it["metadata"]["model"] == BASE
+        assert it["trace"]["tokenizer"] == BASE
+        assert it["trace"]["generation_spans"][0]["model"] == BASE
+
+
+class TestTheItemIsSmallAndEncodable:
+    @pytest.mark.parametrize("fidelity", ["text", "trace"])
+    def test_canonical_cbor_encodes_and_is_tiny(self, adapted_run, fidelity):
+        for it in _items(fidelity, adapted_run):
+            encoded = ms.dump_canonical(it)
+            assert len(encoded) < 4_096, (
+                f"{len(encoded):,} bytes for one item — something is "
+                f"embedding the adapter ({len(ADAPTER_BYTES):,} bytes)")
+
+    def test_the_adapter_bytes_appear_nowhere_in_the_result(self, adapted_run):
+        for it in _items("trace", adapted_run):
+            assert ADAPTER_BYTES[:64] not in ms.dump_canonical(it)
+            assert "adapter_payloads" not in repr(it)

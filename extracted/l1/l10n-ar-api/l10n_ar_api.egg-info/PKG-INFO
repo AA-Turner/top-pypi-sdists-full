@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: l10n_ar_api
+Version: 2.18.1
+Summary: Libreria para localizacion Argentina
+Home-page: https://github.com/odoo-arg/l10n_ar_api
+Author: BLUEORANGE GROUP SRL
+Author-email: daniel@blueorange.com.ar
+Keywords: Libreria para localizacion Argentina
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Requires-Dist: zeep
+Requires-Dist: python-dateutil
+Requires-Dist: pytz
+Requires-Dist: unidecode
+Requires-Dist: requests
+Requires-Dist: lxml
+Requires-Dist: qrcode
+Requires-Dist: bs4; python_version >= "3"
+Requires-Dist: BeautifulSoup; python_version < "3"
+Requires-Dist: cryptography; python_version >= "3.10"
+Requires-Dist: M2Crypto; python_version < "3.10"
+Requires-Dist: pyopenssl==22.1.0; python_version < "3.10"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: summary
+
+Libreria para localizacion Argentina

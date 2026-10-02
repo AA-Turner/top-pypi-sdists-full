@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Make C++ ``dwave::optimization::functional`` objects more consistent with the standard library
-    by adding overloads for other numeric types and marking most operations as ``constexpr``.

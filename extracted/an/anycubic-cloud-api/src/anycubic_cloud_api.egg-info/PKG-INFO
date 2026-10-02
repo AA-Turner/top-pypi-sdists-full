@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: anycubic-cloud-api
+Version: 0.4.33
+Summary: Async client for the Anycubic Cloud API and its MQTT stream
+Author: WaresWichall, Nino Bondonno
+Maintainer: Nino Bondonno
+License: GPL-3.0-or-later
+Project-URL: Homepage, https://github.com/Nino6689/anycubic-cloud-api
+Project-URL: Issues, https://github.com/Nino6689/anycubic-cloud-api/issues
+Keywords: anycubic,3d-printing,kobra,photon,homeassistant
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiofiles>=24.1.0
+Requires-Dist: aiohttp>=3.9
+Requires-Dist: bcrypt>=4.0.0
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: paho-mqtt>=1.6.1
+Dynamic: license-file
+
+# anycubic-cloud-api
+
+Async Python client for the **Anycubic Cloud** API and its MQTT telemetry stream.
+
+Extracted from the [Home Assistant Anycubic integration](https://github.com/Nino6689/hass-anycubic)
+so it can be versioned, tested and used independently.
+
+## Attribution
+
+**The bulk of this library is the work of [@WaresWichall](https://github.com/WaresWichall), from
+[hass-anycubic_cloud](https://github.com/WaresWichall/hass-anycubic_cloud)** — the Anycubic cloud
+API client, the MQTT layer and the printer data models all originated there, under GPL-3.0.
+
+This package extracts that code so it can be versioned and tested on its own, and adds to it:
+the LAN Mode client, the filament-usage maths, tolerant parsing of partial reports, and the test
+suite. Those additions and modifications are by [@Nino6689](https://github.com/Nino6689), from
+2026 onwards.
+
+It remains **GPL-3.0-or-later**, as it must.
+
+### Anycubic's certificates
+
+This package ships Anycubic's own TLS certificates and client key, because their MQTT broker
+requires mutual TLS using that identity and there is no other way for a third-party client to reach
+it. **They are Anycubic's property, not covered by this licence, and no ownership is claimed** — see
+[COPYRIGHT](COPYRIGHT). They are a shared identity taken from Anycubic's own slicer rather than a
+per-user credential, and they came from the upstream project this is derived from.
+
+The **LAN Mode** client needs none of this. If you only talk to the printer locally, no Anycubic
+credential is involved at any point.
+
+## Install
+
+```bash
+pip install anycubic-cloud-api
+```
+
+## Use
+
+```python
+import aiohttp
+from anycubic_cloud_api import AnycubicMQTTAPI, AnycubicAuthMode
+
+async with aiohttp.ClientSession() as session:
+    api = AnycubicMQTTAPI(session=session)
+    api.set_authentication(auth_token="eyJ...", auth_mode=AnycubicAuthMode.SLICER)
+
+    if await api.check_api_tokens():
+        for printer in await api.list_my_printers():
+            print(printer.name, printer.current_status)
+```
+
+## Authentication
+
+Anycubic's login is captcha- and 2FA-protected, so there is no automated
+sign-in: you supply a **token** obtained from the Anycubic slicer, website, or
+Android app. Slicer tokens are 90-day JWTs and additionally unlock the MQTT
+stream; web tokens are polling-only.
+
+## TLS
+
+The MQTT broker requires **mutual TLS** using Anycubic's own certificates, which
+ship inside this package. The client verifies the broker against Anycubic's
+pinned root CA with hostname checking enabled. Two relaxations are unavoidable
+and forced by Anycubic's certificates:
+
+- their client certificate is SHA-1 signed, so OpenSSL 3.x will not load it at
+  the default security level
+- their root CA omits the `keyUsage` extension, which Python 3.13+ rejects as a
+  trust anchor under `VERIFY_X509_STRICT`
+
+Neither weakens chain or hostname verification.
+
+## Licence
+
+GPL-3.0-or-later, matching the integration it came from.

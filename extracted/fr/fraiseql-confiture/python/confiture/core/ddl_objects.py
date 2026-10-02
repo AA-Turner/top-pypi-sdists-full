@@ -1,0 +1,773 @@
+"""The schema objects a DDL tree defines, and what makes two of them the same one.
+
+``migrate validate --require-migration`` asks whether the schema tree changed in
+a way a migrate-only environment will never receive. Answering it needs more
+than the tables, enum types and sequences :class:`~confiture.core.differ.SchemaDiffer`
+models — a view, a routine, a trigger or an extension added to the tree and not
+to a migration is exactly the change the gate exists to catch (#288).
+
+**Identity is the inventory's answer, not a second one.**
+:func:`confiture.core.linting.inventory.object_from_statement` already decides
+what a statement defines, how a schema qualifier is read and — for a routine —
+which overload it is, over canonical argument types (#275). This module calls
+it. What it adds is the half the inventory does not hold: the **definition**,
+so a view redefined in place is visible, and a table of which parse nodes are
+tracked here, so a node that creates something and is not tracked is a stated
+decision rather than silence.
+
+The definition is ``RawStream``'s canonical rendering of the statement, which
+normalises whitespace, comments and keyword case — a reformatted view is not a
+redefinition. ``OR REPLACE`` and ``IF NOT EXISTS`` are neutralised before
+rendering: they say how the statement behaves when the object already exists,
+not what the object is.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Any
+
+import pglast
+from pglast.stream import RawStream
+
+from confiture.core.ddl_walk import (
+    ObjectEdit,
+    TViewOptions,
+    object_edits,
+    object_kinds,
+    storage_pinned,
+    tview_calls,
+)
+from confiture.core.linting.duplicates import CreateFlags, wins
+from confiture.core.linting.inventory import (
+    DEFAULT_SCHEMA,
+    KIND_KEYWORD,
+    SchemaObject,
+    Signature,
+    object_from_statement,
+    signature_bucket,
+    signature_from_type_names,
+    signatures_match,
+    split_names,
+    tviews_from_calls,
+)
+
+# Defined with the rest of the model; re-exported for the callers that name it here.
+from confiture.core.schema_model import TVIEWS_SCHEMA, ObjectRef, Trigger, TView
+
+#: Which parse nodes this module turns into objects, and why each one that
+#: creates something is absent. A node that is neither tracked nor named here
+#: fails ``tests/unit/test_ddl_objects_are_exhaustive.py``: the gate's whole
+#: value is that a schema change cannot be silent, so an unconsidered statement
+#: kind is a hole in it.
+TRACKED_NODES: frozenset[str] = frozenset(
+    {
+        "ViewStmt",
+        "CreateTableAsStmt",  # only when it spells CREATE MATERIALIZED VIEW
+        "CreateFunctionStmt",  # functions and procedures both
+        "DefineStmt",  # only when it spells CREATE AGGREGATE
+        "CreateDomainStmt",
+        "CompositeTypeStmt",
+        # The kinds the lint inventory does not model, read by _EXTRA below.
+        "CreateTrigStmt",
+        "CreatePolicyStmt",
+        "RuleStmt",
+        "CreateExtensionStmt",
+        "CreateSchemaStmt",
+        "CreateEventTrigStmt",
+        "CreateRangeStmt",
+        "CreateStatsStmt",
+        "CreateForeignTableStmt",
+        "CreateFdwStmt",
+        "CreateForeignServerStmt",
+        "CreatePublicationStmt",
+        "CreateConversionStmt",
+        "CreateOpClassStmt",
+        "CreateOpFamilyStmt",
+        "CreateAmStmt",
+    }
+)
+
+#: Statements that create something the accompaniment gate does not ask about,
+#: with the reason. The reason is the point: a hole the gate has on purpose is a
+#: decision someone made, and a node in neither this table nor a tracked one
+#: fails ``tests/unit/test_ddl_objects_are_exhaustive.py``.
+NOT_A_SCHEMA_OBJECT: dict[str, str] = {
+    "CreateRoleStmt": (
+        "a role is cluster-scoped: `confiture build` never creates one either, "
+        "so a migrate-only environment is no worse off than a rebuilt one"
+    ),
+    "CreatedbStmt": "a database is cluster-scoped, and is what confiture builds *into*",
+    "CreateTableSpaceStmt": "a tablespace is cluster-scoped and filesystem-bound",
+    "CreateSubscriptionStmt": (
+        "logical replication is cluster configuration, not schema; it carries a "
+        "connection string that has no business in a schema tree"
+    ),
+    "CreateCastStmt": (
+        "a cast's identity is a pair of types with no name of its own, so it has "
+        "nothing to key on; it is also vanishingly rare outside an extension, "
+        "which arrives as CREATE EXTENSION and is tracked"
+    ),
+    "CreateTransformStmt": "identity is a (type, language) pair with no name of its own",
+    "CreateUserMappingStmt": (
+        "identity is a (role, server) pair, and the role half is cluster-scoped"
+    ),
+    "CreatePLangStmt": (
+        "PostgreSQL parses CREATE LANGUAGE as CreateExtensionStmt, which is "
+        "tracked; this node is unreachable from a parse"
+    ),
+}
+
+#: The kinds whose ``REPLACE`` is a *body* edit. ``--require-migration-bodies``
+#: (#178) already reports these and is off by default, so the accompaniment gate
+#: keeps them behind that flag rather than turning an opt-in into an always-on.
+#: A view is not among them: nothing else in that gate reports a redefined view.
+BODY_KINDS: frozenset[str] = frozenset({"function", "procedure", "aggregate"})
+
+#: Parse nodes that define something the differ models elsewhere, so tracking
+#: them here would report every table twice.
+#:
+#: Each reason names the identity that model is keyed by. A kind delegated to a
+#: reader that identified it differently — by a bare name — would break this
+#: module's rule that identity is the inventory's answer and not a second one
+#: (#313), and a reason that says only *where* a kind is modelled cannot catch
+#: that.
+MODELLED_ELSEWHERE: dict[str, str] = {
+    "CreateStmt": (
+        "the schema model's tables (core/schema_model.py), read whole by the lint "
+        "inventory and keyed by ObjectRef — (schema, name) with DEFAULT_SCHEMA "
+        "folded in — then compared column by column and constraint by constraint"
+    ),
+    "CreateEnumStmt": (
+        "the schema model's enum types, keyed by ObjectRef and compared value by "
+        "value. The inventory calls an enum a 'type', the same kind it gives a "
+        "composite, so tracking it here would report every enum twice — once as "
+        "ADD_TYPE and once as ADD_ENUM_TYPE."
+    ),
+    "CreateSeqStmt": "the schema model's sequences, keyed by ObjectRef",
+    "IndexStmt": (
+        "the schema model's Table.indexes, keyed by bare name — correctly, because "
+        "the comparison is already scoped to one table, itself keyed by ObjectRef"
+    ),
+}
+
+
+@dataclass(frozen=True)
+class _Extra:
+    """How to read the identity of a node the lint inventory does not model.
+
+    ``name_attr`` is where the object's own name lives — a plain string on most
+    nodes, a ``(String, …)`` list on the ones that can be schema-qualified.
+    ``parent_attr`` names a ``RangeVar`` the object hangs off: a trigger, a
+    policy and a rule are named *per table*, so two tables may each have a
+    ``trg_audit`` and they are two objects.
+    """
+
+    kind: str
+    name_attr: str
+    parent_attr: str | None = None
+
+
+#: One row per tracked node the lint inventory has no builder for. The kinds it
+#: *does* model are read through :func:`object_from_statement` instead, so there
+#: is one answer to "what does this statement define" and not two.
+_EXTRA: dict[str, _Extra] = {
+    "CreateTrigStmt": _Extra("trigger", "trigname", "relation"),
+    "CreatePolicyStmt": _Extra("policy", "policy_name", "table"),
+    "RuleStmt": _Extra("rule", "rulename", "relation"),
+    "CreateExtensionStmt": _Extra("extension", "extname"),
+    "CreateSchemaStmt": _Extra("schema", "schemaname"),
+    "CreateEventTrigStmt": _Extra("event_trigger", "trigname"),
+    "CreateRangeStmt": _Extra("type", "typeName"),
+    "CreateStatsStmt": _Extra("statistics", "defnames"),
+    "CreateForeignTableStmt": _Extra("foreign_table", "base"),
+    "CreateFdwStmt": _Extra("foreign_data_wrapper", "fdwname"),
+    "CreateForeignServerStmt": _Extra("server", "servername"),
+    "CreatePublicationStmt": _Extra("publication", "pubname"),
+    "CreateConversionStmt": _Extra("conversion", "conversion_name"),
+    "CreateOpClassStmt": _Extra("operator_class", "opclassname"),
+    "CreateOpFamilyStmt": _Extra("operator_family", "opfamilyname"),
+    "CreateAmStmt": _Extra("access_method", "amname"),
+}
+
+#: The SQL keyword each kind is dropped with. Composed from the inventory's own
+#: table rather than restated beside it, so the two cannot disagree about what a
+#: ``matview`` is called.
+OBJECT_KEYWORD: dict[str, str] = {
+    **KIND_KEYWORD,
+    "trigger": "TRIGGER",
+    "policy": "POLICY",
+    "rule": "RULE",
+    "extension": "EXTENSION",
+    "schema": "SCHEMA",
+    "event_trigger": "EVENT TRIGGER",
+    "statistics": "STATISTICS",
+    "foreign_table": "FOREIGN TABLE",
+    "foreign_data_wrapper": "FOREIGN DATA WRAPPER",
+    "server": "SERVER",
+    "publication": "PUBLICATION",
+    "conversion": "CONVERSION",
+    "operator_class": "OPERATOR CLASS",
+    "operator_family": "OPERATOR FAMILY",
+    "access_method": "ACCESS METHOD",
+}
+
+#: Kinds whose redefinition has no one statement that is plainly right, with the
+#: reason. ``migrate diff --generate`` writes ``-- WARNING: no SQL derived`` for
+#: these — the change is still *reported*, which is what the gate needs; what is
+#: left to the author is the DDL. An entry that stops matching a kind the differ
+#: emits fails ``tests/unit/test_differ_sql_objects.py``.
+REPLACE_IS_AUTHORS_WORK: dict[str, str] = {
+    "domain": "a domain's constraints are altered one at a time; dropping it takes "
+    "every column that uses it",
+    "type": "a composite type's attributes are altered one at a time",
+    "trigger": "a constraint trigger has no CREATE OR REPLACE, and dropping one "
+    "silently changes what fires during the migration itself",
+    "policy": "ALTER POLICY changes a clause at a time, and a dropped policy "
+    "leaves rows unprotected for the length of the transaction",
+    "rule": "a rewrite rule redefined by drop and create changes what the table "
+    "does to concurrent writers mid-migration",
+    "extension": "ALTER EXTENSION UPDATE TO a version is the operation; dropping "
+    "one takes every object it owns",
+    "statistics": "statistics are dropped and recreated, but the estimate they "
+    "carry is lost and only ANALYZE brings it back",
+    "foreign_table": "a foreign table's columns are altered one at a time, as a table's are",
+    "server": "ALTER SERVER changes options in place; dropping one takes its "
+    "foreign tables and user mappings",
+    "foreign_data_wrapper": "ALTER FOREIGN DATA WRAPPER changes handlers in place",
+    "publication": "ALTER PUBLICATION changes its table set; dropping one breaks every subscriber",
+    "operator_class": "an operator class is altered by ALTER OPERATOR FAMILY",
+    "operator_family": "ALTER OPERATOR FAMILY adds and drops members",
+    "access_method": "PostgreSQL has no ALTER ACCESS METHOD beyond rename and owner",
+    "conversion": "ALTER CONVERSION only renames; a redefinition is a drop and a "
+    "create, and a dropped conversion changes how bytes decode meanwhile",
+    "event_trigger": "a dropped event trigger stops firing during the migration "
+    "that replaces it, which is when it matters most",
+    "schema": "a schema is not redefined; what changed is something in it",
+}
+
+#: The statement-level attributes that say what happens when the object already
+#: exists. They are not part of what the object *is*, so a view that gains
+#: ``OR REPLACE`` is not a redefinition.
+_EXISTENCE_ATTRS = ("replace", "if_not_exists")
+
+#: Which existence clause makes each node re-appliable, for the statement a
+#: generated migration carries. A view has ``OR REPLACE``; a materialized view
+#: has only ``IF NOT EXISTS``, because PostgreSQL offers it no replace at all.
+#: Rendered by setting the attribute and asking ``RawStream`` again rather than
+#: by editing its output: the words belong to the printer, not to us.
+_IDEMPOTENT_ATTR: dict[str, str] = {
+    "ViewStmt": "replace",
+    "CreateTableAsStmt": "if_not_exists",
+    "CreateFunctionStmt": "replace",
+    "CreateExtensionStmt": "if_not_exists",
+    "CreateSchemaStmt": "if_not_exists",
+    # PostgreSQL 14 and later; a constraint trigger has no OR REPLACE at all.
+    "CreateTrigStmt": "replace",
+}
+
+
+def _clause_applies(stmt: Any) -> bool:
+    """Whether PostgreSQL accepts the node's existence clause on this statement.
+
+    ``CREATE SCHEMA … IF NOT EXISTS`` refuses the schema's own elements beside it,
+    and ``CREATE OR REPLACE CONSTRAINT TRIGGER`` does not exist.
+    """
+    return not (getattr(stmt, "schemaElts", None) or getattr(stmt, "isconstraint", False))
+
+
+@dataclass(frozen=True)
+class DDLObject:
+    """One tracked ``CREATE``: what it defines, and two renderings of it.
+
+    ``definition`` is what decides whether the object *changed* — existence
+    clauses neutralised, so a view that gains ``OR REPLACE`` is the same view.
+    ``create_sql`` is what a generated migration carries — the same statement
+    with the existence clause its kind supports, so re-applying the migration
+    is not an error. ``signature`` is the routine's full canonical signature,
+    schemas included, which is what separates two definitions that share a
+    bucket.
+    """
+
+    ref: ObjectRef
+    definition: str
+    create_sql: str
+    signature: Signature | None = None
+    #: A trigger, as the schema model holds one; ``None`` for every other kind.
+    trigger: Trigger | None = None
+
+
+def _rendered_with(stmt: Any, wanted: dict[str, bool]) -> str:
+    """``RawStream``'s rendering of *stmt* with *wanted* attributes forced.
+
+    The attributes are restored afterwards: the caller's parse tree is walked
+    again for tables and constraints, and a statement left rewritten would lie
+    to whoever reads it next. An attribute the node does not carry is skipped
+    rather than added — ``CreateTableAsStmt`` has no ``replace``, and inventing
+    one would render SQL PostgreSQL cannot parse.
+    """
+    saved: dict[str, Any] = {}
+    for attr, value in wanted.items():
+        current = getattr(stmt, attr, None)
+        if current is not None and bool(current) != value:
+            saved[attr] = current
+            setattr(stmt, attr, value)
+    try:
+        return RawStream()(stmt)
+    finally:
+        for attr, value in saved.items():
+            setattr(stmt, attr, value)
+
+
+def _canonical_definition(stmt: Any) -> str:
+    """The rendering that decides whether the object changed."""
+    return _rendered_with(stmt, dict.fromkeys(_EXISTENCE_ATTRS, False))
+
+
+def _creating_statement(stmt: Any) -> str:
+    """The rendering a generated migration carries, re-appliable where it can be."""
+    attr = _IDEMPOTENT_ATTR.get(type(stmt).__name__)
+    if attr is None or not _clause_applies(stmt):
+        return _canonical_definition(stmt)
+    wanted = dict.fromkeys(_EXISTENCE_ATTRS, False)
+    wanted[attr] = True
+    return _rendered_with(stmt, wanted)
+
+
+def _named(value: Any) -> tuple[str | None, str] | None:
+    """``(schema, name)`` from a node attribute that holds an identifier.
+
+    A plain string is the unqualified case; a ``(String, …)`` list is the
+    qualified one and is read by the inventory's own ``split_names``, so a
+    dotted name is split the same way everywhere.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return None, value
+    if type(value).__name__ == "CreateStmt":  # CREATE FOREIGN TABLE embeds one
+        return value.relation.schemaname, value.relation.relname
+    try:
+        return split_names(value)
+    except (AttributeError, IndexError, TypeError):
+        return None
+
+
+def _extra_ref(stmt: Any, spec: _Extra) -> ObjectRef | None:
+    """The reference for a node the lint inventory does not model."""
+    named = _named(getattr(stmt, spec.name_attr, None))
+    if named is None:
+        return None
+    schema, name = named
+    parent = getattr(stmt, spec.parent_attr, None) if spec.parent_attr else None
+    if spec.parent_attr is not None and parent is None:
+        return None
+    if parent is not None:
+        schema = parent.schemaname or schema
+        name = f"{parent.relname}.{name}"
+    return ObjectRef(
+        kind=spec.kind,
+        schema=(schema or DEFAULT_SCHEMA).lower(),
+        name=name.lower(),
+        signature=None,
+        display=f"{schema}.{name}" if schema else name,
+    )
+
+
+def _inventory_ref(sql: str, raw: Any) -> tuple[ObjectRef, Signature | None] | None:
+    """The reference for a node the lint inventory models — its answer, not ours."""
+    obj = object_from_statement(sql, raw)
+    if obj is None:
+        return None
+    return _ref_of(obj), obj.signature_key
+
+
+def _ref_of(obj: SchemaObject) -> ObjectRef:
+    return ObjectRef(
+        kind=obj.kind,
+        schema=(obj.folded_schema or DEFAULT_SCHEMA).lower(),
+        name=obj.folded_name,
+        signature=signature_bucket(obj.signature_key),
+        display=obj.identity,
+    )
+
+
+def object_of(sql: str, raw: Any) -> DDLObject | None:
+    """The object this statement defines, or ``None`` when it defines none here.
+
+    ``None`` covers three cases that are not failures: a node this module does
+    not track, a node it tracks that this statement does not use to create an
+    object (``CREATE TABLE … AS`` shares :class:`CreateTableAsStmt` with
+    ``CREATE MATERIALIZED VIEW``, and ``DefineStmt`` with ``CREATE OPERATOR``),
+    and a statement whose name is not where the grammar usually keeps it.
+    """
+    stmt = raw.stmt
+    node = type(stmt).__name__
+    if node not in TRACKED_NODES:
+        return None
+
+    spec = _EXTRA.get(node)
+    if spec is not None:
+        ref = _extra_ref(stmt, spec)
+        signature = None
+    else:
+        found = _inventory_ref(sql, raw)
+        if found is None:
+            return None
+        ref, signature = found
+    if ref is None:
+        return None
+    if ref.kind == "tview":
+        obj = object_from_statement(sql, raw)
+        return _tview_object(ref, obj.tview if obj is not None and obj.tview else TView(ref.name))
+    return DDLObject(
+        ref=ref,
+        definition=_canonical_definition(stmt),
+        create_sql=_creating_statement(stmt),
+        signature=signature,
+        trigger=_trigger(stmt) if ref.kind == "trigger" else None,
+    )
+
+
+def tview_objects_of(sql: str, raw: Any) -> list[DDLObject]:
+    """Each TVIEW a ``SELECT`` creates through pg_tviews' functions, in call order."""
+    return [
+        _tview_object(_ref_of(obj), obj.tview)
+        for obj in tviews_from_calls(sql, raw)
+        if obj.tview is not None
+    ]
+
+
+def _tview_object(ref: ObjectRef, tview: TView) -> DDLObject:
+    """A TVIEW, one object whether the tree wrote a ``CREATE TABLE … AS`` or a call.
+
+    Its definition is the call a migration writes, so moving a TVIEW from one
+    spelling to the other changes nothing, and a changed query or option does.
+    """
+    text = _tview_create(ref, tview)
+    return DDLObject(ref=ref, definition=text, create_sql=text, signature=None, trigger=None)
+
+
+def _apply_storage(
+    objects: dict[ObjectRef, list[DDLObject]], flags: dict[int, CreateFlags], stmt: Any
+) -> None:
+    """``ALTER TABLE tv_x SET LOGGED`` or ``SET (fillfactor = n)`` pins the TVIEW's storage.
+
+    The same fold as the inventory's. The TVIEW is re-rendered from its ``create_sql``,
+    the call :func:`_tview_create` wrote, read back by
+    :func:`~confiture.core.ddl_walk.tview_calls`; each rendering keeps the flags that
+    decide which of two definitions a build keeps.
+    """
+    if type(stmt).__name__ != "AlterTableStmt":
+        return
+    rv = stmt.relation
+    for pinned in (storage_pinned(cmd) for cmd in stmt.cmds or ()):
+        if not pinned:
+            continue
+        for ref in [ref for ref in objects if _names(ref, "tview", rv.schemaname, rv.relname)]:
+            repinned = [_repinned(obj, pinned) for obj in objects[ref]]
+            for before, after in zip(objects[ref], repinned, strict=True):
+                flags[id(after)] = flags.pop(id(before))
+            objects[ref] = repinned
+
+
+def _repinned(obj: DDLObject, pinned: TViewOptions) -> DDLObject:
+    (call,) = tview_calls(pglast.parse_sql(obj.create_sql)[0].stmt)
+    options = {**call.options, **pinned}
+    tview = TView(
+        obj.ref.name,
+        definition=call.query,
+        logged=options.get("logged"),
+        fillfactor=options.get("fillfactor"),
+    )
+    return _tview_object(obj.ref, tview)
+
+
+def output_columns(obj: DDLObject) -> tuple[str, ...] | None:
+    """The names of the columns a view outputs, in order; ``None`` where the parse cannot tell.
+
+    The names PostgreSQL gives them: an explicit column list first, then each
+    target's alias, the column a reference or a cast of one reads, or the
+    function a call names. A ``*``, an expression PostgreSQL would call
+    ``?column?`` and a ``VALUES`` list name nothing confiture can read.
+    """
+    stmt: Any = pglast.parse_sql(obj.create_sql)[0].stmt
+    if type(stmt).__name__ != "ViewStmt":
+        return None
+    query = stmt.query
+    while query.larg is not None:
+        query = query.larg
+    if not query.targetList:
+        return None
+    names = [_output_name(target) for target in query.targetList]
+    aliases = [alias.sval for alias in stmt.aliases or ()]
+    names[: len(aliases)] = aliases
+    named = tuple(name for name in names if name is not None)
+    return named if len(named) == len(names) else None
+
+
+def _output_name(target: Any) -> str | None:
+    """A target's output column name, as PostgreSQL's ``FigureColname`` gives it."""
+    if target.name:
+        return target.name
+    node = target.val
+    while type(node).__name__ == "TypeCast":
+        node = node.arg
+    match type(node).__name__:
+        case "ColumnRef":
+            last = node.fields[-1]
+            return last.sval if type(last).__name__ == "String" else None
+        case "FuncCall":
+            return node.funcname[-1].sval
+        case _:
+            return None
+
+
+def _literal(text: str) -> str:
+    """*text* as a standard SQL string constant."""
+    return "'" + text.replace("'", "''") + "'"
+
+
+def _dollar_quoted(text: str) -> str:
+    """*text* between dollar quotes whose tag it does not hold, so it reads as written."""
+    tag, n = "$tview$", 0
+    while tag in text:
+        n += 1
+        tag = f"$tview{n}$"
+    return f"{tag}{text}{tag}"
+
+
+def _tview_create(ref: ObjectRef, tview: TView) -> str:
+    """A TVIEW as a migration writes it: ``tviews.pg_tviews_create_or_replace(…)``.
+
+    pg_tviews' read contract 1: the call creates, replaces in place or rebuilds,
+    and answers ``unchanged`` when applied again, so the migration re-applies.
+    The name is the author's spelling; ``options`` holds what the tree pins
+    (``logged``, ``fillfactor``) and is left out when it pins nothing.
+    """
+    arguments = [_literal(ref.qualified), _dollar_quoted(tview.definition or "")]
+    options = {
+        key: value
+        for key, value in (("fillfactor", tview.fillfactor), ("logged", tview.logged))
+        if value is not None
+    }
+    if options:
+        arguments.append(f"options => {_literal(json.dumps(options, sort_keys=True))}")
+    return f"SELECT {TVIEWS_SCHEMA}.pg_tviews_create_or_replace({', '.join(arguments)})"
+
+
+def drop_statement(obj: DDLObject) -> str | None:
+    """``DROP <kind> IF EXISTS <name>`` for a kind this module reads itself; ``None`` otherwise.
+
+    A trigger, a policy and a rule are dropped ``ON`` their table, which their
+    reference's spelling (``app.t.trg``) cannot say, and an extension's name may
+    need quotes its spelling lost (``"uuid-ossp"``). Read from ``create_sql``, the
+    statement this module rendered; the kinds the lint inventory models are
+    dropped by their reference's spelling, which carries a routine's arguments.
+    A template is parsed and its names replaced in the parse nodes, so the printer
+    quotes each identifier as PostgreSQL needs it and nothing here decides that.
+    """
+    if obj.ref.kind == "tview":
+        return f"SELECT {TVIEWS_SCHEMA}.pg_tviews_drop({_literal(obj.ref.qualified)}, if_exists => true)"
+    stmt = pglast.parse_sql(obj.create_sql)[0].stmt
+    spec = _EXTRA.get(type(stmt).__name__)
+    if spec is None:
+        return None
+    named = _named(getattr(stmt, spec.name_attr, None))
+    if named is None:
+        return None
+    schema, name = named
+    names = [schema, name]
+    on = ""
+    if spec.parent_attr is not None:
+        relation = getattr(stmt, spec.parent_attr)
+        names = [relation.schemaname, relation.relname, name]
+        on = " ON " + ".".join(["t"] * len([n for n in names[:2] if n]))
+    names = [n for n in names if n]
+    target = "x" if spec.parent_attr is not None else ".".join(["x"] * len(names))
+    template = pglast.parse_sql(f"DROP {OBJECT_KEYWORD[spec.kind]} IF EXISTS {target}{on}")
+    drop: Any = template[0].stmt
+    (written,) = drop.objects
+    nodes = [written] if type(written).__name__ == "String" else list(written)
+    if not all(type(node).__name__ == "String" for node in nodes):
+        return None  # a type's drop names a TypeName, as a composite type's spelling does
+    for node, value in zip(nodes, names, strict=True):
+        node.sval = value
+    return RawStream()(drop)
+
+
+def _trigger(stmt: Any) -> Trigger:
+    relation = stmt.relation
+    return Trigger(name=stmt.trigname, table=relation.relname, schema=relation.schemaname)
+
+
+def declared_triggers(objects: dict[ObjectRef, list[DDLObject]]) -> list[Trigger]:
+    """The triggers a tree still declares, from :func:`objects_in`'s answer."""
+    return [obj.trigger for found in objects.values() for obj in found if obj.trigger is not None]
+
+
+def _matches(ref: ObjectRef, edit: ObjectEdit) -> bool:
+    """Whether ``edit`` names ``ref``, by the inventory's identity rules.
+
+    A schema the statement left off matches any: PostgreSQL resolves the bare
+    spelling through ``search_path``, and a tree that wrote ``DROP VIEW v`` did
+    not say which schema it meant. The same wildcard ``find_all`` applies to an
+    object's own schema.
+    """
+    return _names(ref, edit.object_kind, edit.schema, edit.name)
+
+
+def _names(ref: ObjectRef, kind: str, schema: str | None, name: str) -> bool:
+    if ref.kind not in object_kinds(kind) or ref.name != name.lower():
+        return False
+    return schema is None or ref.schema == schema.lower()
+
+
+def _apply_drop(objects: dict[ObjectRef, list[DDLObject]], edit: ObjectEdit) -> None:
+    """Forget the objects a ``DROP`` names, overload by overload.
+
+    An ``ObjectRef`` is a bucket, so a dropped overload is matched inside it by
+    its full signature — ``DROP FUNCTION f(bigint)`` and a tree's ``f(int8)`` are
+    one routine (#275). A drop that named no argument list takes every overload,
+    which is what PostgreSQL does with the one it finds.
+    """
+    wanted = signature_from_type_names(edit.arg_types) if edit.arg_types is not None else None
+    for ref in [ref for ref in objects if _matches(ref, edit)]:
+        remaining = (
+            []
+            if wanted is None
+            else [obj for obj in objects[ref] if not signatures_match(obj.signature, wanted)]
+        )
+        if remaining:
+            objects[ref] = remaining
+        else:
+            del objects[ref]
+
+
+def objects_in(sql: str, raws: list[Any]) -> dict[ObjectRef, list[DDLObject]]:
+    """Every tracked object an already-parsed schema still declares, bucketed by reference.
+
+    *raws* are the statements :func:`pglast.parse_sql` returned for *sql*; the
+    caller passes its own parse rather than this module taking a second one, so
+    a schema is read once however many walkers ask about it.
+
+    The value is a **list** because :class:`ObjectRef` is a bucket: two routines
+    whose argument types differ only in the schema they name — ``app.f(app.t)``
+    and ``app.f(other.t)`` — share one, and are two objects. They are kept in
+    source order and separated by :func:`pair_definitions`.
+
+    A ``DROP`` is folded as the walk reaches it, so an object a tree creates and
+    later drops is not declared, and the everyday
+    ``DROP TABLE IF EXISTS x; CREATE TABLE x (…);`` still declares ``x``.
+
+    A **rename** and a ``SET SCHEMA`` are deliberately *not* folded here, and
+    this is the one reader where that is true. Both of this module's renderings
+    are of the statement that created the object: rewriting ``CREATE VIEW v`` as
+    ``CREATE VIEW v2`` is SQL generation, not parsing, and a ``create_sql`` that
+    still said ``v`` would put the wrong name in a generated migration. So a tree
+    that renames a tracked object declares it under its old name here, while the
+    lint inventory — which holds no definition to go stale — folds the rename.
+
+    An object defined more than once is **one** object: the definition a build
+    keeps (``duplicates.wins``, as the schema model decides), never each of them.
+    :func:`declared_objects` also says which were collapsed.
+    """
+    return declared_objects(sql, raws).objects
+
+
+@dataclass(frozen=True)
+class Collapsed:
+    """One object a tree defines more than once: the definition kept, and why.
+
+    ``verdict`` is ``duplicates.wins``' answer — ``last``, ``first`` or
+    ``conflict`` — so a warning can say what the build does with the others.
+    """
+
+    kept: DDLObject
+    count: int
+    verdict: str
+
+
+@dataclass(frozen=True)
+class Declared:
+    """What a tree declares, bucketed by reference, and the definitions folded into one."""
+
+    objects: dict[ObjectRef, list[DDLObject]]
+    collapsed: tuple[Collapsed, ...]
+
+
+def _flags(stmt: Any) -> CreateFlags:
+    """How the statement was written: ``OR REPLACE``, ``IF NOT EXISTS``, or neither."""
+    return CreateFlags(
+        replace=bool(getattr(stmt, "replace", False)),
+        if_not_exists=bool(getattr(stmt, "if_not_exists", False)),
+    )
+
+
+def declared_objects(sql: str, raws: list[Any]) -> Declared:
+    """:func:`objects_in`, with the objects it had to fold into one reported beside it."""
+    objects: dict[ObjectRef, list[DDLObject]] = {}
+    # Keyed by identity: two definitions written alike are equal, and are still two.
+    flags: dict[int, CreateFlags] = {}
+    for raw in raws:
+        # A drop first: `SELECT pg_tviews_drop('tv_x'), pg_tviews_create_or_replace('tv_x', …)`
+        # drops and creates, as `DROP …; CREATE …` does, and no other statement does both.
+        for edit in object_edits(raw.stmt):
+            if edit.kind == "drop":
+                _apply_drop(objects, edit)
+        found = object_of(sql, raw)
+        for obj in [found] if found is not None else tview_objects_of(sql, raw):
+            objects.setdefault(obj.ref, []).append(obj)
+            flags[id(obj)] = _flags(raw.stmt)
+        _apply_storage(objects, flags, raw.stmt)
+    collapsed: list[Collapsed] = []
+    for ref, bucket in objects.items():
+        kept: list[DDLObject] = []
+        for group in _same_objects(bucket):
+            verdict = wins([flags[id(obj)] for obj in group]) if len(group) > 1 else "first"
+            keep = group[-1] if verdict == "last" else group[0]
+            if len(group) > 1:
+                collapsed.append(Collapsed(kept=keep, count=len(group), verdict=verdict))
+            kept.append(keep)
+        objects[ref] = kept
+    return Declared(objects=objects, collapsed=tuple(collapsed))
+
+
+def _same_objects(bucket: list[DDLObject]) -> list[list[DDLObject]]:
+    """A bucket's definitions grouped into objects, in source order: one group per signature."""
+    groups: list[list[DDLObject]] = []
+    for obj in bucket:
+        group = next((g for g in groups if signatures_match(g[0].signature, obj.signature)), None)
+        if group is None:
+            groups.append([obj])
+        else:
+            group.append(obj)
+    return groups
+
+
+def pair_definitions(
+    old: list[DDLObject], new: list[DDLObject]
+) -> tuple[list[tuple[DDLObject, DDLObject]], list[DDLObject], list[DDLObject]]:
+    """Match one bucket's definitions across two schemas.
+
+    Returns ``(pairs, dropped, added)``. A definition pairs with the first one
+    on the other side whose full signature matches it, which for every kind that
+    is not a routine — and for the overwhelming majority that are — is the only
+    candidate in the bucket. What is left over on either side is an object that
+    appeared or went away.
+    """
+    remaining = list(new)
+    pairs: list[tuple[DDLObject, DDLObject]] = []
+    dropped: list[DDLObject] = []
+    for before in old:
+        match = next(
+            (after for after in remaining if signatures_match(before.signature, after.signature)),
+            None,
+        )
+        if match is None:
+            dropped.append(before)
+        else:
+            remaining.remove(match)
+            pairs.append((before, match))
+    return pairs, dropped, remaining

@@ -1,0 +1,172 @@
+---
+name: node_evidence_dashboard_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: EFFECT_GENERIC
+node_version: {major: 0, minor: 1, patch: 0}
+description: >
+  Normalizes evidence pipeline command and lifecycle events into dashboard
+  projection events. This effect owns no projection state; it only maps source
+  event type to normalized stage, status, severity, and cursor metadata for the
+  reducer.
+
+input_model:
+  name: ModelDashboardEvent
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_dashboard_event
+  description: "Raw evidence pipeline event or command envelope."
+output_model:
+  name: ModelDashboardProjectionEvent
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_dashboard_projection_event
+  description: "Normalized event consumed by the dashboard reducer."
+
+handler:
+  module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+  class: HandlerEvidenceDashboardEffect
+
+# OMN-18013 / OMN-16939 — routing_strategy is topic_match with ONE entry per topic, each
+# declaring its own message_category. handler_wiring derives an entry's category ONCE
+# (explicit message_category, else _derive_message_category(subscribe_topics[0])) and
+# stamps it on every route that entry registers, so a single entry spanning both a .cmd.
+# and a .evt. topic registers ALL of them under subscribe_topics[0]'s category and every
+# topic of the other category matches zero routes: consumed, DLQ'd and COMMITTED on every
+# message, at LAG 0, forever. Setting `topic:` alone is NOT sufficient — that picks WHICH
+# topic an entry owns; `message_category:` picks which category it registers under.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.cmd.omnimarket.evidence-pipeline-start.v1
+      message_category: command
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "Pipeline start command."
+    - topic: onex.evt.omnimarket.evidence-collected.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: evidence-collected -> COLLECTED/PASSED/INFO."
+    - topic: onex.evt.omnimarket.evidence-extracted.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: evidence-extracted -> EXTRACTED/PASSED/INFO."
+    - topic: onex.evt.omnimarket.evidence-validated.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: evidence-validated -> VALIDATED/PASSED/INFO."
+    - topic: onex.evt.omnimarket.occ-pr-created.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: occ-pr-created -> OCC_PR/PASSED/INFO."
+    - topic: onex.evt.omnimarket.evidence-pipeline-completed.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: evidence-pipeline-completed -> COMPLETED/PASSED/INFO."
+    - topic: onex.cmd.omnimarket.readiness-gate-start.v1
+      message_category: command
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "Readiness gate start command."
+    - topic: onex.evt.omnimarket.readiness-gate-completed.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: readiness-gate-completed -> READINESS_GATE_COMPLETED/PASSED/INFO."
+    - topic: onex.evt.omnimarket.readiness-gate-blocked.v1
+      message_category: event
+      operation: evidence_dashboard
+      handler:
+        name: HandlerEvidenceDashboardEffect
+        module: omnimarket.nodes.node_evidence_dashboard_effect.handlers.handler_evidence_dashboard_effect
+      description: "normalization_contract.mappings: readiness-gate-blocked -> READINESS_GATE_BLOCKED/BLOCKED/BLOCKING."
+
+
+descriptor:
+  node_archetype: effect
+  purity: effectful
+  runtime_profiles: [effects]
+  idempotent: true
+  timeout_ms: 120000
+
+terminal_event: onex.evt.omnimarket.evidence-dashboard-normalized.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.evidence-pipeline-start.v1
+    - onex.evt.omnimarket.evidence-collected.v1
+    - onex.evt.omnimarket.evidence-extracted.v1
+    - onex.evt.omnimarket.evidence-validated.v1
+    - onex.evt.omnimarket.occ-pr-created.v1
+    - onex.evt.omnimarket.evidence-pipeline-completed.v1
+    - onex.cmd.omnimarket.readiness-gate-start.v1
+    - onex.evt.omnimarket.readiness-gate-completed.v1
+    - onex.evt.omnimarket.readiness-gate-blocked.v1
+  publish_topics:
+    - onex.evt.omnimarket.evidence-dashboard-normalized.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.evidence-dashboard-normalized.v1
+
+normalization_contract:
+  owns_state: false
+  source_event_type_field: source_event_type
+  output_stage_field: normalized_stage
+  output_status_field: normalized_status
+  output_severity_field: severity
+  cursor_authority: kafka_coordinates_or_ingest_sequence
+  mappings:
+    evidence-pipeline-started: {stage: TRIGGERED, status: IN_FLIGHT, severity: INFO}
+    evidence-collected: {stage: COLLECTED, status: PASSED, severity: INFO}
+    evidence-extracted: {stage: EXTRACTED, status: PASSED, severity: INFO}
+    evidence-validated: {stage: VALIDATED, status: PASSED, severity: INFO}
+    occ-pr-created: {stage: OCC_PR, status: PASSED, severity: INFO}
+    evidence-pipeline-completed: {stage: COMPLETED, status: PASSED, severity: INFO}
+    readiness-gate-started: {stage: READINESS_GATE_STARTED, status: IN_FLIGHT, severity: INFO}
+    readiness-gate-completed: {stage: READINESS_GATE_COMPLETED, status: PASSED, severity: INFO}
+    readiness-gate-blocked: {stage: READINESS_GATE_BLOCKED, status: BLOCKED, severity: BLOCKING}
+  supporting_internal_topics:
+    - onex.evt.omnimarket.evidence-gap-analyzed.v1
+    - onex.evt.omnimarket.readiness-scored.v1
+    - onex.evt.omnimarket.evidence-published.v1
+
+side_effects:
+  reads: []
+  writes:
+    - kafka_publish
+  duplicate_key_fields:
+    - event_id
+    - projection_cursor
+
+metadata:
+  transport_type: kafka
+  implementation_wave: 3
+  related_tickets: ["OMN-11471", "OMN-11474"]
+
+# OMN-18013 — this node's ENTRY command, declared rather than implied.
+#
+# The topic was already in event_bus.subscribe_topics but no contract in the corpus
+# published it, so the contract graph read it as an ORPHANED_CONSUMER: a subscriber
+# nothing can ever reach. It is in fact the CLI/skill dispatcher's publish target, which
+# contract_topic_graph and the golden-chain publisher fixture both already accept as a
+# declared producer (`is_reachable`: `any(n.command_topic == topic ...)`). Declaring it
+# makes that reachability a fact in the contract instead of tribal knowledge, and lets a
+# golden chain build its input from the publisher side rather than hand-typing a topic.
+runtime_dispatch:
+  command_topic: onex.cmd.omnimarket.evidence-pipeline-start.v1

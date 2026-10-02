@@ -43,7 +43,7 @@ class FileDownloadProgress(Progress):
                 style=Style(bold=True, color="blue"),
             ),
             *args,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -57,7 +57,10 @@ class ProgressFileReader:
     """
 
     def __init__(
-        self, file: BufferedReader, progress: Progress, task_id: TaskID,
+        self,
+        file: BufferedReader,
+        progress: Progress,
+        task_id: TaskID,
     ):
         self.file = file
         self.progress = progress

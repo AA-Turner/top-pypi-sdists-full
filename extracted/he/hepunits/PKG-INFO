@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: hepunits
-Version: 2.4.6
+Version: 2.4.7
 Summary: Units and constants in the HEP system of units
 Project-URL: Homepage, https://github.com/scikit-hep/hepunits
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>
@@ -21,20 +21,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Provides-Extra: all
 Requires-Dist: pint<0.25.1; extra == 'all'
-Requires-Dist: pytest-cov>=2.8.0; extra == 'all'
-Requires-Dist: pytest>=6; extra == 'all'
+Requires-Dist: pytest-cov>=6; extra == 'all'
+Requires-Dist: pytest>=7; extra == 'all'
 Provides-Extra: dev
 Requires-Dist: pint<0.25.1; extra == 'dev'
-Requires-Dist: pytest-cov>=2.8.0; extra == 'dev'
-Requires-Dist: pytest>=6; extra == 'dev'
+Requires-Dist: pytest-cov>=6; extra == 'dev'
+Requires-Dist: pytest>=7; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pint<0.25.1; extra == 'test'
-Requires-Dist: pytest-cov>=2.8.0; extra == 'test'
-Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: pytest-cov>=6; extra == 'test'
+Requires-Dist: pytest>=7; extra == 'test'
 Description-Content-Type: text/x-rst
 
 ``hepunits``: units and constants in the HEP system of units

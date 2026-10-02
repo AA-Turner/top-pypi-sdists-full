@@ -7,8 +7,7 @@ from anyscale._private.models import ModelBase
 
 @dataclass(frozen=True)
 class AdminCreateUser(ModelBase):
-    """User to be created by an admin.
-    """
+    """User to be created by an admin."""
 
     # Used only by `anyscale user batch-create` / `anyscale.user.admin_batch_create`,
     # which are internally feature-flagged. See CI-2068.
@@ -54,9 +53,7 @@ admin_create_user = AdminCreateUser(
             raise TypeError("password must be a string.")
 
     is_sso_user: bool = field(
-        metadata={
-            "docstring": "Whether the user is an SSO user. SSO users can log in using SSO."
-        },
+        metadata={"docstring": "Whether the user is an SSO user. SSO users can log in using SSO."},
     )
 
     def _validate_is_sso_user(self, is_sso_user: bool):
@@ -84,8 +81,7 @@ admin_create_user = AdminCreateUser(
 
 @dataclass(frozen=True)
 class AdminCreateUsers(ModelBase):
-    """Users to be created by an admin.
-    """
+    """Users to be created by an admin."""
 
     # See AdminCreateUser comment; this wrapper is internal-only too.
     __hidden__ = True
@@ -124,8 +120,7 @@ admin_create_users = AdminCreateUsers(
 
 @dataclass(frozen=True)
 class AdminCreatedUser(ModelBase):
-    """User account created by an admin that has organization collaborator permissions.
-    """
+    """User account created by an admin that has organization collaborator permissions."""
 
     # Returned only by the hidden `admin_batch_create`. See CI-2068.
     __hidden__ = True
@@ -150,25 +145,19 @@ admin_create_user = AdminCreateUser(
 )
 admin_created_users: List[AdminCreatedUser] = anyscale.user.admin_batch_create([admin_create_user])
 """
-    user_id: str = field(
-        metadata={"docstring": "ID of the user that has been created."}
-    )
+    user_id: str = field(metadata={"docstring": "ID of the user that has been created."})
 
     def _validate_user_id(self, user_id: str):
         if not isinstance(user_id, str):
             raise TypeError("user_id must be a string.")
 
-    name: str = field(
-        metadata={"docstring": "First name of the user that has been created."}
-    )
+    name: str = field(metadata={"docstring": "First name of the user that has been created."})
 
     def _validate_name(self, name: str):
         if not isinstance(name, str):
             raise TypeError("name must be a string.")
 
-    email: str = field(
-        metadata={"docstring": "Email of the user that has been created."}
-    )
+    email: str = field(metadata={"docstring": "Email of the user that has been created."})
 
     def _validate_email(self, email: str):
         if not isinstance(email, str):
@@ -183,9 +172,7 @@ admin_created_users: List[AdminCreatedUser] = anyscale.user.admin_batch_create([
             raise TypeError("created_at must be a datetime.")
 
     is_sso_user: bool = field(
-        metadata={
-            "docstring": "Whether the user is an SSO user. SSO users can log in using SSO."
-        },
+        metadata={"docstring": "Whether the user is an SSO user. SSO users can log in using SSO."},
     )
 
     def _validate_is_sso_user(self, is_sso_user: bool):
@@ -222,9 +209,7 @@ for user in anyscale.user.list(max_items=5):
     print(f"{user.email} ({user.permission_level})")
 """
 
-    email: str = field(
-        metadata={"docstring": "Email address associated with the collaborator."}
-    )
+    email: str = field(metadata={"docstring": "Email address associated with the collaborator."})
 
     def _validate_email(self, email: str):
         if not isinstance(email, str):

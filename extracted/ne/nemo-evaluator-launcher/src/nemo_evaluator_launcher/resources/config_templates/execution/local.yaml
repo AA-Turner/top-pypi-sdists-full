@@ -1,5 +1,0 @@
-defaults:
-  - execution: local
-
-execution:
-  output_dir: nel-results

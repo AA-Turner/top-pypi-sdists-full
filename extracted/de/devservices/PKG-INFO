@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: devservices
+Version: 1.5.1
+Requires-Python: >=3.11
+License-File: LICENSE.md
+Requires-Dist: pyyaml
+Requires-Dist: sentry-devenv
+Requires-Dist: sentry-sdk
+Requires-Dist: packaging
+Requires-Dist: supervisor>=4.3.0
+Dynamic: license-file

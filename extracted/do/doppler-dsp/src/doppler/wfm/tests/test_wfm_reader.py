@@ -1,0 +1,935 @@
+"""Smoke tests for the `Reader` object binding itself.
+
+jm scaffolds a `test_create()` here, but a Reader has no seedable constructor
+(it needs a real capture on disk), so the generated version was skipped
+outright. These replace it with the equivalent checks against a capture written
+by `Writer` -- covering the four things the handle -> object migration had to
+preserve, each of which needed a jm feature to survive:
+
+  * an ``os.PathLike`` constructor argument   (jm gh-515)
+  * a failed open that says what is wrong     (jm gh-514)
+  * enum properties that return strings       (jm gh-519)
+  * the class staying at ``doppler.wfm``      (jm gh-523)
+
+The file-format behaviour (mode parsing, detached captures, keywords) is
+covered in test_compose.py; this file is about the binding.
+"""
+
+import json
+import struct
+
+import numpy as np
+import pytest
+
+from doppler.wfm import Composer, Reader, Segment, Writer
+
+
+@pytest.fixture
+def capture(tmp_path):
+    """A small BLUE capture plus the samples that went into it."""
+    x = Composer([Segment("qpsk", sps=8, num_samples=1024)]).compose()
+    p = tmp_path / "cap.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=2.4e6) as w:
+        w.write(x)
+    return p, x
+
+
+def test_accepts_pathlike(capture):
+    """The ctor takes a Path, not just a str (jm gh-515)."""
+    p, x = capture
+    with Reader(p) as r:  # a pathlib.Path, unstringified
+        assert len(r.read(len(x))) == len(x)
+
+
+def test_enum_properties_are_strings(capture):
+    """file_type/sample_type/mode/endian decode via the SSOT (jm gh-519)."""
+    p, _ = capture
+    with Reader(p) as r:
+        assert r.file_type == "blue"
+        assert r.sample_type == "cf32"
+        assert r.mode == "complex"
+        assert r.endian == "le"
+
+
+def test_failed_open_names_the_problem(tmp_path):
+    """A NULL from create() raises the declared error (jm gh-514)."""
+    with pytest.raises(ValueError, match="cannot open capture"):
+        Reader(tmp_path / "nope.blue")
+
+
+def test_read_reset_read_is_repeatable(capture):
+    """reset() rewinds to the first sample, not to byte 0 of the file."""
+    p, x = capture
+    with Reader(p) as r:
+        first = r.read(len(x))
+        r.reset()
+        second = r.read(len(x))
+    # byte 0 would replay the 512-byte HCB as IQ; the payload starts at 512
+    assert np.array_equal(first, x)
+    assert np.array_equal(second, x)
+
+
+CONTAINERS = ("blue", "raw", "sigmf", "csv")
+
+
+@pytest.fixture(params=CONTAINERS)
+def seekable(request, tmp_path):
+    """A capture in each container, plus what the reader reads back from it.
+
+    The baseline is what the READER returns rather than what `Writer` was
+    handed: a CSV round-trips through decimal text, so comparing a seek
+    against the source array would be measuring the container's fidelity
+    instead of where the seek landed.
+    """
+    ft = request.param
+    name = "cap.sigmf-data" if ft == "sigmf" else f"cap.{ft}"
+    p = tmp_path / name
+    x = Composer([Segment("qpsk", sps=8, num_samples=1024)]).compose()
+    with Writer(p, 2.4e6, file_type=ft, sample_type="cf32") as w:
+        w.write(x)
+    with Reader(p) as r:
+        baseline = np.array(r.read(len(x)))
+    assert len(baseline) == len(x)
+    return p, baseline
+
+
+@pytest.mark.parametrize("k", [0, 1, 512, 1023, 1024])
+def test_seek_lands_on_the_sample_it_names(seekable, k):
+    """seek(k) puts the next read at sample k, on every container.
+
+    Self-consistency, which cannot be mis-referenced: whatever follows the
+    seek must be bit-identical to the tail of the same reader's own first
+    pass.
+    """
+    p, baseline = seekable
+    with Reader(p) as r:
+        r.seek(k)
+        assert r.position == k
+        assert np.array_equal(r.read(len(baseline)), baseline[k:])
+
+
+def test_a_backward_seek_lands_too(seekable):
+    """Going back re-walks a CSV rather than running off the end of it."""
+    p, baseline = seekable
+    with Reader(p) as r:
+        r.seek(900)
+        r.seek(3)
+        assert np.array_equal(r.read(5), baseline[3:8])
+
+
+def test_a_refused_seek_raises_and_does_not_move(seekable):
+    """Out of range is a refusal, and the refusal keeps your place.
+
+    Both halves matter: clamping would turn a caller's arithmetic error into
+    a silent empty read, and moving on the way to failing would make a retry
+    read the wrong samples.
+    """
+    p, baseline = seekable
+    with Reader(p) as r:
+        r.seek(100)
+        with pytest.raises(ValueError, match="past the end of the capture"):
+            r.seek(len(baseline) + 1)
+        with pytest.raises(ValueError, match="negative"):
+            r.seek(-1)
+        assert r.position == 100
+        assert np.array_equal(r.read(6), baseline[100:106])
+
+
+def test_position_tracks_every_read(capture):
+    """`position` is the dual of seek(), and every read advances it."""
+    p, x = capture
+    with Reader(p) as r:
+        assert r.position == 0
+        r.read(300)
+        assert r.position == 300
+        r.read(100)
+        assert r.position == 400
+        r.reset()
+        assert r.position == 0  # reset() is seek(0)
+        r.seek(len(x))
+        assert len(r.read(1)) == 0  # seek(num_samples) IS the end
+        assert r.position == len(x)
+
+
+def test_seek_time_agrees_with_seek(tmp_path):
+    """seek_time(k/fs) is seek(k) on a capture that declares its rate."""
+    x = Composer([Segment("qpsk", sps=8, num_samples=1024)]).compose()
+    p = tmp_path / "cap.blue"
+    with Writer(p, 1e6, file_type="blue", sample_type="cf32") as w:
+        w.write(x)
+    with Reader(p) as r:
+        assert r.fs_source == "xdelta"
+        r.seek_time(250e-6)
+        assert r.position == 250
+        assert np.array_equal(r.read(len(x) - 250), x[250:])
+        # rounds to nearest, so half a sample either side is still 250
+        r.seek_time(250.4e-6)
+        assert r.position == 250
+        r.seek_time(249.6e-6)
+        assert r.position == 250
+
+
+@pytest.mark.parametrize("file_type", ["raw", "csv"])
+def test_seek_time_refuses_a_capture_that_declares_no_rate(
+    tmp_path, file_type
+):
+    """The refusal seek_time() exists for.
+
+    A caller computing `round(t * r.fs)` themselves gets sample 0 for every
+    time on a headerless capture, silently, because `fs` is 0.0 there. The
+    sample index still works -- it is the unit that needs no metadata.
+    """
+    x = Composer([Segment("qpsk", sps=8, num_samples=256)]).compose()
+    p = tmp_path / f"cap.{file_type}"
+    # sidecar=False: the sidecar this library leaves beside a headerless
+    # capture WOULD declare a rate, and then there is nothing to refuse.
+    with Writer(
+        p, 0.0, file_type=file_type, sample_type="cf32", sidecar=False
+    ) as w:
+        w.write(x)
+    with Reader(p, sample_type="cf32") as r:
+        assert (r.fs, r.fs_source) == (0.0, "none")
+        with pytest.raises(ValueError, match="declares no sample rate"):
+            r.seek_time(1e-6)
+        assert r.position == 0
+        r.seek(100)  # the sample index needs no metadata
+        assert r.position == 100
+
+
+@pytest.mark.parametrize("seconds", [-1e-6, float("nan"), float("inf"), 1.0])
+def test_seek_time_refuses_a_time_it_cannot_honour(capture, seconds):
+    """Negative, non-finite, or past the end -- none of them move you."""
+    p, _ = capture
+    with Reader(p) as r:
+        r.seek(7)
+        with pytest.raises(ValueError):
+            r.seek_time(seconds)
+        assert r.position == 7
+
+
+def test_keywords_is_empty_without_an_extended_header(capture):
+    """No extended header yields {}, never None — so a caller can just
+    iterate it without a guard."""
+    p, _ = capture
+    with Reader(p) as r:
+        assert r.keywords == {}
+
+
+def _encode_keyword(tag: str, type_char: str, value_bytes: bytes) -> bytes:
+    """One BLUE §3.3.1 keyword entry (little-endian), the inverse of the C
+    encoder. lext is the NON-value length: 8-byte header + tag + padding."""
+    ltag = len(tag)
+    vbytes = len(value_bytes)
+    n = 8 + vbytes + ltag
+    lkey = n + ((8 - n % 8) % 8)  # pad to a multiple of 8
+    lext = lkey - vbytes
+    buf = bytearray(lkey)
+    struct.pack_into("<i", buf, 0, lkey)
+    struct.pack_into("<h", buf, 4, lext)
+    buf[6] = ltag
+    buf[7] = ord(type_char)
+    buf[8 : 8 + vbytes] = value_bytes
+    buf[8 + vbytes : 8 + vbytes + ltag] = tag.encode("ascii")
+    return bytes(buf)
+
+
+@pytest.fixture
+def keyworded_capture(tmp_path):
+    """A hand-built little-endian attached BLUE cf32 capture whose extended
+    header carries one keyword of each Python-facing shape.
+
+    The Python ``Writer`` cannot yet emit keywords
+    (``dp_wfm_writer_add_keyword``
+    has no binding), and the C round-trip test never touches the Python value
+    builder, so the ``.keywords`` type dispatch — new hand-written code behind
+    ``value_type="object"`` — would otherwise ship unexercised from Python.
+    The file is assembled directly against the Midas BLUE 1.1 wire format so
+    the test needs no keyword-writing API.
+    """
+    fs = 1e6
+    samples = np.array([1 + 2j, 3 + 4j, 5 + 6j, 7 + 8j], dtype=np.complex64)
+    data = samples.view(np.float32).astype("<f4").tobytes()  # interleaved I/Q
+
+    ext = b"".join(
+        [
+            _encode_keyword("COMMENT", "A", b"10 dB pad"),  # -> str
+            _encode_keyword("F_C", "D", struct.pack("<d", 1.2345e9)),  # scalar
+            _encode_keyword(  # multi-element -> list
+                "GAINS",
+                "F",
+                b"".join(struct.pack("<f", g) for g in (1.5, -2.5, 3.5)),
+            ),
+            _encode_keyword("TRIM", "I", struct.pack("<h", -1234)),  # int16
+            _encode_keyword(
+                "TICKS", "X", struct.pack("<q", 1234567890123)
+            ),  # int64
+        ]
+    )
+
+    hcb = bytearray(512)
+    hcb[0:4] = b"BLUE"
+    hcb[4:8] = b"EEEI"  # little-endian
+    struct.pack_into("<i", hcb, 12, 0)  # detached = 0 (attached)
+    struct.pack_into("<i", hcb, 24, 2)  # ext_start: 512-byte block 2 -> 1024
+    struct.pack_into("<i", hcb, 28, len(ext))  # ext_size: bytes
+    struct.pack_into("<d", hcb, 32, 512.0)  # data_start: bytes
+    struct.pack_into("<d", hcb, 40, float(len(data)))  # data_size: bytes
+    hcb[52] = ord("C")  # format mode: complex
+    hcb[53] = ord("F")  # format type: 32-bit float (cf32)
+    struct.pack_into("<d", hcb, 264, 1.0 / fs)  # xdelta
+
+    body = bytes(hcb) + data
+    body += b"\x00" * (1024 - len(body))  # pad to the ext-header block
+    p = tmp_path / "keyworded.blue"
+    p.write_bytes(body + ext)
+    return p, samples
+
+
+def test_keywords_decode_with_the_right_python_types(keyworded_capture):
+    """`.keywords` (gh-543) dispatches each keyword to its Python type: str for
+    A, int/float for a scalar numeric, a list for a multi-element one."""
+    p, samples = keyworded_capture
+    with Reader(p) as r:
+        assert np.array_equal(r.read(len(samples)), samples)  # samples intact
+        kw = r.keywords
+
+    assert kw["COMMENT"] == "10 dB pad"
+    assert isinstance(kw["COMMENT"], str)
+
+    assert kw["F_C"] == pytest.approx(1.2345e9)
+    assert isinstance(kw["F_C"], float)
+
+    assert kw["GAINS"] == pytest.approx([1.5, -2.5, 3.5])
+    assert isinstance(kw["GAINS"], list)  # multi-element collapses to a list
+
+    assert kw["TRIM"] == -1234
+    assert isinstance(kw["TRIM"], int)  # a negative int16 stays signed
+
+    assert kw["TICKS"] == 1234567890123  # 64-bit, past a 32-bit range
+    assert isinstance(kw["TICKS"], int)
+
+
+def test_close_is_idempotent_and_aliases_destroy(capture):
+    """`close()` survived the migration; `destroy()` is jm's spelling."""
+    p, _ = capture
+    r = Reader(p)
+    r.close()
+    r.close()  # idempotent
+    r.destroy()  # the generated name, same effect
+
+
+def test_header_exposes_the_hcb_under_the_format_s_own_names(tmp_path):
+    """`header` is the 512-byte HCB, decoded, nothing renamed or omitted.
+
+    The reader used to keep six fields out of the header and discard the
+    rest, so from Python you could not tell whether a field was absent from
+    the file or merely dropped on the way out.
+    """
+    p = tmp_path / "h.blue"
+    w = Writer(str(p), fs=1e6, file_type="blue", sample_type="cf32")
+    w.write(np.ones(8, dtype=np.complex64))
+    w.close()
+
+    h = Reader(str(p)).header
+    # The names are the format's, not ours.
+    for name in (
+        "version",
+        "head_rep",
+        "data_rep",
+        "detached",
+        "ext_start",
+        "ext_size",
+        "data_start",
+        "data_size",
+        "type",
+        "format",
+        "keylength",
+        "xstart",
+        "xdelta",
+        "xunits",
+    ):
+        assert name in h, name
+    # Each value arrives as the type its BLUE code declares.
+    assert h["version"] == "BLUE"
+    assert h["type"] == 1000 and isinstance(h["type"], int)
+    assert isinstance(h["data_start"], float)
+    assert isinstance(h["outbytes"], list) and len(h["outbytes"]) == 8
+
+
+def test_keywords_merge_the_hcb_area_and_the_extended_header(tmp_path):
+    """A key is a key: the caller cannot tell which block carried it.
+
+    BLUE 1.1 3.4 reserves the 92-byte HCB keyword area for six standard
+    keywords and puts everything else in the extended header -- other
+    systems are licensed to delete user keywords found there. So `VER`
+    goes to the HCB area and `NAME`/`SRATE` to the extended header, and
+    all three come back from `.keywords`, the numeric one still numeric.
+    """
+    p = tmp_path / "kw.blue"
+    w = Writer(str(p), fs=1e6, file_type="blue", sample_type="cf32")
+    w.add_keyword("VER", "A", "1.1")  # standard -> HCB keyword area
+    w.add_keyword("NAME", "A", "hello")  # user -> extended header
+    w.add_keyword("SRATE", "D", 2.048e6)  # typed -> extended header
+    w.write(np.ones(8, dtype=np.complex64))
+    w.close()
+
+    r = Reader(str(p))
+    assert r.keywords == {"VER": "1.1", "NAME": "hello", "SRATE": 2.048e6}
+    assert isinstance(r.keywords["SRATE"], float)  # type survived
+    # And the header shows where each went.
+    h = r.header
+    assert h["keylength"] > 0  # the HCB area was used
+    assert h["ext_start"] > 0  # and so was the extended header
+
+
+def _blue_with_slack(path, *, ext_before, gap, trailing, shrink=0):
+    """A BLUE file with NON-ZERO slack in every gap the spec permits.
+
+    BLUE 1.1 3.3 allows empty space between HCB and Data, between Data and
+    the Extended Header, and after the last section -- and explicitly does
+    NOT require it to be zero-filled, so that HEADERMOD can shorten the Data
+    section without rewriting the data. Filling the gaps with garbage is
+    therefore the honest test, not zeros.
+    """
+    import struct
+
+    ext = _encode_keyword("SRATE", "D", struct.pack("<d", 2.048e6))
+    data = np.arange(1, 9, dtype=np.float32).view(np.complex64).tobytes()
+    garb = bytes(range(1, 256)) * 8
+
+    h = bytearray(512)
+    h[0:4], h[4:8], h[8:12] = b"BLUE", b"EEEI", b"EEEI"
+    struct.pack_into("<i", h, 48, 1000)
+    h[52], h[53] = ord("C"), ord("F")
+    struct.pack_into("<d", h, 264, 1e-6)
+
+    body = bytearray()
+    if ext_before:
+        ext_off = 512
+        body += ext + garb[: 512 - len(ext)]
+        data_off = 1024 + gap
+        body += garb[:gap] + data
+    else:
+        data_off = 512 + gap
+        body += garb[:gap] + data
+        pad = (512 - ((data_off + len(data)) % 512)) % 512
+        body += garb[:pad]
+        ext_off = data_off + len(data) + pad
+        body += ext
+    body += garb[:trailing]
+
+    struct.pack_into("<i", h, 24, ext_off // 512)
+    struct.pack_into("<i", h, 28, len(ext))
+    struct.pack_into("<d", h, 32, float(data_off))
+    struct.pack_into("<d", h, 40, float(len(data) - shrink))
+    path.write_bytes(bytes(h) + bytes(body))
+    return path
+
+
+@pytest.mark.parametrize("ext_before", [False, True])
+def test_non_zero_slack_between_sections_is_ignored(tmp_path, ext_before):
+    """Garbage in the permitted gaps must not reach the caller.
+
+    Neither as samples nor as keywords -- the sections are located by
+    data_start/data_size and ext_start/ext_size, so whatever lies between
+    them is none of the reader's business.
+    """
+    f = _blue_with_slack(
+        tmp_path / "s.blue", ext_before=ext_before, gap=512, trailing=300
+    )
+    r = Reader(str(f))
+    assert r.keywords == {"SRATE": 2.048e6}
+    got = r.read(64)
+    assert got.real.astype(int).tolist() == [1, 3, 5, 7]
+
+
+def test_data_size_bounds_the_read_after_a_headermod_shrink(tmp_path):
+    """HEADERMOD shortens data_size without rewriting the data.
+
+    The bytes of the old final sample are still on disk; the header says
+    they are no longer payload, and the header wins. Returning them would be
+    silent corruption -- the caller gets a sample that is not in the capture.
+    """
+    f = _blue_with_slack(
+        tmp_path / "hm.blue", ext_before=False, gap=0, trailing=0, shrink=8
+    )  # one cf32 sample fewer
+    got = Reader(str(f)).read(64)
+    assert got.real.astype(int).tolist() == [1, 3, 5]
+
+
+# ── centre frequency ─────────────────────────────────────────────────────────
+#
+# BLUE type-1000 has no HCB field for centre frequency, so an RF capture
+# conveys it as a keyword. `Reader.fc` used to ignore every one of them and
+# return 0.0 -- indistinguishable from a genuine baseband capture, on files
+# doppler did not write and could not have known were wrong.
+
+
+def _blue_with_hcb_keyword(path, pair: bytes, *, fs=1e6):
+    """A minimal attached BLUE cf32 capture whose ONLY metadata is one ASCII
+    `KEY=VALUE\\0` pair in the HCB keyword area (BLUE 1.1 3.1.1.24.1).
+
+    This is the shape a real X-Midas type-1000 capture arrives in: no extended
+    header at all, the frequency sitting in the 92 bytes at offset 164 as text.
+    Built by hand rather than via `Writer` precisely so it is not a test of our
+    own writer -- it is a test of reading somebody else's file.
+    """
+    data = np.arange(1, 9, dtype=np.float32).view(np.complex64).tobytes()
+    h = bytearray(512)
+    h[0:4], h[4:8], h[8:12] = b"BLUE", b"EEEI", b"EEEI"
+    struct.pack_into("<i", h, 48, 1000)
+    struct.pack_into("<d", h, 32, 512.0)
+    struct.pack_into("<d", h, 40, float(len(data)))
+    h[52], h[53] = ord("C"), ord("F")
+    struct.pack_into("<i", h, 160, len(pair))  # keylength
+    h[164 : 164 + len(pair)] = pair
+    struct.pack_into("<d", h, 264, 1.0 / fs)
+    path.write_bytes(bytes(h) + data)
+    return path
+
+
+def test_fs_source_attributes_the_rate(tmp_path):
+    """A declared rate is attributable; a raw capture's absence is too."""
+    p = tmp_path / "rate.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=2.5e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(p) as r:
+        assert r.fs == pytest.approx(2.5e6)
+        assert r.fs_source == "xdelta"
+
+    # Raw has no room for a rate IN THE CONTAINER, but the writer puts one
+    # in the sidecar beside it, and since doppler#1120 the reader reads it.
+    # So the rate is attributable here too, to the sidecar that carried it.
+    q = tmp_path / "rate.raw"
+    with Writer(q, file_type="raw", sample_type="cf32", fs=2.5e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(q) as r:
+        assert r.fs == pytest.approx(2.5e6)
+        assert r.fs_source == "core:sample_rate"
+
+    # Without that sidecar there is genuinely nothing, and THAT is the case
+    # this pair exists for: fs == 0.0 must read as "not found" rather than as
+    # a rate someone captured at.
+    b = tmp_path / "bare.raw"
+    b.write_bytes(np.zeros(8, dtype=np.complex64).tobytes())
+    with Reader(b) as r:
+        assert r.fs == 0.0
+        assert r.fs_source == "none"
+
+
+def test_t0_source_says_none_when_no_start_time_was_given(tmp_path):
+    """The case this pair exists for.
+
+    A BLUE writer given no `t0` leaves the timecode field zero, and zero in
+    J1950 is a perfectly plausible 1950-01-01. Without `t0_source` a caller
+    cannot tell "never set" from "set to the epoch", and would date every
+    such capture to 1950.
+    """
+    p = tmp_path / "when.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=1e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(p) as r:
+        assert r.t0_source == "none"
+        assert r.t0 == 0.0  # and 0.0 here means unknown, NOT 1970
+
+    # Raw carries no start time either, by the same reasoning.
+    q = tmp_path / "when.raw"
+    with Writer(q, file_type="raw", sample_type="cf32", fs=1e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(q) as r:
+        assert r.t0_source == "none"
+
+
+def test_t0_round_trips_through_a_blue_capture(tmp_path):
+    """The set half: a stated start time survives to disk and back.
+
+    BLUE counts seconds from 1950 and UNIX from 1970, so a writer that
+    dropped the offset would still produce a file that reads back *a* time --
+    twenty years wrong, and only obviously wrong if you look. Comparing
+    against the exact instant handed in is what catches that; asserting
+    merely that a timecode is present would not.
+    """
+    t0 = 1785903330.0  # 2026-08-05T04:15:30Z
+    p = tmp_path / "stamped.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=2.5e6, t0=t0) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(p) as r:
+        assert r.t0 == pytest.approx(t0, abs=1e-3)
+        assert r.t0_source == "timecode"
+
+
+def test_unstated_rate_is_omitted_from_the_sigmf_sidecar(tmp_path):
+    """fs=0.0 means "not known", and must not become a number on disk.
+
+    core:sample_rate is optional in SigMF 1.0.0, so the honest rendering of
+    an unknown rate is an absent key. Writing the ctor's old 1e6 default
+    instead is what put a confident 1 MHz into captures nobody had given a
+    rate -- and unlike a wrong value in memory, this one outlives the
+    process.
+    """
+    p = tmp_path / "norate.sigmf-data"
+    with Writer(p, file_type="sigmf", sample_type="cf32", fs=0.0) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    meta = json.loads(
+        (tmp_path / "norate.sigmf-meta").read_text(encoding="utf-8")
+    )
+    assert "core:sample_rate" not in meta["global"]
+    assert meta["global"]["core:datatype"] == "cf32_le"  # still valid SigMF
+
+    # The control: a stated rate IS written, so the assertion above cannot
+    # pass on a writer that simply stopped emitting the key.
+    q = tmp_path / "rate.sigmf-data"
+    with Writer(q, file_type="sigmf", sample_type="cf32", fs=2.5e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    meta = json.loads(
+        (tmp_path / "rate.sigmf-meta").read_text(encoding="utf-8")
+    )
+    assert meta["global"]["core:sample_rate"] == pytest.approx(2.5e6)
+
+
+def test_t0_becomes_sigmf_core_datetime(tmp_path):
+    """SigMF wants EXTENDED ISO 8601 -- separators and all.
+
+    doppler names files with the basic form (colons are illegal on FAT), so
+    the two spellings coexist; this is the one that must carry separators.
+    """
+    p = tmp_path / "when.sigmf-data"
+    with Writer(
+        p, file_type="sigmf", sample_type="cf32", fs=1e6, t0=1785903330.0
+    ) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    meta = json.loads(
+        (tmp_path / "when.sigmf-meta").read_text(encoding="utf-8")
+    )
+    assert (
+        meta["captures"][0]["core:datetime"] == "2026-08-05T04:15:30.000000Z"
+    )
+
+    # Unset stays absent rather than becoming 1970.
+    q = tmp_path / "nowhen.sigmf-data"
+    with Writer(q, file_type="sigmf", sample_type="cf32", fs=1e6) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    meta = json.loads(
+        (tmp_path / "nowhen.sigmf-meta").read_text(encoding="utf-8")
+    )
+    assert "core:datetime" not in meta["captures"][0]
+
+
+def test_fs_is_required_not_defaulted(tmp_path):
+    """The whole point of the change: you cannot forget to state the rate.
+
+    A default made "nobody said" and "exactly 1 MHz" the same value, so an
+    undeclared capture wrote a confident rate into a header. No sentinel
+    fixes that on its own -- the caller knows the answer at construction, so
+    that is where it is asked for.
+    """
+    with pytest.raises(TypeError, match="fs"):
+        Writer(tmp_path / "nofs.raw")
+
+    # The control: the SAME call with fs supplied must succeed. Without it
+    # the raise above could be about the path, the arity, or anything else,
+    # and the test would keep passing for the wrong reason.
+    with Writer(tmp_path / "withfs.raw", fs=1e6) as w:
+        w.write(np.zeros(4, dtype=np.complex64))
+    assert (tmp_path / "withfs.raw").exists()
+    # And it is a genuine refusal, not a silently-skipped open.
+    assert not (tmp_path / "nofs.raw").exists()
+
+
+def test_fc_round_trips_through_a_blue_capture(tmp_path):
+    """What the Writer was handed comes back out."""
+    p = tmp_path / "rf.blue"
+    with Writer(
+        p, file_type="blue", sample_type="ci16", fs=1e6, fc=2.4e9
+    ) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with Reader(p) as r:
+        assert r.fc == pytest.approx(2.4e9)
+        assert r.fc_source == "FREQ"
+
+
+def test_fc_is_read_from_the_hcb_keyword_area_alone(tmp_path):
+    """The wild-file case: ASCII text in the HCB, no extended header.
+
+    Values in that area have no type field (3.1.1.24.1 makes them ASCII by
+    definition), so the reader has to parse the characters -- reading only the
+    typed extended-header form would miss every capture in this shape.
+    """
+    p = _blue_with_hcb_keyword(tmp_path / "wild.blue", b"FREQ=2400000000\x00")
+    with Reader(p) as r:
+        assert r.keywords == {
+            "FREQ": "2400000000"
+        }  # a str, as the area implies
+        assert r.fc == pytest.approx(2.4e9)
+        assert r.fc_source == "FREQ"
+
+
+@pytest.mark.parametrize(
+    "tag,text,want",
+    [
+        ("FREQ", "1.5e9", 1.5e9),
+        ("RF_FREQ", "1420405751.768", 1420405751.768),
+        ("CENTER_FREQ", "70e6", 70e6),
+        ("F_C", "-3", -3.0),
+    ],
+)
+def test_fc_accepts_each_conventional_tag(tmp_path, tag, text, want):
+    """No tag for this is standardised -- 3.1.2.6.4.4 defines FREQ only as a
+    type-6000 column name -- so the reader tries the conventional set."""
+    p = _blue_with_hcb_keyword(
+        tmp_path / f"{tag}.blue", f"{tag}={text}".encode() + b"\x00"
+    )
+    with Reader(p) as r:
+        assert r.fc == pytest.approx(want)
+        assert r.fc_source == tag
+
+
+def test_fc_source_separates_declared_baseband_from_not_found(tmp_path):
+    """0.0 is a legitimate centre frequency, which is the whole reason
+    `fc_source` exists: without it the two cases below are one answer."""
+    declared = _blue_with_hcb_keyword(tmp_path / "zero.blue", b"FREQ=0\x00")
+    with Reader(declared) as r:
+        assert r.fc == 0.0
+        assert r.fc_source == "FREQ"  # the capture SAYS baseband
+
+    silent = _blue_with_hcb_keyword(tmp_path / "none.blue", b"COMMENT=hi\x00")
+    with Reader(silent) as r:
+        assert r.keywords == {"COMMENT": "hi"}  # a keyword block, just not one
+        assert r.fc == 0.0
+        assert r.fc_source == "none"  # nothing said anything
+
+
+def test_fc_is_not_guessed_from_a_value_that_is_not_a_bare_number(tmp_path):
+    """A units suffix means the file's convention is not one we understand.
+
+    Reporting 2.4e9 from "2.4e9 Hz" would be luck; reporting it from "2.4 GHz"
+    would be wrong by a factor of a billion. The value stays visible in
+    `.keywords` for a caller who knows what it means.
+    """
+    p = _blue_with_hcb_keyword(tmp_path / "units.blue", b"FREQ=2.4e9 Hz\x00")
+    with Reader(p) as r:
+        assert r.keywords == {"FREQ": "2.4e9 Hz"}  # present, so not vacuous
+        assert r.fc_source == "none"
+        assert r.fc == 0.0
+
+
+def test_the_typed_copy_wins_over_the_ascii_mirror(tmp_path):
+    """A capture we wrote carries FREQ twice -- ASCII in the HCB area, typed
+    in the extended header -- so that both an X-Midas reader and a
+    full-precision one find it. They must never be read as disagreeing: the
+    typed copy is the one that did not round-trip through a decimal string.
+    """
+    p = tmp_path / "both.blue"
+    fc = 1234567890.123456
+    with Writer(p, fs=1e6, file_type="blue", sample_type="cf32", fc=fc) as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    raw = p.read_bytes()
+    keylength = struct.unpack_from("<i", raw, 160)[0]
+    assert keylength > 0, "the ASCII mirror should be in the HCB area"
+    assert raw[164 : 164 + keylength].startswith(b"FREQ=")
+    with Reader(p) as r:
+        assert struct.unpack_from("<i", raw, 28)[0] > 0  # extended header too
+        assert r.fc == fc  # exactly, not merely approximately
+        assert r.fc_source == "FREQ"
+
+
+def test_detached_header_carries_fc(tmp_path):
+    """A detached capture's header is written without any writer state, by a
+    different function -- so it is a separate chance to drop the frequency."""
+    from doppler.wfm import write_blue_header
+
+    hdr = tmp_path / "d.hdr"
+    write_blue_header(
+        hdr,
+        sample_type="ci16",
+        endian="le",
+        fs=1e6,
+        fc=915e6,
+        data_start=0.0,
+        total=8,
+        detached=1,
+    )
+    (tmp_path / "d.det").write_bytes(b"\x00" * 32)
+    with Reader(hdr) as r:
+        assert r.fc == pytest.approx(915e6)
+        assert r.fc_source == "FREQ"
+        assert r.num_samples == 8
+
+
+# ── file type detection, by content ──────────────────────────────────────────
+
+
+def test_csv_is_detected_by_content_not_by_extension(tmp_path):
+    """A capture that got renamed is still the capture."""
+    p = tmp_path / "capture.dat"  # no .csv anywhere
+    p.write_text("1.0,2.0\n3.0,4.0\n5.0,6.0\n")
+    with Reader(p) as r:
+        assert r.file_type == "csv"
+        assert r.read(8).tolist() == [1 + 2j, 3 + 4j, 5 + 6j]
+
+
+def test_a_blue_capture_named_csv_is_still_blue(tmp_path):
+    """The other direction: the magic outranks the name."""
+    p = tmp_path / "capture.csv"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=1e6) as w:
+        w.write(np.ones(8, dtype=np.complex64))
+    with Reader(p) as r:
+        assert r.file_type == "blue"
+        assert r.num_samples == 8
+
+
+def test_a_csv_with_a_header_row_still_opens_as_csv(tmp_path):
+    """Content decides, but the name still gets a vote.
+
+    A leading column header fails the content test; falling through to raw
+    would read the text as binary IQ, which is worse than what the extension
+    already told us.
+    """
+    p = tmp_path / "headed.csv"
+    p.write_text("I,Q\n1.0,2.0\n")
+    with Reader(p) as r:
+        assert r.file_type == "csv"
+
+
+# ── length and the wrong-hint tell ───────────────────────────────────────────
+
+
+def test_csv_reports_its_length(tmp_path):
+    """`num_samples` was 0 for every CSV -- which reads as "empty capture"."""
+    p = tmp_path / "n.csv"
+    p.write_text("".join(f"{i}.0,{i}.5\n" for i in range(37)))
+    with Reader(p) as r:
+        assert r.num_samples == 37
+        # counting must not disturb the read position, in either order
+        assert len(r.read(37)) == 37
+        assert r.num_samples == 37
+
+
+def test_trailing_bytes_is_zero_when_the_hint_is_right(tmp_path):
+    """The baseline the next two tests are measured against."""
+    p = tmp_path / "ok.raw"
+    with Writer(p, fs=1e6, file_type="raw", sample_type="ci8") as w:
+        w.write(np.zeros(5, dtype=np.complex64))
+    with Reader(p, sample_type="ci8") as r:
+        assert r.trailing_bytes == 0
+        assert r.num_samples == 5
+
+
+def test_trailing_bytes_flags_a_wrong_sample_type_hint(tmp_path):
+    """A headerless file type cannot check the hint against the file, so a
+    wrong one does not fail -- it returns garbage at the wrong stride. The
+    leftover bytes are the only signal there is."""
+    p = tmp_path / "hint.raw"
+    with Writer(p, fs=1e6, file_type="raw", sample_type="ci8") as w:
+        w.write(np.zeros(5, dtype=np.complex64))  # 10 bytes on the wire
+    with Reader(p, sample_type="cf32") as r:  # would need 8 bytes/sample
+        assert r.trailing_bytes == 2
+        assert r.num_samples == 1
+
+
+def test_trailing_bytes_flags_a_capture_cut_mid_sample(tmp_path):
+    """The other thing leftover bytes can mean; the reader cannot tell which,
+    and says so rather than picking one."""
+    p = tmp_path / "cut.raw"
+    with Writer(p, fs=1e6, file_type="raw", sample_type="cf32") as w:
+        w.write(np.zeros(8, dtype=np.complex64))
+    with p.open("r+b") as f:
+        f.truncate(p.stat().st_size - 3)
+    with Reader(p) as r:
+        assert r.trailing_bytes == 5  # 8 bytes/sample, 3 of them gone
+        assert r.num_samples == 7
+
+
+# ── doppler#1120: the reader reads the sidecar its own writer wrote ──────────
+#
+# A round trip through this library's own two objects used to return garbage.
+# `Writer` records the wire type in `<path>.sigmf-meta`; `Reader`, opening the
+# same path, did not look at it, so a ci16 capture read back as the cf32
+# default gave half the samples at the wrong stride, silently. Nothing raised
+# and nothing warned -- and `trailing_bytes`, which the docstring offered as
+# the tell, is 0 whenever the byte count happens to divide.
+
+
+@pytest.mark.parametrize(
+    "stype,tol",
+    [
+        ("cf32", 0.0),
+        ("cf64", 0.0),
+        ("ci32", 1e-6),
+        ("ci16", 1e-3),
+        ("ci8", 2e-2),
+    ],
+)
+def test_raw_round_trips_without_a_hint(tmp_path, stype, tol):
+    """Every wire type survives Writer -> Reader with no sample_type given."""
+    x = (np.arange(512, dtype=np.float32) / 512.0 - 0.5).astype(np.float32)
+    x = (x + 1j * x[::-1]).astype(np.complex64)
+    p = tmp_path / f"rt_{stype}.raw"
+    with Writer(p, file_type="raw", sample_type=stype, fs=1e6) as w:
+        w.write(x)
+
+    r = Reader(p)
+    try:
+        assert r.sample_type == stype, "the sidecar names the wire type"
+        assert r.fs == 1e6, "and the rate the writer was told"
+        assert r.num_samples == len(x), "counted at the right stride"
+        got = r.read(len(x))
+        assert len(got) == len(x)
+        assert np.max(np.abs(got - x)) <= tol
+    finally:
+        r.close()
+
+
+def test_an_explicit_sample_type_still_beats_the_sidecar(tmp_path):
+    """The override a stale sidecar needs -- and why "auto" is its own value.
+
+    `Reader(p)` and `Reader(p, sample_type="cf32")` have to mean different
+    things, so the default cannot itself be cf32.
+    """
+    x = np.array([0.5 + 0.25j] * 8, np.complex64)
+    p = tmp_path / "c.raw"
+    with Writer(p, file_type="raw", sample_type="ci16", fs=1e6) as w:
+        w.write(x)
+
+    r = Reader(p, sample_type="cf32")
+    try:
+        assert r.sample_type == "cf32", "the caller's word wins"
+    finally:
+        r.close()
+
+    r = Reader(p)
+    try:
+        assert r.sample_type == "ci16", "and silence defers to the sidecar"
+    finally:
+        r.close()
+
+
+def test_no_sidecar_still_falls_back_to_cf32(tmp_path):
+    """A bare raw file is unchanged: cf32/le, no rate, exactly as before."""
+    x = np.array([0.5 + 0.25j] * 8, np.complex64)
+    p = tmp_path / "bare.raw"
+    p.write_bytes(x.tobytes())
+
+    r = Reader(p)
+    try:
+        assert r.sample_type == "cf32"
+        assert r.fs == 0.0, "nothing carried a rate"
+        assert np.array_equal(r.read(len(x)), x)
+    finally:
+        r.close()
+
+
+def test_a_sidecar_does_not_override_a_header_bearing_capture(tmp_path):
+    """BLUE and SigMF carry their own metadata; a sidecar gets no vote."""
+    x = np.array([0.5 + 0.25j] * 8, np.complex64)
+    p = tmp_path / "h.blue"
+    with Writer(p, file_type="blue", sample_type="ci16", fs=2.4e6) as w:
+        w.write(x)
+
+    r = Reader(p)
+    try:
+        assert r.file_type == "blue"
+        assert r.sample_type == "ci16"
+        assert r.fs == 2.4e6
+    finally:
+        r.close()

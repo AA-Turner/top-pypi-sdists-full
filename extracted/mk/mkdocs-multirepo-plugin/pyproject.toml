@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "mkdocs-multirepo-plugin"
+version = "0.8.3"
+description = "Build documentation in multiple repos into one site."
+authors = ["jdoiro3 <josephdoiron1234@yahoo.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://pypi.org/project/mkdocs-multirepo-plugin/"
+repository = "https://github.com/jdoiro3/mkdocs-multirepo-plugin"
+keywords = ["mkdocs", "docs", "documentation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python",
+    "Intended Audience :: Developers",
+    "Topic :: Documentation",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux"
+]
+
+include = [
+    { path = "mkdocs_multirepo_plugin/scripts/sparse_clone.sh", format = ["sdist", "wheel"] },
+    { path = "mkdocs_multirepo_plugin/scripts/sparse_clone_old.sh", format = ["sdist", "wheel"] },
+    { path = "mkdocs_multirepo_plugin/scripts/mv_docs_up.sh", format = ["sdist", "wheel"] }
+]
+
+[tool.poetry.dependencies]
+mkdocs = {version = ">=1.0.4", python = ">=3.6"}
+asyncio = {version = "*", python = "<=3.8"}
+python-slugify = {version = "*", python = ">=2.7,<2.8 || >=3.6.0"}
+dacite = {version = "^1.8.0", python = ">=3.6"}
+typing-inspect = {version = "^0.8.0", python = ">=3.6"}
+importlib-resources = {version = ">=1.3", python = ">=2.7,<2.8 || >=3.5,<3.9"}
+
+[tool.poetry.dev-dependencies]
+aiofiles = {version = "*", python = ">=3.6,<4.0"}
+flake8 = {version = "*", python = ">=3.6.1"}
+mkdocs-material = {version = "*", python = ">=3.7"}
+parameterized = {version = "*", python = ">=3.7"}
+
+[tool.poetry.plugins."mkdocs.plugins"]
+multirepo = "mkdocs_multirepo_plugin.plugin:MultirepoPlugin"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project.entry-points."mkdocs.plugins"]
+multirepo = "mkdocs_multirepo_plugin.plugin:MultirepoPlugin"

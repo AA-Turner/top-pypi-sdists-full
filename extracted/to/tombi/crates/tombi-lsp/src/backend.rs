@@ -107,6 +107,20 @@ impl Backend {
         }
     }
 
+    /// The snapshot of the document, which shares its text and trees with the stored one.
+    ///
+    /// `None` if the document is not open, or is being updated.
+    pub(crate) fn document_source(
+        &self,
+        text_document_uri: &tombi_uri::Uri,
+    ) -> Option<DocumentSource> {
+        self.document_sources
+            .try_read()
+            .ok()?
+            .get(text_document_uri)
+            .cloned()
+    }
+
     pub(crate) fn begin_document_open(&self, text_document_uri: tombi_uri::Uri) {
         let (ready, _) = tokio::sync::watch::channel(false);
         self.opening_documents
@@ -205,17 +219,18 @@ impl Backend {
     pub async fn text_document_toml_version(
         &self,
         text_document_uri: &tombi_uri::Uri,
-        text: &str,
+        root: &tombi_ast_syntax::Root<'_>,
     ) -> TomlVersion {
-        self.text_document_toml_version_and_source(text_document_uri, text)
+        self.text_document_toml_version_and_source(text_document_uri, root)
             .await
             .0
     }
 
+    /// The TOML version of a parsed document, which is not parsed again.
     pub async fn text_document_toml_version_and_source(
         &self,
         text_document_uri: &tombi_uri::Uri,
-        text: &str,
+        root: &tombi_ast_syntax::Root<'_>,
     ) -> (TomlVersion, TomlVersionSource) {
         let ConfigSchemaStore {
             config,
@@ -226,19 +241,16 @@ impl Backend {
             .config_schema_store_for_uri(text_document_uri)
             .await;
 
-        let parsed = tombi_parser::parse(text);
-        let root = parsed.root();
         if let Some(TombiDocumentDirectiveContent {
             toml_version: Some(toml_version),
             ..
-        }) =
-            tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await
+        }) = tombi_validator::comment_directive::get_tombi_document_comment_directive(root).await
         {
             return (toml_version, TomlVersionSource::Comment);
         }
 
         let source_schema = match schema_store
-            .resolve_source_schema_from_ast(&root, Some(Either::Left(text_document_uri)))
+            .resolve_source_schema_from_ast(root, Some(Either::Left(text_document_uri)))
             .await
         {
             Ok(Some(schema)) => Some(schema),
@@ -393,10 +405,7 @@ impl tower_lsp::LanguageServer for Backend {
             .uri
             .clone()
             .into();
-        let Ok(document_sources) = self.document_sources.try_read() else {
-            return Ok(None);
-        };
-        let Some(document_source) = document_sources.get(&text_document_uri) else {
+        let Some(document_source) = self.document_source(&text_document_uri) else {
             return Ok(None);
         };
 
@@ -405,7 +414,12 @@ impl tower_lsp::LanguageServer for Backend {
                 CompletionResponse::Array(
                     items
                         .into_iter()
-                        .map(|item| item.into_lsp_type(document_source.line_index()))
+                        .map(|item| {
+                            item.into_lsp_type(
+                                document_source.line_index(),
+                                document_source.encoding_kind(),
+                            )
+                        })
                         .collect(),
                 )
             })
@@ -440,33 +454,33 @@ impl tower_lsp::LanguageServer for Backend {
             .uri
             .clone()
             .into();
-        let line_index = {
-            let Ok(document_sources) = self.document_sources.try_read() else {
-                return Ok(None);
-            };
-            let Some(document_source) = document_sources.get(&text_document_uri) else {
-                return Ok(None);
-            };
-            document_source.line_index_arc()
+        let Some(document_source) = self.document_source(&text_document_uri) else {
+            return Ok(None);
         };
 
-        handle_hover(self, params)
-            .await
-            .map(|response| response.map(|content| content.into_lsp(line_index.as_ref())))
+        handle_hover(self, params).await.map(|response| {
+            response.map(|content| {
+                content.into_lsp(
+                    document_source.line_index(),
+                    document_source.encoding_kind(),
+                )
+            })
+        })
     }
 
     async fn inlay_hint(
         &self,
         params: InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>, tower_lsp::jsonrpc::Error> {
-        let Some((hints, line_index)) = handle_inlay_hint(self, params).await? else {
+        let Some((hints, document_source)) = handle_inlay_hint(self, params).await? else {
             return Ok(None);
         };
+        let encoding = document_source.encoding_kind();
 
         Ok(Some(
             hints
                 .into_iter()
-                .map(|hint| hint.into_lsp_type(line_index.as_ref()))
+                .map(|hint| hint.into_lsp_type(document_source.line_index(), encoding))
                 .collect(),
         ))
     }

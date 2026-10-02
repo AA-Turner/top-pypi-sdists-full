@@ -1,0 +1,219 @@
+from dataclasses import dataclass
+from typing import Dict, Optional, Any
+import torch
+import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class Example:
+    """Represents a single training example."""
+    text: str
+    label: str
+    embedding: Optional[torch.Tensor] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert example to dictionary for saving."""
+        return {
+            'text': self.text,
+            'label': self.label,
+            'embedding': self.embedding.tolist() if self.embedding is not None else None
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Example':
+        """Create example from dictionary."""
+        embedding = torch.tensor(data['embedding']) if data['embedding'] is not None else None
+        return cls(text=data['text'], label=data['label'], embedding=embedding)
+
+class AdaptiveHead(nn.Module):
+    """Neural network head with stable initialization and deterministic behavior."""
+    
+    def __init__(
+        self,
+        input_dim: int,
+        num_classes: int,
+        hidden_dims: Optional[list] = None
+    ):
+        super().__init__()
+        
+        if hidden_dims is None:
+            hidden_dims = [input_dim]  # Simpler architecture with one hidden layer
+            
+        layers = []
+        prev_dim = input_dim
+        
+        # Initialize layers with specific initialization strategy
+        for dim in hidden_dims:
+            linear = nn.Linear(prev_dim, dim)
+            # Use Kaiming initialization with fixed seed
+            torch.manual_seed(42)
+            nn.init.kaiming_uniform_(linear.weight, mode='fan_in', nonlinearity='relu')
+            nn.init.zeros_(linear.bias)
+            
+            layers.extend([
+                linear,
+                nn.ReLU(),
+                nn.Dropout(0.1)  # Replace BatchNorm with small dropout
+            ])
+            prev_dim = dim
+            
+        # Output layer with specific initialization
+        output_layer = nn.Linear(prev_dim, num_classes)
+        torch.manual_seed(42)
+        nn.init.xavier_uniform_(output_layer.weight)
+        nn.init.zeros_(output_layer.bias)
+        layers.append(output_layer)
+        
+        self.model = nn.Sequential(*layers)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass ensuring consistent output shape."""
+        # Always preserve batch dimension
+        if x.dim() == 1:
+            x = x.unsqueeze(0)  # Add batch dimension [D] -> [1, D]
+            
+        output = self.model(x)  # Should be [B, C] where B is batch size, C is num_classes
+        
+        # Never squeeze output - always return [B, C]
+        return output
+    
+    def update_num_classes(self, num_classes: int):
+        """Update output layer with stable weight initialization."""
+        current_weight = self.model[-1].weight
+        current_bias = self.model[-1].bias
+        
+        if num_classes > current_weight.size(0):
+            new_layer = nn.Linear(current_weight.size(1), num_classes)
+            torch.manual_seed(42)
+            nn.init.xavier_uniform_(new_layer.weight)
+            nn.init.zeros_(new_layer.bias)
+            
+            # Copy existing weights
+            with torch.no_grad():
+                new_layer.weight[:current_weight.size(0)] = current_weight
+                new_layer.bias[:current_weight.size(0)] = current_bias
+                
+            self.model[-1] = new_layer
+
+class ModelConfig:
+    """Configuration for the adaptive classifier."""
+    
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """Initialize model configuration.
+        
+        Args:
+            config: Optional configuration dictionary
+        """
+        self.config = config or {}
+        
+        # Model settings
+        self.max_length = self.config.get('max_length', 512)
+        # How token embeddings are reduced to one vector per text.
+        #   'auto' - use the pooling the model was trained with, read from its
+        #            sentence-transformers 1_Pooling/config.json when present,
+        #            falling back to mean.
+        #   'mean' - attention-masked mean over tokens.
+        #   'cls'  - the first token only.
+        # 'cls' was the only behaviour before 0.2.0. It is wrong for most
+        # encoders: all-MiniLM-L6-v2 is a mean-pooling model, and a masked LM
+        # never trains its CLS token as a sentence representation at all.
+        self.pooling = self.config.get('pooling', 'auto')
+        self.batch_size = self.config.get('batch_size', 32)
+        self.learning_rate = self.config.get('learning_rate', 0.001)
+        self.warmup_steps = self.config.get('warmup_steps', 0)
+        
+        # Memory settings
+        self.max_examples_per_class = self.config.get('max_examples_per_class', 1000)
+        self.prototype_update_frequency = self.config.get('prototype_update_frequency', 100)
+        self.similarity_threshold = self.config.get('similarity_threshold', 0.6)
+        
+        # EWC settings
+        self.ewc_lambda = self.config.get('ewc_lambda', 100.0)
+        self.num_representative_examples = self.config.get('num_representative_examples', 5)
+        
+        # Training settings
+        self.epochs = self.config.get('epochs', 10)
+        self.early_stopping_patience = self.config.get('early_stopping_patience', 3)
+        self.min_examples_per_class = self.config.get('min_examples_per_class', 3)
+        
+        # Prediction settings. Prototype and neural scores are mixed with these
+        # weights. Before 0.2.0 both keys existed but were ignored: every
+        # prediction path hardcoded 0.7/0.3. The right value is not universal --
+        # it depends on how well the encoder separates the classes -- so it has
+        # to be a knob that works.
+        self.prototype_weight = self.config.get('prototype_weight', 0.7)
+        self.neural_weight = self.config.get('neural_weight', 0.3)
+        # A class with few examples has an unreliable prototype, so the neural
+        # head is trusted more until the class is established.
+        self.new_class_example_threshold = self.config.get('new_class_example_threshold', 10)
+        self.new_class_prototype_weight = self.config.get('new_class_prototype_weight', 0.3)
+        self.new_class_neural_weight = self.config.get('new_class_neural_weight', 0.7)
+        self.min_confidence = self.config.get('min_confidence', 0.1)
+        
+        # Device settings
+        self.device_map = self.config.get('device_map', 'auto')
+        self.quantization = self.config.get('quantization', None)
+        self.gradient_checkpointing = self.config.get('gradient_checkpointing', False)
+        
+        # Strategic classification settings
+        self.enable_strategic_mode = self.config.get('enable_strategic_mode', False)
+        self.cost_function_type = self.config.get('cost_function_type', 'separable')
+        self.strategic_lambda = self.config.get('strategic_lambda', 0.1)
+        self.cost_coefficients = self.config.get('cost_coefficients', {})
+        self.strategic_training_frequency = self.config.get('strategic_training_frequency', 10)
+        
+        # Strategic prediction blending weights
+        self.strategic_blend_regular_weight = self.config.get('strategic_blend_regular_weight', 0.6)
+        self.strategic_blend_strategic_weight = self.config.get('strategic_blend_strategic_weight', 0.4)
+        self.strategic_robust_proto_weight = self.config.get('strategic_robust_proto_weight', 0.8)
+        self.strategic_robust_head_weight = self.config.get('strategic_robust_head_weight', 0.2)
+        self.strategic_prediction_proto_weight = self.config.get('strategic_prediction_proto_weight', 0.5)
+        self.strategic_prediction_head_weight = self.config.get('strategic_prediction_head_weight', 0.5)
+        
+    def update(self, **kwargs):
+        """Update configuration parameters."""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                logger.warning(f"Unknown configuration parameter: {key}")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary."""
+        return {
+            'max_length': self.max_length,
+            'pooling': self.pooling,
+            'batch_size': self.batch_size,
+            'learning_rate': self.learning_rate,
+            'warmup_steps': self.warmup_steps,
+            'max_examples_per_class': self.max_examples_per_class,
+            'prototype_update_frequency': self.prototype_update_frequency,
+            'similarity_threshold': self.similarity_threshold,
+            'ewc_lambda': self.ewc_lambda,
+            'num_representative_examples': self.num_representative_examples,
+            'epochs': self.epochs,
+            'early_stopping_patience': self.early_stopping_patience,
+            'min_examples_per_class': self.min_examples_per_class,
+            'prototype_weight': self.prototype_weight,
+            'neural_weight': self.neural_weight,
+            'new_class_example_threshold': self.new_class_example_threshold,
+            'new_class_prototype_weight': self.new_class_prototype_weight,
+            'new_class_neural_weight': self.new_class_neural_weight,
+            'min_confidence': self.min_confidence,
+            'device_map': self.device_map,
+            'quantization': self.quantization,
+            'gradient_checkpointing': self.gradient_checkpointing,
+            'enable_strategic_mode': self.enable_strategic_mode,
+            'cost_function_type': self.cost_function_type,
+            'strategic_lambda': self.strategic_lambda,
+            'cost_coefficients': self.cost_coefficients,
+            'strategic_training_frequency': self.strategic_training_frequency,
+            'strategic_blend_regular_weight': self.strategic_blend_regular_weight,
+            'strategic_blend_strategic_weight': self.strategic_blend_strategic_weight,
+            'strategic_robust_proto_weight': self.strategic_robust_proto_weight,
+            'strategic_robust_head_weight': self.strategic_robust_head_weight,
+            'strategic_prediction_proto_weight': self.strategic_prediction_proto_weight,
+            'strategic_prediction_head_weight': self.strategic_prediction_head_weight
+        }

@@ -177,6 +177,7 @@ async def test_deliberately_unavailable_resolver_uses_legacy_tiers_without_error
                 "conversation",
                 "entity-1",
                 system_names=SystemContextNames.none(),
+                organization_id=None,
             )
     finally:
         configure_context_resolver(None)
@@ -206,6 +207,7 @@ async def test_available_resolver_receives_the_carried_organization_and_owns_the
                 "conversation",
                 "entity-1",
                 system_names=SystemContextNames.none(),
+                organization_id=None,
             )
     finally:
         configure_context_resolver(None)
@@ -234,6 +236,7 @@ async def test_real_resolver_failure_is_captured_with_safe_context(monkeypatch, 
                 "conversation",
                 "entity-1",
                 system_names=SystemContextNames.none(),
+                organization_id=None,
             )
     finally:
         configure_context_resolver(None)

@@ -1,0 +1,359 @@
+"""Utilities for interacting with OntoPortal."""
+
+from collections.abc import Iterable
+from typing import Any, ClassVar, Literal, cast
+from urllib.parse import quote
+
+import pystow
+import requests
+from tqdm import tqdm
+
+from .constants import NAMES, URLS
+
+__all__ = [
+    # Concrete clients
+    "AgroPortalClient",
+    "BioDivPortal",
+    "BioPortalClient",
+    "EarthPortal",
+    "EcoPortalClient",
+    "IndustryPortalClient",
+    "LovPortal",
+    "MatPortalClient",
+    "MedPortalClient",
+    # Base clients
+    "OntoPortalClient",
+    "OntoportalAstroClient",
+    "PreconfiguredOntoPortalClient",
+    "SIFRBioPortalClient",
+    "SocioPortal",
+    "TechnoPortal",
+]
+
+DEFAULT_TIMEOUT = 5
+
+
+class OntoPortalClient:
+    """A client for an OntoPortal site, like BioPortal."""
+
+    def __init__(self, api_key: str, base_url: str):
+        """Instantiate the OntoPortal client.
+
+        :param api_key: The API key for the OntoPortal instance
+        :param base_url: The base URL for the OntoPortal instance, e.g.,
+            ``https://data.bioontology.org`` for BioPortal.
+        """
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+
+    def get_json(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Get the response JSON."""
+        return self.get_response(path=path, params=params, **kwargs).json()
+
+    def get_response(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        raise_for_status: bool = True,
+        timeout: int | None = None,
+        **kwargs: Any,
+    ) -> requests.Response:
+        """Send a GET request the given endpoint on the OntoPortal site.
+
+        :param path: The path to query following the base URL, e.g., ``/ontologies``. If
+            this starts with the base URL, it gets stripped.
+        :param params: Parameters to pass through to :func:`requests.get`
+        :param raise_for_status: If true and the status code isn't 200, raise an
+            exception
+        :param timeout: A configurable timeout for sending the request
+        :param kwargs: Keyword arguments to pass through to :func:`requests.get`
+
+        :returns: The response from :func:`requests.get`
+
+        The rate limit is 15 queries per second. See:
+        https://www.bioontology.org/wiki/Annotator_Optimizing_and_Troublehooting
+        """
+        if not params:
+            params = {}
+        params.setdefault("apikey", self.api_key)
+        if path.startswith(self.base_url):
+            path = path[len(self.base_url) :]
+        res = requests.get(
+            self.base_url + "/" + path.lstrip("/"),
+            params=params,
+            timeout=timeout or DEFAULT_TIMEOUT,
+            **kwargs,
+        )
+        if raise_for_status:
+            res.raise_for_status()
+        return res
+
+    def get_ontologies(
+        self, summary_only: bool | None = None, notes: bool | None = None
+    ) -> list[dict[str, Any]]:
+        """Get ontologies."""
+        params = {}
+        if summary_only is not None:
+            params["summaryOnly"] = summary_only
+        if notes is not None:
+            params["notes"] = notes
+        return self.get_json("ontologies", params=params)  # type:ignore
+
+    def get_latest_submission(self, ontology: str, display: str | None = None) -> dict[str, Any]:
+        """Get the latest version of the given ontology."""
+        params = {}
+        if display is not None:
+            params["display"] = display
+        return self.get_json(f"/ontologies/{ontology}/latest_submission", params=params)  # type:ignore
+
+    def get_ontology_versions(self, ontology: str) -> set[str]:
+        """Get all versions for the given ontology."""
+        return {
+            result["version"]
+            for result in self.get_json(f"/ontologies/{ontology.upper()}/submissions")
+        }
+
+    def annotate(
+        self, text: str, ontology: str | None = None, require_exact_match: bool = True
+    ) -> list[dict[str, Any]]:
+        """Annotate the given text."""
+        # possible fields include 'prefLabel', 'synonym', 'definition', 'semanticType', 'cui'
+        include = ["prefLabel", "semanticType", "cui"]
+        params = {
+            "include": ",".join(include),
+            "require_exact_match": require_exact_match,
+            "text": text,
+        }
+        if ontology:
+            params["ontologies"] = ontology
+        return self.get_json("/annotator", params=params)  # type:ignore
+
+    def search(self, text: str, ontology: str | None = None) -> Iterable[dict[str, Any]]:
+        """Search the given text and unroll the paginated results."""
+        for page in self.search_paginated(text=text, ontology=ontology):
+            yield from page.get("collection", [])
+
+    def search_paginated(
+        self, text: str, ontology: str | None = None, start: str = "1"
+    ) -> Iterable[dict[str, Any]]:
+        """Search the given text."""
+        params = {"q": text, "include": ["prefLabel"], "page": start}
+        if ontology:
+            params["ontologies"] = ontology
+        while params["page"]:
+            result = self.get_json("/search", params)
+            yield result
+            # `result["nextPage"]` is always present but will be null on the last page
+            params["page"] = result["nextPage"]
+
+    def get_ancestors(self, ontology: str, uri: str) -> list[dict[str, Any]]:
+        """Get the ancestors of the given class."""
+        quoted_uri = quote(uri, safe="")
+        return cast(
+            list[dict[str, Any]],
+            self.get_json(
+                f"/ontologies/{ontology}/classes/{quoted_uri}/ancestors",
+                params={"display_context": "false"},
+            ),
+        )
+
+    def get_mappings(
+        self,
+        ontology_1: str,
+        ontology_2: str,
+        *,
+        progress: bool = False,
+        timeout: int | None = None,
+        display_links: bool = False,
+        display_context: bool = False,
+    ) -> Iterable[dict[str, Any]]:
+        """Get mappings between two ontologies."""
+        res_json = self.get_json(
+            "/mappings",
+            params={
+                "ontologies": f"{ontology_1},{ontology_2}",
+                "display_links": _bool(display_links),
+                "display_context": _bool(display_context),
+            },
+            timeout=timeout,
+        )
+        page_count = res_json["pageCount"]
+        if not page_count:
+            tqdm.write(f"no pages returned from {ontology_1}->{ontology_2}")
+            return
+        yield from res_json["collection"]
+        with tqdm(
+            total=page_count,
+            disable=page_count == 1 or not progress,
+            desc=f"Get mappings {ontology_1}->{ontology_2}",
+            unit="page",
+        ) as pbar:
+            pbar.update(1)  # already did first page
+            while next_page := res_json["links"]["nextPage"]:
+                pbar.update(1)
+                res = requests.get(next_page, timeout=timeout or DEFAULT_TIMEOUT)
+                res.raise_for_status()
+                res_json = res.json()
+                yield from res_json["collection"]
+
+
+def _bool(x: bool) -> Literal["true", "false"]:
+    return "true" if x else "false"
+
+
+class PreconfiguredOntoPortalClient(OntoPortalClient):
+    """A client for an OntoPortal site, like BioPortal."""
+
+    #: The name of the instance
+    name: ClassVar[str]
+
+    def __init__(self, api_key: str | None = None, value_key: str = "api_key"):
+        """Instantiate the OntoPortal Client.
+
+        :param api_key: The API key for the instance. If not given, use :mod:`pystow` to
+            read the configuration in one of the following ways. Using BioPortal as an
+            example, where the subclass of :class:`PreconfiguredOntoPortalClient` sets
+            the class variable ``name = "bioportal"``, the configuration can be set in
+            the following ways:
+
+            1. From `BIOPORTAL_API_KEY` in the environment, where the `name` is
+               uppercased before `_API_KEY`
+            2. From a configuration file at `~/.config/bioportal.ini` and set the
+               `[bioportal]` section in it with the given key
+        :param value_key: The name of the key to use. By default, uses ``api_key``
+        """
+        base_url = URLS[cast(NAMES, self.name)]
+        if api_key is None:
+            api_key = pystow.get_config(self.name, value_key, raise_on_missing=True)
+        super().__init__(api_key=api_key, base_url=base_url)
+
+
+class BioPortalClient(PreconfiguredOntoPortalClient):
+    """A client for BioPortal.
+
+    To get an API key, follow the sign-up process at
+    https://bioportal.bioontology.org/account.
+
+    See API documentation at https://data.bioontology.org/documentation.
+    """
+
+    name = "bioportal"
+
+
+class AgroPortalClient(PreconfiguredOntoPortalClient):
+    """A client for AgroPortal."""
+
+    name = "agroportal"
+
+
+class EcoPortalClient(PreconfiguredOntoPortalClient):
+    """A client for EcoPortal."""
+
+    name = "ecoportal"
+
+
+class MatPortalClient(PreconfiguredOntoPortalClient):
+    """A client for materials science ontologies in `MatPortal <https://matportal.org>`_.
+
+    Create an account and get an API key by starting at
+    https://matportal.org/accounts/new.
+    """
+
+    name = "matportal"
+
+
+class SIFRBioPortalClient(PreconfiguredOntoPortalClient):
+    """A client for French biomedical ontologies in `SIFR BioPortal <http://bioportal.lirmm.fr>`_.
+
+    Create an account and get an API key by starting at
+    http://bioportal.lirmm.fr/accounts/new.
+    """
+
+    name = "sifr_bioportal"
+
+
+class MedPortalClient(PreconfiguredOntoPortalClient):
+    """A client for medical ontologies in `MedPortal <https://medportal.bmicc.cn>`_.
+
+    Create an account and get an API key by starting at
+    https://medportal.bmicc.cn/accounts/new.
+    """
+
+    name = "medportal"
+
+
+class IndustryPortalClient(PreconfiguredOntoPortalClient):
+    """A client for industrial ontologies in `IndustryPortal <https://industryportal.enit.fr>`_.
+
+    Create an account and get an API key by starting at
+    https://industryportal.enit.fr/accounts/new.
+    """
+
+    name = "industryportal"
+
+
+class OntoportalAstroClient(PreconfiguredOntoPortalClient):
+    """A client for astrophysics ontologies in `OntoPortal-Astro <https://ontoportal-astro.eu/>`_.
+
+    Create an account and get an API key by starting at
+    https://ontoportal-astro.eu/accounts/new.
+    """
+
+    name = "ontoportal-astro"
+
+
+class BioDivPortal(PreconfiguredOntoPortalClient):
+    """A client for biodiversity ontologies in `BioDivPortal <https://biodivportal.gfbio.org/>`_.
+
+    Create an account and get an API key by starting at
+    https://biodivportal.gfbio.org/accounts/new.
+    """
+
+    name = "biodivportal"
+
+
+class EarthPortal(PreconfiguredOntoPortalClient):
+    """A client for biodiversity ontologies in `EarthPortal <https://earthportal.eu/>`_.
+
+    Create an account and get an API key by starting at
+    https://earthportal.eu/accounts/new.
+
+    .. warning:: This resource is dead
+    """
+
+    name = "earthportal"
+
+
+class SocioPortal(PreconfiguredOntoPortalClient):
+    """A client for sociology ontologies in `SocioPortal <https://socioportal.org/>`_.
+
+    Create an account and get an API key by starting at
+    https://socioportal.org/accounts/new.
+    """
+
+    name = "socioportal"
+
+
+class TechnoPortal(PreconfiguredOntoPortalClient):
+    """A client for engineering and technology ontologies in `TechnoPortal <https://technoportal.hevs.ch/>`_.
+
+    Create an account and get an API key by starting at
+    https://technoportal.hevs.ch/accounts/new.
+    """
+
+    name = "technoportal"
+
+
+class LovPortal(PreconfiguredOntoPortalClient):
+    """A client for semantic web ontologies in `LovPortal <https://lovportal.lirmm.fr/>`_.
+
+    Create an account and get an API key by starting at
+    https://lovportal.lirmm.fr/accounts/new.
+    """
+
+    name = "lovportal"

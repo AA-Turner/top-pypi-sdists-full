@@ -1,0 +1,363 @@
+"""Intel TDX DCAP quote parsing and signature-chain verification.
+
+This is the TDX analogue of :mod:`._snp_verify`. It implements the hardware
+signature backend the reviewer of #201 found missing for TDX (#204/#228): the
+old provider returned a raw ``TDREPORT`` (not remotely verifiable) and nothing
+ever checked a quote signature or the Intel PCK certificate chain.
+
+Every offset and verification step here was validated against a genuine Intel
+TDX v4 ECDSA quote captured from a GCP C3 confidential VM (non-paravisor TDX,
+kernel 6.17, configfs-TSM ``tdx_guest`` provider); see ``tests/test_tdx_verify``.
+
+A TDX v4 quote (Intel DCAP) is verified in four steps, all fail-closed:
+
+1. the quote's per-attestation-key ECDSA-P256 signature covers the quote header
+   plus the TD report body;
+2. the Quoting Enclave (QE) report binds that attestation key
+   (``report_data[:32] == sha256(att_pub || qe_auth_data)``);
+3. the QE report is itself signed by the platform's PCK certificate; and
+4. the embedded PCK certificate chain passes the shared
+   :func:`._cert_chain.verify_cert_chain` (validity, issuer names, CA /
+   ``pathLenConstraint`` / ``keyCertSign`` constraints) up to the **Intel SGX
+   Root CA**, which is pinned (embedded below; matched by fingerprint).
+
+The manifest hash a guest binds lands in the TD report's ``REPORTDATA``
+(guest-controlled on non-paravisor TDX). Only the ``cryptography`` package is
+required; the PCK chain travels inside the quote, so verification is offline.
+"""
+from __future__ import annotations
+
+import hashlib
+import hmac
+import struct
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+# Intel SGX Provisioning Certification Root CA (public, long-lived). The PCK
+# chain embedded in every quote must chain to this. Pinning it here makes quote
+# verification fully offline and independent of what the quote itself carries.
+INTEL_SGX_ROOT_CA_PEM = b"""-----BEGIN CERTIFICATE-----
+MIICjzCCAjSgAwIBAgIUImUM1lqdNInzg7SVUr9QGzknBqwwCgYIKoZIzj0EAwIw
+aDEaMBgGA1UEAwwRSW50ZWwgU0dYIFJvb3QgQ0ExGjAYBgNVBAoMEUludGVsIENv
+cnBvcmF0aW9uMRQwEgYDVQQHDAtTYW50YSBDbGFyYTELMAkGA1UECAwCQ0ExCzAJ
+BgNVBAYTAlVTMB4XDTE4MDUyMTEwNDUxMFoXDTQ5MTIzMTIzNTk1OVowaDEaMBgG
+A1UEAwwRSW50ZWwgU0dYIFJvb3QgQ0ExGjAYBgNVBAoMEUludGVsIENvcnBvcmF0
+aW9uMRQwEgYDVQQHDAtTYW50YSBDbGFyYTELMAkGA1UECAwCQ0ExCzAJBgNVBAYT
+AlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEC6nEwMDIYZOj/iPWsCzaEKi7
+1OiOSLRFhWGjbnBVJfVnkY4u3IjkDYYL0MxO4mqsyYjlBalTVYxFP2sJBK5zlKOB
+uzCBuDAfBgNVHSMEGDAWgBQiZQzWWp00ifODtJVSv1AbOScGrDBSBgNVHR8ESzBJ
+MEegRaBDhkFodHRwczovL2NlcnRpZmljYXRlcy50cnVzdGVkc2VydmljZXMuaW50
+ZWwuY29tL0ludGVsU0dYUm9vdENBLmRlcjAdBgNVHQ4EFgQUImUM1lqdNInzg7SV
+Ur9QGzknBqwwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8CAQEwCgYI
+KoZIzj0EAwIDSQAwRgIhAOW/5QkR+S9CiSDcNoowLuPRLsWGf/Yi7GSX94BgwTwg
+AiEA4J0lrHoMs+Xo5o/sX6O9QWxHRAvZUGOdRQ7cvqRXaqI=
+-----END CERTIFICATE-----
+"""
+
+_QUOTE_HEADER_LEN = 48
+_TD_REPORT_LEN = 584  # TDX v4 TD report body
+# Field offsets within the TD report body.
+_OFF_TD_ATTRIBUTES = 120  # TDATTRIBUTES, 8 bytes, after SEAMATTRIBUTES
+_OFF_MRTD = 136
+_OFF_RTMR0 = 328
+_OFF_REPORTDATA = 520
+# TDATTRIBUTES bit 0 is DEBUG: Intel TDX Module ABI specification, TD
+# attributes table (ATTRIBUTES.DEBUG, bit 0 of the TUD group). A debug TD's
+# private memory and CPU state are readable and writable by the host VMM
+# through the TDX module's debug interface, so the TD report proves nothing
+# about what ran or who chose REPORTDATA. Offset and bit cross-checked against
+# google/go-tdx-guest abi/abi.go (tdAttributesStart = 0x78) and validate.go
+# (tdAttributesDebugBit = 0x1), and Linux arch/x86/include/asm/shared/tdx.h
+# (TDX_TD_ATTR_DEBUG_BIT 0). The committed GCP C3 captures carry 0x10000000
+# here (bit 28, SEPT_VE_DISABLE), which is how the offset was confirmed on
+# real silicon.
+TDX_TD_ATTR_DEBUG = 1 << 0
+# Quote header: version(2) att_key_type(2) tee_type(4) ...
+_TDX_QUOTE_VERSION = 4
+_ATT_KEY_TYPE_ECDSA_P256 = 2
+_TEE_TYPE_TDX = 0x81
+# QE (SGX) report: report_data is the trailing 64 bytes of the 384-byte report.
+_SGX_REPORT_LEN = 384
+_OFF_QE_REPORT_DATA = 320
+# Certification-data types (Intel DCAP).
+_CERT_TYPE_QE_REPORT = 6
+_CERT_TYPE_PCK_CHAIN = 5
+
+
+class TdxVerificationError(Exception):
+    """Raised when a TDX quote or its certificate chain fails verification."""
+
+
+@dataclass
+class TdxQuote:
+    """Parsed fields of an Intel TDX v4 DCAP quote."""
+
+    version: int
+    tee_type: int
+    mrtd: bytes  # 48 bytes
+    rtmrs: tuple[bytes, bytes, bytes, bytes]  # each 48 bytes
+    report_data: bytes  # 64 bytes (guest-supplied; first 32 carry the manifest digest)
+    raw: bytes  # the full quote
+    td_attributes: int = 0  # TDATTRIBUTES (little-endian u64); bit 0 is DEBUG
+
+    @property
+    def debug(self) -> bool:
+        """True when the signed TDATTRIBUTES mark this a debug TD (bit 0)."""
+        return bool(self.td_attributes & TDX_TD_ATTR_DEBUG)
+
+
+@dataclass
+class TdxQuoteSignature:
+    """The signature section of a TDX v4 DCAP quote, already de-nested.
+
+    Real DCAP v4 quotes nest the Quoting Enclave material: the bytes after the
+    attestation key are a certification-data header of type 6
+    (``QE_REPORT_CERTIFICATION_DATA``), and the QE report, its PCK signature,
+    the QE auth data and the type-5 PCK certificate chain live *inside* that.
+    A flat parse that reads the QE report directly after the attestation key is
+    off by the 6-byte header and rejects every genuine quote, which is why this
+    parse is shared rather than reimplemented per repo.
+    """
+
+    signed_body: bytes  # quote header + TD report body; what the att key signs
+    quote_signature: bytes  # 64 bytes, raw r||s
+    attestation_key: bytes  # 64 bytes, raw P-256 x||y
+    qe_report: bytes  # 384-byte SGX report
+    qe_report_signature: bytes  # 64 bytes, raw r||s, by the PCK leaf
+    qe_auth_data: bytes
+    pck_chain_pem: bytes  # PEM bundle, leaf (PCK) first, Intel root last
+
+
+def parse_tdx_quote_signature(quote: bytes) -> TdxQuoteSignature:
+    """Parse the signature section of a TDX v4 DCAP quote, fail-closed.
+
+    Handles the nested type-6 QE-report certification data described on
+    :class:`TdxQuoteSignature`. Raises :class:`TdxVerificationError` on a
+    malformed or truncated quote. Performs no cryptographic verification;
+    :func:`verify_tdx_quote` does that.
+    """
+    if len(quote) < _QUOTE_HEADER_LEN + _TD_REPORT_LEN + 4:
+        raise TdxVerificationError("quote too short to contain a signature")
+
+    signed = quote[:_QUOTE_HEADER_LEN + _TD_REPORT_LEN]
+    off = _QUOTE_HEADER_LEN + _TD_REPORT_LEN
+    (auth_size,) = struct.unpack_from("<I", quote, off)
+    off += 4
+    # Every length below is declared by the quote, which is untrusted input.
+    # Python slicing clamps instead of overreading, so an overstated length
+    # yields a short value rather than an error unless it is checked. A parser
+    # that fails closed must reject the mismatch: silently accepting 300 bytes
+    # where the quote declared 400 means verifying something other than what
+    # the producer said it signed.
+    if off + auth_size > len(quote):
+        raise TdxVerificationError(
+            f"quote declares {auth_size} bytes of signature data, "
+            f"{len(quote) - off} available"
+        )
+    auth = quote[off:off + auth_size]
+    if len(auth) < 134:
+        raise TdxVerificationError("truncated quote signature data")
+
+    sig = auth[0:64]
+    att_pub = auth[64:128]
+    cert_type, cert_size = struct.unpack_from("<HI", auth, 128)
+    if cert_type != _CERT_TYPE_QE_REPORT:
+        raise TdxVerificationError(
+            f"unexpected certification data type {cert_type} (expected QE report)"
+        )
+    if 134 + cert_size > len(auth):
+        raise TdxVerificationError(
+            f"quote declares {cert_size} bytes of QE certification data, "
+            f"{len(auth) - 134} available"
+        )
+    cert_data = auth[134:134 + cert_size]
+    if len(cert_data) < 448 + 6:
+        raise TdxVerificationError("truncated QE certification data")
+
+    qe_report = cert_data[0:_SGX_REPORT_LEN]
+    qe_report_sig = cert_data[_SGX_REPORT_LEN:_SGX_REPORT_LEN + 64]
+    o2 = _SGX_REPORT_LEN + 64
+    (qe_auth_size,) = struct.unpack_from("<H", cert_data, o2)
+    o2 += 2
+    if o2 + qe_auth_size + 6 > len(cert_data):
+        raise TdxVerificationError(
+            f"quote declares {qe_auth_size} bytes of QE auth data, "
+            f"{max(0, len(cert_data) - o2 - 6)} available before the PCK header"
+        )
+    qe_auth = cert_data[o2:o2 + qe_auth_size]
+    o2 += qe_auth_size
+    pck_cert_type, pck_size = struct.unpack_from("<HI", cert_data, o2)
+    o2 += 6
+    if pck_cert_type != _CERT_TYPE_PCK_CHAIN:
+        raise TdxVerificationError(
+            f"unexpected PCK certification type {pck_cert_type} (expected PEM chain)"
+        )
+    if o2 + pck_size > len(cert_data):
+        raise TdxVerificationError(
+            f"quote declares {pck_size} bytes of PCK chain, "
+            f"{len(cert_data) - o2} available"
+        )
+
+    return TdxQuoteSignature(
+        signed_body=signed,
+        quote_signature=sig,
+        attestation_key=att_pub,
+        qe_report=qe_report,
+        qe_report_signature=qe_report_sig,
+        qe_auth_data=qe_auth,
+        pck_chain_pem=cert_data[o2:o2 + pck_size],
+    )
+
+
+def parse_tdx_quote(quote: bytes, *, strict: bool = True) -> TdxQuote:
+    """Parse an Intel TDX v4 DCAP quote's header + TD report body.
+
+    Args:
+        quote: the raw DCAP quote bytes.
+        strict: when ``True`` (default), enforce the production header —
+            ``version == 4``, ``att_key_type == 2`` (ECDSA-P256), and
+            ``tee_type == 0x81`` — raising on anything else. Pass
+            ``strict=False`` only for diagnostic field extraction from an
+            otherwise well-formed quote; that mode does not authorize any
+            cryptographic interpretation of the declared profile.
+    """
+    if len(quote) < _QUOTE_HEADER_LEN + _TD_REPORT_LEN:
+        raise TdxVerificationError(
+            f"quote too short: {len(quote)} bytes, need "
+            f"{_QUOTE_HEADER_LEN + _TD_REPORT_LEN}"
+        )
+    version, att_key_type, tee_type = struct.unpack_from("<HHI", quote, 0)
+    if strict:
+        if version != _TDX_QUOTE_VERSION:
+            raise TdxVerificationError(f"unsupported TDX quote version {version} (expected 4)")
+        if att_key_type != _ATT_KEY_TYPE_ECDSA_P256:
+            raise TdxVerificationError(
+                f"unsupported TDX attestation key type {att_key_type} (expected 2)"
+            )
+        if tee_type != _TEE_TYPE_TDX:
+            raise TdxVerificationError(f"not a TDX quote: tee_type {tee_type:#x}")
+    body = quote[_QUOTE_HEADER_LEN:_QUOTE_HEADER_LEN + _TD_REPORT_LEN]
+    rtmrs = tuple(body[_OFF_RTMR0 + i * 48:_OFF_RTMR0 + i * 48 + 48] for i in range(4))
+    return TdxQuote(
+        version=version,
+        tee_type=tee_type,
+        mrtd=body[_OFF_MRTD:_OFF_MRTD + 48],
+        rtmrs=rtmrs,  # type: ignore[arg-type]
+        report_data=body[_OFF_REPORTDATA:_OFF_REPORTDATA + 64],
+        raw=quote,
+        td_attributes=struct.unpack_from("<Q", body, _OFF_TD_ATTRIBUTES)[0],
+    )
+
+
+def _p256(xy: bytes) -> Any:
+    from cryptography.hazmat.primitives.asymmetric import ec
+    return ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), b"\x04" + xy)
+
+
+def _verify_raw_ecdsa(pub: Any, raw_sig: bytes, msg: bytes) -> None:
+    """Verify a raw r||s (64-byte) ECDSA-P256/SHA-256 signature; raises on failure."""
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec, utils
+    r = int.from_bytes(raw_sig[:32], "big")
+    s = int.from_bytes(raw_sig[32:64], "big")
+    pub.verify(utils.encode_dss_signature(r, s), msg, ec.ECDSA(hashes.SHA256()))
+
+
+def verify_tdx_quote(
+    quote: bytes,
+    *,
+    trusted_root_pem: bytes | None = None,
+    verification_time: datetime | None = None,
+) -> bool:
+    """Fully verify an Intel TDX v4 DCAP quote (all four steps, fail-closed).
+
+    Returns True only when the signed quote header declares the production
+    TDX-v4/ECDSA-P256 profile, the attestation-key signature, the QE binding, the
+    PCK signature over the QE report, and the PCK chain up to the pinned Intel
+    SGX Root CA all check out. Raises :class:`TdxVerificationError` on a
+    malformed/unsupported quote or broken chain, or if ``cryptography`` is
+    unavailable; returns False on a well-formed-but-invalid signature.
+
+    The PCK chain is checked by :func:`._cert_chain.verify_cert_chain`, the same
+    primitive the TPM path uses: validity periods, issuer/subject names and
+    signatures, ``CA=TRUE`` and ``pathLenConstraint`` on issuers, and
+    ``keyCertSign`` when ``KeyUsage`` is present. A malformed chain, attestation
+    key or trusted root raises :class:`TdxVerificationError`.
+
+    ``trusted_root_pem`` overrides the embedded Intel root (for testing). It is
+    checked as the chain's root, so it must be a CA certificate.
+    """
+    # The signed header authorizes the only verification profile implemented
+    # here. Establish it before accepting any signature/certification semantics.
+    parse_tdx_quote(quote, strict=True)
+
+    try:
+        from cryptography import x509
+        from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+        from cryptography.hazmat.primitives.asymmetric import ec
+
+        from ._cert_chain import CertChainError, verify_cert_chain
+    except ImportError as e:  # pragma: no cover
+        raise TdxVerificationError(
+            "TDX quote verification requires the 'cryptography' package"
+        ) from e
+
+    parsed = parse_tdx_quote_signature(quote)
+    qe_report = parsed.qe_report
+    qe_report_sig = parsed.qe_report_signature
+
+    # Step 1: attestation key signs the quote header + TD report body.
+    try:
+        att_pub = _p256(parsed.attestation_key)
+    except ValueError as e:
+        raise TdxVerificationError("attestation key is not a valid P-256 point") from e
+    try:
+        _verify_raw_ecdsa(att_pub, parsed.quote_signature, parsed.signed_body)
+    except InvalidSignature:
+        return False
+
+    # Step 2: the QE report binds the attestation key.
+    expected_bind = hashlib.sha256(parsed.attestation_key + parsed.qe_auth_data).digest()
+    if not hmac.compare_digest(qe_report[_OFF_QE_REPORT_DATA:_OFF_QE_REPORT_DATA + 32], expected_bind):
+        return False
+
+    # Parse the PCK chain (leaf first) and the pinned root. The chain comes from
+    # the quote, so malformed PEM must be a TdxVerificationError, not a ValueError.
+    try:
+        certs = x509.load_pem_x509_certificates(parsed.pck_chain_pem)
+    except ValueError as e:
+        raise TdxVerificationError(f"PCK chain is not valid PEM: {e}") from e
+    try:
+        root = x509.load_pem_x509_certificate(trusted_root_pem or INTEL_SGX_ROOT_CA_PEM)
+    except ValueError as e:
+        raise TdxVerificationError(f"pinned Intel SGX Root CA is not valid PEM: {e}") from e
+    if len(certs) < 2:
+        raise TdxVerificationError("PCK chain must contain at least a leaf and the root")
+    # Step 4, run before step 3 so the PCK key is used only once it chains to
+    # the pinned root. Use the shared primitive; "signed by the next" alone
+    # would accept a non-CA intermediate.
+    try:
+        verify_cert_chain(certs, [root], verification_time=verification_time)
+    except CertChainError as e:
+        raise TdxVerificationError(
+            f"PCK chain does not verify to the pinned Intel SGX Root CA: {e}"
+        ) from e
+
+    # An Intel PCK chain is all-EC; the shared primitive does not enforce that.
+    try:
+        keys = [c.public_key() for c in certs]
+    except (ValueError, UnsupportedAlgorithm) as e:
+        raise TdxVerificationError(f"PCK chain carries an unusable public key: {e}") from e
+    for i, key in enumerate(keys):
+        if not isinstance(key, ec.EllipticCurvePublicKey):
+            raise TdxVerificationError(
+                f"PCK chain certificate at position {i} does not carry an EC key"
+            )
+
+    # Step 3: the PCK certificate signs the QE report.
+    try:
+        _verify_raw_ecdsa(keys[0], qe_report_sig, qe_report)
+    except InvalidSignature:
+        return False
+    return True

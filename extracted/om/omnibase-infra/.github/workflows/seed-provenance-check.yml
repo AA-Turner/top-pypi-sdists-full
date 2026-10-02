@@ -1,0 +1,57 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# seed-provenance-check.yml
+#
+# Advisory lint: warn when seed/demo scripts publish Kafka events without
+# setting data_provenance in the payload.
+#
+# This is ADVISORY only — the job uses continue-on-error: true and the
+# script always exits 0. It will never block a merge.
+#
+# Implements OMN-11208.
+
+name: Seed Provenance Check (Advisory)
+
+on:
+  push:
+    paths:
+      - "scripts/**/*.py"
+      - ".github/workflows/seed-provenance-check.yml"
+  pull_request:
+    paths:
+      - "scripts/**/*.py"
+      - ".github/workflows/seed-provenance-check.yml"
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seed-provenance-check:
+    timeout-minutes: 30
+    name: Seed Provenance Advisory Check
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Run seed provenance check (advisory)
+        run: |
+          python scripts/check_seed_provenance.py --scripts-dir scripts/

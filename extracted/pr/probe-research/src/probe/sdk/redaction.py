@@ -1,0 +1,715 @@
+"""Mandatory scrubbing for captured SDK data and outbound JSON payloads.
+
+Field names provide context for opaque credentials; the shared tap scanner
+recognizes credentials in free text. Neither auth headers nor SDK Settings
+pass through this module. Failures propagate so callers cannot send raw data.
+"""
+
+from __future__ import annotations
+
+import bisect
+import functools
+import json
+import re
+from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+_CREDENTIAL_URI = re.compile(r"(?<![A-Za-z0-9+.-])(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
+_SENSITIVE_KEYS = {
+    "api_key",
+    "apikey",
+    "aws_access_key_id",
+    "authorization",
+    "auth_token",
+    "access_token",
+    "bearer_token",
+    "cookie",
+    "credential",
+    "credentials",
+    "id_token",
+    "password",
+    "passwd",
+    "pwd",
+    "set_cookie",
+    "private_key",
+    "refresh_token",
+    "secret",
+    "token",
+    "wandb_key",
+}
+#: Tokenizer vocabulary entries, not credentials -- "_token" suffixes that
+#: must SURVIVE scrubbing (an eos_token in a training config is data).
+_MODEL_TOKEN_KEYS = {
+    "bos_token",
+    "cls_token",
+    "eos_token",
+    "mask_token",
+    "pad_token",
+    "sep_token",
+    "stop_token",
+    "unk_token",
+}
+#: Sensitive names that are ALSO ordinary English words. `cookie` is a browser
+#: session cookie and a biscuit; `token` is an auth token, an NLP token and a
+#: bus fare. In FREE TEXT these sit before `=` in content that is not a
+#: credential at all: a GSM8K answer reading
+#: `60 cookies * $0.10/cookie = $<<60*0.1=6>>6.` cost a 500-row predictions file
+#: its entire upload, because `cookie` is a member of `_SENSITIVE_KEYS`.
+#:
+#: A COMPOUND name (`auth_token`, `set_cookie`, `wandb_api_key`) is unambiguous
+#: and still redacts on the name alone -- that is the module's core bet and it
+#: is untouched. Only these bare words additionally require the VALUE to look
+#: like key material, in free text AND as a dictionary key. A URL QUERY
+#: PARAMETER is the exception and keeps the name-only rule: `?token=` is a slot
+#: in machine syntax, where a word in a sentence is not.
+#:
+#: Deliberately excludes `password`/`passwd`/`pwd`/`authorization`: those are
+#: rarely ordinary nouns before `=`, and missing one costs more than the noise.
+_PLAIN_WORD_KEYS = {"cookie", "credential", "credentials", "secret", "token"}
+#: A custom redactor's marker is EVIDENCE the field held a credential, so a
+#: plain-word key canonicalizes it even though a marker is not key-shaped.
+#: `<redacted>` itself is already handled as an indirect value.
+_REDACTION_MARKER = re.compile(r"(?i)^[<\[{(]\s*redacted\b[^>\]})]*[>\]})]$")
+
+
+def _normalize_key(key: str) -> str:
+    """`setCookie`, `SET-COOKIE` and `set_cookie` are one name."""
+    separated = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", key)
+    separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", separated)
+    return re.sub(r"[^a-z0-9]+", "_", separated.lower()).strip("_")
+
+
+def _plain_word_key(key: str) -> bool:
+    """Sensitive ONLY because the whole name is an ordinary English word."""
+    return _normalize_key(key) in _PLAIN_WORD_KEYS
+
+
+# ---------------------------------------------------------------------------
+# The scrub cache (plan items (k) and 1.3)
+# ---------------------------------------------------------------------------
+# `scrub_string` and `is_sensitive_key` are pure functions of their argument, and
+# the SDK asks them the same questions over and over: every journaled op is
+# scrubbed more than once on its way to disk (the body, then the whole op), and
+# the same dictionary keys, hostnames and timestamps recur in every row -- a
+# 10k-row read list made ~200k scrub_string calls and took ~3.9 s, nearly all of
+# it in the scanner. A bounded LRU turns every repeat into a dict lookup.
+#
+# Only strings up to SCRUB_CACHE_MAX_CHARS are cached: short strings are the
+# repeated ones (keys, hosts, paths), and a cap on length is what bounds the
+# memory (at most SCRUB_CACHE_SIZE x ~2 x 256 characters, a few MB).
+# SCRUB_CACHE_SIZE covers a whole read list (inputs.MAX_PATHS = 10k distinct
+# paths) plus the keys: an LRU smaller than one sequential pass evicts every
+# entry before its second use and hits nothing. A read row's other fields --
+# hash, fingerprint, timestamp, each distinct per row -- never reach the
+# scrubber (`stamp_scrub` lifts them, shape-checked), or 10k rows would be ~40k
+# distinct strings and thrash it.
+#
+# OFF UNLESS A RESEARCHER'S RUN TURNS IT ON (`enable_scrub_cache`). Importing
+# this module is not enough: the hosted MCP server, the API's W&B import worker
+# and the vendored server copy all import it and serve many tenants, and there
+# one cache would hold raw credentials for the process lifetime and a hit (a
+# dict lookup) against a miss (a full scan) would say whether another tenant
+# sent that string. So the cache is enabled only by `Client.run` and
+# `probe.init`, in the process doing a researcher's run; `forbid_scrub_cache`
+# keeps it off for good in a multi-tenant process (the hosted MCP app), and the
+# vendored copies can never enable it (their module is not `probe.*`).
+#
+# Plan item 1.3 (the cheaper `log()` append) reuses this cache; it is the one
+# scrubber cache, not a per-caller one.
+_CACHE_ENABLED = False
+_CACHE_FORBIDDEN = False
+SCRUB_CACHE_MAX_CHARS = 256
+SCRUB_CACHE_SIZE = 16_384
+
+
+def enable_scrub_cache() -> bool:
+    """Turn the scrub cache on for this process; returns whether it is on.
+
+    Called where a researcher's process opens a run (`Client.run`,
+    `probe.init`). A no-op in a vendored copy and after `forbid_scrub_cache`."""
+    global _CACHE_ENABLED
+    if not _CACHE_FORBIDDEN and __name__.startswith("probe."):
+        _CACHE_ENABLED = True
+    return _CACHE_ENABLED
+
+
+def forbid_scrub_cache() -> None:
+    """Keep the scrub cache off in this process for good, and empty it. For a
+    process that serves many tenants (the hosted MCP server)."""
+    global _CACHE_ENABLED, _CACHE_FORBIDDEN
+    _CACHE_FORBIDDEN = True
+    _CACHE_ENABLED = False
+    clear_caches()
+
+
+def clear_caches() -> None:
+    """Forget every cached scrub. For tests that swap a scanner rule out; the
+    rules never change under a running process otherwise."""
+    _scrub_string_cached.cache_clear()
+    _is_sensitive_key_cached.cache_clear()
+
+
+def is_sensitive_key(key: str) -> bool:
+    """Whether a field NAME marks its value as a credential. Cached (see above)."""
+    if _CACHE_ENABLED and isinstance(key, str) and len(key) <= SCRUB_CACHE_MAX_CHARS:
+        return _is_sensitive_key_cached(key)
+    return _is_sensitive_key(key)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    # Generated dictionary-key placeholders are labels, not credential fields.
+    # Re-scrubbing them must not erase their already-scrubbed sibling values.
+    if re.fullmatch(r"<redacted(?::[a-z0-9-]+)?>(?::[0-9]+)?", key):
+        return False
+    normalized = _normalize_key(key)
+    parts = set(normalized.split("_"))
+    token_secret = normalized.endswith("_token") and normalized not in _MODEL_TOKEN_KEYS
+    signed_secret = normalized.endswith(("_signature", "_sig"))
+    # `<vendor>_api_key` is a credential in every case we have met, and the
+    # value alone cannot tell you: a wandb key is 40 lowercase hex characters,
+    # the same shape as content hashes that must be preserved. The KEY NAME is the only signal, so it has to be enough.
+    # Deliberately `_api_key` and not `_key`: `sort_key`, `primary_key` and
+    # `group_key` are ordinary config fields and eating them would make the
+    # scrubber something people turn off.
+    vendor_api_key = normalized.endswith("_api_key")
+    return (
+        normalized in _SENSITIVE_KEYS
+        or token_secret
+        or signed_secret
+        or vendor_api_key
+        or bool(parts & {"password", "secret", "credential", "credentials"})
+    )
+
+
+#: URL-shaped spans INSIDE a larger string. The query scrubber used to require
+#: the whole value to parse as a URL, which meant it never fired on the shape it
+#: actually meets in the wild -- `TransportError("GET https://h/x?token=S: boom")`
+#: has no scheme at position 0, so urlsplit returned early and the token
+#: survived. Substring matching is what makes it real.
+_EMBEDDED_URL = re.compile(r"(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]+")
+
+
+def _scrub_url(url: str) -> str:
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return _CREDENTIAL_URI.sub(r"\g<scheme><redacted>@", url)
+    if not parsed.scheme or not parsed.netloc:
+        return url
+    # Parse before introducing '<redacted>': angle brackets terminate the URL
+    # matcher, and replacing userinfo first used to hide its entire query.
+    netloc = parsed.netloc
+    if "@" in netloc:
+        netloc = "<redacted>@" + netloc.rsplit("@", 1)[1]
+    def parameters(value: str) -> str:
+        value = value.replace("%3Credacted%3E", "<redacted>")
+        pairs = parse_qsl(value, keep_blank_values=True)
+        if not any(is_sensitive_key(k) and v not in ("", "<redacted>") for k, v in pairs):
+            return value
+        return urlencode([(k, "<redacted>" if is_sensitive_key(k) else v) for k, v in pairs]).replace("%3Credacted%3E", "<redacted>")
+    query, fragment = parameters(parsed.query), parameters(parsed.fragment)
+    if netloc == parsed.netloc and query == parsed.query and fragment == parsed.fragment:
+        return url  # No credential changed; retain scheme case and URL spelling.
+    return urlunsplit((parsed.scheme, netloc, parsed.path, query, fragment))
+
+
+def scrub_string(value: str, *, _depth: int = 0) -> str:
+    """Scrub secrets in prose without removing ordinary paths or identifiers.
+
+    Cached for strings up to SCRUB_CACHE_MAX_CHARS (see "The scrub cache"): the
+    answer is a pure function of the string, so a repeat is a dict lookup."""
+    if _depth == 0 and _CACHE_ENABLED and isinstance(value, str) and len(value) <= SCRUB_CACHE_MAX_CHARS:
+        return _scrub_string_cached(value)
+    return _scrub_string(value, _depth=_depth)
+
+
+def _scrub_string(value: str, *, _depth: int = 0) -> str:
+    """`scrub_string` without the cache."""
+    from probe.tap_core.secrets import redact
+
+    # Inspect the original credential before ordinary scrubbing can remove
+    # its prefix and leave a NUL-separated suffix behind. The inspection view
+    # is never returned. Recursive JSON/encoded-text inspection uses this too.
+    if "\x00" in value:
+        view = value.replace("\x00", "")
+        if scrub_string(view, _depth=_depth) != view:
+            return "<redacted>"
+
+    if _ENCODED_ESCAPE.search(value):
+        if _depth >= 4:
+            raise ValueError("encoded content exceeds scrubber nesting limit")
+        decoded = _decode_escapes(value)
+        if decoded != value and scrub_string(decoded, _depth=_depth + 1) != decoded:
+            # Preserve benign encoded strings byte-for-byte; a changed decoded
+            # view proves this entire encoded value contains a credential.
+            return "<redacted>"
+
+    # Parse embedded serialized objects so key context survives JSON escaping.
+    if value.lstrip().startswith(("{", "[")):
+        try:
+            decoded = json.loads(value)
+        except (ValueError, TypeError):
+            pass
+        else:
+            clean = default_scrub(decoded)
+            if clean != decoded:
+                return json.dumps(clean, ensure_ascii=False)
+            return value  # Every semantic leaf was inspected; retain formatting.
+    scrubbed = _EMBEDDED_URL.sub(lambda m: _scrub_url(m.group(0)), value)
+    scrubbed = _AUTH_VALUE.sub(lambda m: m.group(1) + "<redacted>", scrubbed)
+    scrubbed, _ = redact(scrubbed)
+    scrubbed = _KEYED_VALUE.sub(_keyed, scrubbed)
+    # Keep existing SDK vendor-prefix coverage, including short synthetic/test
+    # credentials. Never use a global entropy sweep: UUIDs and model vocabulary
+    # are content, not evidence of a secret.
+    return _TOKEN_PREFIXED.sub("<redacted>", scrubbed)
+
+
+_scrub_string_cached = functools.lru_cache(maxsize=SCRUB_CACHE_SIZE)(lambda value: _scrub_string(value))
+_is_sensitive_key_cached = functools.lru_cache(maxsize=SCRUB_CACHE_SIZE)(lambda key: _is_sensitive_key(key))
+
+
+def default_scrub(value: Any, *, key: str = "") -> Any:
+    """Scrub credential keys and contents recursively, including opaque reprs."""
+    # Typed flags are not credentials, even under names such as
+    # `synthetic_credentials_absent`. Strings and numbers still use key context.
+    if value is None or isinstance(value, bool):
+        return value
+    name = key.replace("\x00", "")
+    sensitive = is_sensitive_key(name)
+    if (
+        sensitive
+        and _plain_word_key(name)
+        # A CONTAINER under a credential name is a credential bundle, and the
+        # safe reading is to drop the whole subtree: `{"credentials": {...}}`
+        # can hide a key under an inner name no rule recognizes. No model
+        # output names a dict `secret` or `credentials`, so nothing is lost.
+        and isinstance(value, (str, int, float))
+        and not (
+            isinstance(value, str)
+            and (_credential_shaped(value) or _REDACTION_MARKER.match(value))
+        )
+    ):
+        # An ordinary English word names a credential FIELD only when its value
+        # is key-shaped too. `{"token": "\u0120the", "id": 262}` is a tokenizer
+        # vocabulary row and `{"token": 50257}` is an id; `{"token": "ghp_..."}`
+        # still redacts. The value is NOT waved through -- it falls to the
+        # content rules below, which catch a credential sitting in any field.
+        sensitive = False
+    if sensitive:
+        return value if isinstance(value, str) and _indirect_value(value) else "<redacted>"
+    if isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return scrub_string(value)
+    if isinstance(value, dict):
+        result = {}
+        reserved = {str(item_key) for item_key in value}
+        for item_key, item in value.items():
+            original = str(item_key)
+            clean_key = scrub_string(original)
+            candidate = clean_key
+            suffix = 1
+            while candidate in result or (clean_key != original and candidate in reserved):
+                candidate = f"{clean_key}:{suffix}"
+                suffix += 1
+            result[candidate] = default_scrub(item, key=original)
+        return result
+    if isinstance(value, (list, tuple, set)):
+        return [default_scrub(item, key=key) for item in value]
+    try:
+        json.dumps(value)
+    except (TypeError, ValueError):
+        return scrub_string(repr(value))
+    return value
+
+
+# ---------------------------------------------------------------------------
+# "Would scrubbing change this?" -- the question the artifact gate asks
+# ---------------------------------------------------------------------------
+# The gate never uses the scrubbed text: it only records whether the key-name
+# tier WOULD change something (`secret_gate._findings`). On a 20 MB file that
+# question cost as much as a full scrub, because `_KEYED_VALUE` matches every
+# `key: value` pair and re-scrubs each value. The server can say where a change
+# is even possible (an accelerator, see `probe.tap_core.secrets.Windows`), and
+# `scrub_changes` reads only there.
+
+#: A key `is_sensitive_key` could accept, up to its separator. Case-insensitive
+#: and a SUPERSET: every sensitive spelling (`apiKey`, `X-Amz-Signature`,
+#: `hub_token`, `AWS_ACCESS_KEY_ID`) contains one of these stems, and the exact
+#: test runs on whatever this finds.
+_SENSITIVE_KEY_HINT = re.compile(
+    r"(?i)(?:token|secret|passw|pwd|credential|cookie|authorization|sig"
+    r"|api[^a-z0-9]*key|private[^a-z0-9]*key|aws[^a-z0-9]*access|wandb)"
+    r"[A-Za-z0-9_.-]*[\"']?\s*[:=]"
+)
+
+#: How far before its separator a sensitive key can start, and how far past it
+#: a value can run, for the exact `_KEYED_VALUE` test around a hint. Accepted
+#: limits, like the server's `fast_scan._CAP` (also 8K): a key name over 256
+#: characters or a value over 8K is read by the plain path only.
+_KEY_REACH = 256
+_VALUE_REACH = 8_192
+
+
+@functools.lru_cache(maxsize=1)
+def scrub_hint() -> re.Pattern[str]:
+    """Anything in ONE string that `scrub_string` could act on -- a superset.
+
+    Built from the scanner's own keyword lists so the two cannot drift: a new
+    rule's keyword is a new hint. Escapes, NUL, brackets (a nested JSON value)
+    and URLs are the non-keyword ways a string changes.
+    """
+    from probe.tap_core.secrets import _ANCHOR_KEYWORDS, _RULES
+
+    literals = sorted(
+        {keyword for rule in _RULES for keyword in rule.keywords}
+        | set(_ANCHOR_KEYWORDS)
+        | {"password", "passwd", "pwd", "credential", "cookie", "authorization", "sig",
+           "wandb", "bearer", "basic", "://", "sk-", "pk-", "rk-", "ros_", "probe_", "xox"},
+        key=len,
+        reverse=True,
+    )
+    return re.compile(
+        "(?i)" + "|".join(re.escape(literal) for literal in literals)
+        + r"|gh[pousr]_|api[^a-z0-9]*key|private[^a-z0-9]*key|aws[^a-z0-9]*access"
+        + r"|%[0-9a-f]{2}|\\u[0-9a-f]{4}|\\x[0-9a-f]{2}|\x1b|[\u200b-\u200d\ufeff]|\x00|[{\[]"
+    )
+
+
+_sensitive_key = functools.lru_cache(maxsize=65_536)(lambda key: is_sensitive_key(key))
+
+
+def scrub_changes(
+    value: str, *, accel: Any = None, _depth: int = 0, _scanned: bool = False
+) -> bool:
+    """`scrub_string(value) != value`, reading only where a change is possible.
+
+    Without an accelerator (every researcher's machine) this IS that
+    comparison. With the server's it mirrors `scrub_string` step for step --
+    NUL view, escape view, JSON document, then the regex passes -- but each
+    regex pass reads only the stretches the accelerator names, and a JSON
+    document is walked once, re-scrubbing only sensitive keys and strings that
+    carry a hint. `_scanned` is the caller saying `scan(value)` already found
+    nothing, so the `redact` step could change nothing either.
+    """
+    from probe.tap_core.secrets import _ACCEL_MIN_CHARS, _ESCAPE_REACH, _matches, _snap, scan
+
+    if accel is None or len(value) < _ACCEL_MIN_CHARS:
+        return scrub_string(value, _depth=_depth) != value
+    windows = accel(value)
+    if windows is None:
+        return scrub_string(value, _depth=_depth) != value
+    if "\x00" in value and scrub_changes(value.replace("\x00", ""), accel=accel, _depth=_depth):
+        return True
+    escapes = list(_matches(_ENCODED_ESCAPE, value, windows))
+    if escapes:
+        if _depth >= 4:
+            raise ValueError("encoded content exceeds scrubber nesting limit")
+        # Each escape's neighbourhood, not the whole text: text far from every
+        # escape decodes to itself, and the passes below read it as-is. The
+        # accepted limit is `secrets._ESCAPE_REACH`'s.
+        for lo, hi in _merge(
+            [(max(0, m.start() - _ESCAPE_REACH), min(len(value), m.end() + _ESCAPE_REACH)) for m in escapes]
+        ):
+            lo, hi, _, _ = _snap(value, lo, hi)
+            region = value[lo:hi]
+            decoded = _decode_escapes(region)
+            if decoded != region and scrub_changes(decoded, accel=accel, _depth=_depth + 1):
+                return True
+    if value.lstrip().startswith(("{", "[")):
+        try:
+            document = json.loads(value)
+        except (ValueError, TypeError):
+            pass
+        else:
+            return _json_changes(document, accel, scanned=_scanned)
+    for match in _matches(_EMBEDDED_URL, value, windows):
+        if _scrub_url(match.group(0)) != match.group(0):
+            return True
+    if next(_matches(_AUTH_VALUE, value, windows), None) is not None:
+        return True
+    if not _scanned and scan(value, _accel=accel):
+        return True
+    hints = windows(_SENSITIVE_KEY_HINT)
+    if hints is None:
+        keyed = None
+    else:
+        spans = _merge(
+            [(max(0, lo - _KEY_REACH), min(len(value), hi + _VALUE_REACH)) for lo, hi in hints]
+        )
+
+        def keyed(_pattern: re.Pattern[str]) -> list[tuple[int, int]]:
+            return spans
+    for match in _matches(_KEYED_VALUE, value, keyed):
+        # A sensitive key can change here, and so can a plain key whose value
+        # holds a sensitive `key=value` of its own: `_keyed` scrubs a plain
+        # key's value recursively, and this match CONSUMED the nested pair, so
+        # nothing else in this loop reads it (`config='api_key=abc'`).
+        # Everything else that recursion could act on -- a URL, an auth header,
+        # a scanner finding, an escape, a NUL -- is in this same text, and the
+        # passes above (or `_TOKEN_PREFIXED` below) already read it.
+        if not is_sensitive_key(match.group("key")):
+            nested = match.group("value")
+            # `in` first: a C scan, where most values (numbers, words) end it.
+            if not (("=" in nested or ":" in nested) and _SENSITIVE_KEY_HINT.search(nested)):
+                continue
+        if _keyed(match) != match.group(0):
+            return True
+    return next(_matches(_TOKEN_PREFIXED, value, windows), None) is not None
+
+
+_PERCENT_RUN = re.compile(r"(?:%[0-9A-Fa-f]{2})+")
+
+
+def _unquote(value: str) -> str:
+    """`urllib.parse.unquote`, in one regex pass.
+
+    Same answer: each run of `%XX` bytes decodes as UTF-8 with `replace`, and
+    anything else is left alone. `unquote` first splits its input at every
+    non-ASCII character, which on the `errors="replace"` view of binary data --
+    a U+FFFD every few bytes -- meant millions of pieces per megabyte.
+    """
+    if "%" not in value:
+        return value
+    return _PERCENT_RUN.sub(
+        lambda m: bytes.fromhex(m.group().replace("%", "")).decode("utf-8", "replace"), value
+    )
+
+
+def _decode_escapes(value: str) -> str:
+    """The escape view `scrub_string` inspects: `%XX` runs, then `\\uXXXX`."""
+    return _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), _unquote(value))
+
+
+def _merge(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    merged: list[tuple[int, int]] = []
+    for lo, hi in sorted(spans):
+        if merged and lo <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
+#: What can change a string that has no `:` or `=`: every rule a plain word
+#: triggers (`token`, `secret`, `authorization`...) needs a separator after
+#: it, so only these can act without one -- vendor prefixes, escapes, control
+#: characters, a nested document, a PEM or JWT.
+_UNSEPARATED = re.compile(
+    r"(?i)-----begin|eyj|akia|asia|abia|acca|sk-|pk-|rk-|gh[pousr]_|github_pat_|ros_|probe_|xox"
+    r"|hf_|aiza|_live_|glpat-|npm_|wandb|t3blbkfj|hooks\.slack\.com|%[0-9a-f]{2}|\\[ux][0-9a-f]{2}"
+    r"|[\x00\x1b\u200b-\u200d\ufeff]|^\s*[{\[]",
+    re.MULTILINE,
+)
+#: A run `_BASE64` could decode into a credential.
+_BASE64_RUN = re.compile(r"[A-Za-z0-9+/_-]{24}")
+
+
+def _string_could_change(text: str, unseparated: bool, base64_run: bool, *, scanned: bool) -> bool:
+    """A cheap necessary condition for `scrub_string(text) != text`, given
+    whether `_UNSEPARATED` and `_BASE64_RUN` occur in it.
+
+    With `scanned`, the document these strings came from was scanned as raw
+    JSON and found clean, so a base64 run in a string was already decoded and
+    read there -- unless JSON escaping changed its characters.
+    """
+    if ":" in text or "=" in text or unseparated:
+        return True
+    if scanned and text.isascii() and text.isprintable() and '"' not in text and "\\" not in text:
+        return False
+    return base64_run
+
+
+def _json_changes(document: Any, accel: Any, *, scanned: bool = False) -> bool:
+    """`default_scrub(document) != document` without scrubbing every string.
+
+    A value under a sensitive key is judged exactly, subtree and all. Every
+    other change is a STRING change -- a key or a leaf that `scrub_string`
+    rewrites -- and a string can only change if it carries a hint. So: collect
+    the strings, find the hinted ones in one accelerated pass over all of them,
+    and scrub only those.
+    """
+    strings: list[str] = []
+
+    def walk(value: Any, key: str) -> bool:
+        if value is None or isinstance(value, bool):
+            return False
+        if _sensitive_key(key.replace("\x00", "")):
+            return default_scrub(value, key=key) != value
+        if isinstance(value, (int, float)):
+            return False
+        if isinstance(value, str):
+            strings.append(value)
+            return False
+        if isinstance(value, dict):
+            for item_key, item in value.items():
+                original = str(item_key)
+                strings.append(original)
+                if walk(item, original):
+                    return True
+            return False
+        if isinstance(value, list):
+            return any(walk(item, key) for item in value)
+        return default_scrub(value, key=key) != value
+
+    if walk(document, ""):
+        return True
+    if not strings:
+        return False
+    # "\n" cannot extend a hint across two strings: no hint spans a newline
+    # except by way of `[^a-z0-9]?`, and a spurious hit only costs one exact
+    # scrub of an innocent string.
+    joined = "\n".join(strings)
+    windows = accel(joined)
+    spans = windows(scrub_hint()) if windows is not None else None
+    if spans is None:
+        return any(scrub_string(text) != text for text in strings)
+    starts: list[int] = []
+    offset = 0
+    for text in strings:
+        starts.append(offset)
+        offset += len(text) + 1
+    def containing(found: list[tuple[int, int]] | None, pattern: re.Pattern[str]) -> set[int]:
+        if found is None:  # an accelerator that does not index it: ask each string
+            return {i for i, text in enumerate(strings) if pattern.search(text)}
+        indices: set[int] = set()
+        for lo, hi in found:
+            first = max(bisect.bisect_right(starts, lo) - 1, 0)
+            indices.update(range(first, bisect.bisect_left(starts, hi)))
+        return indices
+
+    hinted = containing(spans, scrub_hint())
+    if not hinted:
+        return False
+    unseparated = containing(windows(_UNSEPARATED), _UNSEPARATED)
+    base64_runs = containing(windows(_BASE64_RUN), _BASE64_RUN)
+    # Each hinted string once -- a 160 KB base64 image spells `sig` or `aws` by
+    # chance dozens of times -- and through `scrub_changes`, so a long one is
+    # itself read only where it could change.
+    return any(
+        scrub_changes(strings[index], accel=accel)
+        for index in sorted(hinted)
+        if _string_could_change(
+            strings[index], index in unseparated, index in base64_runs, scanned=scanned
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Free text (exception messages)
+# ---------------------------------------------------------------------------
+# Diagnostic prose additionally removes home paths; ordinary SDK values keep
+# paths, UUIDs and content hashes because they are needed to reproduce runs.
+
+#: Home-anchored absolute paths. The username is the leak, and so is the project
+#: directory name -- an unreleased codename is exactly the kind of thing that
+#: shows up in a traceback and must not show up in a report.
+_HOME_PATH = re.compile(
+    r"(?:/(?:Users|home)/[^/\s'\"]+|[A-Za-z]:\\Users\\[^\\\s'\"]+)(?:[/\\][^\s'\"]*)?"
+)
+#: Vendor-prefixed credentials, matched by their published shapes.
+_TOKEN_PREFIXED = re.compile(
+    r"\b(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}"
+    r"|\bgh[pousr]_[A-Za-z0-9]{16,}"
+    r"|\b(?:ros|probe)_(?:pat|ing|svc)_[A-Za-z0-9]{6,}"
+    r"|\bxox[abposr]-[A-Za-z0-9-]{10,}"
+    r"|\bAKIA[0-9A-Z]{16}\b"
+)
+#: `KEY=VALUE`, `KEY: VALUE`, `'KEY': 'VALUE'` where KEY reads as a secret.
+_ENCODED_ESCAPE = re.compile(r"%[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}")
+_UNICODE_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
+_AUTH_VALUE = re.compile(
+    r"(?i)(\bauthorization[\"']?\s*[:=]\s*[\"']?(?:Bearer|Basic)\s+)"
+    r"([^\s\"'<>;,]+)"
+)
+_ENV_NAME = r"(?:'[A-Za-z_][A-Za-z0-9_]*'|\"[A-Za-z_][A-Za-z0-9_]*\")"
+_ENV_LOOKUP = re.compile(
+    r"os\.(?:environ[ \t]*\[[ \t]*" + _ENV_NAME + r"[ \t]*\]"
+    r"|getenv[ \t]*\([ \t]*" + _ENV_NAME + r"[ \t]*\))"
+)
+_KEYED_VALUE = re.compile(
+    r"(?<![A-Za-z0-9_.-])(?P<q>['\"]?)(?P<key>[A-Za-z_][A-Za-z0-9_.-]*)(?P=q)\s*[:=]\s*"
+    # Keep an environment expression's whole RHS together. Only a complete
+    # lookup is indirect; concatenation/default literals remain credential data.
+    r"(?P<value>os\.(?:environ|getenv)\b[^\r\n;]*|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\"(?:\\.|[^\"\\])*(?:\"|$)|'(?:\\.|[^'\\])*(?:'|$)|(?:\\.|[^\s,&;)}\]\"'\\])+)"
+)
+
+
+def _indirect_value(value: str, *, allow_lookup: bool = True) -> bool:
+    if allow_lookup and _ENV_LOOKUP.fullmatch(value.strip()):
+        from probe.tap_core.secrets import redact
+
+        # An environment reference is not a waiver for a recognizable credential
+        # embedded in its variable name.
+        return not _TOKEN_PREFIXED.search(value) and not redact(value)[1]
+    return value == "" or bool(re.fullmatch(
+        r"\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|<redacted(?::[a-z0-9-]+)?>",
+        value,
+    ))
+
+
+#: Characters an opaque credential is drawn from: base64, base64url, hex, JWT.
+#: Arithmetic and prose leave this alphabet immediately -- `$<<60*0.1=6>>6.`
+#: fails on `$`, `<` and `*` before any statistical test is needed.
+_CREDENTIAL_ALPHABET = re.compile(r"[A-Za-z0-9+/=_.~-]+")
+#: Below this, ordinary words and small integers dominate and shape says
+#: nothing. A tokenizer id (`50257`) and a count (`12`) sit under it.
+_PLAIN_WORD_MIN_LEN = 6
+#: Matches `_ENTROPY_MIN` in the tap scanner: the bar that separates an opaque
+#: value from English written in one character class.
+_PLAIN_WORD_ENTROPY_MIN = 3.5
+
+
+def _credential_shaped(value: str) -> bool:
+    """Does this value look like key material rather than prose or arithmetic?
+
+    Only consulted for `_PLAIN_WORD_KEYS`, where the name alone is ambiguous.
+    Three cheap conditions, and the GSM8K false positive fails the first one
+    outright: the value must stay inside the credential alphabet, be long
+    enough that identifiers do not dominate, and either MIX character classes
+    or be high-entropy. `hunter2` and `deadbeefdeadbeef` pass; `chocolate`,
+    `flour`, `12345` and `$<<60*0.1=6>>6.` do not.
+    """
+    from probe.tap_core.secrets import shannon_entropy
+
+    if len(value) < _PLAIN_WORD_MIN_LEN or not _CREDENTIAL_ALPHABET.fullmatch(value):
+        return False
+    classes = (
+        any(c.islower() for c in value)
+        + any(c.isupper() for c in value)
+        + any(c.isdigit() for c in value)
+    )
+    return classes >= 2 or shannon_entropy(value) >= _PLAIN_WORD_ENTROPY_MIN
+
+
+def _keyed(match: re.Match[str]) -> str:
+    if not is_sensitive_key(match.group("key")):
+        # A generic prefix such as `https:` must not consume a later
+        # `?token=...` in malformed URLs or embedded assignments.
+        prefix = match.group(0)[:match.start("value") - match.start()]
+        return prefix + scrub_string(match.group("value"))
+    value = match.group("value")
+    quoted = value[:1] in ("'", '"')
+    if len(value) >= 2 and value[0] in ("'", '"') and value[-1] == value[0]:
+        value = value[1:-1]
+    if _indirect_value(value, allow_lookup=not quoted):
+        return match.group(0)
+    # An ordinary English word before `=` is a credential slot only when the
+    # VALUE is also key-shaped -- the same test `default_scrub` applies to a
+    # dictionary key. URL query parameters keep the name-only rule, because
+    # there the name is machine syntax rather than a word in a sentence.
+    if _plain_word_key(match.group("key")) and not _credential_shaped(value):
+        return match.group(0)
+    return f"{match.group('q')}{match.group('key')}{match.group('q')}=<redacted>"
+
+
+def scrub_text(value: str, *, max_chars: int | None = None) -> str:
+    """Scrub diagnostic prose, including home paths, then bound its size."""
+    if not isinstance(value, str):
+        value = str(value)
+    scrubbed = scrub_string(value)
+    scrubbed = _HOME_PATH.sub("<path>", scrubbed)
+    if max_chars is not None and len(scrubbed) > max_chars:
+        scrubbed = scrubbed[:max_chars] + f"...<+{len(scrubbed) - max_chars} chars>"
+    return scrubbed

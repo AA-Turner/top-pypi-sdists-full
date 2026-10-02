@@ -59,9 +59,7 @@ class PrivateImageSDK(BaseSDK):
         ClusterEnvironmentBuildStatus.CANCELED: ImageBuildStatus.FAILED,
     }
 
-    def _get_image_build_status(
-        self, build: ClusterEnvironmentBuild
-    ) -> ImageBuildStatus:
+    def _get_image_build_status(self, build: ClusterEnvironmentBuild) -> ImageBuildStatus:
         return cast(
             ImageBuildStatus,
             self._BACKEND_IMAGE_STATUS_TO_IMAGE_BUILD_STATUS.get(
@@ -110,26 +108,20 @@ class PrivateImageSDK(BaseSDK):
         if version is not None and template.latest_build.revision != version:
             for b in self.client.list_cluster_env_builds(template.id):
                 if b.revision == version and b.id:
-                    image_uri_obj = self.get_image_uri_from_build_id(
-                        b.id, use_image_alias=True
-                    )
+                    image_uri_obj = self.get_image_uri_from_build_id(b.id, use_image_alias=True)
                     return ImageBuild(
                         id=template.id or "",
                         name=template.name or "",
                         project_id=template.project_id,
                         creator_id=template.creator_id,
-                        creator_email=template.creator.email
-                        if template.creator
-                        else None,
+                        creator_email=template.creator.email if template.creator else None,
                         is_anonymous=bool(template.anonymous),
                         created_at=template.created_at,
                         last_modified_at=template.last_modified_at,
                         latest_build_id=b.id,
                         latest_build_revision=b.revision,
                         latest_build_status=self._get_image_build_status(b),
-                        latest_image_uri=image_uri_obj.image_uri
-                        if image_uri_obj
-                        else None,
+                        latest_image_uri=image_uri_obj.image_uri if image_uri_obj else None,
                     )
             raise ValueError(f"Version {version} not found for image '{image_name}'.")
 
@@ -203,9 +195,7 @@ class PrivateImageSDK(BaseSDK):
                     cloud_id=cloud_id,
                 )
             else:
-                raise RuntimeError(
-                    f"Base build {base_build_id} is not a successful build."
-                )
+                raise RuntimeError(f"Base build {base_build_id} is not a successful build.")
         else:
             return base_build_id
 
@@ -247,9 +237,7 @@ class PrivateImageSDK(BaseSDK):
             cloud_id=cloud_id,
         )
 
-        fetched_image_uri = self.get_image_uri_from_build_id(
-            build_id, use_image_alias=True
-        )
+        fetched_image_uri = self.get_image_uri_from_build_id(build_id, use_image_alias=True)
         if fetched_image_uri:
             return fetched_image_uri.image_uri
         raise RuntimeError(
@@ -260,7 +248,8 @@ class PrivateImageSDK(BaseSDK):
         self, build_id: str, use_image_alias: bool = False
     ) -> Optional[ImageURI]:
         return self.client.get_cluster_env_build_image_uri(
-            cluster_env_build_id=build_id, use_image_alias=use_image_alias,
+            cluster_env_build_id=build_id,
+            use_image_alias=use_image_alias,
         )
 
     def _application_template_to_image_build(
@@ -276,15 +265,11 @@ class PrivateImageSDK(BaseSDK):
         if latest_build:
             if latest_build.status:
                 with suppress(ValueError):
-                    latest_build_status = ImageBuildStatus.validate(
-                        latest_build.status.upper()
-                    )
+                    latest_build_status = ImageBuildStatus.validate(latest_build.status.upper())
 
             latest_image_uri = latest_build.docker_image_name
             if not latest_image_uri and latest_build_id:
-                image_uri = self.get_image_uri_from_build_id(
-                    latest_build_id, use_image_alias=True
-                )
+                image_uri = self.get_image_uri_from_build_id(latest_build_id, use_image_alias=True)
                 if image_uri:
                     latest_image_uri = image_uri.image_uri
 
@@ -332,9 +317,7 @@ class PrivateImageSDK(BaseSDK):
     ) -> ResultIterator[ImageBuild]:
         """List images or fetch a single image by ID."""
         if page_size is not None and not (1 <= page_size <= MAX_PAGE_SIZE):
-            raise ValueError(
-                f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
-            )
+            raise ValueError(f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive.")
 
         # Handle single image lookup by ID
         if image_id is not None:
@@ -348,7 +331,8 @@ class PrivateImageSDK(BaseSDK):
                     page_token=None,
                     max_items=0,
                     fetch_page=lambda _: SimpleNamespace(
-                        results=[], metadata=SimpleNamespace(next_paging_token=None),
+                        results=[],
+                        metadata=SimpleNamespace(next_paging_token=None),
                     ),
                     parse_fn=None,
                 )
@@ -383,14 +367,10 @@ class PrivateImageSDK(BaseSDK):
             filtered_results = [
                 template
                 for template in results
-                if not self._should_filter_template(
-                    template, include_anonymous, include_archived
-                )
+                if not self._should_filter_template(template, include_anonymous, include_archived)
             ]
 
-            next_token = (
-                response.metadata.next_paging_token if response.metadata else None
-            )
+            next_token = response.metadata.next_paging_token if response.metadata else None
 
             return SimpleNamespace(
                 results=filtered_results,
@@ -424,17 +404,13 @@ class PrivateImageSDK(BaseSDK):
             ValueError: If the image is not found or cannot be archived.
         """
         if self.client.get_deployment_infra_provider() == "azure":
-            raise ValueError(
-                "Archiving container images is not supported on Azure Control Plane."
-            )
+            raise ValueError("Archiving container images is not supported on Azure Control Plane.")
 
         if name is None and image_id is None:
             raise ValueError("Either 'name' or 'image_id' must be provided.")
 
         if name is not None and image_id is not None:
-            raise ValueError(
-                "Only one of 'name' or 'image_id' can be provided, not both."
-            )
+            raise ValueError("Only one of 'name' or 'image_id' can be provided, not both.")
 
         resolved_id = image_id
         if name is not None:

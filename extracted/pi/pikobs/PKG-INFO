@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: pikobs
+Version: 3.0.476
+Summary: Observation diagnostics for data assimilation: maps, sections, profiles and time series of the departures, and their tests
+Home-page: https://gitlab.science.gc.ca/dlo001/Pikobs
+Author: David Lobon
+Author-email: dhlobon@gmail.com
+License: GPL-3.0-or-later
+Platform: UNKNOWN
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+## Package Pikobs ##
+
+Observation evaluation tools 
+
+# Capabilities #
+
+This Python package Pikobs provides the following capabilities:
+
+ 
+ 
+*  [`Cardiogram`](https://gitlab.science.gc.ca/dlo001/Pikobs/-/blob/master/readme/readme_cardiograme.md)
+
+*  Radiance Space Verification
+
+*  Time Series
+
+*  Profiles
+
+*  Histograms
+
+*  Scatter Plots
+
+*  Installation
+
+# Basic instructions to install  the package #
+
+
+`pip install pikobs`
+
+

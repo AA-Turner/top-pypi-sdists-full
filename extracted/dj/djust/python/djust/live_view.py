@@ -1,0 +1,1663 @@
+"""
+LiveView base class and decorator for reactive Django views
+"""
+
+import io
+import json
+import logging
+import socket
+import threading
+from typing import Any, Callable, Dict, List, Optional, Set, Union, cast
+
+from django.utils.decorators import classonlymethod
+from django.views import View
+
+from ._context_provider import ContextProviderMixin  # noqa: F401  # re-exported for back-compat
+from .change_detection import deep_fingerprint, fingerprints_by_content
+from .serialization import (  # noqa: F401
+    DjangoJSONEncoder,
+    StateRoundtripJSONEncoder,
+    decode_private_model_refs,
+    decode_state_roundtrip,
+    encode_private_model_refs,
+)
+from .session_utils import (  # noqa: F401
+    DEFAULT_SESSION_TTL,
+    cleanup_expired_sessions,
+    get_session_stats,
+    _jit_serializer_cache,
+    _get_model_hash,
+    clear_jit_cache,
+    Stream,
+)
+
+from .mixins import (
+    AsyncWorkMixin,
+    StreamsMixin,
+    StreamingMixin,
+    TemplateMixin,
+    ComponentMixin,
+    JITMixin,
+    ContextMixin,
+    RustBridgeMixin,
+    HandlerMixin,
+    RequestMixin,
+    PostProcessingMixin,
+    ModelBindingMixin,
+    PushEventMixin,
+    NavigationMixin,
+    FlashMixin,
+    PageMetadataMixin,
+    LayoutMixin,
+    WaiterMixin,
+    NotificationMixin,
+    StickyChildRegistry,
+    ActivityMixin,
+)
+
+# Configure logger
+logger = logging.getLogger(__name__)
+
+try:
+    from ._rust import (
+        RustLiveView,
+        SessionActorHandle,
+        extract_template_variables,  # noqa: F401 — re-exported, used by JIT and template tests
+    )
+except ImportError:
+    # Optional PyO3 fallback: when the Rust extension is absent these names
+    # become None at runtime. mypy follows the try-branch (the classes), so
+    # ``Optional[RustLiveView]`` stays a valid annotation; the None rebinds
+    # below are masked from static typing via a narrow ignore.
+    RustLiveView = None  # type: ignore[assignment,misc]
+    SessionActorHandle = None  # type: ignore[assignment,misc]
+    extract_template_variables = None  # type: ignore[assignment]  # noqa: F401 — fallback re-export
+
+__all__ = [
+    "LiveView",
+    "live_view",
+    "DjangoJSONEncoder",
+    "DEFAULT_SESSION_TTL",
+    "cleanup_expired_sessions",
+    "get_session_stats",
+    "_jit_serializer_cache",
+    "_get_model_hash",
+    "clear_jit_cache",
+    "Stream",
+    "extract_template_variables",
+]
+
+
+# Framework-internal attributes that MUST NOT be surfaced as reactive user state
+# in get_state(), _snapshot_assigns(), or observability debug payloads (#762).
+#
+# Three buckets of leakage:
+#   1. Django ``View``-inherited (set by ``as_view()``):
+#      http_method_names, args, kwargs, response_class, content_type
+#   2. djust ``LiveView``/mixin-set config attrs that happen to live on
+#      ``self.__dict__`` rather than on the class — without this filter they
+#      get mistaken for reactive state.
+#   3. Static config surfaced by mixins (PageMetadataMixin, LayoutMixin, etc.).
+#
+# This is the non-breaking fix: attribute names are unchanged. Renaming these
+# to ``_*`` would break every downstream template / integration that reads
+# e.g. ``template_name`` from the context.
+_FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
+    {
+        # Django View-inherited (set by as_view())
+        "http_method_names",
+        "args",
+        "kwargs",
+        "response_class",
+        "content_type",
+        # Request handle — reassigned per HTTP/WS event (#1545)
+        "request",
+        # djust LiveView base config
+        "sync_safe",
+        "use_actors",
+        "view_is_async",
+        "tick_interval",
+        "login_required",
+        "login_url",
+        "permission_required",
+        "allowed_model_fields",
+        "on_mount",
+        "on_mount_count",
+        "static_assigns",
+        "static_assigns_count",
+        "template",
+        "template_name",
+        "base_template",
+        "page_meta",
+        "page_slug",
+        "page_title",
+        "temporary_assigns",
+        "sticky",
+        "sticky_id",
+        # Per-event render-control flags (#1981 / PR #1982 review). Written by
+        # ``set_changed_keys()`` / handlers and read by the event spine; they are
+        # framework signals, not user state. ``_snapshot_assigns`` has no
+        # underscore filter, so without this exclusion assigning them in a
+        # handler perturbs the pre/post fingerprint and triggers a render BY
+        # SNAPSHOT LEAK rather than by the sanctioned ``_force_full_html``
+        # mechanism (and made the "setting _changed_keys directly is
+        # ineffective" doc claim false).
+        "_changed_keys",
+        # Lazily-assigned framework bookkeeping (#2664). These are written
+        # AFTER ``__init__`` (first render / first event / first dirty
+        # baseline), so they are NOT in the ``_framework_attrs`` snapshot
+        # taken at init and ``_snapshot_assigns`` would otherwise fingerprint
+        # them as user state — including ``_prev_context_fingerprints``,
+        # which is the structural fingerprint of the PREVIOUS render and
+        # therefore the single largest value on the instance (measured:
+        # 12.8k nodes vs 153 for the 50-row ``rows`` list on the
+        # model-backed benchmark). The test for membership is "is it ever
+        # read by a template?", NOT "is it set after __init__": ``_action_state``
+        # (splatted into the context by ``mixins/context.py`` — an ``@action``
+        # that only records an error must re-render) is deliberately NOT here.
+        # ``_dirty_baseline`` IS here even though the template-readable
+        # ``is_dirty`` / ``changed_fields`` derive from it: it is the
+        # fingerprint of EVERY public attr, so walking it re-walks the whole
+        # state per event (measured 12.2k nodes vs 3.0k for the data, 7.6x
+        # slower, and it trips the budget with a warning naming it). The one
+        # thing that changes it without touching public state —
+        # ``mark_clean()`` — is made visible by ``_dirty_baseline_version``, a
+        # small counter ``_capture_dirty_baseline`` bumps that IS snapshotted.
+        "_prev_context_refs",
+        "_prev_context_immutables",
+        "_prev_context_fingerprints",
+        "_dirty_baseline",
+        "_rust_render_timing",
+        "_djust_mount_kwargs",
+        "_jit_serialized_keys",
+        "_context_processor_keys",
+        "_cached_csrf_token",
+        "_sync_done_this_cycle",
+        "_force_full_html",
+        # Names of start_async tasks currently running (#2969). Written by the
+        # dispatcher and a task's completion callback, possibly while an
+        # unrelated handler's turn is in flight; never read by a template.
+        "_async_running",
+        # {% live_render sticky=True %} bookkeeping (#2919): the kwargs a
+        # sticky child was mounted with, and the last set a warning named.
+        "_djust_sticky_mount_kwargs",
+        "_djust_sticky_kwargs_warned",
+    }
+)
+
+
+# Component-level analog (#1041): framework-internal LiveComponent
+# attrs that DON'T start with ``_`` but aren't user state. Excluded
+# from the ``__components__`` snapshot to keep the time-travel state
+# focused on actual user state. Mirrors the parent's
+# :data:`_FRAMEWORK_INTERNAL_ATTRS` for component fields.
+#
+# ``component_id`` in particular is the registry key — restoring it
+# from stale snapshot state would desync the registry from the
+# instance's ``component_id`` attribute.
+_COMPONENT_INTERNAL_ATTRS: frozenset = frozenset(
+    {
+        "component_id",
+        "template",
+        "template_name",
+        "assigns",
+        "slots",
+    }
+)
+
+
+def _descriptor_fields(cls: type) -> Dict[str, tuple]:
+    """``{public_name: (kind, slot_name)}`` for the descriptor-backed fields a
+    view class declares: ``state()`` fields (kind ``"state"``, slot
+    ``_state_<name>``) and class-level components (kind ``"component"``, slot
+    ``_component_<name>``).
+
+    Their values live in ``_``-prefixed instance slots, so every walk that
+    skips ``_`` keys (dirty tracking, #2956/#2912) or treats them as user
+    private state (#2959) needs this map to see them for what they are. The
+    nearest definition in the MRO wins, as attribute lookup does.
+    """
+    cached = cls.__dict__.get("_djust_descriptor_fields_cache")
+    if cached is not None:
+        return cast(Dict[str, tuple], cached)
+    from .components.base import LiveComponent as _DescriptorComponent
+
+    fields: Dict[str, tuple] = {}
+    for klass in reversed(cls.__mro__):
+        for name, value in vars(klass).items():
+            # Type checks only: a class attribute may be lazy
+            # (``SimpleLazyObject``, whose ``__class__`` is proxied, so not
+            # even ``isinstance``) and must not be evaluated here.
+            if getattr(type(value), "_djust_state_field", False):
+                slot = getattr(value, "attr_name", None)
+                if slot:
+                    fields[name] = ("state", slot)
+                    continue
+            if issubclass(type(value), _DescriptorComponent):
+                slot = value.__dict__.get("_descriptor_storage_key")
+                if slot and getattr(type(value), "State", None) is not None:
+                    fields[name] = ("component", slot)
+                    continue
+            # A plain attribute further down the MRO shadows the descriptor.
+            fields.pop(name, None)
+    try:
+        setattr(cls, "_djust_descriptor_fields_cache", fields)
+    except (AttributeError, TypeError):  # pragma: no cover — immutable class
+        # Uncacheable (an immutable class): recomputed on every call instead.
+        logger.debug("descriptor-field map not cached on %s", cls.__name__)
+    return fields
+
+
+def _holds_model(value: Any) -> bool:
+    """Does ``value`` hold a Django model instance, at any depth?"""
+    from django.db import models
+
+    if isinstance(value, models.Model):
+        return True
+    if isinstance(value, dict):
+        return any(_holds_model(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_holds_model(v) for v in value)
+    return False
+
+
+def _shadows_component_method(component: Any, key: str) -> bool:
+    """Whether ``key`` names a callable on the component's class (#3046).
+
+    Checks the component's own class and, for a class-level component bound
+    to a view (``BoundComponent``, ADR-031), the descriptor's class too, since
+    that is where its handlers live. Class-level lookup only: an instance
+    value never counts.
+    """
+    classes = [type(component)]
+    descriptor = getattr(component, "__dict__", {}).get("_descriptor")
+    if descriptor is not None:
+        classes.append(type(descriptor))
+    for cls in classes:
+        try:
+            member = getattr(cls, key, None)
+        except Exception:  # noqa: BLE001 — a raising class attr is not a method
+            continue
+        if callable(member):
+            return True
+    return False
+
+
+def restore_components_snapshot(view: Any, components_state: Any, *, source: str) -> bool:
+    """Apply a ``__components__`` snapshot map to ``view``'s components.
+
+    ONE helper for both restore paths — time-travel (``time_travel.py``) and
+    the signed back-navigation snapshot (:meth:`LiveView._restore_snapshot`,
+    #2896) — so they cannot drift (#1646).
+
+    Each ``{component_id: {field: value}}`` entry goes only to a component the
+    view already knows: one in ``view._components``, or a class-level component
+    DECLARED on the view class (bound on demand, as the first ``view.<name>``
+    access would). Unknown ids, non-dict entries and blocked field names
+    (private, dunder, :data:`_COMPONENT_INTERNAL_ATTRS`) are skipped. Values go
+    through ``safe_setattr``.
+
+    Returns ``True`` when every entry applied cleanly.
+    """
+    from .security import safe_setattr
+
+    if not components_state:
+        return True
+    if not isinstance(components_state, dict):
+        logger.warning("%s: __components__ is not a mapping; ignoring", source)
+        return False
+    registry = getattr(view, "_components", None)
+    if not isinstance(registry, dict):
+        registry = {}
+    declared = _descriptor_fields(type(view))
+    ok = True
+    for component_id, component_snap in components_state.items():
+        component = registry.get(component_id)
+        if (
+            component is None
+            and isinstance(component_id, str)
+            and declared.get(component_id, (None,))[0] == "component"
+        ):
+            component = getattr(view, component_id, None)
+        if component is None:
+            logger.warning("%s: component %r in snapshot but not in registry", source, component_id)
+            ok = False
+            continue
+        if not isinstance(component_snap, dict):
+            logger.warning("%s: component %r snapshot is not a mapping", source, component_id)
+            ok = False
+            continue
+        for key, value in component_snap.items():
+            if not isinstance(key, str) or key in _COMPONENT_INTERNAL_ATTRS:
+                continue
+            if _shadows_component_method(component, key):
+                # A snapshot field named like a method (``render``, ``mount``,
+                # a handler) would shadow it on the instance (#3046). No real
+                # state field has such a name, so skip it.
+                logger.warning(
+                    "%s: component restore skipped id=%s key=%s (names a method)",
+                    source,
+                    component_id,
+                    key,
+                )
+                ok = False
+                continue
+            try:
+                applied = safe_setattr(component, key, value, allow_private=False)
+            except Exception:  # noqa: BLE001 — log + degrade, never break a restore
+                logger.exception(
+                    "%s: component restore failed for id=%s key=%s", source, component_id, key
+                )
+                ok = False
+                continue
+            if not applied:
+                logger.warning(
+                    "%s: component restore blocked for id=%s key=%s", source, component_id, key
+                )
+                ok = False
+    return ok
+
+
+class NonPersistableStateError(TypeError):
+    """A Django ``Model``/``QuerySet`` was found on PUBLIC LiveView state
+    during the client-signed persistence capture (``enable_state_snapshot``).
+
+    Raised (DEBUG only) by
+    :meth:`LiveView._reject_orm_value_in_state_persistence` instead of a
+    bare ``TypeError`` so the runtime's snapshot-emission fail-soft wrapper
+    (``runtime.py``, the #1788 "snapshot emission must never break mount"
+    posture) can distinguish this DELIBERATE developer-error report from an
+    unexpected emission failure and re-raise it: the whole point of the
+    guard is to fail the mount loudly in development, which a broad
+    ``except Exception`` would otherwise silently downgrade to a log line.
+
+    Production never sees this exception — the guard logs a warning and
+    skips the attribute instead.
+    """
+
+
+class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(async) intentionally co-define stream_insert/stream_delete; see live_view.pyi overloads
+    ContextProviderMixin,
+    StreamsMixin,
+    StreamingMixin,
+    TemplateMixin,
+    ComponentMixin,
+    JITMixin,
+    ContextMixin,
+    RustBridgeMixin,
+    HandlerMixin,
+    RequestMixin,
+    PostProcessingMixin,
+    ModelBindingMixin,
+    PushEventMixin,
+    NavigationMixin,
+    FlashMixin,
+    PageMetadataMixin,
+    LayoutMixin,
+    WaiterMixin,
+    AsyncWorkMixin,
+    NotificationMixin,
+    StickyChildRegistry,
+    ActivityMixin,
+    View,
+):
+    """
+    Base class for reactive LiveView components.
+
+    Usage:
+        class CounterView(LiveView):
+            template_name = 'counter.html'
+            use_actors = True  # Enable actor-based state management (optional)
+
+            def mount(self, request, **kwargs):
+                self.count = 0
+
+            def increment(self):
+                self.count += 1
+
+            def decrement(self):
+                self.count -= 1
+
+    Memory Optimization with temporary_assigns:
+        For views with large collections (chat messages, feed items, etc.),
+        use temporary_assigns to clear data from server memory after each render.
+
+        class ChatView(LiveView):
+            template_name = 'chat.html'
+            temporary_assigns = {'messages': []}  # Clear after each render
+
+            def mount(self, request, **kwargs):
+                self.messages = Message.objects.all()[:50]
+
+            def handle_new_message(self, content):
+                msg = Message.objects.create(content=content)
+                self.messages = [msg]  # Only new messages sent to client
+
+        IMPORTANT: When using temporary_assigns, use dj-update="append" in your
+        template to tell the client to append new items instead of replacing:
+
+            <ul dj-update="append" id="messages">
+                {% for msg in messages %}
+                    <li id="msg-{{ msg.id }}">{{ msg.content }}</li>
+                {% endfor %}
+            </ul>
+
+    Streams API (recommended for collections):
+        For a more ergonomic API, use streams instead of temporary_assigns:
+
+        class ChatView(LiveView):
+            template_name = 'chat.html'
+
+            def mount(self, request, **kwargs):
+                self.stream('messages', Message.objects.all()[:50])
+
+            def handle_new_message(self, content):
+                msg = Message.objects.create(content=content)
+                self.stream_insert('messages', msg)
+
+        Template:
+            <ul dj-stream="messages">
+                {% for msg in streams.messages %}
+                    <li id="messages-{{ msg.id }}">{{ msg.content }}</li>
+                {% endfor %}
+            </ul>
+
+    Background Work with start_async():
+        For long-running operations (LLM calls, file processing), use start_async()
+        to run work in the background without blocking the UI:
+
+        class SpecGeneratorView(LiveView):
+            template_name = 'generator.html'
+
+            def mount(self, request, **kwargs):
+                self.generating = False
+                self.spec = ""
+                self.error = None
+
+            @event_handler
+            def generate(self, prompt: str = "", **kwargs):
+                self.generating = True  # Show loading state immediately
+                self.start_async(self._generate_spec, prompt=prompt, name="generation")
+
+            def _generate_spec(self, prompt: str):
+                '''Runs in background thread.'''
+                self.spec = call_llm_api(prompt)  # Slow operation
+                self.generating = False
+                # View auto-re-renders when this completes
+
+            def handle_async_result(self, name: str, result=None, error=None):
+                '''Optional: handle completion or errors.'''
+                if error:
+                    self.error = f"Generation failed: {error}"
+                    self.generating = False
+
+            @event_handler
+            def cancel_generation(self, **kwargs):
+                self.cancel_async("generation")
+                self.generating = False
+
+        Or use the @background decorator for simpler syntax:
+
+        class SimpleGeneratorView(LiveView):
+            template_name = 'generator.html'
+
+            @event_handler
+            @background
+            def generate(self, prompt: str = "", **kwargs):
+                '''Entire handler runs in background.'''
+                self.generating = True
+                self.spec = call_llm_api(prompt)
+                self.generating = False
+
+        Multiple concurrent tasks are supported with named tasks. Phoenix LiveView users
+        will find this API familiar.
+    """
+
+    template_name: Optional[str] = None
+    template: Optional[str] = None
+    use_actors: bool = False  # Enable Tokio actor-based state management (Phase 5+)
+    tick_interval: Optional[int] = None  # Periodic tick in ms (e.g. 2000 for 2s)
+
+    # Class-level marker for abstract base LiveView classes (#1605).
+    # When a subclass sets ``abstract = True`` on its own class body, the djust
+    # system checks (V001 missing template_name, V005 not in allowed modules,
+    # and the other per-class V/Q checks) skip that class.
+    # Not inherited: the check consults ``cls.__dict__.get("abstract")``, so
+    # subclasses of an abstract base are still validated as concrete unless
+    # they redeclare ``abstract = True`` themselves. Mirrors Django's
+    # ``Meta.abstract`` model semantics.
+    abstract: bool = False
+
+    # Memory optimization: assigns to clear after each render
+    # Format: {'assign_name': default_value, ...}
+    # Example: {'messages': [], 'feed_items': [], 'notifications': []}
+    temporary_assigns: Dict[str, Any] = {}
+
+    # Render optimization: assigns sent to Rust only on first render.
+    # Rust retains them via state merging (update_state extends, not replaces).
+    # Use for large, unchanging context (pre-rendered HTML, static config).
+    # Pair with dj-update="ignore" on the template element for full optimization.
+    static_assigns: List[str] = []
+
+    # Authentication & authorization
+    login_required: Optional[bool] = None  # True = must be authenticated
+    permission_required: Optional[Union[str, List[str]]] = None  # Django permission string(s)
+    login_url: Optional[str] = None  # Override settings.LOGIN_URL
+
+    # on_mount hooks — cross-cutting mount logic (Phoenix on_mount parity)
+    on_mount: List[Any] = []
+
+    # HTTP API exposure (ADR-008) — opt-in; see djust.api and the
+    # ``docs/website/guides/http-api.md`` guide.
+    #
+    # ``api_name`` is the stable URL slug under ``/djust/api/<slug>/``. If left
+    # ``None``, the slug is derived from the module path + lowercased class name,
+    # but the derived slug changes when the class is moved or renamed — set
+    # ``api_name`` explicitly for any view with ``expose_api=True`` handlers.
+    #
+    # ``api_auth_classes`` is a list of auth classes (instances or classes) tried
+    # in order; the first one whose ``authenticate(request)`` returns a non-None
+    # user wins. CSRF is enforced unless the winning class sets
+    # ``csrf_exempt = True``. When ``None``, djust uses ``[SessionAuth]``.
+    api_name: Optional[str] = None
+    api_auth_classes: Optional[List[Any]] = None
+
+    # Sticky LiveViews (Phase B of v0.6.0 Sticky LiveViews).
+    #
+    # When ``sticky = True`` and the view is embedded via
+    # ``{% live_render "dotted.path" sticky=True %}``, the instance, its
+    # DOM subtree, form values, scroll/focus, and background tasks
+    # SURVIVE ``live_redirect`` navigations — provided the destination
+    # layout contains a matching ``<div dj-sticky-slot="<id>">`` element.
+    # ``sticky_id`` is the stable identifier shared between server and
+    # client; if left ``None``, the template tag errors at render time
+    # because there is no slot key to match.
+    sticky: bool = False
+    sticky_id: Optional[str] = None
+
+    # State snapshot (v0.6.0 — Service Worker advanced features).
+    #
+    # Opt-in per-view flag that enables back-navigation state restoration
+    # via the client-side Service Worker state cache. When True and the
+    # client posts a ``state_snapshot`` payload alongside a
+    # ``live_redirect_mount`` (typically from a popstate event on the
+    # back button), the server restores public view attributes from the
+    # snapshot in lieu of calling ``mount()``. Use
+    # :meth:`_should_restore_snapshot` to reject stale snapshots based on
+    # auth context, request headers, or freshness.
+    #
+    # Security: snapshots are JSON only (no pickle). Restore happens
+    # AFTER auth checks and uses ``safe_setattr`` to block dunder keys.
+    # Never opt in for views whose public attributes contain credentials
+    # or PII — system check ``djust.C304`` warns on common PII naming
+    # patterns (``password``, ``token``, ``secret``, ``api_key``, ``pii``).
+    enable_state_snapshot: bool = False
+
+    # Streaming initial render (v0.6.1 — Phase 1).
+    #
+    # Opt-in per-view flag that returns a ``StreamingHttpResponse`` from the
+    # HTTP GET path instead of an ``HttpResponse``. The response body is
+    # flushed in three chunks — shell-open (everything before the
+    # ``<div dj-root>``), main content (the ``<div dj-root>...</div>`` block),
+    # and shell-close (``</body></html>`` + trailing markup). Browsers can
+    # begin parsing the ``<head>`` and loading CSS/JS while the server is
+    # still computing the main content — competitive with Next.js
+    # ``renderToPipeableStream``.
+    #
+    # Backward-compatible default (``False``) preserves the existing
+    # ``HttpResponse`` path. When ``True``, the response omits the
+    # ``Content-Length`` header (HTTP chunked transfer) and sets
+    # ``X-Djust-Streaming: 1`` for observability.
+    #
+    # Caveats: some reverse proxies buffer chunked responses by default;
+    # middleware that inspects response bodies must be streaming-aware.
+    # Lazy-child streaming (the full Next.js-style partial hydration) is
+    # tracked for v0.6.2 as Phase 2.
+    streaming_render: bool = False
+
+    # Time-travel debugging (v0.6.1 — dev-only).
+    #
+    # Opt-in per-view flag that enables a per-instance ring buffer of
+    # :class:`djust.time_travel.EventSnapshot` entries — one for every
+    # ``@event_handler`` dispatch, capturing ``state_before`` /
+    # ``state_after``. The debug panel exposes a "Time Travel" tab that
+    # lets developers scrub through history and jump back to any past
+    # state; the server restores the snapshot + re-renders.
+    #
+    # Safe default (``False``) costs zero when disabled. Gated on
+    # ``DEBUG=True`` at the WebSocket consumer so enabling it in a
+    # release build silently no-ops. See
+    # :mod:`djust.time_travel` for the recording machinery.
+    time_travel_enabled: bool = False
+
+    # Top-level public-state keys that must NEVER leave this view inside a
+    # shared bug capture (#1561). ``encode_view_state()`` applies these
+    # BEFORE any caller-supplied ``scrub`` callable, so the redaction does
+    # not depend on every call site remembering to pass one — the per-call
+    # ``scrub`` argument stays available for arbitrary policies, and this
+    # is the default safety net underneath it.
+    #
+    # Declarative rather than behavioural on purpose: it is a list a
+    # reviewer can read, and the ``djust.V014`` system check reads it too,
+    # warning when a time-travel-enabled view has model or form fields whose
+    # names look like PII and are not named here.
+    #
+    # Scope matches ``scrub_fields``: TOP-LEVEL public-state keys only. A
+    # nested ``self.profile["ssn"]`` is not reached by naming ``"ssn"``;
+    # pass your own ``scrub`` callable for that.
+    time_travel_excluded_fields: List[str] = []
+
+    # ============================================================================
+    # AS_VIEW DISPATCH (PR-B for v0.9.0 streaming, ADR-015)
+    # ============================================================================
+
+    @classonlymethod
+    def as_view(cls, **initkwargs: Any) -> Callable[..., Any]:
+        """Override Django's ``View.as_view`` to route GET to :meth:`aget`
+        when ``streaming_render = True`` AND we're running on ASGI.
+
+        Django's stock dispatch routes by ``request.method.lower()`` so
+        GET → sync ``self.get()``. Adding async ``aget()`` next to sync
+        ``get()`` doesn't change the routing — Django's
+        ``view_is_async`` only checks handlers in ``http_method_names``.
+
+        For ``streaming_render = True`` views we therefore return a
+        custom async view callable that:
+
+        * Routes GET → ``await self.aget(...)`` when in ASGI context.
+        * Routes everything else (POST, PUT, etc., AND GET on WSGI)
+          through ``await sync_to_async(self.dispatch)(...)``.
+
+        For ``streaming_render = False`` (default) we delegate to
+        ``super().as_view()`` so non-streaming views run through stock
+        Django dispatch with zero overhead and no behavior change.
+        """
+        if not getattr(cls, "streaming_render", False):
+            return cast(Callable[..., Any], super().as_view(**initkwargs))
+
+        from asgiref.sync import markcoroutinefunction, sync_to_async
+
+        async def view(request: Any, *args: Any, **kwargs: Any) -> Any:
+            self = cls(**initkwargs)
+            self.setup(request, *args, **kwargs)
+            if not hasattr(self, "request"):
+                raise AttributeError(
+                    "%s instance has no 'request' attribute. Did you override "
+                    "setup() and forget to call super()?" % cls.__name__
+                )
+            if request.method == "GET" and self._is_asgi_context(request):
+                return await self.aget(request, *args, **kwargs)
+            return await sync_to_async(self.dispatch)(request, *args, **kwargs)
+
+        view.view_class = cls  # type: ignore[attr-defined]
+        view.view_initkwargs = initkwargs  # type: ignore[attr-defined]
+        view.__doc__ = cls.__doc__
+        view.__module__ = cls.__module__
+        view.__annotations__ = cls.dispatch.__annotations__
+        # Copy possible attributes set by decorators (e.g. ``@csrf_exempt``)
+        # from dispatch — mirrors Django's stock as_view behavior.
+        view.__dict__.update(cls.dispatch.__dict__)
+        markcoroutinefunction(view)
+        return view
+
+    # ============================================================================
+    # INITIALIZATION & SETUP
+    # ============================================================================
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._rust_view: Optional[RustLiveView] = None
+        self._actor_handle: Optional[SessionActorHandle] = None
+        self._session_id: Optional[str] = None
+        self._cache_key: Optional[str] = None
+        self._handler_metadata: Optional[Dict[str, Dict[str, Any]]] = (
+            None  # Cache for decorator metadata
+        )
+        self._components: Dict[str, Any] = {}  # Registry of child components by ID
+        self._temporary_assigns_initialized: bool = False  # Track if temp assigns are set up
+        self._streams: Dict[str, Stream] = {}  # Stream collections
+        self._stream_operations: list = []  # Pending stream operations for this render
+        # Initialize navigation support (live_patch, live_redirect)
+        self._init_navigation()
+
+        # Initialize child-view registry (Phase A of Sticky LiveViews).
+        # Required before any {% live_render %} tag tries to register.
+        self._init_sticky()
+
+        # Initialize activity registry (v0.7.0 — React 19.2 <Activity> parity).
+        # Required before any {% dj_activity %} tag tries to register.
+        self._init_activity()
+
+        # Phase B: per-instance stash of sticky children preserved across
+        # a live_redirect. Populated by the consumer's
+        # ``handle_live_redirect_mount`` flow via
+        # :meth:`_preserve_sticky_children` before the old view is torn
+        # down. Re-registered onto the new parent once its template
+        # surfaces matching ``[dj-sticky-slot]`` elements.
+        self._sticky_preserved: Dict[str, Any] = {}
+
+        # Track user-defined _private attr names (populated by
+        # _snapshot_user_private_attrs after mount, or _restore_private_state).
+        self._user_private_keys: Set[str] = set()
+
+        # Time-travel debugging (v0.6.1) — lazy per-instance ring buffer.
+        # Allocated only when the subclass opts in via the class attr so
+        # the 99% of views that don't use it pay zero memory cost.
+        self._time_travel_buffer = None
+        # Branched-timeline tracking (#1151, v0.9.4). Default branch is
+        # "main" — the canonical recorded timeline. Forward-replay from
+        # a non-tip cursor allocates a fresh branch id from the counter.
+        # Both fields are inert when the buffer isn't allocated.
+        self._time_travel_branch_id = "main"
+        self._time_travel_branch_counter = 0
+        if getattr(self.__class__, "time_travel_enabled", False):
+            try:
+                from djust.time_travel import TimeTravelBuffer
+                from djust.config import config as _djust_config
+
+                self._time_travel_buffer = TimeTravelBuffer(
+                    max_events=_djust_config.get("time_travel_max_events", 100)
+                )
+            except Exception:  # noqa: BLE001
+                # Never let a misconfigured buffer break __init__.
+                logger.exception("time_travel: failed to allocate buffer")
+                self._time_travel_buffer = None
+
+        # Object-permission cache (ADR-017, v0.9.5-1a). Populated by
+        # check_object_permission() post-mount when get_object is overridden.
+        # None means "not yet fetched" or "no primary object". Allocated
+        # BEFORE the _framework_attrs snapshot so it's treated as a framework
+        # slot, not user-private state — keeps it out of msgpack-serialized
+        # state, so post-restore the cache is reset and get_object() runs
+        # fresh (handles "object reassigned during disconnect").
+        self._object: Any = None
+
+        # Current Django/Channels request (#1545). Reassigned to the live
+        # request by the HTTP post() path (mixins/request.py:489) and by
+        # the WS path (websocket.py:1940); this placeholder exists only so
+        # the attribute is captured in `_framework_attrs` BELOW — treating
+        # it as framework state, not user state. Without this line `request`
+        # falls outside `_framework_attrs`, and the state snapshot writes
+        # the (non-msgpack-serializable) `ASGIRequest` through the
+        # `serialization.py:557` non-serializable fallback, logging a
+        # "non-serializable value: ASGIRequest" warning on every mount /
+        # event for every LiveView (cosmetic but noisy; also dilutes the
+        # warning's signal when it catches a genuine app-author bug).
+        self.request: Any = None
+
+        # dj-model auto-allowlist (CWE-915 mass-assignment guard). Populated
+        # each render by ModelBindingMixin._record_dj_model_fields_from_rust()
+        # with the set of fields bound via static dj-model="<field>" in the
+        # TEMPLATE SOURCE (collected from the Rust template AST's Text-node
+        # literals — immune to rendered-output poisoning). Assigned HERE —
+        # BEFORE the _framework_attrs snapshot — so it is treated as a framework
+        # slot: recomputed every render, reset on reconnect, and EXCLUDED from
+        # user-private state serialization (it must never be persisted; it is
+        # derived from the template each render).
+        self._dj_model_fields: frozenset = frozenset()
+
+        # _mounted_from_restore (ADR-022 Iter 3 Phase 3.1): a transient mount-time
+        # flag set by ``ViewRuntime.dispatch_mount`` when the view's state was
+        # restored from a session save / signed snapshot in lieu of calling
+        # mount() (the runtime analogue of WS handle_mount's local ``mounted``
+        # var). Drives the ``skip_html_for_resume`` optimization. Assigned HERE —
+        # BEFORE the _framework_attrs snapshot — so it is treated as a framework
+        # slot: reset on reconnect and EXCLUDED from user-private state
+        # serialization (it must never be persisted; it describes THIS mount, not
+        # user state). #1393 snapshot-order invariant.
+        self._mounted_from_restore: bool = False
+
+        # Snapshot framework-set attrs so we can distinguish them from
+        # user-defined _private attrs set in mount() or event handlers.
+        #
+        # _framework_attrs snapshot-order invariant (#1393):
+        #   BEFORE this snapshot → framework state (excluded from
+        #   user-private serialization, reset on reconnect). Examples:
+        #   self._object cache (v0.9.5-1a), self._async_pending.
+        #   AFTER this snapshot → user state (included in change tracking,
+        #   persisted across reconnects). Examples: self._action_state
+        #   (PR #1324), self._<user_attr>.
+        # Any new framework slot must be assigned BEFORE this line.
+        self._framework_attrs: frozenset = frozenset(self.__dict__.keys())
+
+        # v0.8.0 — @action server-action state. Initialized AFTER
+        # _framework_attrs capture so it is treated as user-private
+        # state and persisted across reconnects (#1284).
+        self._action_state: Dict[str, Dict[str, Any]] = {}
+
+    # ============================================================================
+    # DIRTY TRACKING — cumulative since mount or last mark_clean() (v0.5.1)
+    # ============================================================================
+
+    def _dirty_fingerprint(self) -> Dict[str, Any]:
+        """Shallow fingerprint of public assigns for dirty tracking.
+
+        Mirrors the WS consumer's ``_snapshot_assigns`` (same structural
+        ``deep_fingerprint``, #2664) but scoped to public attributes only (no
+        leading underscore), so dirty tracking never reports framework-internal
+        changes.
+
+        Descriptor-backed public fields store their value in a ``_``-prefixed
+        slot, so they are read through the descriptor under their PUBLIC name:
+        ``state()`` fields (``_state_<name>``, #2956) and class-level
+        components (``_component_<name>``, #2912). Reading a component binds it
+        on first access, exactly as a render would.
+        """
+        static_skip = set(getattr(self, "static_assigns", []))
+        fp: Dict[str, Any] = {}
+        for k, v in self.__dict__.items():
+            if k.startswith("_") or k in static_skip:
+                continue
+            fp[k] = self._dirty_value_fingerprint(v)
+        for name in _descriptor_fields(type(self)):
+            if name.startswith("_") or name in static_skip or name in fp:
+                continue
+            try:
+                value = getattr(self, name)
+            except Exception:  # noqa: BLE001 — a broken descriptor is not "dirty"
+                logger.debug("dirty tracking: could not read %s", name, exc_info=True)
+                continue
+            fp[name] = self._dirty_value_fingerprint(value)
+        return fp
+
+    @staticmethod
+    def _dirty_value_fingerprint(v: Any) -> tuple:
+        if isinstance(v, (int, float, bool, str, bytes)) or v is None:
+            return ("v", v)
+        if fingerprints_by_content(v):
+            # Structural (#2664): ``self.items[0]["qty"] = 2`` is dirty;
+            # a class-level component's State likewise (#2900).
+            return ("c", id(v), deep_fingerprint(v)[0])
+        return ("id", id(v))
+
+    def _capture_dirty_baseline(self) -> None:
+        """Snapshot current public assigns as the dirty-tracking baseline.
+
+        Called once after ``mount()`` completes (by the WS consumer) and again
+        whenever the user calls :meth:`mark_clean`.
+        """
+        self._dirty_baseline = self._dirty_fingerprint()
+        # Snapshotted stand-in for the (excluded, large) baseline: a
+        # ``mark_clean()``-only handler flips ``is_dirty`` and must re-render
+        # (#2682 review). Assigned here, not in ``__init__``, so it is not in
+        # the ``_framework_attrs`` set and ``_snapshot_assigns`` sees it.
+        self._dirty_baseline_version = getattr(self, "_dirty_baseline_version", 0) + 1
+
+    def mark_clean(self) -> None:
+        """Reset the dirty-tracking baseline to the current state.
+
+        Call this after persisting the view's state (e.g., after a successful
+        save handler) so subsequent mutations show up as ``is_dirty``.
+        """
+        self._capture_dirty_baseline()
+
+    class _FrameworkProperty(property):
+        """Marker subclass so ``get_context_data`` can skip framework-derived properties."""
+
+        _djust_framework_derived = True
+
+    @_FrameworkProperty
+    def changed_fields(self) -> set:
+        """Set of public attribute names that have changed since the baseline.
+
+        The baseline is captured after ``mount()`` completes, and reset by
+        :meth:`mark_clean`. Returns an empty set if the baseline hasn't been
+        captured yet (e.g., during ``mount()`` itself).
+        """
+        baseline = getattr(self, "_dirty_baseline", None)
+        if baseline is None:
+            return set()
+        current = self._dirty_fingerprint()
+        changed = set()
+        for k in set(baseline) | set(current):
+            if k not in baseline or k not in current:
+                changed.add(k)
+            elif baseline[k] != current[k]:
+                changed.add(k)
+        return changed
+
+    @_FrameworkProperty
+    def is_dirty(self) -> bool:
+        """True if any public attribute has changed since the baseline.
+
+        Use for "unsaved changes" UI patterns, conditional save buttons, and
+        ``beforeunload`` warnings. Combine with :meth:`mark_clean` to reset
+        after a successful save.
+        """
+        return bool(self.changed_fields)
+
+    # ============================================================================
+    # STABLE UNIQUE IDs — React 19 useId equivalent (v0.5.1)
+    # ============================================================================
+
+    def unique_id(self, suffix: str = "") -> str:
+        """Return a deterministic per-view ID stable across renders.
+
+        Each call within the same mount-render cycle returns a new unique ID,
+        but the sequence is stable: if the template renders ``unique_id()``
+        three times, the same three IDs are generated on every render. Useful
+        for ``aria-labelledby``, form field IDs, and any element that needs a
+        stable identifier without depending on DOM ordering.
+
+        The ID format is ``djust-<view-slug>-<n>[-<suffix>]`` where ``<n>`` is a
+        monotonically incrementing per-call counter that resets at the start of
+        each render cycle (``reset_unique_ids()``).
+        """
+        counter = self.__dict__.setdefault("_djust_id_counter", 0)
+        self._djust_id_counter = counter + 1
+        slug = getattr(self, "_djust_id_slug", None)
+        if slug is None:
+            slug = type(self).__name__.lower()
+            self._djust_id_slug = slug
+        base = f"djust-{slug}-{counter}"
+        return f"{base}-{suffix}" if suffix else base
+
+    def reset_unique_ids(self) -> None:
+        """Reset the ``unique_id()`` counter — called at the start of each render.
+
+        The WS consumer calls this before invoking ``get_context_data``; tests
+        can call it manually to assert stable-across-renders behavior.
+        """
+        self._djust_id_counter = 0
+
+    # Component context sharing methods are provided by ``ContextProviderMixin``
+    # below (declared at module scope) and mixed into both LiveView and
+    # LiveComponent so ``provide_context`` / ``consume_context`` work across
+    # the full render tree.
+
+    def _snapshot_user_private_attrs(self) -> None:
+        """Snapshot current _-prefixed attrs as user-defined private state names.
+
+        Called after mount() completes. Any ``_``-prefixed attr that exists now
+        but was NOT present after ``__init__`` is a user-defined private attr.
+        Later render-cycle attrs won't be included because they haven't been
+        set yet.
+        """
+        framework: frozenset[str] = getattr(self, "_framework_attrs", frozenset())
+        # Exclude the tracking attrs themselves — they are infrastructure, not
+        # user state, and must never leak into the persisted private state.
+        meta_attrs = {"_framework_attrs", "_user_private_keys", "_reactive_state"}
+        self._user_private_keys = {
+            k
+            for k in self.__dict__
+            if k.startswith("_") and k not in framework and k not in meta_attrs
+        }
+
+    def _framework_storage_slots(self) -> Set[str]:
+        """``_``-prefixed instance slots that are framework storage, not user
+        private state, and so are never saved in the private session (#2959).
+
+        - the ``_state_<name>`` slot of a PUBLIC ``state()`` field: its value
+          reaches the session through the public state (the context reads it
+          through the descriptor, and every restore path sets it back through
+          the descriptor), so a second copy here is redundant. A ``_``-named
+          ``state()`` field, or one listed in ``static_assigns``, never reaches
+          the public context, so its slot stays private.
+        - ``_reactive_state``: the descriptor's own bookkeeping; any restore
+          through the descriptor rebuilds it.
+
+        :meth:`_get_private_state` still saves a public ``state()`` slot whose
+        value holds a Django model: the public path flattens a model to a dict,
+        this one re-hydrates it (#1994).
+        """
+        static_skip = set(getattr(self, "static_assigns", []) or [])
+        slots = {"_reactive_state"}
+        for name, (kind, slot) in _descriptor_fields(type(self)).items():
+            if kind == "state" and not name.startswith("_") and name not in static_skip:
+                slots.add(slot)
+        return slots
+
+    def _get_private_state(self) -> Dict[str, Any]:
+        """Return serializable user-defined _private attributes (not framework internals).
+
+        Only persists attrs tracked in ``_user_private_keys`` — a set populated
+        by ``_snapshot_user_private_attrs()`` (after mount) and
+        ``_restore_private_state()``. Event handlers that add NEW private attrs
+        should add the name to ``self._user_private_keys`` directly, e.g.
+        ``self._user_private_keys.add('_name')``, or the attr will not be
+        persisted in subsequent save cycles.
+
+        Non-serializable values (locks, file handles, etc.) are silently skipped.
+        """
+        result: Dict[str, Any] = {}
+        user_keys: Set[str] = getattr(self, "_user_private_keys", set())
+        # A session written before #2959 may have restored these into
+        # ``_user_private_keys``; they are still not re-saved.
+        not_private = self._framework_storage_slots()
+        for key in user_keys:
+            if key not in self.__dict__:
+                continue
+            value = self.__dict__[key]
+            if key in not_private and not (key != "_reactive_state" and _holds_model(value)):
+                # The public state carries this value — except a Django model,
+                # which the public path flattens to a dict while this one
+                # re-hydrates it (#1994), so a model-holding slot stays.
+                continue
+            # Skip callables (bound methods, lambdas stored as attrs)
+            if callable(value):
+                continue
+            # ADR-031: a class-level component's slot holds a BoundComponent;
+            # persist its State (a dict) so ``__get__`` rehydrates it on restore.
+            from .components.base import BoundComponent
+
+            if isinstance(value, BoundComponent):
+                value = dict(value.state)
+            # #1994: encode Django models to a re-hydratable ref so a private
+            # model attr survives the session round-trip AS A MODEL (re-fetched
+            # on restore) instead of the lossy client dict normalize_django_value
+            # would otherwise produce. No-op for non-model values.
+            value = encode_private_model_refs(value)
+            # Attempt serialization — skip if not possible
+            try:
+                json.dumps(value, cls=DjangoJSONEncoder)
+                result[key] = value
+            except (TypeError, ValueError, OverflowError):
+                logger.debug(
+                    "Skipping non-serializable private attr %s.%s (%s)",
+                    type(self).__name__,
+                    key,
+                    type(value).__name__,
+                )
+                continue
+        return result
+
+    def _restore_private_state(self, private_state: Dict[str, Any]) -> None:
+        """Restore previously-saved private attributes onto this instance."""
+        from .security import DANGEROUS_ATTRIBUTES
+
+        framework: frozenset[str] = getattr(self, "_framework_attrs", frozenset())
+        meta_attrs = {"_framework_attrs", "_user_private_keys"}
+        for key, value in private_state.items():
+            if not isinstance(key, str):
+                continue
+            # The session is trusted, but this path used a raw setattr with no
+            # screen at all, unlike the public one (#3046). A dunder
+            # (``__class__``, ``__dict__``) is never user private state.
+            if key in DANGEROUS_ATTRIBUTES or (key.startswith("__") and key.endswith("__")):
+                logger.warning("Skipping restore of reserved private attribute %r", key)
+                continue
+            if key.startswith("_") and key not in framework and key not in meta_attrs:
+                # #1994: re-hydrate model refs back to model instances (fresh DB
+                # fetch) so a private model attr comes back a MODEL, not a dict.
+                value = decode_private_model_refs(value)
+                # #2252: un-tag Decimals written by decimal_for_state_roundtrip
+                # so a private DecimalField attr comes back a DECIMAL, not a
+                # tag dict. This is the single decode point for all three
+                # callers of this method (mixins/request.py, runtime.py,
+                # mixins/sticky.py).
+                value = decode_state_roundtrip(value)
+                setattr(self, key, value)
+                # Track restored attrs as user-defined so they persist
+                # through subsequent save cycles.
+                user_keys = getattr(self, "_user_private_keys", None)
+                if user_keys is not None:
+                    user_keys.add(key)
+
+    # ============================================================================
+    # STATE SNAPSHOT — v0.6.0 back-navigation restoration (opt-in)
+    # ============================================================================
+
+    @staticmethod
+    def _reject_orm_value_in_state_persistence(key: str, value: Any) -> bool:
+        """Guard for the back-navigation state-SIGNING path only (``strict=True``
+        callers of ``_capture_snapshot_state`` — currently just ``runtime.py``'s
+        ``state_snapshot_signed`` mount emission).
+
+        Unlike :meth:`_is_serializable` (used by the rendering JIT pipeline's
+        ``get_state()``, which intentionally lets Django ``Model``/``QuerySet``
+        values through — the JIT context builder knows how to render them),
+        this guard runs only for the CLIENT-SIGNED public-state persistence
+        path. There, ``DjangoJSONEncoder`` *also* knows how to serialize a
+        ``Model`` (via ``_serialize_model_safely``), so an ORM object silently
+        succeeds the ``json.dumps`` round-trip and comes back as a lossy,
+        disconnected ``dict`` on restore — not the model. A handler that later
+        calls a model method on it (``self.user.get_full_name()``) breaks with
+        a confusing ``AttributeError`` far from the actual mistake.
+
+        Deliberately NOT applied to non-strict callers (e.g. the dev-only
+        time-travel debug capture in ``time_travel.py``, which also calls
+        ``_capture_snapshot_state`` to record ``state_before``/``state_after``
+        for the replay ring buffer) — that path already accepts a lossy,
+        disconnected snapshot by design (see the round-trip comment below) and
+        raising there would break time-travel for any view holding ordinary
+        ORM state, which is not the bug this guard targets.
+
+        Returns True (and raises/warns) when ``value`` is a Django
+        ``Model``/``QuerySet`` — the caller should skip persisting ``key``.
+        Returns False for everything else, including when Django's ORM isn't
+        importable.
+
+        In DEBUG the raise is a :class:`NonPersistableStateError` (a
+        ``TypeError`` subclass) so the real mount-path caller's #1788
+        fail-soft wrapper (``runtime.py`` snapshot emission) re-raises it
+        instead of swallowing it — the DEBUG failure is loud end-to-end,
+        not just when this method is called directly.
+        """
+        try:
+            from django.db import models
+            from django.db.models import QuerySet
+        except ImportError:
+            return False  # Django ORM not available; nothing to guard against
+
+        if not isinstance(value, (models.Model, QuerySet)):
+            return False
+
+        from django.conf import settings
+
+        value_type = type(value).__name__
+        msg = (
+            f"Non-persistable value in LiveView state: '{key}' ({value_type}) "
+            f"can't survive state persistence (the enable_state_snapshot "
+            f"back-navigation round-trip) — Django ORM objects are re-fetched "
+            f"per-request, not carried across a client-signed snapshot. Store "
+            f"the pk and refetch in the handler instead, e.g. "
+            f"`self.{key}_id = {key}.pk` rather than `self.{key} = {key}`."
+        )
+        if getattr(settings, "DEBUG", False):
+            raise NonPersistableStateError(msg)
+        logger.warning(msg)
+        return True
+
+    def _capture_snapshot_state(self, *, strict: bool = False) -> Dict[str, Any]:
+        """Return a JSON-serializable snapshot of public view state.
+
+        Filters out private (``_``-prefixed) attributes, framework-internal
+        attrs enumerated in ``_FRAMEWORK_INTERNAL_ATTRS``, callables, and any
+        value that fails a ``DjangoJSONEncoder`` round-trip. Used by the
+        client to post a ``STATE_SNAPSHOT`` message to the service worker
+        when opt-in via :attr:`enable_state_snapshot` is True.
+
+        Component state (#1041, v0.9.0): when this view has registered
+        :class:`~djust.components.LiveComponent` instances in
+        ``self._components`` (the registry populated by
+        :meth:`_assign_component_ids`), each component's public state
+        is captured under the special ``"__components__"`` key as a
+        ``{component_id: {field: value}}`` nested dict. The reserved
+        name keeps component snapshots out of the parent's flat state
+        namespace and gives the time-travel debug panel a clean shape
+        to render per-component scrubbers. Descriptor-pattern
+        components are auto-registered via the framework's existing
+        descriptor-init machinery; once they live in
+        ``self._components`` they're captured the same way as legacy-
+        instantiated ones.
+
+        The server never calls this directly — it's primarily exposed for
+        testing and observability. Restoration uses
+        :meth:`_restore_snapshot`.
+
+        Args:
+            strict: When True, reject (DEBUG: raise / prod: warn+skip) any
+                Django ``Model``/``QuerySet`` found on public state —
+                see :meth:`_reject_orm_value_in_state_persistence`. Only the
+                real back-navigation state-signing caller
+                (``runtime.py``'s ``state_snapshot_signed`` mount emission)
+                passes ``strict=True``; the dev-only time-travel debug
+                capture (``time_travel.py``) intentionally leaves this False
+                to preserve its existing lossy-snapshot-by-design behavior.
+        """
+        from .components.base import Component
+
+        result: Dict[str, Any] = {}
+        for key, value in self.__dict__.items():
+            if key.startswith("_"):
+                continue
+            if key in _FRAMEWORK_INTERNAL_ATTRS:
+                continue
+            if callable(value):
+                continue
+            if strict and self._reject_orm_value_in_state_persistence(key, value):
+                continue
+            if strict and isinstance(value, Component):
+                # ADR-033 D6: the same rule inside a component's state — a
+                # model in ``table.rows`` must not be dict-ified and restored
+                # as a dict (review 🟡6).
+                if any(
+                    self._reject_orm_value_in_state_persistence(f"{key}.{k}", v)
+                    or (
+                        isinstance(v, (list, tuple))
+                        and any(
+                            self._reject_orm_value_in_state_persistence(f"{key}.{k}[]", item)
+                            for item in v
+                        )
+                    )
+                    for k, v in value.state.items()
+                ):
+                    continue
+            try:
+                # json.dumps serves as the serializability check; the
+                # accompanying json.loads round-trips to a *disconnected*
+                # value so later in-place mutations to the source object
+                # (e.g. ``self.items.append(...)``) do not retroactively
+                # rewrite this snapshot. Without the round-trip the
+                # time-travel state_before / state_after fields aliased
+                # the live view attrs — see Stage 11 Fix B. The v0.6.0
+                # back-navigation state snapshot benefits from this same
+                # fix: previously a mutable public attr captured here
+                # could be mutated before the snapshot was serialized
+                # and sent to the client.
+                result[key] = json.loads(json.dumps(value, cls=StateRoundtripJSONEncoder))
+            except (TypeError, ValueError, OverflowError):
+                # Skip non-serializable — matches _get_private_state pattern.
+                continue
+
+        # Component-level state (#1041). Each registered component
+        # contributes its own public-state dict under
+        # ``__components__`` keyed by ``component_id``.
+        components_state = self._capture_components_snapshot()
+        if components_state:
+            result["__components__"] = components_state
+        return result
+
+    def _capture_components_snapshot(self) -> Dict[str, Dict[str, Any]]:
+        """Return a ``{component_id: {field: value}}`` snapshot map.
+
+        Walks ``self._components`` (the registry of LiveComponent
+        instances populated by ``_assign_component_ids``) and captures
+        each component's public state. Returns an empty dict when the
+        registry is empty or absent — no key is added to the parent
+        snapshot in that case.
+
+        Capture rules per component:
+        - Public (non-``_``-prefixed) attrs from ``component.__dict__``.
+        - Skip callables and non-serializable values (same rules as
+          parent state).
+        - Skip ``_descriptor_*`` machinery and other framework-
+          internal attrs that begin with ``_``.
+        - Skip framework-internal config attrs that DON'T start with
+          ``_`` but aren't user state (see
+          :data:`_COMPONENT_INTERNAL_ATTRS`). ``component_id`` in
+          particular is the registry key — restoring it from stale
+          state would desync the registry from the instance attr.
+
+        Failures on individual components are logged and the bad
+        component is skipped — degrade gracefully rather than break
+        the whole snapshot.
+        """
+        registry = getattr(self, "_components", None)
+        if not registry:
+            return {}
+        components_state: Dict[str, Dict[str, Any]] = {}
+        from .components.base import BoundComponent
+
+        for component_id, component in registry.items():
+            try:
+                comp_state: Dict[str, Any] = {}
+                # ADR-031: a bound component's public state IS its State dict.
+                items = (
+                    component.state.items()
+                    if isinstance(component, BoundComponent)
+                    else component.__dict__.items()
+                )
+                for key, value in items:
+                    if key.startswith("_"):
+                        continue
+                    if key in _COMPONENT_INTERNAL_ATTRS:
+                        continue
+                    if callable(value):
+                        continue
+                    try:
+                        comp_state[key] = json.loads(
+                            json.dumps(value, cls=StateRoundtripJSONEncoder)
+                        )
+                    except (TypeError, ValueError, OverflowError):
+                        # Skip non-serializable — matches parent rule.
+                        continue
+                components_state[component_id] = comp_state
+            except Exception:  # noqa: BLE001 — dev-only, log + degrade
+                logger.exception(
+                    "time_travel: component snapshot failed for id=%s",
+                    component_id,
+                )
+        return components_state
+
+    def _restore_snapshot(self, state: Dict[str, Any]) -> None:
+        """Apply a previously captured snapshot to this view.
+
+        Default implementation iterates the dict and calls ``safe_setattr``
+        for every key, refusing to set dunder attributes or anything that
+        fails the ``SAFE_ATTRIBUTE_PATTERN`` regex. Subclasses can override
+        to implement custom restoration logic (e.g. re-hydrating ORM
+        instances from pk, re-fetching cached data).
+
+        The state is the JSON-decoded payload from the client — treat it
+        as untrusted and never pass it to ``exec``/``eval`` or raw
+        ``setattr``.
+
+        Component state under ``__components__`` is applied to the view's
+        registered and class-declared components only
+        (:func:`restore_components_snapshot`, shared with time-travel).
+        """
+        from .security import safe_setattr
+
+        # Component state rides under the reserved ``__components__`` key
+        # (``_capture_snapshot_state``); the flat loop below would drop it,
+        # since ``safe_setattr`` refuses dunder names (#2896).
+        components_state = state.get("__components__")
+        for key, value in state.items():
+            if key == "__components__":
+                continue
+            safe_setattr(self, key, value, allow_private=False)
+        if components_state:
+            restore_components_snapshot(self, components_state, source="state_snapshot")
+
+    def _should_restore_snapshot(self, request: Any) -> bool:
+        """Return True to allow snapshot restoration for this request.
+
+        Default implementation returns True — the class-level
+        :attr:`enable_state_snapshot` flag already gates opt-in. Override
+        to reject stale snapshots on permission changes, feature-flag
+        toggles, or time-based TTLs (e.g. refuse snapshots older than one
+        hour by inspecting a ``_snapshot_ts`` attr).
+
+        Runs AFTER Django auth / ``check_view_auth`` — a returning user
+        whose permissions were revoked will already have been redirected
+        away before this hook fires.
+        """
+        return True
+
+    def handle_tick(self) -> None:
+        """Override for periodic server-side updates. Called every tick_interval ms."""
+        pass
+
+    # ============================================================================
+    # STATE SERIALIZATION VALIDATION
+    # ============================================================================
+
+    @staticmethod
+    def _is_serializable(value: Any) -> bool:
+        """Check if a value can be safely serialized to JSON for state transfer.
+
+        Returns True for primitives, collections, Django models/QuerySets, and
+        any value that json.dumps can handle. Returns False for service instances,
+        connections, file handles, threads, and other non-serializable objects.
+        """
+        # Primitives are always fine
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return True
+
+        # Collections: check recursively would be expensive; allow them and
+        # let actual serialization catch nested issues
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return True
+
+        if isinstance(value, dict):
+            return True
+
+        # Django models and QuerySets are serialized by JIT pipeline
+        try:
+            from django.db import models
+            from django.db.models import QuerySet
+
+            if isinstance(value, (models.Model, QuerySet)):
+                return True
+        except ImportError:
+            pass  # Django ORM not available; skip model/queryset check
+
+        # ADR-033 D6: a plain component is its state, and the state round
+        # trip carries it (``component_for_state_roundtrip``).
+        from .components.base import Component
+
+        if isinstance(value, Component):
+            return True
+
+        # Non-serializable types: file handles, threads, locks, sockets
+        _non_serializable: tuple[type, ...] = (io.IOBase, threading.Thread, socket.socket)
+        try:
+            # threading.Lock() returns _thread.lock which isn't directly a type
+            import _thread
+
+            _non_serializable = _non_serializable + (_thread.LockType,)
+        except (ImportError, AttributeError):
+            pass  # _thread.LockType unavailable on some platforms; skip lock detection
+        if isinstance(value, _non_serializable):
+            return False
+
+        # Detect common service/client patterns by type name
+        type_name = type(value).__name__.lower()
+        _suspect_names = ("service", "client", "session", "connection", "api")
+        if any(name in type_name for name in _suspect_names):
+            return False
+
+        # Detect objects with generic repr like '<ClassName object at 0x...>'
+        try:
+            obj_repr = repr(value)
+            if " object at 0x" in obj_repr:
+                return False
+        except Exception:
+            return False
+
+        # Final check: try to actually serialize it
+        try:
+            json.dumps(value, cls=DjangoJSONEncoder)
+            return True
+        except (TypeError, ValueError, OverflowError):
+            return False
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get serializable state from this LiveView instance.
+
+        Iterates over public (non-underscore) instance attributes and validates
+        that each value can be serialized. In DEBUG mode, raises TypeError with
+        a helpful message for non-serializable values. In production, logs an
+        error and skips the attribute.
+
+        Returns:
+            Dictionary of {attribute_name: value} for all serializable public state.
+        """
+        from django.conf import settings
+
+        state = {}
+        for key, value in self.__dict__.items():
+            if key.startswith("_"):
+                continue
+
+            # #762: Skip framework-internal attrs so they don't pollute
+            # user-facing reactive state.
+            if key in _FRAMEWORK_INTERNAL_ATTRS:
+                continue
+
+            if callable(value):
+                continue
+
+            if not self._is_serializable(value):
+                class_name = self.__class__.__name__
+                value_type = type(value).__name__
+                msg = (
+                    f"Non-serializable value in {class_name}.{key}: "
+                    f"{value_type} cannot be stored in LiveView state. "
+                    f"Service instances, connections, and file handles must "
+                    f"be created in event handlers or accessed via utility "
+                    f"functions — not stored as instance attributes. "
+                    f"See: https://djust.org/docs/guides/services.md"
+                )
+                if getattr(settings, "DEBUG", False):
+                    raise TypeError(msg)
+                else:
+                    logger.error(msg)
+                    continue
+
+            state[key] = value
+
+        return state
+
+    # ============================================================================
+    # TEMPORARY ASSIGNS - Memory optimization for large collections
+    # ============================================================================
+
+    def _reset_temporary_assigns(self) -> None:
+        """
+        Reset temporary assigns to their default values after rendering.
+
+        Called automatically after each render to free memory for large collections.
+        """
+        if not self.temporary_assigns:
+            return
+
+        for assign_name, default_value in self.temporary_assigns.items():
+            if hasattr(self, assign_name):
+                # Reset to default value (make a copy to avoid sharing state)
+                if isinstance(default_value, list):
+                    setattr(self, assign_name, list(default_value))
+                elif isinstance(default_value, dict):
+                    setattr(self, assign_name, dict(default_value))
+                elif isinstance(default_value, set):
+                    setattr(self, assign_name, set(default_value))
+                else:
+                    setattr(self, assign_name, default_value)
+
+                logger.debug(
+                    f"[LiveView] Reset temporary assign '{assign_name}' to {type(default_value).__name__}"
+                )
+
+        # Also reset streams
+        self._reset_streams()
+
+    def _initialize_temporary_assigns(self) -> None:
+        """Initialize temporary assigns with their default values on first mount."""
+        if self._temporary_assigns_initialized:
+            return
+
+        for assign_name, default_value in self.temporary_assigns.items():
+            if not hasattr(self, assign_name):
+                if isinstance(default_value, list):
+                    setattr(self, assign_name, list(default_value))
+                elif isinstance(default_value, dict):
+                    setattr(self, assign_name, dict(default_value))
+                elif isinstance(default_value, set):
+                    setattr(self, assign_name, set(default_value))
+                else:
+                    setattr(self, assign_name, default_value)
+
+        self._temporary_assigns_initialized = True
+
+    # ============================================================================
+    # OBJECT-LEVEL AUTHORIZATION (ADR-017, v0.9.5-1a)
+    #
+    # The pair below is djust's first-class lifecycle hook for per-object
+    # auth — the structural counterpart to the role-level `permission_required`
+    # class attribute and the custom `check_permissions(self, request)` hook.
+    # See `docs/adr/017-object-permission-lifecycle.md`.
+    # ============================================================================
+
+    def get_object(self) -> Optional[Any]:
+        """Return the view's primary object, or None if not applicable.
+
+        Override in subclasses bound to a single object via URL kwarg
+        (e.g. `/documents/<int:document_id>/`). The default returns
+        `None` so views that don't override see zero behavior change —
+        the object-permission lifecycle is opt-in.
+
+        Called once by djust per mount, AFTER URL kwargs are bound to
+        `self` via `mount()`. The result is cached as `self._object`
+        for the WS-session lifetime; reuse it from event handlers and
+        `get_context_data` rather than re-querying. If a handler
+        mutates state that affects access (e.g., reassigning the FK
+        that determines ownership), call `self._invalidate_object_cache()`
+        so the next access re-fetches via `get_object()`.
+
+        Returning `None` from a subclass override (e.g. when the object
+        doesn't exist or shouldn't be enumerable) is treated as
+        "no object to check" — `has_object_permission` is NOT called.
+        This is the recommended OWASP IDOR-mitigation pattern: deny via
+        404-shape rather than 403-shape so attackers can't enumerate.
+
+        Keep `get_object()` minimal — just the FK lookup. Expensive I/O
+        in this method becomes per-mount overhead.
+        """
+        return None
+
+    def has_object_permission(self, request: Any, obj: Any) -> bool:
+        """Return True if the request user may access `obj`.
+
+        Override alongside `get_object()` to express object-level auth.
+        Default returns `True` (no-op for views that don't override
+        `get_object`).
+
+        Called by djust at mount-time when `get_object` is overridden.
+        (v0.9.5-1b extends this to per-event re-execution; -1a is
+        mount-time only.)
+
+        Raise `PermissionDenied` for an explicit denial with a message;
+        return `False` for a silent denial. Both close the WS at mount
+        time with code 4403 and a "Permission denied" error frame.
+        """
+        return True
+
+    def _invalidate_object_cache(self) -> None:
+        """Reset `self._object` to None; next get_object() call re-fetches.
+
+        Call from event handlers that mutate state affecting access
+        (e.g., reassigning the FK that determines ownership). Without
+        this, a cached `self._object` lets a formerly-authorized user
+        retain the cached pass until WS reconnect.
+
+        The cache is also automatically reset on snapshot/state restore —
+        `_object` is a framework slot, not user state, so it returns to
+        `None` after either restore path. This handles the "object
+        reassigned while user was disconnected" case automatically.
+        """
+        self._object = None
+
+
+def live_view(
+    template_name: Optional[str] = None, template: Optional[str] = None
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Decorator to convert a function-based view into a LiveView.
+
+    Usage:
+        @live_view(template_name='counter.html')
+        def counter_view(request):
+            count = 0
+
+            def increment():
+                nonlocal count
+                count += 1
+
+            def decrement():
+                nonlocal count
+                count -= 1
+
+            return locals()
+
+    Args:
+        template_name: Path to Django template
+        template: Inline template string
+
+    Returns:
+        View function
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(request: Any, *args: Any, **kwargs: Any) -> Any:
+            # Create a dynamic LiveView class
+            class DynamicLiveView(LiveView):
+                pass
+
+            if template_name:
+                DynamicLiveView.template_name = template_name
+            if template:
+                DynamicLiveView.template = template
+
+            view = DynamicLiveView()
+
+            # Execute the function to get initial state
+            result = func(request, *args, **kwargs)
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    if not callable(value):
+                        setattr(view, key, value)
+                    else:
+                        setattr(view, key, value)
+
+            # Handle the request
+            if request.method == "GET":
+                return view.get(request, *args, **kwargs)
+            elif request.method == "POST":
+                return view.post(request, *args, **kwargs)
+
+            return None
+
+        return wrapper
+
+    return decorator

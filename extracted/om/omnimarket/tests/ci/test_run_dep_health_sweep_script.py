@@ -1,0 +1,510 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for scripts/ci/run_dep_health_sweep.py CI gate script."""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# Ensure the scripts/ci directory is importable
+REPO_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "ci"))
+
+_PLANTED_TOPIC = "onex.cmd.omnimarket.unsubscribed-regression.v1"
+
+
+def _write_real_delta_fixture(
+    tmp_path: Path, *, include_planted_topic: bool
+) -> tuple[Path, Path]:
+    """Write a real contract tree and a stale dep-health baseline."""
+    repo_root = tmp_path / "repo"
+    contract_dir = repo_root / "src" / "omnimarket" / "nodes" / "node_delta_regression"
+    contract_dir.mkdir(parents=True)
+
+    publish_topics = f'\n    - "{_PLANTED_TOPIC}"' if include_planted_topic else " []"
+    (contract_dir / "contract.yaml").write_text(
+        f"""\
+name: node_delta_regression
+node_type: EFFECT
+event_bus:
+  publish_topics:{publish_topics}
+  subscribe_topics: []
+""",
+        encoding="utf-8",
+    )
+
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "graphify_version": "ast-fallback",
+                "rule_version": "v1",
+                "captured_at": "2026-09-26T00:00:00Z",
+                "findings": [
+                    {
+                        "finding_type": "MISSING_TOPIC_EDGE",
+                        "severity": "CRITICAL",
+                        "repo": "repo",
+                        "file_path": (
+                            f"src/omnimarket/nodes/node_stale_{index}/contract.yaml"
+                        ),
+                        "symbol": f"onex.cmd.omnimarket.stale-{index}.v1",
+                        "detail": (
+                            "Stale topic is published but has no subscriber "
+                            "and is not declared as externally consumed."
+                        ),
+                        "rule_id": "MISSING_TOPIC_EDGE",
+                        "rule_version": "v1",
+                    }
+                    for index in range(5)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return repo_root, baseline_path
+
+
+@pytest.fixture
+def clean_fixture(tmp_path: Path) -> Path:
+    """A fixture directory with no findings."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "__init__.py").write_text("")
+    return tmp_path
+
+
+@pytest.fixture
+def critical_finding_fixture(tmp_path: Path) -> Path:
+    """A fixture directory that produces a CRITICAL finding."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "__init__.py").write_text("")
+    return tmp_path
+
+
+class TestRunDepHealthSweepScript:
+    """Tests for the dep health CI gate script."""
+
+    def test_script_uses_node_public_api(self) -> None:
+        """Script must not bypass the node package public API."""
+        script = REPO_ROOT / "scripts" / "ci" / "run_dep_health_sweep.py"
+
+        content = script.read_text(encoding="utf-8")
+
+        assert "node_dependency_health_sweep.handlers" not in content
+
+    def test_exit_zero_on_clean_tree(self, clean_fixture: Path) -> None:
+        """Script exits 0 when no findings at or above threshold."""
+        from run_dep_health_sweep import main
+
+        # Mock the handler to return clean result
+        mock_result = MagicMock()
+        mock_result.findings = []
+        mock_result.status = "clean"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {}
+        mock_result.baseline_delta = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(
+            return_value={
+                "status": "clean",
+                "run_id": "test-run-id",
+                "findings": [],
+                "summary": {},
+                "baseline_delta": None,
+                "graphify_version": "ast-fallback",
+            }
+        )
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(clean_fixture),
+                    "--severity-threshold",
+                    "MAJOR",
+                    "--exit-nonzero-on-findings",
+                ]
+            )
+
+        assert rc == 0
+
+    def test_exit_one_on_findings_with_flag(
+        self, critical_finding_fixture: Path
+    ) -> None:
+        """Script exits 1 when findings at or above threshold and --exit-nonzero-on-findings is set."""
+        from run_dep_health_sweep import main
+
+        mock_finding = MagicMock()
+        mock_finding.severity = MagicMock()
+        mock_finding.severity.value = "CRITICAL"
+
+        mock_result = MagicMock()
+        mock_result.findings = [mock_finding]
+        mock_result.status = "findings"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {"MISSING_TOPIC_EDGE": 1}
+        mock_result.baseline_delta = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(
+            return_value={
+                "status": "findings",
+                "run_id": "test-run-id",
+                "findings": [{"severity": "CRITICAL"}],
+                "summary": {"MISSING_TOPIC_EDGE": 1},
+                "baseline_delta": None,
+                "graphify_version": "ast-fallback",
+            }
+        )
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(critical_finding_fixture),
+                    "--severity-threshold",
+                    "MAJOR",
+                    "--exit-nonzero-on-findings",
+                ]
+            )
+
+        assert rc == 1
+
+    def test_exit_zero_on_findings_without_flag(
+        self, critical_finding_fixture: Path
+    ) -> None:
+        """Script exits 0 when findings exist but --exit-nonzero-on-findings is not set."""
+        from run_dep_health_sweep import main
+
+        mock_finding = MagicMock()
+        mock_finding.severity = MagicMock()
+        mock_finding.severity.value = "CRITICAL"
+
+        mock_result = MagicMock()
+        mock_result.findings = [mock_finding]
+        mock_result.status = "findings"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {"MISSING_TOPIC_EDGE": 1}
+        mock_result.baseline_delta = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(
+            return_value={
+                "status": "findings",
+                "run_id": "test-run-id",
+                "findings": [{"severity": "CRITICAL"}],
+                "summary": {"MISSING_TOPIC_EDGE": 1},
+                "baseline_delta": None,
+                "graphify_version": "ast-fallback",
+            }
+        )
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(critical_finding_fixture),
+                    "--severity-threshold",
+                    "MAJOR",
+                ]
+            )
+
+        assert rc == 0
+
+    def test_output_is_valid_json(
+        self, clean_fixture: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Script output is parseable JSON."""
+        from run_dep_health_sweep import main
+
+        mock_result = MagicMock()
+        mock_result.findings = []
+        mock_result.status = "clean"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {}
+        mock_result.baseline_delta = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(
+            return_value={
+                "status": "clean",
+                "run_id": "test-run-id",
+                "findings": [],
+                "summary": {},
+                "baseline_delta": None,
+                "graphify_version": "ast-fallback",
+            }
+        )
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            main(
+                [
+                    "--repo-roots",
+                    str(clean_fixture),
+                    "--severity-threshold",
+                    "MAJOR",
+                ]
+            )
+
+        captured = capsys.readouterr()
+        # Output should be valid JSON
+        parsed = json.loads(captured.out)
+        assert isinstance(parsed, dict)
+        assert "status" in parsed
+
+    def test_exit_two_on_ast_fallback_failure(self, tmp_path: Path) -> None:
+        """Script exits 2 when AST fallback itself fails."""
+        from run_dep_health_sweep import main
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.side_effect = RuntimeError(
+                "AST parse failure"
+            )
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "MAJOR",
+                    "--exit-nonzero-on-findings",
+                ]
+            )
+
+        assert rc == 2
+
+    def test_below_threshold_findings_exit_zero(self, tmp_path: Path) -> None:
+        """Script exits 0 when only findings below threshold exist."""
+        from run_dep_health_sweep import main
+
+        mock_finding = MagicMock()
+        mock_finding.severity = MagicMock()
+        mock_finding.severity.value = "MINOR"  # below MAJOR threshold
+
+        mock_result = MagicMock()
+        mock_result.findings = [mock_finding]
+        mock_result.status = "findings"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {"DEAD_IMPORT": 1}
+        mock_result.baseline_delta = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(
+            return_value={
+                "status": "findings",
+                "run_id": "test-run-id",
+                "findings": [{"severity": "MINOR"}],
+                "summary": {"DEAD_IMPORT": 1},
+                "baseline_delta": None,
+                "graphify_version": "ast-fallback",
+            }
+        )
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "MAJOR",
+                    "--exit-nonzero-on-findings",
+                ]
+            )
+
+        assert rc == 0
+
+    def test_delta_mode_requires_baseline_path_before_handler(
+        self, tmp_path: Path
+    ) -> None:
+        """Delta mode fails fast before invoking the handler when no baseline is supplied."""
+        from run_dep_health_sweep import main
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "MAJOR",
+                    "--delta-mode",
+                ]
+            )
+
+        assert rc == 2
+        mock_handler.assert_not_called()
+
+    def test_delta_mode_blocks_on_new_findings_despite_negative_net_delta(
+        self, tmp_path: Path
+    ) -> None:
+        """A stale baseline that banks many resolved findings must not mask
+        genuinely new findings behind a negative net baseline_delta
+        (OMN-19677). Reproduces the planted-CRITICAL scenario: 1 new finding,
+        566 resolved, net delta -565 -- the gate must still block.
+        """
+        from run_dep_health_sweep import main
+
+        baseline_path = tmp_path / "baseline.json"
+        baseline_path.write_text("{}", encoding="utf-8")
+
+        mock_result = MagicMock()
+        mock_result.findings = [MagicMock()]
+        mock_result.status = "findings"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {"MISSING_TOPIC_EDGE": 1}
+        mock_result.baseline_delta = -565
+        mock_result.new_findings_count = 1
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(return_value={"status": "findings"})
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "CRITICAL",
+                    "--baseline-path",
+                    str(baseline_path),
+                    "--delta-mode",
+                ]
+            )
+
+        assert rc == 1
+
+    def test_real_delta_mode_blocks_new_finding_despite_negative_net_delta(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The real sweep blocks one new CRITICAL hidden by five stale findings."""
+        from run_dep_health_sweep import main
+
+        repo_root, baseline_path = _write_real_delta_fixture(
+            tmp_path, include_planted_topic=True
+        )
+
+        rc = main(
+            [
+                "--repo-roots",
+                str(repo_root),
+                "--severity-threshold",
+                "CRITICAL",
+                "--baseline-path",
+                str(baseline_path),
+                "--delta-mode",
+            ]
+        )
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert rc == 1
+        assert output["baseline_delta"] < 0
+        assert output["new_findings_count"] == 1
+        assert "1 new finding(s)" in captured.err
+
+    def test_real_delta_mode_passes_with_only_resolved_stale_findings(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The real sweep passes when the stale baseline has no new finding."""
+        from run_dep_health_sweep import main
+
+        repo_root, baseline_path = _write_real_delta_fixture(
+            tmp_path, include_planted_topic=False
+        )
+
+        rc = main(
+            [
+                "--repo-roots",
+                str(repo_root),
+                "--severity-threshold",
+                "CRITICAL",
+                "--baseline-path",
+                str(baseline_path),
+                "--delta-mode",
+            ]
+        )
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert rc == 0
+        assert output["baseline_delta"] < 0
+        assert output["new_findings_count"] == 0
+        assert captured.err == ""
+
+    def test_delta_mode_passes_when_no_new_findings_even_if_delta_negative(
+        self, tmp_path: Path
+    ) -> None:
+        """No newly introduced findings -> exit 0, even with resolved findings
+        making baseline_delta negative."""
+        from run_dep_health_sweep import main
+
+        baseline_path = tmp_path / "baseline.json"
+        baseline_path.write_text("{}", encoding="utf-8")
+
+        mock_result = MagicMock()
+        mock_result.findings = []
+        mock_result.status = "clean"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {}
+        mock_result.baseline_delta = -2
+        mock_result.new_findings_count = 0
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(return_value={"status": "clean"})
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "CRITICAL",
+                    "--baseline-path",
+                    str(baseline_path),
+                    "--delta-mode",
+                ]
+            )
+
+        assert rc == 0
+
+    def test_delta_mode_exit_two_when_new_findings_count_missing(
+        self, tmp_path: Path
+    ) -> None:
+        """new_findings_count is None (e.g. an unparseable baseline that the
+        engine treated as absent) still fails closed."""
+        from run_dep_health_sweep import main
+
+        baseline_path = tmp_path / "baseline.json"
+        baseline_path.write_text("{}", encoding="utf-8")
+
+        mock_result = MagicMock()
+        mock_result.findings = []
+        mock_result.status = "clean"
+        mock_result.run_id = "test-run-id"
+        mock_result.summary = {}
+        mock_result.baseline_delta = None
+        mock_result.new_findings_count = None
+        mock_result.graphify_version = "ast-fallback"
+        mock_result.model_dump = MagicMock(return_value={"status": "clean"})
+
+        with patch("run_dep_health_sweep.HandlerDepHealthSweep") as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
+            rc = main(
+                [
+                    "--repo-roots",
+                    str(tmp_path),
+                    "--severity-threshold",
+                    "CRITICAL",
+                    "--baseline-path",
+                    str(baseline_path),
+                    "--delta-mode",
+                ]
+            )
+
+        assert rc == 2

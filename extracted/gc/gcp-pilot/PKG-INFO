@@ -1,0 +1,127 @@
+Metadata-Version: 2.4
+Name: gcp-pilot
+Version: 1.41.0
+Summary: Google Cloud Platform Friendly Pilot
+Author-email: Joao Daher <joao@daher.dev>
+Maintainer: Rodolfo Stangherlin, Diego Freire, Guilherme Araujo, Lucas Gomide
+License-File: LICENSE.md
+Keywords: firestore orm,gcp,google cloud python
+Requires-Python: >=3.11
+Requires-Dist: factory-boy>=3.3.1
+Requires-Dist: google-api-python-client>=2.154.0
+Requires-Dist: pytz>=2024.2
+Requires-Dist: tenacity>=9.0.0
+Provides-Extra: bigquery
+Requires-Dist: google-cloud-bigquery>=3.27.0; extra == 'bigquery'
+Requires-Dist: google-cloud-storage>=2.19.0; extra == 'bigquery'
+Provides-Extra: build
+Requires-Dist: google-cloud-build>=3.27.1; extra == 'build'
+Provides-Extra: datastore
+Requires-Dist: google-cloud-datastore>=2.20.1; extra == 'datastore'
+Requires-Dist: pydantic>=2.10.3; extra == 'datastore'
+Provides-Extra: dns
+Requires-Dist: google-cloud-dns>=0.35.0; extra == 'dns'
+Provides-Extra: firestore
+Requires-Dist: google-cloud-firestore>=2.20.1; extra == 'firestore'
+Requires-Dist: pydantic>=2.10.3; extra == 'firestore'
+Provides-Extra: healthcare
+Requires-Dist: fhir-resources>=7.1.0; extra == 'healthcare'
+Provides-Extra: iam
+Requires-Dist: google-cloud-iam>=2.16.1; extra == 'iam'
+Provides-Extra: monitoring
+Requires-Dist: google-cloud-error-reporting>=1.11.1; extra == 'monitoring'
+Requires-Dist: google-cloud-logging>=3.11.3; extra == 'monitoring'
+Provides-Extra: pubsub
+Requires-Dist: google-cloud-pubsub>=2.27.1; extra == 'pubsub'
+Provides-Extra: secret
+Requires-Dist: google-cloud-secret-manager>=2.21.1; extra == 'secret'
+Provides-Extra: sheets
+Requires-Dist: gspread>=6.1.4; extra == 'sheets'
+Provides-Extra: speech
+Requires-Dist: google-cloud-speech>=2.28.1; extra == 'speech'
+Provides-Extra: storage
+Requires-Dist: google-cloud-storage>=2.19.0; extra == 'storage'
+Provides-Extra: tasks
+Requires-Dist: google-cloud-scheduler>=2.14.1; extra == 'tasks'
+Requires-Dist: google-cloud-tasks>=2.17.1; extra == 'tasks'
+Description-Content-Type: text/markdown
+
+![PyPI - Downloads](https://img.shields.io/pypi/dm/gcp-pilot)
+
+![Github CI](https://github.com/flamingo-run/gcp-pilot/workflows/Github%20CI/badge.svg)
+[![Maintainability](https://qlty.sh/badges/e65aa986-7aeb-436c-9340-9aa19ef3edaa/maintainability.svg)](https://qlty.sh/gh/flamingo-run/projects/gcp-pilot)
+[![Code Coverage](https://qlty.sh/badges/e65aa986-7aeb-436c-9340-9aa19ef3edaa/test_coverage.svg)](https://qlty.sh/gh/flamingo-run/projects/gcp-pilot)
+
+[![python](https://img.shields.io/badge/python-3.11-blue.svg)]() [![python](https://img.shields.io/badge/python-3.12-blue.svg)]() [![python](https://img.shields.io/badge/python-3.13-blue.svg)]()
+
+# Google Cloud Pilot
+
+Google Cloud Pilot (gcp-pilot) is a Python library that simplifies interaction with Google Cloud Platform services. It provides a high-level, user-friendly interface to various GCP APIs, handling authentication, error management, and parameter fallback automatically.
+
+## Documentation
+
+**Full documentation is available at [gcp-pilot.flamingo.codes](https://gcp-pilot.flamingo.codes)**
+
+## Installation
+
+```bash
+pip install gcp-pilot
+```
+
+Some APIs need extra packages, thus you must use `extras` to add them:
+
+- Cloud Tasks: `pip install gcp-pilot[tasks]`
+- Cloud Build: `pip install gcp-pilot[build]`
+- Cloud Storage: `pip install gcp-pilot[storage]`
+- Big Query: `pip install gcp-pilot[bigquery]`
+- Speech: `pip install gcp-pilot[speech]`
+- Sheets: `pip install gcp-pilot[sheets]`
+- Pub/Sub: `pip install gcp-pilot[pubsub]`
+- Datastore: `pip install gcp-pilot[datastore]`
+- Firestore: `pip install gcp-pilot[firestore]`
+- Cloud DNS: `pip install gcp-pilot[dns]`
+- Secret Manager: `pip install gcp-pilot[secret]`
+- Healthcare Engine: `pip install gcp-pilot[healthcare]`
+- IAM: `pip install gcp-pilot[iam]`
+
+## Basic Usage
+
+```python
+from gcp_pilot.resource import ResourceManager
+
+grm = ResourceManager()
+```
+
+## Key Features
+
+- **Parameter Fallback**: Automatically detects project_id and location based on your credentials
+- **Friendly Errors**: Converts generic HttpExceptions into more specific exceptions like NotFound, AlreadyExists, etc.
+- **Auto-Authorization**: Sets up required permissions for services that need specific authorizations
+- **Integration**: Seamlessly integrates different GCP services
+- **Authentication Handling**: Uses Application Default Credentials with support for impersonation and delegation
+
+### Firestore ORM
+
+A powerful and intuitive Object-Relational Mapper (ORM) for Google Firestore.
+
+- **Model-Based Structure**: Define your Firestore collections and documents as Python classes.
+- **Intuitive Querying**: Build complex queries using a chained, Django-like syntax.
+- **Built-in Pagination**: Easily paginate through large datasets.
+- **Atomic Operations**: Support for transactions to ensure data consistency.
+- **Subcollections**: Seamlessly work with nested data structures.
+
+You can read more at the [Firestore ORM Documentation](https://gcp-pilot.flamingo.codes/services/firestore).
+
+## Supported Services
+
+gcp-pilot supports a wide range of Google Cloud Platform services, including:
+
+- IAM and Identity Management
+- Storage and Databases (Cloud Storage, BigQuery, Datastore, Firestore, etc.)
+- Compute and Serverless (Cloud Functions, Cloud Run, App Engine)
+- Messaging and Integration (Pub/Sub, Cloud Tasks, Cloud Scheduler)
+- DevOps and CI/CD (Cloud Build, Source Repositories)
+- Monitoring and Logging
+- Google Workspace Integration (Directory, Calendar, Sheets, etc.)
+
+For detailed documentation on each service, please refer to the [documentation site](https://github.com/flamingo-run/gcp-pilot/tree/main/docs).

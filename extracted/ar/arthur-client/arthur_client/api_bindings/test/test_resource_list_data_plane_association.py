@@ -61,7 +61,8 @@ class TestResourceListDataPlaneAssociation(unittest.TestCase):
                             name = '', 
                             description = '', 
                             workspace_id = '', 
-                            total_artifacts = 56, ), )
+                            total_artifacts = 56, 
+                            system_project = True, ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -97,7 +98,8 @@ class TestResourceListDataPlaneAssociation(unittest.TestCase):
                             name = '', 
                             description = '', 
                             workspace_id = '', 
-                            total_artifacts = 56, ), )
+                            total_artifacts = 56, 
+                            system_project = True, ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

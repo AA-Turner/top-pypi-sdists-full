@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-ipware
-Version: 4.1.0
+Version: 4.1.1
 Summary: A Python package to retrieve a client's real IP address.
 Project-URL: Homepage, https://github.com/un33k/python-ipware
 Project-URL: Documentation, https://github.com/un33k/python-ipware#readme

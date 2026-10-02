@@ -1,8 +1,8 @@
-"""The facial-recognition client: two platform routes and ten on a sidecar.
+"""The facial-recognition client: two platform routes and nine on a sidecar.
 
-Twelve routes, and the split inside them is the thing to understand first.
+Eleven routes, and the split inside them is the thing to understand first.
 
-**Two of the twelve are platform routes** -- ``/v1/actions/get_facial_recognition_server``
+**Two of the eleven are platform routes** -- ``/v1/actions/get_facial_recognition_server``
 and ``/v1/actions/update_facial_recognition_deployment``. They are ``/v1/actions/`` by prefix,
 which is :class:`~.analytics_client.AnalyticsClient`'s territory, and FR's by **ownership**:
 both are keyed by ``server_id``, which only this client holds. A route belongs to the client
@@ -10,7 +10,7 @@ that owns the id it is keyed by. Moving these two into ``AnalyticsClient`` would
 ``server_id`` into a client whose stated property is *"needs no project"* -- exactly the
 coupling the three-way split exists to avoid.
 
-**The other ten go to the sidecar**, at an address this client learns from the first of those
+**The other nine go to the sidecar**, at an address this client learns from the first of those
 two routes. You use the platform to find the sidecar, so a sidecar lookup cannot come from the
 sidecar.
 
@@ -37,8 +37,8 @@ ticket's to change, but the path built here does not have the defect to begin wi
 Unwrap is bound per route, never per client
 ===========================================
 
-Ten routes here answer with the sidecar's envelope and two with the platform's, so a client
-that bound one unwrap for all twelve would be wrong twice. The two forms are **identical on a
+Nine routes here answer with the sidecar's envelope and two with the platform's, so a client
+that bound one unwrap for all eleven would be wrong twice. The two forms are **identical on a
 successful reply** -- both hand back ``data`` -- and diverge only on a reply carrying no
 envelope, which the sidecar form accepts as the payload itself because one of its routes
 genuinely answers that way. Bound the wrong way round, a malformed platform reply validates
@@ -63,7 +63,6 @@ from .models import (
     FacialRecognitionServer,
     HealthStatus,
     PeopleActivityRequest,
-    RedisDetails,
     ServiceShutdownRequest,
     ServiceShutdownResult,
     SimilarFaceMatch,
@@ -151,7 +150,6 @@ class FRClient:
     STAFF_EMBEDDINGS = "/v1/facial_recognition/get_all_staff_embeddings"
     ENROLL_UNKNOWN = "/v1/facial_recognition/enroll_unknown_person"
     HEALTH = "/v1/facial_recognition/health"
-    REDIS_DETAILS = "/v1/facial_recognition/get_redis_details"
 
     def __init__(
         self,
@@ -759,28 +757,6 @@ class FRClient:
             what=f"the health of the facial-recognition sidecar on server {self.server_id}",
             unwrap=unwrap_fr_sidecar,
             validate=HealthStatus.model_validate,
-            base_url=self._require_base_url(),
-        )
-
-    async def fetch_redis_details(self) -> Optional[RedisDetails]:
-        """The Redis the sidecar publishes its matches to.
-
-        **The one sidecar route with no query string at all.** There is one Redis per sidecar,
-        so neither the project nor the server id narrows the answer.
-
-        Returns:
-            The details, or ``None`` when the sidecar answers with no payload.
-
-        Raises:
-            CallFailure: There is no session or no sidecar address, or the call failed.
-        """
-        return await _rpc_sent(
-            self._require_session(),
-            "GET",
-            self.REDIS_DETAILS,
-            what=f"the Redis details for the sidecar on server {self.server_id}",
-            unwrap=unwrap_fr_sidecar,
-            validate=RedisDetails.model_validate,
             base_url=self._require_base_url(),
         )
 

@@ -3,6 +3,7 @@
 #
 
 import copy
+import json
 import os
 import shutil
 import uuid
@@ -124,6 +125,9 @@ from snowflake.snowpark_connect.type_mapping import (
     snowpark_to_iceberg_type,
 )
 from snowflake.snowpark_connect.type_support import is_integral_types_conversion_enabled
+from snowflake.snowpark_connect.utils.cld_context import (
+    catalog_kind as resolve_catalog_kind,
+)
 from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
     should_skip_file_read_cache_result,
@@ -476,6 +480,170 @@ def _iceberg_merge_schema_enabled(
         if kl == "mergeschema":
             return str_to_bool(str(v))
     return str_to_bool(session_config.get("spark.sql.iceberg.merge-schema", "false"))
+
+
+# SNOW-3776650: the Iceberg table property that, per Spark/Iceberg, must be set
+# on the target table (in addition to the mergeSchema write option) before a
+# write is allowed to evolve the schema.
+_ACCEPT_ANY_SCHEMA_PROPERTY_KEY = "write.spark.accept-any-schema"
+_REQUIRE_ACCEPT_ANY_SCHEMA_CONFIG_KEY = (
+    "snowpark.connect.iceberg.require_accept_any_schema_for_merge"
+)
+
+
+def _require_accept_any_schema_for_merge_enabled(session_config: SessionConfig) -> bool:
+    """Return True when a mergeSchema write must also see
+    ``write.spark.accept-any-schema=true`` on the target table before evolving
+    the schema (SNOW-3776650). Default False keeps the mergeSchema option alone
+    driving evolution, so behavior is unchanged unless the config is opted in.
+
+    Session-scoped (read from ``session_config``) like its sibling
+    ``spark.sql.iceberg.merge-schema`` — a ``spark.conf.set`` in one session must
+    not tighten mergeSchema for every other session on the server.
+    """
+    return str_to_bool(
+        str(session_config.get(_REQUIRE_ACCEPT_ANY_SCHEMA_CONFIG_KEY, "false"))
+    )
+
+
+def _accept_any_schema_from_bag(bag: dict[str, str]) -> bool | None:
+    """Return the ``write.spark.accept-any-schema`` value from a property/option
+    bag, or None when the key is absent.
+
+    Matches the bare and ``iceberg.``-prefixed forms with the same
+    normalization-insensitive comparison as :func:`_normalize_table_property_key`
+    (so ``write.spark.accept_any_schema`` etc. also match), and — when both aliases
+    are present with different values — prefers the bare Iceberg key.
+    """
+    bare_key = _normalize_table_property_key(_ACCEPT_ANY_SCHEMA_PROPERTY_KEY)
+    prefixed_key = _normalize_table_property_key(
+        f"iceberg.{_ACCEPT_ANY_SCHEMA_PROPERTY_KEY}"
+    )
+    bare_val: str | None = None
+    prefixed_val: str | None = None
+    for k, v in bag.items():
+        nk = _normalize_table_property_key(k)
+        if nk == bare_key:
+            bare_val = v
+        elif nk == prefixed_key:
+            prefixed_val = v
+    chosen = bare_val if bare_val is not None else prefixed_val
+    if chosen is None:
+        return None
+    # Iceberg boolean properties are case-insensitive; normalize so
+    # "TRUE"/"True"/"true" all resolve (str_to_bool is strict).
+    return str_to_bool(str(chosen).strip().lower())
+
+
+def _iceberg_table_metadata_database(snowpark_table_name: str) -> str | None:
+    """Return the database identifier (with original quoting) from a Snowflake
+    fully-qualified ``DB.SCHEMA.TABLE`` name, splitting on the first top-level dot
+    (dots inside double-quoted identifiers are ignored). ``INFORMATION_SCHEMA`` is
+    database-scoped, so the metadata table function must be qualified with the
+    table's own database — this matters for CLD, where the current database is not
+    the catalog database.
+    """
+    in_quotes = False
+    for i, ch in enumerate(snowpark_table_name):
+        if ch == '"':
+            in_quotes = not in_quotes
+        elif ch == "." and not in_quotes:
+            return snowpark_table_name[:i]
+    return None
+
+
+def _read_iceberg_table_properties_via_metadata(
+    session: snowpark.Session, snowpark_table_name: str
+) -> dict[str, str]:
+    """Return the committed Iceberg ``properties`` map for an existing table, read
+    from ``INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA`` (the metadata.json properties
+    map — where forwarded table properties actually land; ``GET_DDL`` only emits the
+    dedicated EXTERNAL_VOLUME / CATALOG / ICEBERG_VERSION clauses). Returns ``{}``
+    when the table or its metadata is absent.
+
+    Best-effort by design: a missing table, or a catalog that does not expose the
+    metadata table function (some CLD / REST catalogs), returns ``{}`` rather than
+    raising, so a ``mergeSchema`` write is never aborted by this read-back
+    (SNOW-3776650).
+    """
+    db = _iceberg_table_metadata_database(snowpark_table_name)
+    func = (
+        f"{db}.INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?)"
+        if db
+        else "INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?)"
+    )
+    try:
+        rows = session.sql(
+            f"SELECT METADATA FROM TABLE({func})", params=[snowpark_table_name]
+        ).collect()
+    except SnowparkSQLException as e:
+        logger.debug(
+            "accept-any-schema read-back skipped for %s: %s (%s)",
+            snowpark_table_name,
+            getattr(e, "sql_error_code", None),
+            type(e).__name__,
+        )
+        return {}
+    metadata = rows[0][0] if rows else None
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except (ValueError, TypeError):
+            return {}
+    if not isinstance(metadata, dict):
+        return {}
+    props = metadata.get("properties")
+    return props if isinstance(props, dict) else {}
+
+
+def _iceberg_accept_any_schema_enabled(
+    session: snowpark.Session,
+    snowpark_table_name: str,
+    request_props: dict[str, str],
+    options: dict[str, str],
+    honor_request_bag: bool,
+) -> bool:
+    """Resolve ``write.spark.accept-any-schema`` for the write target (SNOW-3776650).
+
+    Spark/Iceberg reads the property from the *target table*. For create /
+    createOrReplace / overwrite-that-recreates (``honor_request_bag=True``) the
+    write's own options/table_properties define the new table, so they are the
+    source (covers create-then-write in one call). For append / overwrite-into-
+    existing, the request bag must NOT win over the table — the persisted property
+    is read back from the existing table instead.
+    """
+    if honor_request_bag:
+        for bag in (options, request_props):
+            value = _accept_any_schema_from_bag(bag)
+            if value is not None:
+                return value
+        return False
+    props = _read_iceberg_table_properties_via_metadata(session, snowpark_table_name)
+    value = _accept_any_schema_from_bag(props)
+    return value if value is not None else False
+
+
+def _resolve_iceberg_merge_schema(
+    session: snowpark.Session,
+    snowpark_table_name: str,
+    request_props: dict[str, str],
+    options: dict[str, str],
+    session_config: SessionConfig,
+    honor_request_bag: bool,
+) -> bool:
+    """Effective mergeSchema for an Iceberg write. Always requires the mergeSchema
+    option/config; when ``require_accept_any_schema_for_merge`` is on, also
+    requires ``write.spark.accept-any-schema=true`` on the target table — matching
+    Spark/Iceberg, which needs both (SNOW-3776650). ``honor_request_bag`` selects
+    where the property is read (see :func:`_iceberg_accept_any_schema_enabled`).
+    """
+    if not _iceberg_merge_schema_enabled({**request_props, **options}, session_config):
+        return False
+    if not _require_accept_any_schema_for_merge_enabled(session_config):
+        return True
+    return _iceberg_accept_any_schema_enabled(
+        session, snowpark_table_name, request_props, options, honor_request_bag
+    )
 
 
 def _session_config_for_write() -> SessionConfig:
@@ -1487,8 +1655,16 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 iceberg_config.get("iceberg_version") if iceberg_config else None
             )
             session_conf = _session_config_for_write()
-            merge_schema = _iceberg_merge_schema_enabled(
-                cld_create_options, session_conf
+            # SNOW-3776650: only create-like V1 writes define the new table, so
+            # honor the request bag's accept-any-schema then. `append` (incl.
+            # insertInto) targets an existing table — read the persisted property.
+            merge_schema = _resolve_iceberg_merge_schema(
+                session,
+                schema_table_name,
+                cld_create_options,
+                cld_create_options,
+                session_conf,
+                honor_request_bag=write_mode != "append",
             )
 
             # Forward Iceberg write options to GS via SPARK_RW_OPTIONS.
@@ -1504,7 +1680,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 telemetry.report_iceberg_write_options(
                     op=_ICEBERG_WRITE_OPTIONS_V1_OP.get(write_mode, "create"),
                     keys=_write_option_keys,
-                    catalog_kind="cld" if is_cld else "managed",
+                    catalog_kind=resolve_catalog_kind(),
                 )
 
             # Fetch once here; all write_mode branches consume it so we avoid
@@ -2158,7 +2334,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             telemetry.report_iceberg_write_options(
                 op=_ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
                 keys=_write_option_keys,
-                catalog_kind="cld" if is_cld else "managed",
+                catalog_kind=resolve_catalog_kind(),
             )
 
     # FDN tables have no user-defined partitioning; reject partitionedBy
@@ -2212,9 +2388,21 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         else None
     )
     merge_schema = (
-        _iceberg_merge_schema_enabled(
-            {**dict(write_op.table_properties), **dict(write_op.options)},
+        _resolve_iceberg_merge_schema(
+            session,
+            schema_table_name,
+            dict(write_op.table_properties),
+            dict(write_op.options),
             _session_config_for_write(),
+            # SNOW-3776650: CREATE / REPLACE / CREATE_OR_REPLACE define the new
+            # table, so honor the request bag's accept-any-schema. APPEND /
+            # OVERWRITE target an existing table — read the persisted property.
+            honor_request_bag=write_op.mode
+            in (
+                commands_proto.WriteOperationV2.MODE_CREATE,
+                commands_proto.WriteOperationV2.MODE_REPLACE,
+                commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE,
+            ),
         )
         if is_iceberg
         else False
@@ -2244,10 +2432,13 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     # SNOW-3974371: when forwarding is on, leave the 1P keys in the options bag so
     # they forward verbatim inside TABLE_PROPERTIES (GS owns the mapping) and skip
     # the dedicated COMMENT clause. Otherwise translate them client-side as before.
+    # Forwarding is Iceberg-only: an FDN table never emits TABLE_PROPERTIES, so its
+    # `comment` must always translate to the COMMENT clause regardless of the gate
+    # (otherwise the comment is silently dropped).
     # ``table_format_version`` stays a single guarded ternary: with forwarding on
     # the gated ``_extract_iceberg_format_version`` already leaves iceberg_config
     # without an ``iceberg_version`` key, so it resolves to None here too.
-    if _iceberg_table_properties_ddl_enabled():
+    if is_iceberg and _iceberg_table_properties_ddl_enabled():
         table_comment = None
     else:
         table_comment = cld_create_options.pop("comment", None)
@@ -2297,7 +2488,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     if is_iceberg:
         telemetry.report_iceberg_write_v2(
             _ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
-            catalog_kind="cld" if is_cld else "managed",
+            catalog_kind=resolve_catalog_kind(),
             partitioned_by=bool(write_op.partitioning_columns),
             table_property=bool(write_op.table_properties),
         )
@@ -3618,11 +3809,35 @@ _ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY = (
 def _iceberg_table_properties_ddl_enabled() -> bool:
     """Return True when the client-side gate for TABLE_PROPERTIES(...) emission on
     CREATE / ALTER ICEBERG TABLE is enabled via the config
-    ``snowpark.connect.iceberg.enable_table_properties_ddl`` (default False,
-    settable with ``spark.conf.set``). No Snowflake round trip.
+    ``snowpark.connect.iceberg.enable_table_properties_ddl`` (default False while
+    the GS-side rollout is pending; settable with ``spark.conf.set``). No Snowflake
+    round trip.
     """
     return str_to_bool(
         str(global_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "false"))
+    )
+
+
+_ERROR_ON_NON_ATOMIC_UNMANAGED_OVERWRITE_CONFIG_KEY = (
+    "snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite"
+)
+
+
+def _error_on_non_atomic_unmanaged_overwrite_enabled() -> bool:
+    """Return True when an atomic overwrite / overwrite-partitions on an unmanaged
+    (CLD / external-catalog) Iceberg table that GS rejects as a multi-statement
+    transaction (091586) should raise instead of falling back to a non-atomic
+    DELETE + APPEND. Gated by
+    ``snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite`` (default
+    True, settable with ``spark.conf.set``); set to "false" to restore the
+    non-atomic fallback. No Snowflake round trip.
+    """
+    return str_to_bool(
+        str(
+            global_config.get(
+                _ERROR_ON_NON_ATOMIC_UNMANAGED_OVERWRITE_CONFIG_KEY, "true"
+            )
+        )
     )
 
 
@@ -3966,7 +4181,10 @@ def _create_cld_iceberg_table(
         if table_properties:
             parts.append(table_properties)
             telemetry.report_iceberg_table_properties(
-                op, leftover_keys, outcome="emitted", catalog_kind="cld"
+                op,
+                leftover_keys,
+                outcome="emitted",
+                catalog_kind=resolve_catalog_kind(),
             )
     elif leftover_keys:
         telemetry.report_iceberg_table_properties(
@@ -3974,7 +4192,7 @@ def _create_cld_iceberg_table(
             leftover_keys,
             outcome="dropped",
             detail="ddl_gate_off",
-            catalog_kind="cld",
+            catalog_kind=resolve_catalog_kind(),
         )
     # Keys mapped to a dedicated clause (ICEBERG_VERSION, EXTERNAL_VOLUME, ...) took
     # effect but not as TABLE_PROPERTIES; record them as emitted/consumed_by_clause
@@ -3984,7 +4202,7 @@ def _create_cld_iceberg_table(
         _consumed_table_property_keys(options),
         outcome="emitted",
         detail="consumed_by_clause",
-        catalog_kind="cld",
+        catalog_kind=resolve_catalog_kind(),
     )
 
     if comment:
@@ -4140,7 +4358,7 @@ def _reject_max_snapshot_age_for_cld(
             ["max-snapshot-age.ms"],
             outcome="rejected",
             detail="max_snapshot_age",
-            catalog_kind="cld",
+            catalog_kind=resolve_catalog_kind(),
         )
         exception = AnalysisException(
             "The 'max-snapshot-age.ms' table property is not supported for "
@@ -4299,16 +4517,28 @@ def _overwrite_with_condition_and_cld_fallback(
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception from exc
 
-        # CLD (unmanaged) Iceberg tables reject the atomic DELETE+INSERT
-        # transaction (Snowflake error 091586: "Unmanaged Iceberg tables cannot
-        # be modified within a multi-statement transaction"). Fall back to a
-        # non-atomic targeted DELETE followed by an APPEND.
+        # Unmanaged (CLD / external-catalog) Iceberg 091586 rejection.
+        if _error_on_non_atomic_unmanaged_overwrite_enabled():
+            # Default: fail fast rather than silently doing the non-atomic
+            # DELETE + APPEND (which can leave rows missing if the APPEND fails
+            # after the DELETE commits). Consistent with the non-091586 branch
+            # above, we raise directly without a rollback. Set
+            # snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite=false
+            # to restore the fallback.
+            exception = AnalysisException(
+                f"Overwrite of unmanaged (external-catalog) Iceberg table "
+                f"{snowpark_table_name} is not supported yet. Set "
+                f"'snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite'"
+                f" to 'false' to fall back to a non-atomic DELETE + APPEND."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception from exc
+
+        # Fallback path (flag off): a non-atomic targeted DELETE followed by an
+        # APPEND.
         #
-        # The rejected atomic write is compiled as BEGIN TRANSACTION; DELETE;
-        # INSERT; COMMIT run as separate statements. BEGIN succeeded and the
-        # DELETE then failed, so the transaction is left OPEN on the session;
-        # without this ROLLBACK the fallback DML below runs inside that same
-        # transaction and hits 091586 again.
+        # Without the ROLLBACK below the fallback DML would run inside the still-open
+        # transaction and hit 091586 again.
         logger.warning(
             "Unmanaged (CLD) Iceberg table %s rejected the atomic "
             "overwrite-with-condition write (Snowflake error 091586 — "

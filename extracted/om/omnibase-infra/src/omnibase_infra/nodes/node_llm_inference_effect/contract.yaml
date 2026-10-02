@@ -1,0 +1,221 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-8735: handler constructor compliance refactor (2026-04-15)
+# OMN-12816: additive extra_body passthrough — provider-specific request-body
+#   fields (e.g. chat_template_kwargs.enable_thinking) merged in _build_payload
+#   without overriding declared fields (2026-06-07)
+# OMN-13204: HandlerLlmOpenaiCompatible Protocol Conformance Note corrected to
+#   the real protocol I/O types — ProtocolHandler.execute(ModelProtocolRequest)
+#   -> ModelProtocolResponse and ProtocolMessageHandler.handle(ModelEventEnvelope)
+#   -> ModelHandlerOutput — replacing the deleted ModelOnexEnvelope reference
+#   (B5 residual of OMN-13196; deploy-gate runtime-path docstring edit, behavior
+#   unchanged). (2026-06-17)
+# OMN-15115: HandlerLlmOpenaiCompatible accepts per-request max_retries and the
+#   OpenAI-compatible request model permits timeout_seconds up to 1800s for slow
+#   local endpoints measured below the old 600s ceiling. (2026-07-25)
+# OMN-15959: HandlerLlmCliSubprocess and its inference.{gemini,claude,opencode}_cli
+#   shell-out operations were DELETED. OMN-13250 (Phase D) claimed this handler
+#   was already stripped to HTTP-only; it was not — the file, its 3 operations,
+#   and 40 tests were still live. The sanctioned CLI shell-out surface is
+#   node_coding_agent_invoke_effect (descriptor.agent_invocation: true) only.
+#   (2026-08-12)
+# OMN-18385: the api-key field on ModelLlmInferenceCommand and on both
+#   ModelLlmInferenceRequest classes is now a secret-wrapped type rather than a
+#   plain string. Bumps PATCH: the wire shape is unchanged and a JSON string
+#   still validates; what changes is that a dump or repr of these models emits
+#   a mask instead of the key. The handler reads the real value at one unwrap
+#   point when it builds the outbound auth header. Note that provider_config is
+#   a free-form mapping and can still carry a key under a dict entry, which no
+#   field type reaches -- the dead-letter publisher's field-name redaction is
+#   what covers that case. (2026-09-14)
+# Copyright (c) 2026 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeLlmInferenceEffect
+#
+# This contract defines the interface for the LLM Inference Effect node,
+# which handles provider-agnostic LLM inference operations via delegated
+# handlers (OpenAI-compatible, GLM, Gemini).
+# Contract identifiers
+name: "node_llm_inference_effect"
+contract_name: "node_llm_inference_effect"
+node_name: "node_llm_inference_effect"
+contract_version:
+  major: 1
+  minor: 5
+  patch: 1
+node_version:
+  major: 0
+  minor: 1
+  patch: 0
+# Node type
+node_type: "EFFECT_GENERIC"
+# Description
+description: >
+  LLM inference effect node for provider-agnostic inference operations. Delegates to provider-specific handlers (OpenAI-compatible, GLM, Gemini) via declarative operation routing. Supports chat completions and text completions with tool calling, generation parameters, structured response parsing, and optional GPU usage evidence for local-model compute attribution using the shared EnumUsageSource vocabulary.
+
+runtime_profiles:
+  - effects
+# Strongly typed I/O models
+# Note: These models live in the shared omnibase_infra.models.llm package.
+# They are shared across all LLM inference handlers (OpenAI-compatible)
+# to ensure a single canonical request/response contract for the inference effect layer.
+# Migrated from omnibase_infra.nodes.effects.models (OMN-3989).
+input_model:
+  name: "ModelLlmInferenceRequest"
+  module: "omnibase_infra.models.llm"
+  description: "Input model containing LLM inference parameters, routing configuration, optional direct endpoint_url override, optional EnumUsageSource-backed compute usage provenance, and an optional additive extra_body map for provider-specific request-body fields (OMN-12816, e.g. chat_template_kwargs.enable_thinking)."
+output_model:
+  name: "ModelLlmInferenceResponse"
+  module: "omnibase_infra.models.llm"
+  description: "Output model containing inference result, usage, and tracing metadata."
+# =============================================================================
+# HANDLER ROUTING (Declarative Handler Dispatch)
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    # OpenAI-Compatible Inference Handler (vLLM, OpenAI, GLM/Z.AI)
+    - operation: "inference.command"
+      event_model:
+        name: "ModelLlmInferenceCommand"
+        module: "omnibase_infra.nodes.node_llm_inference_effect.models.model_llm_inference_command"
+      event_type: "omnibase-infra.llm-inference-request"
+      message_category: "COMMAND"
+      handler:
+        name: "HandlerLlmInferenceCommand"
+        module: "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_inference_command"
+        handler_type: "HTTP"
+      description: "Execute contract-wired LLM inference commands from the event bus"
+    - operation: "inference.openai_compatible"
+      handler:
+        name: "HandlerLlmOpenaiCompatible"
+        module: "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible"
+        handler_type: "HTTP"
+      description: "Execute LLM inference via OpenAI-compatible API (vLLM, OpenAI, GLM/Z.AI, etc.) with per-request timeout_seconds up to 1800s and max_retries passthrough."
+  execution_mode: "single"
+  max_timeout_seconds: 1800
+# =============================================================================
+# ERROR HANDLING (Circuit Breaker + Retry + Sanitization)
+# =============================================================================
+error_handling:
+  circuit_breaker:
+    enabled: true
+    per_backend: true
+    backends:
+      - name: "openai_compatible"
+        failure_threshold: 5
+        reset_timeout_ms: 60000
+        half_open_max_requests: 2
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 200
+    max_delay_ms: 10000
+    exponential_base: 2
+    retry_on:
+      - "InfraConnectionError"
+      - "InfraTimeoutError"
+      - "InfraUnavailableError"
+      - "InfraRateLimitedError"
+  error_sanitization:
+    enabled: true
+    utility: "omnibase_infra.utils.util_error_sanitization"
+    sanitize_patterns:
+      - "api_key"
+      - "token"
+      - "bearer"
+      - "authorization"
+      - "secret"
+      - "password"
+# =============================================================================
+# IO OPERATIONS (EFFECT node specific)
+# =============================================================================
+io_operations:
+  - operation: "inference.openai_compatible"
+    description: "Execute LLM inference via OpenAI-compatible API with per-request timeout and retry controls"
+# =============================================================================
+# EVENT BUS TOPICS
+# =============================================================================
+event_bus:
+  subscribe_topics:
+    - "onex.cmd.omnibase-infra.llm-inference-request.v1"
+  publish_topics:
+    - "onex.evt.omnibase-infra.inference-response.v1"
+    - "onex.evt.omniintelligence.llm-call-completed.v1"
+    - "onex.evt.omnibase-infra.llm-call-completed.v1"
+consumed_events:
+  - topic: "onex.cmd.omnibase-infra.llm-inference-request.v1"
+    event_type: "LlmInferenceRequestCommand"
+    message_category: "COMMAND"
+    description: "Inbound LLM inference request routed to handler via bifrost"
+published_events:
+  - topic: "onex.evt.omnibase-infra.inference-response.v1"
+    event_type: "LlmInferenceResponse"
+    description: "Content-bearing successful LLM inference response emitted directly from the effect node"
+    topic_config:
+      partitions: 3
+      replication_factor: 2
+      kafka_config:
+        "retention.ms": "604800000"
+        "cleanup.policy": "delete"
+  - topic: "onex.evt.omniintelligence.llm-call-completed.v1"
+    event_type: "LlmCallCompletedEvent"
+    description: "Per-call metrics emitted after each inference call; may include gpu_seconds, gpu_type, gpu_count, and EnumUsageSource-backed compute_usage_source when the request declares GPU configuration"
+    topic_config:
+      partitions: 3
+      replication_factor: 2
+  - topic: "onex.evt.omnibase-infra.llm-call-completed.v1"
+    event_type: "LlmCallCompletedInfraEvent"
+    description: "Lightweight per-call metrics for infra-owned consumers; mirrors optional GPU usage evidence fields for infra projections"
+    topic_config:
+      partitions: 3
+      replication_factor: 2
+      kafka_config:
+        "retention.ms": "604800000"
+        "cleanup.policy": "delete"
+# Dependencies
+dependencies:
+  - name: "protocol_llm_http_transport"
+    type: "mixin"
+    class_name: "MixinLlmHttpTransport"
+    module: "omnibase_infra.mixins.mixin_llm_http_transport"
+    description: "HTTP transport for LLM API calls with retry and circuit breaker"
+# Capabilities
+capabilities:
+  - name: "openai_compatible_inference"
+    description: "Execute inference via OpenAI-compatible API (vLLM, OpenAI, etc.)"
+  - name: "chat_completion"
+    description: "Multi-turn chat completion with tool calling support"
+  - name: "tool_calling"
+    description: "Function/tool calling with structured arguments"
+  - name: "circuit_breaker_protection"
+    description: "Per-backend circuit breaker for provider fault isolation"
+  - name: "gpu_usage_evidence"
+    description: "When gpu_type and gpu_count are provided together, emits measured gpu_seconds and shared EnumUsageSource compute_usage_source values on both LLM metric events"
+  - name: "direct_endpoint_url"
+    description: "When endpoint_url is provided on ModelLlmInferenceRequest, the OpenAI-compatible handler posts to that full URL directly instead of appending an operation path to base_url."
+# Golden paths: typed inference response and llm_cost projection chain
+golden_path:
+  - "Complete LLM inference via provider-specific handler"
+  - "Emit content-bearing ModelLlmInferenceResponse to onex.evt.omnibase-infra.inference-response.v1"
+  - "Emit llm-call-completed event to onex.evt.omniintelligence.llm-call-completed.v1"
+  - "Event consumed by node_projection_llm_cost in omnimarket"
+  - "Projection handler upserts row into llm_cost_aggregates table"
+  - "Verify row exists with model_name, total_tokens, estimated_cost_usd fields"
+  - "Golden chain test: omnimarket/tests/test_golden_chain_projection_llm_cost.py"
+# Metadata
+metadata:
+  description: "LLM inference effect node for provider-agnostic inference operations. Delegates to provider-specific handlers (OpenAI-compatible, GLM, Gemini) via declarative operation routing. Supports chat completions and text completions with tool calling, generation parameters, structured response parsing, and optional EnumUsageSource-backed GPU usage evidence."
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-13"
+  updated: "2026-08-12"
+  tags:
+    - effect
+    - llm
+    - inference
+    - openai-compatible
+    - glm
+    - gemini
+    - circuit-breaker
+    - tool-calling

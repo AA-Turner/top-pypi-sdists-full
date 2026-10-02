@@ -1,0 +1,73 @@
+---
+name: Add to project
+
+on:
+  issues:
+    types: [ opened ]
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v2
+        id: add
+        with:
+          project-url: https://github.com/users/alvarofpp/projects/3
+          github-token: ${{ secrets.PROJECT_PAT }}
+
+      # O workflow embutido "Item added to project" está desligado e não há
+      # mutation pra religá-lo, então Status e Priority saem daqui. Sem isso o
+      # card entra sem coluna e só ganha Status quando o `gh:defaults` roda no
+      # notebook — issue aberta pelo celular fica invisível no board até lá.
+      - name: Set defaults
+        if: steps.add.outputs.itemId != ''
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+          PROJECT_ID: PVT_kwHOAKUO1s4BhWjn
+          ITEM_ID: ${{ steps.add.outputs.itemId }}
+        run: |
+          set -euo pipefail
+
+          # Resolve field/option por NOME. Editar uma opção do single-select
+          # regenera o id dela: id fixo aqui quebra calado e o card entra sem
+          # coluna (aconteceu em 2026-08-31, opção Backlog).
+          fields=$(gh api graphql -f query='
+            query($project: ID!) {
+              node(id: $project) {
+                ... on ProjectV2 {
+                  fields(first: 50) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id name options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f project="$PROJECT_ID")
+
+          set_field() {
+            local pair
+            pair=$(printf '%s' "$fields" | jq -r --arg f "$1" --arg o "$2" '
+              .data.node.fields.nodes[]
+              | select(.name == $f)
+              | .id + " " + first(.options[] | select(.name | startswith($o)) | .id)')
+            if [ -z "$pair" ]; then
+              echo "::error::campo/opção não encontrado no board: $1=$2"
+              exit 1
+            fi
+            gh api graphql -f query='
+              mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $project, itemId: $item, fieldId: $field,
+                  value: { singleSelectOptionId: $option }
+                }) { projectV2Item { id } }
+              }' \
+              -f project="$PROJECT_ID" \
+              -f item="$ITEM_ID" \
+              -f field="${pair%% *}" \
+              -f option="${pair##* }"
+          }
+
+          set_field Status Backlog
+          set_field Priority P3

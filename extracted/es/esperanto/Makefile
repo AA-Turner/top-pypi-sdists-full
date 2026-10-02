@@ -1,0 +1,28 @@
+.PHONY: setup ruff lint test package-check
+
+setup:
+	uv venv
+	uv sync --all-extras
+
+lint:
+	uv run python -m mypy .
+
+ruff:
+	ruff check . --fix
+
+test:
+	uv run pytest -v
+
+package-check:
+	uv run python scripts/package_check.py
+
+
+build-docs:
+	repomix . --include "**/*.py" --compress --style xml -o ai_docs/all_docs.txt
+
+
+tag:
+	@version=$$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/'); \
+	echo "Creating tag v$$version"; \
+	git tag "v$$version"; \
+	git push origin "v$$version"

@@ -1,0 +1,998 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Pattern B broker process for contract-driven command to terminal-result flow."""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import json
+import logging
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import cast
+from uuid import UUID
+
+from aiokafka import AIOKafkaConsumer, TopicPartition
+
+from omnibase_core.models.dispatch.model_dispatch_bus_command import (
+    ModelDispatchBusCommand,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_terminal_result import (
+    ModelDispatchBusTerminalResult,
+)
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.event_bus.envelope_header_identity import (
+    header_identity_fields_from_envelope,
+)
+from omnibase_infra.event_bus.models.model_event_headers import ModelEventHeaders
+from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+from omnibase_infra.protocols.protocol_pattern_b_broker_transport import (
+    ProtocolPatternBBrokerTransport,
+)
+from omnibase_infra.runtime.contract_terminal_events import resolve_terminal_verdict
+from omnibase_infra.runtime.dispatch_envelope_context import (
+    current_dispatch_envelope,
+)
+from omnibase_infra.runtime.runtime_local_ingress import ModelRuntimeLocalIngressRoute
+from omnibase_infra.topics.topic_namespace import apply_topic_namespace
+from omnibase_infra.utils.util_error_sanitization import (
+    sanitize_error_message,
+    sanitize_error_string,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+_DIRECT_TERMINAL_ASSIGN_TIMEOUT_CAP_SECONDS = 30.0
+_DIRECT_TERMINAL_METADATA_POLL_INTERVAL_SECONDS = 0.05
+_DIRECT_TERMINAL_SESSION_TIMEOUT_MS = 45000
+_DIRECT_TERMINAL_HEARTBEAT_INTERVAL_MS = 15000
+_DIRECT_TERMINAL_MAX_POLL_INTERVAL_MS = 300000
+
+# Bounded grace for a reply topic that EXISTS but is slow to surface partition
+# metadata. A topic that has never been produced to (e.g. the FAILED terminal
+# topic in a run where nothing fails) legitimately advertises no partitions; it
+# must NOT burn the whole assign cap on every trial (OMN-13118 battery wedge).
+# After this grace window of forced refreshes the broker's answer is taken as
+# authoritative: assign whatever partitions exist (possibly none) and return.
+_DIRECT_TERMINAL_PARTITIONLESS_GRACE_SECONDS = 2.0
+
+
+def _headers_bound_to(envelope: object, topic: str) -> ModelEventHeaders:
+    """Wire headers whose IDENTITY comes from the envelope, not from uuid4().
+
+    OMN-18389. This broker publishes hop 0 of the delegation chain -- the
+    `onex.cmd.omnimarket.delegate-skill.v1` command -- and it was the ONE hop
+    in the chain topology that did not go through `publish_envelope`. It called
+    `publish(topic, key, value, None)`, and `EventBusKafka.publish` mints a
+    fresh `ModelEventHeaders` when handed none, whose `correlation_id` and
+    `message_id` both default to `uuid4()`.
+
+    That is not cosmetic, because `event_ledger` -- the relation every chain
+    replay reads back -- populates both columns from the HEADER, never from the
+    envelope body (`HandlerLedgerProjection`). Measured on the .201 dev lane:
+    hop 0 carried one correlation id and hops 1-3 shared a different one, so a
+    correlation-scoped read for the delegation's own identity found four of
+    five hops and the chain canary reported `ledger_chain_incomplete` on a
+    chain that had actually run end to end. The delegation's identity was
+    replaced on the wire between the head hop and the next -- the OMN-16931
+    shape, one seam further out.
+
+    The envelope's own `correlation_id` is authoritative here: it is the
+    caller-supplied id the local ingress validated and stamped
+    (`runtime_local_ingress.validate_runtime_local_ingress_payload`), and it is
+    what every later hop carries, because `DispatchResultApplier` derives them
+    from the consumed envelope.
+
+    Nothing is invented. `header_identity_fields_from_envelope` contributes a
+    key only when the envelope actually carries that value, so an envelope with
+    no parent still publishes without a `parent_message_id` -- the checkable
+    statement that this hop is a chain HEAD, which hop 0 genuinely is.
+    """
+    return ModelEventHeaders(
+        source="pattern-b-broker",
+        event_type=topic,
+        content_type="application/json",
+        timestamp=datetime.now(UTC),
+        **header_identity_fields_from_envelope(envelope),
+    )
+
+
+def _broker_group_id(command_topic: str) -> str:
+    normalized = command_topic.replace(".", "-")
+    return f"pattern-b-broker-{normalized}"
+
+
+def _terminal_group_id(correlation_id: UUID) -> str:
+    return f"pattern-b-broker-terminal-{correlation_id}"
+
+
+def _error_result(
+    correlation_id: UUID,
+    *,
+    status: str,
+    error_message: str,
+) -> ModelDispatchBusTerminalResult:
+    return ModelDispatchBusTerminalResult(
+        correlation_id=correlation_id,
+        status=status,
+        error_message=error_message,
+        completed_at=datetime.now(UTC),
+    )
+
+
+@dataclass(
+    frozen=True, slots=True
+)  # internal-dataclass-ok: module-internal broker payload helper
+class TerminalPayload:
+    """A correlated terminal plus its original consumed envelope bytes.
+
+    ``payload`` remains the decoded carrier the broker uses for its existing
+    response model.  Raw bytes are retained separately so an opt-in evidence
+    observer cannot mistake a normalized caller response for the wire event.
+    """
+
+    payload: object
+    topic: str
+    raw_envelope: bytes
+    partition: int | None = None
+    offset: str | None = None
+
+
+@dataclass(
+    frozen=True, slots=True
+)  # internal-dataclass-ok: module-internal Kafka boundary handle
+class DirectTerminalConsumer:
+    consumer: AIOKafkaConsumer
+
+
+def _direct_terminal_bootstrap_servers(event_bus: object) -> str:
+    servers = getattr(event_bus, "_bootstrap_servers", None)
+    if not isinstance(servers, str) or not servers:
+        raise RuntimeError(
+            "terminal-event consumer: runtime event_bus exposes no string "
+            "_bootstrap_servers; cannot build a Kafka correlate consumer."
+        )
+    return servers
+
+
+def _direct_terminal_auth_kwargs(event_bus: object) -> dict[str, object]:
+    build_auth_kwargs = getattr(event_bus, "_build_auth_kwargs", None)
+    if not callable(build_auth_kwargs):
+        return {}
+    auth = cast("Callable[[], Mapping[str, object] | None]", build_auth_kwargs)()
+    return dict(auth or {})
+
+
+def _direct_terminal_client_version_kwargs(event_bus: object) -> dict[str, object]:
+    config = getattr(event_bus, "config", SimpleNamespace())
+    api_version = getattr(config, "api_version", None)
+    if api_version is None:
+        return {}
+    try:
+        parameters = inspect.signature(AIOKafkaConsumer.__init__).parameters
+    except (TypeError, ValueError):
+        return {}
+    if "api_version" not in parameters:
+        return {}
+    return {"api_version": api_version}
+
+
+def _extract_direct_terminal_correlation_id(payload: dict[str, object]) -> str | None:
+    value = payload.get("correlation_id")
+    if value is None:
+        return None
+    return str(value)
+
+
+def _build_direct_terminal_consumer(event_bus: object) -> AIOKafkaConsumer:
+    config = getattr(event_bus, "config", SimpleNamespace())
+    return AIOKafkaConsumer(
+        bootstrap_servers=_direct_terminal_bootstrap_servers(event_bus),
+        group_id=None,
+        enable_auto_commit=False,
+        auto_offset_reset="latest",
+        session_timeout_ms=getattr(
+            config,
+            "session_timeout_ms",
+            _DIRECT_TERMINAL_SESSION_TIMEOUT_MS,
+        ),
+        heartbeat_interval_ms=getattr(
+            config,
+            "heartbeat_interval_ms",
+            _DIRECT_TERMINAL_HEARTBEAT_INTERVAL_MS,
+        ),
+        max_poll_interval_ms=getattr(
+            config,
+            "max_poll_interval_ms",
+            _DIRECT_TERMINAL_MAX_POLL_INTERVAL_MS,
+        ),
+        retry_backoff_ms=getattr(config, "reconnect_backoff_ms", 2000),
+        **_direct_terminal_client_version_kwargs(event_bus),
+        **_direct_terminal_auth_kwargs(event_bus),
+    )
+
+
+async def _await_metadata_op(result: object) -> None:
+    """Await a client metadata operation result if it is awaitable.
+
+    ``AIOKafkaClient.set_topics`` / ``force_metadata_update`` return a future
+    that resolves when the broker metadata fetch completes. Awaiting it is what
+    makes partition metadata actually surface; ignoring it (the prior bug) left
+    the assign loop spinning on a stale, empty partition view. Test fakes return
+    a plain ``bool``, so only await when the result is awaitable.
+    """
+    if inspect.isawaitable(result):
+        await result
+
+
+async def _force_terminal_topic_metadata(
+    consumer: AIOKafkaConsumer,
+    terminal_topic: str,
+) -> None:
+    """Track the reply topic and force a fresh broker metadata fetch.
+
+    ``set_topics`` only forces a metadata refresh when the requested topic set
+    DIFFERS from the currently-tracked set (aiokafka 0.13.0
+    ``AIOKafkaClient.set_topics``). Re-calling ``set_topics([same_topic])`` each
+    loop iteration therefore took the no-refresh branch after the first call, so
+    a consumer whose first metadata fetch had not yet surfaced partitions never
+    re-fetched and burned the whole assign cap, raising a bare ``TimeoutError``
+    (the empty-message ``wait failed`` seen live in OMN-13012). We register the
+    topic once, await that fetch, and on each subsequent miss force a refresh via
+    ``force_metadata_update`` (which always fetches) rather than the no-op
+    ``set_topics`` repeat.
+    """
+    client = getattr(consumer, "_client", None)
+    if client is None:
+        return
+    set_topics = getattr(client, "set_topics", None)
+    if callable(set_topics):
+        await _await_metadata_op(set_topics([terminal_topic]))
+
+
+async def _refresh_terminal_topic_metadata(consumer: AIOKafkaConsumer) -> None:
+    """Force a broker metadata fetch for the already-tracked reply topic."""
+    client = getattr(consumer, "_client", None)
+    if client is None:
+        return
+    force_metadata_update = getattr(client, "force_metadata_update", None)
+    if callable(force_metadata_update):
+        await _await_metadata_op(force_metadata_update())
+
+
+async def _assign_direct_terminal_partitions(
+    consumer: AIOKafkaConsumer,
+    terminal_topic: str,
+    assign_cap_seconds: float,
+) -> None:
+    """Track the reply topic, wait briefly for its metadata, then assign.
+
+    The first ``set_topics`` registers the topic and forces the initial metadata
+    fetch (awaited). If partitions are still not visible (slow broker metadata),
+    each subsequent iteration forces a fresh fetch via ``force_metadata_update``
+    — NOT a repeat ``set_topics([same_topic])``, which aiokafka treats as a
+    no-op and never re-fetches (the OMN-13012 consume-leg wedge: only one of the
+    two ephemeral terminal consumers ever surfaced partitions).
+
+    Partition-less reply topics are a VALID steady state (OMN-13118)
+    --------------------------------------------------------------------
+    A terminal topic that has never been produced to — the FAILED reply topic in
+    a run where every generation passes — legitimately advertises no partitions
+    (Redpanda auto-creates topics on first produce). Blocking the FULL
+    ``assign_cap_seconds`` (30s live) on it and then RAISING was the load-
+    dependent battery wedge: the runner opens one ephemeral consumer per terminal
+    topic BEFORE publishing, serially, so EVERY trial stalled ~30s on the
+    partition-less FAILED open before it could correlate the COMPLETED terminal —
+    a 160-trial battery needed >80 min and never completed.
+
+    The fix: give a bounded grace window for a topic that EXISTS but is slow to
+    surface metadata; after it, take the broker's answer as authoritative and
+    assign whatever partitions exist — possibly none. A consumer with an empty
+    assignment is positioned (``seek_to_end`` is a no-op) and ``poll`` treats it
+    as "no terminal will arrive here" (returns None on its own timeout) without
+    blocking the open phase. The COMPLETED-topic session, opened separately and
+    assigned its real partition, wins the cross-topic race and correlates fast.
+    """
+    loop = asyncio.get_running_loop()
+    grace = min(_DIRECT_TERMINAL_PARTITIONLESS_GRACE_SECONDS, assign_cap_seconds)
+    deadline = loop.time() + grace
+    # Every broker-facing call below names the PHYSICAL topic. The caller
+    # passes the canonical one, which is what the route and the status
+    # mapping are keyed by (OMN-18891).
+    physical_terminal_topic = apply_topic_namespace(terminal_topic)
+    await _force_terminal_topic_metadata(consumer, physical_terminal_topic)
+    while True:
+        partitions = consumer.partitions_for_topic(physical_terminal_topic) or set()
+        if partitions:
+            consumer.assign(
+                [TopicPartition(physical_terminal_topic, p) for p in partitions]
+            )
+            return
+        if loop.time() >= deadline:
+            # The broker has had the grace window to advertise partitions and
+            # surfaced none: the topic has not been produced to yet. Assign the
+            # empty set and return promptly rather than burning the cap. A real
+            # terminal on this topic would have created its partition before the
+            # correlated event was published, so a partition-less topic at this
+            # point carries no terminal for this correlation.
+            consumer.assign([])
+            return
+        await asyncio.sleep(_DIRECT_TERMINAL_METADATA_POLL_INTERVAL_SECONDS)
+        await _refresh_terminal_topic_metadata(consumer)
+
+
+async def _pin_direct_terminal_end_offsets(
+    consumer: AIOKafkaConsumer,
+    *,
+    timeout_seconds: float,
+) -> None:
+    """Resolve the current end offsets SYNCHRONOUSLY and pin them via ``seek``.
+
+    Why not ``seek_to_end`` (OMN-13118 strike-three)
+    ------------------------------------------------
+    ``AIOKafkaConsumer.seek_to_end`` is LAZY: it calls
+    ``Fetcher.request_offset_reset(partitions, LATEST)``, which only marks the
+    partition "awaiting reset" and registers a position future. The actual LATEST
+    offset is resolved by a ``ListOffsets`` round-trip that happens on the FIRST
+    ``getone`` — which is AFTER the caller has published its command. With
+    generation completing in ~1s (dispatch loop freed, OMN-13010), the correlated
+    terminal lands in the gap between this open() and the first poll, so the
+    lazily-resolved LATEST position is the high-water-mark AFTER the record and
+    the poll starts reading PAST it. The terminal is never read, the trial never
+    correlates, and the experiment matrix re-fires the same cell forever — the
+    consume-leg wedge that survived PR #1969 (set_topics no-op) and PR #1970
+    (partition-less assign-cap) because neither addressed the seek timing.
+
+    ``end_offsets`` is a SYNCHRONOUS broker round-trip that returns the HWM
+    observed NOW (without changing the consumer position); ``seek`` then pins each
+    partition's read offset to that value deterministically. The resume position
+    is therefore fixed at open() time, BEFORE the publish, so any terminal emitted
+    at-or-after this offset is delivered to the subsequent poll. This is the real
+    subscribe-before-publish guarantee the two-phase protocol promised.
+
+    An empty assignment (partition-less reply topic, OMN-13118) has no offsets to
+    resolve, so this is a no-op for that leg.
+
+    ``end_offsets`` is a broker ``ListOffsets`` round-trip that aiokafka documents
+    as able to block indefinitely. It is bounded by ``timeout_seconds`` (the same
+    cap as ``start`` and partition assignment) so a stalled broker fails fast here
+    instead of hanging the pre-publish positioning and reintroducing a wait wedge
+    in a new spot.
+    """
+    assignment = consumer.assignment()
+    if not assignment:
+        return
+    end_offsets = await asyncio.wait_for(
+        consumer.end_offsets(list(assignment)),
+        timeout=timeout_seconds,
+    )
+    for topic_partition, offset in end_offsets.items():
+        consumer.seek(topic_partition, offset)
+
+
+async def open_direct_terminal_consumer(
+    *,
+    event_bus: object,
+    terminal_topic: str,
+) -> DirectTerminalConsumer:
+    """Start, assign, and pin an ephemeral terminal consumer to the current end.
+
+    The read position is captured SYNCHRONOUSLY via ``end_offsets`` + ``seek`` (not
+    the lazy ``seek_to_end``) so it is fixed at open() time, before the caller
+    publishes — the subscribe-before-publish guarantee that closes the
+    seek-past-the-terminal race (OMN-13118).
+    """
+    consumer = _build_direct_terminal_consumer(event_bus)
+    try:
+        await asyncio.wait_for(
+            consumer.start(),
+            timeout=_DIRECT_TERMINAL_ASSIGN_TIMEOUT_CAP_SECONDS,
+        )
+        await _assign_direct_terminal_partitions(
+            consumer,
+            terminal_topic,
+            _DIRECT_TERMINAL_ASSIGN_TIMEOUT_CAP_SECONDS,
+        )
+        await _pin_direct_terminal_end_offsets(
+            consumer,
+            timeout_seconds=_DIRECT_TERMINAL_ASSIGN_TIMEOUT_CAP_SECONDS,
+        )
+    except BaseException:
+        await close_direct_terminal_consumer(
+            DirectTerminalConsumer(consumer),
+            terminal_topic=terminal_topic,
+            log_prefix="terminal-event consumer open cleanup",
+        )
+        raise
+    return DirectTerminalConsumer(consumer)
+
+
+async def poll_direct_terminal_consumer(
+    *,
+    handle: DirectTerminalConsumer,
+    terminal_topic: str,
+    correlation_id: str,
+    timeout_seconds: float,
+) -> dict[str, object] | None:
+    """Poll a positioned terminal consumer for the correlated terminal payload."""
+    loop = asyncio.get_running_loop()
+    try:
+        # A partition-less reply topic assigns the empty set (OMN-13118): the
+        # broker never advertised a partition because the topic has not been
+        # produced to. ``getone()`` on an unassigned consumer raises
+        # ``IllegalStateError`` immediately; instead, treat this leg as "no
+        # terminal will arrive here" — sleep out the caller's timeout so the
+        # cross-topic race lets the COMPLETED-topic consumer win — and return
+        # None on genuine timeout. The losing leg is unblocked early when its
+        # session is closed by the race winner.
+        if not handle.consumer.assignment():
+            try:
+                await asyncio.sleep(timeout_seconds)
+            except asyncio.CancelledError:
+                pass
+            return None
+        deadline = loop.time() + timeout_seconds
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            try:
+                message = await asyncio.wait_for(
+                    handle.consumer.getone(),
+                    timeout=remaining,
+                )
+            except TimeoutError:
+                return None
+            if message.value is None:
+                continue
+            try:
+                body: dict[str, object] = json.loads(message.value.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            if _extract_direct_terminal_correlation_id(body) == correlation_id:
+                return body
+    finally:
+        await close_direct_terminal_consumer(handle, terminal_topic=terminal_topic)
+
+
+async def _poll_terminal_without_close(
+    *,
+    handle: DirectTerminalConsumer,
+    terminal_topic: str,
+    correlation_id: str,
+    timeout_seconds: float,
+) -> TerminalPayload | None:
+    """Poll one positioned consumer for the correlated terminal, WITHOUT closing.
+
+    ``poll_direct_terminal_consumer`` stops its consumer in a ``finally`` because
+    its single-topic callers own one consumer for the whole open→wait→close
+    lifecycle. The Pattern B broker races MULTIPLE independent consumers and tears
+    them ALL down together after the race resolves (so the losing leg is unblocked
+    by ``close`` rather than waiting out its own timeout). This thin wrapper runs
+    the same correlate-and-wait body without the inner close so the broker keeps a
+    single teardown point.
+    """
+    loop = asyncio.get_running_loop()
+    if not handle.consumer.assignment():
+        # Partition-less reply topic (OMN-13118): nothing will arrive here. Sleep
+        # out the caller timeout so the race lets a real-partition topic win; the
+        # broker cancels this task the moment the winner correlates.
+        try:
+            await asyncio.sleep(timeout_seconds)
+        except asyncio.CancelledError:
+            pass
+        return None
+    deadline = loop.time() + timeout_seconds
+    while True:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            return None
+        try:
+            message = await asyncio.wait_for(
+                handle.consumer.getone(),
+                timeout=remaining,
+            )
+        except TimeoutError:
+            return None
+        if message.value is None:
+            continue
+        try:
+            body: dict[str, object] = json.loads(message.value.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if _extract_direct_terminal_correlation_id(body) == correlation_id:
+            partition = getattr(message, "partition", None)
+            offset = getattr(message, "offset", None)
+            return TerminalPayload(
+                payload=body.get("payload", body),
+                topic=terminal_topic,
+                raw_envelope=message.value,
+                partition=partition if isinstance(partition, int) else None,
+                offset=str(offset) if offset is not None else None,
+            )
+
+
+async def close_direct_terminal_consumer(
+    handle: DirectTerminalConsumer,
+    *,
+    terminal_topic: str,
+    log_prefix: str = "terminal-event consumer",
+) -> None:
+    """Stop a direct terminal consumer, logging cleanup failures at the boundary."""
+    try:
+        await handle.consumer.stop()
+    except Exception as exc:  # noqa: BLE001 — boundary: best-effort cleanup
+        _LOGGER.warning(
+            "%s: failed to stop consumer for %s: %s",
+            log_prefix,
+            terminal_topic,
+            sanitize_error_message(exc),
+        )
+
+
+class RuntimePatternBBroker:
+    """Long-lived broker that normalizes worker terminal events for external CLIs."""
+
+    def __init__(
+        self,
+        event_bus: ProtocolPatternBBrokerTransport,
+        *,
+        command_topic: str,
+        routes: Mapping[str, ModelRuntimeLocalIngressRoute],
+    ) -> None:
+        self._event_bus = event_bus
+        self._command_topic = command_topic
+        self._routes = dict(routes)
+        self._unsubscribe: Callable[[], Awaitable[None]] | None = None
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    @property
+    def is_running(self) -> bool:
+        return self._unsubscribe is not None
+
+    async def start(self) -> None:
+        if self._unsubscribe is not None:
+            return
+
+        async def on_command(message: ModelEventMessage) -> None:
+            task = asyncio.create_task(self._handle_command_message(message))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+
+        self._unsubscribe = await self._event_bus.subscribe(
+            self._command_topic,
+            group_id=_broker_group_id(self._command_topic),
+            on_message=on_command,
+        )
+
+    async def stop(self) -> None:
+        if self._unsubscribe is not None:
+            await self._unsubscribe()
+            self._unsubscribe = None
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            self._tasks.clear()
+
+    async def _handle_command_message(self, message: ModelEventMessage) -> None:
+        command_envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        command = self._decode_dispatch_command_payload(command_envelope.payload)
+        _route, result = await self.dispatch_request(command)
+        await self._publish_terminal_result(command.response_topic, result)
+
+    @staticmethod
+    def _decode_dispatch_command_payload(payload: object) -> ModelDispatchBusCommand:
+        if isinstance(payload, dict):
+            command_payload = dict(payload)
+            if (
+                "target_runtime_address" in command_payload
+                and "target_runtime_address" not in ModelDispatchBusCommand.model_fields
+            ):
+                command_payload.pop("target_runtime_address")
+            return ModelDispatchBusCommand.model_validate(command_payload)
+
+        return ModelDispatchBusCommand.model_validate(payload)
+
+    async def dispatch_request(
+        self,
+        command: ModelDispatchBusCommand,
+        *,
+        terminal_observer: Callable[[TerminalPayload], Awaitable[None]] | None = None,
+    ) -> tuple[ModelRuntimeLocalIngressRoute | None, ModelDispatchBusTerminalResult]:
+        correlation_id = command.correlation_id
+        route = self._routes.get(command.command_name)
+        if route is None:
+            return None, _error_result(
+                correlation_id,
+                status="failed",
+                error_message=f"Unknown Pattern B route '{command.command_name}'",
+            )
+
+        terminal_topics = _terminal_topics(route)
+        if not terminal_topics:
+            return route, _error_result(
+                correlation_id,
+                status="failed",
+                error_message=f"Route '{command.command_name}' does not declare terminal events",
+            )
+
+        try:
+            terminal = (
+                await self._dispatch_and_wait_with_direct_kafka_consumer(command, route)
+                if self._supports_direct_kafka_terminal_consumer()
+                else await self._dispatch_and_wait_with_event_bus_subscription(
+                    command,
+                    route,
+                )
+            )
+        except TimeoutError:
+            return route, _error_result(
+                correlation_id,
+                status="timeout",
+                error_message=(
+                    "Timed out waiting for Pattern B broker terminal event."
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return route, _error_result(
+                correlation_id,
+                status="failed",
+                error_message=sanitize_error_message(exc),
+            )
+
+        if terminal_observer is not None:
+            await terminal_observer(terminal)
+
+        status = _status_for_terminal_topic(route, terminal.topic, terminal.payload)
+        return route, ModelDispatchBusTerminalResult(
+            correlation_id=correlation_id,
+            status=status,
+            payload=terminal.payload,
+            error_message=(
+                _terminal_error_message(terminal.payload)
+                if status == "failed"
+                else None
+            ),
+            completed_at=datetime.now(UTC),
+        )
+
+    async def _dispatch_and_wait_with_event_bus_subscription(
+        self,
+        command: ModelDispatchBusCommand,
+        route: ModelRuntimeLocalIngressRoute,
+    ) -> TerminalPayload:
+        correlation_id = command.correlation_id
+        terminal_queue: asyncio.Queue[TerminalPayload] = asyncio.Queue(maxsize=1)
+        terminal_topics = _terminal_topics(route)
+        if not terminal_topics:
+            raise RuntimeError(f"Route '{command.command_name}' has no terminal event")
+
+        async def on_terminal(message: ModelEventMessage, topic: str) -> None:
+            terminal_envelope = ModelEventEnvelope[object].model_validate_json(
+                message.value
+            )
+            if terminal_envelope.correlation_id != correlation_id:
+                return
+            if terminal_queue.empty():
+                await terminal_queue.put(
+                    TerminalPayload(
+                        payload=terminal_envelope.payload,
+                        topic=topic,
+                        raw_envelope=message.value,
+                        partition=message.partition,
+                        offset=message.offset,
+                    )
+                )
+
+        def terminal_callback(
+            topic: str,
+        ) -> Callable[[ModelEventMessage], Awaitable[None]]:
+            async def callback(message: ModelEventMessage) -> None:
+                await on_terminal(message, topic)
+
+            return callback
+
+        unsubscribe_terminals: list[Callable[[], Awaitable[None]]] = []
+        for topic in terminal_topics:
+            unsubscribe = await self._event_bus.subscribe(
+                topic,
+                group_id=_terminal_group_id(correlation_id),
+                on_message=terminal_callback(topic),
+            )
+            unsubscribe_terminals.append(unsubscribe)
+        try:
+            await self._publish_worker_command(command, route)
+            return await asyncio.wait_for(
+                terminal_queue.get(),
+                timeout=command.timeout_seconds,
+            )
+        finally:
+            for unsubscribe_terminal in unsubscribe_terminals:
+                try:
+                    await unsubscribe_terminal()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    async def _dispatch_and_wait_with_direct_kafka_consumer(
+        self,
+        command: ModelDispatchBusCommand,
+        route: ModelRuntimeLocalIngressRoute,
+    ) -> TerminalPayload:
+        """Wait for the correlated terminal with ONE consumer PER terminal topic.
+
+        Independent consumers, not one shared subscription (OMN-13128/13118 strike-5)
+        ----------------------------------------------------------------------------
+        The generation consumer emits exactly one terminal per command —
+        ``completed`` (``contract_passed=True``) or ``failed``
+        (``contract_passed=False``) — on DIFFERENT topics, so the broker must wait
+        on BOTH within the single per-command timeout. The prior shape assigned
+        BOTH topics' partitions to a SINGLE ephemeral ``group_id=None`` consumer.
+        A single aiokafka consumer holds ONE manual subscription
+        (``ManualSubscription`` over its assigned partitions); the live battery
+        diagnosis (HALT_K10_WEDGE_PERSISTS, strikes 3+4) showed that consumer's
+        COMPLETED-topic delivery window collapsing before it could surface the
+        correlated record, so the trial never correlated and the K>=10 matrix
+        re-fired cell 1 forever.
+
+        The fix gives EACH terminal topic its OWN independent
+        ``open_direct_terminal_consumer`` — each started, assigned, and
+        offset-pinned (``end_offsets()`` + ``seek()``, #1971) at open() BEFORE the
+        worker command is published (subscribe-before-publish). The two waits then
+        run CONCURRENTLY via ``asyncio.wait(..., FIRST_COMPLETED)``; the first
+        correlated terminal wins and the losing wait is cancelled. No consumer ever
+        holds two subscriptions, so there is no subscription to tear down out from
+        under the COMPLETED delivery.
+
+        The #1970 partition-less no-op and the #1971 synchronous offset pin are
+        preserved: they live in ``open_direct_terminal_consumer`` /
+        ``poll_direct_terminal_consumer``, which each consumer goes through. A
+        never-produced FAILED topic assigns the empty set, ``poll`` sleeps out its
+        timeout returning ``None``, and the COMPLETED consumer wins the race fast.
+        """
+        terminal_topics = _terminal_topics(route)
+        if not terminal_topics:
+            raise RuntimeError(f"Route '{command.command_name}' has no terminal event")
+
+        event_bus = self._event_bus
+        handles: dict[str, DirectTerminalConsumer] = {}
+        try:
+            # Open one independent consumer per terminal topic, each positioned at
+            # the current end BEFORE we publish. Open serially so a partition-less
+            # FAILED topic's bounded grace does not race the COMPLETED open; both
+            # are positioned before any command is on the wire.
+            for terminal_topic in terminal_topics:
+                handles[terminal_topic] = await open_direct_terminal_consumer(
+                    event_bus=event_bus,
+                    terminal_topic=terminal_topic,
+                )
+
+            await self._publish_worker_command(command, route)
+
+            return await self._race_correlated_terminals(
+                handles,
+                correlation_id=str(command.correlation_id),
+                timeout_seconds=float(command.timeout_seconds),
+            )
+        finally:
+            for terminal_topic, handle in handles.items():
+                await close_direct_terminal_consumer(
+                    handle,
+                    terminal_topic=terminal_topic,
+                    log_prefix="Pattern B terminal Kafka consumer",
+                )
+
+    async def _race_correlated_terminals(
+        self,
+        handles: Mapping[str, DirectTerminalConsumer],
+        *,
+        correlation_id: str,
+        timeout_seconds: float,
+    ) -> TerminalPayload:
+        """Poll every terminal consumer concurrently; first correlated wins.
+
+        Each topic's poll runs as its own task. ``asyncio.wait(FIRST_COMPLETED)``
+        returns as soon as one task finishes; a task that found the correlated
+        record yields the payload, a task that timed out yields ``None`` (and we
+        keep waiting on the rest until one correlates or all are exhausted). The
+        losing tasks are cancelled on the way out so the winner returns
+        immediately without joining a full-timeout sleep on the partition-less leg.
+        """
+        tasks: dict[asyncio.Task[TerminalPayload | None], str] = {}
+        for terminal_topic, handle in handles.items():
+            task = asyncio.ensure_future(
+                _poll_terminal_without_close(
+                    handle=handle,
+                    terminal_topic=terminal_topic,
+                    correlation_id=correlation_id,
+                    timeout_seconds=timeout_seconds,
+                )
+            )
+            tasks[task] = terminal_topic
+
+        pending = set(tasks)
+        try:
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
+                for task in done:
+                    terminal = task.result()
+                    if terminal is None:
+                        continue
+                    return terminal
+            raise TimeoutError
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _supports_direct_kafka_terminal_consumer(self) -> bool:
+        return (
+            hasattr(self._event_bus, "_bootstrap_servers")
+            and hasattr(self._event_bus, "_build_auth_kwargs")
+            and hasattr(self._event_bus, "config")
+        )
+
+    async def _publish_worker_command(
+        self,
+        command: ModelDispatchBusCommand,
+        route: ModelRuntimeLocalIngressRoute,
+    ) -> None:
+        """Publish the route's worker command, recording what caused it.
+
+        OMN-18419. This method publishes TWO different hops of the delegation
+        chain, and until now both were published as chain heads.
+
+        * From the HTTP ingress there is no consumed envelope, so the worker
+          command genuinely IS the head. `current_dispatch_envelope()` is None
+          and nothing is recorded -- an absent `parent_message_id` is the
+          checkable statement "head", and inventing one here would make that
+          statement unfalsifiable.
+        * From `service_delegation_dispatch_port`, this runs INSIDE the
+          delegate-skill handler's dispatch, which the dispatch engine bound to
+          the `onex.cmd.omnimarket.delegate-skill.v1` envelope it consumed.
+          That envelope is the cause of this command, and dropping it is why
+          `onex.cmd.omnibase-infra.delegation-routing-request.v1` -- published
+          two hops later off this one -- had no resolvable ancestry in
+          `event_ledger`.
+
+        Same contextvar, same reason, as the OMN-18116 causal-edge origination
+        site in `DispatchResultApplier`: the canonical handler signature never
+        sees an envelope, so origination belongs in the runtime.
+
+        OMN-17228: the tenant DIMENSION rides the same edge, off the same
+        consumed envelope, for the same reason -- and this site was carrying the
+        causal half while dropping it. `DispatchResultApplier` has carried it
+        since OMN-16831 precisely because omnimarket's delegation projection
+        writer reads `ModelEventEnvelope.tenant_id` and a writer under FORCE ROW
+        LEVEL SECURITY cannot discover a row's tenant by reading. A quality-gate
+        verdict, whose payload model is frozen/`extra="forbid"` with no tenant
+        field, has no other attribution at all: unstamped, it was written under
+        the house tenant `820272f9-4aaf-5add-a2df-0af942852ab2` and the
+        submitting tenant's reader could not see its own row -- the `quality_gate`
+        leg of the terminal business proof on deploy-onex-staging runs
+        35063077145, 35079154240 and 35086243365.
+
+        CARRIED, NEVER SOURCED, exactly as the applier states it: `None` stays
+        `None`. From the HTTP ingress there is no consumed envelope and nothing
+        is recorded, which is the same checkable statement the absent
+        `parent_message_id` makes.
+        """
+        consumed = current_dispatch_envelope()
+        worker_envelope = ModelEventEnvelope[object](
+            payload=command.payload,
+            correlation_id=command.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=route.event_type,
+            source_tool="pattern-b-broker",
+            target_tool=route.contract_name,
+            parent_envelope_id=(None if consumed is None else consumed.envelope_id),
+            tenant_id=(None if consumed is None else consumed.tenant_id),
+        )
+        await self._event_bus.publish(
+            route.command_topic,
+            None,
+            worker_envelope.model_dump_json().encode("utf-8"),
+            _headers_bound_to(worker_envelope, route.command_topic),
+        )
+
+    async def _publish_terminal_result(
+        self,
+        response_topic: str,
+        result: ModelDispatchBusTerminalResult,
+    ) -> None:
+        # OMN-17228: the terminal this broker publishes is owed its tenant for
+        # the same reason the worker command above is, and from the same
+        # authority -- the envelope this dispatch consumed. Carried, never
+        # sourced: a terminal with no consumed envelope publishes unattributed
+        # rather than being given an identity nobody recorded.
+        consumed = current_dispatch_envelope()
+        envelope = ModelEventEnvelope[ModelDispatchBusTerminalResult](
+            payload=result,
+            correlation_id=result.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=response_topic,
+            source_tool="pattern-b-broker",
+            target_tool="pattern-b-client",
+            payload_type=ModelDispatchBusTerminalResult.__name__,
+            tenant_id=(None if consumed is None else consumed.tenant_id),
+        )
+        await self._event_bus.publish(
+            response_topic,
+            None,
+            envelope.model_dump_json().encode("utf-8"),
+            _headers_bound_to(envelope, response_topic),
+        )
+
+
+def _terminal_topics(route: ModelRuntimeLocalIngressRoute) -> tuple[str, ...]:
+    topics: list[str] = []
+    if route.terminal_events:
+        topics.extend(route.terminal_events)
+    elif route.terminal_event is not None:
+        topics.append(route.terminal_event)
+    return tuple(topics)
+
+
+def _status_for_terminal_topic(
+    route: ModelRuntimeLocalIngressRoute,
+    topic: str,
+    payload: object = None,
+) -> str:
+    """Derive completed/failed for a terminal, topic-first with a payload backstop.
+
+    OMN-15468. Topic identity alone is correct only when every contract has a
+    distinct, unambiguous failure terminal to land a failure-verdict payload
+    on. ``apply_failure_terminal_guard`` (contract_terminal_events.py) re-routes
+    there when the contract declares EXACTLY ONE — but 274 of 275
+    terminal-declaring contracts (measured on this ticket) declare only ONE
+    terminal topic total, with no distinct failure destination at all. For
+    those, a failure-verdict return value has nowhere to go but the sole
+    topic, and topic-only derivation reported ``completed`` for it — the
+    live 2026-07-30 ``.201`` reproduction this ticket opened against.
+
+    ``payload`` is the terminal's DECODED body (whatever the wire actually
+    carried — a dict off ``json.loads``/``model_validate_json``, not the
+    producer's in-memory model). ``resolve_terminal_verdict`` is the same
+    reader the applier-side guard uses, so this and the guard cannot disagree
+    about what a given payload states.
+
+    Only the false-success direction is corrected: a topic that resolves to
+    ``completed`` is downgraded to ``failed`` when the payload states an
+    explicit failure. The reverse is never done — a topic that already
+    resolves to ``failed`` stays ``failed`` regardless of payload, and a
+    payload with no verdict (``resolve_terminal_verdict`` returns ``None``,
+    the common case) leaves topic-derived status untouched. This is a
+    fail-closed backstop, not a second, independent classifier.
+    """
+    success_topic = route.terminal_event
+    if success_topic is None:
+        terminal_topics = _terminal_topics(route)
+        success_topic = terminal_topics[0] if terminal_topics else ""
+    topic_status = "completed" if topic == success_topic else "failed"
+    if topic_status == "completed" and resolve_terminal_verdict(payload) is False:
+        return "failed"
+    return topic_status
+
+
+def _terminal_error_message(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    nested_payload = payload.get("payload")
+    if isinstance(nested_payload, dict):
+        for key in ("failure_reason", "error_message", "error"):
+            value = nested_payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return sanitize_error_string(value)
+    for key in ("failure_reason", "error_message", "error"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return sanitize_error_string(value)
+    return None
+
+
+__all__ = ["RuntimePatternBBroker"]

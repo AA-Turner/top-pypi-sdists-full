@@ -5,8 +5,8 @@ pub struct DocumentCommentDirectives {
 }
 
 impl DocumentCommentDirectives {
-    pub fn from_comments(
-        comments: impl Iterator<Item = crate::Comment>,
+    pub fn from_comments<'a>(
+        comments: impl Iterator<Item = crate::Comment<'a>>,
         source_path: Option<&std::path::Path>,
     ) -> Option<Self> {
         let mut document_comment_directives = DocumentCommentDirectives::default();
@@ -28,13 +28,13 @@ impl DocumentCommentDirectives {
 
 #[derive(Debug)]
 pub struct SchemaDocumentCommentDirective {
-    /// The range of the directive.
+    /// The span of the directive.
     ///
     /// ```toml
     /// #:schema https://example.com/schema.json
-    ///  ^^^^^^^ <- This range
+    ///  ^^^^^^^ <- This span
     /// ```
-    pub directive_range: tombi_text::Range,
+    pub directive_span: tombi_text::Span,
 
     /// The URI of the schema.
     ///
@@ -44,24 +44,24 @@ pub struct SchemaDocumentCommentDirective {
     /// ```
     pub uri: Result<tombi_uri::SchemaUri, String>,
 
-    /// The range of the URI of the schema.
+    /// The span of the URI of the schema.
     ///
     /// ```toml
     /// #:schema https://example.com/schema.json
-    ///          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ <- This range
+    ///          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ <- This span
     /// ```
-    pub uri_range: tombi_text::Range,
+    pub uri_span: tombi_text::Span,
 }
 
 #[derive(Debug)]
 pub struct TombiDocumentCommentDirective {
-    /// The range of the directive.
+    /// The span of the directive.
     ///
     /// ```toml
     /// #:tombi toml-version = "v1.0.0"
-    ///  ^^^^^^ <- This range
+    ///  ^^^^^^ <- This span
     /// ```
-    pub directive_range: tombi_text::Range,
+    pub directive_span: tombi_text::Span,
 
     /// The content of the directive.
     ///
@@ -71,30 +71,30 @@ pub struct TombiDocumentCommentDirective {
     /// ```
     pub content: String,
 
-    /// The range of the content of the directive.
+    /// The span of the content of the directive.
     ///
     /// ```toml
     /// #:tombi toml-version = "v1.0.0"
-    ///         ^^^^^^^^^^^^^^^^^^^^^^^ <- This range
+    ///         ^^^^^^^^^^^^^^^^^^^^^^^ <- This span
     /// ```
-    pub content_range: tombi_text::Range,
+    pub content_span: tombi_text::Span,
 }
 
 impl TombiDocumentCommentDirective {
-    pub fn range(&self) -> tombi_text::Range {
-        self.directive_range + self.content_range
+    pub fn span(&self) -> tombi_text::Span {
+        self.directive_span + self.content_span
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TombiValueCommentDirective {
-    /// The range of the directive.
+    /// The span of the directive.
     ///
     /// ```toml
     /// # tombi: lint.rules.const-value = "error"
-    ///   ^^^^^^ <- This range
+    ///   ^^^^^^ <- This span
     /// ```
-    pub directive_range: tombi_text::Range,
+    pub directive_span: tombi_text::Span,
 
     /// The content of the directive.
     ///
@@ -104,17 +104,17 @@ pub struct TombiValueCommentDirective {
     /// ```
     pub content: String,
 
-    /// The range of the content of the directive.
+    /// The span of the content of the directive.
     ///
     /// ```toml
     /// # tombi: lint.rules.const-value = "error"
-    ///         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ <- This range
+    ///         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ <- This span
     /// ```
-    pub content_range: tombi_text::Range,
+    pub content_span: tombi_text::Span,
 }
 
 impl TombiValueCommentDirective {
-    pub fn range(&self) -> tombi_text::Range {
-        self.directive_range + self.content_range
+    pub fn span(&self) -> tombi_text::Span {
+        self.directive_span + self.content_span
     }
 }

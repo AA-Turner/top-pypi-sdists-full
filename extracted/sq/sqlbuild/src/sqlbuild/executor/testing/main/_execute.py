@@ -1,0 +1,193 @@
+"""SQL unit test execution."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.compiler.compile.exceptions import CompileInputError
+from sqlbuild.compiler.planner.models import SqlTestPlanEntry
+from sqlbuild.executor.testing._helpers.difference_samples import add_difference_samples
+from sqlbuild.executor.testing._helpers.expected_column_probe import (
+    missing_expected_columns_message,
+)
+from sqlbuild.executor.testing.constants import (
+    SQL_TEST_ASSERTION_FAILED_CODE,
+    SQL_TEST_EXECUTION_ERROR_CODE,
+    SQL_TEST_EXPECTED_COLUMNS_CODE,
+    SQL_TEST_TOO_LARGE_CODE,
+)
+from sqlbuild.executor.testing.main._sql_length import (
+    validate_unit_test_sql_length,
+)
+from sqlbuild.executor.testing.main.comparison_sql import build_sql_test_comparison_sql
+from sqlbuild.executor.testing.models import SqlTestExecutionResult, StepResult
+from sqlbuild.executor.testing.types import SqlTestOutcome
+from sqlbuild.runtime.observability.classes.operation_lifecycle import OperationLifecycle
+from sqlbuild.runtime.observability.models import OperationAttributes
+
+
+def execute_sql_test(
+    *,
+    test_entry: SqlTestPlanEntry,
+    adapter: BaseAdapter,
+    connection: Any,
+    quality_scope: str = "standalone",
+) -> SqlTestExecutionResult:
+    """Execute one SQL unit test and collect bounded diagnostics for failed comparisons."""
+
+    comparison_sql: str = build_sql_test_comparison_sql(
+        test_entry=test_entry,
+        set_difference_operator=adapter.render_set_difference_operator(),
+        sql_analysis_dialect=adapter.sql_analysis_dialect(),
+    )
+    error_model_name: str = next(
+        (step.model_name for step in test_entry.chain if step.expected_cte_sql is not None),
+        test_entry.name,
+    )
+    try:
+        validate_unit_test_sql_length(
+            sql=comparison_sql,
+            adapter=adapter,
+            test_name=test_entry.name,
+            model_name=error_model_name,
+        )
+    except CompileInputError as error:
+        error_message: str = str(error)
+        return SqlTestExecutionResult(
+            test_name=test_entry.name,
+            outcome=SqlTestOutcome.ERROR,
+            source_path=test_entry.source_path,
+            block_index=test_entry.block_index,
+            parent_name=test_entry.parent_name,
+            case_name=test_entry.case_name,
+            case_index=test_entry.case_index,
+            case_fingerprint=test_entry.case_fingerprint,
+            parameter_schema=test_entry.parameter_schema,
+            parameter_values=test_entry.parameter_values,
+            step_results=(
+                StepResult(
+                    model_name=error_model_name,
+                    outcome=SqlTestOutcome.ERROR,
+                    error_code=SQL_TEST_TOO_LARGE_CODE,
+                    error_message=error_message,
+                ),
+            ),
+            error_code=SQL_TEST_TOO_LARGE_CODE,
+            error_message=error_message,
+        )
+
+    with OperationLifecycle(
+        operation_kind="quality",
+        operation_name="sql_test_assertion",
+        metadata={"item_count": len(test_entry.chain) + len(test_entry.assertions)},
+        attributes=OperationAttributes(phase="assert", target_kind="sql_test", scope=quality_scope),
+    ) as lifecycle:
+        try:
+            cursor: Any = adapter.execute(connection=connection, sql=comparison_sql)
+            rows: list[Any] = cursor.fetchall()
+            step_results: list[StepResult] = _build_step_results(rows)
+            step_results = add_difference_samples(
+                step_results=step_results,
+                test_entry=test_entry,
+                adapter=adapter,
+                connection=connection,
+            )
+        except Exception as error:
+            expected_columns_message: str | None = missing_expected_columns_message(
+                test_entry=test_entry, adapter=adapter, connection=connection
+            )
+            error_code: str = (
+                SQL_TEST_EXECUTION_ERROR_CODE
+                if expected_columns_message is None
+                else SQL_TEST_EXPECTED_COLUMNS_CODE
+            )
+            lifecycle.failed(error=error, error_code=error_code)
+            error_message = expected_columns_message or (
+                f"test '{test_entry.name}' encountered an execution error while running "
+                f"'{error_model_name}': {error}"
+            )
+            return SqlTestExecutionResult(
+                test_name=test_entry.name,
+                outcome=SqlTestOutcome.ERROR,
+                source_path=test_entry.source_path,
+                block_index=test_entry.block_index,
+                parent_name=test_entry.parent_name,
+                case_name=test_entry.case_name,
+                case_index=test_entry.case_index,
+                case_fingerprint=test_entry.case_fingerprint,
+                parameter_schema=test_entry.parameter_schema,
+                parameter_values=test_entry.parameter_values,
+                step_results=(
+                    StepResult(
+                        model_name=error_model_name,
+                        outcome=SqlTestOutcome.ERROR,
+                        error_code=error_code,
+                        error_message=error_message,
+                    ),
+                ),
+                error_code=error_code,
+                error_message=error_message,
+            )
+
+        overall_outcome: SqlTestOutcome = SqlTestOutcome.PASS
+        step_result: StepResult
+        for step_result in step_results:
+            if step_result.outcome == SqlTestOutcome.FAIL:
+                overall_outcome = SqlTestOutcome.FAIL
+        lifecycle.completed()
+
+    error_message: str | None = None
+    if overall_outcome == SqlTestOutcome.FAIL:
+        failed_models: list[str] = [
+            r.model_name for r in step_results if r.outcome == SqlTestOutcome.FAIL
+        ]
+        error_message = f"test '{test_entry.name}' failed for models: {', '.join(failed_models)}"
+
+    return SqlTestExecutionResult(
+        test_name=test_entry.name,
+        outcome=overall_outcome,
+        source_path=test_entry.source_path,
+        block_index=test_entry.block_index,
+        parent_name=test_entry.parent_name,
+        case_name=test_entry.case_name,
+        case_index=test_entry.case_index,
+        case_fingerprint=test_entry.case_fingerprint,
+        parameter_schema=test_entry.parameter_schema,
+        parameter_values=test_entry.parameter_values,
+        step_results=tuple(step_results),
+        error_code=SQL_TEST_ASSERTION_FAILED_CODE
+        if overall_outcome == SqlTestOutcome.FAIL
+        else None,
+        error_message=error_message,
+    )
+
+
+def _build_step_results(rows: list[Any]) -> list[StepResult]:
+    """Convert comparison query rows into per-model step results."""
+
+    step_results: list[StepResult] = []
+    row: Any
+    for row in sorted(rows, key=lambda item: int(item[0])):
+        model_name: str = str(row[1])
+        actual_count: int = int(row[2])
+        expected_count: int = int(row[3])
+        unexpected_count: int = int(row[4])
+        missing_count: int = int(row[5])
+        outcome: SqlTestOutcome
+        if unexpected_count == 0 and missing_count == 0 and actual_count == expected_count:
+            outcome = SqlTestOutcome.PASS
+        else:
+            outcome = SqlTestOutcome.FAIL
+        step_results.append(
+            StepResult(
+                model_name=model_name,
+                outcome=outcome,
+                actual_row_count=actual_count,
+                expected_row_count=expected_count,
+                mismatched_row_count=unexpected_count,
+                unexpected_row_count=unexpected_count,
+                missing_row_count=missing_count,
+            )
+        )
+    return step_results

@@ -67,7 +67,7 @@ class CredentialStoreTestCase(unittest.TestCase):
         """Helper method to make a fake credential."""
         return Credentials(
             "app name",
-            consumer_secret="consumer_secret:42",
+            consumer_secret="consumer_secret:42",  # noqa: S106
             access_token=AccessToken(consumer_key, "access_secret:168"),
         )
 

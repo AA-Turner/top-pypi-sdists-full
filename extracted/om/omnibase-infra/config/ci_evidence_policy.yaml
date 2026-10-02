@@ -1,0 +1,313 @@
+# CI evidence-artifact policy (OMN-18247, epic OMN-18232 phase 3)
+#
+# WHAT AN "EVIDENCE ARTIFACT" IS
+#   A CI artifact whose EXISTENCE is a claim about a measurement: a lab-pass
+#   receipt, a saturation record, a probe's output. Something downstream reads
+#   it, or somebody later cites it as proof that a thing was exercised.
+#
+#   A debug log bundle uploaded on failure is NOT an evidence artifact. Nothing
+#   asserts a claim from its presence, and its absence means "the failure did
+#   not produce one", which is honest. Declaring one here would add ceremony
+#   without closing anything.
+#
+# WHY DECLARATION IS EXPLICIT RATHER THAN INFERRED
+#   There is no structural difference in a workflow file between an upload that
+#   carries a claim and an upload that carries a log. Guessing from the artifact
+#   name is exactly the name-matching the epic's phase 1 rejects for acceptance
+#   bindings, and for the same reason: a string resemblance is not an assertion
+#   anyone made.
+#
+#   Declaration is therefore reviewed data. Two mechanisms stop the declared set
+#   from quietly shrinking, both in tests/ci/test_ci_evidence_policy.py:
+#     1. the expected id set is pinned IN THE TEST FILE, so dropping an entry
+#        here fails until someone also edits the test -- a reviewed act;
+#     2. any uploader anywhere in .github/workflows/ that sets
+#        `if-no-files-found: error` MUST be declared here. That setting is its
+#        author stating that absence is fatal, which is the definition above.
+#        You cannot escape the policy by deleting a line from this file.
+#
+# THE EVIDENCE CHAIN, and why it is three named steps rather than a whole job
+#   `producer_step` names the step that WRITES the required paths. Together with
+#   the assertion step and the uploader it forms this artifact's evidence chain,
+#   and OMN-18249 forbids `continue-on-error` on any of the three -- and on the
+#   enclosing job, which is the form the motivating example actually used.
+#
+#   It is deliberately NOT "every step in the job". `saturation-record` carries
+#   three genuinely best-effort input steps: downloading this run's lab half,
+#   downloading prior records for the sustain window, and fetching the most
+#   recent route reason. An ABSENT lab half is alert condition 4 -- the state
+#   the monitor most needs to record -- so a rule that forced those three to
+#   fail the job would have made the monitor unable to report the very thing it
+#   watches for. A gate that demands a wrong change gets removed, so the rule
+#   names the chain rather than the job.
+#
+# WHAT DECLARING AN ARTIFACT OBLIGES
+#   For every entry below, the gate requires, on parsed workflow structure:
+#     * the uploader sets `if-no-files-found: error` (never warn/ignore/default);
+#     * an assertion step running scripts/ci/assert_evidence_artifact.py with
+#       this entry's `id` runs EARLIER in the same job, under `if: always()`,
+#       and is not itself suppressed.
+#   `if-no-files-found: error` alone is not enough: it fires only when NO path
+#   matches, so a zero-byte file satisfies it. The zero-byte case is the one the
+#   lab-load probe actually produced for the whole time it was dead.
+#
+# HOW TO ADD ONE
+#   Add the entry, add its id to EXPECTED_EVIDENCE_IDS in the test, add the
+#   assertion step before the uploader, and set `if-no-files-found: error`.
+#   Four edits in one PR, all of them visible.
+version: 1
+evidence_artifacts:
+  # --- chain-canary-c16-receipt-identity.yml: the C16 verdict (OMN-19181) --
+  #
+  # As with C11, the probe's EXIT CODE is the verdict and this record is how a
+  # reader sees the three probe rows without reading a log. An absent or empty
+  # record beside a green run would claim three probes ran with nothing behind
+  # the claim -- on the one criterion whose subject is "SKIP never PASS".
+  - id: c16-receipt-identity
+    workflow: .github/workflows/chain-canary-c16-receipt-identity.yml
+    job: c16-receipt-identity
+    producer_step: "Drive the healthy and the dying delegation and grade C16"
+    artifact_name: c16-receipt-identity
+    required_paths:
+      - c16-receipt-identity.json
+    rationale: >-
+      One row per probe (R-DELEG-11, R-DELEG-12, R-DELEG-26) with its outcome, its reasons and the compared keys: the route, provider and model the receipt names beside the provider and model the orchestrator's own bus terminal records, the completed run's rule count, and the dead run's typed failure class and code. SKIP rows are recorded as SKIP and fail the verdict, so an empty record is exactly the state that must not read green.
+  # --- chain-canary-c11-negative-paths.yml: the C11 verdict (OMN-19175) ----
+  #
+  # The probe's EXIT CODE is the criterion's verdict, so this record is not how
+  # the verdict is read -- it is how a reader sees the four rows without
+  # reading a log. That still makes its existence a claim about a measurement:
+  # an empty or absent record beside a green run would say "the four negative
+  # paths were exercised" with nothing behind it.
+  - id: c11-negative-paths
+    workflow: .github/workflows/chain-canary-c11-negative-paths.yml
+    job: c11-negative-paths
+    producer_step: "Drive the four negative paths and grade them"
+    artifact_name: c11-negative-paths
+    required_paths:
+      - c11-negative-paths.json
+    rationale: >-
+      One row per negative path (wrong key, absent key, wrong tenant, malformed) with the expectation declared in the grader, the observed status and code, and the positive control taken in the same invocation. A zero-byte record is the case that matters: four refusals are exactly what an unreachable endpoint produces, so the control row is what makes an all-refused result readable as a failure rather than a proof.
+  # --- chain-canary-c12-provider-catalogue.yml: the C12 verdict (OMN-19195) --
+  #
+  # As with C11, the probe's EXIT CODE is the verdict and this record is how a
+  # reader sees the checks without reading a log. An empty record beside a
+  # green run would claim the deployed catalogue was read and graded with
+  # nothing behind it.
+  - id: c12-provider-catalogue
+    workflow: .github/workflows/chain-canary-c12-provider-catalogue.yml
+    job: c12-provider-catalogue
+    producer_step: "Read the deployed catalogue and grade it"
+    artifact_name: c12-provider-catalogue
+    required_paths:
+      - c12-provider-catalogue.json
+    rationale: >-
+      One row per check over the deployed catalogue (parity both directions, no Claude entry, no house entry, the intake route's binding) plus the negative-test injections run in the same process, with the image and the sha256 of the catalogue, the platform contract and both deployed modules. The injections are what make a green readable: a checker that always answers clean produces the same shipped reading, and only the injections tell the two apart.
+  # --- chain-canary-c28-consumer-flow.yml: the C28 verdict (OMN-19812) -----
+  #
+  # As with C11 and C12, the probe's EXIT CODE is the verdict and this record
+  # is how a reader sees the four clauses without reading a log. An empty
+  # record beside a green run would claim the exposure was walked, the tests
+  # mutated and the seam fed a malformed payload with nothing behind it.
+  - id: c28-consumer-flow
+    workflow: .github/workflows/chain-canary-c28-consumer-flow.yml
+    job: c28-consumer-flow
+    producer_step: "Re-measure C28 on the dev lane and grade it"
+    artifact_name: c28-consumer-flow
+    required_paths:
+      - c28-consumer-flow.json
+    rationale: >-
+      One row per check over the four clauses the 2026-09-19 hand readback took (both named subscription kinds instrumented and live, the OMN-17214 negative tests passing and biting per branch, the since-cursor walk reaching every live consumer group, and the boot premise with its injected positive control), plus the boot identity, the matched kind rows, the per-mutation test outcomes, the walk's page table and the unreachable set. The positive control is what makes the zero readable: a dead log read and a clean seam both count zero, and only the injected payload tells them apart.
+  # --- provider-rung-canary.yml: per-rung liveness (OMN-16987) --------------
+  #
+  # The probe's EXIT CODE is the verdict; this record is the per-rung table a
+  # reader (and a later router) reads without a log. An empty record beside a
+  # green run would claim every cloud rung authenticated with nothing behind it.
+  - id: provider-rung-canary
+    workflow: .github/workflows/provider-rung-canary.yml
+    job: provider-rung-canary
+    producer_step: "Probe every credentialed cloud rung and grade it"
+    artifact_name: provider-rung-canary
+    required_paths:
+      - provider-rung-canary.json
+    rationale: >-
+      One row per declared backend of the deployed delegation contract with its typed verdict (LIVE, AUTH_DEAD, QUOTA_DEAD with the contract's quota class, UNREACHABLE, UNRESOLVED, PROTOCOL_ERROR, HTTP_ERROR, or the skip reason), plus one wrong-key control per endpoint taken in the same run. The controls are what make a green readable: a probe that reads 200 whatever credential it sends produces the same LIVE rows, and only a refused wrong key tells the two apart.
+  # --- r1-front-door-probe.yml: PLAN-R1/MD-14, daily (OMN-19445) -----------
+  #
+  # The probe's EXIT CODE is the verdict. Nothing ran this on a schedule
+  # before OMN-19445, and the corrected `--lane dev` command form, proven once
+  # by hand on 2026-09-21, silently reverted to a stale --kafka-bootstrap
+  # literal in the next three daily rebaseline snapshots -- a probe proven
+  # once and never re-run is not a regression signal.
+  - id: r1-front-door-probe
+    workflow: .github/workflows/r1-front-door-probe.yml
+    job: r1-front-door-probe
+    producer_step: "Run the R1 front-door probe and grade it"
+    artifact_name: r1-front-door-probe
+    required_paths:
+      - r1-front-door-probe.json
+    rationale: >-
+      One record per day: the exact command run, its exit code, and stdout/stderr tails. A green run with no record would claim the front door was exercised with nothing behind it.
+  # --- dev-lane-liveness.yml: the lab saturation signal (OMN-18031) ---------
+  #
+  # This pair is the plan's named regression fixture. The probe was dead from
+  # the day it landed and produced a ZERO-BYTE lab-load.json on 10 of 12 runs
+  # while every run stayed green, because the producing step's redirect creates
+  # the file before python runs and `if-no-files-found: warn` treats an empty
+  # file and a real measurement identically.
+  - id: lab-load
+    workflow: .github/workflows/dev-lane-liveness.yml
+    job: lab-load-probe
+    producer_step: "Probe the fleet's org busy/idle counts as the lab saturation signal"
+    artifact_name: lab-load
+    required_paths:
+      - lab-load.json
+    rationale: >-
+      The lab half of the runner saturation record. saturation-record consumes it; alert condition 4 (lab_probe_unavailable_sustained) is a statement about this file, so an empty one is a false negative on that alert.
+  - id: saturation-record
+    workflow: .github/workflows/dev-lane-liveness.yml
+    job: saturation-record
+    producer_step: "Build the record and evaluate sustained saturation"
+    artifact_name: saturation-record
+    required_paths:
+      - runner-saturation-record.json
+      - runner-saturation-alerts.json
+    rationale: >-
+      The merged fleet+lab record and the alerts derived from it. The alerts file is required, not optional: the writer emits `[]` when nothing fired, so an ABSENT alerts file means the evaluation never ran, which is a different fact from "no alert fired" and must not read the same.
+  # --- the rule-24 lab-pass receipts ---------------------------------------
+  #
+  # OMN-18420: the three emitters that run on the SHARED omnibase-deploy host
+  # name ${LAB_PASS_DIR}, a per-run directory their job claims and clears,
+  # rather than a fixed path under the shared temp root. A fixed path let one
+  # job's receipt survive into the next and be uploaded under that job's
+  # sha-keyed name (omnimarket run 35035178406). The boot-gate entry below
+  # keeps its literal path on purpose: it runs on an ephemeral GitHub-hosted
+  # runner, where no second job shares the filesystem.
+  #
+  # These three already set `if-no-files-found: error`, which is their authors
+  # declaring absence fatal. What that setting cannot catch is a zero-byte or
+  # partially-written receipt inside a directory upload: the directory matches,
+  # so the uploader is satisfied. Rule 24(b) fails staging delivery closed on a
+  # missing receipt for a sha, so a receipt that exists and says nothing is the
+  # worst of the three states -- it passes the uploader and fails the reader.
+  - id: lab-pass-receipt-onex-lab
+    workflow: .github/workflows/deliver-dev-candidate-to-staging.yml
+    job: candidate-boot-gate
+    producer_step: "Emit the onex-lab lab-pass receipt"
+    artifact_name: lab-pass-receipt-onex-lab-${{ github.sha }}
+    required_paths:
+      - /tmp/lab-pass-receipt/receipt.json
+    rationale: >-
+      The onex-lab lab pass for the delivered sha. deliver-dev-candidate-to- staging.yml's lab-pass-gate job refuses the staging announcement without a PASS receipt for the exact sha (rule 24(b)).
+  # OMN-19233: the staging delivery gate's own verdict, one per run attempt.
+  # The compose-dev emitter's re-run selector (runtime-rebuild-trigger.yml,
+  # job rerun-refused-deliveries) reads it to decide whether a refused delivery
+  # is re-run once the subject's compose-dev PASS uploads, so its absence would
+  # silently leave a refused sha un-re-read.
+  - id: lab-pass-gate-verdict
+    workflow: .github/workflows/deliver-dev-candidate-to-staging.yml
+    job: lab-pass-gate
+    producer_step: "Read the lab-pass receipt for the delivered sha"
+    artifact_name: lab-pass-gate-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+    required_paths:
+      - /tmp/lab-pass-gate-verdict/verdict.json
+    rationale: >-
+      The staging delivery gate's verdict for one run attempt (token, proof subject, first gate read). The compose-dev emitter re-runs a delivery refused PENDING, ABSENT or INDETERMINATE only on the strength of this record (plan PS-5, decision S).
+  - id: lab-pass-receipt-compose-dev
+    workflow: .github/workflows/runtime-rebuild-trigger.yml
+    job: verify-lane-converged
+    producer_step: "Emit the compose-dev lab-pass receipt"
+    artifact_name: lab-pass-receipt-${{ needs.trigger-rebuild.outputs.receipt_lane }}-${{ needs.trigger-rebuild.outputs.source_sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The .201 compose dev lane's lab pass for the merged sha (rule 24(a)). The lane half of the name is the routed deploy-agent instance's receipt lane (OMN-19507 AC2, config/deploy_lane_routing.yaml); omnibase_infra merges route to dev-201, so it reads compose-dev.
+  - id: lab-pass-observation-compose-dev
+    workflow: .github/workflows/runtime-rebuild-trigger.yml
+    job: verify-lane-converged
+    producer_step: "Emit the compose-dev lab-pass receipt"
+    artifact_name: lab-pass-observation-${{ needs.trigger-rebuild.outputs.receipt_lane }}-${{ needs.trigger-rebuild.outputs.source_sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The dev lane probed as it is, on a merge that published no rebuild, when the lane contains receipt-less runtime-affecting merges no run ever answered for (OMN-18976, the durable floor). It is keyed by the non-runtime merge and uploaded under a name no gate reads: it is the source the re-emission job re-keys onto each of those merges, exactly as a converged run's own receipt is. Written only while the deploy agent is idle, so a lane mid-rebuild is never probed for it.
+  - id: lab-pass-receipt-compose-dev-reemitted
+    workflow: .github/workflows/runtime-rebuild-trigger.yml
+    job: reemit-queued-receipts
+    producer_step: "Upload the re-emitted receipt"
+    artifact_name: lab-pass-receipt-compose-dev-${{ matrix.candidate.sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The .201 compose dev lane's lab pass for a merge the converged image contains but whose own run could not answer for it (OMN-18976, OMN-18988): either it was QUEUED behind another deploy and emitted no receipt, or its receipt FAILED on binding-class checks alone, which records that the run could not bind its observation rather than that the lane was unhealthy. Its evidence is the converged run's own probes, re-keyed rather than re-taken, because those reads were made against the image that contains this sha. Carries converged_via naming the lane surface that bound it, so it is tellable apart from a receipt the sha's own run wrote. A receipt whose health checks genuinely failed is never re-emitted.
+  - id: lab-pass-receipt-compose-dev-sibling
+    workflow: .github/workflows/runtime-rebuild-trigger-reusable.yml
+    job: verify-sibling-converged
+    producer_step: "Emit the compose-dev lab-pass receipt for the sibling sha"
+    artifact_name: lab-pass-receipt-${{ needs.trigger-rebuild.outputs.receipt_lane }}-${{ needs.trigger-rebuild.outputs.sibling_sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The routed dev lane's lab pass for a SIBLING repository's merged sha (rule 24(a), OMN-18268). The lane half of the name is the routed deploy-agent instance's receipt lane (OMN-19507 AC2): compose-dev for dev-201, compose-dev-202 once an omnimarket route to dev-202 exists. Keyed by the sibling sha, not the omnibase_infra one, because that is the revision the lane was proven to vendor; the two never collide on one artifact name.
+  - id: lab-pass-receipt-compose-dev-onex-api
+    workflow: .github/workflows/onex-api-lab-delivery-reusable.yml
+    job: verify-onex-api-delivered
+    producer_step: "Emit the compose-dev lab-pass receipt for this commit"
+    artifact_name: lab-pass-receipt-compose-dev-${{ needs.trigger-delivery.outputs.source_sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The .201 compose dev lane's lab pass for an OMNINODE_INFRA commit that changed the lane's onex-api image (rule 24(a), OMN-18572). Keyed by the omninode_infra sha, because that is the revision the lane's onex-api container was proven to carry; it collides with neither the omnibase_infra receipt nor a sibling's, which are claims about different repositories' commits. It lands on the omninode_infra run, since a called reusable workflow's artifacts belong to the caller.
+  - id: lab-pass-receipt-onex-lab-k3s
+    workflow: .github/workflows/runtime-rebuild-trigger.yml
+    job: verify-lab-overlay-converged
+    producer_step: "Emit the onex-lab-k3s lab-pass receipt"
+    artifact_name: lab-pass-receipt-onex-lab-k3s-${{ needs.trigger-rebuild.outputs.source_sha }}
+    required_paths:
+      - ${LAB_PASS_DIR}/receipt.json
+    rationale: >-
+      The k3s onex-lab overlay's half of rule 24(a), on its own lane name so it cannot supersede the boot gate's onex-lab receipt for the same sha.
+  # --- the non-required check failure-rate report (OMN-18254) --------------
+  #
+  # Declared because its ABSENCE is the failure it exists to prevent. This
+  # alerter watches for checks that fail while nothing blocks; an alerter that
+  # silently produced nothing would be exactly that defect, one level up.
+  - id: nonrequired-check-report
+    workflow: .github/workflows/pr-ci-zombie-detector.yml
+    job: nonrequired-check-failure-rate
+    producer_step: "Evaluate non-required check failure rates"
+    artifact_name: nonrequired-check-report
+    required_paths:
+      - nonrequired-check-report.json
+    rationale: >-
+      The per-repo record of which non-required checks were evaluated, which contexts counted as required, and which crossed the threshold. A silent alerter and a correct one look identical from a green run, so this record is how anyone tells them apart afterwards.
+  # --- the PR CI zombie detector's receipt (OMN-16494, OMN-19258) ---------
+  #
+  # Declared for the same reason as the report above. Before OMN-19258 the
+  # detector exited 0 whatever it could read: 68 of 2,904 retained reports
+  # recorded that neither target repo could be read, on runs that were green.
+  # The receipt's `scanned` map is the only record of what a clean run looked
+  # at, so its absence is fatal.
+  - id: pr-ci-zombie-detector-report
+    workflow: .github/workflows/pr-ci-zombie-detector.yml
+    job: detect
+    producer_step: "Run zombie detector"
+    artifact_name: pr-ci-zombie-detector-report
+    required_paths:
+      - zombie-detector-report.json
+    rationale: >-
+      The per-run record of which repos the zombie detector read (runs read and active pull-request runs per repo), what it would or did force-cancel, and every read or cancel error. A blind detector and a quiet one look identical from a green run without it.
+  # --- Contract Compliance Check's deferral record (OMN-20135) ------------
+  #
+  # CI Summary judges the deferred test_passes DoD items from this record.
+  # A success of Contract Compliance Check with no record fails CI Summary, so
+  # the record's existence is itself the claim that the DoD items were read.
+  - id: contract-compliance-deferred
+    workflow: .github/workflows/ci.yml
+    job: contract-compliance
+    producer_step: "Run DoD contract compliance against the product tree (OMN-20135)"
+    artifact_name: contract-compliance-deferred
+    required_paths:
+      - contract-compliance-deferred/record.json
+    rationale: >-
+      The list of test_passes DoD items the Contract Compliance Check deferred to CI Summary, one per item with the PR and repo it names, or an empty list when none applied or the declared dependency-bot exemption ran. An absent record beside a green compliance job would let CI Summary pass without judging items it was handed.

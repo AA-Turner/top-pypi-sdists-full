@@ -1,0 +1,2502 @@
+"""The wake supervisor: the process that exists so a wake can fire at all.
+
+A wake scheduled in a session whose terminal is then closed had nowhere to
+fire from — the schedule was durable, but nothing was running to notice it
+came due. This is the small always-on process that closes that gap: it reads
+:mod:`local_operator.wakes.store`, sleeps until the earliest due time across
+every session, and starts a runtime for whichever session's wake is due.
+
+**It does not deliver the wake, and that is the design, not an omission.**
+The obvious shape — a ``wake_fire`` control op naming the occurrence to
+deliver — fires every wake TWICE, because a session already delivers its own
+overdue wakes on load: ``WakeScheduler.load`` re-arms anything whose
+``next_due_at`` has passed to ``now + LOAD_GRACE_MS`` and records it for the
+resume catch-up (``harness/wake.py``). So the mere EXISTENCE of a runtime is
+what fires the wake, and an op on top of that would append the occurrence a
+second time.
+
+This keeps one writer of schedule state (``Session._persist_wake_schedules``),
+which is the property that matters: the supervisor never advances, retires or
+persists a schedule, so it can never disagree with the session about what has
+fired. Its whole job is "make a runtime exist for this session, now".
+
+**The no-live-record rule.** A session with a live discovery record is
+already running and fires its own wakes through its own scheduler. The
+supervisor therefore SKIPS it entirely — engaging there would be redundant at
+best, and at worst a second opinion about a schedule the live session is
+actively advancing. The rule is checked at fire time rather than at scan
+time, because a session can come up during the sleep.
+
+**A fire that could not be delivered is owed, and is owed durably.** Making a
+runtime exist is this process's whole contribution, so "the engage failed" is
+not an event it may forget: the attempt is recorded in
+:mod:`local_operator.wakes.deliveries` (the supervisor's OWN state — it still
+never writes schedule state) and retried with exponential backoff until a
+runtime takes it, including past the staleness bound that refuses a wake nobody
+has ever tried to fire. Two consequences worth knowing before changing anything
+here: the retry cadence is bounded by that ledger rather than by the pass
+interval (which is what stops a permanently failing session from occupying half
+the engagement slots), and an owed fire is reported on ``lop wake status``, so a
+scheduled wake that has not run is visible off the log file.
+
+**Self-retirement.** Nothing FIREABLE left to supervise (an empty index, or
+one holding only dormant entries) means the process exits 0 and its
+LaunchAgent (``KeepAlive: {SuccessfulExit: False}``) leaves it down. That is
+why the exit code matters: a crash restarts, a finished job stays finished.
+The next persist reinstalls it.
+
+Retirement is the dangerous transition, because for a long time nothing
+brought the supervisor back: the install hook read a loaded-but-exited job as
+"already installed" (see :mod:`local_operator.wakes.install`), so an armed
+wake could sit with no live process and no log line. Three things now guard
+it \u2014 the install hook probes for a RUNNING process and repairs, the plist
+carries a ``StartInterval`` self-heal, and retirement here re-reads the index
+after a grace so the write-then-install race cannot retire into a wake that
+was being armed at that moment.
+
+Stdlib-only and import-light, like the rest of ``wakes/``: this runs as its
+own supervised process and must not drag the harness in at import.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Any, Callable, Mapping
+
+#: A STABLE name, not ``__name__``. This module is the LaunchAgent's
+#: ``python -m`` target, so ``__name__`` is ``__main__`` in the one process
+#: whose output the operator actually reads — every line in
+#: ``logs/wake-supervisor.log`` was tagged with the least informative name
+#: available (round 1, D8). Hard-coding the dotted path makes the LaunchAgent's
+#: lines and ``lop wake serve``'s identical.
+logger = logging.getLogger("local_operator.wakes.supervisor")
+
+
+def _is_held_entry(entry: Mapping[str, Any] | None) -> bool:
+    """``wakes.store.is_held``, for this module's five decisions.
+
+    Parking has two levers now — the stop's ``stopped_at`` and Aida's
+    ``held_at`` (see ``wakes/store.is_held``) — and every supervisor decision
+    that used to ask about the first must ask about both: engaging a held
+    entry would send the proactive output a pause asked to silence, list it
+    as due, or count it toward keeping the supervised process alive. One
+    wrapper rather than five call sites spelling two key names, and the
+    import stays INSIDE it to match this file's stdlib-only-at-module-scope
+    rule (the store is a leaf, but ``--help`` must not pay for it).
+    """
+    from local_operator.wakes.store import is_held
+
+    return is_held(entry)
+
+
+#: Never sleep longer than this, however far away the next wake is. A long
+#: sleep is not a correctness problem (the due time is recomputed on every
+#: pass) but it is an OBSERVABILITY one: a supervisor asleep for nine hours
+#: has not noticed a schedule cancelled eight hours ago, so its own liveness
+#: and the index's state drift apart. Waking hourly to re-read is cheap.
+#:
+#: Since the wait is now SLICED (see :data:`SLICE_S`) this bounds the total
+#: wait rather than a single uninterruptible sleep.
+MAX_SLEEP_S = 3600.0
+
+#: How long a single uninterrupted sleep may last before the index is re-read.
+#:
+#: The defect this closes: the loop used to compute one delay from a snapshot
+#: and ``asyncio.sleep`` it whole. A session that persisted a wake due in five
+#: minutes while the supervisor was already sleeping toward a wake three hours
+#: out had that wake delayed by up to ``MAX_SLEEP_S`` — an hour — because the
+#: new entry was not observed until the sleep expired. The install hook could
+#: not help: it is idempotent by content and never nudges a running process.
+#:
+#: The cost is honest and small: one ``read_index`` per slice, which is an
+#: ``os.listdir`` of a directory holding one small JSON file per wake-carrying
+#: session (8 files, ~400 bytes each, on the machine this was diagnosed on) —
+#: measured at ~0.2 ms per read there. At 10 s that is ~8,640 reads a day
+#: against a wake subsystem that is otherwise idle, which buys bounded
+#: lateness: a newly written earlier wake is seen within one slice instead of
+#: within one hour.
+SLICE_S = 10.0
+
+#: Never sleep less than this. A schedule due in the past, or a clock that
+#: jumped backwards, must not turn the loop into a spin — the floor is what
+#: bounds a pathological index to one pass per second rather than thousands.
+MIN_SLEEP_S = 1.0
+
+#: How late a wake may be before the supervisor stops treating it as due and
+#: leaves it to the session's own catch-up. Sessions handle arbitrarily-old
+#: overdue wakes at load (that is what the resume catch-up IS), so there is no
+#: value in the supervisor racing to start a runtime for one that has been due
+#: for a week — the user will get the catch-up when they open it.
+STALE_AFTER_S = 7 * 24 * 3600.0
+
+#: How often the residency sweep runs, and therefore how long the loop may sleep
+#: between passes.
+#:
+#: THE SUPERVISOR HOSTS THE SWEEP because it is the one supervised process on this
+#: machine that is not a viewer and that already knows the shape of the fleet: it
+#: spawns runtimes (``_engage_one``), it reads their records (``_has_live_runtime``),
+#: and it already has a bounded, sliced loop to hang a pass on. A separate reaper
+#: process would be a second thing to install, supervise and keep alive for work
+#: that is a few hundred milliseconds a minute.
+#:
+#: MEASURED COST OF ONE PASS: a ``ps`` census (140 ms / 57 runtime rows on an idle
+#: host, 1.25 s with 1,260 processes under load) plus a machine-wide ``lsof``
+#: (200 ms idle, 476 ms loaded) plus a glob and parse of the record directories and
+#: one bounded connect per runtime that names a port. It is DETACHED (see
+#: :meth:`_ResidencySweep.kick`), so none of that is time the wake path waits for,
+#: and at 300 s it is well under a tenth of a core on average — for a process whose
+#: whole justification is staying cheap. It is paid ONLY while there are fireable
+#: wakes: this supervisor retires when there are none (see the module docstring),
+#: which is why the sweep's other door is ``lop sessions reclaim``.
+#:
+#: WHY NOT SLOWER: the confirm window (``reclaim.CONFIRM_S``, 60 s) is a MINIMUM
+#: separation, so this interval decides how long an orphan survives after it is
+#: first seen. The population this exists for had been alive over ten hours, so
+#: five minutes is a rounding error on the harm and a 5x saving on the cost. WHY
+#: NOT FASTER: every pass forks two external tools, and a 30 s cadence would double
+#: that for a class of process measured in hours.
+RESIDENCY_SWEEP_INTERVAL_S = 300.0
+
+#: How often the wake-trigger evaluation pass may run, in seconds. NOT a
+#: config key — the operator-facing tunables are the trigger budget keys
+#: (``wakes.triggers.*``); this is the loop's own throttle, sized so the pass's
+#: file reads amortise while a project that just crossed its staleness window
+#: is still noticed within minutes. It deliberately does NOT bound the loop's
+#: sleep (see :class:`_TriggerSweep`): the possibility of a future trigger must
+#: never keep the supervisor resident.
+TRIGGER_EVAL_INTERVAL_S = 300.0
+
+#: How often the machine memory pass runs (see :class:`_MachineMemorySweep`).
+#:
+#: WHY NOT THE RESIDENCY CADENCE (300 s): that pass forks two external tools and
+#: decides over a window of minutes; this one reads one process table and a
+#: handful of per-pid probes (~50 ms measured on a quiet host) and exists for a
+#: failure measured in MINUTES — the saturation of 2026-09-28 went from
+#: unremarkable to out-of-memory-dialog inside half an hour, with the largest
+#: single movers growing GBs per ten minutes. A minute keeps the pass cheap
+#: beside a busy fleet and short enough to see a runaway before the operator
+#: does (measured 95 ms - 2.3 s across ten live passes: a handful of reads,
+#: with the batched ``top`` fallback dominating the passes where the direct
+#: reader cannot answer some pid). WHY NOT FASTER: each pass is
+#: one ``ps`` plus one memory read per fleet pid, and the pass's kill path is
+#: rate-limited anyway. A single command is already bounded by the per-command
+#: guard at its own ceiling; this pass exists for the SUM, which moves in
+#: minutes.
+MACHINE_MEMORY_INTERVAL_S = 60.0
+
+#: After this pass ends one fragment, how long it will not end ANOTHER ONE OF THE
+#: SAME LINEAGE (same root pid, or the same process group / parent as the fragment
+#: it ended — never a session runtime's own pid or group, which every command of
+#: that session shares; see ``machine_memory.lineage_keys``).
+#:
+#: The case this bounds: a fragment that regrows (a supervisor respawn) would be
+#: ended on every pass, and a minute apart the log would read as a war against
+#: one pid rather than a guard. Ten minutes is two orders above the pass's own
+#: cost and well inside the hour-scale harm window; while the cooldown holds, the
+#: pass still warns and still NAMES the fragment it would have ended, so the
+#: operator is never left guessing why nothing happened.
+#:
+#: **IT IS SCOPED, NOT GLOBAL, because the global form let runaways through.** On
+#: 2026-09-30 a kill at 02:39 put the whole seat on cooldown and two DIFFERENT
+#: runaways (52 GB at 02:41, 350 GB at 02:43) were withheld as "a fragment was
+#: ended within the cooldown". A regrowing respawn shares a parent (or a root pid)
+#: with what was just ended; an unrelated runaway does not, and must be killable on
+#: the very next pass — INCLUDING another one under the same session runtime.
+MACHINE_MEMORY_KILL_COOLDOWN_S = 600.0
+
+#: How long a WAKE engage may take before the supervisor gives up on it.
+#:
+#: Deliberately not ``launch.DEFAULT_DEADLINE_S`` (30 s), which stays exactly
+#: as it is for user-initiated engages. That figure is sized for a person
+#: waiting at a prompt, where the alternative to waiting is telling them their
+#: message went nowhere. NOBODY is waiting on a wake, and the cost of the two
+#: failures is reversed: giving up early does not save anyone time, it just
+#: loses the wake until the next pass.
+#:
+#: 30 s was simply too short here. On the machine this was diagnosed on, a
+#: cold runtime (19 live sessions, large transcripts, 12 MCP servers) often
+#: needs longer to publish its record, and 344 of 682 engage attempts (50.4%)
+#: timed out at 30 s. Each timeout then re-entered the same path on the next
+#: pass, so the deadline was manufacturing the retry storm it appeared to be
+#: protecting against.
+#:
+#: **A FAILED ENGAGE IS DURABLE WORK, NOT A NO-OP.** The deadline is still a
+#: single attempt's budget, and it is still right that it is generous. What
+#: changed is what happens when it expires: the attempt is recorded in the
+#: supervisor's own ledger (:mod:`local_operator.wakes.deliveries`) and retried
+#: with backoff until a runtime takes the fire. Before that ledger existed the
+#: only trace of a failure was a WARNING line in ``wake-supervisor.log`` (510 of
+#: them over this file's lifetime on the operator's machine, 128 in one day) and
+#: the only reason a retry ever happened at all was that the schedule was still
+#: due — so nothing survived the schedule moving on or ageing past
+#: :data:`STALE_AFTER_S`, nothing bounded the retry's cost against
+#: :data:`_MAX_CONCURRENT_ENGAGES`, and nothing on any surface the operator
+#: looks at said a scheduled wake had not run.
+#:
+#: 180 s is a generous multiple of the worst cold start observed rather than a
+#: tight bound. What makes a long deadline affordable is that an engage does
+#: NOT hold the loop: :func:`serve` runs engagements as background tasks and
+#: returns to its slice loop immediately, so the only thing a slow engage
+#: occupies is one of :data:`_MAX_CONCURRENT_ENGAGES` slots. (Round 1, R3: an
+#: earlier revision awaited the whole sweep, which made a 6-session all-timeout
+#: pass block for 540 s — three times worse than the serial 30 s code it
+#: replaced — while this comment already claimed otherwise. The claim is now
+#: true because the code changed, not because the wording did.)
+WAKE_DEADLINE_S = 180.0
+
+#: How many sessions the sweep engages at once. See :func:`fire_due_wakes`.
+#:
+#: KNOWN RESIDUAL (round 2, QA Q3, deferred deliberately): a freshly armed wake
+#: still queues behind permanently-failing engages, because `_due_sessions`
+#: sorts oldest-first and a failed engage keeps its original `due_ms`, so it
+#: keeps winning the semaphore. The figures below are on a DELIBERATELY SCALED
+#: 10 s deadline, not the shipped 180 s one, so they show the shape rather than
+#: the production wait — do not read them as real latencies (round 3, R13).
+#: Scaled deadline 10 s, semaphore 2, N permanently-failing sessions, measured
+#: by QA on 2026-09-11 on the operator's 14-core host at load average 21-105:
+#: N=0 → 8.2 s, N=2 → 18.2 s, N=6 → 38.2 s (was 58.2 s before the round-1
+#: restructure).
+#: Widening this number is NOT the fix — it trades a rare lateness for cold-start
+#: storms on a loaded box, where several runtimes coming up at once is exactly
+#: what the original 30 s deadline was thrashing on. A real fix is a scheduling
+#: question (fair queueing between fresh and retried work), not a constant.
+_MAX_CONCURRENT_ENGAGES = 2
+
+#: How many times one (session, reason) skip is logged at full volume before
+#: dropping to :data:`_SKIP_HEARTBEAT_S`.
+#:
+#: A stale or ghost skip NEVER self-clears — a >7-day wake stays >7 days and a
+#: ghost session never grows a transcript — so logging it once per slice is
+#: 8,640 lines/day/entry into a file nothing rotates (``render_plist`` points
+#: ``StandardErrorPath`` at a plain path). The operator's box has two such ids
+#: today, so that is ~3.3 MB/day drowning the signal this observability was
+#: added to create. The first occurrences are the ones that carry information;
+#: after that a periodic heartbeat is enough to show the condition persists.
+_SKIP_LOG_BURST = 3
+
+#: Cadence for a skip that has already been logged :data:`_SKIP_LOG_BURST`
+#: times. One line an hour per stuck entry keeps the condition visible in the
+#: log without flooding it (~24 lines/day/entry rather than 8,640).
+_SKIP_HEARTBEAT_S = 3600.0
+
+
+class _SkipLog:
+    """Throttles a skip line that would otherwise repeat every slice forever.
+
+    Keyed by ``(session_id, reason)`` so a *change* of reason speaks up again
+    at full volume: an entry that goes from "live runtime owns it" to "stale"
+    is new information and must not inherit the old key's silence.
+
+    Process-lifetime state, deliberately. It is not persisted, so a restarted
+    supervisor re-announces every standing condition once — which is what an
+    operator reading a fresh log wants, and it keeps this module free of any
+    state file it would then have to own.
+    """
+
+    def __init__(self) -> None:
+        self._seen: dict[tuple[str, str], tuple[int, float]] = {}
+
+    def should_log(self, session_id: str, reason: str, *, now: float | None = None) -> bool:
+        moment = now if now is not None else time.monotonic()
+        key = (session_id, reason)
+        count, last = self._seen.get(key, (0, 0.0))
+        if count < _SKIP_LOG_BURST:
+            self._seen[key] = (count + 1, moment)
+            return True
+        if moment - last >= _SKIP_HEARTBEAT_S:
+            self._seen[key] = (count + 1, moment)
+            return True
+        self._seen[key] = (count, last)
+        return False
+
+    def forget(self, session_id: str, *reasons: str) -> None:
+        """Drop a session's throttle state for the named reasons, so a
+        recurrence after a genuine recovery is reported in full.
+
+        REASONS ARE NAMED rather than clearing the session wholesale. The
+        caller forgets the PRE-engage skips at the moment it gets past them —
+        but "the engage itself failed" is a different condition that has not
+        recovered, and clearing it there reset the throttle on every pass, so a
+        permanently-failing engage logged every slice exactly as if it were
+        unthrottled (found by the round-2 R8 test, which asserted the line
+        count rather than the code path).
+        """
+        for key in [key for key in self._seen if key[0] == session_id and key[1] in reasons]:
+            del self._seen[key]
+
+
+#: Module-level because the throttle must outlive one sweep: every skip this
+#: bounds is one that repeats on every pass for the life of the process.
+_skip_log = _SkipLog()
+
+
+def _ago_label(at_ms: Any, now_ms: int) -> str:
+    """``"12.3s"`` / ``"4.1m"`` for a past epoch-ms stamp, else ``"unknown"``.
+
+    Log-rendering only: a missing or malformed stamp must not make a holding
+    decision raise inside the sweep.
+    """
+    if not isinstance(at_ms, int) or isinstance(at_ms, bool):
+        return "unknown"
+    age = max((now_ms - at_ms) / 1000.0, 0.0)
+    return f"{age:.1f}s" if age < 60 else f"{age / 60.0:.1f}m"
+
+
+def _schedule_due_times(entry: dict[str, Any]) -> list[int]:
+    """Every readable ``next_due_at`` in an entry, in no particular order.
+
+    Defensive like the rest of this module's index reading: the file is
+    written by other processes, and a hand-edited or half-written row must
+    cost one schedule, never the whole entry.
+    """
+    out: list[int] = []
+    for raw in entry.get("schedules") or ():
+        if not isinstance(raw, Mapping):
+            continue
+        due = raw.get("next_due_at")
+        if isinstance(due, bool) or not isinstance(due, int):
+            continue
+        out.append(due)
+    return out
+
+
+def _is_stale_ms(due_ms: int, now_ms: int) -> bool:
+    """Whether ONE schedule is past the staleness bound."""
+    return (now_ms - due_ms) / 1000.0 > STALE_AFTER_S
+
+
+def _fireable_due_ms(entry: dict[str, Any], now_ms: int) -> int | None:
+    """Earliest schedule that is due NOW and not past the staleness bound.
+
+    PER SCHEDULE, not per entry, and that distinction is the round-2 blocker
+    (R7). An entry can hold a >7-day one-shot alongside a 20-minute recurring
+    watch, and ``next_due_at(entry)`` answers with the EARLIEST of the two —
+    so the whole entry read as stale, the live watch was never engaged, and
+    once that predicate also drove retirement the supervisor exited on it.
+    The one-shot only gets older, so nothing ever cleared the condition.
+    """
+    candidates = [
+        due for due in _schedule_due_times(entry) if due <= now_ms and not _is_stale_ms(due, now_ms)
+    ]
+    return min(candidates) if candidates else None
+
+
+def _has_fireable_schedule(entry: dict[str, Any], now_ms: int) -> bool:
+    """Whether ANY schedule in this entry is still worth supervising.
+
+    Future schedules count: they are the ordinary reason to stay up. Only an
+    entry whose every schedule is past the staleness bound is work this
+    process can never do (see :func:`_has_fireable_wakes`).
+    """
+    return any(not _is_stale_ms(due, now_ms) for due in _schedule_due_times(entry))
+
+
+def _is_stale(entry: dict[str, Any], now_ms: int) -> bool:
+    """Whether EVERY schedule in this entry is past the staleness bound.
+
+    ``all``, not "the earliest one" — see :func:`_fireable_due_ms` for the
+    defect that distinction caused. A mixed entry is emphatically NOT stale:
+    it has work in it, and the stale sibling must not speak for the rest.
+    """
+    due_times = _schedule_due_times(entry)
+    if not due_times:
+        return False
+    return all(_is_stale_ms(due, now_ms) for due in due_times)
+
+
+def _due_sessions(
+    index: dict[str, dict[str, Any]],
+    now_ms: int,
+    *,
+    config_dir: Path | None = None,
+    deliveries: Mapping[str, dict[str, Any]] | None = None,
+    spooled: Mapping[str, dict[str, Any]] | None = None,
+    triggers: Mapping[str, dict[str, Any]] | None = None,
+) -> list[tuple[str, str, int]]:
+    """``(session_id, cwd, due_ms)`` for every session with a wake due now.
+
+    Reads the index defensively — it is written by other processes and a
+    hand-edited or half-written entry must cost one session's wake, never the
+    whole sweep.
+
+    Every skip that drops a DUE wake logs, because a silent skip here is
+    indistinguishable from a working supervisor: the two dead-ends below were
+    invisible in the logs of a machine that had been missing wakes for a week.
+
+    ``deliveries`` is the supervisor's own ledger of fires it attempted and has
+    not yet handed to a runtime (see :mod:`local_operator.wakes.deliveries`).
+    It changes two decisions here and no others: a fire that is already owed is
+    not re-engaged until its recorded backoff says so, and it stays fireable
+    past the staleness bound that would otherwise drop it for good.
+
+    ``spooled`` is the OTHER reason a runtime may be wanted (see
+    :mod:`local_operator.wakes.spooled`): a session holding a spooled message that
+    asked for a turn and never got one. Those rows are not schedules, so they
+    have no entry in the index and no due time of their own — they are due the
+    moment the spool holds them, which is what makes this the drain's successor
+    (the handover that would otherwise end with the mail and no runtime). A
+    session that is already firing a due wake this pass is not listed twice, and
+    a DORMANT one is skipped exactly as its schedules are: the kill switch is
+    the user's, and a spooled turn is not an exception to it.
+
+    A PENDING TRIGGER RECORD joins for the same reason a spooled turn does: it
+    is an owed check-in with no index row of its own (the target's engine arms
+    the row once an engagement makes a runtime exist), so it earns an
+    engagement too — and a paused/stopped target is skipped exactly like its
+    schedules, which is the no-engagement half of the suppression matrix.
+
+    ``config_dir`` is what makes the FULL gate askable for a pending record:
+    ``trigger_mod.declines`` reads the published snapshot's
+    ``aida.enabled``/``aida.cadence.paused`` and the class mirror, so a record
+    that PREDATES a pause/disable/class-flip/switch-off is NOT due — engaging
+    it would boot an assistant the operator turned off and keep this process
+    resident for it (review round 1, R1; the creation-side gates alone left
+    exactly that hole). Callers without a root keep the pre-gate behaviour,
+    which is why the one production caller always passes it.
+    """
+    from local_operator.wakes import triggers as trigger_mod
+    from local_operator.wakes.spooled import next_attempt_at_ms
+    from local_operator.wakes.store import is_held, next_due_at
+
+    due: list[tuple[str, str, int]] = []
+    dormant: set[str] = set()
+    for session_id, entry in index.items():
+        if not isinstance(entry, dict):
+            continue
+        if is_held(entry):
+            # Dormant: the session was deliberately stopped OR Aida is
+            # paused (``held_at`` — the same "will not fire until a lever is
+            # lifted" state; see ``wakes.store.is_held``). PR 3's contract is
+            # that the wakes stay armed but do not fire until the user lifts
+            # it. Firing here would resurrect a session the kill switch
+            # ended, or send the proactive output a pause asked to silence.
+            # A pending delivery record is left in place for the same
+            # reason: reopening/resuming is what delivers it.
+            dormant.add(session_id)
+            continue
+        earliest = next_due_at(entry)
+        if earliest is None or earliest > now_ms:
+            continue
+        # PER SCHEDULE (round 2, R7). `earliest` is the entry's soonest row,
+        # which may be a week-old one-shot sitting beside a live recurring
+        # watch; engaging on the entry's earliest meant the stale sibling
+        # spoke for the whole entry and the live wake never fired. Ask instead
+        # for the soonest schedule that is BOTH due and not stale.
+        fireable = _fireable_due_ms(entry, now_ms)
+        overdue_s = (now_ms - earliest) / 1000.0
+        record = deliveries.get(session_id) if deliveries else None
+        # A RECORD IS ONLY ABOUT THE OCCURRENCE IT NAMES (and only while that
+        # occurrence is still owed). The schedule advancing — the runtime that
+        # took the fire ran it — means the record is stale bookkeeping, not a
+        # reason to hold an engagement; ``_reconcile_deliveries`` drops it on
+        # the next pass, and this guard keeps the sweep correct in the window
+        # before that happens.
+        owed_ms = record.get("occurrence_ms") if record else None
+        if not isinstance(owed_ms, int) or isinstance(owed_ms, bool):
+            owed_ms = None
+        elif owed_ms not in _schedule_due_times(entry):
+            owed_ms = None
+        if owed_ms is not None and fireable is not None and owed_ms != fireable:
+            # AN OWED OCCURRENCE IS A CANDIDATE IN ITS OWN RIGHT, not a fallback
+            # the due time can hide (review round 1, MINOR 1). The old guard
+            # dropped the record whenever a DIFFERENT due time existed — so an
+            # entry holding a stale owed occurrence beside a younger due sibling
+            # engaged only the sibling, never retried the owed fire, and went on
+            # reporting it as `retrying` forever while nothing was retrying it.
+            # The oldest owed-or-due occurrence wins, which is also the order the
+            # sweep's own oldest-first sort claims.
+            fireable = min(fireable, owed_ms)
+        if fireable is None:
+            # OWED PAST THE STALENESS BOUND. The rule below is unchanged for a
+            # wake the supervisor has never delivered: the session's own resume
+            # catch-up handles arbitrarily-old overdue wakes, so racing to
+            # start a runtime for a week-old one buys nothing. What is NOT
+            # unchanged is a fire this process already took on and failed to
+            # deliver: that one is owed, it is recorded, and dropping it here
+            # on every pass afterwards is precisely how a scheduled wake that
+            # the operator asked for disappears with nothing but a log line
+            # (the terminal state of the 510 failed attempts in F5).
+            occurrence = record.get("occurrence_ms") if record else None
+            if not isinstance(occurrence, int) or isinstance(occurrence, bool):
+                # BEHAVIOUR UNCHANGED, SILENCE REMOVED. Skipping it without a
+                # word is how a long-idle recurring watch can stop firing
+                # forever with no trace: a wedged runtime starves the wake past
+                # seven days, and from then on this branch drops it silently on
+                # every pass. WARNING, not INFO — reaching this state means a
+                # wake the user asked for is no longer being fired at all.
+                # Throttled (round 1, R2/Q4): this condition never self-clears,
+                # so an unthrottled line here is 8,640/day into an unrotated
+                # file. The reason leads, because that is what an operator
+                # greps for.
+                if _skip_log.should_log(session_id, "stale"):
+                    logger.warning(
+                        "stale: skipping %s — its wake is %.1f days overdue (> the %.0f-day "
+                        "staleness bound); it will be delivered by the session's own "
+                        "catch-up when it is next opened",
+                        session_id,
+                        overdue_s / 86400.0,
+                        STALE_AFTER_S / 86400.0,
+                    )
+                continue
+            fireable = occurrence
+        if record is not None:
+            # BACKOFF. Every failed attempt used to re-enter here on the very
+            # next pass and spend a FULL engage deadline out of
+            # _MAX_CONCURRENT_ENGAGES slots, so one unreachable session
+            # occupied half the fleet's engagement capacity indefinitely and
+            # every fresh wake queued behind it (the known residual documented
+            # at that constant). The recorded next attempt is what makes the
+            # retry cost bounded instead.
+            nxt = record.get("next_attempt_ms")
+            if isinstance(nxt, int) and not isinstance(nxt, bool) and nxt > now_ms:
+                if _skip_log.should_log(session_id, "backoff"):
+                    logger.info(
+                        "backoff: holding %s — its fire is %.1fs overdue, its last "
+                        "attempt failed %s ago and %d attempt(s) have failed; next "
+                        "attempt in %.0fs (state %s, last error: %s)",
+                        session_id,
+                        overdue_s,
+                        _ago_label(record.get("last_attempt_ms"), now_ms),
+                        record.get("attempts") or 0,
+                        (nxt - now_ms) / 1000.0,
+                        record.get("state") or "retrying",
+                        record.get("last_error") or "unknown",
+                    )
+                continue
+        cwd = entry.get("cwd")
+        due.append(
+            (session_id, cwd if isinstance(cwd, str) and cwd else os.path.expanduser("~"), fireable)
+        )
+    # Older first: if several are due at once, the one that has waited
+    # longest gets its runtime first.
+    # SPOOLED TURNS, AFTER the index's own rows so a session that is due both ways
+    # fires once (the index row is the more specific occurrence: it names a
+    # schedule the runtime advances, while a spooled turn simply stops being
+    # owed once its spool is drained, which is the state the reconciler above
+    # settles).
+    scheduled = {row[0] for row in due}
+    for session_id, record in (spooled or {}).items():
+        if not isinstance(record, dict) or session_id in scheduled or session_id in dormant:
+            continue
+        if next_attempt_at_ms(record) > now_ms:
+            continue
+        cwd = record.get("cwd")
+        noted = record.get("noted_at_ms")
+        due.append(
+            (
+                session_id,
+                cwd if isinstance(cwd, str) and cwd else os.path.expanduser("~"),
+                int(noted) if isinstance(noted, int) and not isinstance(noted, bool) else now_ms,
+            )
+        )
+    # TRIGGER CHECK-INS, last so a session owed both ways is engaged once (the
+    # first row wins and the later kind does not duplicate it). The cwd prefers
+    # the target's own index entry when one exists; a target with no entry at
+    # all — her session with no armed rows — still engages, from the home
+    # directory, which is what the spooled path does too. A target in a
+    # DECLINE state is skipped here (see the docstring): the record stays on
+    # disk but is not owed, so nothing is engaged and nothing keeps the
+    # supervisor resident for it.
+    already = {row[0] for row in due}
+    for session_id, record in (triggers or {}).items():
+        if not isinstance(record, dict) or session_id in already or session_id in dormant:
+            continue
+        if trigger_mod.next_attempt_at_ms(record) > now_ms:
+            continue
+        if config_dir is not None:
+            reason = trigger_mod.declines(config_dir, session_id)
+            if reason is not None:
+                logger.debug("trigger record for %s skipped (%s)", session_id, reason)
+                continue
+        entry = index.get(session_id)
+        cwd = entry.get("cwd") if isinstance(entry, dict) else None
+        noted = record.get("noted_at_ms")
+        due.append(
+            (
+                session_id,
+                cwd if isinstance(cwd, str) and cwd else os.path.expanduser("~"),
+                int(noted) if isinstance(noted, int) and not isinstance(noted, bool) else now_ms,
+            )
+        )
+    due.sort(key=lambda row: row[2])
+    return due
+
+
+def _session_exists(config_dir: Path, session_id: str) -> bool:
+    """Whether ``session_id`` has a transcript on disk.
+
+    A GHOST GUARD. The index is derived from sessions, but nothing prunes an
+    entry whose session directory has gone (a reap, a hand-deleted directory,
+    or an id that never existed). Such an entry can never be engaged
+    successfully, and before this guard each one consumed a full engage
+    deadline on every pass, forever: the live log shows ``lr_bda7b76d34e0``
+    and ``lr_28a800c6a783`` — ids with no session directory — accumulating
+    30 s timeouts with zero successful starts, ever.
+
+    The transcript rather than the directory, matching
+    ``multiplexer/broadcast.py``: a directory with no transcript is not a
+    session anything can resume.
+    """
+    from local_operator.resume import TRANSCRIPT_NAME
+
+    try:
+        return (Path(config_dir) / "sessions" / session_id / TRANSCRIPT_NAME).is_file()
+    except OSError:
+        # Unreadable is not proof of absence, and the cost of the two errors
+        # is asymmetric: skipping a real session loses its wake, while trying
+        # a ghost costs one deadline. Fail towards trying.
+        logger.debug("could not check the transcript for %s", session_id, exc_info=True)
+        return True
+
+
+def _load_and_reconcile_state(
+    config_dir: Path,
+) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+]:
+    """Read the index and the ledgers in ONE thread hop, RECONCILED here.
+
+    ONE hop, not two. This runs once per slice pass, in a process whose whole
+    justification is staying cheap, and the reads must agree anyway: each
+    ledger is reconciled against the index it was read WITH, so reading them
+    apart would let a pass decide on an index its records were not checked
+    against. Each ledger is one small file per session — an empty directory on
+    a healthy machine.
+
+    The NAME carries the reconciliation because it DELETES (review round 1,
+    NIT 1): a helper called like a read, from a retirement predicate, must not
+    quietly unlink files. What it drops is only ever a record whose cause is
+    gone — an entry that is gone, an occurrence that has moved past its fire,
+    a spool that no longer owes a turn, or a pending trigger record whose
+    target session does not exist.
+    """
+    from local_operator.wakes import triggers as trigger_mod
+    from local_operator.wakes.deliveries import read_deliveries
+    from local_operator.wakes.spooled import read_spooled
+    from local_operator.wakes.store import read_index
+
+    index = read_index(config_dir)
+    deliveries = read_deliveries(config_dir)
+    spooled = read_spooled(config_dir)
+    pending_triggers = trigger_mod.read_pending(config_dir)
+    _reconcile_deliveries(config_dir, index, deliveries)
+    _reconcile_spooled(config_dir, spooled)
+    trigger_mod.reconcile(config_dir, pending_triggers)
+    return index, deliveries, spooled, pending_triggers
+
+
+def _reconcile_spooled(config_dir: Path, spooled: dict[str, dict[str, Any]]) -> None:
+    """Drop obligations whose cause is gone (see :mod:`local_operator.wakes.spooled`).
+
+    AN OBLIGATION IS A CLAIM ABOUT A SPOOL, and the spool is the authority: a
+    session whose ``inbox.jsonl`` no longer holds a row that asks for a turn
+    (the successor drained it, a viewer's engage delivered it, the row was
+    recalled) owes nothing, and keeping the record would make this process raise
+    a runtime for a session with nothing to run — a wake-up with no work, on
+    every pass, which is exactly the churn the cap and the backoff exist to
+    avoid. A missing session directory reads the same way: the row went with it.
+
+    Mutates the caller's freshly read copy, so the pass that read it decides on
+    what is left rather than on what was found.
+    """
+    from local_operator.wakes.spooled import clear_spooled_turn, spool_owes_turn
+
+    sessions = Path(config_dir) / "sessions"
+    for session_id, record in list(spooled.items()):
+        if spool_owes_turn(sessions / session_id):
+            continue
+        # COMPARE-AND-DELETE: the writer is in another process, and a row it
+        # spools in the window between this read and that unlink re-arms the
+        # record — deleting it unconditionally would strand that message with no
+        # owner, which is defect (B) again (review round 1, R1-4). The guard
+        # narrows the window to the unlink itself; the drain-side half of the same
+        # finding is closed in ``inbox.settle_owed_turn``, which re-notes an
+        # obligation its own spool still owes.
+        clear_spooled_turn(
+            config_dir,
+            session_id,
+            expected_updated_at_ms=record.get("updated_at_ms"),
+        )
+        del spooled[session_id]
+
+
+def _reconcile_deliveries(
+    config_dir: Path,
+    index: dict[str, dict[str, Any]],
+    deliveries: dict[str, dict[str, Any]],
+) -> None:
+    """Drop ledger records for fires that are no longer owed.
+
+    A record is the supervisor's claim that a specific occurrence was attempted
+    and not yet handed to a runtime. The claim still holds only while the
+    schedule still HAS that occurrence as a due time:
+
+    * the entry is gone — the wake was cancelled, or the session was reaped —
+      so there is nothing left to fire;
+    * the entry's schedules no longer name ``occurrence_ms`` — the occurrence
+      fired (the runtime that took it advanced the schedule), or the schedule
+      was rewritten under it.
+
+    Both are the store's own self-healing shape applied one level up: the
+    ledger is derived from what is owed, so a disagreement is repaired by the
+    next pass rather than kept. A DORMANT entry is deliberately untouched —
+    its fire stays owed, and reopening the session is what delivers it, which
+    is the same contract its schedules have.
+
+    Mutates ``deliveries`` (the caller's freshly read copy), so a caller can go
+    on to use it for the decisions it was read for.
+    """
+    from local_operator.wakes.deliveries import remove_delivery
+
+    for session_id, record in list(deliveries.items()):
+        entry = index.get(session_id)
+        if not isinstance(entry, dict):
+            remove_delivery(config_dir, session_id)
+            del deliveries[session_id]
+            continue
+        if _is_held_entry(entry):
+            continue
+        if record.get("occurrence_ms") not in _schedule_due_times(entry):
+            remove_delivery(config_dir, session_id)
+            del deliveries[session_id]
+
+
+def _next_wake_ms(index: dict[str, dict[str, Any]]) -> int | None:
+    """Earliest future due time across the whole index, or None."""
+    from local_operator.wakes.store import next_due_at
+
+    earliest: int | None = None
+    for entry in index.values():
+        if not isinstance(entry, dict) or _is_held_entry(entry):
+            continue
+        due = next_due_at(entry)
+        if due is None:
+            continue
+        if earliest is None or due < earliest:
+            earliest = due
+    return earliest
+
+
+async def _has_live_runtime(config_dir: Path, session_id: str) -> bool:
+    """Whether a runtime is already hosting ``session_id``.
+
+    The no-live-record rule's implementation. Off the loop: it walks the
+    record directory.
+    """
+    from local_operator.mobile.attach_client import find_runtime_record
+
+    record, _owner = await asyncio.to_thread(find_runtime_record, config_dir, session_id)
+    return record is not None
+
+
+def wedged_runtime(config_dir: Path, session_id: str) -> tuple[int, float] | None:
+    """``(pid, heartbeat_age_s)`` when a runtime for ``session_id`` has gone quiet.
+
+    The last silent dead-end. A runtime whose process is alive but whose
+    heartbeat has gone stale past ``HEARTBEAT_TIMEOUT_S`` is invisible to
+    :func:`_has_live_runtime` (``find_runtime_record`` filters to ``live``, so
+    the supervisor engages) *and* blocks that engage: ``_lease_holder`` sees
+    the live pid holding the transcript lease and refuses to spawn, so every
+    pass burns its whole deadline and the wake never fires while it persists.
+    Before this, the only trace was an ordinary timeout line,
+    indistinguishable from a slow cold start.
+
+    WHAT THE STATE IS AND IS NOT (``registry.classify`` owns this rule). The
+    beat is authored by the runtime's own event loop, so this reading covers a
+    frozen process AND a healthy one starved by a long turn — the measured
+    false positives were 105.8 s and 205.8 s against a 45 s timeout — and it is
+    therefore "the owner has not reported and is not answering", never a
+    verdict that the process is dead. Callers word it that way.
+
+    NOTHING HERE TOUCHES THE QUIET SESSION. The lease is not broken and the
+    process is not signalled: the safe repair belongs to the runtime's own
+    watchdog, and a supervisor that killed a session's process on a heartbeat
+    heuristic could destroy work a merely-slow runtime was in the middle of.
+    Naming the forced stop is the operator's decision to make, not this
+    process's (see ``_engage_one``'s sentence).
+
+    It is NOT side-effect free, though, and round 2 (R10) was right that
+    saying so was a false claim of purity. This delegates to
+    ``registry.scan``, whose documented job includes reaping: it unlinks
+    records whose pid is gone or whose file is torn. It no longer CREATES the
+    directory if absent — #1666's review round 1, R1-1 made ``run_dir`` pure and
+    gave scanners an absence short-circuit — so the write it performs is the
+    reaping alone. That reaping is `scan`'s contract rather than
+    something this function wants, and it only ever removes records for
+    processes that are already dead — but it is a write, and a reader of this
+    docstring must not be told otherwise. The classification is read from
+    ``scan`` rather than re-derived from ``heartbeat_at`` here precisely so
+    the registry stays the one owner of live/wedged/stale.
+    """
+    from local_operator.session.runtime.registry import scan
+
+    try:
+        records = scan(config_dir)
+    except OSError:
+        return None
+    now = time.time()
+    for record, state in records:
+        if state == "wedged" and record.session_id == session_id:
+            return record.pid, max(now - record.heartbeat_at, 0.0)
+    return None
+
+
+async def _engage_one(
+    config_dir: Path,
+    session_id: str,
+    cwd: str,
+    due_ms: int,
+    moment: int,
+    semaphore: asyncio.Semaphore,
+    *,
+    on_outcome: Callable[[str], None] | None = None,
+) -> bool:
+    """Engage one due session. Returns whether a runtime was started.
+
+    Split out so the sweep can run these concurrently; every skip and failure
+    is contained here so one session can never fail the pass.
+
+    ``on_outcome`` IS THE ONLY WAY THE CALLER LEARNS WHY, and the reason it
+    exists is that this function's ``False`` covers four different situations the
+    spooled-turn walk has to tell apart (review round 1, R1-1): a session that is
+    SERVED (``live`` — nothing was tried, the handover has not begun), one whose
+    directory is gone (``ghost``), one whose owner holds the lease without
+    answering (``wedged``), and one whose engage could not start a runtime
+    (``failed``). The one caller that needs the distinction passes a callback;
+    every other caller, and every existing test, is unchanged by its absence.
+    ``started`` is the success word. The callback is called from the sweep's own
+    task, so it must not block or raise — ``_note_spooled_attempt`` neither does.
+    """
+    outcome: Callable[[str], None] = on_outcome or (lambda _reason: None)
+    from local_operator.session.runtime.launch import WakeErrand, engage_runtime
+
+    overdue_s = (moment - due_ms) / 1000.0
+    async with semaphore:
+        if await _has_live_runtime(config_dir, session_id):
+            # The no-live-record rule: that session fires its own wakes.
+            #
+            # INFO with the overdue figure, not debug: a growing overdue
+            # figure on a repeating "already running" line is what makes a
+            # session that is up but not firing findable. Throttled, because
+            # a long-lived session legitimately produces this every slice.
+            if _skip_log.should_log(session_id, "live"):
+                logger.info(
+                    "live: skipping %s — its wake is %.1fs overdue but a live runtime "
+                    "owns it (that session fires its own wakes)",
+                    session_id,
+                    overdue_s,
+                )
+            outcome("live")
+            return False
+        if not await asyncio.to_thread(_session_exists, config_dir, session_id):
+            if _skip_log.should_log(session_id, "ghost"):
+                logger.warning(
+                    "ghost: skipping %s — its wake is %.1fs overdue but the session has "
+                    "no transcript on disk; the index entry can never be engaged",
+                    session_id,
+                    overdue_s,
+                )
+            outcome("ghost")
+            return False
+        # Probed BEFORE the engage, not after it fails, because the engage
+        # would otherwise burn its whole deadline against a lease this process
+        # cannot take — and report that as an ordinary timeout.
+        wedge = await asyncio.to_thread(wedged_runtime, config_dir, session_id)
+        if wedge is not None:
+            pid, age_s = wedge
+            if _skip_log.should_log(session_id, "wedged"):
+                # No promise, in either direction. The owner is not answering
+                # (that is the whole of what a stale beat establishes), so the
+                # sentence says the wake is overdue rather than that it will
+                # fire later; and the remedy names the rung that ACTS on a
+                # lapsed beat, with the forced rung's cost beside it so the
+                # operator picks deliberately. Which rung reaches which shape is
+                # the ladder's own rule (``control._identity_by_record`` re-reads
+                # a record only while its beat is inside ``HEARTBEAT_TIMEOUT_S``,
+                # so --force cannot convert a refusal into a stop here) — see
+                # ``info.render.not_answering_clause``.
+                logger.warning(
+                    "wedged: skipping %s — a runtime exists (pid %d) and has not "
+                    "reported for %.0fs, so it holds the transcript lease without "
+                    "answering; the wake is %.1fs overdue. Nothing here can recover "
+                    "it — 'lop stop --pid %d' asks it to stop and signals it if it "
+                    "will not answer, while 'lop stop --pid %d --force' "
+                    "signal-stops the process, discarding its in-flight turn, for "
+                    "an owner that is still beating but silent",
+                    session_id,
+                    pid,
+                    age_s,
+                    overdue_s,
+                    pid,
+                    pid,
+                )
+            outcome("wedged")
+            return False
+        # Only the conditions we just cleared: reaching here means the session
+        # is no longer skipped for a live/ghost/wedged/stale reason. Whether
+        # the engage SUCCEEDS is decided below, and its own throttle key must
+        # survive this pass — see `_SkipLog.forget`.
+        _skip_log.forget(session_id, "live", "ghost", "wedged", "stale")
+        logger.info(
+            "engaging %s: wake due %d, %.1fs overdue (deadline %.0fs)",
+            session_id,
+            due_ms,
+            overdue_s,
+            WAKE_DEADLINE_S,
+        )
+        started = time.monotonic()
+        try:
+            # The command_id is DERIVED rather than random, but note what it
+            # does and does not buy. It is NOT what dedupes a wake: `_deliver`
+            # returns early for a WakeErrand (`session/runtime/launch.py`)
+            # without ever sending an op, so no command_id reaches a runtime.
+            # What actually keeps a retry from double-firing is record reuse
+            # plus lease arbitration — an engage that finds a live record uses
+            # it, and the transcript lease admits at most one SERVING runtime.
+            # The id is carried for the log line and for consistency with the
+            # other errands.
+            await engage_runtime(
+                session_id,
+                cwd,
+                WakeErrand(
+                    schedule_id="",
+                    occurrence_ms=due_ms,
+                    command_id=f"wake-{session_id}-{due_ms}",
+                ),
+                config_dir=config_dir,
+                deadline_s=WAKE_DEADLINE_S,
+            )
+        except (TimeoutError, ConnectionError, OSError, RuntimeError) as exc:
+            # One session's wake failing must not stop the others'. The
+            # schedule is untouched, so the next pass tries again.
+            #
+            # RUNTIMEERROR IS DOCUMENTED, not defensive: `engage_runtime`
+            # raises it carrying the child's own reason as soon as every
+            # candidate it may start has died (a missing credential, an
+            # unconstructable session). Round 2 (R8) — omitting it here sent
+            # a 13-line asyncio "Task exception was never retrieved" traceback
+            # into the unrotated log on every slice, ~8,640/day, bypassing the
+            # throttle that the rest of this file routes repeats through.
+            #
+            # THROTTLED like every other repeating failure: an unconstructable
+            # session fails identically on every pass, so it gets the same
+            # burst-then-heartbeat treatment as the stale and ghost skips.
+            if _skip_log.should_log(session_id, "failed"):
+                # THE EXCEPTION CARRIES THE SUBJECT (round 3, D22).
+                # `engage_runtime` raises "could not start a runtime for
+                # session <id>: <cause>", so repeating that phrase and the id
+                # in the wrapper produced a 266-column line saying the same
+                # thing twice. This prefix adds only what the exception cannot
+                # know: how long the attempt took and how late the wake is.
+                logger.warning(
+                    "failed: after %.1fs (wake %.1fs overdue): %s",
+                    time.monotonic() - started,
+                    overdue_s,
+                    exc,
+                )
+            # THE FIRE IS NOW OWED, AND DURABLY SO. Before this record
+            # existed, the only trace of a failed engage was the WARNING above
+            # and the only reason a retry ever happened was that the schedule
+            # was still due — so nothing survived the schedule moving on (or
+            # ageing past the staleness bound), and nothing at all was visible
+            # to the operator. The record carries the next attempt time, which
+            # is also what bounds the retry's cost against the engagement
+            # slots (see `deliveries.RETRY_CAP_S`).
+            await asyncio.to_thread(
+                _note_failure, config_dir, session_id, due_ms, str(exc), overdue_s
+            )
+            outcome("failed")
+            return False
+        # RECOVERED: the failure keys are cleared only once an engage actually
+        # succeeds, so the next failure after a working run is announced at
+        # full volume instead of inheriting the old silence.
+        _skip_log.forget(session_id, "failed", "error", "backoff", "undelivered", "ledger")
+        cleared = await asyncio.to_thread(_note_delivered, config_dir, session_id, due_ms)
+        if cleared:
+            # A recovery is worth its own line: the operator's question is not
+            # "did it fire" (the schedule answers that) but "how close did my
+            # machine come to losing it", and the attempt count is the only
+            # place that is recorded.
+            logger.info(
+                "recovered: %s — its fire was delivered on attempt %d after %d failed "
+                "attempt(s)",
+                session_id,
+                cleared + 1,
+                cleared,
+            )
+        logger.info(
+            "started a runtime for %s (wake due %d, %.1fs overdue, took %.1fs)",
+            session_id,
+            due_ms,
+            overdue_s,
+            time.monotonic() - started,
+        )
+        outcome("started")
+        return True
+
+
+def _note_failure(
+    config_dir: Path, session_id: str, due_ms: int, error: str, overdue_s: float
+) -> None:
+    """Record a failed attempt and schedule the next one.
+
+    A helper rather than three lines inline so the error-level escalation
+    lives with the record it is about: crossing
+    :data:`deliveries.UNDELIVERED_AFTER_ATTEMPTS` is the point where an owed
+    fire stops being a retry and becomes something the operator has to be told
+    about, and it is logged at ERROR (throttled with the same
+    burst-then-heartbeat key as every other repeating condition here, because
+    the retries themselves do not stop).
+    """
+    from local_operator.wakes.deliveries import STATE_UNDELIVERED, note_failure
+
+    record = note_failure(config_dir, session_id, due_ms, error=error)
+    if record is None:
+        # THE LEDGER REFUSED THE WRITE, so there is nothing durable and nothing
+        # for the status surface to report. Saying "STILL OWED … 'lop wake
+        # status' reports it" here would be a lie in exactly the case the
+        # feature exists for (review round 1, MINOR 2). Best-effort degradation
+        # is the contract — the engage is still what fires the wake, and the
+        # schedule is still due — so this is a warning about the STORE, once per
+        # burst, and not a durability claim.
+        if _skip_log.should_log(session_id, "ledger"):
+            logger.warning(
+                "cannot record the failed attempt for %s: the delivery ledger at %s is not "
+                "writable, so this fire is tracked only by its schedule (best-effort by "
+                "contract; the wake still fires if a runtime can be reached)",
+                session_id,
+                config_dir,
+            )
+        return
+    if record.get("state") == STATE_UNDELIVERED and _skip_log.should_log(session_id, "undelivered"):
+        logger.error(
+            "undelivered: %s — %d consecutive attempts have failed to reach a runtime "
+            "for its wake, which is %.1fs overdue and STILL OWED (retried with backoff). "
+            "Last error: %s. 'lop wake status' reports it.",
+            session_id,
+            record.get("attempts"),
+            overdue_s,
+            record.get("last_error"),
+        )
+
+
+def _note_delivered(config_dir: Path, session_id: str, due_ms: int) -> int:
+    """Clear the owed fire. Returns how many failed attempts preceded it."""
+    from local_operator.wakes.deliveries import note_delivered
+
+    return note_delivered(config_dir, session_id, due_ms)
+
+
+class _ResidencySweep:
+    """The residency sweep's seat in this loop: the cadence, and the memory.
+
+    **WHY A SWEEP AT ALL, AND WHY HERE.** The sweep itself lives in
+    :mod:`local_operator.session.runtime.reclaim`; this class is only its seat —
+    when the pass runs and what it remembers between passes. What the pass answers
+    is the gap the process model left open: a runtime's OWN reaper is the only
+    party that may end it, and that reaper's first term is fail-closed, so a
+    runtime whose predicate cannot be evaluated stays resident indefinitely. The
+    fleet measured on 2026-09-17 (61 runtimes, 36 of them with no record in this
+    store and the oldest alive 11.3 h) is what makes that gap expensive — and the
+    same census found those 36 holding fresh records in their OWN roots, which is
+    why the sweep refuses them and why it is the ROSTER, not the sweep, that makes
+    them visible.
+
+    **IT REMEMBERS ONLY THE CONFIRM WINDOW.** The sightings hold each candidate's
+    last-sighting time and its cumulative CPU, because the decision needs two
+    independent looks at the process table — one to see it, one to confirm it is
+    still there, still record-less and still not burning CPU. Losing that memory (a
+    restart) costs one extra window of delay and never a wrong decision, which is
+    what makes an in-memory structure the right shape for it.
+
+    **THE PASS NEVER BLOCKS THE LOOP.** The census forks ``ps`` and ``lsof``, so
+    the pass runs on a worker thread; the loop's own deadline is untouched by a
+    machine with dozens of runtimes or by a wedged ``ps``.
+    """
+
+    def __init__(self, config_dir: Path) -> None:
+        self.config_dir = config_dir
+        #: ``None`` until the first pass, so the first pass is always due: a
+        #: supervisor START is the moment a fleet most needs looking at, and waiting
+        #: an interval for it would leave a fresh install blind for five minutes.
+        self.next_at: float | None = None
+        self.last_refusals: dict[str, int] | None = None
+        self._sightings: Any = None
+        self._task: "asyncio.Task[Any] | None" = None
+
+    def seconds_until(self, now: float | None = None) -> float:
+        """How long the loop may sleep before this pass is due again."""
+        moment = time.monotonic() if now is None else now
+        if self.next_at is None:
+            return 0.0
+        return max(0.0, self.next_at - moment)
+
+    def due(self, now: float | None = None) -> bool:
+        return self.seconds_until(now) <= 0.0
+
+    def kick(self) -> None:
+        """Start a pass if one is due, WITHOUT holding this loop for it.
+
+        Detached, and that is a correction rather than a preference: awaiting the
+        pass put a ``ps`` and an ``lsof`` (measured ~350 ms together on an idle
+        machine, ~0.9 s under load) inside the iteration that fires wakes, so a
+        store with a due wake paid a census before the engage — and a test that
+        drives this loop for 1.2 s observed one engagement where it expected two.
+        Nothing about the pass is urgent: it decides over a window of minutes.
+        A pass already in flight is left alone, and the next one is armed from
+        here rather than from its completion, so a slow pass cannot make the loop
+        wake every second waiting for it.
+        """
+        if self._task is not None and not self._task.done():
+            return
+        if not self.due():
+            return
+        self.next_at = time.monotonic() + RESIDENCY_SWEEP_INTERVAL_S
+        self._task = asyncio.ensure_future(asyncio.to_thread(self.sweep))
+        self._task.add_done_callback(self._finished)
+
+    def _finished(self, task: "asyncio.Task[Any]") -> None:
+        """Log a finished pass. Never raises out of a done-callback.
+
+        INFO when the picture CHANGED and DEBUG when it did not, because a
+        supervisor that logged its full census every five minutes would bury the
+        one line an operator is looking for. A pass that reclaimed something always
+        speaks: the runtime's own exit is logged in ITS log file, and these are the
+        only lines that say who asked it to leave. A FAILED pass is a warning with
+        the traceback — a reaper that silently stops reaping is worse than one that
+        never ran, because the fleet looks supervised.
+        """
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.warning("the residency pass failed; the fleet is unchecked", exc_info=error)
+            return
+        report = task.result()
+        changed = bool(report.reclaimed) or report.refusals() != self.last_refusals
+        self.last_refusals = report.refusals()
+        (logger.info if changed else logger.debug)("%s", report.summary())
+
+    async def shutdown(self) -> None:
+        """Drop an in-flight pass at teardown.
+
+        Cancelling a ``to_thread`` task does not stop the thread, which is fine:
+        the pass reads the process table and sends SIGTERMs it already decided on,
+        and waiting for it would make this loop's teardown as slow as the census.
+        The reason to cancel at all is the loop's own bookkeeping — a task left
+        pending at loop close logs a spurious error, which is what
+        ``_Sweeper.shutdown`` exists for on the engage side.
+        """
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+
+    def sweep(self, *, apply: bool = True) -> Any:
+        """Run one pass. Blocking; callers hand it to a worker thread.
+
+        ``reclaim`` is imported here rather than at module scope because this module
+        is the LaunchAgent's ``python -m`` target and its docstring's contract is
+        that it stays import-light: the sweep pulls in ``paths``, ``registry`` and
+        ``viewers``, none of which the supervisor needs in order to start, arm a
+        wake or retire.
+        """
+        from local_operator.session.runtime.reclaim import Sightings, reclaim_runtimes
+
+        if self._sightings is None:
+            self._sightings = Sightings()
+        return reclaim_runtimes(self.config_dir, apply=apply, sightings=self._sightings)
+
+
+class _MachineMemorySweep:
+    """The machine memory pass's seat in this loop: the cadence, and the rungs.
+
+    The pass itself lives in
+    :mod:`local_operator.session.runtime.machine_memory`; this class is only its
+    seat — when it runs and what it remembers between passes. It sits here, and
+    not per-session, because the reading it takes is a property of the MACHINE:
+    the supervisor is the one process already alive beside every runtime, and a
+    sum taken inside one session could not see the others (the same reason the
+    residency sweep is seated here).
+
+    **IT REMEMBERS ONE THING: WHEN IT LAST ENDED SOMETHING.**
+    :data:`MACHINE_MEMORY_KILL_COOLDOWN_S` is the whole memory; losing it to a
+    restart costs at most one extra kill inside the window and never a wrong
+    decision — the pass re-derives everything else from the fleet on every read.
+
+    **THE PASS NEVER BLOCKS THE LOOP.** It forks ``ps`` and samples the fleet, so
+    it runs on a worker thread like the residency pass; a pass already in flight
+    is left alone, and the next one is armed from here rather than from its
+    completion, so a slow pass cannot make the loop spin.
+    """
+
+    def __init__(self, config_dir: Path) -> None:
+        self.config_dir = config_dir
+        #: ``None`` until the first pass, so the first pass is always due: a
+        #: supervisor START is the moment the fleet most needs looking at.
+        self.next_at: float | None = None
+        #: The lineage keys of every fragment this seat ended inside
+        #: :data:`MACHINE_MEMORY_KILL_COOLDOWN_S`, each with the monotonic time it
+        #: was ended. See :meth:`in_cooldown`.
+        self._ended: list[tuple[float, frozenset[tuple[str, int]]]] = []
+        #: The last pass's STRUCTURAL key — ``(state, killed pid or None)`` —
+        #: so the seat can tell a CHANGE (worth INFO: a warn rung crossed, a
+        #: kill, an unmeasurable host appearing) from the same reading again
+        #: (DEBUG). Structural rather than the rendered summary on purpose:
+        #: ``fleet_mb`` moves on a healthy machine (23300 → 23306 MB between two
+        #: live passes), so comparing the text logged INFO nearly every pass
+        #: (round 2, R2-2). The residency seat's predicate is structural for the
+        #: same reason.
+        self.last_key: tuple[str, int | None] | None = None
+        self._task: "asyncio.Task[Any] | None" = None
+
+    def seconds_until(self, now: float | None = None) -> float:
+        """How long the loop may sleep before this pass is due again."""
+        moment = time.monotonic() if now is None else now
+        if self.next_at is None:
+            return 0.0
+        return max(0.0, self.next_at - moment)
+
+    def due(self, now: float | None = None) -> bool:
+        return self.seconds_until(now) <= 0.0
+
+    def kick(self) -> None:
+        """Start a pass if one is due, WITHOUT holding this loop for it.
+
+        Detached for the residency pass's reason: a ``ps`` read and the fleet's
+        footprint samples do not belong inside the iteration that fires wakes,
+        and nothing about the pass is urgent — it decides over a window of
+        minutes. A pass already in flight is left alone, and the next one is
+        armed from here rather than from its completion; an overdue pass
+        re-clamps the loop's sleep to ``MIN_SLEEP_S`` until it completes — the
+        same bounded shape the residency seat has, not a spin.
+        """
+        if self._task is not None and not self._task.done():
+            return
+        if not self.due():
+            return
+        self.next_at = time.monotonic() + MACHINE_MEMORY_INTERVAL_S
+        self._task = asyncio.ensure_future(asyncio.to_thread(self.sweep))
+        self._task.add_done_callback(self._finished)
+
+    def _finished(self, task: "asyncio.Task[Any]") -> None:
+        """Log a finished pass. Never raises out of a done-callback.
+
+        A FAILING PASS IS A WARNING, not an exception: the supervisor's other
+        work (wakes, engages) must not acquire a new crash path from a guard,
+        and a guard that fails silently would be worse than one that fails
+        loudly — so the failure gets the same channel every other pass failure
+        uses.
+
+        THE REPORT IS LOGGED, not dropped (the residency seat's shape): the
+        summary goes out at INFO when the STRUCTURAL key changes — the
+        transitions worth a line: ``ok`` → ``warn``, a kill, an unmeasurable
+        host appearing — and at DEBUG otherwise, so a healthy fleet does not
+        rewrite the log every minute while a silent ``unknown`` still leaves a
+        trace. The key is structural rather than the rendered text because the
+        text carries volatile numbers (round 2, R2-2).
+        """
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.warning(
+                "the machine memory pass failed; the fleet's sum is unchecked",
+                exc_info=error,
+            )
+            return
+        report = task.result()
+        summary = report.summary()
+        key = (report.state, report.killed.pid if report.killed is not None else None)
+        changed = key != self.last_key
+        self.last_key = key
+        (logger.info if changed else logger.debug)("%s", summary)
+
+    async def shutdown(self) -> None:
+        """Drop an in-flight pass on the way out (the residency pass's shape).
+
+        Cancelling stops the LOOP waiting on it; the worker thread's own ``ps``
+        finishes on its own and its decision is harmless — the pass re-reads the
+        fleet every time and remembers nothing but its last kill.
+        """
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+
+    def sweep(self, *, apply: bool = True) -> Any:
+        """Run one pass. Blocking; callers hand it to a worker thread.
+
+        The import is deferred for the same reason the residency sweep's is: this
+        module is the LaunchAgent's ``python -m`` target and starts without
+        dragging the runtime stack in until a pass needs it.
+        """
+        from local_operator.session.runtime.machine_memory import machine_memory_pass
+
+        report = machine_memory_pass(self.config_dir, apply=apply, in_cooldown=self.in_cooldown)
+        if getattr(report, "killed", None) is not None:
+            self._ended.append(
+                (time.monotonic(), frozenset(getattr(report, "killed_lineage", frozenset())))
+            )
+        return report
+
+    def in_cooldown(self, lineage: "frozenset[tuple[str, int]]", now: float | None = None) -> bool:
+        """Whether ending a fragment of this ``lineage`` would be a second stop of
+        one just ended.
+
+        ``lineage`` is the candidate's key set from ``machine_memory.lineage_keys``;
+        it is kin to an earlier stop when ANY key matches one ended inside
+        :data:`MACHINE_MEMORY_KILL_COOLDOWN_S`. Anything else is a different runaway
+        and is NOT held: the cooldown exists to stop a war on one respawning
+        process, not to rate-limit a guard whose job is to end whatever is eating
+        the machine. Entries age out here rather than on a timer, so the seat stays
+        a plain object with no clock of its own.
+        """
+        moment = time.monotonic() if now is None else now
+        self._ended = [e for e in self._ended if moment - e[0] < MACHINE_MEMORY_KILL_COOLDOWN_S]
+        return any(lineage & keys for _at, keys in self._ended)
+
+
+#: How often the rescue pass runs (see :class:`_RescueSweep`), and therefore how
+#: long the loop may sleep between passes.
+#:
+#: WHY 120 s AND NOT THE RESIDENCY CADENCE (300 s): a rescue's whole value is the
+#: gap between a death and the session being useful again, and the settle window
+#: (``rescue.RESCUE_SETTLE_S``, 30 s) already covers a wave's own retry passes. A
+#: settle window plus one pass is a target recovery latency of ~2.5 min. The pass
+#: forks nothing — file reads and a signal-0 per dead record — so it is cheaper
+#: than either of its neighbours at a shorter interval.
+RESCUE_INTERVAL_S = 120.0
+
+#: The most rescue engagements that may run at once. Deliberately the same two as
+#: :data:`_MAX_CONCURRENT_ENGAGES`: a rescue and a wake engage cost the same thing
+#: (a cold runtime construction), and the fleet's engage capacity is one resource.
+RESCUE_MAX_CONCURRENT_ENGAGES = 2
+
+#: The gap inserted between two rescues started in the same pass. The settle
+#: window already smears a wave over 30 s and the per-pass start budget
+#: (``rescue.RESCUE_MAX_STARTS_PER_PASS``) caps the burst, but the 2026-09-30
+#: manual resume storm took this host to load 273, so the four starts of one pass
+#: are spread rather than fired in the same instant.
+RESCUE_START_STAGGER_S = 1.5
+
+
+class _RescueSweep:
+    """The rescue pass's seat in this loop: the cadence, the engage, the verify.
+
+    **THE PASS ITSELF LIVES IN** :mod:`local_operator.session.runtime.rescue`;
+    this class is only its seat — when it runs, how it engages, and how it
+    verifies. It sits in this loop because the supervisor is the existing
+    always-on process that already owns "start a runtime for a session"
+    (:func:`_engage_one`), already reads the record plane
+    (:func:`_has_live_runtime`) and already runs a sliced loop to hang a pass on.
+    A second daemon would duplicate all of that, and would itself be an update
+    casualty.
+
+    **A SIBLING OF THE RESIDENCY PASS, NOT PART OF IT.** Reclaim ENDS processes
+    and rescue SPAWNS; one census cannot carry two opposite fail directions, so
+    the two seats share the loop and nothing else (see the rescue module's
+    docstring).
+
+    **IT REMEMBERS NOTHING ITSELF.** The episode state — attempts, backoff,
+    episode cooldown, the session breaker — lives in the durable ledger
+    ``rescue/`` writes, because a rescue that re-fired after a supervisor
+    restart would be noise, where a residency sighting lost to a restart costs
+    one window of delay and never a wrong decision. This seat holds only the
+    in-flight set that stops one pass re-engaging what the last one started.
+
+    **THE PASS NEVER BLOCKS THE LOOP.** The census (a ``registry.scan`` of the
+    two run namespaces, one ``attention.db`` read, the ledger reads) runs on a
+    worker thread; the engagements it decides on are started as background
+    tasks, so the loop keeps slicing while a cold runtime constructs.
+    """
+
+    def __init__(self, config_dir: Path) -> None:
+        self.config_dir = config_dir
+        #: ``None`` until the first pass, so the first pass is always due: a
+        #: supervisor START is the moment a fleet most needs looking at (the
+        #: residency seat's convention).
+        self.next_at: float | None = None
+        self.last_refusals: dict[str, int] | None = None
+        self._semaphore = asyncio.Semaphore(RESCUE_MAX_CONCURRENT_ENGAGES)
+        self._in_flight: dict[tuple[str, float], "asyncio.Task[None]"] = {}
+        self._task: "asyncio.Task[None] | None" = None
+
+    def seconds_until(self, now: float | None = None) -> float:
+        """How long the loop may sleep before this pass is due again."""
+        moment = time.monotonic() if now is None else now
+        if self.next_at is None:
+            return 0.0
+        return max(0.0, self.next_at - moment)
+
+    def due(self, now: float | None = None) -> bool:
+        return self.seconds_until(now) <= 0.0
+
+    def kick(self) -> None:
+        """Start a pass if one is due, WITHOUT holding this loop for it.
+
+        Detached for the residency pass's reason: the census is file reads and
+        process probes that do not belong inside the iteration that fires wakes,
+        and nothing here is urgent — it decides over a window of minutes. A pass
+        already in flight is left alone, and the next one is armed from here
+        rather than from its completion, so a slow pass cannot make the loop
+        wake every second waiting for it.
+        """
+        if self._task is not None and not self._task.done():
+            return
+        if not self.due():
+            return
+        self.next_at = time.monotonic() + RESCUE_INTERVAL_S
+        self._task = asyncio.ensure_future(self._pass())
+        self._task.add_done_callback(self._finished)
+
+    @property
+    def in_flight(self) -> int:
+        """How many rescue engagements are running.
+
+        The loop must not retire on 0 of these (see the retirement guard in
+        :func:`serve`): a rescue in flight is constructing a runtime for a
+        session that has none, and retiring under it would abandon exactly the
+        work this seat exists to do.
+        """
+        return len(self._in_flight)
+
+    async def _pass(self) -> None:
+        """Select candidates off the loop, then start their engagements."""
+        from local_operator.session.runtime import rescue
+
+        try:
+            report = await asyncio.to_thread(rescue.rescue_scan, self.config_dir, apply=True)
+        except Exception as exc:  # noqa: BLE001 — a failed pass must not crash the loop
+            logger.warning("the rescue pass failed; dead runtimes are unguarded", exc_info=exc)
+            return
+        refusals = dict(report.refusals)
+        changed = bool(report.to_engage or report.verified or report.abandoned) or (
+            refusals != self.last_refusals
+        )
+        self.last_refusals = refusals
+        (logger.info if changed else logger.debug)("%s", report.summary())
+        for decision in report.to_engage:
+            await self._start(decision)
+
+    async def _start(self, decision: Any) -> None:
+        """Start one rescue engagement in the background, staggered."""
+        key = (decision.session_id, decision.started_at)
+        if key in self._in_flight:
+            return
+        if self._in_flight:
+            # Stagger ONLY when something is already running, so the first
+            # rescue of a pass starts immediately and a lone death is never
+            # delayed by the burst machinery.
+            await asyncio.sleep(RESCUE_START_STAGGER_S)
+        self._in_flight[key] = asyncio.create_task(self._engage(decision))
+
+    async def _engage(self, decision: Any) -> None:
+        """Engage one candidate and record the outcome in the ledger.
+
+        THE ENGAGE PATH IS THE SUPERVISOR'S OWN (``engage_runtime`` with a
+        ``WakeErrand``, which delivers nothing) rather than a second spawn path:
+        lease arbitration, record reuse, the deadline and the throttled failure
+        handling all come free, and an attempt against a live runtime is a no-op
+        because the transcript lease admits at most one SERVING runtime.
+        """
+        from local_operator.mobile.attach_client import find_runtime_record
+        from local_operator.session.runtime import rescue
+        from local_operator.session.runtime.launch import WakeErrand, engage_runtime
+
+        session_id = decision.session_id
+        key = (session_id, decision.started_at)
+        entry = rescue.read_ledger(self.config_dir, session_id) or {}
+        attempt = int(entry.get("count") or 0) + 1
+        try:
+            async with self._semaphore:
+                logger.info(
+                    "rescue: engaging %s (dead run pid %d, class %s, attempt %d/%d)",
+                    session_id,
+                    decision.pid,
+                    decision.tag,
+                    attempt,
+                    rescue.RESCUE_MAX_ATTEMPTS,
+                )
+                try:
+                    await engage_runtime(
+                        session_id,
+                        decision.cwd,
+                        WakeErrand(
+                            schedule_id="",
+                            occurrence_ms=decision.death_at_ms or 0,
+                            command_id=f"rescue-{session_id}-{decision.pid}",
+                        ),
+                        config_dir=self.config_dir,
+                        deadline_s=WAKE_DEADLINE_S,
+                    )
+                except (TimeoutError, ConnectionError, OSError, RuntimeError) as exc:
+                    await asyncio.to_thread(
+                        rescue.note_rescue_attempt,
+                        self.config_dir,
+                        session_id,
+                        outcome="failed",
+                        detail=str(exc),
+                    )
+                    if _skip_log.should_log(session_id, "rescue-failed"):
+                        logger.warning("rescue: engaging %s failed: %s", session_id, exc)
+                    return
+                record, _owner = await asyncio.to_thread(
+                    find_runtime_record, self.config_dir, session_id
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — one rescue must not fail the seat
+            if _skip_log.should_log(session_id, "rescue-error"):
+                logger.warning(
+                    "rescue: engaging %s raised %s: %s",
+                    session_id,
+                    type(exc).__name__,
+                    exc,
+                    exc_info=True,
+                )
+            await asyncio.to_thread(
+                rescue.note_rescue_attempt,
+                self.config_dir,
+                session_id,
+                outcome="raised",
+                detail=str(exc),
+            )
+            return
+        finally:
+            self._in_flight.pop(key, None)
+        if record is not None and record.pid != decision.pid:
+            await asyncio.to_thread(
+                rescue.note_rescue_attempt,
+                self.config_dir,
+                session_id,
+                outcome="verified",
+                detail=f"runtime {record.pid} up",
+                engaged_pid=record.pid,
+            )
+            logger.info("rescue: re-engaged %s — runtime %d is up", session_id, record.pid)
+        else:
+            await asyncio.to_thread(
+                rescue.note_rescue_attempt,
+                self.config_dir,
+                session_id,
+                outcome="started",
+                detail="no successor record yet",
+            )
+
+    def _finished(self, task: "asyncio.Task[None]") -> None:
+        """Never raises out of a done-callback (the other seats' contract)."""
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.warning("the rescue pass failed; dead runtimes are unguarded", exc_info=error)
+
+    async def shutdown(self) -> None:
+        """Drop the in-flight pass and engage tasks on the way out.
+
+        Cancelling an engagement abandons the WAITING, not the rescue: the
+        runtime an engage spawned is detached and keeps constructing, which is
+        the same trade :meth:`_Sweeper.shutdown` makes.
+        """
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        tasks = list(self._in_flight.values())
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._in_flight.clear()
+
+
+class _Sweeper:
+    """Owns the in-flight engagements so the serve loop never waits on one.
+
+    **Why this is not a ``gather``.** Awaiting the sweep to completion put the
+    head-of-line blocking back where the slice re-read had just removed it:
+    with concurrency 2 and a 180 s deadline, six all-timing-out sessions block
+    for ``ceil(6/2) * 180 = 540 s``, three times worse than the serial 30 s
+    code this replaced (round 1, R3), and nothing re-reads the index for the
+    whole of it. Engagements are therefore *started* by a pass and awaited by
+    nobody: the loop returns to slicing immediately, so a wake armed during a
+    long sweep is still seen within one slice.
+
+    **The in-flight set is what makes that safe.** Without it, a pass every
+    10 s over a wake that takes 180 s to engage would start eighteen
+    engagements for one occurrence. Keyed by ``(session_id, occurrence_ms)``
+    rather than by session, so a *later* occurrence of a recurring wake is
+    still engageable while an earlier one is somehow still in flight, and the
+    same occurrence never is.
+    """
+
+    def __init__(self) -> None:
+        self._semaphore = asyncio.Semaphore(_MAX_CONCURRENT_ENGAGES)
+        self._in_flight: dict[tuple[str, int], asyncio.Task[bool]] = {}
+        #: Cumulative count of engagements that reported a started runtime.
+        #: The loop has nothing to return any more, so the count lives here
+        #: for tests and for `--once`.
+        self.started = 0
+
+    def engage(self, config_dir: Path, session_id: str, cwd: str, due_ms: int, moment: int) -> bool:
+        """Start one engagement in the background. False when already running."""
+        key = (session_id, due_ms)
+        if key in self._in_flight:
+            return False
+
+        async def _run() -> bool:
+            def _outcome(reason: str) -> None:
+                """Report one engagement's outcome to the spooled-turn walk.
+
+                ROUND 2 (R2-1) IS WHY THIS EXISTS AND WHY IT IS A NAMED LOCAL.
+                The callback was added to ``_engage_one``'s signature in round 1
+                and then never passed at the one call site that matters, so the
+                walk was inert: no outcome word arrived, ``note_attempt`` was
+                never called, ``next_attempt_ms`` stayed unset, and a session the
+                supervisor could not raise was re-engaged on every 10 s slice
+                (``_MAX_CONCURRENT_ENGAGES`` = 2 slots, each wedged probe a full
+                ``registry.scan``) instead of walking 15 s/30 s/…/1 h apart. The
+                store's whole churn argument lived at a call site that was not
+                wired.
+
+                A local rather than an inline lambda so the belt below can use
+                it too: an unanticipated raise out of ``_engage_one`` is a raise
+                that did not happen, which is exactly what ``failed`` means.
+                """
+                _note_spooled_attempt(config_dir, session_id, reason=reason)
+                _note_trigger_attempt(config_dir, session_id, reason=reason)
+
+            try:
+                started = await _engage_one(
+                    config_dir,
+                    session_id,
+                    cwd,
+                    due_ms,
+                    moment,
+                    self._semaphore,
+                    on_outcome=_outcome,
+                )
+            except asyncio.CancelledError:
+                # Shutdown, not a failure: `shutdown()` cancels in-flight work
+                # deliberately. Re-raised so the task settles as cancelled.
+                raise
+            except Exception as exc:  # noqa: BLE001 — a detached task's last resort
+                # THE BELT (round 2, R8). `_engage_one` runs as a detached
+                # task, so ANY raise it does not handle lands here rather than
+                # at a caller — and asyncio's default handler then prints a
+                # 13-line traceback per occurrence, at slice cadence, with no
+                # session id and none of the `reason:`-leading format the rest
+                # of this file uses. `_engage_one` already catches what
+                # `engage_runtime` documents; this exists so an UNANTICIPATED
+                # raise degrades to one throttled line and a retried wake
+                # instead of a log flood.
+                if _skip_log.should_log(session_id, "error"):
+                    logger.warning(
+                        "error: engaging %s raised %s: %s",
+                        session_id,
+                        type(exc).__name__,
+                        exc,
+                        exc_info=True,
+                    )
+                # AND IT IS AN ATTEMPT (round 2, R2-1): this is a raise the
+                # sweeper could not attribute. Without it the walk would be silent
+                # on exactly the shape that repeats most cheaply — an exception
+                # thrown before `_engage_one` could report anything of its own.
+                # `raised`, not `failed` (round 3, R3-1): see the constant.
+                _outcome("raised")
+                return False
+            finally:
+                # Popped in the task itself rather than in a done-callback so
+                # the key is gone the moment the work is, with no window where
+                # a finished engagement still blocks its own retry.
+                self._in_flight.pop(key, None)
+            if started:
+                self.started += 1
+            return started
+
+        self._in_flight[key] = asyncio.create_task(_run())
+        return True
+
+    @property
+    def in_flight(self) -> int:
+        """How many engagements are running. The loop must not retire on 0
+        fireable wakes while this is non-zero: the engagement it would abandon
+        is the one constructing the runtime that will advance the schedule."""
+        return len(self._in_flight)
+
+    async def drain(self) -> int:
+        """Await every in-flight engagement. For ``--once`` and for shutdown."""
+        while self._in_flight:
+            await asyncio.gather(*list(self._in_flight.values()), return_exceptions=True)
+        return self.started
+
+    async def shutdown(self) -> None:
+        """Cancel and reap every in-flight engagement.
+
+        Cancelling rather than draining: this runs when the loop is already
+        ending (retirement, or the process being torn down), and an engage can
+        legitimately still have minutes of deadline left. The runtime a
+        cancelled engage spawned is detached (``start_new_session=True``) and
+        keeps constructing regardless — what is abandoned is the WAITING, not
+        the wake, which is the same trade the deadline itself makes.
+        """
+        tasks = list(self._in_flight.values())
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._in_flight.clear()
+
+    def sweep(
+        self,
+        config_dir: Path,
+        index: dict[str, dict[str, Any]],
+        moment: int,
+        *,
+        deliveries: Mapping[str, dict[str, Any]] | None = None,
+        spooled: Mapping[str, dict[str, Any]] | None = None,
+        triggers: Mapping[str, dict[str, Any]] | None = None,
+    ) -> int:
+        """Start an engagement for every due session. Returns how many started."""
+        launched = 0
+        for session_id, cwd, due_ms in _due_sessions(
+            index,
+            moment,
+            config_dir=config_dir,
+            deliveries=deliveries,
+            spooled=spooled,
+            triggers=triggers,
+        ):
+            if self.engage(config_dir, session_id, cwd, due_ms, moment):
+                launched += 1
+        return launched
+
+
+class _TriggerSweep:
+    """The trigger pass's seat: the throttle, the detached task, nothing else.
+
+    **WHY A SEAT AND NOT A NEW LOOP.** The wake triggers' evaluation pass (see
+    :mod:`local_operator.wakes.triggers`) rides the iteration of an existing
+    process — this one — because the supervisor is the only always-on process
+    that exists for wakes, and a second daemon for a few hundred ms a minute is
+    exactly what the residency sweep's comment already rejected a sweep for.
+
+    **IT DOES NOT BOUND THE SLEEP, DELIBERATELY.** The residency and machine
+    sweeps bound the loop's sleep because they catch conditions that persist
+    between passes; this cadence must NOT, or the *possibility* of a future
+    trigger would keep the supervisor resident — converting it into a cron.
+    On an aida-enabled install her daily cadence row (and any pending record)
+    already keeps the loop moving; when it sleeps toward a far wake a pass
+    happens at most :data:`MAX_SLEEP_S` later, and the threshold check is not
+    sampled — age is computed at evaluation time — so a late tick fires a
+    trigger late, never wrongly.
+
+    **THE PASS IS DETACHED, ON A WORKER THREAD.** It reads project rows and
+    session-directory stats; a slow filesystem must never delay the wake path,
+    and the pass is best-effort by contract — the module returns silently on
+    every suppression and the seat never lets its failure reach the loop.
+    """
+
+    def __init__(self, config_dir: Path) -> None:
+        self.config_dir = config_dir
+        #: ``None`` until the first pass, so a fresh supervisor evaluates at
+        #: once — a START is the moment a machine most needs looking at.
+        self.next_at: float | None = None
+        self._task: "asyncio.Task[Any] | None" = None
+
+    def seconds_until(self, now: float | None = None) -> float:
+        """How long until the pass is due. NOT used to bound the loop's sleep.
+
+        ``due()`` uses it, and tests read it; the sleep decision deliberately
+        ignores it (see the class docstring).
+        """
+        moment = time.monotonic() if now is None else now
+        if self.next_at is None:
+            return 0.0
+        return max(0.0, self.next_at - moment)
+
+    def due(self, now: float | None = None) -> bool:
+        return self.seconds_until(now) <= 0.0
+
+    def kick(self) -> None:
+        """Start a pass if one is due, WITHOUT holding this loop for it.
+
+        A pass already in flight is left alone, and the next one is armed from
+        here rather than from the completion, so a slow filesystem cannot make
+        the loop evaluate every slice waiting for it.
+        """
+        if self._task is not None and not self._task.done():
+            return
+        if not self.due():
+            return
+        self.next_at = time.monotonic() + TRIGGER_EVAL_INTERVAL_S
+        self._task = asyncio.ensure_future(asyncio.to_thread(self._evaluate))
+        self._task.add_done_callback(self._finished)
+
+    async def run_once(self) -> None:
+        """One pass, awaited — the ``--once`` diagnostic's inline trigger eval.
+
+        Inline rather than detached so the SAME pass's state load sees the
+        record it wrote and engages it, which is what makes
+        ``lop wake serve --once`` deterministic about a trigger. The pending
+        count is logged on this path for observability parity with the other
+        work kinds (design §1.6).
+        """
+        self.next_at = time.monotonic() + TRIGGER_EVAL_INTERVAL_S
+        try:
+            await asyncio.to_thread(self._evaluate)
+            from local_operator.wakes import triggers as trigger_mod
+
+            pending = len(trigger_mod.read_pending(self.config_dir))
+            logger.info("trigger sweep: %d record(s) pending", pending)
+        except Exception:  # noqa: BLE001 — the diagnostic must still print
+            logger.warning("the trigger pass failed", exc_info=True)
+
+    def _evaluate(self) -> list[str]:
+        from local_operator.wakes import triggers as trigger_mod
+
+        return trigger_mod.sweep(self.config_dir)
+
+    def _finished(self, task: "asyncio.Task[Any]") -> None:
+        """Log a finished pass. Never raises out of a done-callback."""
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.warning("the trigger pass failed", exc_info=error)
+            return
+        written = task.result() or []
+        if written:
+            logger.info("trigger: %d record(s) written or merged", len(written))
+
+    async def shutdown(self) -> None:
+        """Drop an in-flight pass at teardown (the ``_Sweeper.shutdown`` shape).
+
+        Cancelling a ``to_thread`` task does not stop the thread, which is
+        fine: the pass reads files and writes small records, and waiting for
+        it would make teardown wait on the filesystem. The reason to cancel is
+        the loop's own bookkeeping — a task left pending at loop close logs a
+        spurious error.
+        """
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+
+
+async def fire_due_wakes(config_dir: Path, *, now_ms: int | None = None) -> int:
+    """Start a runtime for every cold session whose wake is due. Returns count.
+
+    One pass, awaited to completion — this is the ``--once`` / diagnostic
+    form and the seam the unit tests drive. The serve loop does NOT use it;
+    it drives a :class:`_Sweeper` directly so a slow engagement cannot hold
+    the loop (see that class for why).
+    """
+    moment = now_ms if now_ms is not None else int(time.time() * 1000)
+    index, deliveries, spooled, pending_triggers = await asyncio.to_thread(
+        _load_and_reconcile_state, config_dir
+    )
+    sweeper = _Sweeper()
+    sweeper.sweep(
+        config_dir,
+        index,
+        moment,
+        deliveries=deliveries,
+        spooled=spooled,
+        triggers=pending_triggers,
+    )
+    return await sweeper.drain()
+
+
+def _has_fireable_wakes(
+    index: dict[str, dict[str, Any]],
+    *,
+    config_dir: Path | None = None,
+    now_ms: int | None = None,
+    deliveries: Mapping[str, dict[str, Any]] | None = None,
+    spooled: Mapping[str, dict[str, Any]] | None = None,
+    triggers: Mapping[str, dict[str, Any]] | None = None,
+) -> bool:
+    """Whether anything in the index could ever cause THIS process to fire.
+
+    Not the same question as "is the index non-empty", and the difference was
+    a leak: an index holding only DORMANT entries (every session stopped) kept
+    the supervisor alive forever, because the non-empty check refused to retire
+    while ``_next_wake_ms`` \u2014 which skips dormant entries \u2014 returned None and
+    parked it on ``MAX_SLEEP_S``. Nothing it could do would ever fire one of
+    those wakes; reopening the session is what re-arms them, and that reopen
+    persists, which calls the install hook and brings the supervisor back.
+
+    Round 1 (R2/Q4) found two more entries with the same shape, and they are
+    why this now takes a ``config_dir``:
+
+    - **Stale** (>7 days overdue): the sweep refuses these permanently, and the
+      condition cannot self-clear because a wake only gets older. The session's
+      own catch-up delivers it on next open.
+    - **Ghost** (an index entry whose session has no transcript): refused
+      permanently too, and a ghost never grows a transcript.
+
+    Both satisfied the old "any non-dormant entry with schedules" test, so the
+    process was immortal AND re-logged the refusal every slice forever. None of
+    the three is work this process can do, and each has its own route back, so
+    retirement is the right answer for all of them.
+
+    ``deliveries`` is consulted for one more case: an entry whose every
+    schedule is past the staleness bound is still work while this process owes a
+    fire for it (see :mod:`local_operator.wakes.deliveries`). Refusing a woke
+    nobody has tried to fire is right; abandoning one it already took on is how
+    a wake disappeared with nothing but a log line.
+
+    ``config_dir`` is optional so the pure index-shape callers need not have
+    one; the ghost check is then skipped, which errs towards STAYING UP rather
+    than retiring on a wake that might be real.
+
+    ``spooled`` is the second kind of work this process can do, and it is checked
+    FIRST because it does not depend on the index at all: a session owing a turn
+    has no schedules, so every rule below would retire the process that is the
+    only thing that will ever raise the runtime its spool is waiting for.
+
+    THE DORMANT SKIP APPLIES HERE TOO (review round 1, R1-6). ``_due_sessions``
+    honours the kill switch for a spooled turn — a stopped session's work must not
+    fire — and this predicate has to agree with it, or a stopped session with an
+    owed turn keeps the supervisor resident forever waiting to fire something it
+    will never fire. That is the exact leak this function's own docstring says it
+    was written to close for the index's dormant entries, reached through the new
+    door.
+
+    A record IS fireable work otherwise, at whatever cadence its backoff has
+    walked to (≤ :data:`spooled.RETRY_CAP_S`): "still owed a turn" is still work,
+    which is why there is no attempt cap to end it.
+    """
+    from local_operator.wakes import triggers as trigger_mod
+
+    moment = now_ms if now_ms is not None else int(time.time() * 1000)
+    if spooled:
+        for session_id, record in spooled.items():
+            if not isinstance(record, dict):
+                continue
+            entry = index.get(session_id)
+            if isinstance(entry, dict) and _is_held_entry(entry):
+                continue
+            if config_dir is not None and not _session_exists(config_dir, session_id):
+                continue
+            return True
+    if triggers:
+        # A PENDING TRIGGER RECORD IS WORK THIS PROCESS CAN DO, exactly as a
+        # lone spooled turn is: engaging its target is what makes a runtime
+        # exist to consume it. The dormant skip agrees with ``_due_sessions``
+        # (a held target's record is deliberately not fireable), ghosts are
+        # already dropped by the reconciler that ran beside the read, and a
+        # DECLINE state (``trigger_mod.declines`` — paused/disabled/reactive/
+        # switch-off/env) makes the record NOT work this process can do:
+        # staying resident for it would keep a disabled assistant's check-in
+        # owed forever (review round 1, R1).
+        for session_id, record in triggers.items():
+            if not isinstance(record, dict):
+                continue
+            if config_dir is not None and trigger_mod.declines(config_dir, session_id) is not None:
+                continue
+            entry = index.get(session_id)
+            if isinstance(entry, dict) and _is_held_entry(entry):
+                continue
+            if config_dir is not None and not _session_exists(config_dir, session_id):
+                continue
+            return True
+    for session_id, entry in index.items():
+        if not isinstance(entry, dict) or _is_held_entry(entry):
+            continue
+        if not entry.get("schedules"):
+            continue
+        # PER SCHEDULE (round 2, R7). Asking whether the entry's EARLIEST wake
+        # is stale retired the process on an entry that also held a live
+        # recurring watch, and `KeepAlive{SuccessfulExit:false}` then kept it
+        # down while `StartInterval` re-decided the same thing every 15 min —
+        # the live watch stopped firing for good, silently. One non-stale
+        # schedule anywhere in the entry is work worth staying up for.
+        if not _has_fireable_schedule(entry, moment):
+            # A FIRE WE ALREADY TOOK ON IS STILL WORK, even past the bound that
+            # refuses a wake we never attempted: retiring here would exit the
+            # process that owes it and leave the owed fire to nobody. Guarded
+            # on the occurrence still being present, so a record left behind by
+            # a schedule that has since advanced cannot keep the process alive
+            # on its own.
+            record = deliveries.get(session_id) if deliveries else None
+            if record is None or record.get("occurrence_ms") not in _schedule_due_times(entry):
+                continue
+        if config_dir is not None and not _session_exists(config_dir, session_id):
+            continue
+        return True
+    return False
+
+
+#: Which engagement outcomes COUNT against a spooled turn's attempt walk.
+#:
+#: The rule is "an attempt is a raise that was TRIED and could not happen", and
+#: the two members are the shapes that qualify:
+#:
+#: * ``wedged`` — a runtime holds the transcript lease and is not answering, so
+#:   this process cannot raise its successor no matter how often it tries.
+#:   Repeating it every slice would be pure churn, and the backoff is what makes
+#:   the retry cost bounded.
+#: * ``failed`` — the engage itself could not start a runtime (a cold-start
+#:   failure, a refusal).
+#: * ``raised`` — the engage RAISED out of the sweeper's belt, which is NOT the
+#:   same thing (review round 3, R3-1): ``_engage_one`` can raise after
+#:   ``engage_runtime`` has already returned (the ``_note_delivered`` hop below
+#:   it), so a runtime may well have started. Counting it is right — the walk
+#:   must not retry immediately — but calling it ``failed`` would put a word in
+#:   ``last_error`` that can be false, and the store's records are read by people
+#:   asking what happened.
+#:
+#: ``live`` IS DELIBERATELY ABSENT (review round 1, R1-1, major). A live record
+#: means the session is SERVED — the handover has not begun, nothing was tried,
+#: and the passes before a draining owner exits are not this walk's failures.
+#: Counting them ended the walk ≈7.75 min after the record was written (six
+#: refusals at 15/30/60/120/240 s), so a handover whose owner took longer than
+#: that — a clean exit measured in minutes, or exactly the wedged owner above —
+#: was left with no successor at all: requirement (4) failing on the path this
+#: change exists to close. ``ghost`` is absent for a different reason: the
+#: reconciler drops a record whose session directory is gone, so there is
+#: nothing to walk.
+_SPOOLED_ATTEMPT_REASONS = frozenset({"wedged", "failed", "raised"})
+
+
+def _note_spooled_attempt(config_dir: Path, session_id: str, *, reason: str) -> None:
+    """Record an attempt on ``session_id``'s spooled turn, when it has one.
+
+    Never raises, and a no-op for the overwhelmingly common case (a session with
+    no obligation, which is every session on a healthy machine): reading the
+    record first is cheaper than writing one, and it keeps the attempt walk
+    scoped to spooled turns — an ordinary wake's bookkeeping is the ledger's job,
+    not this one's (see :mod:`local_operator.wakes.deliveries`).
+
+    ``reason`` is an outcome word — ``_engage_one``'s own, or the belt's
+    ``raised`` (see the constant) — and only
+    :data:`_SPOOLED_ATTEMPT_REASONS` move the walk. A ``started`` engage is the
+    success case: the record is then cleared by the drain that discharges it
+    (``inbox.settle_owed_turn``), never here — the supervisor must not decide that
+    a message it did not deliver has been delivered.
+    """
+    if reason not in _SPOOLED_ATTEMPT_REASONS:
+        return
+    # ON THE LOOP, DELIBERATELY (review round 3, R3-4; premises corrected in
+    # R4-1, which was right to check them). The sibling ledger write beside this
+    # one goes through ``asyncio.to_thread`` and this does not, on the only
+    # argument that survives reading both: this is ONE small atomic write — one
+    # ~200-byte JSON file, flushed and fsynced by ``spooled._write`` — and it
+    # happens at most once per attempted raise for a session, never closer than
+    # ``spooled.RETRY_BASE_S`` apart, against a process whose slice is ten
+    # seconds. The earlier version of this comment argued from a contrast with
+    # the ledger that does not exist (that write reads one record too); the
+    # decision does not need it. Threading this would also make the callback
+    # awaitable, which the engage's own call sites are not.
+    try:
+        from local_operator.wakes.spooled import note_attempt, read_spooled_turn
+
+        if read_spooled_turn(config_dir, session_id) is None:
+            return
+        note_attempt(config_dir, session_id, error=reason)
+    except Exception:  # noqa: BLE001 — bookkeeping must never stop an engagement
+        logger.warning(
+            "could not record the spooled-turn attempt for %s", session_id, exc_info=True
+        )
+
+
+def _note_trigger_attempt(config_dir: Path, session_id: str, *, reason: str) -> None:
+    """Record an attempt on ``session_id``'s pending trigger record, when it has one.
+
+    The same contract as :func:`_note_spooled_attempt`: a no-op for a session
+    with no record, never raises, and only ``wedged``/``failed``/``raised``
+    move the walk (``triggers.note_attempt`` owns that vocabulary and the
+    backoff). A ``started`` engage is the success case and the record is then
+    cleared by the target's own consume — the supervisor must not decide that a
+    check-in it did not deliver has been delivered.
+    """
+    try:
+        from local_operator.wakes import triggers as trigger_mod
+
+        trigger_mod.note_attempt(config_dir, session_id, reason=reason)
+    except Exception:  # noqa: BLE001 — bookkeeping must never stop an engagement
+        logger.warning("could not record the trigger attempt for %s", session_id, exc_info=True)
+
+
+def _retirement_reason(config_dir: Path) -> str:
+    """Why nothing is fireable, in the terms the operator can act on.
+
+    Round 2 (D15). "The next persist reinstalls it" was the only explanation
+    the retirement line carried, and for a stale-only store it is misleading:
+    the reinstalled supervisor reads the same entry and retires again. The
+    states that CAN end in retirement each have a different route back
+    (reopen the session, open it for the catch-up, rewrite the index), so the
+    line names which one it hit — this is the sentence ``lop wake status``
+    already knows how to say.
+    """
+    from local_operator.wakes.store import read_index
+
+    now_ms = int(time.time() * 1000)
+    dormant = stale = ghost = unreadable = 0
+    for session_id, entry in read_index(config_dir).items():
+        if not isinstance(entry, dict) or not entry.get("schedules"):
+            continue
+        # PRECEDENCE MATCHES `wake status` (round 3, R11). An entry can be
+        # both stale and a ghost, and the two surfaces bucketed it differently
+        # — `cli.py`'s `stale = [... if row["stale"] and not row["ghost"]]`
+        # calls it a ghost while this chain called it stale. That made the
+        # retirement line promise delivery "when the session is next opened"
+        # for a session that does not exist. Ghost is also the STRONGER fact:
+        # a stale wake still has a session to be delivered into, and a ghost
+        # has nothing at all, so it is the one worth telling the operator.
+        if _is_held_entry(entry):
+            # ``held_at`` counts here beside ``stopped_at`` (and is the
+            # reason this reads the shared predicate): both are "parked by a
+            # lever" and both read as dormant rather than as a problem. An
+            # Aida pause that showed as "stale" or "ghost" would send the
+            # operator chasing a delivery that is deliberately not coming.
+            dormant += 1
+        elif not _session_exists(config_dir, session_id):
+            ghost += 1
+        elif not _schedule_due_times(entry):
+            # NOT STALE — it never crossed the bound, it has no readable due
+            # time to cross (round 3, R12). `_has_fireable_schedule` is False
+            # here for a different reason than staleness, and bucketing the
+            # two together named a bound this entry never reached and promised
+            # a catch-up delivery that no due time can produce. `_is_stale`
+            # says False for it too, so this keeps the two in agreement.
+            unreadable += 1
+        elif not _has_fireable_schedule(entry, now_ms):
+            stale += 1
+    parts: list[str] = []
+    if stale:
+        parts.append(
+            f"{stale} past the {STALE_AFTER_S / 86400.0:.0f}d staleness bound — "
+            "delivered when their sessions are next opened"
+        )
+    if dormant:
+        parts.append(f"{dormant} dormant — reopening the session re-arms them")
+    if ghost:
+        parts.append(f"{ghost} with no session on disk")
+    if unreadable:
+        parts.append(f"{unreadable} with no readable due time — rewritten when its session opens")
+    if not parts:
+        return "nothing is scheduled; the next persist reinstalls it"
+    return "; ".join(parts)
+
+
+async def _should_retire(config_dir: Path) -> bool:
+    """Whether there is genuinely nothing left to supervise.
+
+    Re-reads after a short grace, which closes the RACE half of the
+    never-restarted-supervisor defect. ``Session._persist_wake_schedules``
+    writes the index entry and THEN calls the install hook, so there is a
+    window where the supervisor can read an empty index while a session is
+    part-way through arming its first wake. Retiring inside that window exits
+    0, the hook that follows sees a job launchd still knows about, and the
+    wake is left armed with nothing running — the same end state as the hard
+    miss, reached by a different road.
+
+    The grace is one slice: long enough to cover the gap between those two
+    steps (they are consecutive statements), short enough that retirement on a
+    genuinely empty index is still prompt.
+    """
+    await asyncio.sleep(min(SLICE_S, MAX_SLEEP_S))
+    index, deliveries, spooled, pending_triggers = await asyncio.to_thread(
+        _load_and_reconcile_state, config_dir
+    )
+    return not _has_fireable_wakes(
+        index,
+        config_dir=config_dir,
+        deliveries=deliveries,
+        spooled=spooled,
+        triggers=pending_triggers,
+    )
+
+
+async def serve(config_dir: Path, *, once: bool = False) -> int:
+    """Run the supervisor loop. Returns the process exit code.
+
+    Exits **0** when there is nothing fireable left, which is what lets the
+    LaunchAgent's ``KeepAlive: {SuccessfulExit: False}`` leave a finished
+    supervisor down instead of restarting it forever. A crash exits non-zero
+    and is restarted.
+
+    **The wait is sliced** (:data:`SLICE_S`) rather than computed once and
+    slept whole: a wake persisted while the supervisor sleeps is then seen
+    within a slice instead of within up to ``MAX_SLEEP_S``.
+
+    **Engagements do not hold this loop.** A pass STARTS the engagements it
+    owes and returns; the loop keeps slicing while they run (see
+    :class:`_Sweeper`). Awaiting them here is what made a 6-session
+    all-timeout sweep block for 540 s in round 1.
+
+    **The trigger pass rides the top of each iteration** (:class:`_TriggerSweep`),
+    before the state load, so a record it writes is engaged within the same
+    pass or the next one (≤ ``SLICE_S``). ``--once`` awaits the pass inline for
+    the same reason.
+    """
+    sweeper = _Sweeper()
+    triggers_seat = _TriggerSweep(config_dir)
+    residency = _ResidencySweep(config_dir)
+    memory_sweep = _MachineMemorySweep(config_dir)
+    rescue_seat = _RescueSweep(config_dir)
+    try:
+        while True:
+            if once:
+                await triggers_seat.run_once()
+            else:
+                triggers_seat.kick()
+            index, deliveries, spooled, pending_triggers = await asyncio.to_thread(
+                _load_and_reconcile_state, config_dir
+            )
+            if not _has_fireable_wakes(
+                index,
+                config_dir=config_dir,
+                deliveries=deliveries,
+                spooled=spooled,
+                triggers=pending_triggers,
+            ):
+                if once:
+                    # `--once` IS THE DIAGNOSTIC, so it must not be the quiet
+                    # one (round 2, D15): a stale-only store made `lop wake
+                    # serve --once` print nothing and exit 0, which reads as
+                    # "everything is fine" in exactly the state where a wake
+                    # the user asked for is never going to fire. Same sentence
+                    # the loop logs when it retires for the same reason.
+                    logger.info(
+                        "nothing fireable in this store (%s)", _retirement_reason(config_dir)
+                    )
+                    return 0
+                # In-flight work outlives a momentarily-empty index: retiring
+                # under a running engagement would kill the runtime it is
+                # constructing. Slice instead and re-decide next pass.
+                if sweeper.in_flight or rescue_seat.in_flight:
+                    await _sleep_in_slices(config_dir, SLICE_S, None)
+                    continue
+                if await _should_retire(config_dir):
+                    # LOGGED WITH THE REASON, because this is the transition
+                    # that ends the process: a supervisor that is gone looks
+                    # identical to one that never started unless it says why it
+                    # left. Round 2 (D15): "the next persist reinstalls it" is
+                    # true and useless for a stale-only store — the reinstalled
+                    # supervisor retires again on the same entry — and the
+                    # `stale: skipping …` line that would have named the
+                    # condition is unreachable, because retirement is decided
+                    # before the sweep runs. So the retirement line carries the
+                    # breakdown itself.
+                    logger.info(
+                        "no fireable wakes remain after a %.0fs grace re-read; "
+                        "the supervisor is retiring (%s)",
+                        SLICE_S,
+                        _retirement_reason(config_dir),
+                    )
+                    return 0
+                logger.info("a wake was armed during the retirement grace; staying up")
+                continue
+
+            sweeper.sweep(
+                config_dir,
+                index,
+                int(time.time() * 1000),
+                deliveries=deliveries,
+                spooled=spooled,
+                triggers=pending_triggers,
+            )
+            if once:
+                await sweeper.drain()
+                return 0
+
+            # Recomputed from the index AFTER the sweep started, so a schedule
+            # an already-finished runtime advanced is reflected rather than
+            # re-read stale.
+            index, deliveries, spooled, pending_triggers = await asyncio.to_thread(
+                _load_and_reconcile_state, config_dir
+            )
+            if not _has_fireable_wakes(
+                index,
+                config_dir=config_dir,
+                deliveries=deliveries,
+                spooled=spooled,
+                triggers=pending_triggers,
+            ):
+                continue  # retirement is decided at the top, with its grace
+
+            upcoming = _next_wake_ms(index)
+            now_ms = int(time.time() * 1000)
+            if upcoming is None:
+                delay = MAX_SLEEP_S
+            elif upcoming <= now_ms:
+                # STILL DUE AFTER A SWEEP means one of two things: the wake is
+                # being engaged right now (the engagement is in flight and the
+                # runtime has not yet advanced the schedule), or it was
+                # SKIPPED. A fired wake does not land here — the runtime
+                # advances the schedule, so the next read shows a future time.
+                #
+                # Either way a slice is the right cadence, and MIN_SLEEP_S is
+                # not: the condition can only change when an engagement
+                # finishes or something else writes the index, and that is
+                # exactly what the slice re-read is sized to notice. Sleeping
+                # MIN_SLEEP_S here span the loop at one pass per second and
+                # re-logged the same skip with it (observed against a ghost
+                # entry during validation).
+                delay = SLICE_S
+            else:
+                delay = max(MIN_SLEEP_S, min(MAX_SLEEP_S, (upcoming - now_ms) / 1000.0))
+            # THE RESIDENCY PASS GOES LAST — after this iteration's wake work and
+            # before the sleep — and it is the only thing this loop does that is not
+            # about wakes. Last, and not first, because a pass forks ``ps`` and
+            # ``lsof`` (measured ~350 ms together, more under load): in front of the
+            # engage it would make every pass with a DUE wake pay a census before
+            # firing it. Nothing here is urgent — the pass decides over a window of
+            # minutes — and nothing this iteration read is invalidated by it, since
+            # the index is re-read for the sleep decision just below.
+            #
+            # ``--once`` therefore never sweeps: every one of its other behaviours is
+            # a read, and a mode whose whole purpose is "tell me the state of things"
+            # must not be the one that ends processes. ``lop sessions reclaim`` is the
+            # operator's door to the same pass.
+            residency.kick()
+            # THE MACHINE MEMORY PASS RIDES THE SAME POSITION, for its own
+            # reason: it reads the fleet's SUM, which no single session can see
+            # (see :class:`_MachineMemorySweep`), and nothing it decides is
+            # urgent inside one iteration. Unlike the residency pass it can END
+            # a runaway fragment — the one stop this loop may take without an
+            # operator — so it is rate-limited by its own cooldown and silent
+            # while the machine is healthy.
+            memory_sweep.kick()
+            # THE RESCUE PASS RIDES THE SAME POSITION, for a third reason: it
+            # SPAWNS a runtime for a session whose last one died involuntarily,
+            # and spawning is not wake work — nothing this iteration read is
+            # invalidated by it either. It runs off the loop (the census is a
+            # registry scan and an attention.db read) and its own interval bounds
+            # the sleep below, so a store whose only wake is hours out still gets
+            # a rescue pass every ``RESCUE_INTERVAL_S``.
+            rescue_seat.kick()
+            # THE SWEEP BOUNDS THE SLEEP. Without this the loop's own cadence is set
+            # purely by the next wake, which on a store holding one wake three hours
+            # out means three hours between passes — and a residency pass that only
+            # runs when a wake happens to be imminent is a sweep with a random period.
+            # The floor is ``MIN_SLEEP_S`` so a pass that has just run cannot turn this
+            # into a spin.
+            delay = max(
+                MIN_SLEEP_S,
+                min(
+                    delay,
+                    residency.seconds_until(),
+                    memory_sweep.seconds_until(),
+                    rescue_seat.seconds_until(),
+                ),
+            )
+            logger.debug("sleeping %.1fs until the next wake (in %.0fs slices)", delay, SLICE_S)
+            await _sleep_in_slices(config_dir, delay, upcoming)
+    finally:
+        # A cancelled or retiring supervisor must not leave engage tasks
+        # pending: they hold a semaphore slot and an event loop reference, and
+        # an un-awaited task destroyed at loop close logs a spurious error. The
+        # residency, machine-memory and trigger passes are the same shape of
+        # background work and are dropped the same way.
+        await residency.shutdown()
+        await memory_sweep.shutdown()
+        await rescue_seat.shutdown()
+        await triggers_seat.shutdown()
+        await sweeper.shutdown()
+
+
+async def _sleep_in_slices(config_dir: Path, delay: float, upcoming: int | None) -> None:
+    """Sleep up to ``delay`` seconds, returning early if the index changes.
+
+    Re-reads the index once per :data:`SLICE_S` and returns as soon as a wake
+    earlier than the one we were waiting for appears (or the index empties),
+    so the next loop iteration fires it. MIN/MAX semantics are the caller's
+    and are unchanged: this only decides how the already-computed ``delay`` is
+    spent.
+    """
+    from local_operator.wakes.store import read_index
+
+    remaining = delay
+    while remaining > 0:
+        await asyncio.sleep(min(SLICE_S, remaining))
+        remaining -= SLICE_S
+        if remaining <= 0:
+            return
+        index = await asyncio.to_thread(read_index, config_dir)
+        if not _has_fireable_wakes(index, config_dir=config_dir):
+            return  # retirement (with its grace) is decided by the caller's loop
+        earliest = _next_wake_ms(index)
+        if earliest is None:
+            return
+        if upcoming is None or earliest < upcoming or earliest <= int(time.time() * 1000):
+            # Something was scheduled EARLIER than what this sleep was sized
+            # for, or is now due. Returning lets the loop re-read and fire it
+            # within a slice rather than at the end of a wait sized for a
+            # wake that is no longer the next one.
+            logger.info(
+                "an earlier wake appeared while sleeping; re-reading now instead of "
+                "waiting a further %.0fs",
+                max(remaining, 0.0),
+            )
+            return
+
+
+def main(argv: list[str] | None = None) -> int:
+    """``python -m local_operator.wakes.supervisor`` — the LaunchAgent entry."""
+    parser = argparse.ArgumentParser(
+        prog="local-operator-wake-supervisor",
+        description="Fire scheduled wakes for sessions that are not running.",
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="run a single pass and exit (diagnostics; the agent runs the loop)",
+    )
+    args = parser.parse_args(argv)
+
+    # The SAME console configuration `lop wake serve` gets, so one log line
+    # reads identically whichever entry point produced it. Round 1 (D8): this
+    # file is what an operator is told to read, and the same skip rendered two
+    # ways — `WARNING __main__:` from the LaunchAgent, `- WARNING -` from the
+    # CLI — because this entry rolled its own `basicConfig` with `%(name)s`.
+    # Run as a script, that name is always the useless `__main__`; the module
+    # logger below is given a stable name instead (see `logger`).
+    from local_operator.logger import configure_cli_logging
+
+    configure_cli_logging()
+
+    # launchd hands this process a bare ``PATH=/usr/bin:/bin:/usr/sbin:/sbin``
+    # — the LaunchAgent sets ``LOCAL_OPERATOR_CONFIG_DIR`` and nothing else,
+    # deliberately (a PATH baked into the plist render would vary per calling
+    # session and turn ``ensure_supervisor_installed``'s content comparison
+    # into a restart loop). That bare PATH does not stop here: every runtime
+    # this supervisor engages is spawned with ``dict(os.environ)``
+    # (``session/runtime/launch.py``), so a wake-driven turn inherits it and
+    # loses kubectl, Homebrew, nvm, cargo, pyenv and Nix. Interactive launches
+    # never showed it because a terminal already supplies a login PATH, which
+    # is exactly why this was the one process entry point that skipped the
+    # bootstrap every other entry (``cli.main``, ``server.app``) performs.
+    #
+    # Imported function-locally on purpose: importing ``helpers`` pulls in 53
+    # further modules and ~11.5-12.2 ms (measured on this commit, three runs),
+    # which a process whose whole justification is staying light must not pay
+    # at import time, and ``wakes/`` keeps a deliberately thin import graph
+    # (``tests/unit/test_import_graph.py`` pins ``wakes.store`` to stdlib-only;
+    # it does not constrain this module, but the intent covers it).
+    from local_operator.helpers import setup_cross_platform_environment
+
+    setup_cross_platform_environment()
+
+    from local_operator.paths import config_dir
+
+    try:
+        return asyncio.run(serve(config_dir(), once=args.once))
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    # Linux comm axis: this supervisor's unit names the IMAGE on macOS, and
+    # where there is no such image the process names itself (see
+    # :func:`procname.brand_this_process`; a no-op on macOS).
+    from local_operator import procname
+
+    procname.brand_this_process()
+    sys.exit(main())

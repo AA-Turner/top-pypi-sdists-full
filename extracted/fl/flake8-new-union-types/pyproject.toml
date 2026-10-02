@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "flake8-new-union-types"
+version = "0.4.1"
+description = "Flake8 plugin to enforce the new Union and Optional annotation syntax defined in PEP 604"
+readme = "README.md"
+authors = ["Dmitriy Pryanichnikov <dmitrii.prianichnikov@incountry.com>"]
+license = "MIT"
+repository = "https://github.com/xome4ok/flake8-new-union-types"
+homepage = "https://github.com/xome4ok/flake8-new-union-types"
+keywords = [
+    "flake8",
+    "flake8-plugin",
+    "linting",
+    "linter",
+    "code quality",
+    "pep604",
+    "pep 604",
+    "syntax"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Framework :: Flake8",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[tool.poetry.plugins."flake8.extension"]
+NU = "flake8_new_union_types:PEP604Checker"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+flake8 = ">=3.0.0"
+attrs = ">=21.4.0"
+
+[tool.poetry.dev-dependencies]
+black = "^22.3.0"
+isort = "^5.10.1"
+pytest = "^7.1.2"
+mypy = "^0.950"
+
+[tool.mypy]
+exclude = [
+    '^tests/samples/',
+]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 79
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

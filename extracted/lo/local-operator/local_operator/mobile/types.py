@@ -1,0 +1,1236 @@
+"""Wire types for the mobile control plane.
+
+This module is the CONTRACT between the three parties of the mobile stack —
+the session runtime inside every interactive ``lop`` process
+(:mod:`local_operator.session.runtime.server`), the daemon
+(:mod:`local_operator.mobile.daemon`), and the phone web UI — and it is
+deliberately stdlib-only (dataclasses, no pydantic): the runtime ships on
+the CLI startup path where a pydantic import would cost every ``lop``
+invocation real milliseconds, and the frames are small enough that
+``dataclasses.asdict`` round-tripping is all the validation the loopback
+channel needs.
+
+The discovery record and the control-socket constants are NOT defined here
+any more — they are session-runtime concepts and live in
+:mod:`local_operator.session.runtime.types`, re-exported below.
+
+Two wire formats live here:
+
+1. **Control frames** — the newline-delimited JSON spoken on the runtime's
+   loopback socket. Every frame is ``{"op": ..., ...}``; requests carry a
+   caller-chosen ``req`` id the matching ``ack``/``error`` echoes so one
+   socket multiplexes concurrent answers (an approval prompt and a model
+   switch can be in flight together).
+2. **Web payloads** — the REST/SSE JSON the daemon serves the phone. These
+   are the daemon's *projection* of a session, not the harness's own event
+   taxonomy: the phone never sees raw ``AgentEvent`` objects, it sees the
+   same folded transcript/todo/subagent state the TUI renders, because the
+   fold is where the TUI's semantics (one-line tool calls, todo marks,
+   subagent roster) are defined. Keeping the fold server-side means the phone
+   client stays a renderer and the TUI's semantics have exactly one
+   implementation.
+
+Both formats version together: bumping ``PROTOCOL_VERSION`` is a breaking
+change for runtime and daemon alike, which is fine — they ship in the same
+binary and a stale runtime is re-registered on its next heartbeat.
+"""
+
+from __future__ import annotations
+
+import time
+import uuid
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
+
+# Discovery + control-plane primitives now live in the session runtime package:
+# a record, a heartbeat, a client kind and an attach cap describe one session
+# reachable over a control socket, and the phone is one client of that, not
+# its runtime. They are re-exported here (and NOT redefined) so the whole mobile
+# stack — daemon, web layer, attach client, peer send — keeps importing them
+# from the path it always has. See local_operator/session/runtime/types.py for
+# why that package is neutral and why RUN_DIRNAME keeps its mobile-era name.
+from local_operator.harness.approval import (
+    OPERATOR_CAP_BYTES,
+    is_operator_key_id,
+    is_wire_hex,
+)
+from local_operator.session.runtime.types import (  # noqa: F401  (re-exported)
+    ATTACH_MAX_CLIENTS,
+    HEARTBEAT_INTERVAL_S,
+    HEARTBEAT_TIMEOUT_S,
+    PROTOCOL_VERSION,
+    RUN_DIRNAME,
+    SLASH_ACTION_RECEIPTS,
+    ClientKind,
+    SessionRecord,
+)
+
+#: The wire form of a handshake nonce, salt or proof (issue #1310): 32 bytes,
+#: hex-encoded, which is what ``operator_nonce`` mints and what an HMAC-SHA256
+#: proof renders as. Derived from the byte count rather than spelled as 64, so
+#: the validator cannot accept a length the mint cannot produce. The SHAPE check
+#: itself is ``harness.approval.is_wire_hex`` — one definition, shared with the
+#: runtime's auth reader and the attach client's handshake verification.
+OPERATOR_CAP_HEX_CHARS = OPERATOR_CAP_BYTES * 2
+
+#: The ``input_mode`` vocabulary (mobile STT, input-mode-v1). Absence and an
+#: explicit empty string BOTH read as legacy — every pre-carriage producer sends
+#: nothing — while a present non-empty value must be one of these: the value is
+#: stored on the durable user row (cf9f's carriage) and read by the model-side
+#: annotation consumer, so a silently coerced mode would write a fact no
+#: consumer agreed to.
+INPUT_MODES = ("typed", "dictated", "mixed")
+
+#: How long an ``input_path`` token may be. The frozen vocabulary's longest
+#: token is ``provider_stt_superwhisper`` (25 chars); the bound leaves room for
+#: a future token without letting an arbitrary string ride a control frame into
+#: durable state.
+INPUT_PATH_MAX_CHARS = 96
+
+
+def _input_annotation(data: Any) -> tuple[str, str]:
+    """Validate the reserved ``input_mode``/``input_path`` pair on a payload.
+
+    Optional on BOTH boundaries this module serves (HTTP body, control frame):
+    absence is the legacy reading. A PRESENT field is validated and a bad one is
+    refused rather than coerced or dropped — dropping would mislabel a dictated
+    turn as typed, and coercing would persist a mode nobody sent.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("annotation payload must be an object")
+    mode = data.get("input_mode", "")
+    if not isinstance(mode, str) or (mode and mode not in INPUT_MODES):
+        raise ValueError("input_mode must be one of 'typed', 'dictated' or 'mixed'")
+    path = data.get("input_path", "")
+    if not isinstance(path, str) or len(path) > INPUT_PATH_MAX_CHARS:
+        raise ValueError("input_path must be a bounded string")
+    return mode, path
+
+
+@dataclass(frozen=True)
+class ContinuationCommand:
+    """Producer-owned prompt retained until its transcript row is durable.
+
+    Process discovery and request ids are transport details. This identity is
+    the conversation-level receipt that survives reconnects and host changes.
+
+    ``input_mode``/``input_path`` are the reserved SILENT annotation
+    (mobile STT, input-mode-v1): how the user produced the text, and which
+    voice path produced the dictated part. Absence ("") is the legacy reading;
+    see ``_input_annotation`` for the validation rule. They ride the same
+    envelope as text/images so a retry replays the annotation under the same
+    UUID — the fields are part of the command's immutable identity, not a
+    transport option.
+    """
+
+    command_id: str
+    session_id: str
+    text: str
+    images: list[dict[str, str]] = field(default_factory=list)
+    submitted_at: float = field(default_factory=time.time)
+    input_mode: str = ""
+    input_path: str = ""
+
+    @staticmethod
+    def create(
+        session_id: str, text: str, images: list[dict[str, str]] | None = None
+    ) -> "ContinuationCommand":
+        return ContinuationCommand(
+            command_id=str(uuid.uuid4()),
+            session_id=session_id,
+            text=text,
+            images=list(images or []),
+        )
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @staticmethod
+    def from_json(data: dict[str, Any]) -> "ContinuationCommand":
+        """Validate an untrusted continuation payload without coercing types.
+
+        This constructor sits on both HTTP and control-socket boundaries. Silent
+        ``str(...)`` coercion turns missing, object, and list fields into model
+        input and lets malformed UUIDs escape as route-level 500s, so invalid
+        producer data is rejected before any runtime is spawned or transcript is
+        opened.
+        """
+        if not isinstance(data, dict):
+            raise ValueError("command payload must be an object")
+        command_id = data.get("command_id")
+        if not isinstance(command_id, str) or not command_id:
+            raise ValueError("command_id must be a UUID string")
+        try:
+            uuid.UUID(command_id)
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("command_id must be a valid UUID") from exc
+        session_id = data.get("session_id")
+        if not isinstance(session_id, str) or not session_id:
+            raise ValueError("session_id must be a non-empty string")
+        text = data.get("text")
+        if not isinstance(text, str) or (
+            not text.strip() and not _has_image_data(data.get("images"))
+        ):
+            raise ValueError("text must be a non-empty string")
+        images = data.get("images", [])
+        if not isinstance(images, list) or not all(isinstance(item, dict) for item in images):
+            raise ValueError("images must be a list of objects")
+        submitted_at = data.get("submitted_at", time.time())
+        if not isinstance(submitted_at, (int, float)) or isinstance(submitted_at, bool):
+            raise ValueError("submitted_at must be a number")
+        input_mode, input_path = _input_annotation(data)
+        return ContinuationCommand(
+            command_id=command_id,
+            session_id=session_id,
+            text=text,
+            images=[dict(item) for item in images],
+            submitted_at=float(submitted_at),
+            input_mode=input_mode,
+            input_path=input_path,
+        )
+
+
+def _has_image_data(images: Any) -> bool:
+    """An image-only user turn is real input, not an empty command.
+
+    Match the existing decoder's two data spellings without fabricating user
+    text. A malformed/empty image placeholder must not turn an empty prompt into
+    an admission; text-bearing legacy prompts keep their tolerant image decoder.
+    """
+    return isinstance(images, list) and any(
+        isinstance(image, dict)
+        and isinstance(data := image.get("data_b64") or image.get("data"), str)
+        and bool(data.strip())
+        for image in images
+    )
+
+
+def validate_control_frame(frame: dict[str, Any]) -> None:
+    """Reject malformed authenticated mutations before dispatch side effects."""
+    if not isinstance(frame, dict):
+        raise ValueError("control frame must be an object")
+    op = frame.get("op")
+    if not isinstance(op, str) or not op:
+        raise ValueError("op must be a non-empty string")
+    if "operator_cap" in frame:
+        # ONE OPTIONAL FIELD (issue #1310). It is validated wherever it appears —
+        # the shape check is cheap and a field that reaches the seam untyped is
+        # a field the seam has to defend against — and READ only on the three ops
+        # that can carry an authority-increasing request (see
+        # ``harness/approval.frame_authority``). Typed here for the reason
+        # ``credential`` is: this is a CREDENTIAL's wire form, and a non-string or
+        # an ill-shaped value must be refused rather than coerced into a
+        # comparison the far side would then fail in its own way. The check is on
+        # SHAPE only — this module never learns what the right value is, and must
+        # not, since the runtime is the only holder.
+        #
+        # Length plus hexdigits, matching what ``mint_operator_cap`` produces
+        # (``token_bytes(32).hex()``, always 64 lowercase hex characters). A
+        # value that fails this is refused as malformed rather than as
+        # unauthorised, so the two cases stay distinguishable in the logs.
+        if not is_wire_hex(frame.get("operator_cap")):
+            raise ValueError("operator_cap must be a hex string")
+    # THE SIGNATURE FIELDS (revision 2). Same treatment as ``operator_cap`` and for
+    # the same reason — a credential that reaches the seam untyped is a credential
+    # the seam has to defend against — but validated WHERE THEY APPEAR rather than
+    # only on the ops that read them, because these three travel together and a
+    # client that sends one without the others has a bug worth naming: the seam
+    # would otherwise answer with a generic authority refusal and hide it.
+    #
+    # SHAPE ONLY, and deliberately loose where the value's length is variable:
+    # an ES256 signature is DER, so its hex length moves with the leading bytes
+    # of each integer, and a validator that pinned it would refuse valid
+    # signatures from some signers. The bound that matters is enforced at the
+    # verifier (``verify.MAX_SIGNATURE_BYTES``), which is the only place that
+    # knows what a signature is.
+    if "operator_sig" in frame:
+        signature = frame.get("operator_sig")
+        if not isinstance(signature, str) or len(signature) > 160 or len(signature) % 2:
+            raise ValueError("operator_sig must be a hex string")
+        try:
+            bytes.fromhex(signature)
+        except ValueError as exc:
+            raise ValueError("operator_sig must be a hex string") from exc
+    if "operator_key_id" in frame:
+        # ``is_operator_key_id``, NOT the nonce's shape: the key id is a truncated
+        # digest (32 hex characters) while a nonce/salt/proof is a full 32-byte
+        # value (64). The nonce's rule here rejected every signature the relay
+        # carried before the runtime ever saw it (stage D, found by the phone
+        # e2e cell) — the raw-socket path does not run through this validator,
+        # which is why nothing caught it sooner.
+        if not is_operator_key_id(frame.get("operator_key_id")):
+            raise ValueError("operator_key_id must be a hex string")
+    if "operator_cert" in frame:
+        certificate = frame.get("operator_cert")
+        if not isinstance(certificate, str) or not certificate or len(certificate) > 4096:
+            raise ValueError("operator_cert must be a bounded string")
+    # ``operator_nonce`` is deliberately NOT validated here, and the reason is the
+    # one rule the two ends have to agree on (agent review round 2, R2-5/R2-6).
+    # The nonce is read on exactly one frame — the CONNECT frame, by the runtime's
+    # auth path — and an ill-shaped one there is demoted to "no handshake", which
+    # fails closed: no handshake, no authority, and the ordinary ops are untouched.
+    # On any OTHER frame it is inert, so shape-checking it there would refuse a
+    # frame for a field that has no meaning in it, and the previous check was the
+    # only place the two ends disagreed about what a malformed nonce meant.
+    if op in ("prompt", "steer"):
+        text = frame.get("text")
+        if not isinstance(text, str) or (
+            not text.strip() and not _has_image_data(frame.get("images"))
+        ):
+            raise ValueError("text must be a non-empty string")
+        images = frame.get("images", [])
+        if not isinstance(images, list) or not all(isinstance(item, dict) for item in images):
+            raise ValueError("images must be a list of objects")
+        # The annotation pair is shape-checked HERE because this validator is the
+        # boundary that refuses malformed frames before any runtime sees them;
+        # unknown fields are deliberately not rejected in general, so without
+        # this a mangled input_mode would ride silently to a durable row.
+        _input_annotation(frame)
+        # Protocol-v3 producers send identity on both paths. Older authenticated
+        # loopback clients omitted it, so absence remains compatible; a supplied
+        # id is always validated before reaching transcript or steering state.
+        if "command_id" in frame:
+            ContinuationCommand.from_json(
+                {
+                    "command_id": frame.get("command_id"),
+                    "session_id": frame.get("session_id", "control-session"),
+                    "text": text,
+                    "images": images,
+                }
+            )
+    elif op == "cancel":
+        # An unknown mode is REFUSED rather than defaulted. The two modes differ
+        # in whether a running tool is cut in half, so a typo ("gracefull",
+        # "soft") silently resolving to either one is a wrong-semantics bug on
+        # the exact op whose reason for existing is that the distinction
+        # matters. Absent is fine and means graceful — the safe default that a
+        # caller who has not thought about it should get.
+        mode = frame.get("mode", "graceful")
+        if mode not in ("graceful", "immediate"):
+            raise ValueError("mode must be 'graceful' or 'immediate'")
+    elif op == "complete_aside":
+        turns = frame.get("turns")
+        if not isinstance(turns, list) or not all(isinstance(item, dict) for item in turns):
+            raise ValueError("turns must be a list of message objects")
+        # ``aside_instruction`` is the CALLER's declaration that its turns still
+        # need the off-record wrapper (absent means they do). Typed here for the
+        # reason ``remember`` is on ``approval_answer``: the dispatch compares it
+        # against the boolean ``False``, so a coerced value ("false", 0, "no")
+        # would read as "the caller wrapped its own turns" and silently drop the
+        # instruction from a real question — the exact regression the field was
+        # added to stop, arriving as a wrong answer rather than as a refusal.
+        if "aside_instruction" in frame and not isinstance(frame.get("aside_instruction"), bool):
+            raise ValueError("aside_instruction must be a boolean")
+    elif op == "approval_answer":
+        if not isinstance(frame.get("request_id"), str) or not frame["request_id"]:
+            raise ValueError("request_id must be a non-empty string")
+        if not isinstance(frame.get("approved"), bool):
+            raise ValueError("approved must be a boolean")
+        if "remember" in frame and not isinstance(frame.get("remember"), bool):
+            raise ValueError("remember must be a boolean")
+    elif op == "ask_answer":
+        if not isinstance(frame.get("request_id"), str) or not frame["request_id"]:
+            raise ValueError("request_id must be a non-empty string")
+        if not isinstance(frame.get("value"), str):
+            raise ValueError("value must be a string")
+    elif op in ("ask_respond", "ask_decline", "ask_dismiss"):
+        # THE QUEUED-ASK FAMILY (design docs/design/ask-nonblocking.md §2.4).
+        # Validated here so a malformed body is refused at the wire rather than
+        # half-applied at the dispatch: `ask_respond` is ATOMIC per ask (one
+        # answer for all its questions), which is what removes the per-question
+        # race the blocking path had, so a partial map must not get through.
+        if not isinstance(frame.get("ask_id"), str) or not frame["ask_id"]:
+            raise ValueError("ask_id must be a non-empty string")
+        if "by" in frame and not isinstance(frame.get("by"), str):
+            raise ValueError("by must be a string")
+        if op == "ask_respond":
+            answers = frame.get("answers")
+            if not isinstance(answers, dict):
+                raise ValueError("answers must be a map of question id to a list of strings")
+            for key, value in answers.items():
+                if not isinstance(key, str):
+                    raise ValueError("answers keys must be strings")
+                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                    raise ValueError("answers values must be lists of strings")
+    elif op in ("slash", "slash_result"):
+        if not isinstance(frame.get("command"), str) or not frame["command"]:
+            raise ValueError("command must be a non-empty string")
+        if not isinstance(frame.get("args"), str):
+            raise ValueError("args must be a string")
+    elif op == "credential":
+        # The one op that carries a SECRET (``value``, store only). Typed here
+        # so a non-string value is refused rather than coerced by ``str()`` at
+        # the dispatch and stored as its repr (review round 1, N2). The value
+        # is never inspected beyond its type.
+        if not isinstance(frame.get("action"), str) or not frame["action"]:
+            raise ValueError("action must be a non-empty string")
+        if not isinstance(frame.get("key", ""), str):
+            raise ValueError("key must be a string")
+        if not isinstance(frame.get("value", ""), str):
+            raise ValueError("value must be a string")
+    elif op == "variables":
+        # Session code memory. Validated even though it carries no SECRET, for
+        # the converse reason ``credential`` is: this op WRITES into the owner's
+        # live interpreter namespace, so a coerced non-string would be stored as
+        # its repr and a non-string key would reach a dict lookup the addressing
+        # rules were written against. The action is checked against the four
+        # verbs here rather than being defaulted, because an unknown action
+        # silently resolving to a write is a wrong-semantics bug on the one op
+        # that mutates user state.
+        if frame.get("action") not in ("list", "set", "update", "delete"):
+            raise ValueError("action must be list, set, update or delete")
+        for name in ("key", "value", "type"):
+            if not isinstance(frame.get(name, ""), str):
+                raise ValueError(f"{name} must be a string")
+    elif op == "register_secret_redaction":
+        # The other op that carries a secret's value, and it carries ONLY that:
+        # the value has one named home and one consumer (the owner's redactor).
+        # Typed so a non-string is refused rather than coerced to its repr and
+        # registered as a redaction that would never match the real secret.
+        if not isinstance(frame.get("value"), str):
+            raise ValueError("value must be a string")
+    elif op == "adopt_aside":
+        messages = frame.get("messages")
+        if not isinstance(messages, list) or not all(isinstance(item, dict) for item in messages):
+            raise ValueError("messages must be a list of message objects")
+    elif op == "recall_steer":
+        # v4: a follower unsending a queued steer names the message identity it
+        # queued (the ContinuationCommand id that became the Message id). The
+        # runtime matches by id in its steering queue; a drained or unknown id is
+        # an ordinary "no longer queued" error, never a crash.
+        if not isinstance(frame.get("command_id"), str) or not frame["command_id"]:
+            raise ValueError("command_id must be a non-empty string")
+    elif op == "peer_message":
+        # Cross-session hand-off from another local lop process (`lop send`).
+        # Only the body is load-bearing; the sender identity is advisory (it
+        # feeds the cross-session indicator) so an older/leaner sender that
+        # omits it still delivers, just less labelled. Do NOT bump
+        # PROTOCOL_VERSION for this op: it is purely additive, and an OLD
+        # registrant that predates it answers "unknown op" gracefully (see the
+        # PROTOCOL_VERSION note above) — the bump is only load-bearing when an
+        # old client must refuse a new registrant, which is the opposite risk.
+        text = frame.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a non-empty string")
+        mode = frame.get("mode", "mailbox")
+        if mode not in ("mailbox", "steer"):
+            raise ValueError("mode must be 'mailbox' or 'steer'")
+        if "wake" in frame and not isinstance(frame.get("wake"), bool):
+            raise ValueError("wake must be a boolean")
+        sender = frame.get("sender", {})
+        if not isinstance(sender, dict):
+            raise ValueError("sender must be an object")
+    elif op == "peer_set_model":
+        # Another local lop session switching THIS one's model (`send model=` /
+        # `lop model`). SHAPE only: whether the pair is servable is the
+        # receiving handle's question (`validate_model_selection` against this
+        # session's own config and credentials), because a sender that may run
+        # under a different config dir cannot answer it. A new op rather than
+        # `set_model` so an OLD registrant fails closed with `unknown op` instead
+        # of applying an unvalidated, unaudited switch. Additive; no
+        # PROTOCOL_VERSION bump, for the reason `peer_message` gives above.
+        for name in ("provider", "model_id"):
+            value = frame.get(name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string")
+        sender = frame.get("sender", {})
+        if not isinstance(sender, dict):
+            raise ValueError("sender must be an object")
+
+
+# ---------------------------------------------------------------------------
+# Control frames (daemon <-> runtime socket)
+# ---------------------------------------------------------------------------
+
+# Requests the daemon may send. Kept as Literal aliases rather than enums so
+# frames stay plain dicts — json.loads output needs no decoding step.
+ControlOp = Literal[
+    "prompt",  # {command_id, text, images?} — durable idempotent user turn
+    "steer",  # {command_id, text, images?} — idempotent mid-turn injection
+    "abort",  # {} — the stop button; never kills the session
+    # The supervised-agent counterpart of ``abort``, and the reason both exist.
+    # ``abort`` fires the turn's AbortSignal immediately, cancelling the running
+    # tool task — right for a human at a keyboard, who wants it to stop NOW and
+    # can see and repair whatever was left half-done. A machine supervisor has
+    # neither of those: its agent's tools push commits, open merge requests and
+    # write rows, and a cut mid-``git push`` leaves damage nobody is watching
+    # for. ``cancel`` defaults to the boundary-respecting mode, which lands
+    # after the in-flight tool batch has produced its results and before the
+    # next model request is spent (``Session.request_graceful_cancel``).
+    # ``mode: "immediate"`` is the explicit opt-in to ``abort`` semantics, so a
+    # caller only cuts a tool in half by asking for it in those words.
+    "cancel",  # {mode?: graceful|immediate}
+    "set_model",  # {provider, model_id} — the model sheet's choice
+    "set_effort",  # {effort} — one rung from the model's ladder
+    "slash",  # {command, args} — execute a TUI slash command
+    "complete_aside",  # {turns, aside_instruction?: false} — off-record request
+    "new_conversation",  # {} — the TUI's /new
+    "resume_session",  # {session_id} — rebind the runtime to another transcript
+    "approval_answer",  # {request_id, approved, remember}
+    # {request_id, value} — the LEGACY per-question answer. For one release it
+    # also carries a mirrored queued ask's synthetic id ``"<ask_id>.<qidx>"``,
+    # which the runtime maps onto the whole-ask queue (design §4, legacy
+    # mirror), so an old client's tap still resolves.
+    "ask_answer",  # {request_id, value}
+    # The QUEUED-ASK family (design §2.4). Additive, so NO ``PROTOCOL_VERSION``
+    # bump for the same reason ``peer_message`` gives: an OLD registrant answers
+    # ``error: unknown op`` gracefully, which the surfaces render as "this
+    # session's runtime predates queued asks". ``ask_respond`` is atomic per ask
+    # (whole-ask answers), ``ask_decline`` is the explicit no/decide-yourself,
+    # and ``ask_dismiss`` is a view-only removal that injects nothing.
+    "ask_respond",  # {ask_id, answers: {qid: [str]}, by?}
+    "ask_decline",  # {ask_id, by?}
+    "ask_dismiss",  # {ask_id, by?}
+    "snapshot",  # {} — ask for a fresh welcome-equivalent projection
+    "ping",  # {} — liveness probe; answered with {"op": "ack", ...}
+    # v2 (attach + reaping): phone SSE subscriber transitions, daemon ->
+    # registrant. "watch" = a phone just started following this session;
+    # "unwatch" = the last phone left. The child's self-reaper counts these
+    # to know whether a front end still holds the session. Additive on the
+    # wire: an OLD registrant answers `error: unknown op`, which the daemon
+    # tolerates (fire-and-forget), so a mixed-version machine keeps working.
+    "watch",  # {} — a phone SSE subscriber appeared for this session
+    "unwatch",  # {} — the last phone SSE subscriber left
+    # v4 (full-TUI attach): unsend one queued steering message by identity.
+    # Follower Esc-recall parity — the TUI matches queue contents by the
+    # Message id it queued, and the runtime recalls exactly that entry.
+    "recall_steer",  # {command_id}
+    # Peer-to-peer session messaging (`lop send`): a short-lived sender process
+    # from ANOTHER local lop session hands a message to this one. Additive; no
+    # PROTOCOL_VERSION bump (see validate_control_frame + the version note).
+    "peer_message",  # {text, mode: mailbox|steer, wake?, sender?}
+    # A peer switching this session's model: validated, applied through the
+    # host's own switch, read back, and audited with a peer card on the target.
+    # Additive like peer_message; an old runtime answers unknown-op and the
+    # sender reports that nothing changed.
+    "peer_set_model",  # {provider, model_id, sender?}
+    # The graceful rung of the kill switch (`lop stop` / `/stop`): deny parked
+    # gates, abort the turn, dispose the session, release the lease, unpublish
+    # the record, exit. Additive like peer_message — an old runtime answers
+    # unknown-op and the stop ladder proceeds to identity-confirmed SIGTERM,
+    # which old runtimes already honour, so no version bump and no split-brain.
+    "stop",  # {}
+    # A viewer that engaged a runtime at mount and is leaving without having
+    # used it offers the runtime back. The RUNTIME decides: it stops only if
+    # nothing durable ever happened in the session and no other attach
+    # client is connected, and answers "kept: …" otherwise. Additive like
+    # `stop` — an old runtime answers unknown-op, the viewer logs it, and the
+    # residency drain reaps the runtime seconds later as it always did.
+    "retire_if_pristine",  # {} — ack detail is "retired" or "kept: <why>"
+    # Session code memory (the desktop canvas's "Code memory" panel): the
+    # list/set/update/delete verbs over the owner's LIVE eval-kernel namespace.
+    # `update` is a sibling of `set` rather than a mode field because only the
+    # owner can see the namespace, and "create over an existing key" (409)
+    # versus "update a missing key" (404) are refusals it must be told apart.
+    # Additive like `peer_message`/`stop`: an OLD registrant answers `unknown
+    # op`, which the viewer reports to the panel as `unsupported` — its own
+    # sentence, distinct from "this chat has no code memory yet".
+    "variables",  # {action: list|set|update|delete, key, value, type}
+]
+
+# Events the registrant streams to the daemon.
+EventOp = Literal[
+    "welcome",  # full projection, first frame after auth
+    "projection",  # full projection repaint (the only push form — no deltas)
+    "ack",  # {req, detail} — a request landed
+    "error",  # {req, message} — a request was rejected/failed
+    # v4, event-subscribed attach clients ONLY (never the daemon): the session
+    # runtime's raw AgentEvent stream, serialized with model_dump(mode="json").
+    # Fidelity by construction — the follower renders the same events the
+    # runtime's own EventController consumes, so nothing is inverse-folded.
+    "event",  # {data: <AgentEvent dump>}
+    "frontend_sync",  # v5 attach-only atomic FrontendSessionState snapshot
+    "frontend_update",  # v5 attach-only ordered state replacement
+]
+
+
+# ---------------------------------------------------------------------------
+# Web payloads (daemon -> phone projection)
+# ---------------------------------------------------------------------------
+
+#: Transcript entries are the folded render model, mirroring the TUI's own
+#: rows: user/assistant text, one line per tool call, notices. ``details``
+#: carries the expand-on-tap payload (args, output, diff) so a collapsed row
+#: is one line and an expanded one needs no round trip.
+EntryKind = Literal[
+    "user",
+    "assistant",
+    "tool",
+    "notice",
+    "steer",
+    "compaction",
+    "parent_message",
+    "subagent_message",
+    # An inbound message from another local lop session (`lop send`). Rendered
+    # as a distinct cross-session card, never as the user's own turn.
+    "peer_message",
+    # The model's own PRIVATE reasoning, streamed while it thinks. Transient by
+    # construction: it never joins the durable transcript, so this row is gone
+    # after the next sync and must not be rendered as, or folded into, the
+    # assistant's answer. A client that does not know this kind renders it
+    # through its unknown-kind path, which is exactly what it rendered before
+    # the runtime emitted reasoning at all.
+    "reasoning",
+    # A queued ask SETTLING (design docs/design/ask-nonblocking.md §4): one row
+    # per answer, late answer or decline — ``details.status`` says which — and
+    # one row for the deadline that passed with nobody answering. They are
+    # distinct kinds rather than a generic notice because a client must be able
+    # to key an affordance on them (the timed-out ask stays answerable) and
+    # because the shared text already distinguishes them. A client that does not
+    # know the kind renders nothing new, which is exactly what it rendered
+    # before the queue existed.
+    "ask_response",
+    "ask_timeout",
+]
+
+ToolState = Literal["composing", "queued", "running", "done", "failed", "interrupted"]
+
+SubagentStatus = Literal["running", "completed", "failed", "cancelled", "parked", "queued"]
+
+TodoStatus = Literal["pending", "done", "blocked", "dropped"]
+
+
+@dataclass
+class TranscriptEntry:
+    """One renderable transcript row, pre-folded for the phone."""
+
+    id: str
+    kind: EntryKind
+    text: str = ""
+    # tool rows
+    tool_call_id: str = ""
+    tool_name: str = ""
+    # NOT "done". A row whose state nobody set is a call nobody has seen
+    # return, and defaulting to success ASSERTS an outcome that was never
+    # observed — an unanswered call rendered ✓ while the TUI showed it
+    # interrupted. This is the same class as the three shipped duration bugs:
+    # one path silently defaulting where another is explicit. Every path that
+    # knows the real state sets it (composing/queued/running on the live events,
+    # done/failed when a result pairs), so the default is only ever read by a
+    # row that genuinely has no outcome.
+    #
+    # `queued` is the state the compose family was missing: the model stopped
+    # writing the call (the producer's terminal `dictation_complete` frame) and
+    # nothing has started it — it is waiting behind a sibling's execution group,
+    # or for a group the turn never reached. It is distinct from `composing`
+    # (which claims the model is still dictating) and from `running` (which
+    # claims execution), and before it existed the phone kept saying
+    # "dictating <tool>" for the whole of a long sibling's run.
+    tool_state: ToolState = "interrupted"
+    summary: str = ""  # the one-line args summary (compacted path etc.)
+    intent: str = ""  # the model's own narration, when it gave one
+    diff_added: int = 0
+    diff_removed: int = 0
+    elapsed_s: float = 0.0
+    error: str = ""
+    details: dict[str, Any] = field(default_factory=dict)  # expand payload
+    # Image attachments on a user turn, as lightweight REFERENCES not bytes:
+    # each is ``{"index": int, "mime_type": str}``. The bytes are fetched
+    # lazily from ``/api/sessions/{pid}/image?entry=<id>&i=<index>`` (which
+    # reads them from the on-disk transcript), NEVER inlined here — a
+    # projection repaint fires on every streaming token, and a few hundred KB
+    # of base64 re-sent per token would swamp the SSE. ``id`` is the message
+    # id the endpoint resolves against.
+    images: list[dict[str, Any]] = field(default_factory=list)
+    # assistant rows stream: ``final`` flips true on message_end
+    final: bool = True
+    # Settled streaming is not the same as complete representation: transport
+    # caps can replace this row with a prefix while preserving its message ID.
+    text_complete: bool = True
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class TodoItem:
+    text: str
+    status: TodoStatus = "pending"
+    reason: str = ""
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+#: The name the tool store gives a flat/implicit list — one phase called
+#: ``"Todos"`` (``builtin._IMPLICIT_PHASE``). Duplicated here rather than
+#: imported so the wire types stay free of a tools dependency; the coupling is
+#: that a projection with EXACTLY this one phase renders headerless, mirroring
+#: the TUI's flat-list back-compat rule. Keep in sync with the builtin.
+IMPLICIT_TODO_PHASE = "Todos"
+
+
+@dataclass
+class TodoPhase:
+    """One named group of todos — the TUI's phase model on the wire.
+
+    A single implicit ``"Todos"`` phase (``IMPLICIT_TODO_PHASE``) is how a
+    legacy flat list is carried, and the front-end drops the header for that
+    lone-phase case so it renders identically to the pre-phase flat list."""
+
+    name: str
+    items: list[TodoItem] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, Any]:
+        return {"name": self.name, "items": [item.to_json() for item in self.items]}
+
+
+@dataclass
+class SubagentRow:
+    """One row of the subagent roster — the TUI panel's shape."""
+
+    job_id: str
+    label: str
+    agent: str = "task"
+    status: SubagentStatus = "running"
+    progress: str = ""  # latest step line while running
+    #: The child's age, or ``None`` when this roster has NO age for it.
+    #:
+    #: ``None`` is not the same state as ``0.0``, and the drill-in's clock must
+    #: tell them apart (design round 3, D8): the roster computes an age only for
+    #: a child whose job row carries a start (``harness/comms.py``:
+    #: ``age = (now - started) if started else None``), so a live child with no
+    #: ``start_time`` arrives here at 0.0 — indistinguishable, for a plain float,
+    #: from a child that began this instant. The phone then painted ``0s``
+    #: counting up from its own mount where the TUI withholds the number
+    #: (``transcript.py``: "the number is withheld rather than invented —
+    #: ``clock=False``"), and the drill-in — which renders it through the same
+    #: ``WorkingLine`` gate as the band — lost its withholding path entirely.
+    #: Same discipline as ``activity_started_s``: a nullable number, absent when
+    #: unknown.
+    elapsed_s: float | None = None
+    model_label: str = ""
+    #: True while this child is off the pin its launch resolved: the phone's
+    #: roster row paints its fallback line from THIS rather than parsing the
+    #: badge prose back out of ``model_label`` — the two are written by one
+    #: comparison in ``projection.py`` and cannot disagree. Additive on the
+    #: wire; an absent value must read as False ("no substitution"), which is
+    #: exactly the historical behaviour for a row that never had one.
+    model_fallback: bool = False
+    result_text: str = ""  # settled outcome, one line
+    error_text: str = ""
+    parent_job_id: str | None = None
+    session_id: str | None = None
+    prompt: str = ""
+    launch_message_id: str = ""
+    effort: str = ""
+    ancestors: list[str] = field(default_factory=list)
+    ancestor_ids: list[str] = field(default_factory=list)
+    child_ids: list[str] = field(default_factory=list)
+    peer_ids: list[str] = field(default_factory=list)
+    transcript: list[TranscriptEntry] = field(default_factory=list)
+    todos: list[TodoPhase] = field(default_factory=list)
+    activity: str = ""
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class AskOptionWire:
+    """One selectable answer on an ``ask`` question, as it crosses the wire.
+
+    The phone needs the SAME information the terminal picker shows: the label
+    AND the one-line consequence under it (``AskOption.description``), because
+    ``ask`` exists for consequential either/or decisions and dropping the
+    description makes the remote user answer a materially thinner question
+    (UX round 1, U3). A dataclass rather than a bare string so ``asdict``
+    serializes it to ``{"label", "description"}`` — JSON-serializable, unlike
+    the pydantic ``AskOption`` the harness uses (which ``asdict`` would leave
+    as an object ``json.dumps`` cannot encode; that crash is what the label-only
+    projection originally worked around)."""
+
+    label: str
+    description: str = ""
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PendingAskWire:
+    """One queued ask on the phone wire (design §4, frozen).
+
+    The mobile twin of ``session.frontend_state.PendingAskState`` — the same
+    frozen shape, because the phone and the desktop app must not be told about
+    one ask in two vocabularies. ``questions`` stays a list of plain dicts (the
+    log stores plain dicts and the wire carries the FULL question so a client
+    can draw a picker without re-deriving the ask), and ``answers`` holds secret
+    answers as KEYS ONLY — the value never leaves the session's memory store.
+    """
+
+    ask_id: str = ""
+    created_at: int = 0
+    expires_at: int = 0
+    timeout_s: int = 0
+    urgent: bool = False
+    status: str = "open"
+    delivered: bool = False
+    questions: list[dict[str, Any]] = field(default_factory=list)
+    answers: dict[str, list[str]] | None = None
+    answered_by: dict[str, Any] | None = None
+    answered_at: int | None = None
+    #: Question ids the LEGACY incremental path (design §4, A2 addendum) has
+    #: already taken in THIS runtime for a still-open ask. They are not settled
+    #: answers — the log holds none of them until the last question lands — and
+    #: they exist so the mirrored card advances to the next question between an
+    #: old client's taps. Absent on every ask answered the atomic way.
+    draft_question_ids: list[str] | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        return {key: value for key, value in asdict(self).items() if value is not None}
+
+
+@dataclass
+class PendingRequest:
+    """An approval gate or ask dialog waiting on the user — the phone's
+    highest-priority render (branding.md §7: a question for the user is the
+    most prominent thing on screen)."""
+
+    request_id: str
+    kind: Literal["approval", "ask"]
+    title: str
+    detail: str = ""
+    # Ask pickers; empty means a free-text/secret paste field. Objects, not
+    # bare labels, so the phone can render each option's consequence line the
+    # same way the terminal does (U3).
+    options: list[AskOptionWire] = field(default_factory=list)
+    # True when this ask requests a credential (``AskQuestion.secret``): the
+    # phone must render a MASKED paste field with a "not stored in transcript"
+    # affordance rather than a plain text box (D1/U2). The secret VALUE still
+    # never rides the projection — only this flag does.
+    secret: bool = False
+    # Position of the CURRENT question within a multi-question ask, so the phone
+    # can show "Question 1 of 2" the way the terminal header does and the user
+    # knows more questions follow (U1). ``question_total`` is 1 for the common
+    # single-question ask.
+    question_index: int = 0
+    question_total: int = 1
+    # Index of the preselected option in the ALREADY-HOISTED ``options`` above.
+    # ``AskQuestion._shape`` rotates the recommended option to index 0 and sets
+    # this to 0, so on a normalised question it is ``0`` or ``None``. It indexes
+    # ``options`` AS CARRIED, not the model's authored order — a consumer must
+    # not re-sort ``options`` and keep this value. The phone has no
+    # ``recommended`` concept yet and ignores the key; position is still its
+    # only channel, which is why the hoist stays.
+    #
+    # The DEFAULT is load-bearing, not style: inbound reconstruction below
+    # filters to known field names and calls ``PendingRequest(**pending_kwargs)``,
+    # so a NEW viewer reading an OLD payload gets a dict with neither key. A
+    # field without a default would raise TypeError there and turn a cosmetic
+    # version skew into a crashed ask card.
+    recommended: int | None = None
+    # The ``AskQuestion.persist`` intent for a ``secret=True`` ask: save the
+    # credential to the operator's encrypted long-term store, not only session
+    # memory. The flag rides; the credential VALUE never does, same rule as
+    # ``secret``. Defaulted for the same version-skew reason as ``recommended``.
+    persist: bool = False
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def ask_mirror_request(card: Mapping[str, Any]) -> PendingRequest:
+    """The legacy single-slot card for the mirrored question of a QUEUED ask (§4).
+
+    THE LEGACY MIRROR, client half: for one release a queued ask is ALSO
+    projected as today's per-question ``pending`` card, so an OLD desktop app or
+    native app — which reads ``pending`` and answers with the ``ask_answer`` op —
+    can still see and answer it. ``request_id`` is ``"<ask_id>.<qidx>"`` (built
+    by ``asks.store.mirror_request_id``, the one place that spelling lives) and
+    the runtime's own ``ask_answer`` maps it back onto the whole-ask queue.
+
+    ``card`` is the decision, not the raw rows: it comes from
+    ``asks.render.mirror_card``, which owns "which ask is the head, which
+    question is unanswered" for BOTH the server-side gate mirror and this
+    projection. Re-deriving that choice here is how two publishers would come to
+    disagree about which ask the user is looking at.
+    """
+    options = card.get("options") or []
+    return PendingRequest(
+        request_id=str(card.get("request_id") or ""),
+        kind="ask",
+        title=str(card.get("title") or "the agent is asking"),
+        detail="",
+        options=[
+            AskOptionWire(
+                label=str(option.get("label") or ""),
+                description=str(option.get("description") or ""),
+            )
+            for option in options
+            if isinstance(option, Mapping)
+        ],
+        secret=bool(card.get("secret")),
+        question_index=int(card.get("question_index") or 0),
+        question_total=int(card.get("question_total") or 1),
+        recommended=(card.get("recommended") if isinstance(card.get("recommended"), int) else None),
+        persist=bool(card.get("persist")),
+    )
+
+
+def ask_pending_request(
+    request_id: str,
+    question: Any,
+    *,
+    question_index: int = 0,
+    question_total: int = 1,
+) -> PendingRequest:
+    """Build the phone's ask card from an ``AskQuestion`` (harness type).
+
+    The single seam both projection sites use — the TUI bridge
+    (:mod:`.tui_handle`) and the daemon-owned gate
+    (:mod:`local_operator.session.runtime.serving`) — so the two
+    surfaces cannot drift in what they carry to the phone (was UX nit-1: one
+    site used a ``str(option)`` fallback, the other ``""``). Reading through
+    ``getattr`` keeps this decoupled from the pydantic model and lets tests pass
+    a duck-typed stand-in.
+
+    Carries the option consequence lines (U3), the ``secret`` flag so the card
+    can mask the paste field (D1/U2) — never the secret value, which lives only
+    in the picker's future — the question position for the "N of M" header
+    (U1), the ``recommended`` marker so a viewer that rebuilds the question can
+    draw the badge (an index into ``options`` AS CARRIED, already hoisted by
+    ``AskQuestion._shape``, never into the model's authored order), and the
+    ``persist`` intent so a rebuilt secret question stays a faithful copy."""
+    options = [
+        AskOptionWire(
+            label=str(getattr(option, "label", "")),
+            description=str(getattr(option, "description", "") or ""),
+        )
+        for option in (getattr(question, "options", []) or [])
+    ]
+    raw_recommended = getattr(question, "recommended", None)
+    return PendingRequest(
+        request_id=request_id,
+        kind="ask",
+        title=str(getattr(question, "question", "") or "the agent is asking"),
+        detail="",
+        options=options,
+        secret=bool(getattr(question, "secret", False)),
+        question_index=question_index,
+        question_total=question_total,
+        # ``isinstance`` rather than a truth test: ``recommended=0`` is the
+        # COMMON case after the validator's hoist, and it is falsy.
+        recommended=(raw_recommended if isinstance(raw_recommended, int) else None),
+        persist=bool(getattr(question, "persist", False)),
+    )
+
+
+@dataclass
+class SessionProjection:
+    """The full snapshot the phone renders from — the ONLY push form.
+
+    Pushes are repaints, not deltas (the omp mobile lesson): no delta
+    protocol means no drift, and correctness comes free with caps. The
+    transcript is capped at the tail the phone actually renders; history
+    beyond it is fetched on demand when the user scrolls up.
+    """
+
+    session_id: str
+    pid: int
+    kind: str = "tui"
+    conversation_name: str = ""
+    cwd: str = ""
+    model_label: str = ""
+    model_selector: str = ""  # provider/model_id — the model sheet's value
+    effort: str = ""  # current rung; "" when the model has no ladder
+    effort_ladder: list[str] = field(default_factory=list)
+    streaming: bool = False
+    # What the turn is doing RIGHT NOW, TUI-working-line style: "thinking",
+    # "responding", or the running tool's intent ("auditing merged MRs").
+    # Folded from live events; empty when idle. The phone's working line
+    # reads this and never invents a label.
+    activity: str = ""
+    # Monotonic-ish seconds since the activity began, for the clock next to
+    # the label. Server-computed so every phone paints the same age.
+    #
+    # ``None`` is "this fold has no instant it can honestly date the phase
+    # from" — a label joined mid-flight whose producer stated none — and it is
+    # published AS absence rather than as a zero. A float, ``0.0`` included, is
+    # a KNOWN zero (the phase edge the fold watched begin), which the phone
+    # paints ``0s`` and counts up from; one field carries both because the
+    # client's question is exactly "is there an instant", and a value-plus-flag
+    # pair could disagree with itself. Same discipline as
+    # ``ToolExecutionStartEvent.started_at_epoch`` and the session's folded
+    # ``activity_phase_started_at``.
+    activity_started_s: float | None = None
+    # Why streaming last stopped: "completed" (turn finished) or "aborted"
+    # (the user/agent stopped it) — the phone's "interrupted — tap to resume"
+    # affordance reads THIS, never an inference from streaming flipping,
+    # because a finished turn also flips it. Empty until the first turn ends.
+    #
+    # "aborted" covers TWO acts, which is why ``cut_off`` rides BESIDE it
+    # rather than replacing it: a deliberate stop AND an involuntary cut-off. A
+    # third value here is the obvious move and the wrong one — an older phone
+    # bundle gates the whole affordance on ``=== "aborted"``, so a new token
+    # would silently remove the only way back into a cut-off session for every
+    # phone that had not been updated (design round 2, D7).
+    stop_reason: str = ""
+    #: Whether the turn ``stop_reason`` describes was CUT OFF by the harness
+    #: rather than stopped on purpose. The composer's button reads it, so the
+    #: action agrees with the danger notice above it instead of calling one act
+    #: two things. Additive and defaulted False: an older phone ignores it and
+    #: keeps today's word, and an older runtime never sends it — correct,
+    #: because an older runtime cannot produce a cut-off at all.
+    cut_off: bool = False
+    queued_count: int = 0  # user messages waiting for the turn boundary
+    ended: bool = False  # process gone; history still resumable
+    degraded: bool = False  # record fresh but socket unreachable
+    transcript: list[TranscriptEntry] = field(default_factory=list)
+    #: Todos grouped into phases (``builtin`` stores them phased). A single
+    #: implicit ``"Todos"`` phase carries a flat list and renders headerless.
+    todos: list[TodoPhase] = field(default_factory=list)
+    subagents: list[SubagentRow] = field(default_factory=list)
+    #: The FRONT waiting request; the phone renders it as the pinned card.
+    pending: PendingRequest | None = None
+    #: How many requests are waiting in total (>= 1 while ``pending`` is set).
+    #: A parallel tool batch can open several approvals at once; the phone
+    #: shows "1 of N" so the user knows more cards follow this one.
+    #:
+    #: THE APPROVAL QUEUE'S LENGTH, and it stays that: an open ASK is counted by
+    #: ``asks_open`` instead. ``pending`` may still carry a queued ask's mirrored
+    #: card during the one-release mirror window, and the count deliberately
+    #: does NOT include it — a badge that mixed the two would tell the user a
+    #: blocking approval was waiting when the agent had merely asked something.
+    pending_count: int = 0
+    #: The session's queued asks (design §4), newest first with the OPEN ones in
+    #: front, and how many are still open.
+    #:
+    #: PRESENCE IS THE CAPABILITY PROXY (N2): both are ABSENT — ``None``, not
+    #: empty — unless queued asks are live in the runtime that published this
+    #: projection. A client may therefore treat the field's presence as "this
+    #: runtime has queued asks" and render the new surfaces; absence must render
+    #: exactly today's view.
+    #:
+    #: CLIENT RULE (N3): once ``asks`` is present, IGNORE any ``pending``/
+    #: ``pending_gate`` whose ``kind == "ask"`` — it is the legacy mirror of an
+    #: ask that is already in this list, and honouring both paints one ask
+    #: twice. Approvals (``kind != "ask"``) are unaffected.
+    asks: list[PendingAskWire] | None = None
+    asks_open: int | None = None
+    usage: dict[str, int] = field(default_factory=dict)  # input/output tokens
+    # -- the spend + context glance (phase 1 of the mobile parity program) --
+    # The session's spend, as the canonical store holds it: the SAME inputs the
+    # desktop strip reads, never a formatted total. The phone spells them with
+    # its own port of the TUI ladder, so the wire stays raw numbers and rungs.
+    #
+    # ``None`` on ``cumulative_parent_cost`` is "money we cannot state" —
+    # distinct from ``0.0``, which is a real zero — and ``child_costs`` empty
+    # means "no children", never "children cost nothing". ``subagent_cost`` /
+    # ``subagent_cost_knowledge`` carry the owner ledger that SUPERSEDES the
+    # compatibility map (a reader must use one or the other, never add both —
+    # the double-count rule); ``cost_knowledge`` is the rung for the parent
+    # figure alone (CostKnowledge's values: unknown|exact|partial|floor).
+    cumulative_parent_cost: float | None = None
+    child_costs: dict[str, float] = field(default_factory=dict)
+    subagent_cost: float | None = None
+    subagent_cost_knowledge: str | None = None
+    cost_knowledge: str = "unknown"
+    # The context reading: tokens in use, the window they are measured against
+    # (``None``/0 = the window is unknown, and a percentage is impossible —
+    # the phone spells ``12.4k/—`` instead), and whether the token figure is
+    # the harness's estimate rather than a provider receipt. All three are
+    # defaulted: a pre-upgrade runtime, a durable rebuild or a session that
+    # has never reported must invent nothing.
+    context_tokens: int | None = None
+    context_window: int | None = None
+    context_is_estimate: bool | None = None
+    version: int = 0  # projection epoch; the phone drops stale repaints
+    attention: dict[str, Any] = field(default_factory=dict)
+
+    def to_json(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["pending"] = self.pending.to_json() if self.pending else None
+        if self.asks is not None:
+            data["asks"] = [row.to_json() for row in self.asks]
+        # N2: absence is the capability proxy, so a None field is POPPED rather
+        # than sent as null — ``asdict`` would otherwise emit both keys on every
+        # projection, which is precisely the false "this runtime has queued asks"
+        # the rule exists to prevent.
+        if self.asks is None:
+            data.pop("asks", None)
+        if self.asks_open is None:
+            data.pop("asks_open", None)
+        return data
+
+    def __post_init__(self) -> None:
+        """Give the copy its re-dating reference — deliberately NOT a field.
+
+        ``activity_started_s`` is a DERIVED reading: the phase's age at the
+        instant some process computed it. Every later reader of a COPY (the
+        daemon, between the runtime's frames) otherwise serves that stale number
+        to whoever attaches next, and a viewer attaching mid-phase then paints
+        the stale value — at a known zero, ``0s`` counting from its own mount,
+        which is the operator-reported defect on this very surface (review round
+        3, MAJOR 1).
+
+        Re-dating needs one thing this object cannot hold as a field: WHEN the
+        reading was taken. ``None`` means "no reference" — a never-published
+        projection, a durable rebuild — and :func:`advance_received_age` then
+        leaves the value exactly as it found it. It is an instance attribute
+        rather than a declared dataclass field because ``to_json`` is
+        ``asdict``: a field would put a local monotonic instant on the wire, and
+        this is a property of THIS COPY, not of the projection.
+        """
+        self.activity_age_reference: tuple[float, float] | None = None
+        # The frame cap's re-cap memo — also deliberately NOT a field, for the
+        # same ``asdict`` reason: it is a cache over this object's rows, not a
+        # property of the projection, and a field would ship it down the wire.
+        # It lives HERE because the rows being re-capped are this object's, and
+        # the object is retained across repaints by both wire paths, which is
+        # the whole precondition for the memo (see
+        # ``projection._frame_capped``). ``projection._reconcile_frame_cap_memo``
+        # is what bounds it: to the roster, and to the shape each live row
+        # carries, of the last frame PUBLISHED — capped or under the cap, since
+        # the reconcile runs before the size check and the frame that shrinks a
+        # roster is the one that comes in under the cap.
+        self._frame_cap_memo: dict[str, dict[Any, tuple[str, int, Any, str]]] = {}
+
+
+def stamp_activity_age(projection: SessionProjection) -> None:
+    """Anchor a freshly ingested copy's band age to its arrival instant.
+
+    Called by the wire parser, so EVERY ingestor gets the reference rather than
+    each consumer having to remember. A projection with no age (``None``) gets
+    no reference: there is nothing to run forward, and absence stays absence.
+
+    The sibling of :func:`advance_received_age`, which spends the anchor.
+    """
+    age = projection.activity_started_s
+    projection.activity_age_reference = None if age is None else (time.monotonic(), float(age))
+
+
+def advance_received_age(projection: SessionProjection) -> None:
+    """Publish this copy's received band age AS OF NOW.
+
+    The second half of :func:`stamp_activity_age`, and the same one-shot
+    discipline ``monotonic_from_epoch`` uses for a producer's epoch: the part
+    already elapsed came from the producer, and everything after it is counted
+    on THIS process's monotonic clock, so a wall-clock adjustment cannot move a
+    running counter. Idempotent — the reference stays the anchor, so repeated
+    calls recompute rather than accumulate.
+
+    Deliberately NOT called ``redate_from_phase`` (the fold's method, which
+    re-dates from a phase instant it took itself): these are two different
+    clocks over the same field — one walks forward from an instant a fold owns,
+    this one forward from a reading a wire delivered — and a reader who confuses
+    them silently gets the wrong arithmetic (review round 4, NIT 1).
+
+    A projection with no reference is left untouched: a value the fold just
+    computed is already as fresh as this call could make it.
+    """
+    reference = projection.activity_age_reference
+    if reference is None:
+        return
+    stamped_at, age = reference
+    projection.activity_started_s = round(age + (time.monotonic() - stamped_at), 1)
+
+
+#: Transcript cap for a projection push — the tail the phone renders without
+#: scrolling. History fetches page backwards beyond it. Matches omp mobile's
+#: finding that a phone renders a tail, not a log.
+PROJECTION_TRANSCRIPT_LIMIT = 80
+
+
+def _projection_from_json(data: dict[str, Any], record: SessionRecord) -> SessionProjection:
+    """Rebuild a projection from a wire payload.
+
+    The registrant already serialized dataclasses; this tolerates missing
+    keys (a rolling upgrade mid-push) by constructing through the dataclass
+    with defaults. Lives in the wire-types module (not the daemon) because
+    BOTH consumers of the socket rebuild projections from the same frames —
+    the daemon for the phone, the attach client for a follower terminal —
+    and a copy in each is exactly how two renderers drift.
+
+    ``record`` supplies the pid: the fold stamps 0 (the registrant does not
+    know its own pid until the record is published), and the discovery record
+    is the source of truth.
+    """
+    from dataclasses import fields
+
+    def build(cls: type, items: list[dict[str, Any]]) -> list[Any]:
+        known = {f.name for f in fields(cls)}
+        result = []
+        for item in items:
+            values = {k: v for k, v in item.items() if k in known}
+            if cls is TranscriptEntry:
+                # Older runtimes did not say whether the real row ending survived.
+                # Unknown completeness cannot authorize a completion receipt.
+                values["text_complete"] = item.get("text_complete") is True
+            result.append(cls(**values))
+        return result
+
+    known = {f.name for f in fields(SessionProjection)}
+    base = {
+        k: v
+        for k, v in data.items()
+        if k in known and k not in ("transcript", "todos", "subagents", "pending", "asks")
+    }
+    projection = SessionProjection(**base)
+    # The ask rows are rebuilt through the dataclass for the same rolling-upgrade
+    # reason as every other nested shape: a NEW viewer reading an OLD payload
+    # gets no key at all (``None``, i.e. absence — the capability proxy), and a
+    # newer payload's extra keys are dropped rather than raising.
+    if isinstance(data.get("asks"), list):
+        projection.asks = build(PendingAskWire, data.get("asks") or [])
+    projection.pid = record.pid
+    projection.transcript = build(TranscriptEntry, data.get("transcript", []))
+    # Todos arrive PHASED; rebuild the two nested dataclass levels, tolerating
+    # missing keys the same way ``build`` does for a rolling upgrade mid-push.
+    projection.todos = [
+        TodoPhase(
+            name=str(phase.get("name", "")),
+            items=build(TodoItem, phase.get("items", []) or []),
+        )
+        for phase in data.get("todos", []) or []
+    ]
+    projection.subagents = build(SubagentRow, data.get("subagents", []))
+    pending = data.get("pending")
+    if isinstance(pending, dict):
+        known_pending = {f.name for f in fields(PendingRequest)}
+        pending_kwargs = {k: v for k, v in pending.items() if k in known_pending}
+        # ``options`` crosses the wire as a list of {label, description} dicts;
+        # rebuild the dataclass so downstream code (and to_json round-trips)
+        # see AskOptionWire, not bare dicts.
+        raw_options = pending_kwargs.get("options") or []
+        pending_kwargs["options"] = [
+            (
+                AskOptionWire(
+                    label=str(opt.get("label", "")),
+                    description=str(opt.get("description", "")),
+                )
+                if isinstance(opt, dict)
+                else AskOptionWire(label=str(opt))
+            )
+            for opt in raw_options
+        ]
+        projection.pending = PendingRequest(**pending_kwargs)
+    else:
+        projection.pending = None
+    # The band's age is anchored to ITS arrival here, once, for every ingestor:
+    # the value is a reading taken by another process, and the age it names is
+    # only valid as of the instant this copy received it.
+    stamp_activity_age(projection)
+    return projection
+
+
+# ---------------------------------------------------------------------------
+# Slash command surface (exported to the phone)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SlashCommandInfo:
+    """One slash command as the phone's sheet needs it — the subset of the
+    TUI's ``SlashCommand`` registry that makes sense off-terminal. Commands
+    that only mutate TUI chrome (``/clear``) or quit the app (``/exit``) are
+    excluded at export time, not here."""
+
+    name: str
+    description: str = ""
+    aliases: list[str] = field(default_factory=list)
+    arguments: str = "none"  # none | optional | required — ArgumentMode names, lowercased
+
+    def to_json(self) -> dict[str, Any]:
+        return asdict(self)

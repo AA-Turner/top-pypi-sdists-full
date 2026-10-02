@@ -6254,9 +6254,7 @@ class Nanmedian(Operation):
         self.keepdims = keepdims
 
     def call(self, x):
-        return backend.ops.numpy.nanmedian(
-            x, axis=self.axis, keepdims=self.keepdims
-        )
+        return _nanmedian(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
         dtype = dtypes.result_type(x.dtype, float)
@@ -6302,7 +6300,18 @@ def nanmedian(x, axis=None, keepdims=False):
     if any_symbolic_tensors((x,)):
         return Nanmedian(axis=axis, keepdims=keepdims).symbolic_call(x)
 
-    return backend.ops.numpy.nanmedian(x, axis=axis, keepdims=keepdims)
+    return _nanmedian(x, axis=axis, keepdims=keepdims)
+
+
+def _nanmedian(x, axis=None, keepdims=False):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "nanmedian"
+    ):
+        return backend.ops.numpy.nanmedian(x, axis=axis, keepdims=keepdims)
+    x = backend.ops.convert_to_tensor(x)
+    if axis == () or axis == []:
+        return backend.ops.cast(x, dtypes.result_type(x.dtype, float))
+    return backend.ops.numpy.nanquantile(x, 0.5, axis=axis, keepdims=keepdims)
 
 
 class Nanmin(Operation):
@@ -9433,12 +9442,9 @@ class Mean(Operation):
         return backend.ops.numpy.mean(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        ori_dtype = backend.standardize_dtype(x.dtype)
-        compute_dtype = dtypes.result_type(x.dtype, "float32")
-        if "int" in ori_dtype or ori_dtype == "bool":
-            result_dtype = compute_dtype
-        else:
-            result_dtype = ori_dtype
+        result_dtype = backend.standardize_dtype(x.dtype)
+        if "int" in result_dtype or result_dtype == "bool":
+            result_dtype = config.floatx()
         sparse = getattr(x, "sparse", False)
         return KerasTensor(
             reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),

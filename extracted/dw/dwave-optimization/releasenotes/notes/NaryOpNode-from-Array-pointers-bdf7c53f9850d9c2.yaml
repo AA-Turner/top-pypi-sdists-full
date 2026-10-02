@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add C++ ``NaryOpNode(std::span<Node*>)`` and ``NaryOpNode(std::span<Array*>)`` constructors.

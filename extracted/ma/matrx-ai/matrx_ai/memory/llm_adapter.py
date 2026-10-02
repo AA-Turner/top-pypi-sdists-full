@@ -156,6 +156,8 @@ class MemoryLLMAdapter:
         config = held_request_config(held, extra_turns=turns)
         if model:
             config.model = model
+            # The Holder's class pin belongs to the Holder's model only.
+            config.offering_id = held.pick_offering(model)
         config.store = False
         model = config.model
         request = AIMatrixRequest(

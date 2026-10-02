@@ -72,9 +72,7 @@ class ImageURI:
         elif cls._is_default_build(build):
             return ImageURI.from_str(build.docker_image_name)
         else:
-            image_uri_str = (
-                ANYSCALE_CLUSTER_ENV_PREFIX + f"{cluster_env.name}:{build.revision}"
-            )
+            image_uri_str = ANYSCALE_CLUSTER_ENV_PREFIX + f"{cluster_env.name}:{build.revision}"
             return ImageURI.from_str(image_uri_str)
 
     def to_cluster_env_name(self) -> str:

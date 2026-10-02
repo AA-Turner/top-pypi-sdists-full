@@ -1,0 +1,475 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""NodeDuplicationSweep — Detect duplicate definitions across repos.
+
+Implements four deterministic checks:
+- D1: Drizzle table name duplication across omnidash schema files
+- D2: Kafka topic registration conflicts between omniclaude TopicBase and kafka_boundaries.yaml
+- D3: Migration prefix collisions via check-migration-conflicts CLI
+- D4: Cross-repo Pydantic model name collisions in production code
+
+ONEX node type: COMPUTE — deterministic file scan, no LLM calls.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+from collections import defaultdict
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, Field
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+
+_ALL_CHECKS = ["D1", "D2", "D3", "D4"]
+_KAFKA_BOUNDARY_RELATIVE_PATHS = (
+    Path("onex_change_control")
+    / "src"
+    / "onex_change_control"
+    / "boundaries"
+    / "kafka_boundaries.yaml",
+    Path("onex_change_control") / "boundaries" / "kafka_boundaries.yaml",
+)
+_EXCLUDED_MIGRATION_REPO_DIRS = {"omni_worktrees"}
+
+# Wall-clock budget for the D3 ``check-migration-conflicts`` subprocess. The real
+# cross-repo scan takes ~110s; the prior 60s cap reliably tripped TimeoutExpired,
+# which the handler degraded to a quiet WARN(0) — making the OMN-13516
+# migration-dup check dead inside the node. Raise the budget AND treat a genuine
+# timeout as a FAIL (an indeterminate gate must never be a silent pass — Rule 5).
+_D3_SUBPROCESS_TIMEOUT_S = 240
+
+
+class ModelDuplicationFinding(BaseModel):
+    """A single duplication finding."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    locations: list[str] = Field(default_factory=list)
+    detail: str = ""
+
+
+class ModelDuplicationCheckResult(BaseModel):
+    """Result for a single duplication check."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    check_id: str  # D1 | D2 | D3 | D4
+    status: str  # PASS | FAIL | WARN
+    finding_count: int = 0
+    detail: str = ""
+    findings: list[ModelDuplicationFinding] = Field(default_factory=list)
+
+
+class DuplicationSweepRequest(BaseModel):
+    """Input for the duplication sweep handler."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    omni_home: str = Field(default="")
+    checks: list[str] | None = None  # None = all checks
+
+
+class DuplicationSweepResult(BaseModel):
+    """Output of the duplication sweep handler."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    check_results: list[ModelDuplicationCheckResult] = Field(default_factory=list)
+    overall_status: str = "PASS"  # PASS | FAIL | ERROR (unresolvable scope)
+
+
+# ---------------------------------------------------------------------------
+# Resolvers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_kafka_boundaries_yaml(omni_home: str) -> Path | None:
+    """Locate OCC Kafka boundaries across current and legacy layouts."""
+    root = Path(omni_home)
+    for relative_path in _KAFKA_BOUNDARY_RELATIVE_PATHS:
+        candidate = root / relative_path
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _migration_conflict_command(omni_home: str) -> tuple[list[str], Path] | None:
+    """Resolve check-migration-conflicts from OCC before falling back to PATH.
+
+    OMN-11013: when ``onex_change_control/migration_conflict_suppressions.yaml``
+    exists, append ``--suppressions-file <path>`` so the official D3 invocation
+    matches the suppressions-aware substitute and distinguishes true
+    unsuppressed conflicts from known historical ones.
+    """
+    occ_root = Path(omni_home) / "onex_change_control"
+    repos = _migration_conflict_repos(omni_home)
+    repo_args = ["--repos", *repos] if repos else []
+    suppressions_path = occ_root / "migration_conflict_suppressions.yaml"
+    suppression_args = (
+        ["--suppressions-file", str(suppressions_path)]
+        if suppressions_path.is_file()
+        else []
+    )
+    common_args = ["--repos-root", omni_home, *repo_args, *suppression_args]
+    direct_executable = occ_root / ".venv" / "bin" / "check-migration-conflicts"
+    if direct_executable.is_file() and os.access(direct_executable, os.X_OK):
+        return ([str(direct_executable), *common_args], occ_root)
+
+    path_executable = shutil.which("check-migration-conflicts")
+    if path_executable:
+        return ([path_executable, *common_args], occ_root)
+
+    uv_executable = shutil.which("uv")
+    if uv_executable:
+        return (
+            [
+                uv_executable,
+                "run",
+                "check-migration-conflicts",
+                *common_args,
+            ],
+            occ_root,
+        )
+
+    return None
+
+
+def _migration_conflict_repos(omni_home: str) -> list[str]:
+    """List canonical repo dirs so OCC does not recurse generated worktrees."""
+    root = Path(omni_home)
+    if not root.is_dir():
+        return []
+
+    repos: list[str] = []
+    for child in sorted(root.iterdir()):
+        if (
+            child.name.startswith(".")
+            or child.name in _EXCLUDED_MIGRATION_REPO_DIRS
+            or not child.is_dir()
+            or not (child / ".git").exists()
+        ):
+            continue
+        repos.append(child.name)
+    return repos
+
+
+# ---------------------------------------------------------------------------
+# Check implementations
+# ---------------------------------------------------------------------------
+
+
+def _check_d1_drizzle_tables(omni_home: str) -> ModelDuplicationCheckResult:
+    """D1: Detect duplicate Drizzle table names across omnidash schema files."""
+    schema_dir = Path(omni_home) / "omnidash" / "shared"
+    if not schema_dir.is_dir():
+        return ModelDuplicationCheckResult(
+            check_id="D1",
+            status="WARN",
+            detail=f"omnidash/shared/ not found at {schema_dir}",
+        )
+
+    table_locations: dict[str, list[str]] = defaultdict(list)
+    for ts_file in sorted(schema_dir.glob("*-schema.ts")):
+        try:
+            content = ts_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in re.finditer(r'pgTable\(\s*["\']([^"\']+)["\']', content):
+            table_name = m.group(1)
+            table_locations[table_name].append(
+                str(ts_file.relative_to(Path(omni_home)))
+            )
+
+    duplicates = {name: locs for name, locs in table_locations.items() if len(locs) > 1}
+    if not duplicates:
+        return ModelDuplicationCheckResult(
+            check_id="D1",
+            status="PASS",
+            detail="No duplicate Drizzle tables",
+        )
+
+    findings = [
+        ModelDuplicationFinding(
+            name=name, locations=locs, detail=f"defined in {len(locs)} files"
+        )
+        for name, locs in duplicates.items()
+    ]
+    return ModelDuplicationCheckResult(
+        check_id="D1",
+        status="FAIL",
+        finding_count=len(duplicates),
+        detail=f"{len(duplicates)} duplicate table(s): {', '.join(duplicates)}",
+        findings=findings,
+    )
+
+
+def _check_d2_kafka_topics(omni_home: str) -> ModelDuplicationCheckResult:
+    """D2: Detect Kafka topic registration conflicts."""
+    topics_py = (
+        Path(omni_home) / "omniclaude" / "src" / "omniclaude" / "hooks" / "topics.py"
+    )
+    boundaries_yaml = _resolve_kafka_boundaries_yaml(omni_home)
+
+    if not topics_py.exists() or boundaries_yaml is None:
+        missing = []
+        if not topics_py.exists():
+            missing.append("omniclaude/src/omniclaude/hooks/topics.py")
+        if boundaries_yaml is None:
+            missing.append(
+                " or ".join(str(path) for path in _KAFKA_BOUNDARY_RELATIVE_PATHS)
+            )
+        return ModelDuplicationCheckResult(
+            check_id="D2",
+            status="WARN",
+            detail=f"Topic source files not found: {', '.join(missing)}",
+        )
+
+    # Extract TopicBase values from topics.py
+    try:
+        topics_content = topics_py.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return ModelDuplicationCheckResult(
+            check_id="D2",
+            status="WARN",
+            detail=f"Could not read topics.py: {exc}",
+        )
+    omniclaude_topics = set(re.findall(r'=\s*"([^"]+)"', topics_content))
+    omniclaude_topics = {t for t in omniclaude_topics if t.startswith("onex.")}
+
+    # Extract topic_name entries from kafka_boundaries.yaml
+    try:
+        boundaries_content = boundaries_yaml.read_text(
+            encoding="utf-8", errors="replace"
+        )
+    except OSError as exc:
+        return ModelDuplicationCheckResult(
+            check_id="D2",
+            status="WARN",
+            detail=f"Could not read kafka_boundaries.yaml: {exc}",
+        )
+
+    # Parse producer_repo per topic
+    # Format is: topic_name: "foo"\n  producer_repo: "bar"
+    topic_producers: dict[str, str] = {}
+    for m in re.finditer(
+        r'topic_name:\s*["\']([^"\']+)["\'].*?producer_repo:\s*["\']([^"\']+)["\']',
+        boundaries_content,
+        re.DOTALL,
+    ):
+        topic_producers[m.group(1)] = m.group(2)
+
+    conflicts: list[ModelDuplicationFinding] = []
+    for topic in omniclaude_topics:
+        producer = topic_producers.get(topic)
+        if producer and producer != "omniclaude":
+            conflicts.append(
+                ModelDuplicationFinding(
+                    name=topic,
+                    locations=[
+                        "omniclaude/topics.py",
+                        str(boundaries_yaml.relative_to(Path(omni_home))),
+                    ],
+                    detail=f"omniclaude claims producer but boundaries.yaml says producer_repo={producer}",
+                )
+            )
+
+    if not conflicts:
+        return ModelDuplicationCheckResult(
+            check_id="D2",
+            status="PASS",
+            detail="No topic registration conflicts",
+        )
+
+    return ModelDuplicationCheckResult(
+        check_id="D2",
+        status="FAIL",
+        finding_count=len(conflicts),
+        detail=f"{len(conflicts)} conflicting topic(s)",
+        findings=conflicts,
+    )
+
+
+def _check_d3_migration_prefixes(omni_home: str) -> ModelDuplicationCheckResult:
+    """D3: Detect migration prefix collisions via check-migration-conflicts."""
+    resolved = _migration_conflict_command(omni_home)
+    if resolved is None:
+        return ModelDuplicationCheckResult(
+            check_id="D3",
+            status="WARN",
+            detail="check-migration-conflicts not available",
+        )
+
+    command, cwd = resolved
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            cwd=str(cwd),
+            timeout=_D3_SUBPROCESS_TIMEOUT_S,
+            check=False,
+        )
+        output = result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        # A real timeout is an indeterminate result, not a benign warning. The
+        # migration-conflict scan could not complete, so we cannot certify the
+        # absence of conflicts — FAIL the check rather than quietly WARN(0)
+        # (OMN-13538, Rule 5: a gate that silently passes is worse than no gate).
+        return ModelDuplicationCheckResult(
+            check_id="D3",
+            status="FAIL",
+            detail=(
+                "check-migration-conflicts timed out after "
+                f"{_D3_SUBPROCESS_TIMEOUT_S}s — migration-conflict scan could "
+                "not complete; absence of conflicts cannot be certified"
+            ),
+        )
+    except (OSError, FileNotFoundError) as exc:
+        return ModelDuplicationCheckResult(
+            check_id="D3",
+            status="WARN",
+            detail=f"check-migration-conflicts not available: {exc}",
+        )
+
+    conflict_lines = [
+        line
+        for line in output.splitlines()
+        if "EXACT_DUPLICATE" in line or "NAME_CONFLICT" in line
+    ]
+
+    if not conflict_lines:
+        return ModelDuplicationCheckResult(
+            check_id="D3",
+            status="PASS",
+            detail="No migration prefix conflicts",
+        )
+
+    findings = [
+        ModelDuplicationFinding(name=line.strip(), detail=line.strip())
+        for line in conflict_lines
+    ]
+    return ModelDuplicationCheckResult(
+        check_id="D3",
+        status="FAIL",
+        finding_count=len(conflict_lines),
+        detail=f"{len(conflict_lines)} migration conflict(s)",
+        findings=findings,
+    )
+
+
+def _check_d4_model_names(omni_home: str) -> ModelDuplicationCheckResult:
+    """D4: Detect cross-repo Pydantic model name collisions in production code."""
+    root = Path(omni_home)
+    # Map: class_name -> list of (repo, file_path)
+    name_locations: dict[str, list[str]] = defaultdict(list)
+
+    for src_dir in root.glob("*/src"):
+        repo = src_dir.parent.name
+        if repo in ("omnibase_core",):
+            # omnibase_core is the shared base — collisions there are expected
+            continue
+        for py_file in src_dir.rglob("*.py"):
+            # Skip test/fixture paths
+            relative = str(py_file.relative_to(src_dir))
+            if any(seg in relative for seg in ("tests", "fixtures", "__pycache__")):
+                continue
+            try:
+                content = py_file.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for m in re.finditer(
+                r"^class (Model[A-Z][A-Za-z0-9_]*)", content, re.MULTILINE
+            ):
+                class_name = m.group(1)
+                location = f"{repo}/{py_file.relative_to(root / repo)}"
+                name_locations[class_name].append(location)
+
+    duplicates = {name: locs for name, locs in name_locations.items() if len(locs) > 1}
+    if not duplicates:
+        return ModelDuplicationCheckResult(
+            check_id="D4",
+            status="PASS",
+            detail="No cross-repo model name collisions",
+        )
+
+    findings = [
+        ModelDuplicationFinding(
+            name=name,
+            locations=locs,
+            detail=f"defined in {len(locs)} repos/files",
+        )
+        for name, locs in duplicates.items()
+    ]
+    return ModelDuplicationCheckResult(
+        check_id="D4",
+        status="FAIL",
+        finding_count=len(duplicates),
+        detail=f"{len(duplicates)} cross-repo model name collision(s): {', '.join(list(duplicates)[:5])}{'...' if len(duplicates) > 5 else ''}",
+        findings=findings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Handler
+# ---------------------------------------------------------------------------
+
+_CHECK_FNS = {
+    "D1": _check_d1_drizzle_tables,
+    "D2": _check_d2_kafka_topics,
+    "D3": _check_d3_migration_prefixes,
+    "D4": _check_d4_model_names,
+}
+
+
+class NodeDuplicationSweep:
+    """Detect duplicate definitions across repos."""
+
+    def handle(self, request: DuplicationSweepRequest) -> DuplicationSweepResult:
+        omni_home = request.omni_home or os.environ.get("OMNI_HOME", "")
+        checks = request.checks or _ALL_CHECKS
+
+        # Fail loud when the scan root cannot be resolved. With an empty
+        # ``omni_home`` every check would resolve a non-existent dir and degrade
+        # to WARN, yielding overall=PASS — a false-clean (OMN-13538, Rule 5).
+        if not omni_home or not Path(omni_home).is_dir():
+            return DuplicationSweepResult(
+                check_results=[
+                    ModelDuplicationCheckResult(
+                        check_id="scope",
+                        status="FAIL",
+                        detail=(
+                            "OMNI_HOME is not set / not a directory — cannot "
+                            "resolve the scan root. Refusing to report PASS over "
+                            "an unresolvable scope."
+                        ),
+                    )
+                ],
+                overall_status="ERROR",
+            )
+
+        check_results: list[ModelDuplicationCheckResult] = []
+        for check_id in checks:
+            fn = _CHECK_FNS.get(check_id)
+            if fn is None:
+                check_results.append(
+                    ModelDuplicationCheckResult(
+                        check_id=check_id,
+                        status="WARN",
+                        detail=f"unknown check ID: {check_id}",
+                    )
+                )
+                continue
+            check_results.append(fn(omni_home))
+
+        overall = "FAIL" if any(r.status == "FAIL" for r in check_results) else "PASS"
+        return DuplicationSweepResult(
+            check_results=check_results,
+            overall_status=overall,
+        )

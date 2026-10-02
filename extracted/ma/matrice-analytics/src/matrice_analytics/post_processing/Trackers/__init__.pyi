@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..advanced_tracker import AdvancedTracker
 from ..advanced_tracker.config import TrackerConfig
+from ..advanced_tracker.rtp_clock import RtpClock
 from ..utils.bytetrack_utils import bbox_to_xyxy, iou_xyxy
 from .advanced_tracker import AdvancedTrackerAdapter
 from .base import BaseObjectTracker
@@ -18,6 +19,10 @@ from .sort import SORTTrackerAdapter
 DetectionDict: Any = ...  # From base
 SUPPORTED_TRACKING_METHODS: Any = ...  # From config
 logger: Any = ...  # From factory
+RTP_KEYS: Tuple[Any, ...] = ...  # From frame_timestamp
+RTP_ZERO_IS_ABSENT: Any = ...  # From frame_timestamp
+SECONDS_KEYS: Tuple[Any, ...] = ...  # From frame_timestamp
+logger: Any = ...  # From frame_timestamp
 MATRICE_LEGACY_SORT_ENV: str = ...  # From integration
 logger: Any = ...  # From integration
 
@@ -161,6 +166,30 @@ def legacy_sort_tracker_overrides(config: Any, method: str) -> Dict[str, Any]:
     ...
 
 # From integration
+def record_untracked_frame(missing: int, total: int) -> None:
+    """
+    Record a frame whose detections carried no `track_id` at all.
+    
+        This is the exact silent-zero condition: objects were detected, none can be
+        counted, and without this the only trace was a debug-gated `print`.
+    """
+    ...
+
+# From integration
+def record_update_failure(exc: Any) -> None:
+    """
+    Record a per-frame tracker `update()` failure (runtime: fail open, loudly).
+    """
+    ...
+
+# From integration
+def tracker_health() -> Any:
+    """
+    Return the process-wide tracker health record (metrics / health checks).
+    """
+    ...
+
+# From integration
 def tracker_namespace(stream_info: Optional[Dict[str, Any]]) -> Optional[str]:
     """
     Derive a per-stream namespace for track ID isolation.
@@ -204,6 +233,30 @@ class MatriceTrackerConfig:
     def from_config(cls: Any, config: Any, stream_info: Optional[Dict[str, Any]] = None) -> Any:
         """
         Build tracker config from a use-case config object.
+        """
+        ...
+
+
+# From frame_timestamp
+class FrameTimestampReader:
+    # Turns one stream's ``stream_info`` into seconds of stream time.
+
+    def __init__(self: Any) -> None: ...
+
+    def read(self: Any, stream_info: Optional[Dict[str, Any]]) -> Optional[float]:
+        """
+        Pull this frame's presentation time (seconds) out of ``stream_info``.
+        
+                The RTP timestamp is preferred: it is the source clock the gateway forwards
+                byte-identically, so it survives sampling. A seconds-valued key is accepted as-is.
+                Anything unusable returns ``None``, which the tracker treats as "no time base this
+                frame" and logs.
+        """
+        ...
+
+    def reset(self: Any) -> None:
+        """
+        Forget the wrap state -- called when the tracker it feeds is reset.
         """
         ...
 
@@ -261,6 +314,34 @@ class ConfigDrivenTracker:
 
 
 # From integration
+class TrackerHealth:
+    # Observable degradation state for the shared tracker seam.
+
+    def degraded(self: Any) -> bool:
+        """
+        True when tracking is not delivering usable track IDs.
+        
+                A degraded tracker means unique/new counts are zero for reasons that
+                have nothing to do with the scene. Health surfaces must report this.
+        """
+        ...
+
+    def reset(self: Any) -> None: ...
+
+    def snapshot(self: Any) -> Dict[str, Any]: ...
+
+
+# From integration
+class TrackerInitializationError:
+    # Tracking was explicitly requested but the tracker could not be built.
+    #
+    #     Raised by `ConfigDrivenTracker.get_shared_tracker`. Callers must let this
+    #     propagate (startup refusal) rather than degrade to untracked counting,
+    #     which silently reports zero.
+
+    ...
+
+# From integration
 class TrackerProfile:
     # Named `TrackerConfig` baselines measured across the 136 literal
     #     `TrackerConfig(...)` call sites in usecases/ (consolidation plan §1.8).
@@ -275,4 +356,4 @@ class TrackerProfile:
     NEW_FLOW: str
 
 
-from . import base, config, det_utils, factory, integration
+from . import base, config, det_utils, factory, frame_timestamp, integration

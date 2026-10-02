@@ -1,0 +1,423 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Non-mutating compose render checks for the OMN-12924 judge lane."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any, cast
+
+import pytest
+
+REPO_ROOT = Path(__file__).parent.parent.parent.parent
+COMPOSE_FILE = "docker/docker-compose.judge.yml"
+BASE_COMPOSE_FILE = "docker/docker-compose.infra.yml"
+JUDGE_NETWORK = "omnibase-infra-judge-network"
+
+# OMN-13772: interpolation-only dummies for the LAYERED render. Compose
+# interpolates EVERY input file before merge, so layering the base infra file
+# surfaces its `:?`-required vars even for services excluded from the judge
+# profile. These values are never used to run containers — `config` only.
+LAYERED_RENDER_DUMMY_ENV = {
+    # OMN-16843: x-runtime-env builds OMNINODE_INTERNAL_DB_URL from this with
+    # the fail-closed ${VAR:?} form, so the layered render aborts without it.
+    # Render-only, never a real credential.
+    "OMNINODE_RUNTIME_PASSWORD": "render-only-omninode-runtime-password",
+    # OMN-15263: `:?`-required in the base infra file since OMN-15173. The judge
+    # profile excludes the dev redpanda service, but compose still interpolates
+    # its `command:` block during the layered render.
+    "DEV_REDPANDA_ADVERTISE_HOST": "localhost",  # kafka-fallback-ok — test fixture
+    "GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL": (
+        "http://keycloak:8080/realms/omninode/protocol/openid-connect/token/introspect"
+    ),
+    "GATEWAY_ATTACH_KEYCLOAK_JWKS_URL": (
+        "http://keycloak:8080/realms/omninode/protocol/openid-connect/certs"
+    ),
+    "GITHUB_TOKEN": "layered-render-dummy",
+    "DEPLOY_AGENT_HMAC_SECRET": "layered-render-dummy",
+    "LINEAR_API_KEY": "layered-render-dummy",
+    "ONEX_REGISTRATION_AUTO_ACK": "false",
+    "ONEX_SERVICE_CLIENT_SECRET": "layered-render-dummy",
+    "LLM_CODER_URL": "http://layered-render-dummy",
+    "LLM_CODER_FAST_URL": "http://layered-render-dummy",
+    "LLM_EMBEDDING_URL": "http://layered-render-dummy",
+    "LLM_DEEPSEEK_R1_URL": "http://layered-render-dummy",
+    "LLM_GLM_URL": "http://layered-render-dummy",
+    "LLM_GLM_MODEL_NAME": "layered-render-dummy",
+    "LLM_GLM_API_KEY": "layered-render-dummy",
+    # `:?` interpolation rejects empty values — use a harmless loopback CIDR.
+    "LLM_ENDPOINT_CIDR_ALLOWLIST": "127.0.0.1/32",
+    "INFISICAL_DB_CONNECTION_URI": "layered-render-dummy",
+    "INFISICAL_REDIS_URL": "layered-render-dummy",
+    "INFISICAL_ENCRYPTION_KEY": "layered-render-dummy",
+    "INFISICAL_AUTH_SECRET": "layered-render-dummy",
+}
+
+EXPECTED_RENDERED_SERVICES = {
+    "postgres",
+    "redpanda",
+    "redpanda-partition-cap",
+    "valkey",
+    "forward-migration",
+    "migration-gate",
+    "intelligence-migration",
+    "omninode-runtime",
+    "runtime-effects",
+    "projection-api",
+}
+OUT_OF_SCOPE_SERVICES = {
+    "keycloak",
+    "infisical",
+    "runtime-worker",
+    "agent-actions-consumer",
+    "skill-lifecycle-consumer",
+    "context-audit-consumer",
+    "intelligence-api",
+    "omninode-contract-resolver",
+    "phoenix",
+    "autoheal",
+}
+EXPECTED_PUBLISHED_PORTS = {
+    "postgres": {"35436"},
+    "redpanda": {"49092", "49644"},
+    "redpanda-partition-cap": set(),
+    "valkey": {"56379"},
+    "forward-migration": set(),
+    "migration-gate": set(),
+    "intelligence-migration": set(),
+    "omninode-runtime": {"48085"},
+    "runtime-effects": {"48086"},
+    "projection-api": {"43002"},
+}
+DEV_OR_PROD_PUBLISHED_PORTS = {
+    "5436",
+    "15436",
+    "19092",
+    "39092",
+    "9644",
+    "29644",
+    "16379",
+    "26379",
+    "8085",
+    "18085",
+    "28085",
+    "8086",
+    "18086",
+    "28086",
+    "3002",
+    "13002",
+    "23002",
+    "28080",
+    "38080",
+    "8881",  # OMN-13417: dev lane infisical host port (was 8880)
+}
+
+
+def _docker_compose_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    result = subprocess.run(
+        ["docker", "compose", "version"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _compose_render_env() -> dict[str, str]:
+    python_path = os.pathsep.join(
+        path
+        for path in (
+            str(REPO_ROOT / "src"),
+            str(REPO_ROOT),
+            os.environ.get("PYTHONPATH", ""),
+        )
+        if path
+    )
+    return {
+        "HOME": os.environ.get("HOME", ""),
+        "PATH": os.environ.get("PATH", ""),
+        "PYTHONPATH": python_path,
+        "USER": os.environ.get("USER", ""),
+    }
+
+
+def _docker_compose_command(*args: str) -> list[str]:
+    return [
+        "docker",
+        "compose",
+        "--env-file",
+        "docker/runtime-policy.env",
+        "--env-file",
+        "docker/judge.env.example",
+        "-f",
+        COMPOSE_FILE,
+        "--profile",
+        "judge",
+        *args,
+    ]
+
+
+def _run_compose_config(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        _docker_compose_command("config", *args),
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+
+
+def _compose_config_json() -> dict[str, Any]:
+    result = _run_compose_config("--format", "json")
+    rendered_config = json.loads(result.stdout)
+
+    assert isinstance(rendered_config, dict)
+    return cast("dict[str, Any]", rendered_config)
+
+
+def _layered_compose_config_json() -> dict[str, Any]:
+    """Render the DEPLOYED shape: base infra compose + judge overlay.
+
+    deploy-runtime.sh (resolve_compose_file_args, OMN-13581) layers
+    docker-compose.judge.yml ON TOP of docker-compose.infra.yml on the .201
+    host — the standalone render alone cannot catch base<->overlay merge
+    defects (OMN-13772: plain-list networks:/ports: union-merged with the base,
+    attaching judge services to the dev network and double-publishing ports).
+    """
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "--env-file",
+            "docker/runtime-policy.env",
+            "--env-file",
+            "docker/judge.env.example",
+            "-f",
+            BASE_COMPOSE_FILE,
+            "-f",
+            COMPOSE_FILE,
+            "--profile",
+            "judge",
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        env={**_compose_render_env(), **LAYERED_RENDER_DUMMY_ENV},
+        text=True,
+    )
+    rendered_config = json.loads(result.stdout)
+    assert isinstance(rendered_config, dict)
+    return cast("dict[str, Any]", rendered_config)
+
+
+def _published_ports(service_config: dict[str, Any]) -> set[str]:
+    ports = cast("list[dict[str, Any]]", service_config.get("ports", []))
+    return {str(port["published"]) for port in ports}
+
+
+pytestmark = pytest.mark.skipif(
+    not _docker_compose_available(),
+    reason="docker compose is required for non-mutating compose render validation",
+)
+
+
+@pytest.mark.integration
+def test_judge_lane_services_render_with_judge_profile() -> None:
+    result = _run_compose_config("--services")
+
+    rendered_services = set(result.stdout.splitlines())
+
+    assert rendered_services == EXPECTED_RENDERED_SERVICES
+    assert rendered_services.isdisjoint(OUT_OF_SCOPE_SERVICES)
+
+
+@pytest.mark.integration
+def test_judge_lane_render_contains_isolated_runtime_identity() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    assert services["omninode-runtime"]["container_name"] == "omninode-judge-runtime"
+    assert services["runtime-effects"]["container_name"] == (
+        "omninode-judge-runtime-effects"
+    )
+    assert services["projection-api"]["container_name"] == (
+        "omnimarket-judge-projection-api"
+    )
+
+    for service_name in ("omninode-runtime", "runtime-effects"):
+        environment = services[service_name]["environment"]
+        assert environment["ONEX_ENVIRONMENT"] == "judge"
+        assert environment["KAFKA_ENVIRONMENT"] == "judge"
+        assert environment["ONEX_BOX_ID"] == "judge-local"
+        assert environment["ONEX_STATE_ROOT"] == "/app/data/.onex_state_judge"
+        assert environment["ONEX_STATE_DIR"] == "/app/data/.onex_state_judge"
+        assert environment["KAFKA_INSTANCE_ID"].startswith("judge-")
+        assert environment["ONEX_RUNTIME_ADDRESS"].startswith(
+            "runtime://judge-local/judge/"
+        )
+        assert environment["ONEX_RUNTIME_ID"].startswith("judge-")
+        assert environment["ONEX_SECRET_RESOLVER_CONFIG_PATH"] == (
+            "/app/data/delegation/secret_resolver.yaml"
+        )
+        resolver_config = json.loads(environment["ONEX_SECRET_RESOLVER_CONFIG_JSON"])
+        assert resolver_config["enable_convention_fallback"] is False
+
+    assert services["omninode-runtime"]["environment"]["ONEX_GROUP_ID"] == (
+        "onex-judge-runtime-main"
+    )
+    assert services["runtime-effects"]["environment"]["ONEX_GROUP_ID"] == (
+        "onex-judge-runtime-effects"
+    )
+
+
+@pytest.mark.integration
+def test_judge_lane_render_omits_keycloak_and_infisical() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    assert set(services) == EXPECTED_RENDERED_SERVICES
+    assert set(services).isdisjoint(OUT_OF_SCOPE_SERVICES)
+
+    for service in services.values():
+        depends_on = service.get("depends_on", {})
+        assert "keycloak" not in depends_on
+        assert "infisical" not in depends_on
+        environment = service.get("environment", {})
+        assert environment.get("INFISICAL_ADDR", "") == ""
+        assert environment.get("KEYCLOAK_ISSUER", "") == ""
+
+
+@pytest.mark.integration
+def test_judge_lane_render_does_not_expose_dev_stability_or_prod_ports() -> None:
+    rendered_config = _compose_config_json()
+
+    for service_name, service_config in rendered_config["services"].items():
+        published_ports = _published_ports(service_config)
+        assert published_ports == EXPECTED_PUBLISHED_PORTS[service_name]
+        assert published_ports.isdisjoint(DEV_OR_PROD_PUBLISHED_PORTS)
+
+
+@pytest.mark.integration
+def test_judge_lane_render_raises_redpanda_fd_and_partition_capacity() -> None:
+    rendered_config = _compose_config_json()
+    redpanda = rendered_config["services"]["redpanda"]
+    command = redpanda["command"]
+
+    assert redpanda["ulimits"]["nofile"] == {"soft": 65535, "hard": 65535}
+    assert "--overprovisioned" in command
+    assert command[command.index("--memory") + 1] == "8G"
+    assert "--reserve-memory" in command
+    assert command[command.index("--reserve-memory") + 1] == "0M"
+    assert "--check=false" in command
+    assert "topic_partitions_per_shard=7000" in command
+
+
+@pytest.mark.integration
+def test_layered_render_isolates_every_judge_service_to_judge_network() -> None:
+    """OMN-13772 regression gate — the deployed base+overlay merge shape.
+
+    Every judge service must resolve to EXACTLY the judge lane network and
+    ONLY its lane-scoped published ports. Before the `!override` tags, the
+    plain-list form union-merged with docker-compose.infra.yml: every judge
+    service attached to BOTH the judge and dev networks (cross-lane isolation
+    hole, ambiguous postgres/valkey/redpanda DNS) and double-published dev+
+    judge host ports (valkey collided on dev 16379).
+    """
+    rendered_config = _layered_compose_config_json()
+    services = rendered_config["services"]
+
+    # keycloak / infisical carry no profile in the base file; the judge
+    # overlay pins them behind a never-enabled profile so the layered render
+    # cannot activate them on the dev network.
+    assert set(services) == EXPECTED_RENDERED_SERVICES
+
+    for service_name, service_config in services.items():
+        networks = set(service_config.get("networks", {}))
+        assert networks == {JUDGE_NETWORK}, (
+            f"{service_name}: expected exactly {{{JUDGE_NETWORK!r}}}, "
+            f"got {sorted(networks)} — plain-list networks: union-merged "
+            f"with the base file (missing !override, OMN-13772)"
+        )
+
+        published_ports = _published_ports(service_config)
+        assert published_ports == EXPECTED_PUBLISHED_PORTS[service_name], (
+            f"{service_name}: published ports {sorted(published_ports)} != "
+            f"expected {sorted(EXPECTED_PUBLISHED_PORTS[service_name])} — "
+            f"plain-list ports: union-merged with the base file "
+            f"(missing !override, OMN-13772)"
+        )
+        assert published_ports.isdisjoint(DEV_OR_PROD_PUBLISHED_PORTS)
+
+
+@pytest.mark.integration
+def test_judge_lane_delegation_routing_tiers_path_binding() -> None:
+    """OMN-15645: DELEGATION_ROUTING_TIERS_PATH must reach the judge lane's
+    runtime services via the layered (deployed) shape, to a fixed,
+    non-version-embedded in-image path.
+
+    The judge lane's own ``x-judge-runtime-env`` anchor does not declare this
+    key, so a *standalone* judge.yml render omits it — only the layered
+    base+overlay render (``deploy-runtime.sh``'s actual deployed shape) proves
+    the base file's ``x-runtime-env`` anchor binding survives into this lane.
+    See ``test_dev_lane_delegation_routing_tiers_path_binding`` in
+    ``test_dev_runtime_compose_render.py`` for the full seam citation.
+    """
+    rendered_config = _layered_compose_config_json()
+    services = rendered_config["services"]
+
+    expected_path = "/app/config/delegation/routing_tiers.yaml"
+    for service_name in ("omninode-runtime", "runtime-effects"):
+        environment = services[service_name]["environment"]
+        assert environment.get("DELEGATION_ROUTING_TIERS_PATH") == expected_path, (
+            f"Service '{service_name}' must bind DELEGATION_ROUTING_TIERS_PATH="
+            f"{expected_path!r}; got "
+            f"{environment.get('DELEGATION_ROUTING_TIERS_PATH')!r}"
+        )
+
+    # NOTE: omninode-contract-resolver is judge-profile-gated OUT_OF_SCOPE
+    # (never rendered under --profile judge), so only projection-api is
+    # checked here — see EXPECTED_RENDERED_SERVICES / OUT_OF_SCOPE_SERVICES
+    # above.
+    environment = services["projection-api"]["environment"]
+    assert environment.get("DELEGATION_ROUTING_TIERS_PATH", "") == "", (
+        "Service 'projection-api' deliberately has no delegation-routing "
+        "surface and must not bind DELEGATION_ROUTING_TIERS_PATH; got "
+        f"{environment.get('DELEGATION_ROUTING_TIERS_PATH')!r}"
+    )
+
+
+@pytest.mark.integration
+def test_judge_secret_refs_are_rendered_from_runtime_policy() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    for service_name in ("omninode-runtime", "runtime-effects"):
+        environment = services[service_name]["environment"]
+        resolver_config = json.loads(environment["ONEX_SECRET_RESOLVER_CONFIG_JSON"])
+        mappings = {
+            mapping["logical_name"]: mapping["source"]
+            for mapping in resolver_config["mappings"]
+        }
+
+        assert mappings["llm.gemini.api_key"] == {
+            "source_type": "env",
+            "source_path": "GEMINI_API_KEY",
+        }
+        assert mappings["llm.openrouter.api_key"] == {
+            "source_type": "env",
+            "source_path": "OPENROUTER_API_KEY",
+        }
+        assert mappings["llm.glm.api_key"] == {
+            "source_type": "env",
+            "source_path": "LLM_GLM_API_KEY",
+        }

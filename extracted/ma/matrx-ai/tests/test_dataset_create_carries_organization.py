@@ -1,10 +1,7 @@
 """`dataset:create` (and its sibling `picklist:create`) carry the organization — or hold.
 
-Verifier, 2026-09-26: ``dataset:create`` died on a null ``organization_id`` on
-``workbench.udt_datasets``: the tool built its creator from the person alone, so
-the insert never named the organization the conversation was working in. The
-fake creator below has the host creator's real shape (``organization_id`` is
-keyword-only and the insert refuses a missing one exactly as Postgres does).
+A dataset is born in the record store, in the organization the conversation carries
+(the store arm makes it under the ambient person and organization).
 
 With no organization on the run, nothing is picked on the person's behalf: the
 tool answers with the platform's one ``organization_required`` hold.
@@ -30,50 +27,38 @@ CALL_SHEET = [
 ]
 
 
-class FakeDatasetCreator:
-    """The host creator's shape (user_data/dataset_creator.py), with the DB's refusal."""
+class FakeStoreArm:
+    """The record-store arm's ``create``, recording what the tool asked it to make."""
 
     made: list[dict[str, Any]] = []
 
-    def __init__(self, user_id: str, *, organization_id: str | None = None) -> None:
-        self.user_id = user_id
-        self.organization_id = organization_id
-
-    def create_table_from_data(self, data: list, table_name: str, description: str | None = None,
-                               is_public: bool = False, batch_size: int = 50) -> dict[str, Any]:
-        if not self.organization_id:
-            raise RuntimeError(
-                'null value in column "organization_id" of relation "udt_datasets" '
-                "violates not-null constraint"
-            )
-        FakeDatasetCreator.made.append({"organization_id": self.organization_id, "name": table_name})
-        return {"success": True, "table_id": "c0ffee00-0000-4000-8000-000000000001",
-                "table_name": table_name, "row_count": len(data), "field_count": 3}
+    async def create(self, *, name: str, description: str, data: list) -> dict[str, Any]:
+        FakeStoreArm.made.append({"name": name, "rows": len(data)})
+        return {"table_id": "c0ffee00-0000-4000-8000-000000000001", "table_name": name,
+                "description": description, "row_count": len(data), "field_count": 3,
+                "already_existed": False}
 
 
 def _ctx(monkeypatch: pytest.MonkeyPatch, org: str | None) -> ToolContext:
     monkeypatch.setattr(ToolContext, "user_id", property(lambda self: PERSON))
     monkeypatch.setattr(ToolContext, "organization_id", property(lambda self: org))
-    FakeDatasetCreator.made = []
-    configure_ext(DatasetCreator=FakeDatasetCreator)
+    FakeStoreArm.made = []
+    configure_ext(dataset_store_arm=FakeStoreArm())
     return ToolContext(call_id="call-front-desk")
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("typed", [False, True])
-async def test_dataset_create_writes_the_carried_organization(monkeypatch, typed):
+async def test_dataset_create_with_an_organization_is_made_in_the_store(monkeypatch):
     from matrx_ai.tools.implementations.datasets_tools import dataset
 
     ctx = _ctx(monkeypatch, ORG)
     result = await dataset(
         {"action": "create", "dataset_name": "Insurance verification — week of Sep 28",
-         "data": CALL_SHEET, "typed": typed},
+         "data": CALL_SHEET},
         ctx,
     )
     assert result.success, result.error
-    assert FakeDatasetCreator.made == [
-        {"organization_id": ORG, "name": "Insurance verification — week of Sep 28"}
-    ]
+    assert FakeStoreArm.made == [{"name": "Insurance verification — week of Sep 28", "rows": 2}]
 
 
 @pytest.mark.asyncio
@@ -89,7 +74,7 @@ async def test_dataset_create_without_an_organization_is_held(monkeypatch):
     assert not result.success
     assert result.error.error_type == "organization_required"
     assert result.output["hold"]["details"]["hold"] == "organization_required"
-    assert FakeDatasetCreator.made == []
+    assert FakeStoreArm.made == []
     assert_no_default_org_wording(result.error.message + (result.error.suggested_action or ""))
 
 

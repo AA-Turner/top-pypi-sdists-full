@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# disk-gc.sh — Conservative scheduled docker/disk garbage collection for .201 (OMN-13008).
+#
+# WHY: On 2026-06-11 /data on .201 reached ~95% (weeks of unpruned docker images
+# + builder cache) and killed all three runtime lanes mid-demo. This script is the
+# scheduled, conservative GC that keeps /data from detonating, driven by a
+# VERSIONED keep-list config (deploy/disk-gc/keep-list.yaml) — nothing is hardcoded.
+#
+# It reaps, in increasing order of caution:
+#   1. docker builder cache (cache mounts are always safe to drop)
+#   2. dangling images (untagged, <none>) older than min_age_days
+#   3. stopped containers older than min_age_days
+#   4. superseded image generations of kept repos, KEEPING keep_image_tags,
+#      keeping protect_running references, keeping the newest
+#      superseded_image_keep_generations, and only removing those older than
+#      min_age_days.
+#
+# It NEVER removes:
+#   - any image whose repo matches keep_image_repos
+#   - any image whose tag matches keep_image_tags
+#   - any image referenced by a container (when protect_running: true)
+#   - anything younger than min_age_days
+#   - any volume (volumes are out of scope — data safety)
+#
+# Usage:
+#   ./scripts/disk-gc.sh                 # DRY RUN (default): print what WOULD be removed
+#   ./scripts/disk-gc.sh --execute       # actually remove
+#   ./scripts/disk-gc.sh --keep-list /path/to/keep-list.yaml
+#   ./scripts/disk-gc.sh --json          # machine-readable plan to stdout (dry-run plan)
+#
+# Exit codes: 0 success (plan printed or executed), 2 bad args, 3 missing deps.
+#
+# Runs on .201 via deploy/disk-gc.timer (systemd user timer). Log: ~/.local/log/onex/disk-gc.log
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+KEEP_LIST="${SCRIPT_DIR}/../deploy/disk-gc/keep-list.yaml"
+EXECUTE=false
+EMIT_JSON=false
+LOG_FILE="${HOME}/.local/log/onex/disk-gc.log"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --execute) EXECUTE=true; shift ;;
+    --keep-list) KEEP_LIST="$2"; shift 2 ;;
+    --json) EMIT_JSON=true; shift ;;
+    --help|-h) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p "$(dirname "$LOG_FILE")"
+log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [disk-gc] $*" | tee -a "$LOG_FILE" >&2; }
+
+command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not found" >&2; exit 3; }
+command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 not found" >&2; exit 3; }
+[[ -f "$KEEP_LIST" ]] || { echo "ERROR: keep-list not found: $KEEP_LIST" >&2; exit 3; }
+
+log "Starting ($( [[ "$EXECUTE" == true ]] && echo EXECUTE || echo DRY-RUN )), keep-list=$KEEP_LIST"
+
+# ---------------------------------------------------------------------------
+# Resolve the removal PLAN in Python (deterministic, testable). The plan is the
+# only thing that decides what gets removed; bash only executes it.
+#
+# Docker inventory is written to per-run scratch files and handed to the planner
+# on stdin as a JSON envelope. We do NOT pass it via env vars: a host with many
+# images blows past ARG_MAX (`Argument list too long`). Scratch lives under the
+# log dir (never /tmp), and is cleaned on exit.
+# ---------------------------------------------------------------------------
+SCRATCH="$(mktemp -d "$(dirname "$LOG_FILE")/disk-gc.XXXXXX")"
+trap 'rm -rf "$SCRATCH"' EXIT
+docker image ls --all --no-trunc --format '{{json .}}' >"$SCRATCH/images.ndjson" 2>/dev/null || : >"$SCRATCH/images.ndjson"
+docker ps --all --no-trunc --format '{{json .}}' >"$SCRATCH/ps.ndjson" 2>/dev/null || : >"$SCRATCH/ps.ndjson"
+# OMN-16367: resolve the in-use set by each container's .Image DIGEST.
+#
+# `docker ps --format '{{.Image}}'` prints the image NAME for a name-referenced
+# container and the id only for an id-referenced one. Cross-referencing on that
+# field returned a FALSE ZERO on 29 of 30 rows on this host, and a plan built
+# from it selected an image a running container was sitting on (a dangling
+# postgres layer, 611 MB, measured 2026-09-18 against a live capture).
+#
+# It matters most exactly where it is least visible: the stability-test, judge
+# and lakshman lanes run containers on digests OLDER than their own `:latest`,
+# so a name-based check protects the tag while the running layer goes
+# unprotected. The digest is the only sound identifier for those.
+#
+# The name list is still unioned in. It can only ADD protection -- a stale name
+# ref keeps an image that might not have needed keeping, which is the safe
+# direction -- but it is never the sole source.
+{
+  for cid in $(docker ps -aq 2>/dev/null); do
+    docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true
+  done
+  docker ps --all --format '{{.Image}}' 2>/dev/null || true
+} | sort -u >"$SCRATCH/inuse.txt" || : >"$SCRATCH/inuse.txt"
+
+# Build the stdin JSON envelope from the scratch files (SCRATCH_DIR env tells the
+# encoder where to read), then pipe it straight into the planner. Two simple
+# processes, no nested subprocess, no env-var size limit.
+PLAN_JSON="$(
+  SCRATCH_DIR="$SCRATCH" python3 -c '
+import json, os
+d = os.environ["SCRATCH_DIR"]
+print(json.dumps({
+    "images_ndjson": open(os.path.join(d, "images.ndjson")).read(),
+    "ps_ndjson": open(os.path.join(d, "ps.ndjson")).read(),
+    "inuse": open(os.path.join(d, "inuse.txt")).read(),
+}))
+' | KEEP_LIST="$KEEP_LIST" python3 "${SCRIPT_DIR}/disk_gc_plan.py"
+)"
+
+if [[ "$EMIT_JSON" == true ]]; then
+  echo "$PLAN_JSON"
+fi
+
+# Builder cache prune (always conservative — drops only reclaimable build cache).
+# Honor min_age via docker's own filter so we don't drop a cache layer from a build
+# that's seconds old.
+MIN_AGE_DAYS="$(echo "$PLAN_JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin)["min_age_days"])')"
+# OMN-16367: the builder-cache CEILING, from the keep-list via the planner.
+BUILDER_CACHE_MAX_SIZE="$(echo "$PLAN_JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin)["builder_cache_max_size"])')"
+# The age fallback is expressed in HOURS. Name and unit must agree: the
+# pre-OMN-16367 line interpolated MIN_AGE_DAYS straight into `until=...h0m0s`,
+# so `min_age_days: 3` silently meant THREE HOURS while the log said "3d".
+MIN_AGE_HOURS="$(( MIN_AGE_DAYS * 24 ))"
+IMAGE_IDS="$(echo "$PLAN_JSON" | python3 -c 'import json,sys;[print(i) for i in json.load(sys.stdin)["remove_image_ids"]]')"
+CONTAINER_IDS="$(echo "$PLAN_JSON" | python3 -c 'import json,sys;[print(c) for c in json.load(sys.stdin)["remove_container_ids"]]')"
+# OMN-15804: id<TAB>ref1,ref2,... — one line per removal-candidate image id, refs
+# comma-joined (empty string when the id is dangling / has no repo:tag to untag).
+IMAGE_REFS_TSV="$(echo "$PLAN_JSON" | python3 -c '
+import json, sys
+plan = json.load(sys.stdin)
+refs = plan.get("remove_image_refs", {})
+for iid in plan["remove_image_ids"]:
+    joined = ",".join(refs.get(iid, []))
+    print(f"{iid}\t{joined}")
+')"
+
+log "Plan: $(echo "$IMAGE_IDS" | grep -c . || true) image(s), $(echo "$CONTAINER_IDS" | grep -c . || true) stopped container(s), builder cache capped at ${BUILDER_CACHE_MAX_SIZE}"
+
+REMOVE_NOMINAL_BYTES="$(echo "$PLAN_JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("remove_nominal_bytes",0))')"
+REMOVE_NOMINAL_GB="$(python3 -c "print(f'{${REMOVE_NOMINAL_BYTES}/1000**3:.1f}')")"
+
+if [[ "$EXECUTE" != true ]]; then
+  # The number a host-rollout consent row cites. NOMINAL, not reclaim: shared
+  # base layers collapse, and a measured pass on this host recovered 17.6% of
+  # nominal. Say nominal, so nobody quotes it as expected disk returned.
+  log "DRY-RUN — would remove $(echo "$IMAGE_IDS" | grep -c . || true) image(s), ${REMOVE_NOMINAL_GB} GB nominal (NOT reclaim: shared layers collapse). Re-run with --execute to act."
+  [[ -n "$IMAGE_IDS" ]] && { echo "IMAGES TO REMOVE:"; echo "$IMAGE_IDS"; } >&2
+  [[ -n "$CONTAINER_IDS" ]] && { echo "STOPPED CONTAINERS TO REMOVE:"; echo "$CONTAINER_IDS"; } >&2
+  exit 0
+fi
+
+# --- Execute ---------------------------------------------------------------
+# OMN-16367: bound the build cache by SIZE, not by age.
+#
+# The previous bound was an `until=` age filter fed by the min-age-in-DAYS value
+# interpolated into an hours-unit duration, and it reclaimed
+# kilobytes per hourly pass while `docker buildx du` on .201 stood at 749.7 GB
+# across 9,183 records, 100% reclaimable. `until=` filters on LAST ACCESSED, not
+# on creation: every large record (the 1.47 GB /app/.venv layer, the torch/uv
+# base) is served as a cache hit by the next proof build minutes later, which
+# refreshes its timestamp. The big records were therefore never eligible, and an
+# age-filtered prune is STRUCTURALLY incapable of bounding this cache.
+#
+# `--max-used-space` is a CEILING on retained cache and is the correct bound.
+# Note `--keep-storage` is NOT the same thing: on buildx >= 0.17 it is deprecated
+# and maps to `--reserved-space`, the FLOOR (space always kept) — the opposite.
+#
+# The age filter survives only as a FALLBACK for a docker too old to know the cap
+# flag, never as an AND-constraint on the capped call: combining them would
+# restore the bug exactly, since the oversized records are the recently-accessed
+# ones the age filter excludes.
+#
+# CORRECTION (OMN-16367, 2026-09-18, later the same day). An earlier revision of
+# this comment claimed `--all` was load-bearing because a default prune excludes
+# image-referenced records. THAT WAS WRONG, and the correction matters more than
+# the flag does. On this host `docker builder prune` resolves to
+# `docker buildx prune`, where `-a, --all` is documented as "Include
+# internal/frontend images" -- NOT the classic CLI's "remove all unused build
+# cache". It is a scope modifier that reads like a force flag.
+#
+# What actually happened: a third approved prune, carrying `--all` and this exact
+# ceiling, also reclaimed 0B (08:48Z, ledger :4054-:4060). `docker buildx du`
+# reads Shared 723.5GB against Total 750GB -- ~96% of the cache is content shared
+# with image layers in the containerd snapshot store, which NO builder prune can
+# return while those images exist.
+#
+# So this prune bounds FUTURE cache growth and recovers ~nothing on a host whose
+# cache is already shared into the image store. That is worth keeping and worth
+# not overselling. The disk itself is reclaimed by the generation-bounded image
+# retention in disk_gc_plan.py (keep-list `generation_bounded_repos`), which is
+# where the per-sha deploy-agent families are actually bounded.
+#
+# `--all` stays because including internal/frontend images is correct for a
+# scheduled GC, not because it unlocks anything.
+log "Plan totals: $(echo "$IMAGE_IDS" | grep -c . || true) image(s), ${REMOVE_NOMINAL_GB} GB nominal (NOT reclaim)"
+log "Pruning builder cache to a ceiling of ${BUILDER_CACHE_MAX_SIZE}"
+PRUNE_OUT=""
+if PRUNE_OUT="$(docker builder prune --all --force --max-used-space "$BUILDER_CACHE_MAX_SIZE" 2>&1)"; then
+  printf '%s\n' "$PRUNE_OUT" >>"$LOG_FILE"
+elif PRUNE_OUT="$(docker builder prune --all --force --filter "until=${MIN_AGE_HOURS}h0m0s" 2>&1)"; then
+  printf '%s\n' "$PRUNE_OUT" >>"$LOG_FILE"
+  log "size cap unsupported by this docker; FELL BACK to age filter (>${MIN_AGE_HOURS}h). Cache is NOT bounded by size on this host."
+else
+  printf '%s\n' "$PRUNE_OUT" >>"$LOG_FILE"
+  log "builder prune failed (non-fatal)"
+  PRUNE_OUT=""
+fi
+
+# Surface the reclaim on our own tagged line. docker prints a bare `Total:\t<n>`
+# that blends into the log; AC2's live falsifier ("three consecutive entries
+# reporting Total: <1MB") is only checkable if the figure is attributable.
+BUILDER_RECLAIMED="$(printf '%s\n' "$PRUNE_OUT" | awk -F'\t' '/^Total:/ {last=$2} END {if (last != "") print last}')"
+log "builder cache reclaimed: ${BUILDER_RECLAIMED:-unknown} (ceiling ${BUILDER_CACHE_MAX_SIZE})"
+
+if [[ -n "$CONTAINER_IDS" ]]; then
+  while IFS= read -r cid; do
+    [[ -z "$cid" ]] && continue
+    if docker rm "$cid" >>"$LOG_FILE" 2>&1; then log "removed container $cid"; else log "FAILED to remove container $cid"; fi
+  done <<< "$CONTAINER_IDS"
+fi
+
+if [[ -n "$IMAGE_REFS_TSV" ]]; then
+  while IFS=$'\t' read -r iid refs_csv; do
+    [[ -z "$iid" ]] && continue
+
+    # OMN-15804 fresh in-use re-check: the plan's protect_running decision was
+    # made against a docker-inventory SNAPSHOT taken before the builder-cache
+    # prune / stopped-container removal above ran. Re-derive liveness right
+    # before deletion via docker's own `ancestor` filter, which resolves an
+    # image id or repo:tag to every container (running OR stopped) built from
+    # it — closing the snapshot-staleness + short-vs-full-id gaps a static
+    # substring match against a pre-captured `docker ps` list cannot catch.
+    if [[ -n "$(docker ps -a --filter "ancestor=${iid}" --format '{{.ID}}' 2>/dev/null)" ]]; then
+      log "kept image $iid (fresh in-use re-check: referenced by a container)"
+      continue
+    fi
+
+    # OMN-15804: untag every repo:tag ref before the final by-id remove.
+    # `docker rmi <id>` alone fails "must be forced - referenced in multiple
+    # repositories" whenever more than one repo:tag points at the same id —
+    # this was why the native timer identified ~101 candidates and removed
+    # ZERO across 3+ cycles. Untagging each ref first (never -f) drops the
+    # tag; the final `docker rmi <id>` (or the last untag itself) frees the
+    # underlying image once no ref remains.
+    untag_failed=false
+    if [[ -n "$refs_csv" ]]; then
+      IFS=',' read -ra refs_arr <<< "$refs_csv"
+      for ref in "${refs_arr[@]}"; do
+        [[ -z "$ref" ]] && continue
+        if docker rmi "$ref" >>"$LOG_FILE" 2>&1; then
+          log "untagged $ref"
+        else
+          log "FAILED to untag $ref"
+          untag_failed=true
+        fi
+      done
+    fi
+
+    if [[ "$untag_failed" == true ]]; then
+      log "kept/failed image $iid (one or more tag refs failed to untag; not force-removing)"
+      continue
+    fi
+
+    # Dangling images (no refs) or an id whose underlying layers survived
+    # untagging (should not happen once every ref above succeeded, but the
+    # `docker image ls` id may still resolve if this id was ALSO a parent
+    # layer of another image) still need this final by-id remove.
+    if docker image inspect "$iid" >/dev/null 2>&1; then
+      if docker rmi "$iid" >>"$LOG_FILE" 2>&1; then
+        log "removed image $iid"
+      else
+        log "kept/failed image $iid (likely still referenced)"
+      fi
+    else
+      log "removed image $iid (freed by untag)"
+    fi
+  done <<< "$IMAGE_REFS_TSV"
+fi
+
+log "Done. df after:"
+DF_OUT="$(df -h /data 2>/dev/null || df -h /)"
+echo "$DF_OUT" | tee -a "$LOG_FILE" >&2
+
+# OMN-15804: surface the watermark threshold directly in the GC summary so a
+# breach is visible without cross-referencing a second log file. No new alerting
+# path — this is a log-line-only warning.
+#
+# OMN-17872: the threshold is READ from the guard's own declaration rather than
+# re-typed here. It used to be a literal `WATERMARK_WARN_PCT=85` under a comment
+# claiming it was "shared with disk-watermark-check.sh" — it was not shared, it
+# was copied, and the copy would have silently outlived any change to the real
+# one. A failed read skips the line and says so; it never falls back to a
+# guessed number, and it never aborts the GC run over a log line.
+DF_USED_PCT="$(echo "$DF_OUT" | awk 'NR==2 {gsub(/%/,"",$5); print $5}')"
+WATERMARK_THRESHOLDS_FILE="${SCRIPT_DIR}/disk-watermark-thresholds.json"
+if WATERMARK_TRIPLE="$(python3 "${SCRIPT_DIR}/disk_watermark_thresholds.py" "$WATERMARK_THRESHOLDS_FILE" 2>&1)"; then
+  WATERMARK_WARN_PCT="$(echo "$WATERMARK_TRIPLE" | awk '{print $3}')"
+  if [[ "$DF_USED_PCT" =~ ^[0-9]+$ ]] && [[ "$DF_USED_PCT" -ge "$WATERMARK_WARN_PCT" ]]; then
+    log "WARNING: disk usage ${DF_USED_PCT}% >= advisory watermark ${WATERMARK_WARN_PCT}% — see disk-watermark-check.sh (the HALT there is a free-space floor, not this percentage)"
+  fi
+else
+  log "NOTE: could not read ${WATERMARK_THRESHOLDS_FILE} (${WATERMARK_TRIPLE}); skipping the advisory watermark line"
+fi
+
+exit 0

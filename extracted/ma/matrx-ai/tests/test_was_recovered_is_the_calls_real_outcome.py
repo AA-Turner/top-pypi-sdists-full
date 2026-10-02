@@ -243,7 +243,9 @@ def test_no_finding_writer_hardcodes_recovery_before_the_call_runs() -> None:
                 if kw.arg == "was_recovered" and isinstance(kw.value, ast.Constant):
                     if kw.value.value is True:
                         offenders.append(f"{path.relative_to(root)}:{node.lineno}")
-    assert offenders == ["providers/anthropic/anthropic_api.py:418"], (
+    # Pinned by FILE and count, not line number: an unrelated edit above the one
+    # known writer must not read as a new offender.
+    assert [o.rsplit(":", 1)[0] for o in offenders] == ["providers/anthropic/anthropic_api.py"], (
         "a structured-output finding writer hardcodes was_recovered=True. Hold it with "
         f"was_recovered=None and let the dispatch seam write the real outcome: {offenders}"
     )

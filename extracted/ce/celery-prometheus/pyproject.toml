@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "celery-prometheus"
+version = "1.1.0"
+description = "Celery with your own prometheus metrics"
+authors = ["Guillaume Gauvrit <guillaume@gandi.net>"]
+readme = "README.md"
+license = "BSD-Derived"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+celery = ">=4"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+flake8 = "5.0.4"
+isort = "5.11.4"
+mypy = "1.0.0"
+prometheus-client = "^0.16.0"
+types-setuptools = "^67.4.0.3"
+
+[[tool.mypy.overrides]]
+disallow_any_generics = true
+disallow_untyped_defs = true
+module = "celery_prometheus.*"
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

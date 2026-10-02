@@ -1,0 +1,485 @@
+"""Tests for interactive and non-interactive monthly budget management."""
+
+from __future__ import annotations
+
+import json
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+
+import click
+import pytest
+from typer.testing import CliRunner
+
+from exp.cli.app import app
+from exp.common.core.artifacts import canonical_json_bytes
+from exp.common.models import ModelCapabilities
+from exp.common.models.gateway_catalog import (
+    ExactModelDeployment,
+    ExactModelPool,
+    NormalizedGatewayCatalog,
+)
+from exp.runtime.gateway.budgets import current_budget_period
+from exp.runtime.gateway.contracts import (
+    DirectTarget,
+    ExecutionSnapshot,
+    GatewayApiSurface,
+    GatewayFailure,
+    GatewayFailureClass,
+    GatewayMessage,
+    GatewayRequest,
+)
+from exp.runtime.gateway.ledger import SQLiteAttemptLedger
+from exp.runtime.gateway.management import GatewayManagement
+
+
+def test_budget_command_help_needs_no_private_gateway_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real CLI imports and renders budget help without creating SQLite or pepper files."""
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(app, ["config", "gateway", "budget", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "set" in result.output
+    assert "reconcile" in result.output
+    assert tuple(tmp_path.iterdir()) == ()
+
+
+def _snapshot_catalog() -> NormalizedGatewayCatalog:
+    """Build the pinned singleton-pool catalog snapshot for the fixture alias."""
+    return NormalizedGatewayCatalog(
+        deployments=(
+            ExactModelDeployment(
+                deployment_id="azure-primary",
+                source_alias="azure-primary",
+                exact_model_id="exact-one",
+                connection="connection-one",
+                provider="openai-compatible",
+                provider_model="provider-model",
+                connection_sha256="b" * 64,
+                capabilities_sha256="c" * 64,
+                capabilities=ModelCapabilities(maximum_output_tokens=16),
+            ),
+        ),
+        pools=(
+            ExactModelPool(
+                pool_id="pool-one",
+                exact_model_id="exact-one",
+                deployment_ids=("azure-primary",),
+            ),
+        ),
+    )
+
+
+def _configured(root: Path) -> GatewayManagement:
+    """Create the authority references required by identity and deployment scopes."""
+    manager = GatewayManagement(root)
+    manager.initialize()
+    store = manager.require_initialized()
+    manager.create_identity(identity_id="identity-one", display_name="Identity")
+    catalog = _snapshot_catalog()
+    (manager.state_dir / "snapshot-one").write_bytes(
+        canonical_json_bytes(catalog.model_dump(mode="json"))
+    )
+    digest = catalog.identity_sha256()
+    store.register_catalog_snapshot(
+        organization_id=manager.organization_id,
+        snapshot_ref="snapshot-one",
+        catalog_sha256=digest,
+    )
+    store.activate_alias_revision(
+        organization_id=manager.organization_id,
+        alias_id="coding",
+        alias_name="coding",
+        revision_id="revision-one",
+        target=DirectTarget(pool_id="pool-one"),
+        snapshot_ref="snapshot-one",
+        catalog_sha256=digest,
+    )
+    return manager
+
+
+def test_budget_set_uses_existing_project_snapshot_resource_setting(tmp_path: Path) -> None:
+    """The CLI remedy changes the actual store limit without altering budget semantics."""
+    manager = _configured(tmp_path)
+    size = (manager.state_dir / "snapshot-one").stat().st_size
+    arguments = [
+        "config",
+        "gateway",
+        "budget",
+        "set",
+        "--period",
+        "2026-08",
+        "--scope",
+        "deployment",
+        "--alias",
+        "coding",
+        "--pool",
+        "pool-one",
+        "--deployment",
+        "azure-primary",
+        "--limit-nano-usd",
+        "100",
+        "--root",
+        str(tmp_path),
+        "--non-interactive",
+        "--json",
+    ]
+    settings = tmp_path / "settings.toml"
+    settings.write_text(f"[gateway]\nbudget_snapshot_max_bytes = {size - 1}\n")
+    blocked = CliRunner().invoke(app, arguments)
+    assert blocked.exit_code != 0 and "budget_snapshot_max_bytes" in blocked.output
+    settings.write_text(f"[gateway]\nbudget_snapshot_max_bytes = {size}\n")
+    allowed = CliRunner().invoke(app, arguments)
+    assert allowed.exit_code == 0, allowed.output
+    assert json.loads(allowed.stdout)["data"]["scope"]["deployment_id"] == "azure-primary"
+
+
+def test_noninteractive_budget_management_reports_integer_remaining(tmp_path: Path) -> None:
+    """Automation can configure overlapping limits and read stable JSON receipts."""
+    _configured(tmp_path)
+    runner = CliRunner()
+    commands = (
+        ["--scope", "team", "--limit-nano-usd", "20000000000"],
+        [
+            "--scope",
+            "identity",
+            "--identity",
+            "identity-one",
+            "--limit-nano-usd",
+            "15000000000",
+        ],
+        [
+            "--scope",
+            "deployment",
+            "--alias",
+            "coding",
+            "--pool",
+            "pool-one",
+            "--deployment",
+            "azure-primary",
+            "--limit-nano-usd",
+            "10000000000",
+        ],
+    )
+    for arguments in commands:
+        result = runner.invoke(
+            app,
+            [
+                "config",
+                "gateway",
+                "budget",
+                "set",
+                "--period",
+                "2026-08",
+                *arguments,
+                "--root",
+                str(tmp_path),
+                "--non-interactive",
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        receipt = json.loads(result.stdout)
+        assert receipt["operation"] == "budget.set"
+        assert isinstance(receipt["data"]["limit_nano_usd"], int)
+
+    listed = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "list",
+            "--period",
+            "2026-08",
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    remaining = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "remaining",
+            "--period",
+            "2026-08",
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    assert listed.exit_code == 0, listed.output
+    assert remaining.exit_code == 0, remaining.output
+    assert len(json.loads(listed.stdout)["items"]) == 3
+    items = json.loads(remaining.stdout)["items"]
+    assert len(items) == 3
+    assert all(item["remaining_nano_usd"] == item["budget"]["limit_nano_usd"] for item in items)
+    assert "dashboard" not in remaining.stdout.lower()
+
+
+def test_set_records_opt_in_strict_unknown_cost(tmp_path: Path) -> None:
+    """The strict fail-closed mode is off by default and explicit in the receipt."""
+    _configured(tmp_path)
+    runner = CliRunner()
+    default = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "set",
+            "--period",
+            "2026-08",
+            "--scope",
+            "team",
+            "--limit-nano-usd",
+            "1000",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+            "--json",
+        ],
+    )
+    assert default.exit_code == 0, default.output
+    assert json.loads(default.stdout)["data"]["strict_unknown_cost"] is False
+
+    strict = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "set",
+            "--period",
+            "2026-08",
+            "--scope",
+            "team",
+            "--limit-nano-usd",
+            "1000",
+            "--strict-unknown-cost",
+            "--replace",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+            "--json",
+        ],
+    )
+    assert strict.exit_code == 0, strict.output
+    receipt = json.loads(strict.stdout)
+    assert receipt["changed"] is True
+    assert receipt["data"]["strict_unknown_cost"] is True
+
+
+def test_interactive_set_prompts_while_noninteractive_missing_values_fail(tmp_path: Path) -> None:
+    """Human prompts remain available and automation never waits for missing values."""
+    _configured(tmp_path)
+    runner = CliRunner()
+    interactive = runner.invoke(
+        app,
+        ["config", "gateway", "budget", "set", "--root", str(tmp_path)],
+        input="2026-08\nteam\n1000\n",
+    )
+    assert interactive.exit_code == 0, interactive.output
+    assert "2026-08 team limit_nano_usd=1000" in interactive.output
+
+    missing = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "set",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+        ],
+    )
+    assert missing.exit_code == 2
+    normalized = " ".join(click.unstyle(missing.output).replace("│", " ").split())
+    assert "--period is required" in normalized
+
+
+def _record_unknown_attempt(manager: GatewayManagement) -> None:
+    """Run one failed unpriced attempt so the month carries an unknown cost."""
+    store = manager.require_initialized()
+    store.grant_alias(
+        organization_id=manager.organization_id,
+        identity_id="identity-one",
+        alias_id="coding",
+    )
+    key = store.issue_virtual_key(
+        organization_id=manager.organization_id,
+        identity_id="identity-one",
+        key_id="key-one",
+    ).raw_key
+    ledger = SQLiteAttemptLedger(manager.database_path)
+    request = GatewayRequest(
+        surface=GatewayApiSurface.CHAT_COMPLETIONS,
+        messages=(GatewayMessage(role="user", content="unpriced"),),
+        maximum_output_tokens=16,
+    )
+    authorization = store.authorize_request(
+        raw_key=key,
+        alias="coding",
+        request=request,
+        deadline_monotonic=time.monotonic() + 30,
+    )
+    ledger.accept_request(authorization=authorization)
+    snapshot = ExecutionSnapshot(
+        authorization=authorization,
+        exact_model_id="exact-one",
+        pool_id="pool-one",
+        deployment_ids=("azure-primary",),
+    )
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=_snapshot_catalog().deployments[0],
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=None,
+    )
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=None,
+        failure=GatewayFailure(
+            failure_class=GatewayFailureClass.TRANSPORT,
+            safe_message="provider transport failed",
+        ),
+    )
+
+
+def test_noninteractive_reconcile_settles_unknown_costs_and_reports_recovery(
+    tmp_path: Path,
+) -> None:
+    """Automation can assign an explicit cost to unknown attempts and reopen the month."""
+    manager = _configured(tmp_path)
+    _record_unknown_attempt(manager)
+    runner = CliRunner()
+    period = current_budget_period(datetime.now(UTC))
+    set_result = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "set",
+            "--period",
+            period,
+            "--scope",
+            "team",
+            "--limit-nano-usd",
+            "1000000",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+            "--json",
+        ],
+    )
+    assert set_result.exit_code == 0, set_result.output
+
+    reconcile = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "reconcile",
+            "--period",
+            period,
+            "--scope",
+            "team",
+            "--assigned-cost-nano-usd",
+            "250",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+            "--json",
+        ],
+    )
+    assert reconcile.exit_code == 0, reconcile.output
+    receipt = json.loads(reconcile.stdout)
+    assert receipt["operation"] == "budget.reconcile"
+    assert receipt["changed"] is True
+    assert receipt["data"]["reconciled_attempts"] == 1
+    assert receipt["data"]["assigned_cost_nano_usd"] == 250
+    balance = receipt["data"]["remaining"]
+    assert balance["unknown_cost_attempts"] == 0
+    assert balance["settled_nano_usd"] == 250
+    assert balance["remaining_nano_usd"] == 1_000_000 - 250
+    assert balance["exhausted"] is False
+
+    repeat = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "reconcile",
+            "--period",
+            period,
+            "--scope",
+            "team",
+            "--assigned-cost-nano-usd",
+            "250",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+            "--json",
+        ],
+    )
+    assert repeat.exit_code == 0, repeat.output
+    repeated = json.loads(repeat.stdout)
+    assert repeated["changed"] is False
+    assert repeated["data"]["reconciled_attempts"] == 0
+
+
+def test_noninteractive_reconcile_requires_assigned_cost_and_existing_limit(
+    tmp_path: Path,
+) -> None:
+    """Automation fails fast without an assigned cost or a stored limit to reconcile."""
+    _configured(tmp_path)
+    runner = CliRunner()
+    missing_cost = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "reconcile",
+            "--period",
+            "2026-08",
+            "--scope",
+            "team",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+        ],
+    )
+    assert missing_cost.exit_code == 2
+    normalized = " ".join(click.unstyle(missing_cost.output).replace("│", " ").split())
+    assert "--assigned-cost-nano-usd is required" in normalized
+
+    missing_budget = runner.invoke(
+        app,
+        [
+            "config",
+            "gateway",
+            "budget",
+            "reconcile",
+            "--period",
+            "2026-08",
+            "--scope",
+            "team",
+            "--assigned-cost-nano-usd",
+            "250",
+            "--root",
+            str(tmp_path),
+            "--non-interactive",
+        ],
+    )
+    assert missing_budget.exit_code == 2
+    assert "does not exist" in missing_budget.output

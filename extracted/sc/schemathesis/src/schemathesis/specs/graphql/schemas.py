@@ -211,12 +211,16 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def build_request_url(self, case: Case, base_url: str) -> str:
+        # Schemas loaded from files have no operation path, so the endpoint is the base URL itself.
+        if not case.path:
+            return base_url
         parts = list(urlsplit(base_url))
         parts[2] = prepare_path(case.path, case.path_parameters)
         return urlunsplit(parts)
 
     @override
-    def prepare_request_body(self, body: Body) -> Body:
+    def prepare_request_body(self, case: Case) -> Body:
+        body = case.body
         if isinstance(body, NotSet | bytes):
             return body
         return {"query": body}
@@ -272,7 +276,11 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def _get_base_path(self) -> str:
-        return cast(str, urlsplit(self.location).path)
+        parts = urlsplit(self.location or "")
+        # A `file://` location points at the schema file, not at the GraphQL endpoint.
+        if parts.scheme not in ("", "http", "https"):
+            return ""
+        return parts.path
 
     @override
     def _measure_statistic(self) -> ApiStatistic:

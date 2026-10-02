@@ -90,6 +90,13 @@ class STTResult(BaseModel):
     duration: float | None = None
     quality_metrics: dict[str, Any] = Field(default_factory=dict)
     raw_response: dict[str, Any] | None = None
+    #: Provider sends this result took (transient refusals retried at the seam).
+    attempts: int = 1
+
+
+#: Extra sends a transient, unbilled STT refusal gets at the dispatch seam
+#: (``UnifiedAIClient._dispatch_with_billing_net``) — every caller, one policy. CAPS.
+STT_TRANSIENT_RETRIES = 2
 
 
 @runtime_checkable
@@ -248,7 +255,23 @@ async def execute_stt(request: STTRequest) -> STTResult:
         raise TypeError(
             f"Provider factory {profile.wire_format!r} does not implement STTClient.execute"
         )
-    return await client.execute(request, profile)
+    # The shared dispatch seam: admission on the Groq pool, the out-of-credit
+    # alarm and LAYER 2 — the same pipe every chat and media call takes.
+    sends = 0
+
+    async def _send() -> STTResult:
+        nonlocal sends
+        sends += 1
+        return await client.execute(request, profile)
+
+    result = await UnifiedAIClient._dispatch_with_billing_net(
+        _send,
+        profile=profile,
+        provider_client=client,
+        transient_retries=STT_TRANSIENT_RETRIES,
+    )
+    result.attempts = sends
+    return result
 
 
 __all__ = [

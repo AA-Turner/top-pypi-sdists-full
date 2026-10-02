@@ -1,0 +1,44 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "nemreader"
+authors = [{ name = "Alex Guinman", email = "alex@guinman.id.au" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+keywords = ["energy", "NEM12", "NEM13"]
+requires-python = ">=3.12"
+dynamic = ["version", "description"]
+dependencies = ["polars", "typer>=0.12.3"]
+
+[project.optional-dependencies]
+test = ["pytest >=2.7.3", "pytest-cov"]
+
+[project.urls]
+Source = "https://github.com/aguinane/nem-reader/"
+
+[project.scripts]
+nemreader = "nemreader.cli:app"
+
+[tool.pytest.ini_options]
+addopts = "-ra --failed-first --showlocals --durations=3 --cov=nemreader"
+
+[tool.coverage.run]
+omit = ["*/version.py", '*/__main__.py']
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 90
+
+[tool.ruff.lint]
+select = ["A", "B", "E", "F", "I", "N", "PERF", "RUF", "SIM", "UP"]

@@ -1,0 +1,233 @@
+[project]
+name = "pysnmp-pysmi"
+dynamic = ["version"]
+description = "SNMP MIB parser"
+authors = [
+    {name = "Ilya Etingof", email = "etingof@gmail.com"},
+    {name = "Ryan Faircloth", email = "actual@rfaircloth.com"},
+]
+license = "BSD-2-Clause"
+requires-python = ">=3.10"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Communications",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "ply>=3.11",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+# A faster JSON encoder for the corpus artifacts, worth about 4% of a build --
+# which is not worth a compiled extension in everyone's wheel, hence an extra.
+# pysmi/jsonio.py takes whichever of these is importable and falls back to the
+# standard library, and the bytes are the same either way.
+fast = [
+    "orjson>=3.9",
+]
+
+[project.scripts]
+mibcontribute = "pysmi.scripts.mibcontribute:start"
+mibcopy = "pysmi.scripts.mibcopy:start"
+mibcorpus = "pysmi.scripts.mibcorpus:start"
+mibdump = "pysmi.scripts.mibdump:start"
+mibpatch = "pysmi.scripts.mibpatch:start"
+
+[project.urls]
+Homepage = "https://github.com/pysnmp/pysmi"
+Repository = "https://github.com/pysnmp/pysmi"
+
+[build-system]
+requires = ["hatchling", "ply>=3.11", "requests>=2.31.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "pysmi/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pysmi"]
+# pysmi/mibs/future/ is held, not shipped: modules with the same provenance as
+# the bundle that nothing in the corpus imports, kept where they are easy to
+# find and promote rather than deleted. Nothing at runtime reads them -- the
+# compiler does not search the directory and hatch_build.py does not render it
+# -- so carrying 275 modules of ASN.1 into every install would be dead weight.
+# The sdist keeps them, being the source tree. See pysmi/mibs/future/README.md.
+exclude = ["pysmi/mibs/future"]
+
+# Compiles pysmi/mibs/asn1 into pysmi/mibs/pysnmp as the wheel is built, so a
+# consumer can load a standard module instead of compiling it. Generated per
+# build rather than committed -- see hatch_build.py.
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.sdist]
+# An explicit include is an allowlist: anything not named here is left out,
+# whatever else is in the tree. That keeps repository plumbing -- pre-commit,
+# release and CI configuration -- out of the distribution, and makes what a
+# packager receives the same set every time rather than whatever happens to be
+# untracked-but-present. semantic-release generates CHANGELOG.md during prepare,
+# before this builds, so the release being cut is described by the changelog
+# shipped beside it.
+include = [
+    "pysmi",
+    "docs",
+    "tests",
+    "examples",
+    "scripts",
+    "hatch_build.py",
+    "CHANGELOG.md",
+    "CHANGES.rst",
+    "THANKS.txt",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+# The rule set pyasn1 and pysnmp share, so a contributor moving between the
+# three repositories meets the same lint. D1 on top of it is pysmi's own:
+# every public thing here already carries a docstring.
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "S",      # flake8-bandit (security)
+    "SIM",    # flake8-simplify
+    "BLE",    # flake8-blind-except
+    "G",      # flake8-logging-format (keep logging interpolation lazy)
+    "LOG",    # flake8-logging (logger misuse)
+    "FLY",    # flynt (static str.join -> f-string)
+    "C4",     # flake8-comprehensions
+    "RSE",    # flake8-raise
+    "RUF",    # ruff-specific rules
+    "PL",     # pylint
+    "TRY",    # tryceratops
+    "D1",     # pydocstyle: every public thing carries a docstring
+]
+ignore = [
+    # Shared with pyasn1 and pysnmp.
+    "E501",     # line-too-long — ruff format decides where lines break
+    "E721",     # type-comparison — existing pattern
+    "E731",     # lambda-assignment — existing codebase style
+    "E741",     # ambiguous-variable-name — SMI/ASN.1 naming conventions
+    "E712",     # true-false-comparison — existing pattern
+    "E402",     # module-import-not-at-top — some imports after variable defs
+    "B011",     # assert-false — used in tests
+    "B007",     # unused-loop-control-variable — existing pattern
+    "B905",     # zip-without-explicit-strict — existing pattern
+    "B028",     # no-explicit-stacklevel — existing pattern
+    "SIM108",   # if-else-block-instead-of-if-exp — readability preference
+    "SIM102",   # collapsible-if — readability preference
+    "SIM105",   # suppressible-exception — existing pattern
+    "SIM101",   # duplicate-isinstance-call — existing pattern
+    "SIM110",   # reimplemented-builtin — existing pattern
+    "PLR0911",  # too-many-return-statements
+    "PLR0912",  # too-many-branches
+    "PLR0913",  # too-many-arguments
+    "PLR0915",  # too-many-statements
+    "PLR0917",  # too-many-positional-arguments
+    "PLR2004",  # magic-value-comparison — SMI and ASN.1 constants
+    "PLC0415",  # import-outside-top-level — deliberate, breaks import cycles
+    "PLW2901",  # redefined-loop-name — existing pattern
+    "PLW0603",  # global-statement — setLogger() rebinds the module logger
+    "PLW1641",  # eq-without-hash — pyasn1 types are deliberately unhashable
+    "RUF005",   # collection-literal-concatenation — style preference
+    "RUF012",   # mutable-class-default — compatibility tables are class-level
+    "RUF021",   # parenthesize-chained-operators — existing pattern
+    "RUF059",   # unused-unpacked-variable — matches B007 above
+    "TRY003",   # raise-vanilla-args — message text is part of the error contract
+
+    # Specific to what this package is: it shells out to an external MIB
+    # compiler and reads MIBs from paths the caller supplies.
+    "S603",     # subprocess-without-shell-equals-true (was B603 in bandit)
+    "S607",     # start-process-with-partial-path (was B607 in bandit)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pysmi"]
+
+# The code generator, lexer, and reader class attributes are shared compatibility
+# tables, not instance defaults. Tests execute the Python they generate.
+[tool.ruff.lint.per-file-ignores]
+# PLR2044: the `"""  #` that closes an example's prose block is not an empty
+# comment, it is the marker docs/source/examples/**.rst splits on -- the text
+# above it is included as prose, the code below it as a literal block.
+"examples/**" = ["PLR2044"]
+"pysmi/codegen/base.py" = ["RUF012"]
+"pysmi/codegen/jsondoc.py" = ["RUF012"]
+"pysmi/codegen/pysnmp.py" = ["RUF012"]
+"pysmi/codegen/symtable.py" = ["RUF012"]
+"pysmi/lexer/smi.py" = ["RUF012"]
+# PLW0211: the grammar relaxations are @staticmethod only so that
+# `SupportSmiV1Keywords.p_value` yields the plain function for relaxedGrammar to
+# collect. parserFactory() installs those functions into a class body it builds
+# with type(), where they are ordinary methods -- so `self` really is the
+# parser, and renaming it would be the lie.
+"pysmi/parser/smi.py" = ["PLW0211"]
+# Test names describe what they assert, so a docstring on every one of them
+# would only repeat the name back.
+"tests/*" = ["D1"]
+"tests/harness.py" = ["S102"]
+"tests/test_*.py" = ["S102"]
+"tests/test_zipreader.py" = ["RUF012"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["pysmi"]
+ignore_missing_imports = true
+warn_unreachable = true
+# strict_equality caught a live bug where a tuple was compared against a string,
+# so an empty DEFVAL was discarded for every type.
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=pysmi --cov-report=term-missing"
+# The consumer smoke test asserts through pysnmp rather than on pysmi's own
+# output, so an upstream regression must not report as ours. See
+# pysnmp/pysmi#127.
+markers = ["pysnmp_consumer: loads a generated module under pysnmp; non-gating"]
+
+[dependency-groups]
+dev = [
+    # hatch_build.py is exercised by the test suite, not only at release.
+    "hatchling>=1.27",
+    "jsonschema>=4.26.0",
+    "mypy>=1.14",
+    "myst-parser>=5.1.0,<6.0.0; python_version >= '3.12'",
+    # 6.0.0rc5 is where the conformance classes gained setReference(); the
+    # generator emits that call unguarded now. See pysnmp/pysnmp#133.
+    "pysnmplib>=6.0.0rc5",
+    # Both faster JSON implementations pysmi/jsonio.py knows about, so that
+    # tests/test_jsonio.py compares them against the standard library rather
+    # than skipping. Only orjson is an installable extra; msgspec is taken if
+    # a caller already has it.
+    "msgspec>=0.18",
+    "orjson>=3.9",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+    "sphinx>=9.1.0,<10.0.0; python_version >= '3.12'",
+    "furo>=2025.12.19; python_version >= '3.12'",
+    "types-requests>=2.33.0",
+]

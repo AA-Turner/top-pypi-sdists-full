@@ -1,0 +1,357 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Provider request-shaping profiles for OpenAI-compatible inference calls.
+# This file is model/protocol-oriented, not endpoint-oriented: routing still
+# owns endpoint selection, while these profiles express provider-specific
+# request directives needed to keep generated artifacts inside the completion
+# budget.
+schema_version: inference_protocols.v1
+profiles:
+  # OMN-19735: disable hidden reasoning on the z.ai GLM Coding Plan rung.
+  # Measured 2026-09-26 on glm-5.3-flash with a one-sentence summary prompt:
+  # thinking on used 341 of 373 completion tokens for reasoning and took 8.9 s;
+  # `thinking: {type: disabled}` used 4 of 22 tokens and took 1.8 s, with the
+  # same quality answer. Three lab GLM calls timed out at the pinned 120 s
+  # effect ceiling; that ceiling remains unchanged.
+  #
+  # Match by model because the effect handler and delegation workflow do not
+  # pass backend_id to apply_inference_protocol. The routing config's local
+  # backends use Qwen model ids, not glm-* ids, so they cannot receive this
+  # z.ai-only request option. The directive satisfies the non-empty schema;
+  # request_options is the thinking-off mechanism.
+  - profile_id: cloud-glm-no-think
+    enabled: true
+    model_name_patterns:
+      - "glm-*"
+      - "*/glm-*"
+    task_types:
+      - "code_generation"
+      - "code_review"
+      - "refactor"
+      - "reasoning"
+      - "complex_reasoning"
+      - "research"
+      - "document"
+      - "documentation"
+      - "summarization"
+      - "review"
+      - "planning"
+      - "test"
+    directive:
+      placement: system_suffix
+      separator: "\n\n"
+      apply_once: true
+      text: "Answer with the requested deliverable directly."
+    request_options:
+      thinking:
+        type: disabled
+
+  # OMN-19432 (glm-usage-audit and glm-chain, 2026-09-30): glm-5.3 AND glm-5.3-flash
+  # are called the way z.ai documents them, not with the thinking-off option above.
+  #
+  # z.ai's thinking-mode guide (docs.z.ai/guides/capabilities/thinking-mode, read
+  # 2026-09-30) says GLM-5.3 and GLM-5.3-FLASH "use forced thinking and cannot be
+  # disabled", and the flash guide (docs.z.ai/guides/llm/glm-5.3-flash) recommends
+  # temperature 1, top_p 0.95 and reasoning_effort max, which is the model's own
+  # default. The profile above still sent `thinking: disabled` and the effect
+  # default temperature 0.3 to both. On glm-5.3 that request still spent 188
+  # reasoning tokens on a six-item classification: a stunted think, not an off
+  # switch.
+  #
+  # Same 30 lineup-eval tasks, same delegate-built messages, two answers per task
+  # per config, graded blind (knowledge-base-internal reports/2026-09-30-glm-lineup-eval.md
+  # and reports/2026-09-30-glm-flash-first-ladder.md):
+  #   glm-5.3,      thinking disabled (old request)          44/60 correct
+  #   glm-5.3,      documented settings                      56/60 correct
+  #   glm-5.3-flash, thinking disabled (old request)         43/60 correct, 0.42 credits/task, p50 5 s
+  #   glm-5.3-flash, documented settings                     51/60 correct, 2.78 credits/task, p50 28 s
+  #   local Qwen3.8-27B, production no-think request         44/60 correct
+  # glm-5.3 spends about 6.3 credits a task. Flash on the documented settings is the
+  # first GLM rung: 85% correct at under half of glm-5.3's credits. About one answer
+  # in eight from either model needs more than 120 s, which the effect's per-call
+  # ceiling fails closed as TIMEOUT and the ladder escalates; glm-5.3, the rung that
+  # takes over, has its own 150 s ceiling in the effect node's contract
+  # (`model_timeout_seconds`), flash keeps 120 s.
+  #
+  # Profiles merge in file order, so this one's request_options override the
+  # `thinking` key set above. Its `default_temperature` replaces the effect
+  # request's default temperature when the caller sent none; `top_p` rides
+  # provider_request_options, which are applied to the payload after it. The
+  # served-as aliases and every other glm-* id (glm-5.2, glm-5.3-flashx) keep the
+  # thinking-off profile until measured.
+  - profile_id: cloud-glm-5-3-thinking
+    enabled: true
+    model_name_patterns:
+      - "glm-5.3"
+      - "*/glm-5.3"
+      - "glm-5.3-flash"
+      - "*/glm-5.3-flash"
+    task_types:
+      - "code_generation"
+      - "code_review"
+      - "refactor"
+      - "reasoning"
+      - "complex_reasoning"
+      - "research"
+      - "document"
+      - "documentation"
+      - "summarization"
+      - "review"
+      - "planning"
+      - "test"
+    directive:
+      placement: system_suffix
+      separator: "\n\n"
+      apply_once: true
+      text: "Answer with the requested deliverable directly."
+    # `temperature` is a reserved wire key (one producer per key), so it is a
+    # profile field, resolved as caller, else this default, else the task class
+    # default. Written through request_options it raised
+    # "provider request options cannot override: temperature" on the first call.
+    default_temperature: 1.0
+    request_options:
+      thinking:
+        type: enabled
+      top_p: 0.95
+
+  # OMN-13335: Gemini ceiling thinking-suppression for the code escalation path.
+  #
+  # The code_generation escalation ceiling routes to gemini-2.5-flash
+  # (routing_tiers.yaml `claude` slot -> bifrost backend cloud-gemini-pro). That
+  # model is a THINKING model: on the AI Studio OpenAI-compatibility endpoint its
+  # reasoning ("thinking") tokens are drawn from the SAME completion-token budget
+  # as the visible answer (the provider-reported usage.total_tokens exceeds
+  # prompt+completion by the thinking total). With thinking ON, a code_generation
+  # call spends the budget on hidden reasoning and returns a TRUNCATED visible
+  # completion — live CID ffa90b77 landed escalation_count=2 / gemini-2.5-flash
+  # with tokens_output=18, finish_reason length-shaped, judge adequacy 0.200, and
+  # a combined terminal score 0.680 < the 0.85 code_generation required_bar, so
+  # the OMN-13335 up-tier discriminator could never pass on a TRUNCATED ceiling
+  # answer. Live key-resolution probes on the dev lane confirmed the model is
+  # fully capable when thinking is OFF: at max_tokens=256 the default/`low`
+  # reasoning_effort returns finish_reason=length with 8-9 completion tokens (a
+  # truncated `def is_palindrome(`), while `reasoning_effort: none` returns
+  # finish_reason=stop with a complete 116-token function. Disabling thinking
+  # routes the full budget to the visible artifact so the cloud answer is complete
+  # enough to be judged fairly — it does NOT lower the bar or weaken the gate.
+  #
+  # Mirrors the local-qwen-no-think pattern below (thinking-off via a provider
+  # request option), swappable purely by contract: change request_options or
+  # disable this profile via overlay, no code change. The directive is a benign
+  # system_suffix reinforcement (the schema requires a directive); the
+  # load-bearing change is reasoning_effort: none in request_options.
+  - profile_id: cloud-gemini-flash-no-think-code
+    enabled: true
+    model_name_patterns:
+      - "*gemini-2.5-flash*"
+    task_types:
+      - "code_generation"
+      - "node_generation"
+      - "test"
+      - "validator_generation"
+      - "refactor"
+    directive:
+      placement: system_suffix
+      separator: "\n\n"
+      apply_once: true
+      text: >-
+        Return the complete, final code artifact only, as a single fenced code
+        block. Do not truncate. Emit nothing outside that fenced block: no
+        chain-of-thought, no analysis, no explanation, no preamble, and no
+        trailing commentary either before or after the code.
+    request_options:
+      reasoning_effort: none
+
+  # OMN-14626: task_types gate for the local Qwen no-think profile.
+  #
+  # Previously this profile matched ONLY via system_prompt_contains, which
+  # requires one of the four legacy phrases to appear verbatim in the system
+  # prompt. `_profile_matches` (protocol_config.py) checks task_types FIRST and
+  # short-circuits on it when a task_type is provided: `if profile.task_types:
+  # if task_type is not None: return task_type in profile.task_types`. A
+  # code_generation delegation call whose system prompt does not contain one of
+  # those phrases fell through the no-think gate entirely, leaving thinking ON
+  # for local Qwen3.6 (thinking-on by default) — the model burns the completion
+  # token budget on hidden chain-of-thought before it ever emits code. Adding
+  # task_types makes task_type authoritative for typed delegation calls, while
+  # system_prompt_contains remains the fallback for task_type=None callers (no
+  # regression to that path). Mirrors the sibling
+  # cloud-gemini-flash-no-think-code profile above.
+  #
+  # OMN-15187: added "agent_delegation" to this same allowlist. OMN-14626's
+  # own fix intent was "make the choice explicit per task_type, not
+  # accidental" — agent_delegation fell through that same task_types gate
+  # (present since OMN-14626, never amended for it) and was left on the
+  # thinking-ON-by-default path, exactly the failure mode OMN-14626 fixed for
+  # code_generation/test/validator_generation/refactor. A per-tick tactical
+  # delegation decision is low-latency-budgeted (OMN-15170's driver allocates
+  # ~96-600 max_tokens) and gains nothing from hidden chain-of-thought — same
+  # rationale as the other four members, not a reversal of the allowlist's
+  # purpose. Live-proven: reasoning-ON burns the full max_tokens budget on CoT
+  # and returns empty `content` at 96-600 tokens; the model needs ~1500-2000+
+  # tokens of CoT to reach a final answer for an ~800-token tactical prompt.
+  # Full evidence: OMN-15187, omni_home/docs/evidence/2026-07-26-omn15170-live-driver.md.
+  - profile_id: local-qwen-no-think
+    enabled: true
+    model_name_patterns:
+      - "*qwen*"
+    task_types:
+      - "code_generation"
+      - "test"
+      - "validator_generation"
+      - "refactor"
+      - "agent_delegation"
+    system_prompt_contains:
+      - "test generation"
+      - "test engineer"
+      - "code generation"
+      - "production-quality code"
+    directive:
+      placement: user_prefix
+      text: "/no_think"
+      separator: "\n"
+      apply_once: true
+    request_options:
+      chat_template_kwargs:
+        enable_thinking: false
+
+  # OMN-11833: ADR segmentation and decision extraction require a JSON artifact.
+  # Local Qwen otherwise spends the fixed completion budget in hidden reasoning
+  # and can return no parseable JSON. ADR handlers select this profile through
+  # their typed ``adr_json_artifact`` task profile; do not couple its activation
+  # to wording in a prompt.
+  - profile_id: local-qwen-adr-json-no-think
+    enabled: true
+    model_name_patterns:
+      - "*qwen*"
+    task_types:
+      - "adr_json_artifact"
+    directive:
+      placement: user_prefix
+      text: "/no_think"
+      separator: "\n"
+      apply_once: true
+    request_options:
+      chat_template_kwargs:
+        enable_thinking: false
+
+  # OMN-12813: SEA generation output-format fix.
+  # Suppresses Qwen reasoning prose for the ONEX node generator and forces
+  # the model to emit EXACTLY two fenced code blocks with no surrounding text.
+  # Two profiles are required because ModelInferenceProtocolProfile carries a
+  # single directive; one handles the /no_think user prefix, the other injects
+  # the one-shot exemplar as a system-prompt suffix.
+  - profile_id: local-qwen-generation-no-think
+    enabled: true
+    model_name_patterns:
+      - "*qwen*"
+    task_types:
+      - "node_generation"
+    directive:
+      placement: user_prefix
+      text: "/no_think"
+      separator: "\n"
+      apply_once: true
+    request_options:
+      chat_template_kwargs:
+        enable_thinking: false
+
+  - profile_id: local-qwen-generation-exemplar
+    enabled: true
+    model_name_patterns:
+      - "*qwen*"
+    task_types:
+      - "node_generation"
+    directive:
+      placement: system_suffix
+      separator: "\n\n"
+      apply_once: true
+      text: |
+        REQUIRED OUTPUT FORMAT — no chain-of-thought, no numbered steps, no prose.
+        Emit EXACTLY these two fenced code blocks and nothing else:
+
+        ```yaml
+        name: node_example_compute
+        contract_version: "1.0.0"
+        node_type: compute
+        input_model:
+          name: ModelExampleInput
+          module: omnimarket.nodes.node_example_compute.models
+        output_model:
+          name: ModelExampleOutput
+          module: omnimarket.nodes.node_example_compute.models
+        ```
+
+        ```python
+        def handle(input_data):
+            return {"result": input_data}
+        ```
+
+        Your response must contain ONLY the two fenced blocks above, adapted to the requested node. Do NOT include any explanation, analysis, or surrounding text.
+
+  # OMN-18967: the prose deliverable classes were on the thinking-ON path.
+  #
+  # Measured 2026-09-21 against the live lab endpoint (vLLM 0.27.1,
+  # Qwen3.8-27B), read-only, nothing restarted: the model's reasoning trace
+  # arrives INLINE IN `message.content` WITH NO TAGS AT ALL, and
+  # `message.reasoning` is null because the server runs without a reasoning
+  # parser. The OMN-18379 response-boundary rule leads with
+  # `unpaired_closing_tag`, so on this shape it cannot fire — which is why the
+  # trace still reached callers after OMN-18278 criterion 1 was recorded met.
+  # That criterion is met against the TAGGED shape; this is a different one.
+  #
+  # Same document-class prompt, same endpoint, same budget:
+  #   reasoning ON  -> 1650 chars, opens "We need to respond to user:"
+  #   enable_thinking:false -> 461 chars, opens directly with the deliverable.
+  #
+  # Root cause of the gap, not of the model behaviour: `_profile_matches`
+  # (protocol_config.py) makes task_type AUTHORITATIVE and short-circuiting —
+  # when a profile declares task_types and the caller supplied one, membership
+  # decides and system_prompt_contains is never consulted. Every profile above
+  # lists only code, ADR and generation classes, so ten of the sixteen slugs in
+  # node_delegate_skill_orchestrator/contract.yaml `allowed_task_types` matched
+  # nothing and silently kept reasoning on.
+  #
+  # Same shape and same rationale as OMN-14626 and OMN-15187, which added
+  # task types to the sibling allowlist on live evidence: hidden
+  # chain-of-thought is not the deliverable for these classes, so spending the
+  # completion budget on it can only push the answer out of the caller's reach.
+  #
+  # OMN-19267: `reasoning` and `complex_reasoning` joined this profile. They
+  # were left off on the grounds that for them the deliberation is the
+  # product, but both declare a `### ANSWER` start marker and the extractor
+  # drops everything before it, so with thinking on the caller never received
+  # the deliberation. What it received was an EMPTY answer: the trace often
+  # arrived with no marker line at all, the extractor refused the response as
+  # an unmarked deliverable, and the port blanked a correct answer (runs
+  # 621c6a72 and 253031bb, every attempt). Measured 2026-09-23 on the same
+  # endpoint, six prompts per class: thinking on blanked 3/6 (reasoning) and
+  # 2/6 (complex_reasoning); thinking off blanked 1/6 and 0/6, and wrote the
+  # step-by-step reasoning inside the deliverable, where the caller gets it.
+  # test_prose_task_class_no_think_omn18967.py asserts the split per slug, so
+  # a task class added to the contract cannot land on the thinking-on path
+  # without either a profile here or a recorded exclusion.
+  - profile_id: local-qwen-prose-no-think
+    enabled: true
+    model_name_patterns:
+      - "*qwen*"
+    task_types:
+      - "document"
+      - "documentation"
+      - "summarization"
+      - "research"
+      - "review"
+      - "code_review"
+      - "planning"
+      - "escalation"
+      - "reasoning"
+      - "complex_reasoning"
+    directive:
+      placement: user_prefix
+      text: "/no_think"
+      separator: "\n"
+      apply_once: true
+    request_options:
+      chat_template_kwargs:
+        enable_thinking: false

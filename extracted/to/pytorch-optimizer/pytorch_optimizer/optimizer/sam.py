@@ -102,6 +102,7 @@ class SAM(BaseOptimizer):
 
         self.base_optimizer: Optimizer = base_optimizer(self.param_groups, **kwargs)
         self.param_groups = self.base_optimizer.param_groups
+        self.state = self.base_optimizer.state
 
     def __str__(self) -> str:
         return 'SAM'
@@ -140,10 +141,8 @@ class SAM(BaseOptimizer):
     def second_step(self, zero_grad: bool = False):
         for group in self.param_groups:
             for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                p.data = self.state[p]['old_p']
+                if 'old_p' in self.state[p]:
+                    p.copy_(self.state[p].pop('old_p'))
 
         self.base_optimizer.step()
 
@@ -165,6 +164,7 @@ class SAM(BaseOptimizer):
     def load_state_dict(self, state_dict: Dict):
         super().load_state_dict(state_dict)
         self.base_optimizer.param_groups = self.param_groups
+        self.base_optimizer.state = self.state
 
 
 class GSAM(BaseOptimizer):  # pragma: no cover

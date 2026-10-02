@@ -1,0 +1,2081 @@
+"""HandlerProjectionDelegation — project task-delegated events to DB.
+
+Consumes onex.evt.omniclaude.task-delegated.v1 and UPSERTs into
+the delegation_events table. Dedup by correlation_id.
+
+Target table schema (from omnidash, OMN-2284):
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  correlation_id TEXT UNIQUE NOT NULL
+  session_id TEXT
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  task_type TEXT NOT NULL
+  delegated_to TEXT NOT NULL
+  model_name TEXT DEFAULT ''
+  delegated_by TEXT
+  quality_gate_passed BOOLEAN DEFAULT false
+  quality_gates_checked INT
+  quality_gates_failed INT
+  quality_gates_checked_jsonb JSONB
+  quality_gates_failed_jsonb JSONB
+  cost_usd NUMERIC DEFAULT 0
+  cost_savings_usd NUMERIC DEFAULT 0
+  delegation_latency_ms INT
+  repo TEXT
+  is_shadow BOOLEAN DEFAULT false
+  llm_call_id TEXT
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+
+import yaml
+from omnibase_core.enums.enum_delegation_terminal_failure_cause import (
+    EnumDelegationTerminalFailureCause,
+)
+from omnibase_core.models.delegation.wire import ModelPremiumCounterfactual
+from omnibase_core.models.projection.model_upsert_plan import WRITE_ATTESTATION_COLUMNS
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnimarket.events.delegation_judge_verdict import (
+    ModelDelegationJudgeVerdictEvent,
+)
+from omnimarket.events.topics import (
+    DELEGATE_SKILL_COMPLETED_TOPIC_V1,
+    DELEGATE_SKILL_FAILED_TOPIC_V1,
+)
+from omnimarket.models.delegation.quality_bar_evidence import (
+    extract_quality_bar_evidence,
+)
+from omnimarket.models.delegation.wire.model_delegate_skill_terminal_projection import (
+    ModelDelegateSkillTerminalProjection,
+    ModelDelegationEventProjectionRow,
+)
+from omnimarket.models.delegation.wire.model_quality_gate import (
+    ModelQualityGateResult,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.handler_budget_state import (
+    ModelDelegationBudgetStateEvent,
+    materialize_budget_state,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_caller_lane_fold import (
+    HandlerDelegationCallerLaneFold,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_cohort_key_fold import (
+    HandlerDelegationCohortKeyFold,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_run_attribution_fold import (
+    HandlerDelegationRunAttributionFold,
+    ModelDelegationRunAttributionFoldRequest,
+)
+from omnimarket.nodes.node_projection_delegation.handlers.handler_delegation_ticket_fold import (
+    HandlerDelegationTicketFold,
+)
+from omnimarket.nodes.node_projection_delegation.models.model_attempt_reduction import (
+    reduce_delegation_attempts,
+)
+from omnimarket.nodes.node_projection_delegation.models.model_terminal_precedence import (
+    apply_terminal_precedence,
+    supersedes_handler_failure,
+)
+from omnimarket.pricing import recompute_actual_cost_and_savings
+from omnimarket.projection.discovery import load_projection_exposures_from_contract
+from omnimarket.projection.envelope import (
+    DATA_SOURCE_REAL,
+    DATA_SOURCES,
+    envelope_event_timestamp,
+    envelope_tenant_identity,
+    strip_runner_injected_keys,
+)
+from omnimarket.projection.models import ProjectionTableConfig
+from omnimarket.projection.protocol_database import (
+    DatabaseAdapter,
+    ProtocolProjectionAttestedWrite,
+)
+from omnimarket.projection.relation_domains import tenant_write_stamp
+from omnimarket.projection.snapshot_publisher import (
+    KafkaSnapshotDeltaPublisher,
+    ProtocolSnapshotDeltaPublisher,
+    encode_snapshot_delta,
+    resolve_snapshot_bootstrap_servers,
+)
+from omnimarket.projection.tenant_isolation import (
+    HOUSE_TENANT_UUID,
+    TenantRequiredError,
+    require_tenant_id,
+    terminal_write_tenant,
+)
+from omnimarket.projection.tenant_registry_resolution import (
+    resolve_registry_tenant_uuid_or_none,
+    sync_registry_tenant_uuid,
+)
+
+TABLE = "delegation_events"
+CONFLICT_KEY = "correlation_id"
+GENERATION_TABLE = "generation_events"
+JUDGE_VERDICT_TABLE = "delegation_judge_verdict_events"
+JUDGE_VERDICT_CONFLICT_KEY = "event_hash"
+
+# OMN-14894 (tranche 2): interim single-tenant fallback on this projection
+# surface. OMN-19438: stated as the house tenant's canonical UUID, never the
+# slug -- ``delegation_events.tenant_id`` is uuid, and every reader binds the
+# UUID, so a snapshot header naming the slug named a tenant no reader queries.
+DEFAULT_TENANT = str(HOUSE_TENANT_UUID)
+
+# OMN-12775 (close-the-loop A3): canonical owner of the generation_events
+# projection — the node that writes the row. Persisted so the dashboard renders
+# the real owner instead of its reader-side fallback string.
+GENERATION_PROJECTION_OWNER = "node_projection_delegation"
+
+#: The compaction key of a SINGLETON AGGREGATE exposure: which aggregate, and
+#: whose. The grain is a constant this process supplies (the exposure's own
+#: topic), because the view's grain is "the whole projection for one tenant"
+#: and every column it actually has changes on every write; the tenant is read
+#: off the written row so the key, the numbers and the header cannot disagree.
+AGGREGATE_GRAIN_COLUMN = "snapshot_grain"
+AGGREGATE_KEY = (AGGREGATE_GRAIN_COLUMN, "tenant_id")
+
+#: The closed set of relations the aggregate republish may READ. Every one is
+#: declared `access: read` in this node's db_io and produced by migration 0039.
+#:
+#: It exists so the read below is provably bounded rather than bounded by
+#: convention: the table name reaches `db.query` from the contract at runtime,
+#: which a static resolver cannot follow, so without this the same call site
+#: reads as a potential read of every relation the node declares -- including
+#: three that are write-only. Checked at construction, so a contract edit that
+#: pointed an aggregate exposure at another relation fails at boot rather than
+#: at the first message.
+AGGREGATE_READ_RELATIONS: frozenset[str] = frozenset(
+    {
+        "projection_delegation_summary",
+        "projection_delegation_model_routing",
+        "projection_delegation_quality_gate",
+        "projection_delegation_token_usage",
+    }
+)
+
+#: This node's shipped contract, beside the package rather than resolved from
+#: an env var: the exposure a handler republishes is a property of the node,
+#: not of the deployment.
+_CONTRACT_PATH = Path(__file__).resolve().parent.parent / "contract.yaml"
+
+
+logger = logging.getLogger(__name__)
+
+
+def _write_ordering_token(written_at: object) -> int:
+    """Microseconds since the epoch, from the database's own write stamp.
+
+    The snapshot cache compares ``source_offset`` to decide staleness, and
+    this exposure's key is mutable, so the token has to increase on every
+    write to the same ``correlation_id``. ``written_at`` is ``NOW()``
+    evaluated by the database, which makes it an ordering authority rather
+    than a process-local counter.
+
+    A value that cannot be read as a timestamp is a REFUSAL, not a zero.
+    Returning zero would publish a delta that the cache silently drops for
+    every row that already has one, and the page would go stale while every
+    write reported success -- the failure this token exists to prevent,
+    reintroduced by its own fallback.
+    """
+    if isinstance(written_at, datetime):
+        stamp = written_at
+    elif isinstance(written_at, str):
+        try:
+            stamp = datetime.fromisoformat(written_at)
+        except ValueError as exc:
+            raise RuntimeError(
+                f"written_at {written_at!r} is not a timestamp, so the snapshot "
+                "delta has no ordering token and the cache would drop every "
+                "write after the first for this correlation_id"
+            ) from exc
+    else:
+        raise RuntimeError(
+            f"written_at is {type(written_at).__name__}, not a timestamp; the "
+            "delegation row must be written through upsert_returning with the "
+            "write-attestation columns so the database stamps it"
+        )
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    return int(stamp.timestamp() * 1_000_000)
+
+
+def compute_generation_proof_fields(
+    *,
+    contract_yaml: str,
+    handler_source: str,
+    routing_source: str,
+    resolved_endpoint: str,
+) -> dict[str, str]:
+    """Build the six generation_events proof fields (OMN-12775, A3).
+
+    The SHA256 fields are deterministic digests of the FULL stored payload, so a
+    verifier can recompute them from the persisted contract_yaml/handler_source
+    and prove no truncation occurred. routing_source and resolved_endpoint are
+    carried verbatim from the routing authority. projection_owner is the
+    canonical node that writes the row. Single source of truth shared by both the
+    sync (live-runtime) and async (runner) write paths so they cannot drift.
+    """
+    contract_sha256 = hashlib.sha256(contract_yaml.encode()).hexdigest()
+    handler_sha256 = hashlib.sha256(handler_source.encode()).hexdigest()
+    output_payload_sha256 = hashlib.sha256(
+        (contract_yaml + handler_source).encode()
+    ).hexdigest()
+    return {
+        "output_payload_sha256": output_payload_sha256,
+        "contract_sha256": contract_sha256,
+        "handler_sha256": handler_sha256,
+        "routing_source": routing_source,
+        "resolved_endpoint": resolved_endpoint,
+        "projection_owner": GENERATION_PROJECTION_OWNER,
+    }
+
+
+class ModelProjectionGenerationCompletedEvent(BaseModel):
+    """Inbound event from onex.evt.omnimarket.node-generation-completed.v1.
+
+    The live runtime dispatches this through HandlerProjectionDelegation.handle()
+    (the contract `handler:` field); the *ProjectionRunner sibling is skipped by
+    the DB-injection auto-wiring path (OMN-12800).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    correlation_id: str = Field(..., description="Unique correlation ID for dedup.")
+    task_description: str = Field(default="")
+    provider: str = Field(default="")
+    model_id: str = Field(default="")
+    endpoint_class: str = Field(default="")
+    attempt_count: int = Field(default=0, ge=0)
+    total_latency_e2e_ms: int = Field(default=0, ge=0)
+    contract_passed: bool = Field(default=False)
+    # OMN-13166: behavioral verdict carried from the terminal benchmark, persisted
+    # alongside contract_passed so the dashboard can show that a shape-valid
+    # generation was behaviorally wrong (the gate-zero false-green). semantic_checked
+    # records whether any behavioral fixture was applicable.
+    semantic_checked: bool = Field(default=False)
+    semantic_passed: bool = Field(default=False)
+    # OMN-13289 (G0): validator-acceptance (corpus) verdict, carried from the
+    # terminal benchmark and persisted alongside contract_passed/semantic_passed.
+    # corpus_checked records whether the run carried a validator acceptance
+    # corpus; corpus_passed is the deterministic corpus-execution verdict;
+    # corpus_errors lists the per-fixture acceptance failures. The handler model
+    # used extra="ignore" before OMN-13350, so these emitted fields were dropped
+    # on the model side AND never written — and the columns did not exist, so the
+    # INSERT raised UndefinedColumn and the whole completion event was dropped.
+    corpus_checked: bool = Field(default=False)
+    corpus_passed: bool = Field(default=False)
+    corpus_errors: list[str] = Field(default_factory=list)
+    cost_inference_usd: float = Field(default=0.0)
+    timestamp: str | None = Field(default=None, description="ISO 8601 timestamp.")
+    # OMN-12780 (Wave 1C): full generated output — empty string is the
+    # failed/incomplete-generation sentinel, never coerced to NULL, never truncated.
+    contract_yaml: str = Field(default="")
+    handler_source: str = Field(default="")
+    # OMN-12775 (close-the-loop A3): routing-authority proof carried verbatim from
+    # the generation terminal event. The SHA256 proof fields are derived in the
+    # write path from the full payload (the projection can recompute them), but
+    # the routing decision must be carried — the projection cannot reconstruct it.
+    routing_source: str = Field(default="")
+    resolved_endpoint: str = Field(default="")
+
+
+class ModelProjectionTaskDelegatedEvent(BaseModel):
+    """Inbound event from onex.evt.omniclaude.task-delegated.v1."""
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    correlation_id: str = Field(..., description="Unique correlation ID for dedup.")
+    session_id: str | None = Field(default=None)
+    # string-id-ok: tenant_id is the verified tenant identity as the wire
+    # carries it. OMN-16831: on the live delegation topics that is the
+    # gateway's canonical UUID in string form, not a slug -- the field stays
+    # ``str`` because the e2e-probe and legacy fixtures still carry slugs, and
+    # ``tenant_registry_resolution`` keys the mirror column matching whichever
+    # shape arrives.
+    # OMN-14058 (OPERATOR-ACCEPTED INTERIM): carried from the source event when
+    # the delegation FSM resolved a real tenant (ONEX_TENANT_ID). None means the
+    # row falls back to the 'omninode' column default.
+    tenant_id: str | None = Field(default=None)
+    task_type: str = Field(..., description="Task type (e.g. code-review, refactor).")
+    delegated_to: str = Field(..., description="Agent that received the task.")
+    model_name: str = Field(
+        default="", description="LLM model name used for inference."
+    )
+    delegated_by: str | None = Field(default=None)
+    quality_gate_passed: bool = Field(default=False)
+    # OMN-18928 (K1): the canonical terminal's runtime disposition and content
+    # verdict, copied verbatim. ``None`` is a terminal produced before K1.
+    operational_outcome: str | None = Field(default=None)
+    content_verdict: str | None = Field(default=None)
+    # OMN-19448: the canonical terminal's own failure cause, copied unchanged.
+    # ``None`` is a success, or a terminal produced before the cause existed.
+    terminal_failure_cause: EnumDelegationTerminalFailureCause | None = Field(
+        default=None
+    )
+    quality_gates_checked: list[str] | None = Field(default=None)
+    quality_gates_failed: list[str] | None = Field(default=None)
+    quality_gate_detail: str | None = Field(default=None)
+    cost_usd: float = Field(default=0.0)
+    cost_savings_usd: float = Field(default=0.0)
+    delegation_latency_ms: int | None = Field(default=None, ge=0)
+    repo: str | None = Field(default=None)
+    is_shadow: bool = Field(default=False)
+    llm_call_id: str = Field(
+        default="",
+        description="Upstream LLM call ID for JOIN with llm_cost_aggregates.",
+    )
+    timestamp: str | None = Field(default=None, description="ISO 8601 timestamp.")
+    tokens_input: int = Field(default=0, ge=0)
+    tokens_output: int = Field(default=0, ge=0)
+    tokens_to_compliance: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Total tokens consumed across all schema-compliance attempts (OMN-10793)."
+        ),
+    )
+    compliance_attempts: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of LLM invocations needed to produce contract-compliant output "
+            "(OMN-10793). 1 = first-try success."
+        ),
+    )
+    prompt_text: str | None = Field(
+        default=None,
+        description="Raw prompt sent to the delegated agent (OMN-10850).",
+    )
+    response_text: str | None = Field(
+        default=None,
+        description="Raw response received from the delegated agent (OMN-10850).",
+    )
+    context_pack_hash: str = Field(
+        default="",
+        description=(
+            "Stable hash of the context pack injected into the delegated prompt. "
+            "Empty string means the OFF arm or no context pack."
+        ),
+    )
+    pricing_manifest_version: int = Field(
+        default=0,
+        ge=0,
+        description="Version of the pricing manifest used to compute cost_savings_usd (OMN-10949).",
+    )
+    premium_counterfactual: ModelPremiumCounterfactual | None = Field(
+        default=None,
+        description=(
+            "Pinned premium counterfactual {model, price, as_of, tokens, cost} "
+            "carried from the durable task-delegated event (OMN-13355). Persisted "
+            "as JSONB so the saving (counterfactual - actual) is auditable."
+        ),
+    )
+    # OMN-13234: typed per-tier actual-cost measurement carried from the
+    # task-delegated event, persisted to the cost_* columns added in migration
+    # 0018 so the OTHER half of the saving (cost_usd actual) is auditable.
+    cost_tier_type: str = Field(default="")
+    cost_tier_name: str = Field(default="")
+    cost_measurement_source: str = Field(default="")
+    budget_headroom_consumed_usd: float = Field(default=0.0, ge=0.0)
+    required_bar: float | None = Field(default=None, ge=0.0, le=1.0)
+    actual_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    escalation_count: int = Field(default=0, ge=0)
+    # OMN-13535: per-tier escalation attempt records carried from the terminal
+    # event. Each entry that the orchestrator priced carries its own ``cost_usd``
+    # (the metered spend that attempted tier incurred). The actual-cost recompute
+    # adds these prior-attempt costs to the re-priced final-tier cost so a metered
+    # tier that was attempted-but-rejected (escalated to a free tier) still
+    # contributes its real cost to ``cost_usd`` — the recompute otherwise sees
+    # only the final (free) tier and zeroes the row.
+    escalation_history: tuple[dict[str, object], ...] = Field(default=())
+    authority_source: str | None = Field(default=None)
+    score_source: str | None = Field(default=None)
+    request_override_applied: bool = Field(default=False)
+    override_within_bounds: bool = Field(default=True)
+
+
+class ModelProjectionResult(BaseModel):
+    """Result of a projection batch."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    rows_upserted: int = Field(default=0, ge=0)
+    table: str = Field(default=TABLE)
+
+
+ModelTaskDelegatedEvent = ModelProjectionTaskDelegatedEvent
+
+
+class HandlerProjectionDelegation:
+    """Project task-delegated events into delegation_events table."""
+
+    _delegate_skill_terminal_events = frozenset(
+        {
+            "delegate-skill-completed",
+            "delegate-skill-failed",
+            DELEGATE_SKILL_COMPLETED_TOPIC_V1,
+            DELEGATE_SKILL_FAILED_TOPIC_V1,
+        }
+    )
+
+    def __init__(
+        self,
+        *,
+        contract_path: Path | None = None,
+        publisher: ProtocolSnapshotDeltaPublisher | None = None,
+    ) -> None:
+        """Load this node's per-row exposure and bind the republish transport.
+
+        Args:
+            contract_path: Override for the node's ``contract.yaml``.
+            publisher: Transport for encoded snapshot deltas. Injected by
+                tests and by any caller that wants to own the lifecycle;
+                otherwise a per-call producer is built lazily on first
+                publish, so constructing this handler touches no broker and
+                reads no settings.
+        """
+        path = contract_path or _CONTRACT_PATH
+        with open(path) as handle:
+            contract: dict[str, object] = yaml.safe_load(handle)
+        exposures = load_projection_exposures_from_contract(
+            contract, str(contract.get("name", "projection_delegation")), path
+        )
+        # Matched on the TABLE plus the key rather than the topic name, the
+        # same way the runner matches it: topic names are the half that gets
+        # renamed, and what makes this exposure servable from the write site
+        # is that its compaction key IS the table's upsert conflict key.
+        rows = [
+            exposure
+            for exposure in exposures
+            if exposure.bus_backed
+            and exposure.table == TABLE
+            and tuple(exposure.key_columns) == (CONFLICT_KEY,)
+        ]
+        if len(rows) > 1:
+            raise RuntimeError(
+                f"contract declares {len(rows)} bus_backed per-row exposures over "
+                f"{TABLE!r} ({[exposure.topic for exposure in rows]!r}); this "
+                "handler republishes the written row to exactly one, and serving "
+                "only the first would leave the others a confident empty page"
+            )
+        self._row_exposure: ProjectionTableConfig | None = rows[0] if rows else None
+        # OMN-18159 Phase 1b(ii). The four singleton aggregates, each a SQL
+        # view this node's own migration 0039 grouped on tenant_id. Matched on
+        # the aggregate key rather than on the topic name, for the reason the
+        # per-row match above gives: topic names are the half that gets
+        # renamed, and what makes these servable from here is the key shape.
+        #
+        # Every OTHER bus_backed shape is a construction failure rather than a
+        # silent skip. A flag flipped without a publish site turns an honest
+        # `not_yet_bus_backed` refusal into a confident empty page, so a third
+        # shape has to arrive with its publisher rather than as a contract
+        # edit -- the same rule the runner enforces in its own constructor.
+        aggregates = [
+            exposure
+            for exposure in exposures
+            if exposure.bus_backed and tuple(exposure.key_columns) == AGGREGATE_KEY
+        ]
+        unservable = [
+            exposure.topic
+            for exposure in exposures
+            if exposure.bus_backed
+            and exposure not in aggregates
+            and exposure is not (rows[0] if rows else None)
+        ]
+        if unservable:
+            raise RuntimeError(
+                f"contract declares bus_backed exposures {unservable!r} that "
+                "this handler has no publish site for; it serves exactly two "
+                f"shapes -- the per-row {TABLE} exposure keyed on "
+                f"{CONFLICT_KEY!r}, and singleton aggregates keyed on "
+                f"{list(AGGREGATE_KEY)!r}. Add the publish call in the same "
+                "change as the flag, or the exposure serves a confident empty "
+                "page"
+            )
+        off_roster = sorted({e.table for e in aggregates} - AGGREGATE_READ_RELATIONS)
+        if off_roster:
+            raise RuntimeError(
+                f"aggregate exposures name relations {off_roster!r} that are "
+                "not in AGGREGATE_READ_RELATIONS. The republish reads whatever "
+                "table the exposure names, so that set is what keeps the read "
+                "bounded to relations this node declares `access: read` -- "
+                "three of its declared relations are write-only, and a read of "
+                "one of those is refused fail-closed at runtime with every "
+                "event quarantined while the caller still sees a 202"
+            )
+        self._aggregate_exposures: tuple[ProjectionTableConfig, ...] = tuple(aggregates)
+        self._publisher: ProtocolSnapshotDeltaPublisher | None = publisher
+
+    def _resolve_publisher(self) -> ProtocolSnapshotDeltaPublisher:
+        """Return the bound publisher, building the default one lazily.
+
+        Not built in ``__init__``: the runtime constructs every projection
+        handler at wiring time, including in processes and tests that never
+        publish, and resolving broker settings there would make handler
+        construction depend on transport configuration it may not need.
+        """
+        if self._publisher is None:
+            self._publisher = KafkaSnapshotDeltaPublisher(
+                bootstrap_servers=resolve_snapshot_bootstrap_servers()
+            )
+        return self._publisher
+
+    def _write_delegation_row(
+        self,
+        db: DatabaseAdapter,
+        row: dict[str, object],
+        *,
+        insert_only_columns: frozenset[str] = frozenset(),
+    ) -> int:
+        """The ONE durable write to ``delegation_events``, attested and republished.
+
+        OMN-18159. All three paths that upsert this table go through here, so
+        the attestation and the republish cannot be present on one and absent
+        on another. A row durable from one path and invisible to a reader from
+        another is worse than either state alone, and worse than the honest
+        "no sync publisher at all" this replaces, because the exposure would
+        look like it works.
+
+        A store that cannot perform an attested write is REFUSED, not fallen
+        back from. Writing through the plain ``upsert`` would still persist the
+        row while leaving ``writer_identity`` NULL on every update arm -- a
+        column DEFAULT is consulted only on INSERT -- and a NULL there reads to
+        the green bar's leg 4 exactly like "nobody wrote this", which is
+        indistinguishable from "an unscoped principal wrote this". The runtime
+        kernel's own adapter is in that state today (OMN-18159 AC5), so this is
+        a live condition rather than a hypothetical one.
+        """
+        if not isinstance(db, ProtocolProjectionAttestedWrite):
+            raise TypeError(
+                f"{type(db).__name__} cannot perform an attested write: "
+                f"{TABLE} carries writer_identity/written_at columns that only "
+                "upsert_returning can stamp as SQL expressions on both arms. "
+                "Writing through the plain upsert would persist the row with a "
+                "NULL attestation, which is indistinguishable from an unscoped "
+                "writer. Implement ProtocolProjectionAttestedWrite on this "
+                "adapter (OMN-18159 AC5)."
+            )
+        exposure = self._row_exposure
+        written = db.upsert_returning(
+            TABLE,
+            CONFLICT_KEY,
+            row,
+            insert_only_columns=insert_only_columns,
+            sql_expression_columns=WRITE_ATTESTATION_COLUMNS,
+            returning=tuple(exposure.columns) if exposure is not None else (),
+        )
+        self._publish_row_snapshot(written)
+        self._publish_aggregate_snapshots(db, written)
+        return 1
+
+    def _publish_aggregate_snapshots(
+        self, db: DatabaseAdapter, written: list[dict[str, object]]
+    ) -> None:
+        """Republish every singleton aggregate after a successful write.
+
+        OMN-18159 Phase 1b(ii). These exposures are SQL views over the table
+        just written, so there is no upserted row to hand the encoder -- the
+        current materialized state IS the row, and it is re-read here. The
+        projection API holds no database handle, so this republish is the only
+        way an aggregate becomes visible to a reader.
+
+        THE TENANT COMES FROM THE ROW THE DATABASE RETURNED, not from anything
+        this process resolved on the way in. Migration 0039 grouped each view
+        on ``tenant_id`` precisely so the read can be filtered rather than
+        depending on the reader arriving with the right session scope, and
+        filtering on the written row's own tenant keeps the aggregate, the
+        compaction key and the message header describing one tenant. Before
+        that migration a tenant-less read under row-level security saw nothing
+        and published zeros, which on a page reads as a quiet period.
+
+        A view that returns no row publishes nothing: an aggregate that cannot
+        be measured must stay absent rather than be rendered as a zero, which
+        is the same distinction in the other direction.
+        """
+        if not self._aggregate_exposures or not written:
+            return
+        tenant = written[0].get("tenant_id")
+        if tenant is None:
+            return
+        tenant_id = str(tenant)
+        for exposure in self._aggregate_exposures:
+            # projection-access-ok: the table comes from the contract at
+            # runtime so the static resolver cannot follow it, but the
+            # constructor refuses any aggregate exposure whose table is not in
+            # AGGREGATE_READ_RELATIONS -- four views, every one declared
+            # `access: read` in this node's db_io. The bound is enforced, not
+            # asserted.
+            rows = (
+                db.query(  # projection-access-ok: bounded by AGGREGATE_READ_RELATIONS
+                    exposure.table, {"tenant_id": tenant_id}, limit=1
+                )
+            )
+            if not rows:
+                continue
+            row = dict(rows[0])
+            row[AGGREGATE_GRAIN_COLUMN] = exposure.topic
+            message = encode_snapshot_delta(
+                exposure,
+                op="upsert",
+                row=row,
+                source_event_id=str(written[0].get(CONFLICT_KEY) or ""),
+                source_topic=exposure.topic,
+                source_partition=0,
+                source_offset=_write_ordering_token(written[0].get("written_at")),
+                observed_at=datetime.now(tz=UTC).isoformat(),
+                tenant_id=tenant_id,
+            )
+            if message is not None:
+                self._resolve_publisher().publish(message)
+
+    def _publish_row_snapshot(self, written: list[dict[str, object]]) -> bool:
+        """Republish the row the database stored onto the per-row exposure.
+
+        The projection API holds no database handle, so this republish is the
+        only way a delegation row becomes readable there. It publishes the
+        ``RETURNING`` row rather than the dict this process built, and that is
+        load-bearing: the two columns the readback exists to prove are stamped
+        by the database, so this process cannot know them until the statement
+        returns, and publishing its own dict would serve an attestation
+        nothing attested to.
+
+        A statement that returned no row publishes nothing -- there is no
+        stored row to describe, and inventing one would be the confident-empty
+        failure inverted.
+
+        THE ORDERING TOKEN IS ``written_at``, AND THAT IS THE WHOLE REASON THE
+        ATTESTATION COLUMN IS LOAD-BEARING TWICE. ``SnapshotCache`` drops a
+        delta whose ``source_offset`` is ``<=`` the cached one for the same
+        topic and partition. This exposure's key is ``correlation_id``, which
+        is MUTABLE -- a terminal writes the row and a quality-gate verdict
+        rewrites it -- so a fixed offset would serve the first write per
+        correlation and silently drop every later one, freezing the page at a
+        row that is real but stale. A sync handler never sees the source
+        message's Kafka coordinates (the dispatch seam injects only the
+        database, the event type, the topic and the envelope id), so the
+        offset has to come from somewhere else, and ``written_at`` is the one
+        monotonic value available that the DATABASE produced rather than this
+        process -- which is the property that makes it an ordering authority
+        rather than the process-local counter an earlier revision of the
+        snapshot seam removed.
+        """
+        exposure = self._row_exposure
+        if exposure is None or not written:
+            return False
+        row = dict(written[0])
+        tenant = (
+            row.get(str(exposure.tenant_column)) if exposure.tenant_column else None
+        )
+        message = encode_snapshot_delta(
+            exposure,
+            op="upsert",
+            row=row,
+            source_event_id=str(row.get(CONFLICT_KEY) or ""),
+            # The exposure's own topic, because the source event's topic is
+            # not reachable from every one of the three write paths and an
+            # inconsistent value across them would partition the ordering
+            # comparison by which path happened to write the row.
+            source_topic=exposure.topic,
+            source_partition=0,
+            source_offset=_write_ordering_token(row.get("written_at")),
+            observed_at=datetime.now(tz=UTC).isoformat(),
+            tenant_id=str(tenant) if tenant is not None else DEFAULT_TENANT,
+        )
+        if message is None:
+            return False
+        return self._resolve_publisher().publish(message)
+
+    def handle(self, input_data: dict[str, object]) -> dict[str, object]:
+        """RuntimeLocal handler protocol shim.
+
+        Delegates to project() with a ModelTaskDelegatedEvent and
+        a DatabaseAdapter from input_data['_db'].
+        """
+        payload = dict(input_data)
+        db_raw = payload.pop("_db", None)
+        if not isinstance(db_raw, DatabaseAdapter):
+            raise TypeError("handle() requires a DatabaseAdapter in input_data['_db']")
+        event_type = str(payload.pop("_event_type", ""))
+        if "delegation-judge-verdict" in event_type:
+            # OMN-14855: the multi-topic dispatch fan-out injects an envelope-only
+            # "_topic" key into input_data (same pattern as handler_instruction_eval,
+            # handler_projection_session_replay, handler_delegation_routing_feedback
+            # in this repo). ModelDelegationJudgeVerdictEvent sets extra="forbid", so
+            # leaving "_topic" in the payload always trips extra_forbidden and sends
+            # every judge-verdict event to the malformed DLQ.
+            payload.pop("_topic", None)
+            verdict = ModelDelegationJudgeVerdictEvent(**payload)
+            result = self.project_judge_verdict(verdict, db_raw)
+            return result.model_dump(mode="json")
+        if "quality-gate-result" in event_type:
+            # OMN-15850: the deterministic-scoring path (no LLM judge) publishes
+            # ONLY this topic -- delegation-judge-verdict.v1 above is never
+            # emitted for it (handler_quality_gate_intent.py:198-200). Same
+            # OMN-14855 "_topic" envelope-metadata-key stripping as the
+            # judge-verdict branch: ModelQualityGateResult sets extra="forbid".
+            payload.pop("_topic", None)
+            # OMN-17422: read the producer-recorded envelope tenant BEFORE the
+            # envelope keys are stripped for the extra="forbid" model. It is the
+            # only tenant attribution a quality-gate-result carries.
+            tenant_identity = envelope_tenant_identity(input_data)
+            # OMN-15583: same seam, same reason, for the event TIME.
+            # ``delegation_events.timestamp`` is NOT NULL and
+            # ``ModelQualityGateResult`` carries no time field, so the
+            # producer's ``ModelEventEnvelope.envelope_timestamp`` is the only
+            # authoritative value -- read it here, before the envelope keys are
+            # stripped for the ``extra="forbid"`` model.
+            event_timestamp = envelope_event_timestamp(input_data)
+            gate_result = ModelQualityGateResult(**strip_runner_injected_keys(payload))
+            result = self.project_quality_gate_result(
+                gate_result,
+                db_raw,
+                tenant_identity=tenant_identity,
+                event_timestamp=event_timestamp,
+            )
+            return result.model_dump(mode="json")
+        if (
+            "node-generation-completed" in event_type
+            or "node-generation-failed" in event_type
+        ):
+            # OMN-13468: both terminals (completed + failed) share the same payload
+            # shape (ModelGenerationBenchmark) and write to generation_events. Only
+            # contract_passed differs in value. Route failed terminal here so failed
+            # runs are observable at GET /projection/node-generation-failed.v1.
+            generation = ModelProjectionGenerationCompletedEvent(**payload)
+            result = self.project_generation_completed(generation, db_raw)
+            return result.model_dump(mode="json")
+        if (
+            event_type in self._delegate_skill_terminal_events
+            or _is_delegate_skill_terminal_payload(payload)
+        ):
+            terminal = ModelDelegateSkillTerminalProjection.from_payload(payload)
+            result = self.project_delegate_skill_terminal(terminal, db_raw)
+            return result.model_dump(mode="json")
+        if "delegation-completed" in event_type or "delegation-failed" in event_type:
+            payload = _canonical_result_to_task_delegated_payload(payload)
+
+        event = ModelTaskDelegatedEvent(**payload)
+        result = self.project(event, db_raw)
+        return result.model_dump(mode="json")
+
+    def project(
+        self,
+        event: ModelTaskDelegatedEvent,
+        db: DatabaseAdapter,
+    ) -> ModelProjectionResult:
+        """UPSERT a single delegation event."""
+        now = datetime.now(tz=UTC).isoformat()
+        measurement = _measure_actual_cost(event)
+        row: dict[str, object] = {
+            "correlation_id": event.correlation_id,
+            "session_id": event.session_id,
+            "timestamp": event.timestamp or now,
+            "task_type": event.task_type,
+            "delegated_to": event.delegated_to,
+            "model_name": event.model_name,
+            "delegated_by": event.delegated_by,
+            "quality_gate_passed": event.quality_gate_passed,
+            "operational_outcome": event.operational_outcome,
+            "content_verdict": event.content_verdict,
+            "quality_gates_checked": _gate_count(event.quality_gates_checked),
+            "quality_gates_failed": _gate_count(event.quality_gates_failed),
+            "quality_gates_checked_jsonb": event.quality_gates_checked,
+            "quality_gates_failed_jsonb": event.quality_gates_failed,
+            "quality_gate_detail": event.quality_gate_detail,
+            # OMN-13355: cost_usd is the MEASURED actual cost — the serving tier's
+            # typed cost model (OMN-13234) priced against the measured tokens — not
+            # the hardcoded 0.0 the workflow handler emits on the durable event.
+            # cost_savings_usd is therefore counterfactual - real_actual, not
+            # counterfactual - 0. See _measure_actual_cost for the fall-through to
+            # the event values when no authoritative measurement is possible.
+            "cost_usd": measurement.cost_usd,
+            "cost_savings_usd": measurement.cost_savings_usd,
+            "delegation_latency_ms": event.delegation_latency_ms,
+            "repo": event.repo,
+            "is_shadow": event.is_shadow,
+            "llm_call_id": event.llm_call_id or None,
+            "tokens_input": event.tokens_input,
+            "tokens_output": event.tokens_output,
+            "tokens_to_compliance": event.tokens_to_compliance,
+            "compliance_attempts": event.compliance_attempts,
+            "prompt_text": event.prompt_text,
+            "response_text": event.response_text,
+            "context_pack_hash": event.context_pack_hash,
+            "pricing_manifest_version": event.pricing_manifest_version,
+            # OMN-13355: persist the pinned premium counterfactual as JSONB so the
+            # saving (counterfactual - actual) is auditable from the projection row.
+            "premium_counterfactual": (
+                event.premium_counterfactual.model_dump(mode="json")
+                if event.premium_counterfactual is not None
+                else None
+            ),
+            # OMN-13234/13355: persist the typed per-tier actual-cost measurement
+            # provenance (columns from 0018). cost_measurement_source proves HOW
+            # cost_usd was derived; the recompute validator asserts it is non-empty
+            # whenever a non-zero saving is claimed.
+            "cost_tier_type": measurement.cost_tier_type,
+            "cost_tier_name": measurement.cost_tier_name,
+            "cost_measurement_source": measurement.cost_measurement_source,
+            "budget_headroom_consumed_usd": measurement.headroom_consumed_usd,
+            "required_bar": event.required_bar,
+            "actual_score": event.actual_score,
+            "escalation_count": event.escalation_count,
+            "authority_source": event.authority_source,
+            "score_source": event.score_source,
+            "request_override_applied": event.request_override_applied,
+            "override_within_bounds": event.override_within_bounds,
+        }
+        _stamp_declared_failure_cause(row, event.terminal_failure_cause)
+        # OMN-14898: refuse the write before it is ever built out further when
+        # isolation enforcement is on and no tenant was resolved (raises
+        # TenantRequiredError -- no row, no fall-through to the column
+        # default). No-op while ENFORCE_TENANT_ISOLATION is False, so the
+        # OMN-14058 interim fallback below is unchanged by default.
+        require_tenant_id(event.tenant_id, table=TABLE)
+        # OMN-14058 (OPERATOR-ACCEPTED INTERIM): only stamp tenant_id when the
+        # source event carried one — omitting the key (rather than writing
+        # None) lets the delegation_events column DEFAULT apply on INSERT and
+        # leaves an already-known tenant untouched on UPDATE.
+        # OMN-15683: delegation_events.tenant_id is UUID (migration 0031) —
+        # event.tenant_id is the verified SLUG (stamp_verified_tenant_slug);
+        # resolve it to the canonical UUID before it reaches the row/column.
+        # Stamping the raw slug here would either fail the INSERT (unmapped
+        # value) or, worse, silently key the row under a representation the
+        # gateway's UUID-keyed reader can never join against again.
+        # OMN-16804: resolved against tenant_registry_mirror -- the relation
+        # node_projection_tenant_registry materializes from onex.tenant.events
+        # -- rather than a three-entry dict compiled into this source tree, so
+        # every provisioned tenant resolves rather than only the three that
+        # were hardcoded when the column was converted.
+        resolved_tenant_uuid = resolve_registry_tenant_uuid_or_none(
+            event.tenant_id,
+            registry_uuid=sync_registry_tenant_uuid(db, event.tenant_id or ""),
+        )
+        # OMN-18565: NAMED UNCONDITIONALLY. See terminal_write_tenant -- the
+        # column DEFAULT this used to fall through to is removed by 0042, and
+        # the insert-only arm it returns when nothing resolved is not a policy
+        # bypass: row-level security evaluates USING against the pre-existing
+        # row, not the SET clause.
+        row["tenant_id"], tenant_insert_only = terminal_write_tenant(
+            resolved_tenant_uuid, table=TABLE
+        )
+        evidence = extract_quality_bar_evidence(row)
+        evidence.update(
+            extract_quality_bar_evidence(
+                {},
+                checked_labels=event.quality_gates_checked or (),
+            )
+        )
+        row.update(evidence)
+        _preserve_existing_evidence(db, row)
+        ok = bool(
+            self._write_delegation_row(db, row, insert_only_columns=tenant_insert_only)
+        )
+        # OMN-13235: event-source the per-tenant ceiling budget state. No-op for
+        # free_local / metered tiers (no monthly cap); for budgeted tiers it draws
+        # down the tenant's monthly headroom by the measured drawdown.
+        materialize_budget_state(
+            ModelDelegationBudgetStateEvent(
+                correlation_id=event.correlation_id,
+                cost_tier_name=measurement.cost_tier_name,
+                cost_measurement_source=measurement.cost_measurement_source,
+                budget_headroom_consumed_usd=_as_decimal(
+                    measurement.headroom_consumed_usd
+                ),
+                cost_usd=_as_decimal(measurement.cost_usd),
+                # OMN-14058 bug fix (bundled with the interim tenant stamp):
+                # this previously passed event.session_id — a session is not a
+                # tenant. Use the real tenant_id (ONEX_TENANT_ID-sourced) and
+                # let ModelDelegationBudgetStateEvent.resolved_tenant() fall
+                # back to DEFAULT_TENANT when none was resolved.
+                tenant_id=event.tenant_id,
+                timestamp=event.timestamp,
+            ),
+            db,
+        )
+        return ModelProjectionResult(rows_upserted=1 if ok else 0)
+
+    def project_delegate_skill_terminal(
+        self,
+        event: ModelDelegateSkillTerminalProjection,
+        db: DatabaseAdapter,
+        *,
+        data_source: str = DATA_SOURCE_REAL,
+    ) -> ModelProjectionResult:
+        """UPSERT a typed delegate-skill terminal event into delegation_events.
+
+        OMN-13121: a well-formed terminal event is always upserted, even when
+        tokens_input, tokens_output and cost_usd are all zero. Zero-token/zero-cost
+        is the steady state for free local-LLM delegations and golden-chain proofs,
+        not a malformed event — the prior OMN-11923 guard silently dropped these,
+        stranding the organic delegation tail at zero rows. Genuinely malformed or
+        empty payloads cannot reach this method: ModelDelegateSkillTerminalProjection
+        requires status, correlation_id and task_type, so an empty payload
+        raises a validation error in from_payload() rather than being silently
+        dropped here. Dedup against synthetic re-emits is handled by the
+        correlation_id UPSERT key plus _preserve_existing_evidence.
+        """
+        # OMN-19970: provenance. ``fixture`` only from the dev and demo seed,
+        # which writes through this same method; every other caller is ``real``.
+        if data_source not in DATA_SOURCES:
+            raise ValueError(
+                f"data_source must be one of {sorted(DATA_SOURCES)}, got {data_source!r}"
+            )
+        row_model = ModelDelegationEventProjectionRow.from_terminal_event(event)
+        timestamp_iso = row_model.timestamp.isoformat()
+        row: dict[str, object] = {
+            "correlation_id": str(row_model.correlation_id),
+            "data_source": data_source,
+            "session_id": (
+                str(row_model.session_id) if row_model.session_id is not None else None
+            ),
+            "timestamp": timestamp_iso,
+            # OMN-13171: explicit created_at injection. The deployed
+            # delegation_events schema declares created_at NOT NULL; a backing
+            # store without an implicit DB default (the local SQLite evidence
+            # target on a warm volume) raises a NOT NULL constraint when the
+            # write omits it. Mirror the event timestamp — deterministic, not an
+            # implicit datetime.now() at the DB layer (frozen-schema convention).
+            "created_at": timestamp_iso,
+            "task_type": row_model.task_type,
+            "delegated_to": row_model.delegated_to,
+            "model_name": row_model.model_name,
+            "delegated_by": row_model.delegated_by,
+            "quality_gate_passed": row_model.quality_gate_passed,
+            "quality_gates_checked": len(row_model.quality_gates_checked),
+            "quality_gates_failed": len(row_model.quality_gates_failed),
+            "quality_gates_checked_jsonb": list(row_model.quality_gates_checked),
+            "quality_gates_failed_jsonb": list(row_model.quality_gates_failed),
+            "quality_gate_detail": row_model.quality_gate_detail,
+            "cost_usd": row_model.cost_usd,
+            "cost_savings_usd": row_model.cost_savings_usd,
+            "delegation_latency_ms": row_model.latency_ms,
+            "latency_ms": row_model.latency_ms,
+            "repo": row_model.repo_name,
+            "is_shadow": row_model.is_shadow,
+            "prompt_text": row_model.prompt_text,
+            "response_text": row_model.response_text,
+            "context_pack_hash": row_model.context_pack_hash,
+            "tokens_input": row_model.tokens_input,
+            "tokens_output": row_model.tokens_output,
+            "tokens_to_compliance": row_model.tokens_to_compliance,
+            "compliance_attempts": row_model.compliance_attempts,
+            "pricing_manifest_version": row_model.pricing_manifest_version,
+            # OMN-13355: persist the pinned premium counterfactual as JSONB.
+            "premium_counterfactual": (
+                row_model.premium_counterfactual.model_dump(mode="json")
+                if row_model.premium_counterfactual is not None
+                else None
+            ),
+            "projection_version": row_model.projection_version,
+            "reducer_version": row_model.reducer_version,
+        }
+        # OMN-15503: reduce the typed attempt ladder to an authoritative outer
+        # outcome. The ladder — not the declared status — decides: a terminal
+        # that says status="completed" while every inner attempt was refused
+        # with HTTP 429 projects as ok=false with a typed
+        # PROVIDER_QUOTA_EXHAUSTED cause. The ladder itself is persisted so
+        # "refused after N escalations" is provable from the durable row.
+        reduction = reduce_delegation_attempts(
+            declared_status=event.status,
+            declared_quality_gate_passed=event.quality_gate_passed,
+            error_message=event.error_message,
+            attempts=event.attempts,
+            # OMN-19448: the terminal's own cause wins over the ladder's guess.
+            declared_failure_cause=event.terminal_failure_cause,
+        )
+        row["terminal_ok"] = reduction.terminal_ok
+        row["terminal_failure_cause"] = (
+            reduction.terminal_failure_cause.value
+            if reduction.terminal_failure_cause is not None
+            else None
+        )
+        row["attempt_history"] = [
+            attempt.model_dump(mode="json") for attempt in reduction.attempt_history
+        ]
+        # OMN-18889: how many up-tier re-dispatches this terminal took. The
+        # terminal model has always carried it (inherited from the response
+        # model) and the local port has always sent it; it was dropped here,
+        # because this row builder never named the key. Without it a row
+        # carrying a two-rung ladder still reported no escalation, and the
+        # column was NULL on all 23,316 rows in the local store.
+        row["escalation_count"] = event.escalation_count
+        # OMN-18930 (K3 of OMN-18925): the cohort key the terminal carried, as
+        # the pure fold returns it -- the key and its digest, or a named
+        # refusal. A terminal that carried no key names no column, so a
+        # keyless re-emit for this correlation leaves a stored key untouched.
+        row.update(HandlerDelegationCohortKeyFold().handle(event).row_columns())
+        # OMN-18889 (score half, plan row G2): the graded score and the declared
+        # bar, written as the terminal reports them. A terminal that was never
+        # scored names neither column, so the row stores NULL (never zero) on
+        # insert and an earlier terminal's value survives on update. Naming the
+        # column as None instead would erase a genuinely graded 0.0 written by
+        # ``project()`` for the same correlation, because the preserve step
+        # below treats 0.0 and None alike.
+        for column, value in (
+            ("actual_score", event.actual_score),
+            ("required_bar", event.required_bar),
+        ):
+            if value is not None:
+                row[column] = value
+        # OMN-19514: the ticket the terminal carried, as the pure fold returns
+        # it. A terminal with no ticket, or a malformed one, names no column,
+        # so a ticketless re-emit for this correlation leaves a stored ticket
+        # untouched and a bad value never dead-letters the row.
+        ticket = HandlerDelegationTicketFold().handle(event)
+        if ticket.ticket_id_refusal is not None:
+            logger.warning(
+                "delegation terminal ticket refused (correlation_id=%s): %s",
+                event.correlation_id,
+                ticket.ticket_id_refusal,
+            )
+        row.update(ticket.row_columns())
+        # OMN-19860: the lane that issued the delegation, as the pure fold
+        # returns it. A terminal with no lane, or a malformed one, names no
+        # column, so a laneless re-emit for this correlation leaves a stored
+        # lane untouched and a bad value never dead-letters the row.
+        caller_lane = HandlerDelegationCallerLaneFold().handle(event)
+        if caller_lane.caller_lane_refusal is not None:
+            logger.warning(
+                "delegation terminal caller lane refused (correlation_id=%s): %s",
+                event.correlation_id,
+                caller_lane.caller_lane_refusal,
+            )
+        row.update(caller_lane.row_columns())
+        if not reduction.terminal_ok:
+            # A ladder-proven failure must not project as a passing delegation.
+            row["quality_gate_passed"] = False
+        # OMN-14898: same fail-closed guard as project() -- no-op unless
+        # ENFORCE_TENANT_ISOLATION is set.
+        require_tenant_id(row_model.tenant_id, table=TABLE)
+        # OMN-14058 (OPERATOR-ACCEPTED INTERIM): only stamp tenant_id when
+        # present — omitting the key lets the column DEFAULT apply on INSERT
+        # and leaves an already-known tenant untouched on UPDATE.
+        # OMN-15683: same UUID resolution as project() above — see that
+        # call site's comment for why the raw slug must never reach the row.
+        # OMN-16804: see the registry-resolution note on project() above.
+        resolved_tenant_uuid = resolve_registry_tenant_uuid_or_none(
+            row_model.tenant_id,
+            registry_uuid=sync_registry_tenant_uuid(db, row_model.tenant_id or ""),
+        )
+        # OMN-18565: NAMED UNCONDITIONALLY, same reason as project() above.
+        row["tenant_id"], tenant_insert_only = terminal_write_tenant(
+            resolved_tenant_uuid, table=TABLE
+        )
+        # OMN-13596: preserve an already-correct response_text when this
+        # delegate-skill terminal event carries None/empty response_text.
+        # Without this guard, a late-arriving timeout terminal (status="timeout",
+        # response="") would clobber the real model answer written by an earlier
+        # delegation-completed.v1 canonical event. _preserve_existing_evidence
+        # retains the existing non-blank value when the incoming row has none.
+        _preserve_existing_evidence(db, row)
+        ok = bool(
+            self._write_delegation_row(db, row, insert_only_columns=tenant_insert_only)
+        )
+        return ModelProjectionResult(rows_upserted=1 if ok else 0)
+
+    def project_generation_completed(
+        self,
+        event: ModelProjectionGenerationCompletedEvent,
+        db: DatabaseAdapter,
+    ) -> ModelProjectionResult:
+        """UPSERT a node-generation-completed event into generation_events.
+
+        Mirrors DelegationProjectionRunner._project_generation_completed; this is
+        the path the live runtime actually invokes (OMN-12800). contract_yaml and
+        handler_source are persisted in full — no truncation.
+        """
+        now = datetime.now(tz=UTC).isoformat()
+        proof = compute_generation_proof_fields(
+            contract_yaml=event.contract_yaml,
+            handler_source=event.handler_source,
+            routing_source=event.routing_source,
+            resolved_endpoint=event.resolved_endpoint,
+        )
+        row: dict[str, object] = {
+            "correlation_id": event.correlation_id,
+            "task_description": event.task_description,
+            "provider": event.provider,
+            "model_id": event.model_id,
+            "endpoint_class": event.endpoint_class,
+            "attempt_count": event.attempt_count,
+            "total_latency_e2e_ms": event.total_latency_e2e_ms,
+            "contract_passed": event.contract_passed,
+            # OMN-13166: persist the behavioral verdict next to contract_passed.
+            "semantic_checked": event.semantic_checked,
+            "semantic_passed": event.semantic_passed,
+            # OMN-13289 (G0) / OMN-13350: persist the validator-acceptance (corpus)
+            # verdict. corpus_errors is a JSONB column — the sync DB adapter
+            # JSON-adapts the list, so it is passed as a list here, not a JSON
+            # string (the async runner path serializes its own $N::jsonb param).
+            "corpus_checked": event.corpus_checked,
+            "corpus_passed": event.corpus_passed,
+            "corpus_errors": list(event.corpus_errors),
+            "cost_inference_usd": event.cost_inference_usd,
+            "timestamp": event.timestamp or now,
+            "contract_yaml": event.contract_yaml,
+            "handler_source": event.handler_source,
+            **proof,
+            # OMN-18774: the stamp is resolved from the relation's DECLARED
+            # DOMAIN, never asserted by this handler. generation_events is
+            # declared `schema: omninode_internal`, so this expands to {} --
+            # an internal relation receives no tenant stamping (operator
+            # ruling, docs/tracking/ROLLING_WORK_LEDGER.md:654), and the
+            # runtime's InternalProjectionTableOperation raises ValueError on
+            # the key regardless.
+            #
+            # OMN-16831 item 4 added an unconditional house stamp here, on the
+            # correct general principle that the PRODUCER must author an
+            # attribution rather than let a column DEFAULT invent one. On a
+            # TENANT relation that principle still holds and this call still
+            # returns the same house stamp. On this one it was the wrong
+            # relation to apply it to: the key it added is the key the kernel
+            # refuses, so the sync generation projection could not write on a
+            # runtime-kernel pod at all. It went unobserved because the .201
+            # dev lane runs the async twin. Reading the contract instead of
+            # naming the relation is what keeps the two twins from diverging
+            # again.
+            **tenant_write_stamp(table=GENERATION_TABLE),
+        }
+        ok = db.upsert(GENERATION_TABLE, CONFLICT_KEY, row)
+        return ModelProjectionResult(
+            rows_upserted=1 if ok else 0, table=GENERATION_TABLE
+        )
+
+    def project_judge_verdict(
+        self,
+        event: ModelDelegationJudgeVerdictEvent,
+        db: DatabaseAdapter,
+    ) -> ModelProjectionResult:
+        """UPSERT a reproducible judge verdict event into its evidence table.
+
+        OMN-14894 (tranche 2): delegation_judge_verdict_events has no tenant
+        identity of its own -- ModelDelegationJudgeVerdictEvent never carried
+        one. Resolve tenant_id by joining the same correlation_id against
+        delegation_events (written by this same node), falling back to
+        DEFAULT_TENANT when no match exists yet, so the row is always
+        stamped and never silently tenant-less (the OMN-14058
+        writer-erasure pattern this tranche closes). See migration 0025's
+        own caveat: the join was only verified against a 4-row sample with a
+        50% miss rate -- re-verify completeness once volume grows.
+        """
+        row = _judge_verdict_projection_row(event)
+        row["tenant_id"] = _resolve_judge_verdict_tenant_id(event, db)
+        ok = db.upsert(JUDGE_VERDICT_TABLE, JUDGE_VERDICT_CONFLICT_KEY, row)
+        return ModelProjectionResult(
+            rows_upserted=1 if ok else 0, table=JUDGE_VERDICT_TABLE
+        )
+
+    def project_quality_gate_result(
+        self,
+        event: ModelQualityGateResult,
+        db: DatabaseAdapter,
+        *,
+        tenant_identity: str | None = None,
+        event_timestamp: datetime | None = None,
+    ) -> ModelProjectionResult:
+        """UPSERT a quality-gate verdict onto the delegation_events row.
+
+        OMN-15850. The business-proof ``quality_gate`` check
+        (``evaluate_business_proof.py::_check_quality_gate``) reads
+        ``delegation_events.quality_gate_passed`` via the tenant delegations
+        endpoint and FAILs when no row exists for the correlation_id -- absent
+        is FAIL, never skip. The deterministic-scoring path (no LLM judge)
+        publishes ONLY ``quality-gate-result.v1``, never
+        ``delegation-judge-verdict.v1``, so this is the only event this
+        projection sees for that path.
+
+        This is a partial UPSERT: only the verdict-owned columns are written.
+        ``ModelQualityGateResult`` carries no task_type/delegated_to/model_name
+        (those belong to the canonical delegation-completed/failed terminal),
+        so when this event lands FIRST the INSERT falls through to the
+        delegation_events column defaults (empty string / FALSE) for them
+        rather than violating a NOT NULL constraint. When a terminal event has
+        already written (or later writes) those columns, the
+        ``ON CONFLICT (correlation_id) DO UPDATE SET <only listed columns>``
+        semantics shared by every DatabaseAdapter implementation
+        (postgres_sync_database.py, sqlite_database.py, the in-memory test
+        double) leave them untouched in either write order.
+
+        Two properties this method must hold on a result-first arrival
+        (CodeRabbit, PR #2052):
+
+        1. ``created_at`` -- ``delegation_events.created_at`` is NOT NULL. The
+           deployed Postgres schema carries a DB-level ``DEFAULT NOW()``, but
+           OMN-13171 already documents a backing store without an implicit
+           default (the local SQLite evidence target) raising a NOT NULL
+           violation when a write omits it -- exactly the same gap
+           ``project_delegate_skill_terminal`` closed for its own result-first
+           path. Stamped ONLY when no row exists yet: an UPDATE must never
+           clobber the terminal event's own ``created_at``.
+
+        1a. ``timestamp`` -- OMN-15583. The paragraph above stopped one column
+           short. ``delegation_events.timestamp`` is ALSO NOT NULL, this method
+           never named it either, and unlike ``created_at`` its default is
+           genuinely missing on a warm lane: on onex-dev the column predates
+           migration 0007 and ``ADD COLUMN IF NOT EXISTS`` no-ops on an
+           existing column (the OMN-15376 drift class), so every quality
+           verdict poisoned with ``null value in column "timestamp" of
+           relation "delegation_events" violates not-null constraint``
+           (SQLSTATE 23502) and the offset was committed. It is now supplied
+           from ``event_timestamp`` -- the producer's
+           ``ModelEventEnvelope.envelope_timestamp``, the same authority the
+           terminal write paths take their ``timestamp`` from. Never ``now()``:
+           a write clock stored in an event-time column reads, forever after,
+           as the moment the delegation happened. An event that recorded no
+           time raises rather than being stamped with one.
+        2. Tenant isolation -- ``project()`` and
+           ``project_delegate_skill_terminal()`` both call
+           :func:`require_tenant_id` before their UPSERT so a
+           ``ENFORCE_TENANT_ISOLATION=true`` lane refuses a write that would
+           otherwise fall through to the shared tenant column default.
+           ``ModelQualityGateResult`` carries no tenant field of its own, so
+           OMN-17422 threads ``tenant_identity`` -- the envelope stamp the
+           PRODUCER recorded -- in from the dispatch shim.
+
+           OMN-18565 removed the second half of that sentence. When the
+           producer recorded NO tenant this method used to supply the house
+           stamp explicitly; it now authors no row at all. A terminal may be
+           house-attributed because it owns the row; a derived partial event
+           may not, because a house-stamped verdict that wins the race against
+           its own terminal makes the terminal unwritable under FORCE ROW LEVEL
+           SECURITY. See the refusal below for the full argument.
+        """
+        # OMN-17422: bind the tenant scope the event actually carries. The
+        # async twin ``handler_delegation._project_quality_gate_result`` carries
+        # the full rationale; the rules are identical here so the two write
+        # paths cannot drift. In short: attribution comes from the envelope
+        # stamp the producer recorded, resolved through the same registry path
+        # the terminal write uses; a recorded-but-unresolvable tenant raises;
+        # and an unattributed event stamps the house tenant EXPLICITLY rather
+        # than leaving the value to the deployed column DEFAULT, so the row and
+        # the ``app.tenant_id`` GUC agree by construction.
+        # OMN-15583: an event with no producer-recorded time is unattributable
+        # in time the way an unresolvable tenant is unattributable in scope.
+        # Raising reaches the runner's POISON path, which is the right terminal
+        # state; inventing a wall clock for an event-time column is not.
+        if event_timestamp is None:
+            raise ValueError(
+                "quality-gate-result event carries no authoritative event time "
+                "(OMN-15583): delegation_events.timestamp is NOT NULL and this "
+                "row's time is the producer's envelope_timestamp; refusing "
+                "rather than stamping the projection's own wall clock"
+            )
+        # OMN-18565: an unattributable verdict AUTHORS NO ROW.
+        #
+        # The previous revision stamped the house tenant here (OMN-17422, and
+        # the OMN-16831 ruling behind it), which is the right call for a
+        # TERMINAL -- the event that owns the row and is its authority on every
+        # other column. It is the wrong call for this event. The verdict is a
+        # DERIVED, PARTIAL event: it carries no task type, no target, no model,
+        # no tokens, and nothing at all about a tenant. Giving it the house
+        # tenant turned "this event says nothing about whose delegation this
+        # was" into "this event asserts the delegation was the house's", and
+        # because both subscriptions UPSERT the same correlation key, whichever
+        # landed first CREATED the row. When the verdict won, the terminal's
+        # ON CONFLICT DO UPDATE was then evaluated by the tenant_isolation
+        # policy's USING half against that pre-existing house row, under FORCE
+        # ROW LEVEL SECURITY, and refused -- so the row the tenant-scoped reader
+        # needs never existed and the staging business proof failed on
+        # quality_gate. Measured on onex-dev 2026-09-17: roughly three passes in
+        # sixteen proof runs, the greens being the runs where the terminal
+        # happened to win the race.
+        #
+        # REFUSED WITHOUT RAISING, and that is a deliberate divergence from the
+        # async twin (``handler_delegation._project_quality_gate_result``, which
+        # raises and reaches its runner's DLQ). This handler runs on the
+        # omnibase_infra runtime KERNEL seam, whose classifier
+        # (``_is_projection_content_failure``) treats a tenant-authority refusal
+        # as the WRITE PATH's defect, not the event's, and therefore WITHHOLDS
+        # the offset (OMN-17379). Raising here would convert the loss of one
+        # redundant row into a permanently wedged partition for every subsequent
+        # verdict. Zero rows is a first-class outcome on this seam: the kernel
+        # logs it at ERROR by itself, and the reason is named below so the
+        # refusal is never a silent drop.
+        #
+        # NOTHING IS LOST THAT THE ROW NEEDS. ``quality_gate_passed`` is also
+        # carried by the terminal event, which is the authority on it, so a
+        # refused verdict costs an early write of a fact the terminal states
+        # again. An attributed verdict is still applied, in either order --
+        # ``tests/test_omn18565_ordering_independent_verdict_terminal_rls.py``
+        # pins that as the negative control, so "fail closed" cannot quietly
+        # widen into "drop every verdict".
+        resolved_tenant_uuid = resolve_registry_tenant_uuid_or_none(
+            tenant_identity,
+            registry_uuid=sync_registry_tenant_uuid(db, tenant_identity or ""),
+        )
+        if resolved_tenant_uuid is None:
+            logger.error(
+                "quality-gate verdict REFUSED for correlation_id=%s (OMN-18565): "
+                "the producer recorded no envelope tenant, and a derived "
+                "partial event must not author this row's tenant. No row "
+                "written; the delegation terminal for this correlation remains "
+                "the authority on both the tenant and the verdict.",
+                event.correlation_id,
+            )
+            return ModelProjectionResult(rows_upserted=0, table=TABLE)
+        write_tenant = resolved_tenant_uuid
+        row: dict[str, object] = {
+            "correlation_id": str(event.correlation_id),
+            # OMN-17422: the verdict row always NAMES its tenant. Leaving the
+            # key off let the deployed column DEFAULT supply the value while
+            # ``resolve_write_tenant`` synthesised the ``app.tenant_id`` GUC
+            # from an independent authority, and Postgres refuses the proposed
+            # INSERT row of an ``ON CONFLICT`` statement whenever those two
+            # disagree -- the onex-dev refusal this ticket closes. The async
+            # twin additionally keeps the column out of its ``DO UPDATE SET``
+            # clause; this path writes through the shared
+            # ``DatabaseAdapter.upsert`` protocol, which has no per-column
+            # update seam, so on an existing row it rewrites the attribution
+            # with the value it resolved from the producer's own envelope
+            # stamp -- the same identity the terminal event recorded, or a
+            # refusal under RLS if it is not.
+            "tenant_id": write_tenant,
+            # OMN-17228: named here for the same reason ``timestamp`` is named
+            # below, and on the same measured lane fact.
+            # ``delegation_events.task_type`` and ``delegated_to`` are both
+            # ``TEXT NOT NULL DEFAULT ''`` in ``0007_delegation_events.sql``'s
+            # CREATE TABLE and both are re-declared in its OMN-15376
+            # reconciliation block as ``ADD COLUMN IF NOT EXISTS ... DEFAULT
+            # ''`` -- which no-ops on a column that already exists and
+            # therefore never installs the missing DEFAULT on a drifted lane.
+            # onex-dev (DEV-SYSTEM ``i-06169517a92b45f86``) is such a lane:
+            # read live from ``information_schema.columns`` 2026-09-10, both
+            # are ``is_nullable=NO`` with ``column_default=NULL``. Postgres
+            # evaluates NOT NULL against the PROPOSED insert row before the
+            # conflict is resolved, so omitting them fails the statement even
+            # when it was only ever going to take the DO UPDATE arm.
+            #
+            # THIS PATH IS THE ONE THAT RUNS. The async twin
+            # (``handler_delegation._project_quality_gate_result``) took this
+            # fix on 2026-09-10 and this file's own prose asserted the twin was
+            # what the deployed ``omnimarket-projection-delegation-writer``
+            # runs. It is not: the writer is dispatched by the omnibase_infra
+            # runtime's auto-wiring, which calls THIS handler. Live traceback
+            # from the running pod, 2026-09-15T16:43Z --
+            # ``handler_projection_delegation.py:1195`` ->
+            # ``:525`` -> ``psycopg2.errors.NotNullViolation: null value in
+            # column "task_type"``. The refusal is not dead-lettered on that
+            # path: omnibase_infra wraps it in
+            # ``ProjectionNotMaterializedError`` and withholds the offset
+            # (OMN-17379), so one verdict wedged the partition rather than
+            # costing one row.
+            #
+            # The value is the empty string because that is precisely what
+            # ``0007`` declares as these columns' DEFAULT, so naming it
+            # reproduces the schema's own intent without depending on a DEFAULT
+            # a drifted lane does not have. ``ModelQualityGateResult`` is
+            # ``extra="forbid"`` and carries neither field, so the verdict has
+            # nothing truer to say about them. Both are held insert-only below.
+            "task_type": "",
+            "delegated_to": "",
+            "quality_gate_passed": event.passed,
+            "quality_gate_detail": "; ".join(event.failure_reasons) or None,
+            "actual_score": (
+                event.actual_score
+                if event.actual_score is not None
+                else event.quality_score
+            ),
+            "score_source": event.score_source or None,
+        }
+        existing = db.query(TABLE, {CONFLICT_KEY: row["correlation_id"]})
+        if not existing:
+            # OMN-13171 pattern: only a genuine fresh row needs the explicit
+            # stamp -- an UPDATE leaves the terminal event's created_at intact
+            # because it is not named in this dict (ON CONFLICT DO UPDATE SET
+            # <listed columns only>).
+            row["created_at"] = datetime.now(tz=UTC).isoformat()
+        # OMN-15583 / OMN-17228: ``timestamp`` is named UNCONDITIONALLY, not
+        # only on a fresh row, and held insert-only below.
+        #
+        # The previous revision named it inside the ``not existing`` branch and
+        # explained that as the fresh-row-only guard, citing "the shared
+        # ``DatabaseAdapter.upsert`` protocol, which has no per-column
+        # insert-only seam" and asserting that the async twin "is the path the
+        # deployed ``omnimarket-projection-delegation-writer`` runs". Both
+        # halves are now false. OMN-18159 routed all three write paths through
+        # ``_write_delegation_row``, which takes ``insert_only_columns``, so
+        # the seam exists here; and the live traceback above proves THIS
+        # handler is the deployed one.
+        #
+        # The residual that revision stated -- "on a drifted lane whose
+        # ``timestamp`` column has no default, an existing-row UPSERT from THIS
+        # path still proposes a NULL for it" -- was therefore reachable, not
+        # hypothetical: a verdict arriving after its terminal on onex-dev
+        # proposes a NULL ``timestamp`` and wedges the partition exactly as
+        # ``task_type`` did. Naming it always and holding it insert-only closes
+        # that and the probe's read-then-write race in one move: a terminal
+        # landing between the probe and this statement takes the DO UPDATE arm,
+        # which no longer carries it.
+        row["timestamp"] = event_timestamp
+        ok = bool(
+            self._write_delegation_row(
+                db,
+                row,
+                # Named so the proposed INSERT row is valid on a lane whose
+                # DEFAULTs went missing; held out of DO UPDATE SET so the
+                # empty-string placeholders can never erase a real task type,
+                # target or event time a terminal event already recorded. This
+                # is the same frozenset the async twin passes, and the
+                # divergence between the two is what
+                # ``tests/test_omn17228_sync_writer_not_null_columns.py`` binds.
+                insert_only_columns=frozenset(
+                    {"task_type", "delegated_to", "timestamp"}
+                ),
+            )
+        )
+        return ModelProjectionResult(rows_upserted=1 if ok else 0, table=TABLE)
+
+    def project_batch(
+        self,
+        events: list[ModelTaskDelegatedEvent],
+        db: DatabaseAdapter,
+    ) -> ModelProjectionResult:
+        """UPSERT a batch of delegation events."""
+        count = 0
+        for event in events:
+            result = self.project(event, db)
+            count += result.rows_upserted
+        return ModelProjectionResult(rows_upserted=count)
+
+
+__all__: list[str] = [
+    "DEFAULT_TENANT",
+    "GENERATION_PROJECTION_OWNER",
+    "JUDGE_VERDICT_TABLE",
+    "HandlerProjectionDelegation",
+    "ModelActualCostProjection",
+    "ModelProjectionGenerationCompletedEvent",
+    "ModelProjectionResult",
+    "ModelProjectionTaskDelegatedEvent",
+    "ModelTaskDelegatedEvent",
+    "compute_generation_proof_fields",
+    "validate_actual_cost_provenance",
+]
+
+
+def _resolve_judge_verdict_tenant_id(
+    event: ModelDelegationJudgeVerdictEvent,
+    db: DatabaseAdapter,
+) -> str:
+    """Resolve tenant_id for a judge-verdict row via a correlation_id join.
+
+    OMN-17627: returns the producer-recorded tenant from the matching
+    delegation_events row, or raises. It never falls back to DEFAULT_TENANT.
+    The ratified OMN-16831/OMN-16804 rule is that tenant attribution is
+    producer-recorded or verified, never invented, so a verdict nobody can
+    attribute refuses the write rather than claiming the house tenant.
+
+    This supersedes the OMN-14894 tranche-2 default, whose stated goal was
+    that the row is "never silently tenant-less". Refusing serves that goal
+    too: the async writer routes a refused verdict to the contract-declared
+    DLQ, so it stays durably recoverable on the bus instead of being either
+    invented or dropped.
+
+    The multiple-match arm is DEFENSIVE -- delegation_events.correlation_id is
+    NOT NULL UNIQUE (migration 0007, lines 11 and 138), so it cannot fire on
+    any real store. It exists because ``matches[0]`` silently picking a winner
+    would be the wrong answer if that constraint ever went away.
+    """
+    matches = db.query(TABLE, filters={"correlation_id": str(event.correlation_id)})
+    if not matches:
+        raise TenantRequiredError(
+            f"{JUDGE_VERDICT_TABLE} write refused: no delegation_events row "
+            f"joins correlation_id {event.correlation_id} (OMN-17627). Late or "
+            "out-of-order arrival is not attribution -- refusing rather than "
+            "stamping the house tenant."
+        )
+    attributions: set[str] = set()
+    for match in matches:
+        candidate = match.get("tenant_id")
+        if isinstance(candidate, str) and candidate.strip():
+            attributions.add(candidate)
+    if len(attributions) != 1:
+        raise TenantRequiredError(
+            f"{JUDGE_VERDICT_TABLE} write refused: correlation_id "
+            f"{event.correlation_id} resolved {len(attributions)} usable tenant "
+            f"attributions across {len(matches)} delegation_events row(s) "
+            "(OMN-17627). Missing, blank, malformed and conflicting all refuse."
+        )
+    return attributions.pop()
+
+
+def _judge_verdict_projection_row(
+    event: ModelDelegationJudgeVerdictEvent,
+) -> dict[str, object]:
+    return {
+        "event_hash": event.event_hash,
+        "correlation_id": str(event.correlation_id),
+        "task_type": event.task_type,
+        "score_source": event.score_source,
+        "judge_model": event.judge_model,
+        "judge_model_version": event.judge_model_version,
+        "judge_provider": event.judge_provider,
+        "rubric_id": event.rubric_id,
+        "rubric_hash": event.rubric_hash,
+        "prompt_hash": event.prompt_hash,
+        "input_hash": event.input_hash,
+        "temperature": event.temperature,
+        "judge_node_version": event.judge_node_version,
+        "reasoning_hash": event.reasoning_hash,
+        "verdict": event.verdict.value,
+        "actual_score": event.actual_score,
+        "failure_kind": event.failure_kind,
+        "failure_message": event.failure_message,
+    }
+
+
+def _is_delegate_skill_terminal_payload(payload: dict[str, object]) -> bool:
+    return (
+        payload.get("correlation_id") is not None
+        and payload.get("status") is not None
+        and isinstance(payload.get("metrics"), dict)
+    )
+
+
+def _winning_metered_tier_name(escalation_history: object) -> str:
+    """Return the LAST escalation tier that recorded a positive metered ``cost_usd``.
+
+    OMN-13408 (canonical projection). The canonical ``delegation-failed.v1``
+    terminal (``ModelDelegationResult``) carries the real metered spend in
+    ``cumulative_attempt_cost`` / ``final_attempt_cost`` and in the per-tier
+    ``escalation_history`` records, but it has NO top-level ``cost_tier_name``.
+    Without a serving-tier name the projection's ``_measure_actual_cost`` takes the
+    "unknown serving tier" fall-through and persists the event's ``cost_usd``
+    (defaulted to 0.0) — flooring a row whose escalation_history holds real metered
+    spend.
+
+    The winning tier is the last attempt that actually incurred metered cost (the
+    free local tier records ``cost_usd=0.0`` and is skipped). Empty string when no
+    metered attempt is found — a free-only failed terminal honestly stays 0.
+    Accepts the raw ``payload.get("escalation_history")`` value (``object``) and
+    fails closed (empty string) on any non-iterable / malformed shape.
+    """
+    if not isinstance(escalation_history, list | tuple):
+        return ""
+    winner = ""
+    for attempt in escalation_history:
+        if not isinstance(attempt, dict):
+            continue
+        raw_cost = attempt.get("cost_usd")
+        tier_name = attempt.get("tier_name")
+        if (
+            isinstance(raw_cost, int | float)
+            and float(raw_cost) > 0.0
+            and isinstance(tier_name, str)
+            and tier_name
+        ):
+            winner = tier_name
+    return winner
+
+
+# OMN-13596: canonical delegation-timeout sentinel substrings. The orchestrator
+# contract emits ``"Delegation timed out before runtime completion"`` and the
+# runtime dispatch port (omnibase_infra ports/port_runtime_delegation_dispatch.py)
+# returns ``"timed out after <N>s waiting for delegation result"`` on the
+# caller-side Kafka-wait timeout. Either string can land in the canonical
+# terminal ``content`` field; it is NEVER a model answer and must not be
+# projected into ``response_text`` on a row the projection treats as a metered
+# PASS. Matched case-insensitively as substrings so a wrapped/prefixed variant
+# (e.g. "Delegation timed out before runtime completion (...)") is still caught.
+_DELEGATION_TIMEOUT_SENTINELS: tuple[str, ...] = (
+    "timed out before runtime completion",
+    "timed out after",
+)
+
+
+def _is_delegation_timeout_string(value: object) -> bool:
+    """Return True when ``value`` is a canonical delegation timeout/error string.
+
+    OMN-13596. On the canonical terminal path the ``content`` field can carry the
+    caller-side delegation-wait timeout text rather than the model's output. A
+    PASS row must never project that string into ``response_text`` (a customer
+    reading a successful, metered delegation would otherwise see a timeout
+    string). Fails closed (``False``) on any non-string shape so a genuine answer
+    is never suppressed.
+    """
+    if not isinstance(value, str):
+        return False
+    lowered = value.casefold()
+    return any(sentinel in lowered for sentinel in _DELEGATION_TIMEOUT_SENTINELS)
+
+
+def _canonical_response_text(
+    payload: dict[str, object],
+    *,
+    quality_passed: bool,
+) -> str | None:
+    """Resolve the canonical terminal's ``response_text`` projection value.
+
+    OMN-13596. The canonical ``delegation-completed.v1`` / ``delegation-failed.v1``
+    terminal carries the model output in ``content``. On the authoritative metered
+    PASS row that ``content`` must be the model's actual answer. When the terminal
+    instead carries a delegation timeout/error string in ``content`` (the
+    caller-side Kafka-wait timeout text), projecting it onto a PASS row makes a
+    success look like a failure. Suppress it to ``None`` on a PASS so the UPSERT's
+    COALESCE + ``_preserve_existing_evidence`` keep an already-written genuine
+    answer instead of clobbering it with the timeout string. The FAILED path is
+    unchanged: a failure honestly surfaces its terminal ``content``.
+    """
+    content = payload.get("content")
+    if quality_passed and _is_delegation_timeout_string(content):
+        return None
+    return content if isinstance(content, str) else None
+
+
+def _canonical_result_to_task_delegated_payload(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    quality_passed = bool(payload.get("quality_passed"))
+    failure_reason = str(payload.get("failure_reason") or "")
+    escalation_history = payload.get("escalation_history") or ()
+
+    # OMN-13408 (canonical FAILED-terminal cost resolution): the canonical
+    # ``delegation-failed.v1`` event (``ModelDelegationResult``) co-writes the same
+    # ``delegation_events`` row as the compat ``task-delegated.v1`` event, but it
+    # has NO top-level ``cost_usd`` / ``cost_tier_name`` — the real metered spend
+    # lives in ``cumulative_attempt_cost`` / ``final_attempt_cost`` and in the
+    # winning ``escalation_history`` tier. Dropping those (the prior converter
+    # carried none of them) made the projection floor the canonical write to
+    # ``cost_usd=0.0`` with an empty serving tier, clobbering the compat event's
+    # honest cost (live STRIKE THREE, CID 5120dd9c: emitter said 0.01924, row 0.0).
+    #
+    # Carry the canonical cumulative spend as ``cost_usd`` and resolve the serving
+    # tier from the winning metered ``escalation_history`` entry so the projection's
+    # ``_measure_actual_cost`` trusts the metered total instead of flooring to 0.
+    # ``cumulative_attempt_cost`` is the total across all attempted tiers (counted
+    # once); fall back to ``final_attempt_cost`` for older emitters.
+    cumulative_cost = payload.get("cumulative_attempt_cost")
+    if not isinstance(cumulative_cost, int | float) or float(cumulative_cost) <= 0.0:
+        cumulative_cost = payload.get("final_attempt_cost")
+    cost_usd = (
+        float(cumulative_cost)
+        if isinstance(cumulative_cost, int | float) and float(cumulative_cost) > 0.0
+        else 0.0
+    )
+    winning_tier = _winning_metered_tier_name(escalation_history)
+    # OMN-13649: prefer the AUTHORITATIVE serving tier carried on the canonical
+    # terminal (``cost_tier_name`` = ``workflow.current_tier_name`` from the
+    # routing decision). This is the tier-drop fix: a COMPLETED local/free
+    # delegation has no metered escalation_history winner, so the prior
+    # ``_winning_metered_tier_name`` fallback resolved to '' and the projection
+    # wrote an empty tier for the most common path. Fall back to the metered
+    # winner only when the terminal predates this field (back-compat).
+    raw_terminal_tier = payload.get("cost_tier_name")
+    terminal_tier = raw_terminal_tier if isinstance(raw_terminal_tier, str) else ""
+    resolved_tier = terminal_tier or winning_tier
+
+    return {
+        "correlation_id": payload.get("correlation_id"),
+        # OMN-14058 (OPERATOR-ACCEPTED INTERIM): carry the canonical terminal's
+        # tenant_id (ONEX_TENANT_ID-sourced at request-acceptance) through the
+        # converter so the delegation_events row stamps a real tenant instead
+        # of the 'omninode' column default.
+        "tenant_id": payload.get("tenant_id"),
+        "task_type": payload.get("task_type") or "unknown",
+        "delegated_to": payload.get("model_used") or "unknown",
+        "model_name": payload.get("model_used") or "",
+        "quality_gate_passed": quality_passed,
+        "operational_outcome": payload.get("operational_outcome"),
+        "content_verdict": payload.get("content_verdict"),
+        # OMN-19448: the terminal's own cause; the converter used to drop it.
+        "terminal_failure_cause": payload.get("terminal_failure_cause"),
+        "quality_gates_failed": [failure_reason]
+        if failure_reason and not quality_passed
+        else [],
+        "quality_gate_detail": failure_reason or None,
+        "delegation_latency_ms": payload.get("latency_ms"),
+        # OMN-13644: carry the canonical terminal's context-pack hash through the
+        # converter so the row mapping reads the real value (non-empty when the
+        # request carried a context pack) instead of the '' field default. The
+        # orchestrator now persists this on COMPLETED and FAILED/ESCALATED terminals.
+        "context_pack_hash": payload.get("context_pack_hash") or "",
+        "prompt_text": payload.get("prompt_text"),
+        # OMN-13596: never project a delegation timeout/error string into
+        # response_text on a PASS row. _canonical_response_text suppresses the
+        # caller-side timeout string (returns None) when quality_passed is True,
+        # so the UPSERT COALESCE / _preserve_existing_evidence keep the real
+        # model answer instead of overwriting it with "Timed out…".
+        "response_text": _canonical_response_text(
+            payload, quality_passed=quality_passed
+        ),
+        "tokens_input": payload.get("prompt_tokens") or 0,
+        "tokens_output": payload.get("completion_tokens") or 0,
+        "tokens_to_compliance": payload.get("tokens_to_compliance") or 0,
+        "compliance_attempts": payload.get("compliance_attempts") or 1,
+        "required_bar": payload.get("required_bar"),
+        "actual_score": payload.get("actual_score") or payload.get("quality_score"),
+        "escalation_count": payload.get("escalation_count") or 0,
+        # OMN-13408: the metered total + serving tier carried from the canonical
+        # terminal. With cost_tier_name set, _measure_actual_cost re-prices/trusts
+        # the metered cost instead of taking the unknown-tier 0.0 fall-through.
+        # OMN-13649: cost_tier_name is now the AUTHORITATIVE serving tier from the
+        # terminal (falling back to the metered escalation winner for pre-OMN-13649
+        # terminals), so a COMPLETED free/local row carries its real tier instead
+        # of '' — and _measure_actual_cost derives cost_tier_type from it.
+        "cost_usd": cost_usd,
+        "cost_tier_name": resolved_tier,
+        # OMN-13535: carry the per-tier attempt records (each with its priced
+        # cost_usd) so the actual-cost recompute can add the prior metered tiers'
+        # spend to the re-priced final tier on the completed path.
+        "escalation_history": escalation_history,
+        "authority_source": payload.get("authority_source")
+        or payload.get("required_bar_source"),
+        "score_source": payload.get("score_source"),
+        "request_override_applied": payload.get("request_override_applied") or False,
+        "override_within_bounds": payload.get("override_within_bounds") is not False,
+    }
+
+
+class ModelActualCostProjection(BaseModel):
+    """Resolved actual-cost figures written onto a delegation_events row.
+
+    OMN-13355: the projection's authoritative cost provenance. cost_usd is a
+    MEASUREMENT (the serving tier's typed cost model priced against the measured
+    tokens), not the workflow handler's hardcoded 0.0. cost_savings_usd is
+    counterfactual - real_actual. The recompute validator asserts that any row
+    claiming a non-zero saving carries a non-empty cost_measurement_source.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    cost_usd: float = Field(default=0.0)
+    cost_savings_usd: float = Field(default=0.0)
+    headroom_consumed_usd: float = Field(default=0.0, ge=0.0)
+    cost_tier_type: str = Field(default="")
+    cost_tier_name: str = Field(default="")
+    cost_measurement_source: str = Field(default="")
+
+
+def _sum_escalation_attempt_costs(
+    escalation_history: tuple[dict[str, object], ...],
+) -> float:
+    """Sum the per-tier ``cost_usd`` recorded across escalation attempts (OMN-13535).
+
+    Each attempt record the orchestrator priced carries its own ``cost_usd`` (the
+    metered spend that attempted tier incurred). Attempts emitted before OMN-13535
+    (or non-priced records) default the field to absent/0.0, so the sum is 0.0 and
+    the recompute degrades to its prior single-tier behavior — no regression for
+    non-escalated rows.
+    """
+    total = 0.0
+    for attempt in escalation_history:
+        raw_cost = attempt.get("cost_usd") if isinstance(attempt, dict) else None
+        if isinstance(raw_cost, int | float):
+            total += float(raw_cost)
+    return total
+
+
+def _measure_actual_cost(
+    event: ModelProjectionTaskDelegatedEvent,
+) -> ModelActualCostProjection:
+    """Resolve the MEASURED actual cost + honest savings for one delegation row.
+
+    OMN-13355 wiring. The workflow handler emits the durable task-delegated event
+    with ``cost_usd`` hardcoded to 0.0, so a saving of ``counterfactual - cost_usd``
+    is really ``counterfactual - 0`` — the full counterfactual, overstated by the
+    serving tier's real (non-zero, for metered / budgeted-overage) cost. When the
+    event carries a pinned premium counterfactual and a serving tier name, this
+    re-prices the measured tokens through that tier's typed cost model and returns
+    ``cost_savings_usd = counterfactual - measured_actual``.
+
+    Fall-through (preserves the event's own values, no recompute):
+      * No cost_tier_name — the serving tier is unknown, so the typed cost model
+        cannot be resolved; keep the event values + carried provenance.
+
+    OMN-13408 (FAILED / escalation path, ``premium_counterfactual=None``): the
+    terminal's own ``cost_usd`` is the AUTHORITATIVE total — ``_emit_terminal``
+    already sums the final tier's measured cost plus the prior attempted tiers'
+    banked metered spend, counting the terminal attempt exactly once (its
+    escalation_history entry is NOT re-banked). So when the terminal carried a
+    non-zero ``cost_usd`` the projection trusts it verbatim (no re-add of
+    escalation_history, which would double-count the terminal tier). But when the
+    terminal carried ``cost_usd=0.0`` despite a metered serving tier with real
+    served tokens — the live defect (CID 21077717: FAILED, escalation_count=1,
+    metered ``cheap_cloud`` glm-5.2, served input=103/output=1777, but
+    ``cost_usd=0.0`` persisted while a savings number was quoted) — the projection
+    re-measures the served tokens through the SAME ``recompute_actual_cost_and_savings``
+    the completed/savings path uses, so ``cost_usd > 0`` whenever metered tokens
+    were served. The terminal cost is the source of truth; this re-measurement is
+    its honest floor, not a second estimate path. The saving stays 0 with no
+    counterfactual baseline, but the measured cost is honest — closing the
+    dual-path (tokens-carry, cost-does-not) inconsistency the ticket forbids.
+    """
+    if not event.cost_tier_name:
+        # Unknown serving tier (e.g. legacy zero-token golden-chain rows, or a
+        # remote-agent A2A terminal with no tier): the typed cost model cannot be
+        # resolved, so keep the event values + carried provenance verbatim.
+        return ModelActualCostProjection(
+            cost_usd=event.cost_usd,
+            cost_savings_usd=event.cost_savings_usd,
+            headroom_consumed_usd=event.budget_headroom_consumed_usd,
+            cost_tier_type=event.cost_tier_type,
+            cost_tier_name=event.cost_tier_name,
+            cost_measurement_source=event.cost_measurement_source,
+        )
+
+    measurement = recompute_actual_cost_and_savings(
+        tier_name=event.cost_tier_name,
+        prompt_tokens=event.tokens_input,
+        completion_tokens=event.tokens_output,
+        premium_counterfactual=event.premium_counterfactual,
+    )
+
+    if event.premium_counterfactual is None:
+        # FAILED / escalation terminal (OMN-13408). The terminal's ``cost_usd``
+        # is the authoritative total (final + prior, counted once). Trust it when
+        # it is already non-zero — re-adding escalation_history here would
+        # double-count the terminal tier (its own entry is in that history). Only
+        # when the terminal lost the cost (0.0) despite a metered serving tier
+        # with served tokens do we substitute the tier-priced floor so a row with
+        # real metered tokens can never persist ``cost_usd=0``.
+        floor_cost_usd = measurement.cash_cost_usd
+        total_cost_usd = event.cost_usd if event.cost_usd > 0.0 else floor_cost_usd
+        # No auditable counterfactual baseline on the failure path, so there is no
+        # honest saving to report — never quote ``counterfactual - 0``.
+        return ModelActualCostProjection(
+            cost_usd=total_cost_usd,
+            cost_savings_usd=0.0,
+            headroom_consumed_usd=measurement.headroom_consumed_usd,
+            cost_tier_type=measurement.cost_tier_type,
+            cost_tier_name=measurement.cost_tier_name,
+            cost_measurement_source=measurement.cost_measurement_source,
+        )
+
+    # COMPLETED / accepted path (OMN-13535): the recompute prices only the FINAL
+    # accepted tier. Earlier metered tiers that ran and were rejected before the
+    # final tier was accepted carry their per-tier spend in ``escalation_history``;
+    # add it so an accepted-on-free escalation that burned metered budget reports
+    # the real total cost (and honest saving = counterfactual - total), instead of
+    # zeroing to the free final tier.
+    prior_attempt_cost_usd = _sum_escalation_attempt_costs(event.escalation_history)
+    total_cost_usd = measurement.cash_cost_usd + prior_attempt_cost_usd
+    total_savings_usd = measurement.cost_savings_usd - prior_attempt_cost_usd
+    return ModelActualCostProjection(
+        cost_usd=total_cost_usd,
+        cost_savings_usd=total_savings_usd,
+        headroom_consumed_usd=measurement.headroom_consumed_usd,
+        cost_tier_type=measurement.cost_tier_type,
+        cost_tier_name=measurement.cost_tier_name,
+        cost_measurement_source=measurement.cost_measurement_source,
+    )
+
+
+def validate_actual_cost_provenance(row: dict[str, object]) -> None:
+    """Assert a delegation_events row's savings is backed by a measured actual cost.
+
+    OMN-13355 recompute validator. A row that claims a non-zero ``cost_savings_usd``
+    must prove its provenance:
+
+      1. ``cost_measurement_source`` is non-empty — it records HOW ``cost_usd`` was
+         measured (free_local | metered | budgeted_* | no_cost_model). An empty
+         source means the saving was computed against the hardcoded 0.0, the exact
+         bug this ticket closes.
+      2. If a ``premium_counterfactual`` is present, the saving reconciles:
+         ``cost_savings_usd == counterfactual_cost_usd - cost_usd`` (within a
+         Decimal tolerance). This is the audit invariant — a verifier recomputes
+         the saving from the persisted counterfactual and actual cost.
+
+    Raises ``ValueError`` on a provenance gap so the projection's own tests and
+    the OCC evidence path can assert the invariant. Side-effect free.
+    """
+    savings = _as_decimal(row.get("cost_savings_usd"))
+    cost = _as_decimal(row.get("cost_usd"))
+    source = str(row.get("cost_measurement_source") or "")
+    if savings != Decimal("0") and not source:
+        raise ValueError(
+            "delegation_events row claims a non-zero cost_savings_usd but carries "
+            "no cost_measurement_source — savings was computed without an "
+            "actual-cost measurement (OMN-13355 provenance gap)"
+        )
+    counterfactual = row.get("premium_counterfactual")
+    if isinstance(counterfactual, dict):
+        cf_cost = _as_decimal(counterfactual.get("counterfactual_cost_usd"))
+        if abs((cf_cost - cost) - savings) > Decimal("0.000001"):
+            raise ValueError(
+                "delegation_events row savings does not reconcile: "
+                f"counterfactual_cost_usd({cf_cost}) - cost_usd({cost}) != "
+                f"cost_savings_usd({savings}) (OMN-13355 audit invariant)"
+            )
+
+
+def _as_decimal(value: object) -> Decimal:
+    if value is None:
+        return Decimal("0")
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, bool):
+        return Decimal(int(value))
+    if isinstance(value, int | float):
+        return Decimal(str(value))
+    if isinstance(value, str):
+        try:
+            return Decimal(value)
+        except (ValueError, ArithmeticError):
+            return Decimal("0")
+    return Decimal("0")
+
+
+def _gate_count(value: list[str] | None) -> int:
+    return len(value or [])
+
+
+def _preserve_existing_evidence(
+    db: DatabaseAdapter,
+    row: dict[str, object],
+) -> None:
+    """Keep terminal evidence when a sparse compatibility event arrives later."""
+    correlation_id = row.get(CONFLICT_KEY)
+    if not correlation_id:
+        return
+    existing_rows = db.query(TABLE, {CONFLICT_KEY: correlation_id})
+    if not existing_rows:
+        return
+    existing = existing_rows[0]
+    # OMN-20303: a later terminal that states no counterfactual, session or
+    # actor keeps the run's stored ones, so a kept saving keeps its baseline.
+    row.update(
+        HandlerDelegationRunAttributionFold()
+        .handle(ModelDelegationRunAttributionFoldRequest(stored=existing, incoming=row))
+        .row_columns()
+    )
+    for key in ("prompt_text", "response_text", "context_pack_hash"):
+        if _is_blank(row.get(key)) and not _is_blank(existing.get(key)):
+            row[key] = existing[key]
+    # OMN-13596: a confirmed PASS row's response_text must never be overwritten
+    # by a later FAILED/timeout terminal's error string. When the existing row
+    # has quality_gate_passed=True and the incoming row has quality_gate_passed=False,
+    # preserve the existing response_text (which carries the real model answer)
+    # regardless of whether the incoming row's response_text is blank.
+    if bool(existing.get("quality_gate_passed")) and not bool(
+        row.get("quality_gate_passed")
+    ):
+        existing_response = existing.get("response_text")
+        if not _is_blank(existing_response):
+            row["response_text"] = existing_response
+    for key in (
+        "tokens_input",
+        "tokens_output",
+        "tokens_to_compliance",
+        "cost_usd",
+        "cost_savings_usd",
+        "delegation_latency_ms",
+        "pricing_manifest_version",
+        "required_bar",
+        "actual_score",
+        "escalation_count",
+    ):
+        if _is_zero(row.get(key)) and not _is_zero(existing.get(key)):
+            row[key] = existing[key]
+    for key in ("authority_source", "score_source"):
+        if _is_blank(row.get(key)) and not _is_blank(existing.get(key)):
+            row[key] = existing[key]
+    if bool(existing.get("request_override_applied")):
+        row["request_override_applied"] = True
+    if existing.get("override_within_bounds") is False:
+        row["override_within_bounds"] = False
+    if (
+        _as_int(row.get("compliance_attempts")) <= 1
+        and _as_int(existing.get("compliance_attempts")) > 1
+    ):
+        row["compliance_attempts"] = existing["compliance_attempts"]
+    _preserve_terminal_failure(existing, row)
+
+
+def _stamp_declared_failure_cause(
+    row: dict[str, object],
+    cause: EnumDelegationTerminalFailureCause | None,
+) -> None:
+    """Copy a canonical terminal's own failure cause onto its row (OMN-19448).
+
+    Named only when the terminal declares one. A terminal without a cause
+    leaves the key unnamed, so a cause an earlier terminal recorded for the
+    same correlation is not overwritten with NULL (the sticky rule in
+    ``_preserve_terminal_failure`` covers the named-as-blank case too).
+    """
+    if cause is not None:
+        row["terminal_failure_cause"] = cause.value
+
+
+def _preserve_terminal_failure(
+    existing: dict[str, object],
+    row: dict[str, object],
+) -> None:
+    """Make a typed terminal failure sticky across later terminals (OMN-15503).
+
+    Exactly one durable terminal exists per accepted command (the
+    correlation_id UPSERT key), so a command that emits several terminal
+    events resolves by last-write-wins. That is the defect: in the
+    2026-07-29 forced-429 capture the LAST terminal on the wire was an outer
+    ``delegate-skill-completed`` claiming success, and it overwrote the two
+    honest quota-refusal terminals that preceded it.
+
+    A typed failure cause is therefore monotone: once recorded for a
+    correlation it is not erased by a later terminal that carries no cause of
+    its own, and the attempt ladder that proved it is retained. A later
+    terminal carrying its OWN typed cause still wins — this preserves
+    evidence, it does not freeze the row.
+
+    OMN-19559: an evidenced success wins over an unevidenced handler-local
+    failure in either delivery order. A failed terminal also reconciles a
+    completed outcome and a usable/correct verdict with its typed cause.
+    """
+    if supersedes_handler_failure(existing, row):
+        row["terminal_failure_cause"] = None
+        row["terminal_ok"] = True
+        row["operational_outcome"] = "completed"
+        row["content_verdict"] = (
+            "correct" if existing.get("content_verdict") == "correct" else "usable"
+        )
+        return
+    existing_cause = existing.get("terminal_failure_cause")
+    if not _is_blank(existing_cause) and _is_blank(row.get("terminal_failure_cause")):
+        row["terminal_failure_cause"] = existing_cause
+        row["terminal_ok"] = False
+        row["quality_gate_passed"] = False
+        incoming_history = row.get("attempt_history")
+        existing_history = existing.get("attempt_history")
+        if isinstance(existing_history, list) and len(existing_history) > len(
+            incoming_history if isinstance(incoming_history, list) else []
+        ):
+            row["attempt_history"] = existing_history
+    apply_terminal_precedence(existing, row)
+
+
+def _is_blank(value: object) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _is_zero(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int | float | Decimal):
+        return value == 0
+    if isinstance(value, str):
+        try:
+            return float(value) == 0.0
+        except ValueError:
+            return False
+    return False
+
+
+def _as_int(value: object) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int | float | Decimal):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0

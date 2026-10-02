@@ -22,7 +22,7 @@ use crate::{
 
 use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
 
-impl Validate for tombi_document_tree_syntax::String {
+impl Validate for tombi_document_tree_syntax::String<'_> {
     fn validate<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [tombi_schema_store::Accessor],
@@ -33,7 +33,7 @@ impl Validate for tombi_document_tree_syntax::String {
     }
 }
 
-impl Validate for tombi_document_tree_syntax::Key {
+impl Validate for tombi_document_tree_syntax::Key<'_> {
     fn validate<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [tombi_schema_store::Accessor],
@@ -304,7 +304,7 @@ where
     let mut diagnostics = vec![];
     crate::Diagnostic {
         kind: Box::new(crate::DiagnosticKind::KeyEmpty),
-        range: ValueImpl::range(string_value),
+        span: ValueImpl::span(string_value),
     }
     .push_diagnostic_with_level(level, &mut diagnostics);
 
@@ -333,7 +333,7 @@ where
     let result = validate_raw_string(
         string_value.value(),
         &string_value.to_string(),
-        ValueImpl::range(string_value),
+        ValueImpl::span(string_value),
         string_schema,
         format_assertion,
         lint_rules,
@@ -393,7 +393,7 @@ where
 pub(crate) fn validate_raw_string<'a>(
     value: &str,
     display_value: &str,
-    range: tombi_text::Range,
+    span: tombi_text::Span,
     string_schema: &tombi_schema_store::StringSchema,
     format_assertion: bool,
     lint_rules: Option<&StringCommonLintRules>,
@@ -426,7 +426,7 @@ pub(crate) fn validate_raw_string<'a>(
                     expected: format!("\"{const_value}\""),
                     actual: display_value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -458,7 +458,7 @@ pub(crate) fn validate_raw_string<'a>(
                     expected: r#enum.iter().map(|s| format!("\"{s}\"")).collect(),
                     actual: display_value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -496,7 +496,7 @@ pub(crate) fn validate_raw_string<'a>(
                 maximum: *max_length,
                 actual: length,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -530,7 +530,7 @@ pub(crate) fn validate_raw_string<'a>(
                 minimum: *min_length,
                 actual: length,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -581,7 +581,7 @@ pub(crate) fn validate_raw_string<'a>(
                 format,
                 actual: display_value.to_string(),
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -618,7 +618,7 @@ pub(crate) fn validate_raw_string<'a>(
                 pattern: pattern.clone(),
                 actual: display_value.to_string(),
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -664,7 +664,7 @@ fn validate_string_as_date_format(
         return handle_type_mismatch(
             expected_value_type,
             string_value.value_type(),
-            ValueImpl::range(string_value),
+            ValueImpl::span(string_value),
             lint_rules.map(|rules| &rules.common),
         );
     }
@@ -688,7 +688,7 @@ fn validate_string_as_date_format(
                 format: string_format,
                 actual: string_value.to_string(),
             }),
-            range: ValueImpl::range(string_value),
+            span: ValueImpl::span(string_value),
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
 

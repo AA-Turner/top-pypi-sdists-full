@@ -1,0 +1,639 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Durable job state with structured recovery."""
+
+from __future__ import annotations
+
+import os
+import tempfile
+import time
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, model_validator
+
+from deploy_agent.events import (
+    DEPLOY_PHASE_ORDER,
+    ModelLineageDecision,
+    ModelOnexApiDelivery,
+    ModelVerifyRecreate,
+    Phase,
+    PhaseStatus,
+)
+
+
+class EnumJobSettlingStage(StrEnum):
+    """Work this job is still doing AFTER its verdict was written (OMN-18636 AC5).
+
+    The deploy phases settle the compose lane's verdict, and then the agent keeps
+    working on the same job: the k3s lab-overlay apply (OMN-18200), the onex-api
+    pin delivery (OMN-18572), the cloud-migrate repair build on the failing path
+    (OMN-18545) and the terminal bus publish all run after
+    ``JobStore.complete``.
+
+    That ordering is deliberate and is NOT what this enum changes. The compose
+    lane converged on its own merits, and a lab-overlay failure must not report a
+    lane that IS running the merged sha as broken -- so the lab verdict travels
+    in its own receipt rather than folding into this job's status. What was
+    missing is that a reader could not TELL. Job ``79d743db`` was logged
+    "completed successfully" at 2026-09-17T19:56:03.781Z and the same thread ran
+    four ``k3s ctr images import`` invocations until 19:59:35Z, delivered the pin
+    at 19:59:35.719Z, published at 19:59:36Z and rejoined an evicted consumer
+    group at 19:59:41Z. For 3m38s the record read ``success`` while the agent was
+    still executing that job's work, and the diagnosis had to write the sentence
+    this enum exists to make false: "no job is in progress" per the job store is
+    not "the agent is idle".
+
+    Naming the stage rather than carrying a bare boolean costs nothing and tells
+    a reader WHICH host mutation is in flight, which is the next question after
+    "is it still working".
+    """
+
+    LAB_OVERLAY = "lab_overlay"
+    ONEX_API_PIN = "onex_api_pin"
+    REPAIR_BUILD = "repair_build"
+    PUBLISH = "publish"
+
+
+class JobState(BaseModel):
+    correlation_id: UUID
+    command: dict[str, Any]
+    accepted_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    current_phase: Phase = Phase.PREFLIGHT
+    phase_results: dict[Phase, PhaseStatus] = Field(default_factory=dict)
+    #: OMN-18143 adds ``superseded``, a FOURTH terminal status that is neither a
+    #: success nor a failure.
+    #:
+    #: Folding it into ``failed`` was the obvious cheap move and is refused:
+    #: every reader of this field would then report a lane failure for a
+    #: command the lane was never asked to run, and AC6 asks for exactly the
+    #: opposite -- a terminal record distinguishable from a timeout and from a
+    #: rollback. Three readers already branch on this literal and each had to
+    #: be told which side of the line the new value falls on:
+    #: ``has_active_job``/``load_active`` (terminal, so it never blocks the
+    #: next command), ``queue_depth.NON_TERMINAL_STATUSES`` (terminal, so a
+    #: superseded record is not counted as queued work) and
+    #: ``queue_depth.mean_service_time`` (EXCLUDED, because a job that took
+    #: milliseconds to refuse did not occupy the agent and averaging it in
+    #: would shrink the very bound OMN-18144 derives from it).
+    status: Literal["accepted", "in_progress", "success", "failed", "superseded"] = (
+        "accepted"
+    )
+    errors: list[str] = Field(default_factory=list)
+    result_publish_pending: bool = False
+    completed_at: datetime | None = None
+    #: OMN-18636 AC5. Post-terminal work still executing for this job, or
+    #: ``None`` when there is none.
+    #:
+    #: Defaults to ``None`` so a record written by a previous version of this
+    #: agent -- the state directory survives a restart -- reads as "not
+    #: settling" rather than turning every job already on disk into a
+    #: permanently-settling one at the moment of upgrade.
+    settling_stage: EnumJobSettlingStage | None = None
+    #: OMN-18143. Set on a ``superseded`` record only: the exact commit that
+    #: ran in this command's place, and the correlation that ran it. Both, or
+    #: neither -- a supersession that cannot name what replaced it is not
+    #: distinguishable from a command that was dropped.
+    superseded_by_sha: str | None = None
+    superseded_by_correlation_id: UUID | None = None
+    #: OMN-18143. Set on the RUNNING record: how many queued commands this one
+    #: replaced, and which. The count is a field rather than a length a reader
+    #: derives, because it is the number a journal line and a job payload both
+    #: quote, and the ids are what make the claim checkable against the
+    #: records those correlations wrote.
+    superseded_count: int = 0
+    superseded_correlation_ids: list[UUID] = Field(default_factory=list)
+    #: OMN-18572. What the onex-api pin delivery did on this job's tail.
+    #:
+    #: Durable on the job record as well as on the terminal event, because the
+    #: two answer different questions: the event is read by a bus consumer at
+    #: the moment it lands, and this is what an operator reads on the host
+    #: afterwards when asking why the lane runs the image it runs. Defaults to
+    #: ``None`` so a record written by an older agent -- the state directory
+    #: survives a restart -- loads as "no delivery recorded" rather than
+    #: failing validation.
+    onex_api_delivery: ModelOnexApiDelivery | None = None
+    #: OMN-19270. Set on a ``superseded`` record whose replacement is the build
+    #: the lane already runs rather than a queued command. Such a record names
+    #: the running infra sha in ``superseded_by_sha`` and no correlation id,
+    #: because the running build need not have come from a command this agent
+    #: recorded.
+    superseded_by_running_build: bool = False
+    #: OMN-19270. The lineage fence's decision for this command: the ref it
+    #: asked for, what a symbolic ref resolved to at accept time, the running
+    #: build it was compared with, and the ref it built. ``None`` on a record
+    #: written without the fence, or by an older agent.
+    lineage: ModelLineageDecision | None = None
+    #: OMN-19374. The runtime containers post-deploy verification recreated
+    #: INSIDE this job, and how each recreate ended. Durable here as well as on
+    #: the terminal event because the post-merge lab guard reads this record
+    #: (``/job/{correlation_id}``), not the bus: a compose-dev receipt whose
+    #: container generation moved during the job can then name the job's own
+    #: recreate as the reason, instead of leaving a lane to re-derive from the
+    #: host journal whether it was that or a different command displacing the
+    #: lane (OMN-18990). Empty on a record written by an older agent.
+    verify_recreate: list[ModelVerifyRecreate] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _supersession_fields_are_paired(self) -> JobState:
+        """Neither half of a supersession may stand without the other.
+
+        A record with a status of ``superseded`` and no replacement named
+        asserts that the command was dropped, which is the silence this ticket
+        exists to remove; a replacement named on a record that is not
+        superseded asserts a fact about a job that ran.
+        """
+        named = self.superseded_by_sha is not None
+        if self.superseded_by_running_build:
+            if (
+                self.status != "superseded"
+                or not named
+                or self.superseded_by_correlation_id is not None
+            ):
+                msg = (
+                    "a record superseded by the running build is status "
+                    "superseded, names the running sha and no correlation id; got "
+                    f"status={self.status!r} sha={self.superseded_by_sha!r} "
+                    f"correlation_id={self.superseded_by_correlation_id!r}"
+                )
+                raise ValueError(msg)
+        elif named != (self.superseded_by_correlation_id is not None):
+            msg = (
+                "superseded_by_sha and superseded_by_correlation_id stand or "
+                f"fall together; got sha={self.superseded_by_sha!r}, "
+                f"correlation_id={self.superseded_by_correlation_id!r}"
+            )
+            raise ValueError(msg)
+        if (self.status == "superseded") != named:
+            msg = (
+                f"status={self.status!r} disagrees with the supersession "
+                f"fields (sha={self.superseded_by_sha!r}). A superseded record "
+                "must name what replaced it, and only a superseded record may."
+            )
+            raise ValueError(msg)
+        if self.superseded_count != len(self.superseded_correlation_ids):
+            msg = (
+                f"superseded_count={self.superseded_count} does not match the "
+                f"{len(self.superseded_correlation_ids)} correlation id(s) "
+                "recorded. A count a reader cannot check against the ids "
+                "behind it is a number, not evidence."
+            )
+            raise ValueError(msg)
+        return self
+
+
+def reconcile_terminal_phase_results(
+    phase_results: dict[Phase, PhaseStatus],
+) -> dict[Phase, PhaseStatus]:
+    """Settle every deploy phase verdict at the moment a job goes terminal.
+
+    OMN-18057. Command 23edaf62 raised out of ``Phase.RUNTIME`` and its job
+    record -- and therefore its terminal event -- kept ``runtime: in_progress``
+    beside a ``completed_at`` and a duration, with ``seed``/``verification``
+    simply absent. The event asserted the deploy was over while refusing to say
+    how it ended, and an absent phase is indistinguishable from a phase whose
+    result was lost.
+
+    Two rules, applied to the deploy phases only (``Phase.PUBLISH`` is the act
+    of emitting the event and is settled by the caller afterwards):
+
+    * a phase still marked IN_PROGRESS or PENDING when the job goes terminal
+      FAILED -- it is the phase that raised;
+    * a phase never reached is SKIPPED -- explicitly, so "not run" is a fact on
+      the record rather than a gap in it.
+    """
+    settled = dict(phase_results)
+    for phase in DEPLOY_PHASE_ORDER:
+        current = settled.get(phase)
+        if current is None:
+            settled[phase] = PhaseStatus.SKIPPED
+        elif current in (PhaseStatus.IN_PROGRESS, PhaseStatus.PENDING):
+            settled[phase] = PhaseStatus.FAILED
+    return settled
+
+
+def describe_interruption(job: JobState) -> str:
+    """Name the phase a crashed job was RUNNING, not the last one it started.
+
+    OMN-18636 (from the ``deploy-agent-http-hang-diag-2105`` diagnosis, TERMINAL
+    2026-09-17T22:10:00Z). ``recover_crashed_jobs`` read ``job.current_phase``,
+    and that field does not mean what the error string claimed it did.
+
+    ``update_phase`` writes ``current_phase`` on EVERY update, including the
+    ``SUCCESS`` one at the end of a phase. So between two phases — after
+    ``git`` succeeds and before ``compose_gen`` starts — ``current_phase`` still
+    reads ``git``, and a process killed in that gap recorded "interrupted during
+    phase git" about a phase that had COMPLETED. That sends the reader at the
+    wrong step: the evidence says the git pull was the thing that died, when in
+    fact nothing was running and the next phase had not begun.
+
+    ``phase_results`` already carries the fact the string needs, because exactly
+    one phase is ``IN_PROGRESS`` at a time and none is between phases. Three
+    distinct answers, kept distinct because they take three different next
+    steps:
+
+    * a phase IS in progress — that phase was running, and it is where to look;
+    * no phase is in progress but some have succeeded — the job died in the gap
+      BETWEEN phases, and the last completed one bounds how far it got;
+    * nothing has succeeded either — the job was accepted and died before its
+      first phase started, which points at startup rather than at any phase.
+
+    Call this BEFORE ``reconcile_terminal_phase_results``, which settles every
+    ``IN_PROGRESS`` phase to ``FAILED`` and so erases the distinction this reads.
+    """
+    running = [
+        phase
+        for phase in DEPLOY_PHASE_ORDER
+        if job.phase_results.get(phase) == PhaseStatus.IN_PROGRESS
+    ]
+    if running:
+        return f"interrupted during phase {running[-1]}"
+    completed = [
+        phase
+        for phase in DEPLOY_PHASE_ORDER
+        if job.phase_results.get(phase) == PhaseStatus.SUCCESS
+    ]
+    if completed:
+        return (
+            "interrupted between phases; no phase was running, and the last "
+            f"completed phase was {completed[-1]}"
+        )
+    return "interrupted before any phase started"
+
+
+class JobStore:
+    def __init__(
+        self,
+        state_dir: Path,
+        max_completed_age_days: int = 7,
+        max_failed_age_days: int = 30,
+    ):
+        self.state_dir = Path(state_dir)
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.max_completed_age_days = max_completed_age_days
+        self.max_failed_age_days = max_failed_age_days
+
+    def _job_path(self, correlation_id: UUID) -> Path:
+        return self.state_dir / f"{correlation_id}.json"
+
+    def _atomic_write(self, path: Path, data: str) -> None:
+        fd, tmp = tempfile.mkstemp(dir=self.state_dir, suffix=".tmp")
+        try:
+            os.write(fd, data.encode())
+            os.close(fd)
+            Path(tmp).replace(path)
+        except Exception:
+            os.close(fd) if not os.get_inheritable(fd) else None
+            tmp_path = Path(tmp)
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
+
+    def _save(self, job: JobState) -> None:
+        self._atomic_write(
+            self._job_path(job.correlation_id),
+            job.model_dump_json(indent=2),
+        )
+
+    def accept(
+        self,
+        correlation_id: UUID,
+        command: dict[str, Any],
+        superseded_correlation_ids: list[UUID] | None = None,
+        lineage: ModelLineageDecision | None = None,
+    ) -> JobState:
+        """Write the accepted record, naming any commands it replaced.
+
+        ``superseded_correlation_ids`` is part of THIS write rather than a
+        second one after it, for the reason ``complete`` gives about
+        ``settling_stage``: a window in which the running record does not yet
+        say what it replaced is a window in which a reader sees a plain deploy
+        and the superseded records point at a job that disclaims them.
+        """
+        ids = list(superseded_correlation_ids or [])
+        job = JobState(
+            correlation_id=correlation_id,
+            command=command,
+            superseded_count=len(ids),
+            superseded_correlation_ids=ids,
+            lineage=lineage,
+        )
+        self._save(job)
+        return job
+
+    def record_superseded_by_running_build(
+        self,
+        correlation_id: UUID,
+        command: dict[str, Any],
+        *,
+        lineage: ModelLineageDecision,
+    ) -> JobState:
+        """Write the terminal record of a command the running build already carries.
+
+        OMN-19270. Born terminal in one atomic write, for the reason
+        ``record_superseded`` gives. The event owed for it is published by the
+        consumer's rejection hook at once, and ``result_publish_pending`` keeps
+        the agent's retry loop paying that debt if the broker was away.
+        """
+        if lineage.running_ref is None:
+            msg = "a supersession by the running build must name the running ref"
+            raise ValueError(msg)
+        now = datetime.now(UTC)
+        job = JobState(
+            correlation_id=correlation_id,
+            command=command,
+            accepted_at=now,
+            completed_at=now,
+            status="superseded",
+            superseded_by_sha=lineage.running_ref,
+            superseded_by_running_build=True,
+            phase_results=reconcile_terminal_phase_results({}),
+            result_publish_pending=True,
+            lineage=lineage,
+            errors=[
+                f"superseded by the running build at {lineage.running_ref}: "
+                f"{lineage.detail}"
+            ],
+        )
+        self._save(job)
+        return job
+
+    def record_superseded(
+        self,
+        correlation_id: UUID,
+        command: dict[str, Any],
+        *,
+        superseded_by_sha: str,
+        superseded_by_correlation_id: UUID,
+    ) -> JobState:
+        """Write a command's terminal record without ever running it (OMN-18143).
+
+        Born terminal, in one atomic write. There is deliberately no
+        accept-then-complete pair: a crash between the two would leave an
+        ``accepted`` record for a command nothing is going to execute, and
+        ``has_active_job`` would then refuse every command behind it until
+        ``recover_crashed_jobs`` reclassified it as a FAILURE -- turning a
+        supersession into exactly the lane-failure claim this status exists to
+        avoid making.
+
+        ``result_publish_pending`` is set: the terminal event owed to the bus
+        for this command is the one AC6 asks for, and the agent's existing
+        retry loop is what makes it survive a broker that is briefly away.
+        """
+        now = datetime.now(UTC)
+        job = JobState(
+            correlation_id=correlation_id,
+            command=command,
+            accepted_at=now,
+            completed_at=now,
+            status="superseded",
+            superseded_by_sha=superseded_by_sha,
+            superseded_by_correlation_id=superseded_by_correlation_id,
+            # Every deploy phase is SKIPPED rather than absent, the same rule
+            # reconcile_terminal_phase_results applies to a crashed job: "not
+            # run" is a fact on the record, not a gap in it.
+            phase_results=reconcile_terminal_phase_results({}),
+            result_publish_pending=True,
+            errors=[
+                f"superseded by {superseded_by_correlation_id} at "
+                f"{superseded_by_sha}, which contains this command's ref and "
+                "was already queued when the agent reached this one"
+            ],
+        )
+        self._save(job)
+        return job
+
+    def is_duplicate(self, correlation_id: UUID) -> bool:
+        return self._job_path(correlation_id).exists()
+
+    def has_active_job(self) -> bool:
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+                if job.status in ("accepted", "in_progress"):
+                    return True
+            except Exception:  # noqa: BLE001
+                continue
+        return False
+
+    def last_completed_at(self) -> datetime | None:
+        """When the most recent job ended, or ``None`` when none has (OMN-19509)."""
+        latest: datetime | None = None
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+            except Exception:  # noqa: BLE001
+                continue
+            if job.completed_at is not None and (
+                latest is None or job.completed_at > latest
+            ):
+                latest = job.completed_at
+        return latest
+
+    def load(self, correlation_id: UUID) -> JobState | None:
+        path = self._job_path(correlation_id)
+        if not path.exists():
+            return None
+        return JobState.model_validate_json(path.read_text())
+
+    def load_active(self) -> JobState | None:
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+                if job.status in ("accepted", "in_progress"):
+                    return job
+            except Exception:  # noqa: BLE001
+                continue
+        return None
+
+    def job_covering(self, moment: datetime) -> JobState | None:
+        """The one job that was running at ``moment``, or ``None``.
+
+        OMN-19270. The lineage fence passes the running image's ``build_time``
+        here, to find the job that produced that image: the one whose
+        accept-to-complete window contains the moment the image was built.
+        Jobs run one at a time, so a match is unique. Zero matches (an image
+        built outside this agent) or several (a record this scan cannot trust)
+        are ``None``, and the fence then treats the running build's origin as
+        unknown. A superseded record never ran, so it never matches.
+        """
+        matches: list[JobState] = []
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+            except Exception:  # noqa: BLE001
+                continue
+            if job.status == "superseded" or job.accepted_at > moment:
+                continue
+            if job.completed_at is not None and job.completed_at < moment:
+                continue
+            matches.append(job)
+        return matches[0] if len(matches) == 1 else None
+
+    def update_phase(
+        self, correlation_id: UUID, phase: Phase, phase_status: PhaseStatus
+    ) -> JobState:
+        job = self.load(correlation_id)
+        if job is None:
+            raise ValueError(f"Job {correlation_id} not found")
+        job.current_phase = phase
+        job.phase_results[phase] = phase_status
+        if phase_status == PhaseStatus.IN_PROGRESS:
+            job.status = "in_progress"
+        self._save(job)
+        return job
+
+    def complete(
+        self,
+        correlation_id: UUID,
+        status: Literal["success", "failed"],
+        errors: list[str] | None = None,
+        settling_stage: EnumJobSettlingStage | None = None,
+        verify_recreate: list[ModelVerifyRecreate] | None = None,
+    ) -> JobState:
+        """Write the job's terminal verdict, and what it is still doing.
+
+        ``settling_stage`` is part of THIS write, not a second one after it
+        (OMN-18636 AC5). A ``complete`` followed by a separate ``set_settling``
+        would leave a window -- however short -- in which the record reads
+        exactly as it did on 2026-09-17: terminal, with nothing saying that the
+        agent is still executing that job's post-terminal work. A window is what
+        the 19:56:03Z reader fell into, so there is not one.
+
+        ``verify_recreate`` rides the same write for the same reason
+        (OMN-19374): a reader that sees the terminal status must also see
+        whether the job recreated a runtime container on its way there.
+        """
+        job = self.load(correlation_id)
+        if job is None:
+            raise ValueError(f"Job {correlation_id} not found")
+        job.status = status
+        job.completed_at = datetime.now(UTC)
+        job.phase_results = reconcile_terminal_phase_results(job.phase_results)
+        job.settling_stage = settling_stage
+        if verify_recreate:
+            job.verify_recreate = list(verify_recreate)
+        if errors:
+            job.errors.extend(errors)
+        self._save(job)
+        return job
+
+    def set_settling(
+        self, correlation_id: UUID, stage: EnumJobSettlingStage
+    ) -> JobState | None:
+        """Name the post-terminal phase now executing for this job.
+
+        Returns ``None`` for an unknown job rather than raising: every caller is
+        on the post-terminal path, where the job's verdict is already durable and
+        already published or owed to the bus, and an exception raised here would
+        skip the terminal publish that follows. Losing the settling field is a
+        degraded record; losing the publish is a lost result.
+        """
+        job = self.load(correlation_id)
+        if job is None:
+            return None
+        job.settling_stage = stage
+        self._save(job)
+        return job
+
+    def record_onex_api_delivery(
+        self, correlation_id: UUID, delivery: ModelOnexApiDelivery
+    ) -> JobState | None:
+        """Persist the onex-api pin delivery verdict on the job record.
+
+        Returns ``None`` for an unknown job rather than raising, for the same
+        reason ``set_settling`` does: every caller is on the post-terminal path
+        where an exception would cost the terminal publish, and a degraded
+        record is cheaper than a lost result.
+        """
+        job = self.load(correlation_id)
+        if job is None:
+            return None
+        job.onex_api_delivery = delivery
+        self._save(job)
+        return job
+
+    def clear_settling(self, correlation_id: UUID) -> JobState | None:
+        """Declare the job fully settled: nothing further runs for it.
+
+        A field that is only ever set turns every finished job into a
+        permanently-settling one, which distinguishes nothing.
+        """
+        job = self.load(correlation_id)
+        if job is None:
+            return None
+        job.settling_stage = None
+        self._save(job)
+        return job
+
+    def recover_crashed_jobs(self) -> list[JobState]:
+        recovered = []
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+            except Exception:  # noqa: BLE001
+                continue
+            if job.status in ("accepted", "in_progress"):
+                # OMN-18636: read the interruption BEFORE reconciling. The
+                # reconciliation settles every IN_PROGRESS phase to FAILED,
+                # which is exactly the fact that distinguishes "this phase was
+                # running" from "the job died between phases".
+                interruption = describe_interruption(job)
+                # Settle every deploy phase, not only the current one: a phase
+                # the crashed process never reached is SKIPPED on the record
+                # rather than absent from it (OMN-18057).
+                job.phase_results = reconcile_terminal_phase_results(job.phase_results)
+                job.status = "failed"
+                job.completed_at = datetime.now(UTC)
+                # OMN-18636 AC5: the process that was executing this job's
+                # post-terminal work no longer exists. A settling stage left on
+                # a recovered record asserts that a host mutation is in flight
+                # in a dead process, which is a worse claim than none.
+                job.settling_stage = None
+                job.errors.append(interruption)
+                job.result_publish_pending = True
+                self._save(job)
+                recovered.append(job)
+        return recovered
+
+    def get_pending_publish(self) -> list[JobState]:
+        pending = []
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+                if job.result_publish_pending:
+                    pending.append(job)
+            except Exception:  # noqa: BLE001
+                continue
+        return pending
+
+    def mark_published(self, correlation_id: UUID) -> None:
+        job = self.load(correlation_id)
+        if job is None:
+            return
+        job.result_publish_pending = False
+        self._save(job)
+
+    def prune_completed(self) -> int:
+        pruned = 0
+        now = time.time()
+        for path in self.state_dir.glob("*.json"):
+            try:
+                job = JobState.model_validate_json(path.read_text())
+            except Exception:  # noqa: BLE001
+                continue
+            if job.completed_at is None:
+                continue
+            age_days = (now - job.completed_at.timestamp()) / 86400
+            max_age = (
+                self.max_failed_age_days
+                if job.status == "failed"
+                else self.max_completed_age_days
+            )
+            if age_days >= max_age:
+                path.unlink()
+                pruned += 1
+        return pruned

@@ -1,0 +1,914 @@
+"""XSLT 1.0 transformation via the engine's compiled stylesheets."""
+
+import sys
+
+import pytest
+
+from leptris import Document, XSLT, tostring, fromstring
+from leptris.error import LeptrisError
+
+IDENTITY = """<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:template match="@* | node()">
+    <xsl:copy><xsl:apply-templates select="@* | node()"/></xsl:copy>
+  </xsl:template>
+</xsl:stylesheet>"""
+
+SELECT = """<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:template match="/">
+    <out><xsl:for-each select="//book[@price > 50]">
+      <title><xsl:value-of select="title"/></title>
+    </xsl:for-each></out>
+  </xsl:template>
+</xsl:stylesheet>"""
+
+
+class TestXSLT:
+    def test_identity_transform(self):
+        # the serializer normalizes attribute quotes to double
+        # quotes; compare trees, not bytes
+        transform = XSLT(IDENTITY)
+        with Document.parse(
+            "<catalog><book id='1'>A</book></catalog>"
+        ) as source:
+            result = transform(source)
+            root = result.getroot()
+            assert root.tag == "catalog"
+            assert root[0].tag == "book" and root[0].get("id") == "1"
+            assert root[0].text == "A"
+            result.close()
+
+    def test_selection_produces_result_tree(self):
+        transform = XSLT(SELECT)
+        with Document.parse(
+            "<catalog>"
+            "<book price='10'><title>Cheap</title></book>"
+            "<book price='90'><title>Pricey</title></book>"
+            "</catalog>"
+        ) as source:
+            result = transform(source)
+            root = result.getroot()
+            assert root.tag == "out"
+            assert [t.text for t in root] == ["Pricey"]
+            result.close()
+
+    def test_reusable_across_documents(self):
+        transform = XSLT(IDENTITY)
+        for xml in (b"<a/>", b"<b><c/></b>"):
+            with Document.parse(xml) as source:
+                result = transform(source)
+                assert result.getroot().tag == xml.decode()[1]
+                result.close()
+
+    def test_element_argument_uses_its_document(self):
+        transform = XSLT(IDENTITY)
+        root = fromstring("<r><x/></r>")
+        result = transform(root)
+        got = result.getroot()
+        assert got.tag == "r" and got[0].tag == "x"
+        result.close()
+
+    def test_bad_stylesheet_raises(self):
+        with pytest.raises(Exception):
+            XSLT("<not-a-stylesheet/>")
+
+    def test_exslt_math_function(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+          xmlns:math="http://exslt.org/math" exclude-result-prefixes="math">
+          <xsl:template match="/">
+            <out><xsl:value-of select="math:max(/r/v)"/></out>
+          </xsl:template>
+        </xsl:stylesheet>"""
+        transform = XSLT(style)
+        with Document.parse("<r><v>3</v><v>9</v><v>4</v></r>") as source:
+            result = transform(source)
+            assert result.getroot().text == "9"
+            result.close()
+
+
+class TestUpstreamV199Conformance:
+    def test_xsl_copy_excludes_attributes(self):
+        # libleptris 1.9.12 (bug-32-): xsl:copy copies the element
+        # and namespaces but NOT attributes — they flow only through
+        # apply-templates/@* (XSLT 7.5).
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><out>
+            <xsl:for-each select="/r/e"><xsl:copy/></xsl:for-each>
+          </out></xsl:template>
+        </xsl:stylesheet>"""
+        transform = XSLT(style)
+        with Document.parse("<r><e a='1'>t</e></r>") as source:
+            result = transform(source)
+            copied = result.getroot()[0]
+            assert copied.tag == "e" and copied.get("a") is None
+            result.close()
+
+    def test_apply_templates_text_rule(self):
+        # libleptris 1.9.12 (bug-161): apply-templates over a
+        # selected text item applies the built-in TEXT rule.
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><out>
+            <xsl:apply-templates select="/r/t/text()"/>
+          </out></xsl:template>
+        </xsl:stylesheet>"""
+        transform = XSLT(style)
+        with Document.parse("<r><t>kept</t></r>") as source:
+            result = transform(source)
+            assert result.getroot().text.strip() == "kept"
+            result.close()
+
+
+class TestGoldenTransforms:
+    """Golden outputs for representative XSLT constructs — chosen from
+    a differential audit against lxml (11/12 constructs identical;
+    the 12th, unknown-function handling, is leptris/leptris#625)."""
+
+    def test_for_each_sort_descending(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:for-each select="//book">
+            <xsl:sort select="@price" data-type="number" order="descending"/>
+            <b><xsl:value-of select="t"/></b>
+          </xsl:for-each></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse(
+            "<r><book price='10'><t>A</t></book>"
+            "<book price='90'><t>B</t></book>"
+            "<book price='50'><t>C</t></book></r>"
+        ) as src:
+            r = XSLT(style)(src)
+            assert [b.text for b in r.getroot()] == ["B", "C", "A"]
+            r.close()
+
+    def test_choose_when_otherwise(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:for-each select="//b">
+            <xsl:choose><xsl:when test="@p > 50">H</xsl:when>
+            <xsl:otherwise>L</xsl:otherwise></xsl:choose>
+          </xsl:for-each></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><b p='10'/><b p='99'/><b p='50'/></r>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot().text == "LHL"
+            r.close()
+
+    def test_apply_templates_with_mode(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:apply-templates select="//i" mode="m"/></o></xsl:template>
+          <xsl:template match="i" mode="m"><t><xsl:value-of select="@id"/></t></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><i id='a'/><i id='b'/></r>") as src:
+            r = XSLT(style)(src)
+            assert [t.text for t in r.getroot()] == ["a", "b"]
+            r.close()
+
+    def test_copy_of_deep_copies(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:copy-of select="//e[2]"/></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><e a='1'>x<c/></e><e a='2'>y<d/></e></r>") as src:
+            r = XSLT(style)(src)
+            e = r.getroot()[0]
+            assert e.tag == "e" and e.get("a") == "2" and e[0].tag == "d"
+            r.close()
+
+    def test_position_and_last(self):
+        # Fixed in libleptris 1.9.15 (#628): last() carries the
+        # for-each context size.
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:for-each select="//b">
+            <p><xsl:value-of select="concat(position(), '/', last())"/></p>
+          </xsl:for-each></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><b/><b/><b/></r>") as src:
+            r = XSLT(style)(src)
+            assert [p.text for p in r.getroot()] == ["1/3", "2/3", "3/3"]
+            r.close()
+
+    def test_unknown_function_raises(self):
+        # Fixed in libleptris 1.9.15 (#627): unknown unprefixed
+        # functions in stylesheet expressions are rejected. NOTE:
+        # upper-case became a REAL XPath 2.0 function in 1.9.24 —
+        # the probe uses a name no spec defines.
+        with pytest.raises(Exception):
+            XSLT(
+                "<xsl:stylesheet version='1.0' "
+                "xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>"
+                "<xsl:template match='/'><o>"
+                "<xsl:value-of select=\"definitely-not-a-fn(1)\"/>"
+                "</o></xsl:template></xsl:stylesheet>"
+            )(fromstring("<r/>").document)
+
+    def test_xpath20_upper_case(self):
+        # libleptris 1.9.24: upper-case/lower-case are real XPath
+        # 2.0 functions (they previously triggered the unknown-fn
+        # rejection pinned above).
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:value-of select="upper-case(/r/t)"/></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><t>shout</t></r>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot().text == "SHOUT"
+            r.close()
+
+    def test_pretty_print_parity_with_lxml(self):
+        # libleptris 1.9.16 (#633): comments and PIs under non-mixed
+        # parents get their own indented line — byte-identical to
+        # libxml2's xmlIndentTreeOutput.
+        xml = b"<r><!-- c --><a/><!-- d --><b>t</b><!-- e --></r>"
+        with Document.parse(xml) as doc:
+            out = tostring(doc, pretty_print=True, encoding="unicode")
+        # libxml2 appends a trailing newline after the root close;
+        # the engine does not — the one byte-level difference
+        assert out == (
+            "<r>\n  <!-- c -->\n  <a/>\n  <!-- d -->\n  <b>t</b>\n  <!-- e -->\n</r>"
+        )
+
+    def test_call_template_with_param(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:call-template name="emit">
+            <xsl:with-param name="v" select="//b[1]/@id"/></xsl:call-template></o></xsl:template>
+          <xsl:template name="emit"><xsl:param name="v"/>
+            <e><xsl:value-of select="$v"/></e></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><b id='7'/></r>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot()[0].text == "7"
+            r.close()
+
+    def test_attribute_construction(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:for-each select="//b">
+            <b id="{@id}"><xsl:attribute name="dyn">
+              <xsl:value-of select="@p"/></xsl:attribute>t</b>
+          </xsl:for-each></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><b id='1' p='9'/></r>") as src:
+            r = XSLT(style)(src)
+            b = r.getroot()[0]
+            assert b.get("id") == "1" and b.get("dyn") == "9" and b.text == "t"
+            r.close()
+
+    def test_nested_for_each_with_predicates(self):
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><xsl:for-each select="//b[@c='x']">
+            <g><xsl:for-each select="../b[@c='y']"><k/></xsl:for-each></g>
+          </xsl:for-each></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><b c='x'/><b c='y'/><b c='y'/></r>") as src:
+            r = XSLT(style)(src)
+            g = r.getroot()[0]
+            assert len(r.getroot()) == 1 and len(g) == 2
+            r.close()
+
+
+class TestXSLT30:
+    """XSLT 3.0 / XPath 2.0+ features (libleptris 1.9.23-1.9.25) —
+    they flow through leptris.XSLT with no binding change."""
+
+    def test_if_then_else(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:value-of select="if (count(//i) > 1) then 'many' else 'few'"/>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><i>a</i><i>b</i></r>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot().text == "many"
+            r.close()
+        with Document.parse("<r><i>a</i></r>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot().text == "few"
+            r.close()
+
+    def test_iterate(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:iterate select="//i"><k><xsl:value-of select="."/></k></xsl:iterate>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><i>a</i><i>b</i></r>") as src:
+            r = XSLT(style)(src)
+            assert [k.text for k in r.getroot()] == ["a", "b"]
+            r.close()
+
+    def test_for_return_sequence(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:value-of select="string-join(for $i in (1 to 3) return concat('n', $i), ',')"/>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot().text == "n1,n2,n3"
+            r.close()
+
+
+class TestXSLT30Increment45:
+    """libleptris 1.9.26-1.9.27: xsl:try/catch scaffolding and
+    xsl:on-empty — pinned through the binding."""
+
+    def test_try_non_error_path(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:try><ok/><xsl:catch><c/></xsl:catch></xsl:try>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as src:
+            r = XSLT(style)(src)
+            assert [c.tag for c in r.getroot()] == ["ok"]
+            r.close()
+
+    def test_error_in_select_caught(self):
+        # Fixed in libleptris 1.9.30 (leptris/leptris#669): in the
+        # canonical form (catch as a child of try) error() inside a
+        # value-of select runs the catch; $err:description carries
+        # the message.
+        for select in ("error('boom')", "error(concat('b','oom'))"):
+            style = """<xsl:stylesheet version="3.0"
+              xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+              <xsl:template match="/"><o>
+                <xsl:try><xsl:value-of select="%s"/>
+                  <xsl:catch><caught><xsl:value-of select="$err:description"/></caught></xsl:catch>
+                </xsl:try>
+              </o></xsl:template>
+            </xsl:stylesheet>""" % select
+            with Document.parse("<r/>") as src:
+                r = XSLT(style)(src)
+                caught = r.getroot()[0]
+                assert caught.tag == "caught" and caught.text == "boom"
+                r.close()
+
+    def test_error_variable_argument_caught(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:variable name="msg" select="'va boom'"/>
+            <xsl:try><xsl:value-of select="error($msg)"/>
+              <xsl:catch><caught><xsl:value-of select="$err:description"/></caught></xsl:catch>
+            </xsl:try>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as src:
+            r = XSLT(style)(src)
+            caught = r.getroot()[0]
+            assert caught.tag == "caught" and caught.text == "va boom"
+            r.close()
+
+    def test_misplaced_catch_is_compile_error(self):
+        # leptris/leptris#669 follow-up (1.9.30): a catch anywhere
+        # but a child of xsl:try is a compile error — Saxon's
+        # XTSE0010. The old silently-skipped sibling form.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:try><ok/></xsl:try><xsl:catch><c/></xsl:catch>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        from leptris.error import LeptrisError
+
+        with pytest.raises(LeptrisError):
+            XSLT(style)
+
+    def test_on_empty_fallback(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o><e>
+            <xsl:on-empty>fallback</xsl:on-empty>
+          </e></o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as src:
+            r = XSLT(style)(src)
+            assert r.getroot()[0].text == "fallback"
+            r.close()
+
+
+class TestXSLT30Increment6:
+    """libleptris 1.9.28: xsl:accumulator (3.0 §18.2) — pinned
+    through the binding."""
+
+    def test_accumulator_depth(self):
+        # libleptris 1.9.28 (sixth increment, 18.2): xsl:accumulator
+        # before/after folds over the event stream; the mode's
+        # use-accumulators gate makes the accumulator applicable.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:mode use-accumulators="depth"/>
+          <xsl:accumulator name="depth" initial-value="0">
+            <xsl:accumulator-rule match="*" phase="start" select="$value + 1"/>
+            <xsl:accumulator-rule match="*" phase="end" select="$value - 1"/>
+          </xsl:accumulator>
+          <xsl:template match="/"><out>
+            <xsl:for-each select="//item"><i n="{@n}"
+              b="{accumulator-before('depth')}" a="{accumulator-after('depth')}"/>
+            </xsl:for-each>
+          </out></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><a><item n='1'/><item n='2'/></a><b><item n='3'/></b></r>") as src:
+            r = XSLT(style)(src)
+            assert [(i.get("n"), i.get("b"), i.get("a")) for i in r.getroot()] == [
+                ("1", "3", "2"), ("2", "3", "2"), ("3", "3", "2"),
+            ]
+            r.close()
+
+    def test_accumulator_running_sum(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:mode use-accumulators="total"/>
+          <xsl:accumulator name="total" initial-value="0">
+            <xsl:accumulator-rule match="item" select="$value + @n"/>
+          </xsl:accumulator>
+          <xsl:template match="/"><out>
+            <xsl:for-each select="//item"><t n="{@n}"
+              b="{accumulator-before('total')}" a="{accumulator-after('total')}"/>
+            </xsl:for-each>
+          </out></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><a><item n='1'/><item n='2'/></a><b><item n='3'/></b></r>") as src:
+            r = XSLT(style)(src)
+            assert [(t.get("n"), t.get("b"), t.get("a")) for t in r.getroot()] == [
+                ("1", "1", "1"), ("2", "3", "3"), ("3", "6", "6"),
+            ]
+            r.close()
+
+    def test_accumulator_requires_mode_gate(self):
+        # Without xsl:mode use-accumulators the accumulator is not
+        # applicable to the principal document (XTDE3362).
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:accumulator name="depth" initial-value="0">
+            <xsl:accumulator-rule match="*" phase="start" select="$value + 1"/>
+          </xsl:accumulator>
+          <xsl:template match="/"><out>
+            <xsl:value-of select="accumulator-before('depth')"/>
+          </out></xsl:template>
+        </xsl:stylesheet>"""
+        from leptris.error import LeptrisError
+
+        with Document.parse("<r/>") as src:
+            with pytest.raises(LeptrisError):
+                XSLT(style)(src)
+
+class TestXSLTVersionCoverage:
+    """Gap-coverage goldens for 2.0/3.0 constructs verified working
+    through the binding on libleptris 1.9.32 (audit for #685)."""
+
+    SRC = "<r><item v='1'>alpha</item><item v='5'>beta</item><item v='9'>gamma</item></r>"
+
+    def _run(self, body, src=None):
+        style = (
+            '<xsl:stylesheet version="3.0"'
+            ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            "<xsl:template match=\"/\"><o>%s</o></xsl:template></xsl:stylesheet>" % body
+        )
+        with Document.parse(src or self.SRC) as d:
+            out = XSLT(style)(d)
+            result = tostring(out).decode()
+            out.close()
+            return result
+
+    def test_for_each_group_group_by(self):
+        assert self._run(
+            '<xsl:for-each-group select="//item" group-by="@v">'
+            "<g><xsl:value-of select='current-grouping-key()'/></g>"
+            "</xsl:for-each-group>"
+        ) == "<o><g>1</g><g>5</g><g>9</g></o>"
+
+    def test_analyze_string_and_regex_group(self):
+        # leptris/leptris#686 fixed in 1.9.33 for non-MSVC builds:
+        # correct output. On MSVC the portable regex engine is still
+        # pending — analyze-string now raises a LOUD, xsl:try-
+        # catchable error there instead of silent empty output.
+        if sys.platform == "win32":
+            with pytest.raises(LeptrisError):
+                self._run(
+                    "<xsl:analyze-string select=\"'ab12cd'\" "
+                    "regex=\"([0-9]+)\"><xsl:matching-substring>"
+                    "<n><xsl:value-of select='regex-group(1)'/></n>"
+                    "</xsl:matching-substring>"
+                    "<xsl:non-matching-substring/>"
+                    "</xsl:analyze-string>"
+                )
+            return
+        assert self._run(
+            "<xsl:analyze-string select=\"'ab12cd'\" regex=\"([0-9]+)\">"
+            "<xsl:matching-substring><n><xsl:value-of select='regex-group(1)'/></n></xsl:matching-substring>"
+            "<xsl:non-matching-substring><xsl:value-of select='.'/></xsl:non-matching-substring>"
+            "</xsl:analyze-string>"
+        ) == "<o>ab<n>12</n>cd</o>"
+
+    def test_evaluate_literal_query(self):
+        # xsl:evaluate (3.0 26.1): @xpath is the query itself here
+        # (literal attribute text), evaluated against the context.
+        assert self._run('<xsl:evaluate xpath="count(//item)"/>') == "<o>3</o>"
+
+    def test_assert_passes(self):
+        assert self._run(
+            '<xsl:assert test="count(//item) = 3"/><ok/>'
+        ) == "<o><ok/></o>"
+
+    def test_where_populated(self):
+        # Implemented in 1.9.42 (leptris/leptris#685): non-empty
+        # content survives, wholly-empty builds vanish.
+        assert self._run(
+            "<xsl:where-populated>lit</xsl:where-populated>|ok"
+        ) == "<o>lit|ok</o>"
+        assert self._run(
+            '<xsl:where-populated><xsl:value-of select="//nope"/>'
+            "</xsl:where-populated>|ok"
+        ) == "<o>|ok</o>"
+
+    def test_iterate_break(self):
+        assert self._run(
+            "<xsl:iterate select='//item'>"
+            "<xsl:if test=\"position() = 2\"><xsl:break/></xsl:if><i/>"
+            "</xsl:iterate>"
+        ) == "<o><i/></o>"
+
+    def test_number_letter_format(self):
+        assert self._run(
+            "<xsl:number value='5' format='A.1'/>"
+        ) == "<o>E</o>"
+
+    def test_value_of_separator_currently_ignored(self):
+        # leptris/leptris#685: @separator on xsl:value-of is silently
+        # ignored — the default space separator is used. Pinned until
+        # the engine honors it.
+        assert self._run(
+            "<xsl:value-of select=\"(3,1,2)\" separator='|'/>"
+        ) == "<o>3 1 2</o>"
+
+    def test_expand_text_tvt(self):
+        # 3.0 expand-text + text value templates.
+        style = (
+            '<xsl:stylesheet version="3.0" expand-text="yes"'
+            ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            "<xsl:template match=\"/\"><o>count={count(//item)}</o>"
+            "</xsl:template></xsl:stylesheet>"
+        )
+        with Document.parse(self.SRC) as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>count=3</o>"
+            out.close()
+
+    def test_mode_on_no_match_dispositions(self):
+        # shallow-skip needs a matching template to see the skip; the
+        # text-only-copy disposition itself copies unmatched text.
+        cases = (
+            ("shallow-skip", True, "<o>I</o>"),
+            ("text-only-copy", False, "<o>alpha</o>"),
+        )
+        for mode, with_item_template, expected in cases:
+            style = (
+                '<xsl:stylesheet version="3.0"'
+                ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+                f'<xsl:mode on-no-match="{mode}"/>'
+                + ("<xsl:template match='item'>I</xsl:template>"
+                   if with_item_template else "")
+                + "<xsl:template match='/'><o>"
+                "<xsl:apply-templates select='//item[1]'/>"
+                "</o></xsl:template></xsl:stylesheet>"
+            )
+            with Document.parse(self.SRC) as d:
+                out = XSLT(style)(d)
+                assert tostring(out).decode() == expected, mode
+                out.close()
+
+    def test_decimal_format_named(self):
+        style = (
+            '<xsl:stylesheet version="1.0"'
+            ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            '<xsl:decimal-format name="df" decimal-separator=","/>'
+            "<xsl:template match=\"/\"><o>"
+            "<xsl:value-of select=\"format-number(12.5, '#,0', 'df')\"/>"
+            "</o></xsl:template></xsl:stylesheet>"
+        )
+        with Document.parse("<r/>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>12,5</o>"
+            out.close()
+
+    def test_xsl_sequence_multi(self):
+        # 1.9.35 (#685): xsl:sequence works for multi-item sequences
+        # (single-item atomic sequences are still dropped — pinned
+        # below).
+        assert self._run(
+            "<xsl:sequence select=\"('a', 'b')\"/>"
+        ) == "<o>a b</o>"
+
+    def test_xsl_sequence_single_item(self):
+        # Single-item atomic sequences fixed in 1.9.38.
+        assert self._run("<xsl:sequence select=\"'x'\"/>") == "<o>x</o>"
+
+    def test_xsl_perform_sort(self):
+        # 1.9.35 (#685): xsl:perform-sort now sorts content.
+        assert self._run(
+            """<xsl:perform-sort select="(3, 1, 2)">
+            <xsl:sort select="." data-type="number"/>
+            </xsl:perform-sort>"""
+        ) == "<o>1 2 3</o>"
+
+    def test_fork(self):
+        # 1.9.43 (#690): non-streaming fork arms run sequentially
+        # into the same destination.
+        assert self._run(
+            "<xsl:fork><xsl:sequence select=\"'f'\"/></xsl:fork>"
+        ) == "<o>f</o>"
+
+    def test_on_non_empty(self):
+        # 1.9.42 (#690): Saxon evaluates on-non-empty content when
+        # the enclosing element got content.
+        assert self._run(
+            "<e><xsl:sequence select=\"//item[1]/@v\"/>"
+            "<xsl:on-non-empty>!</xsl:on-non-empty></e>"
+        ) == "<o><e>1!</e></o>"
+
+    def test_next_match_lower_priority(self):
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/" priority="5"><o><xsl:text>hi:</xsl:text><xsl:next-match/></o></xsl:template>
+          <xsl:template match="/" priority="1"><base/></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>hi:<base/></o>"
+            out.close()
+
+    def test_number_start_at_positional(self):
+        # 1.9.43 (#690): start-at offsets positional numbering.
+        assert self._run(
+            "<xsl:for-each select='//item'><i>"
+            "<xsl:number start-at='5'/></i></xsl:for-each>"
+        ) == "<o><i>5</i><i>6</i><i>7</i></o>"
+
+    def test_composite_key_single_use(self):
+        # 1.9.43 (#690): composite=yes indexes the node under each
+        # token of the use value. Sequence use forms crash —
+        # leptris/leptris#720 — and are not exercised here.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:key name="k" match="item" composite="yes" use="@v"/>
+          <xsl:template match="/"><o>
+            <xsl:value-of select="count(key('k', '5'))"/>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse(self.SRC) as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>1</o>"
+            out.close()
+
+    def test_tunnel_param_call_template(self):
+        # 1.9.37: tunnel parameters through xsl:call-template.
+        # (apply-templates tunnel is still broken upstream.)
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:call-template name="n">
+              <xsl:with-param name="t" tunnel="yes" select="'tv'"/>
+            </xsl:call-template>
+          </o></xsl:template>
+          <xsl:template name="n">
+            <xsl:param name="t" tunnel="yes"/>
+            <xsl:value-of select="$t"/>
+          </xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>tv</o>"
+            out.close()
+
+    def test_copy_of_keeps_comment_pi_children(self):
+        # leptris/leptris#696 fixed in 1.9.39: element copies keep
+        # comment and PI children.
+        style = """<xsl:stylesheet version="1.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:copy-of select="//item[1]/node()"/>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r><item v='1'>t<!--c--><?pi data?></item></r>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>t<!--c--><?pi data?></o>"
+            out.close()
+
+    def test_copy_select(self):
+        # 1.9.44 (#690): xsl:copy with @select copies the selected
+        # content under a copy of the context node.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/r"><o>
+            <xsl:copy select="//item[1]/node()"><c/></xsl:copy>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse(self.SRC) as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>alpha</o>"
+            out.close()
+
+    def test_xsl_namespace(self):
+        # 1.9.44 (#690): namespace nodes land on the enclosing
+        # element.
+        assert self._run(
+            "<xsl:namespace name='n'>urn:x</xsl:namespace>t"
+        ) == '<o xmlns:n="urn:x">t</o>'
+
+    def test_xsl_document(self):
+        # 1.9.44 (#690): document-node construction flattens to its
+        # children in element content.
+        assert self._run(
+            "<xsl:document><d/></xsl:document>"
+        ) == "<o><d/></o>"
+
+    def test_on_completion(self):
+        # 1.9.44 (#690): iterate completion content now runs.
+        assert self._run(
+            "<xsl:iterate select='1 to 3'>"
+            "<xsl:on-completion>done</xsl:on-completion><i/>"
+            "</xsl:iterate>"
+        ) == "<o><i/><i/><i/>done</o>"
+
+    def test_param_default_attribute(self):
+        # 1.9.44 (#690): @default supplies the value when no
+        # with-param arrives (XPath-string form).
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:call-template name="n"/>
+          </o></xsl:template>
+          <xsl:template name="n">
+            <xsl:param name="y" default="'dy'"/>
+            <xsl:value-of select="$y"/>
+          </xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>dy</o>"
+            out.close()
+
+    def test_merge_current_key_empty(self):
+        # 1.9.45 (#690): the merge action fires once per group, but
+        # current-merge-key() evaluates to the empty string (noted
+        # upstream). Pinned as current behavior.
+        assert self._run(
+            """<xsl:merge>
+              <xsl:merge-source select="//item" sort-key="v">
+                <xsl:merge-key select="@v"/>
+              </xsl:merge-source>
+              <xsl:merge-action><m><xsl:value-of select="current-merge-key"/></m></xsl:merge-action>
+            </xsl:merge>"""
+        ) == "<o><m/><m/><m/></o>"
+
+    def test_result_document_writes_file(self):
+        # 1.9.46 (#685): the secondary tree materializes at the
+        # href (resolved against the cwd).
+        import tempfile, os
+
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:text>main</xsl:text>
+            <xsl:result-document href="out.xml"><r2/></xsl:result-document>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with tempfile.TemporaryDirectory() as tmp:
+            prev = os.getcwd()
+            try:
+                os.chdir(tmp)
+                with Document.parse(self.SRC) as d:
+                    out = XSLT(style)(d)
+                    assert tostring(out).decode() == "<o>main</o>"
+                    out.close()
+                with open(os.path.join(tmp, "out.xml")) as f:
+                    assert "<r2/>" in f.read()
+            finally:
+                os.chdir(prev)
+
+    def test_tunnel_param_apply_templates(self):
+        # Tunnel via apply-templates fixed after 1.9.37 (worked via
+        # call-template only; verified 1.9.46).
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:apply-templates select="//item[1]">
+              <xsl:with-param name="t" tunnel="yes" select="'tv'"/>
+            </xsl:apply-templates>
+          </o></xsl:template>
+          <xsl:template match="item">
+            <xsl:param name="t" tunnel="yes"/>
+            <xsl:value-of select="$t"/>
+          </xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse(self.SRC) as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>tv</o>"
+            out.close()
+
+    def test_composite_key_sequence_use(self):
+        # leptris/leptris#720 fixed in 1.9.47 (was a SIGSEGV): the
+        # sequence-use form now matches composite value pairs.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:key name="k" match="item" composite="yes" use="@v, ."/>
+          <xsl:template match="/"><o>
+            <xsl:value-of select="count(key('k', ('1', 'alpha')))"/>
+            <xsl:value-of select="count(key('k', ('5', 'beta')))"/>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse(self.SRC) as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>11</o>"
+            out.close()
+
+    def test_next_iteration_chaining(self):
+        # leptris/leptris#729 fixed in 1.9.48: iterate param chaining
+        # through xsl:next-iteration, consumed by on-completion.
+        style = """<xsl:stylesheet version="3.0"
+          xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+          <xsl:template match="/"><o>
+            <xsl:iterate select="1 to 3">
+              <xsl:param name="acc" select="0"/>
+              <xsl:next-iteration>
+                <xsl:with-param name="acc" select="$acc + ."/>
+              </xsl:next-iteration>
+              <xsl:on-completion><xsl:value-of select="$acc"/></xsl:on-completion>
+            </xsl:iterate>
+          </o></xsl:template>
+        </xsl:stylesheet>"""
+        with Document.parse("<r/>") as d:
+            out = XSLT(style)(d)
+            assert tostring(out).decode() == "<o>6</o>"
+            out.close()
+
+
+class TestXSLTErrorTaxonomy:
+    def test_compile_failure_raises_xslt_error(self):
+        from leptris.error import LeptrisError, XSLTError
+
+        with pytest.raises(XSLTError) as info:
+            XSLT("<xsl:stylesheet")
+        # backward compatible: domain errors subclass LeptrisError
+        assert isinstance(info.value, LeptrisError)
+
+    def test_apply_failure_raises_xslt_error(self):
+        from leptris.error import XSLTError
+
+        style = XSLT(
+            '<xsl:stylesheet version="1.0"'
+            ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            "<xsl:template match='/'><xsl:value-of select='definitely-not-a-fn(1)'/>"
+            "</xsl:template></xsl:stylesheet>"
+        )
+        with pytest.raises(XSLTError):
+            with Document.parse("<r/>") as d:
+                style(d)
+
+    def test_bytes_stylesheet_accepted(self):
+        out = XSLT(
+            b'<xsl:stylesheet version="1.0"'
+            b' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            b"<xsl:template match='/'><o/></xsl:template></xsl:stylesheet>"
+        )
+        with Document.parse("<r/>") as d:
+            result = out(d)
+            assert tostring(result, encoding="unicode") == "<o/>"
+            result.close()
+
+
+class TestDispatchIndexCapacity:
+    # leptris/leptris#875 (fixed in libleptris 1.9.97): templates
+    # past the dispatch index capacity silently never fired. Red
+    # against 1.9.93/1.9.94 (48 of 120 fired); green since 1.9.97.
+    def test_120_distinct_literal_templates_all_fire(self):
+        n = 120
+        templates = "".join(
+            f"<xsl:template match='t{i}'><v>{i}</v></xsl:template>"
+            for i in range(n)
+        )
+        style = (
+            '<xsl:stylesheet version="1.0"'
+            ' xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+            "<xsl:template match='/'><out>"
+            "<xsl:apply-templates select=\"//*[starts-with(name(), 't')]\"/>"
+            f"</out></xsl:template>{templates}</xsl:stylesheet>"
+        )
+        xml = "<r>" + "".join(f"<t{i}/>" for i in range(n)) + "</r>"
+        with Document.parse(xml) as d:
+            out = XSLT(style)(d)
+            assert tostring(out, encoding="unicode").count("<v>") == n
+            out.close()

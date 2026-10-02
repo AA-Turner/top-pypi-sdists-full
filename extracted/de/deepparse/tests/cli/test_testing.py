@@ -1,0 +1,274 @@
+# pylint: disable=too-many-arguments, too-many-locals
+
+import logging
+import os
+import unittest
+from unittest import skipIf
+from unittest.mock import patch
+
+import pytest
+
+from deepparse.cli import generate_export_path, test
+from tests.parser.base import PretrainedWeightsBase
+
+from .base import RetrainTestCase
+
+
+@skipIf(os.environ["TEST_LEVEL"] == "unit", "Cannot run for unit tests since download is too long.")
+class TestingTests(RetrainTestCase, PretrainedWeightsBase):
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
+    @classmethod
+    def setUpClass(cls):
+        # Calling super does not seem to properly call each parent class setUpClass, thus
+        # the second setUpClass (PretrainedWeightsBase) is not call and make child setUpClass fail
+        # due to missing attribute.
+        # super(TestingTests, cls).setUpClass()
+        # This approach make it work by calling each setUpClass manually.
+        RetrainTestCase.setUpClass()
+        PretrainedWeightsBase.setUpClass()
+
+        cls.prepare_pre_trained_weights()
+
+        cls.a_fasttext_model_type = "fasttext"
+        cls.a_fasttext_att_model_type = "fasttext-attention"
+        cls.a_fasttext_light_model_type = "fasttext-light"
+        cls.a_bpemb_model_type = "bpemb"
+        cls.a_bpemb_att_model_type = "bpemd-attention"
+
+        cls.cpu_device = "cpu"
+        cls.gpu_device = "0"
+
+        cls.a_named_model = "a_retrained_model"
+
+        cls.fasttext_parser_formatted_name = "PreTrainedFastTextAddressParser"
+        cls.bpemb_parser_formatted_name = "PreTrainedBPEmbAddressParser"
+        cls.fasttext_att_parser_formatted_name = "PreTrainedFastTextAttentionAddressParser"
+
+        cls.a_cache_dir = "a_cache_dir"
+
+    def test_integration_cpu(self):
+        parser_params = [
+            self.a_fasttext_model_type,
+            self.a_train_pickle_dataset_path,
+            "--device",
+            self.cpu_device,
+        ]
+
+        test.main(parser_params)
+
+        expected_file_path = generate_export_path(
+            self.a_fasttext_model_type, f"{self.fasttext_parser_formatted_name}_testing.tsv"
+        )
+
+        self.assertTrue(os.path.isfile(os.path.join(self.temp_dir_obj.name, "data", expected_file_path)))
+
+    def test_integration_gpu(self):
+        parser_params = [
+            self.a_fasttext_model_type,
+            self.a_train_pickle_dataset_path,
+            "--device",
+            self.gpu_device,
+        ]
+
+        test.main(parser_params)
+
+        expected_file_path = generate_export_path(
+            self.a_fasttext_model_type, f"{self.fasttext_parser_formatted_name}_testing.tsv"
+        )
+
+        self.assertTrue(os.path.isfile(os.path.join(self.temp_dir_obj.name, "data", expected_file_path)))
+
+    def test_integration_logging(self):
+        with self._caplog.at_level(logging.INFO):
+            parser_params = [
+                self.a_fasttext_model_type,
+                self.a_train_pickle_dataset_path,
+                "--device",
+                self.cpu_device,
+            ]
+
+            test.main(parser_params)
+
+        data_file_path = os.path.join(self.temp_dir_obj.name, 'data', self.a_train_pickle_dataset_path)
+
+        messages = [r.message for r in self._caplog.records]
+
+        expected_first_message = (
+            f"Testing results on dataset file {data_file_path} using the parser {self.fasttext_parser_formatted_name}."
+        )
+        self.assertIn(expected_first_message, messages)
+
+        expected_file_path = os.path.join(
+            self.temp_dir_obj.name,
+            "data",
+            generate_export_path(self.a_fasttext_model_type, f"{self.fasttext_parser_formatted_name}_testing.tsv"),
+        )
+        expected_second_message = (
+            f"Testing on the dataset file {data_file_path} is finished. "
+            f"The results are logged in the CSV file at {expected_file_path}."
+        )
+        self.assertIn(expected_second_message, messages)
+
+    def test_integration_no_logging(self):
+        with self._caplog.at_level(logging.INFO):
+            parser_params = [
+                self.a_fasttext_model_type,
+                self.a_train_pickle_dataset_path,
+                "--device",
+                self.cpu_device,
+                "--log",
+                "False",
+            ]
+
+            test.main(parser_params)
+
+        # When --log is False, file-logging-specific messages should not be present
+        messages = [r.message for r in self._caplog.records]
+        self.assertFalse(any("Testing results on dataset file" in m for m in messages))
+        self.assertFalse(any("The results are logged in the CSV file" in m for m in messages))
+
+    def test_integration_attention_model(self):
+        parser_params = [
+            self.a_fasttext_att_model_type,
+            self.a_train_pickle_dataset_path,
+            "--device",
+            self.gpu_device,
+        ]
+
+        test.main(parser_params)
+
+        expected_file_path = generate_export_path(
+            self.a_fasttext_att_model_type, f"{self.fasttext_att_parser_formatted_name}_testing.tsv"
+        )
+
+        self.assertTrue(os.path.isfile(os.path.join(self.temp_dir_obj.name, "data", expected_file_path)))
+
+    def test_integration_csv(self):
+        parser_params = [
+            self.a_fasttext_model_type,
+            self.a_train_csv_dataset_path,
+            "--device",
+            self.cpu_device,
+            "--csv_column_names",
+            "Address",
+            "Tags",
+            "--csv_column_separator",  # Our dataset use a comma as separator
+            ",",
+        ]
+
+        test.main(parser_params)
+
+        expected_file_path = generate_export_path(
+            self.a_fasttext_model_type, f"{self.fasttext_parser_formatted_name}_testing.tsv"
+        )
+
+        self.assertTrue(os.path.isfile(os.path.join(self.temp_dir_obj.name, "data", expected_file_path)))
+
+    def test_ifIsCSVFile_noColumnName_raiseValueError(self):
+        with self.assertRaises(ValueError):
+            parser_params = [
+                self.a_fasttext_model_type,
+                self.a_train_csv_dataset_path,
+                "--device",
+                self.cpu_device,
+            ]
+
+            test.main(parser_params)
+
+    def test_ifIsNotSupportedFile_raiseValueError(self):
+        with self.assertRaises(ValueError):
+            parser_params = [
+                self.a_fasttext_model_type,
+                "an_unsupported_extension.json",
+                "--device",
+                self.cpu_device,
+            ]
+
+            test.main(parser_params)
+
+    def test_ifPathToFakeRetrainModel_thenUseFakeRetrainModel(self):
+        with self._caplog.at_level(logging.INFO):
+            parser_params = [
+                self.a_fasttext_model_type,
+                self.a_train_pickle_dataset_path,
+                "--path_to_retrained_model",
+                self.path_to_retrain_fasttext,
+                "--device",
+                self.cpu_device,
+            ]
+
+            test.main(parser_params)
+
+        data_file_path = os.path.join(self.temp_dir_obj.name, 'data', self.a_train_pickle_dataset_path)
+
+        messages = [r.message for r in self._caplog.records]
+
+        expected_first_message = (
+            f"Testing results on dataset file {data_file_path} using the parser {self.fasttext_parser_formatted_name}."
+        )
+        self.assertIn(expected_first_message, messages)
+
+        expected_file_path = os.path.join(
+            self.temp_dir_obj.name,
+            "data",
+            generate_export_path(self.a_fasttext_model_type, f"{self.fasttext_parser_formatted_name}_testing.tsv"),
+        )
+        expected_second_message = (
+            f"Testing on the dataset file {data_file_path} is finished. "
+            f"The results are logged in the CSV file at {expected_file_path}."
+        )
+        self.assertIn(expected_second_message, messages)
+
+    def test_ifPathToBPEmbRetrainModel_thenUseBPEmbRetrainModel(self):
+        with self._caplog.at_level(logging.INFO):
+            parser_params = [
+                self.a_bpemb_model_type,
+                self.a_train_pickle_dataset_path,
+                "--device",
+                self.cpu_device,
+            ]
+
+            test.main(parser_params)
+
+        data_file_path = os.path.join(self.temp_dir_obj.name, 'data', self.a_train_pickle_dataset_path)
+        messages = [r.message for r in self._caplog.records]
+
+        expected_first_message = (
+            f"Testing results on dataset file {data_file_path} using the parser {self.bpemb_parser_formatted_name}."
+        )
+        self.assertIn(expected_first_message, messages)
+
+        expected_file_path = os.path.join(
+            self.temp_dir_obj.name,
+            "data",
+            generate_export_path(self.a_fasttext_model_type, f"{self.bpemb_parser_formatted_name}_testing.tsv"),
+        )
+        expected_second_message = (
+            f"Testing on the dataset file {data_file_path} is finished. "
+            f"The results are logged in the CSV file at {expected_file_path}."
+        )
+        self.assertIn(expected_second_message, messages)
+
+    def test_ifCachePath_thenUseNewCachePath(self):
+        with patch("deepparse.cli.test.AddressParser") as address_parser_mock:
+            parser_params = [
+                self.a_fasttext_model_type,
+                self.a_train_pickle_dataset_path,
+                "--cache_dir",
+                self.a_cache_dir,
+                "--device",
+                self.cpu_device,
+            ]
+            test.main(parser_params)
+
+            address_parser_mock.assert_called()
+            address_parser_mock.assert_called_with(
+                device=self.cpu_device, cache_dir=self.a_cache_dir, model_type=self.a_fasttext_model_type
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

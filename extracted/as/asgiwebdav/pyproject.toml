@@ -1,0 +1,82 @@
+# PEP 508 – Dependency specification for Python Software Packages
+# - https://peps.python.org/pep-0508/
+# PEP 621 – Storing project metadata in pyproject.toml
+# - https://peps.python.org/pep-0621/
+#
+# - https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+# - https://packaging.python.org/en/latest/specifications/pyproject-toml
+# - https://build.pypa.io/en/stable/release.html
+
+[project]
+name = "ASGIWebDAV"
+description = "An asynchronous WebDAV server implementation, support multi-provider."
+readme = "README.md"
+requires-python = ">=3.10"
+license-files = ["LICENSE"]
+authors = [{ name = "Rex Zhang" }, { email = "rex.zhang@gmail.com" }]
+keywords = ["webdav", "asgi", "asyncio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+[project.urls]
+homepage = "https://github.com/rexzhang/asgi-webdav"
+documentation = "https://rexzhang.github.io/asgi-webdav/"
+repository = "https://github.com/rexzhang/asgi-webdav"
+changelog = "https://github.com/rexzhang/asgi-webdav/blob/main/docs/changelog.en.md"
+
+[project.scripts]
+asgi-webdav = "asgi_webdav.cli:main"
+
+[build-system]
+# https://setuptools.pypa.io/en/latest/userguide/quickstart.html
+# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["asgi_webdav", "asgi_webdav.dev", "asgi_webdav.middleware", "asgi_webdav.provider"]
+
+[tool.setuptools.dynamic]
+version = { attr = "asgi_webdav.__version__" }
+dependencies = { file = "requirements.d/basic.txt" }
+
+[tool.setuptools.dynamic.optional-dependencies]
+full = { file = [
+    "requirements.d/standalone.txt",
+    # extra
+    "requirements.d/ldap.txt",
+    "requirements.d/webhdfs.txt",
+] }
+
+standalone = { file = "requirements.d/standalone.txt" }
+ldap = { file = "requirements.d/ldap.txt" }
+webhdfs = { file = "requirements.d/webhdfs.txt" }
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = "--cov=asgi_webdav --cov-report html --ignore=tests/by_hand"
+asyncio_mode = "auto"
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["asgi_webdav/"]
+
+strict = true
+strict_bytes = true
+
+warn_return_any = true
+warn_unused_configs = true
+
+disable_error_code = ["import-untyped"]

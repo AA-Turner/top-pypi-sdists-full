@@ -1,0 +1,2503 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# evidence-autoclose-sweep.yml — OMN-16106 first slice
+#
+# Scheduled companion-merge -> dod_verify -> governed Done flip sweep.
+# Enumerates onex_change_control PRs merged in a lookback window, extracts
+# each merged companion's Evidence-Ticket binding, re-runs the EXISTING
+# `onex skill dod_verify <ticket>` verifier exactly as the controller does,
+# and would flip the bound Linear ticket Done (or post the honest gap) via
+# `onex skill evidence_autoclose_sweep`.
+#
+# THE SCHEDULE APPLIES. A dispatch can still force a dry run.
+#
+# The previous revision of this paragraph read "DRY-RUN BY DEFAULT, apply BY
+# EXPLICIT DISPATCH ONLY" and argued that a scheduled run reaching `--apply`
+# was the failure mode to prevent. That is now inverted, on the operator
+# ruling of 2026-09-04 (~23:05Z, firm): the evidence closer closes tickets on
+# its own — when a ticket's definition of done is met by bound evidence it is
+# Done, with no human approval step, because that is the reason the closer
+# exists. A closer that previews on its schedule and writes only when someone
+# happens to tick a box is a manual triage sweep wearing a cron trigger.
+#
+# What actually bounds an unattended write is therefore NOT the trigger. It is,
+# in order, and all three unchanged by this revision:
+#
+#   * the flip PREDICATE (below) — untouched, not widened, and not this file's
+#     to set;
+#   * the OMN-17891 per-candidate exclusion fence — now reachable WITHOUT a
+#     dispatcher (see the standing-fence note below), because an input-only
+#     fence is absent precisely when nobody is watching;
+#   * `ONEX_AUTOCLOSE_DISABLED` — the kill switch, a repo variable, which binds
+#     every run including the scheduled ones and is the way to stop an applying
+#     closer without editing this file.
+#
+# The mechanics that keep the write honest are otherwise as they were:
+#
+#   * `apply` is still a `workflow_dispatch` boolean input, `default: false`,
+#     and it still means "this DISPATCH writes". Its job is now the opposite of
+#     what it was: it is what keeps a read-only path reachable at all. Dispatch
+#     with the box unticked to rehearse a fence list or to read what the sweep
+#     currently decides without writing it.
+#   * `--apply` never appears on the invocation line. It enters only through
+#     the shell array the guard populates, so a guard plus a stray literal
+#     flag (which reads identically in a diff) cannot coexist.
+#   * The job NAME and the step summary render their mode from the SAME guard
+#     expression that gates the flag, so a run cannot label itself DRY-RUN
+#     while flipping tickets.
+#
+# THE STANDING FENCE. `github.event.inputs` is null on a cron tick, so the
+# OMN-17891 exclusion input — the only per-candidate refusal that exists — can
+# never bind an unattended run. That was tolerable while the schedule only
+# previewed; it is not tolerable now. So the standing list arrives from the
+# repo variable `ONEX_AUTOCLOSE_EXCLUDE` and is UNIONED with any
+# dispatch-supplied list: a dispatch may ADD to the standing fence, never
+# shrink it. It is a variable and not an input for the same reason the kill
+# switch is — an input is a per-dispatch choice, and a fence that binds only
+# the runs a human launched is not a fence.
+#
+#   To fence:   gh variable set ONEX_AUTOCLOSE_EXCLUDE --repo OmniNode-ai/omnibase_infra --body 'OMN-1,OMN-2'
+#   To release: gh variable delete ONEX_AUTOCLOSE_EXCLUDE --repo OmniNode-ai/omnibase_infra
+#
+# WHAT THE FENCE MAY ASSERT — narrowed 2026-09-05, node_version 1.7.0.
+# Operator ruling, firm, 2026-09-05T20:45:51Z (omni_home
+# `docs/tracking/ROLLING_WORK_LEDGER.md:3372`): ticket closure is
+# ownership-agnostic. When the acceptance criteria are met on live evidence the
+# ticket is closed, whoever it is assigned to; assignee and fence ownership
+# never hold a Done-eligible ticket open. So the only thing either fence may
+# assert is a CONCURRENT WRITE — another lane is writing this ticket right now,
+# evidenced by a live ledger CLAIM row inside this run's window.
+#
+# A refusal here is silent: `skipped_excluded` is recorded before any Linear
+# read, so a fenced ticket produces no verdict and nothing on the board says
+# why. A standing list does not go stale in a visible direction — it stops
+# adjudicating, indefinitely. This variable carried 26 ids selected by who was
+# working them; node_version 1.7.0 NARROWED it, it did not empty it. Measured
+# 2026-09-06 via `gh variable get ONEX_AUTOCLOSE_EXCLUDE --repo
+# OmniNode-ai/omnibase_infra`: 13 ids remain, and every one of the 13 is backed
+# by a ledger CLAIM row. It is not a place to park ownership again. Entries are
+# expected to be removed within hours, as the CLAIM row that justified each one
+# terminates — a residual that stops shrinking is the failure mode to look for.
+#
+# All of the above is pinned by
+# `tests/ci/test_evidence_autoclose_sweep_apply_input.py` (CLAUDE.md rule 5 —
+# the check ships wired, not advisory).
+#
+# The flip PREDICATE is not relaxed by any of this and is not this file's to
+# set. It lives in `handler_evidence_autoclose_sweep.py` and a flip requires
+# ALL of: dod_verify's own terminal status is `verified`; `total_checks > 0`;
+# `failed_count == 0`; `verified_count > 0`; `verified_count +
+# non_probative_count == total_checks` (so any `skipped` check still refuses);
+# the `behavior_proving_count` key is PRESENT and `> 0` (OMN-15911 — at least
+# one check executed the claimed behavior rather than reading merge state);
+# and the OMN-16736 AC-coverage re-read of the ticket body finds no criterion
+# the checks never covered. `--apply` decides only whether the decision that
+# predicate already reached is written to Linear.
+#
+# The kill switch (ONEX_AUTOCLOSE_DISABLED) is honored by the node itself
+# unconditionally, independent of this workflow's config, so it is not (and
+# must not be) surfaced as an INPUT here — set it as a repo/environment
+# secret-free variable to halt every run without touching this file. That it
+# is a variable and not an input matters MORE now: an input is a per-dispatch
+# choice, and the operator making the apply choice is the last person who
+# should be able to opt out of the halt.
+#
+# OMN-16792 AC3. That paragraph was true about the NODE and false about the
+# JOB, and the gap made the kill switch inert. The node reads the switch from
+# its process environment; a GitHub repository variable is NOT exported into a
+# step's environment — it is only reachable through the `vars.*` expression
+# context. So `gh variable set ONEX_AUTOCLOSE_DISABLED` set a value that the
+# sweep process could never see, and the documented way to halt a live sweep
+# would have done nothing at all. The one place it can be halted is the sweep
+# step's own `env:`, which is why the plumb-through below exists and why it is
+# deliberately NOT a workflow input: an input is a per-dispatch choice, and a
+# kill switch has to bind every run including the scheduled ones.
+#
+# Unset renders as the empty string, which the node reads as falsy
+# (`bool(os.environ.get(...))`), so the absent-variable case is a normal run —
+# the same behaviour as before this line existed.
+#
+# omnimarket co-install IS wired here (OMN-16736). `onex skill dod_verify`
+# dispatches to `node_dod_verify`, which ships in omnimarket and is layered
+# into this job at run time — never a build/lock dependency, because
+# omnimarket sits ABOVE infra in the layer graph (compat -> core -> spi ->
+# infra -> market) and declaring it as an infra dependency would invert that
+# graph. The composition rule is OMN-13829's; the steps below apply it to an
+# ephemeral job venv rather than shelling out to the operator installer under
+# scripts/ (see the step comment for why, and for why that path is written
+# without its file extension here).
+#
+# TWO venvs, not one (OMN-16846). The co-install goes into a DISPATCH venv at
+# `$DISPATCH_VENV`; the project's own `.venv` is the GATE venv and stays
+# lock-exact. dod_verify's behaviour checks are `uv run pytest` with
+# `cwd: "${OMNI_HOME}/omnibase_infra"` — i.e. they run in the gate venv, where
+# `tests/conftest.py` calls `assert_venv_purity()` (OMN-15620) and correctly
+# refuses any undeclared `onex.nodes` provider. On one venv those two
+# requirements contradict each other and the gate wins: run 33194402437
+# recorded all three OMN-16759 behaviour checks as `FAILED ... Canonical venv
+# is IMPURE`, behavior_proving=0, with no test ever executing. Separating them
+# is the fix; the purity of `.venv` is asserted below rather than assumed.
+#
+# Before this was wired, EVERY bound ticket in every run of this workflow
+# died at `Error: Unknown node 'node_dod_verify'` and was recorded as
+# ERROR_VERIFY_NONZERO_EXIT. That was safe and honest, but it meant no flip
+# or gap decision was ever REACHED: the sweep proved enumerate -> bind ->
+# attempt-verify -> fail-closed and nothing past it. Run 33078686320
+# (2026-08-27, lookback 10h) is the last such run: 27 bindings extracted,
+# 11 ERROR_VERIFY_NONZERO_EXIT, 0 flipped, 0 gap_posted.
+#
+# The runner also needs the OCC CONTRACTS, not just the verifier binary —
+# dod_verify verifies a ticket against `contracts/<ticket>.yaml` in
+# onex_change_control, and with no such checkout it reported a single skipped
+# check for EVERY ticket (`0/1 ACs verified, 0 failed`). That is recorded as a
+# GAP, i.e. the sweep would state an evidence verdict it never reached. Both
+# the checkout and an explicit readability assertion are below.
+#
+# The runner ALSO needs the repos the contracts' behaviour checks name
+# (OMN-16902). With OMNI_HOME exported (OMN-16845) and the venvs separated
+# (OMN-16846), the remaining false-FAILED door was the checkout SET: only
+# `omnibase_infra` existed under OMNI_HOME, so a check pinned
+# `cwd: "${OMNI_HOME}/omnimarket"` or `.../omninode_infra` resolved to a path
+# that does not exist and was recorded FAILED. Run 33210339910 is the natural
+# experiment — same commit, same minute, four seeds:
+#
+#   OMN-16759 (checks homed in omnibase_infra) -> verified=4  behavior_proving=3
+#   OMN-16790 (checks homed in omnimarket)     -> failed=3    behavior_proving=0
+#   OMN-16784 (checks homed in omninode_infra) -> failed=9    behavior_proving=0
+#   OMN-16785 (checks homed in omninode_infra) -> failed=11   behavior_proving=0
+#
+# The discriminator is which repo the check's `cwd` names, nothing else. The
+# fix DERIVES the set from the scanned contracts rather than hardcoding it: a
+# literal repo list reproduces this bug the first time a new repo appears, and
+# OMN-16434 now auto-mints `cwd: ${OMNI_HOME}/<repo>` on every new companion
+# for whatever repo the work was in, so the population only grows.
+#
+# And the OCC-homed `test_passes` checks needed an INTERPRETER (OMN-16902 D2).
+# `_infer_occ_cwd` does not run those checks in `.occ-src`: it returns
+# `_occ_dev_root`, an ephemeral `git worktree` of the governance ref that the
+# collector materialises mid-run. `UV_NO_SYNC=1` on the sweep step was
+# inherited by that subprocess, so `uv run pytest` there created an EMPTY
+# `.venv` and died on `error: Failed to spawn: pytest` — on all four seeds,
+# a shared evidence item taxing every ticket that carries it. UV_NO_SYNC is
+# therefore gone from the check-bearing steps and the dests are pre-synced
+# instead, so the common case is a cache-hot no-op and the one path no step
+# can pre-provision can provision itself.
+#
+# The co-install is verified, not assumed: a step after it asserts
+# `node_dod_verify` is a resolvable `onex.nodes` entry point THROUGH the exact
+# interpreter the sweep's per-ticket subprocess uses (the dispatch venv's own
+# python — see `_dod_verify_argv`). A silently reverted or partial install
+# fails the job there, loudly, instead of degrading back into N per-ticket
+# ERROR_VERIFY_NONZERO_EXIT outcomes that read like ticket problems rather
+# than a runner-configuration problem.
+#
+# No new scripts/** file: scripts/** is DEFAULT-DENY for new files (OMN-14475
+# canonical-form guard). Every step below is a direct invocation of code that
+# already lives under src/.
+
+name: Evidence Autoclose Sweep
+
+on:
+  schedule:
+    # Every 2 hours, REDUCED from every 30 minutes on the operator ruling of
+    # 2026-09-15 (~17:47Z, verbatim: "OK that's fine").
+    #
+    # RESTORE CONDITION, and it is a condition rather than a date: put this
+    # back to `*/30 * * * *` once the `binds_ac` unblock has proved ONE closer
+    # flip. Until then this sweep is measurably a no-op writer — since
+    # 2026-09-10 every candidate it reaches holds on AC binding, so it flips
+    # nothing, while each run still spends ~24-28 minutes of runner time. A
+    # 30-minute cadence for a job that cannot currently write is four times
+    # the runner spend for the same zero flips. The unblock is owned
+    # elsewhere; this file only decides how often the attempt is made.
+    #
+    # THE INTERVAL IS A COST KNOB, NOT A SAFETY ONE, and the reason is
+    # directly below: `lookback_hours` defaults to 6h, which exceeds even the
+    # new interval by 3x, so a missed or failed tick still cannot drop a
+    # companion merge. Nothing about WHAT the sweep decides changes here —
+    # every flip conjunct, the OMN-17891 fence and the kill switch are
+    # untouched.
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'Scan companions merged within this many hours of now.'
+        required: false
+        # 6h, raised from 2h (OMN-16792, landed with OMN-16808).
+        #
+        # `schedule` is best-effort: GitHub drops ticks under load rather than
+        # queueing them. Measured over 2026-08-22T20:03Z -> 2026-08-27T19:05Z,
+        # 194 scheduled runs fired against 238 expected at `*/30` (81%), and
+        # the discriminating measurement is createdAt->startedAt = 0s median
+        # AND 0s max across all 194: nothing was slow, the missing runs were
+        # never created. Observed inter-run gaps: median 30 min, p90 43 min,
+        # p100 236 min (3h56m).
+        #
+        # A 2h lookback is smaller than that p100 gap, so a companion merged
+        # inside the uncovered window was scanned by NO run, ever — the sweep
+        # only looks backwards a fixed window and never revisits. 6h clears the
+        # observed p100 by ~1.5x, so a dropped tick is absorbed rather than
+        # lost.
+        #
+        # The reason this is a safe one-line change NOW and was not before:
+        # widening the window widens the OVERLAP between consecutive runs, and
+        # before OMN-16808 every overlapping run re-posted an identical gap
+        # comment on every gapped ticket it re-saw. The read-before-write dedup
+        # in the handler makes re-scanning a companion cost nothing observable,
+        # so the lookback can be sized for the worst measured gap instead of
+        # for comment noise. That is OMN-16792 option 1, chosen because it
+        # removes the data-loss risk without deciding anything architectural;
+        # options 2 (event trigger) and 3 (runtime scheduler) stay open on that
+        # ticket.
+        #
+        # Residual, recorded not fixed here: `max_companions` is capped at 50
+        # per run. A 10h window hit that cap on 2026-08-28 (run 33128661860,
+        # companions_scanned=50), so a window wide enough to truncate would
+        # reintroduce the same loss by a different door. At the observed OCC
+        # merge rate (~50 per 10h) a 6h window lands around 30 companions,
+        # under the cap. Sizing the cap belongs to OMN-16792.
+        default: '6'
+      backfill_lookback_hours:
+        description: >-
+          OMN-17342. BACKFILL ARM, in hours. 0 (the default, and the value
+          every scheduled tick uses) leaves the sweep single-armed and behaving
+          exactly as it did before this input existed. A non-zero value adds a
+          SECOND enumeration over a wider window: companions merged between
+          that bound and `lookback_hours` form a pool, and a bounded rotating
+          slice of it is offered to the identical downstream pipeline.
+          Why this is not just a bigger `lookback_hours`: `lookback_hours` is a
+          freshness window. It sees each companion once, in the hours after it
+          merges, and never again — no cursor, no watermark. A companion
+          scanned twelve times that reaches no verdict in any of them ages out
+          permanently. Measured 2026-09-05 over the two beta sprint projects,
+          118 of 238 open tickets carry a merged OCC companion and only 5 of
+          those merged inside the live window; 113 are out of reach for good,
+          74 of them carrying a behaviour-proof receipt. Widening the freshness
+          window cannot fix that, because `dod_verify` dominates the run budget
+          (~15s per ticket) against the scheduled cadence — a window wide
+          enough to reach the backlog overruns the cadence, and overruns it
+          worse as the board grows. (The cadence itself moved to 2-hourly on
+          2026-09-15; the constraint is the per-run 60-minute job budget, not
+          the gap between runs, so this reasoning is unchanged by that.) The slice is what makes the reach affordable.
+          It widens WHO is asked, never WHAT counts. Every flip conjunct is
+          untouched: dod_verify's own terminal `verified`, the OMN-16821
+          denominator equality, the OMN-15911 behaviour conjunct and the
+          OMN-16736 AC-coverage re-read all still gate the write.
+          ARMING NOTE (OMN-17658, this commit). The paragraph that used to sit
+          here said this input was deliberately not on the schedule, because
+          arming a wide arm without the recurring-companion refusal (OMN-17934)
+          and the children conjunct (OMN-17658) would have reproduced the
+          OMN-17292 re-flip across the whole backlog instead of once. Those
+          fences land in this same commit, so the arm is now armed — and it is
+          armed in the NODE CONTRACT's default, not here. This input remains a
+          per-dispatch override for rehearsal; leaving it at 0 means "pass no
+          flag", which is not the same statement as "the arm is off".
+        required: false
+        default: '0'
+      diagnose_tickets:
+        description: >-
+          OMN-16788 diagnostic. Comma-separated ticket ids (e.g.
+          "OMN-16682,OMN-16626"). For each one, dump the FULL dod_verify JSON —
+          every check id, status and message — into this job log, and probe what
+          the run's GitHub credential can actually read. Empty (the default, and
+          the value every scheduled run uses) skips the whole step at zero cost.
+        required: false
+        default: ''
+      exclude:
+        description: >-
+          OMN-17891. PER-CANDIDATE FENCE. Comma-separated ticket ids (e.g.
+          "OMN-17857,OMN-17800") this run must refuse BEFORE it reads anything
+          about them — no Linear fetch, no dod_verify, no verdict. Everything
+          else in the window is swept normally, so this scopes a run DOWN; it
+          is not a halt (that is ONEX_AUTOCLOSE_DISABLED, which is a repo
+          variable and binds every run including scheduled ones). Matched
+          case-insensitively after stripping whitespace. UNIONED with the
+          standing repo-variable fence ONEX_AUTOCLOSE_EXCLUDE, never replacing
+          it — this field can only ADD refusals to a run, never remove one the
+          standing fence asserts. Honoured in DRY-RUN too, deliberately: a dry
+          run carrying the same list is the rehearsal that shows exactly what
+          an applying run will and will not touch.
+          What it asserts is not derivable by the sweep — an open ledger CLAIM,
+          a red gate, a concurrent controller's ownership — so the dispatcher
+          supplies it and owns its accuracy.
+        required: false
+        default: ''
+      offer:
+        description: >-
+          OMN-16106. RESTRICTIVE SELECTOR. Comma-separated ticket ids (e.g.
+          "OMN-16831,OMN-17397") this run must adjudicate INSTEAD of its
+          ordinary discovery. Empty (the default, and the value every scheduled
+          tick carries) leaves the forward window and the rotating backfill
+          slice exactly as they are.
+          Non-empty REPLACES discovery — it is not prepended to it. No forward
+          window is enumerated, no backfill pool is paginated, no slice is
+          taken: each named ticket's NEWEST MERGED OCC companion is resolved
+          directly, which reaches a companion outside the freshness window,
+          outside the 200-item pool and outside the current five-wide slice.
+          Filtering the slice never could. A selector that ADDED to discovery
+          would let a one-ticket request drag an unscoped five-wide applying
+          run along behind it, which is exactly what a bounded pilot must not
+          be able to do by accident.
+          It widens WHO is asked and changes nothing about WHAT counts. The
+          resolved companion goes through the identical changed-file binding
+          check and the identical per-ticket pipeline, so the verifier, the
+          AC-coverage guard, the behaviour conjunct, the children conjunct, the
+          cited-PR conjunct, the prior-revert fence, the label gate, the
+          disarm, the flip budget, the comment dedup and the bound readback all
+          still gate the write. `exclude` above wins over an offer, and wins
+          before the companion search runs.
+          There is deliberately no standing repo variable for this. The
+          standing fence ONEX_AUTOCLOSE_EXCLUDE is a variable because a FENCE
+          must reach the runs nobody is watching; an OFFER selects what a run
+          acts on, so a standing one would silently narrow every scheduled tick
+          to a fixed list and stop the closer adjudicating the board — a
+          restriction nobody typed, on every run nobody sees. Per-dispatch or
+          it does not exist.
+        required: false
+        default: ''
+      apply:
+        description: >-
+          OMN-16106 / OMN-17658. WRITE MODE FOR THIS DISPATCH ONLY. The
+          SCHEDULE does not read this box and cannot; whether a
+          scheduled run writes is decided by the node contract's
+          `scheduled_apply`, which this workflow does not set and cannot.
+          What this decides is whether the run YOU are launching writes. Tick it and
+          this dispatch flips every ticket whose evidence clears the predicate
+          (Linear state to Done, plus the audit comment carrying the dod_verify
+          counters that justified it). Leave it alone — the default — and this
+          dispatch is the DIAGNOSTIC dry run: it reaches exactly the same
+          decisions and writes none of them, which is how you rehearse an
+          exclusion list or read the current verdicts without acting on them.
+          Neither setting loosens what counts as proven. To stop the scheduled
+          closer, set ONEX_AUTOCLOSE_DISABLED; to decline named candidates,
+          set ONEX_AUTOCLOSE_EXCLUDE or pass `exclude` below.
+        required: false
+        type: boolean
+        default: false
+
+# OMN-16106 Item 0 — ONE APPLYING SWEEP AT A TIME.
+#
+# This file had no concurrency key at all, so two runs of a writer whose job is
+# to move tickets to Done could overlap: a cron tick and an operator dispatch,
+# or two cron ticks when one runs long against a `dod_verify` budget of ~15s
+# per candidate. Overlapping applying runs read the flip budget, the ticket
+# state, the comment history and the prior-revert history INDEPENDENTLY, so
+# `max_flips_per_run` stops bounding the fleet and the OMN-16808
+# read-before-write comment dedup races itself.
+#
+# WORKFLOW SCOPE, and a LITERAL group. Every trigger of this file — the
+# cron and every manual dispatch — is one group member. A group rendered from
+# an expression (`${{ github.event_name }}`, `${{ github.ref }}`) reads like
+# serialization and puts the scheduled writer and the dispatched writer in
+# different groups, which is the same as having no key for the one overlap that
+# matters.
+#
+# `cancel-in-progress: false` because pre-empting this writer is not safe: the
+# run being cancelled may have written a Done and not yet read it back, which
+# is the exact shape that produces ERROR_READBACK_UNCONFIRMED and the OMN-16106
+# rollback path. Waiting is correct; cancelling is not.
+#
+# WHAT THIS DOES NOT DO, stated rather than implied. GitHub keeps one RUNNING
+# member plus at most one PENDING member per group, and a later queued run
+# REPLACES the earlier pending one — the replaced run is cancelled, not
+# deferred. A cancelled pending run is not a completed run. So a pilot must
+# reconcile every selected ticket to a terminal outcome and re-offer whatever a
+# replacement discarded, after re-reading binding, ticket state, claims and the
+# five-flip budget. No YAML key can discharge that, and a comment here claiming
+# otherwise would be a string that reads as a fact and is not one.
+#
+# It also serializes a DIAGNOSTIC dispatch against an applying run, which is a
+# conservative cost accepted deliberately for this first landing: applying-mode
+# selection is not resolvable before job start, so a separate diagnostic group
+# would have to be chosen from an input that a scheduled run does not carry.
+# Splitting the groups waits on a test proving no writer can escape the common
+# one.
+concurrency:
+  group: evidence-autoclose-apply
+  cancel-in-progress: false
+
+env:
+  UV_VERSION: "0.8.3"
+  PYTHON_VERSION: "3.12"
+  # OMN-17863: only used when no materialised JS project declares a version of
+  # its own. It is a floor for a job that has no JS contract in scope, never a
+  # substitute for the product's own declaration.
+  NODE_VERSION_DEFAULT: "22"
+
+jobs:
+  evidence-autoclose-sweep:
+    # The label renders the TRIGGER, which this file does know. It no longer
+    # renders a scheduled run's write MODE, which since OMN-17658 is the
+    # contract's answer and not this workflow's — a label asserting it would
+    # be a string that reads as a fact and is not one.
+    name: Evidence Autoclose Sweep (${{ github.event_name == 'schedule' && 'SCHEDULE - contract decides' || (github.event.inputs.apply == 'true' && 'DISPATCH APPLY' || 'DISPATCH DRY-RUN') }})
+    # Trusted runner required: needs LINEAR_API_KEY and an authenticated gh.
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # Raised from 20 (OMN-16736): with the co-install wired, `onex skill
+    # dod_verify` now actually RUNS per bound ticket instead of aborting in
+    # milliseconds on "Unknown node". A window with a dozen bound companions
+    # is real verifier work, and the co-install itself adds a git-source
+    # install. 20 minutes was budgeted for a sweep that never reached the
+    # verifier.
+    # Raised from 45 (OMN-16902): the job now materialises and pre-syncs one
+    # environment per repo the scanned contracts' cwd values name, so that a
+    # behaviour check homed outside omnibase_infra can execute at all. Bounded
+    # by the derived set (7 dests as of this commit), each repo cloned once.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    env:
+      # OMN-17658. THE WORKFLOW NO LONGER DECIDES WHETHER AN UNATTENDED RUN
+      # WRITES. It reports what launched it, and the node's contract decides.
+      #
+      # What was here: a single `SWEEP_APPLY` expression whose first disjunct
+      # was `github.event_name == 'schedule'`. That disjunct was the arming
+      # authority for every write nobody was watching — and it lived in a YAML
+      # expression, outside the contract, outside the type system, and outside
+      # every test that did not parse this file. omnibase_infra#3195 armed the
+      # closer by editing it; OMN-17658's plan row (P1-8, decision 11 / §3b /
+      # F-R5-4) requires the authority to be a declared, typed contract input
+      # instead, so that disarming the closer is a diff with a review and a
+      # test rather than an edit to a string.
+      #
+      # So there are two variables now and neither is a policy:
+      #
+      #   * SWEEP_TRIGGER — the FACT. Passed to the node as `--trigger`. The
+      #     node pairs it with the contract's `scheduled_apply` to decide.
+      #   * SWEEP_DISPATCH_APPLY — the OPERATOR's explicit request on THIS
+      #     dispatch. It stays a conjunction on the input so a dispatch that
+      #     leaves the box alone is a dry run even while the schedule is armed;
+      #     that is the rehearsal surface, and arming must not remove it.
+      #
+      # There is deliberately no `--scheduled-apply` flag anywhere below. A
+      # workflow that could pass one would be an arming authority again.
+      SWEEP_TRIGGER: ${{ github.event_name == 'schedule' && 'schedule' || 'dispatch' }}
+      SWEEP_DISPATCH_APPLY: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.apply == 'true') && 'true' || 'false' }}
+
+    steps:
+      # OMN-16832. THE credential this job runs under. Everything below that
+      # touches GitHub uses this token and nothing else.
+      #
+      # What was here before: `${{ secrets.OMNI_GITHUB_TOKEN || github.token }}`
+      # at six sites. Proven by live readback (2026-08-29) that no secret named
+      # OMNI_GITHUB_TOKEN exists at org, repo, OR environment scope — the three
+      # places `secrets.*` can resolve from in this job — so every one of those
+      # six sites had ALWAYS evaluated to `github.token`. The `||` read as "a
+      # stronger token, if configured"; it was a dead branch over a weaker one,
+      # and the fall-through was silent. That is the defect class being fixed
+      # here, so there is deliberately no fallback below: if the App token
+      # cannot be minted the job fails loudly rather than quietly degrading to
+      # a credential that cannot do the work.
+      #
+      # `github.token` is structurally incapable of two things the sweep needs,
+      # regardless of any App-installation setting:
+      #   1. `administration: read` (branch protection) is not a grantable
+      #      scope for the automatic token at all. Every `::pr-live-state`
+      #      sub-check 403'd with exactly that scope named, on every ticket, in
+      #      every run — the SKIPs this ticket is about.
+      #   2. It is scoped to the triggering repo only, so the private
+      #      `OmniNode-ai/omninode_infra` reads 404 and any behaviour check
+      #      pinned at that cwd is unexecutable (OMN-16902's
+      #      UNAVAILABLE_REPO_NOT_READABLE_BY_TOKEN warning).
+      # The `onexbot` installation (app_id 3342522, installation 123040063)
+      # carries `administration:read` with `repository_selection: all`, so a
+      # token minted from it clears both.
+      #
+      # Least privilege is applied on the PERMISSION axis, not the repository
+      # axis, and that asymmetry is deliberate:
+      #   - permissions: narrowed to read-only. The installation grants
+      #     checks:write, issues:write and pull_requests:write; this job's
+      #     GitHub access is entirely `gh api` GETs (the handler's only writes
+      #     go to Linear over LINEAR_API_KEY), so none of those are requested.
+      #   - repositories: NOT pinned to a list. The repo set this job reads is
+      #     derived at runtime from the `cwd` values the scanned OCC contracts
+      #     name (see the materialise step below) — it is data, not a constant,
+      #     and a static list would fail-closed the first time a contract named
+      #     a repo not on it. `owner:` scopes the token to the installation's
+      #     repositories, which is the smallest set that stays correct.
+      #
+      # TTL note, recorded rather than discovered later: this token expires 1h
+      # after minting and this job's timeout-minutes is 60. A sweep that runs
+      # to the very top of its budget can outlive its own credential. Today's
+      # runs finish in ~8 min so the margin is large, but if the timeout is
+      # ever raised, re-mint before the long-running sweep step rather than
+      # widening this window.
+      - name: Mint onexbot App token (OMN-16832)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-administration: read
+          permission-contents: read
+          permission-metadata: read
+          permission-pull-requests: read
+          permission-checks: read
+
+      - name: Checkout omnibase_infra
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+
+      # OMN-16845. `EvidenceCollector._resolve_cwd` (omnimarket) renders
+      # `${OMNI_HOME}` from the process environment and requires the result to
+      # exist; this job never exported it, so every check pinned
+      # `cwd: "${OMNI_HOME}/omnibase_infra"` rendered to `/omnibase_infra`,
+      # which never exists, and was recorded FAILED rather than skipped or
+      # unresolved. Proven by execution: `env -u OMNI_HOME` against this
+      # job's env shape reproduces `failed: 3, behavior_proving_count: 0`;
+      # the identical run with OMNI_HOME set reproduces
+      # `verified, failed: 0, behavior_proving_count: 3` — the only variable
+      # is the env var.
+      #
+      # GitHub Actions checks a repo out to
+      # `<runner-work-dir>/<repo>/<repo>` (the documented `github.workspace`
+      # convention — GitHub's own docs give `/home/runner/work/my-repo-name/
+      # my-repo-name` as the canonical example), so `github.workspace`'s OWN
+      # PARENT directory already satisfies
+      # `${OMNI_HOME}/omnibase_infra == github.workspace` exactly, using the
+      # real checkout with no symlink and no second checkout.
+      #
+      # A symlink farm was considered and rejected: `_resolve_cwd`'s
+      # containment check (`candidate.is_relative_to(OMNI_HOME)`, evaluated
+      # AFTER `Path.resolve()`) follows a symlink to its real target and
+      # rejects it if that target sits outside OMNI_HOME. A fabricated
+      # OMNI_HOME containing a symlink pointing at the real checkout (which
+      # would live outside it) would fail that check. Pointing OMNI_HOME at
+      # the checkout's real parent is the only shape that is both correct and
+      # symlink-free.
+      #
+      # Fail-fast, not a silent default (CLAUDE.md rule 8): assert the
+      # derived path actually places omnibase_infra at github.workspace
+      # before exporting it, so a runner whose workspace layout ever stops
+      # matching that convention breaks the job loudly here instead of
+      # silently reintroducing this defect.
+      - name: Export OMNI_HOME for cwd-anchored dod_verify checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          omni_home="$(dirname "${GITHUB_WORKSPACE}")"
+          expected="${omni_home}/omnibase_infra"
+          if [ "${expected}" != "${GITHUB_WORKSPACE}" ]; then
+            echo "::error::derived OMNI_HOME (${omni_home}) does not place omnibase_infra at github.workspace (${GITHUB_WORKSPACE}) -- the runner's workspace layout does not match the documented <work>/<repo>/<repo> convention this fix depends on." >&2
+            exit 1
+          fi
+          if [ ! -d "${expected}" ]; then
+            echo "::error::${expected} does not exist -- refusing to export an OMNI_HOME that dod_verify's cwd-anchored checks would immediately fail resolution against." >&2
+            exit 1
+          fi
+          echo "OMNI_HOME=${omni_home}" >> "$GITHUB_ENV"
+          echo "OMNI_HOME resolved to ${omni_home} (omnibase_infra -> ${expected})"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # The GATE venv. `uv sync` is exact-mode, so `.venv` contains exactly
+      # what uv.lock declares and nothing else. This is the venv every
+      # behaviour check resolves: the OCC contracts under adjudication declare
+      # `check_type: test_passes` with `check_value: "uv run pytest ..."` and
+      # `cwd: "${OMNI_HOME}/omnibase_infra"`, and OMN-16845 wired OMNI_HOME so
+      # that path IS this checkout. Nothing may be installed into it after
+      # this step (OMN-16846) — see the purity assertion below.
+      - name: Install dependencies (GATE venv — stays lock-exact)
+        run: uv sync
+
+      # OMN-16846. The DISPATCH venv: a second, separate environment for the
+      # verifier itself.
+      #
+      # Why two. `onex skill dod_verify` is provided by `node_dod_verify`,
+      # which ships in omnimarket — a runtime provider that sits ABOVE infra in
+      # the layer graph and can never be a lock dependency, so the job has to
+      # co-install it (OMN-16736). But dod_verify's behaviour checks are
+      # `uv run pytest` inside this very checkout, and `tests/conftest.py`
+      # calls `assert_venv_purity()` (OMN-15620), which correctly refuses any
+      # venv carrying an `onex.nodes` provider uv.lock does not declare.
+      #
+      # With one venv those two requirements are directly contradictory, and
+      # the gate wins: run 33194402437 recorded all three OMN-16759 behaviour
+      # checks as `FAILED ... Canonical venv is IMPURE`, behavior_proving=0,
+      # without a single test having executed. That is a false FAILED — it
+      # names a venv, not a defect, and it is indistinguishable in the sweep's
+      # counts from a ticket that genuinely is not proven.
+      #
+      # Neither half is wrong. Their collapse onto one venv is. So the
+      # provider goes here and `.venv` stays lock-exact.
+      #
+      # Proven by execution 2026-08-28, same ticket, same contract, only the
+      # environment shape differing:
+      #   collapsed  -> status=failed   verified=1 failed=3 behavior_proving=0
+      #   separated  -> status=verified verified=5 failed=0 behavior_proving=3
+      # with no ONEX_ALLOW_VENV_IMPURITY set anywhere. The opt-out is
+      # deliberately NOT used: it would suppress a correct signal instead of
+      # removing the cause, and the conftest override warns in its own words
+      # that results from an overridden run "are NOT gate evidence".
+      #
+      # `UV_PROJECT_ENVIRONMENT` is uv's own supported way to place a project
+      # environment outside the project, so the dispatch venv is still built
+      # from this repo's lockfile — same resolution, different location — and
+      # then layered with omnimarket by the step below.
+      - name: Compose the dispatch venv (separate from the gate venv)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dispatch_venv="${RUNNER_TEMP}/dispatch-venv"
+          UV_PROJECT_ENVIRONMENT="${dispatch_venv}" uv sync
+          if [ ! -x "${dispatch_venv}/bin/onex" ]; then
+            echo "::error::${dispatch_venv}/bin/onex is missing after the dispatch-venv sync — every per-ticket verifier dispatch would fail closed at exec time, so refusing to continue." >&2
+            exit 1
+          fi
+          echo "DISPATCH_VENV=${dispatch_venv}" >> "$GITHUB_ENV"
+          echo "dispatch venv composed at ${dispatch_venv}"
+
+      # OMN-16736 step 1 of 3 (co-install -> AC-coverage guard -> --apply).
+      #
+      # Resolve the exact omnimarket commit BEFORE checking it out, so the run
+      # log records precisely what was composed into this environment and the
+      # same environment can be reconstructed later from the log alone. A bare
+      # `ref: dev` checkout would leave the installed rev inferable only from
+      # actions/checkout's own output.
+      #
+      # omnimarket is a PUBLIC repo, so this leg was never the broken one — it
+      # worked on the `github.token` the old `||` silently fell through to. It
+      # uses the App token anyway (OMN-16832) so this job has exactly ONE
+      # GitHub credential: a step that reads fine under a weaker token is how
+      # a mixed-credential job hides which token is actually in force.
+      # Fails loudly on a non-sha rather than falling back to a stale pin.
+      - name: Resolve omnimarket dev HEAD
+        id: omnimarket-ref
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          sha="$(gh api repos/OmniNode-ai/omnimarket/commits/dev --jq .sha)"
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::omnimarket dev HEAD resolution returned an invalid sha: '${sha}'" >&2
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "omnimarket dev HEAD: ${sha}"
+
+      - name: Checkout omnimarket (sibling provider source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omnimarket
+          ref: ${{ steps.omnimarket-ref.outputs.sha }}
+          path: .omnimarket-src
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      # The composition rule is OMN-13829's, applied to an EPHEMERAL job venv:
+      # omnimarket is a runtime PROVIDER, never a build/lock dependency, because
+      # it sits ABOVE infra in the layer graph. So it is layered on top of the
+      # already-synced venv rather than resolved into it.
+      #
+      # Deliberately NOT a shell-out to the operator co-install script under
+      # scripts/ — install-node-skill-package. That name is deliberately not
+      # joined to its directory prefix and .sh extension anywhere in this file:
+      # the OMN-15547 incident-replay inventory greps whole workflow files for
+      # scripts/**.{py,sh} literals and would classify a prose mention as newly
+      # wired enforcement, which a comment is not. This file's header already
+      # used the same convention.
+      #
+      # Two reasons not to call it: it is operator tooling whose blast radius
+      # is a long-lived machine venv, not a throwaway job env; and its sibling
+      # pins are hand-maintained literals that have already drifted from what
+      # omnimarket@dev actually requires (it pins omnibase-compat==0.5.5 /
+      # omninode-memory==0.15.0; omnimarket@dev requires 0.5.6 / 0.17.1 as of
+      # this commit). Reading the split out of omnimarket's OWN pyproject makes
+      # this job correct by construction and immune to that drift class.
+      #
+      # Three-way split, by layer position:
+      #   omnibase-*  SKIP     — the layer BENEATH infra. omnibase_infra's own
+      #                          lock is authoritative for core/spi/compat;
+      #                          letting market metadata re-pin them is the
+      #                          exact inversion the layer graph forbids.
+      #   omninode-*  NO-DEPS  — sibling packages beside/above infra. Install
+      #                          the version omnimarket asks for, but never let
+      #                          their transitive metadata re-resolve the layer
+      #                          beneath.
+      #   everything  RESOLVE  — pure-PyPI leaves (anthropic, radon, docker,
+      #     else                 python-dateutil, ...). No omni-internal
+      #                          metadata, safe to resolve normally.
+      #
+      # omnimarket itself is installed from `git+...@<resolved sha>`, NOT from
+      # the local `.omnimarket-src` directory (OMN-16902, second pass). The two
+      # are byte-identical — same commit — but they are not interchangeable to
+      # the OMN-14060 drift guard, which reads
+      # `direct_url.json`'s `vcs_info.commit_id` and treats a directory install
+      # as "not installed from git".
+      #
+      # That guard was inert here until OMN-16902's first pass materialised
+      # `${OMNI_HOME}/omnimarket`: `canonical_local_omnimarket_commit` returns
+      # None when no canonical clone exists, and the guard deliberately fails
+      # OPEN on None so it stays silent on CI runners. Materialising the clone
+      # made it determinable, and it correctly refused every dispatch in run
+      # 33217990549:
+      #
+      #   Error: omnimarket is NOT INSTALLED from git in this interpreter
+      #   (absent, or installed from PyPI/a non-VCS source), but a canonical
+      #   clone exists at $OMNI_HOME/omnimarket (HEAD 00aa538fe247).
+      #
+      # The guard is right and the install shape was wrong. The override
+      # (ONEX_ALLOW_OMNIMARKET_DRIFT) is deliberately NOT used: it says in its
+      # own words that results are "NOT evidence", and this job's whole output
+      # is evidence. Installing from the pinned git sha makes
+      # `installed == canonical` exactly, so the guard passes on the merits.
+      - name: Co-install omnimarket into the dispatch venv (provides node_dod_verify)
+        shell: bash
+        env:
+          OMNIMARKET_SHA: ${{ steps.omnimarket-ref.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # OMN-16846: the DISPATCH venv, never `.venv`. Installing an
+          # undeclared `onex.nodes` provider into the gate venv is exactly what
+          # the OMN-15620 purity gate refuses, and every behaviour check runs
+          # `uv run pytest` in the gate venv.
+          PYTHON_BIN="${DISPATCH_VENV}/bin/python"
+          test -x "$PYTHON_BIN"
+
+          python3 - "${RUNNER_TEMP}" <<'PYEOF'
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          out_dir = Path(sys.argv[1])
+          with open(".omnimarket-src/pyproject.toml", "rb") as fh:
+              data = tomllib.load(fh)
+
+          no_deps = []
+          leaves = []
+          for dep in data["project"]["dependencies"]:
+              name = re.split(r"[<>=!~\[;\s]", dep, maxsplit=1)[0].strip().lower()
+              if name.startswith("omnibase-"):
+                  continue          # layer BENEATH infra — infra's lock is authoritative
+              if name.startswith("omninode-"):
+                  no_deps.append(dep)
+              else:
+                  leaves.append(dep)
+
+          if not no_deps and not leaves:
+              print(
+                  "FAIL: omnimarket declares no installable dependencies — its "
+                  "pyproject was read but produced an empty split, which means "
+                  "the checkout or the parse is wrong, not that omnimarket is "
+                  "dependency-free.",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          (out_dir / "omnimarket-no-deps.txt").write_text("\n".join(no_deps) + "\n")
+          (out_dir / "omnimarket-leaves.txt").write_text("\n".join(leaves) + "\n")
+          print(f"no-deps siblings : {no_deps}")
+          print(f"resolved leaves  : {leaves}")
+          PYEOF
+
+          mapfile -t NO_DEPS < <(grep -v '^$' "${RUNNER_TEMP}/omnimarket-no-deps.txt" || true)
+          mapfile -t LEAVES < <(grep -v '^$' "${RUNNER_TEMP}/omnimarket-leaves.txt" || true)
+
+          if [ "${#LEAVES[@]}" -gt 0 ]; then
+            uv pip install --python "$PYTHON_BIN" "${LEAVES[@]}"
+          fi
+          # The git+ form is load-bearing, not cosmetic — see the step comment.
+          # `.omnimarket-src` is still the source of truth for the dependency
+          # split above and for the ${OMNI_HOME}/omnimarket materialisation
+          # below; only the omnimarket distribution ITSELF moves to the pinned
+          # VCS URL, so `direct_url.json` carries vcs_info.commit_id and the
+          # OMN-14060 drift guard resolves installed == canonical.
+          uv pip install --python "$PYTHON_BIN" --no-deps ${NO_DEPS[@]+"${NO_DEPS[@]}"} \
+            "omnimarket @ git+https://github.com/OmniNode-ai/omnimarket@${OMNIMARKET_SHA}"
+
+      # OMN-16846, the other half of the split — and the enforcement half
+      # (CLAUDE.md rule 5). The co-install above must have left the GATE venv
+      # untouched, because that venv is what every behaviour check's
+      # `uv run pytest` resolves and what `assert_venv_purity()` inspects.
+      #
+      # Without this assertion the separation is an intention, not a
+      # mechanism: any later step that pip-installs a sibling into `.venv`
+      # silently restores the collision, and the symptom is N per-ticket
+      # FAILED checks that read like N unproven tickets rather than one
+      # environment fault. That mis-reading is the whole defect this PR
+      # closes, so it gets a named refusal here instead.
+      #
+      # `find_undeclared_onex_providers` is the same function the pytest
+      # session-start gate calls, run through the same interpreter pytest will
+      # run under, so this is the real predicate and not a restatement of it.
+      - name: Assert the gate venv is pure (nothing may install into `.venv`)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! ./.venv/bin/python - <<'PYEOF'
+          import sys
+
+          from omnibase_infra.runtime.venv_purity import find_undeclared_onex_providers
+
+          undeclared = find_undeclared_onex_providers()
+          if undeclared:
+              print(
+                  "gate venv `.venv` carries undeclared onex.nodes provider(s): "
+                  + "; ".join(f"{p.name}=={p.version}" for p in undeclared),
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          print("OK: gate venv `.venv` declares every installed onex.nodes provider")
+          PYEOF
+          then
+            # Single-quoted on purpose: this message names shell metacharacters
+            # ($DISPATCH_VENV) and a command string, and a double-quoted echo
+            # would expand them. It did, in the first draft of this step, and
+            # backticks around the pytest invocation caused bash to RUN it.
+            echo '::error::the gate venv is IMPURE -- every "uv run pytest" behaviour check dod_verify runs in it would be refused by the OMN-15620 purity gate and recorded FAILED without executing (run 33194402437). The omnimarket co-install belongs in $DISPATCH_VENV, never in .venv (OMN-16846).' >&2
+            exit 1
+          fi
+
+      # Assert the thing the sweep actually depends on, through the exact
+      # interpreter it uses. OMN-16846 replaced `uv run python` here: `uv run`
+      # resolves whichever project the cwd names — the GATE venv — which after
+      # the split deliberately does NOT carry omnimarket, so asserting through
+      # it would now assert the wrong environment and fail on a correct job.
+      # The sweep dispatches the verifier from its own `sys.executable`
+      # (`_dod_verify_argv`), so the dispatch venv's interpreter is the only
+      # honest thing to probe.
+      - name: Verify node_dod_verify resolves in the dispatch venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${DISPATCH_VENV}/bin/python" - <<'PYEOF'
+          import sys
+          from importlib.metadata import entry_points
+
+          eps = {e.name for e in entry_points(group="onex.nodes")}
+          if "node_dod_verify" not in eps:
+              print(
+                  "FAIL: node_dod_verify is not a resolvable onex.nodes entry point "
+                  f"after the co-install ({len(eps)} entry points found). Every "
+                  "`onex skill dod_verify <ticket>` the sweep spawns would fail "
+                  "closed with 'Unknown node', and no flip or gap decision could "
+                  "be reached for any ticket.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          print(f"OK: node_dod_verify resolved among {len(eps)} onex.nodes entry points")
+          PYEOF
+
+      # OMN-16736. node_dod_verify resolving is necessary but not sufficient:
+      # it verifies the checks declared in the ticket's OCC CONTRACT, and it
+      # finds that contract by searching `${ONEX_CC_REPO_PATH}/contracts` then
+      # `${OMNI_HOME}/onex_change_control/contracts`
+      # (EvidenceCollector._DEFAULT_CONTRACT_ROOTS). Neither existed in this
+      # job, so every ticket resolved to no contract at all and came back as a
+      # single skipped check — `0/1 ACs verified, 0 failed`.
+      #
+      # That reads as "this ticket is not proven" and is recorded as a GAP,
+      # which is WRONG in a specific and dangerous way: the sweep would have
+      # posted six Linear comments (run 33091828068) stating an evidence
+      # verdict it never actually reached. The uniform 0/1 signature across six
+      # unrelated tickets is the tell — it is one environment fault, not six
+      # ticket verdicts.
+      #
+      # Ground truth for the same ticket WITH the contracts present:
+      #   OMN-16757 in that CI run     -> total_checks=1  verified=0 failed=0
+      #   OMN-16757 against a real OCC -> total_checks=14 verified=12 failed=2
+      #                                   (superseded=1, occ_refresh=fetched)
+      #
+      # depth-1 is correct here: the collector reads `contracts/<ticket>.yaml`
+      # AT a resolved ref, it does not walk ancestry. (The main-vs-dev ancestry
+      # caveat about shallow OCC clones does not apply to this read path.)
+      - name: Checkout onex_change_control (the contracts dod_verify verifies against)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/onex_change_control
+          ref: dev
+          path: .occ-src
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      # Assert the exact read the collector performs, before the sweep runs.
+      # Without this the failure mode is silent and mis-labelled: it does not
+      # look like "the runner has no contracts", it looks like "these tickets
+      # are unproven", which is the one thing this whole mechanism must never
+      # say when it has not actually checked.
+      #
+      # `origin/dev` is checked because that is the collector's default
+      # governance ref (OCC contracts land on dev first and are batched to main
+      # later, so a working-tree search alone would miss them).
+      - name: Verify the OCC contracts are readable at the governance ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git -C .occ-src rev-parse --verify --quiet origin/dev >/dev/null; then
+            echo "::error::.occ-src has no origin/dev remote-tracking ref — dod_verify resolves contracts at origin/dev and would find none, reporting every ticket as 0/1 unproven." >&2
+            exit 1
+          fi
+          sha="$(git -C .occ-src rev-parse origin/dev)"
+          count="$(git -C .occ-src ls-tree --name-only "origin/dev" contracts/ | wc -l | tr -d ' ')"
+          echo "OCC governance ref origin/dev = ${sha}"
+          echo "contracts/ entries at that ref: ${count}"
+          # A real OCC dev carries thousands of contracts. A handful means the
+          # checkout is wrong (empty, sparse, or the wrong repo) — fail here
+          # rather than let the sweep publish verdicts it did not reach.
+          if [ "${count}" -lt 100 ]; then
+            echo "::error::only ${count} entries under contracts/ at origin/dev — refusing to run the sweep against an OCC checkout this thin." >&2
+            exit 1
+          fi
+
+      # OMN-16902 D1. The checkout set must be DERIVED from the contracts that
+      # are about to be adjudicated, not declared here.
+      #
+      # A hardcoded repo list would be correct for exactly as long as the
+      # registry stands still, and it does not: OMN-16434 (omnimarket#2180)
+      # auto-mints `cwd: ${OMNI_HOME}/<repo>` on every new companion for
+      # whatever repo the work was in, so a list rots the first time a
+      # ticket lands in a repo nobody added here. That is this bug, arriving
+      # by a fourth door after OMN-16845 and OMN-16846 closed the first three.
+      # `tests/ci/test_evidence_autoclose_sweep_cwd_repos.py` extracts the
+      # classifier below out of this file and runs it against a repo name that
+      # exists nowhere in the registry, so a list cannot pass that gate.
+      #
+      # Two cwd shapes exist in the live corpus and both are handled:
+      #   ${OMNI_HOME}/<repo>[/<subdir>...]        -> materialise <repo>
+      #   ${OMNI_HOME}/omni_worktrees/<T>/<repo>   -> materialise <repo> AT
+      #                                               that worktree path
+      # The second is an operator-machine path that can never exist on a
+      # runner as written; materialising the named repo there is what makes
+      # the cwd resolvable at all. It is pinned to dev, the same ref every
+      # other dest uses — the check then proves behaviour against dev rather
+      # than against a branch that no longer exists, which is the only honest
+      # thing a post-merge sweep can do.
+      #
+      # Anything the classifier cannot place (a traversal, a bare
+      # `omni_worktrees` root, a non-OMNI_HOME absolute path) is PRINTED, not
+      # dropped. A silently discarded cwd is indistinguishable from a
+      # satisfied one, and that indistinguishability is the whole defect class.
+      #
+      # Cost note, recorded rather than hidden: this adds N shallow clones and
+      # N `uv sync`es to every scheduled run. It is bounded by the derived set
+      # (7 dests across ~4600 contracts as of this commit), each repo is cloned
+      # once and copied to its dests, and worktree-shaped dests are deliberately
+      # NOT pre-synced — they are historical, rarely adjudicated, and `uv run`
+      # provisions them on demand now that UV_NO_SYNC is gone.
+      # OMN-17976. The git credential, provisioned ONCE and pointed at from
+      # every step that spawns git -- which is more steps than it looks.
+      #
+      # This helper used to be written inline in the materialise step below and
+      # exported only there. That covered the clone. It did not cover the
+      # SECOND fetch, the one `EvidenceCollector` runs for ITSELF: step 2 of its
+      # freshness predicate is `git fetch <remote> <branch>`, spawned from
+      # inside the sweep, inheriting the SWEEP step's environment. That
+      # environment had GH_TOKEN and no GIT_ASKPASS, so git fell back to
+      # prompting and died.
+      #
+      # Public repos never showed it -- an anonymous https fetch of omnimarket
+      # or omnibase_core needs no credential, which is why OMN-17907 and
+      # OMN-17975 executed and flipped. Every `omninode_infra`-homed check hit
+      # it, measured on run 34004893099 at 2026-09-06T01:53:04Z, three
+      # candidates in a row (OMN-17201, OMN-17556, OMN-17515):
+      #
+      #   PRODUCT_CLONE_NOT_FRESH: ... upstream origin/dev, behind None; git
+      #   fetch origin dev failed ...: fatal: could not read Username for
+      #   'https://github.com': No such device or address
+      #
+      # `upstream origin/dev` in that message is OMN-17975 working: the refusal
+      # had already moved off step 1. This closes step 2.
+      #
+      # It is NOT the OMN-16832 token-scope residual: the same run's capability
+      # probe reports `READ_PULLS OmniNode-ai/omninode_infra: OK` and the clone
+      # succeeded. The credential simply never reached the process that needed
+      # it second.
+      #
+      # Discipline preserved, not relaxed: the token is still never written into
+      # a clone's config, never placed on a command line, and never printed. The
+      # helper emits it only when git asks for a password, and only in a step
+      # that already carries GH_TOKEN -- a step without it gets an empty answer
+      # and the same honest failure as before.
+      - name: Provision the git credential helper (OMN-17976)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/git-askpass.sh" <<'EOS'
+          #!/usr/bin/env bash
+          case "$1" in
+            Username*|username*) printf '%s\n' "x-access-token" ;;
+            *) printf '%s\n' "${GH_TOKEN}" ;;
+          esac
+          EOS
+          chmod +x "${RUNNER_TEMP}/git-askpass.sh"
+          if [ ! -x "${RUNNER_TEMP}/git-askpass.sh" ]; then
+            echo "::error::the git credential helper is not executable; every private-repo fetch this job makes would fall back to prompting and be recorded as an unexecuted PRODUCT_CLONE_NOT_FRESH refusal (OMN-17976)." >&2
+            exit 1
+          fi
+          echo "git credential helper provisioned at ${RUNNER_TEMP}/git-askpass.sh"
+
+      - name: Derive and materialise the cwd repo set the OCC contracts name (OMN-16902)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          contracts_dir="${GITHUB_WORKSPACE}/.occ-src/contracts"
+          if [ ! -d "${contracts_dir}" ]; then
+            echo "::error::${contracts_dir} is absent, so the cwd repo set cannot be derived and every non-infra behaviour check would render to a nonexistent path (OMN-16902)." >&2
+            exit 1
+          fi
+
+          python3 - "${contracts_dir}" \
+            > "${RUNNER_TEMP}/cwd-dests.tsv" \
+            2> "${RUNNER_TEMP}/cwd-unclassified.tsv" <<'PYEOF'
+          # ---8<--- OMN-16902 BEGIN cwd-repo-derivation
+          """Classify every ``cwd:`` an OCC contract declares into a
+          (destination path under OMNI_HOME, repository to materialise) pair.
+
+          stdout: one ``<dest>\t<repo>`` row per unique destination, sorted.
+          stderr: one ``UNCLASSIFIED_CWD\t<raw>`` row per cwd that cannot be
+          placed — reported so an unsatisfiable path is never mistaken for a
+          satisfied one.
+
+          Line-oriented on purpose. The corpus is thousands of files and a
+          malformed one must not abort the derivation for all the others, which
+          a whole-document YAML parse would do.
+          """
+          import re
+          import sys
+          from pathlib import Path
+
+          _CWD_LINE = re.compile(
+              r"""^\s*(?:-\s*)?cwd:\s*(?P<q>["']?)(?P<val>[^"'#\n]+)(?P=q)\s*(?:#.*)?$"""
+          )
+          _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+          _PREFIX = "${OMNI_HOME}/"
+
+          contracts_dir = Path(sys.argv[1])
+          dests: dict[str, str] = {}
+          unclassified: set[str] = set()
+
+          for path in sorted(contracts_dir.rglob("*.yaml")):
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except OSError as exc:
+                  print(f"UNREADABLE\t{path}\t{exc}", file=sys.stderr)
+                  continue
+              for line in text.splitlines():
+                  match = _CWD_LINE.match(line)
+                  if match is None:
+                      continue
+                  raw = match.group("val").strip()
+                  if not raw.startswith(_PREFIX):
+                      unclassified.add(raw)
+                      continue
+                  segments = [s for s in raw[len(_PREFIX) :].split("/") if s]
+                  if not segments or ".." in segments:
+                      unclassified.add(raw)
+                      continue
+                  if segments[0] == "omni_worktrees":
+                      if len(segments) < 3:
+                          unclassified.add(raw)
+                          continue
+                      dest, repo = "/".join(segments[:3]), segments[2]
+                  else:
+                      dest = repo = segments[0]
+                  if not all(_NAME.match(s) for s in dest.split("/")):
+                      unclassified.add(raw)
+                      continue
+                  dests[dest] = repo
+
+          for dest in sorted(dests):
+              print(f"{dest}\t{dests[dest]}")
+          for raw in sorted(unclassified):
+              print(f"UNCLASSIFIED_CWD\t{raw}", file=sys.stderr)
+          # ---8<--- OMN-16902 END cwd-repo-derivation
+          PYEOF
+
+          echo "== cwd destinations derived from ${contracts_dir} =="
+          cat "${RUNNER_TEMP}/cwd-dests.tsv"
+          if [ -s "${RUNNER_TEMP}/cwd-unclassified.tsv" ]; then
+            echo "== cwd values this run could not place (reported, never dropped) =="
+            cat "${RUNNER_TEMP}/cwd-unclassified.tsv"
+          fi
+
+          # OMN-18588. THE BRANCH IS A PROPERTY OF THE REPOSITORY, NOT A CONSTANT.
+          #
+          # Every clone below used to be pinned to a literal `dev`. That is a
+          # true statement about most of this registry and it is not a statement
+          # about repositories, and the difference was invisible for exactly as
+          # long as every declared cwd happened to name a repo whose default
+          # branch is `dev`.
+          #
+          # `knowledge-base-internal` has no `dev` branch at all. A clone of it
+          # pinned to that branch fails with "Remote branch dev not found in
+          # upstream origin" — and it fails into the `else` arm below, whose
+          # status reads UNAVAILABLE_REPO_NOT_READABLE_BY_TOKEN. That string
+          # names a CREDENTIAL problem, and the credential was never the
+          # problem: the App this job mints its token from is installed on ALL
+          # repositories in the organisation (app id 3342522, installation
+          # 123040063, read live 2026-09-17). Three separate readings of this
+          # job's log concluded the token was too narrow, and the remediation
+          # they produced was to relocate the evidence to another repository —
+          # nine days of OMN-17276's thread spent moving a probe to work around
+          # a branch name.
+          #
+          # So: read each repo's default branch from the repo itself, once.
+          #
+          # UNRESOLVED IS REPORTED, NEVER DEFAULTED. A repo whose branch this
+          # cannot answer for is dropped from the materialisation set and named.
+          # Falling back to `dev` would clone a branch nobody chose and ground a
+          # behaviour verdict in it, which is strictly worse than the honest
+          # absence of a verdict — the same releasing-direction refusal the
+          # classifier above already makes for a cwd it cannot place.
+          #
+          # stderr is NOT suppressed on the lookup. A silent `2>/dev/null` here
+          # would reproduce this ticket's whole defect class: a failure whose
+          # cause is discarded and then guessed at from a status string.
+          cut -f2 "${RUNNER_TEMP}/cwd-dests.tsv" | sort -u \
+            | while IFS= read -r repo; do
+                [ -n "${repo}" ] || continue
+                if default_branch="$(gh api "repos/OmniNode-ai/${repo}" --jq '.default_branch' \
+                     2> "${RUNNER_TEMP}/branch-lookup-${repo}.err")"; then
+                  :
+                else
+                  echo "::warning::OMN-18588 ${repo}: default-branch lookup failed -- $(head -1 "${RUNNER_TEMP}/branch-lookup-${repo}.err")"
+                  default_branch=""
+                fi
+                printf '%s\t%s\n' "${repo}" "${default_branch}"
+              done > "${RUNNER_TEMP}/default-branches.tsv"
+
+          echo "== default branch per repo, read from the repo =="
+          cat "${RUNNER_TEMP}/default-branches.tsv"
+
+          # Format conversion only — the resolver's own logic is the delimited
+          # block below, so that tests/ci can execute it rather than restate it.
+          python3 -c 'import json,sys; print(json.dumps(dict(l.split("\t", 1) for l in sys.stdin.read().splitlines() if "\t" in l)))' \
+            < "${RUNNER_TEMP}/default-branches.tsv" \
+            > "${RUNNER_TEMP}/default-branches.json"
+
+          python3 - "${RUNNER_TEMP}/cwd-dests.tsv" "${RUNNER_TEMP}/default-branches.json" \
+            > "${RUNNER_TEMP}/cwd-dests-branch.tsv" \
+            2> "${RUNNER_TEMP}/cwd-branch-unresolved.tsv" <<'PYEOF'
+          # ---8<--- OMN-18588 BEGIN cwd-branch-resolution
+          """Attach the branch to clone to every (destination, repository) pair.
+
+          argv: <dests tsv: dest\trepo> <json: {repo: default_branch}>
+
+          stdout: one ``<dest>\t<repo>\t<branch>`` row per RESOLVED destination.
+          stderr: one ``UNRESOLVED_DEFAULT_BRANCH\t<dest>\t<repo>`` row per
+          destination whose repository has no usable default branch.
+
+          A repository absent from the mapping, or present with a blank value,
+          is UNRESOLVED. It is never given a fallback: an invented branch is
+          how a wrong ref becomes a wrong behaviour verdict, and a blank one
+          renders ``--branch ''``, which git rejects with a message about
+          refspecs naming neither the repository nor the cause.
+
+          Exit status is 0 even with unresolved rows — the same reporting
+          discipline the classifier above uses. A destination that cannot be
+          materialised is already handled downstream; aborting here would take
+          every well-formed destination down with it.
+          """
+          import json
+          import sys
+          from pathlib import Path
+
+          dests_path, branch_map_path = Path(sys.argv[1]), Path(sys.argv[2])
+
+          try:
+              branch_map = json.loads(branch_map_path.read_text(encoding="utf-8"))
+          except (OSError, ValueError) as exc:
+              print(f"BRANCH_MAP_UNREADABLE\t{branch_map_path}\t{exc}", file=sys.stderr)
+              branch_map = {}
+          if not isinstance(branch_map, dict):
+              print(f"BRANCH_MAP_NOT_AN_OBJECT\t{branch_map_path}", file=sys.stderr)
+              branch_map = {}
+
+          for line in dests_path.read_text(encoding="utf-8").splitlines():
+              if not line.strip():
+                  continue
+              parts = line.split("\t")
+              if len(parts) != 2:
+                  print(f"DEST_ROW_MALFORMED\t{line}", file=sys.stderr)
+                  continue
+              dest, repo = (p.strip() for p in parts)
+              branch = str(branch_map.get(repo, "")).strip()
+              if not branch:
+                  print(f"UNRESOLVED_DEFAULT_BRANCH\t{dest}\t{repo}", file=sys.stderr)
+                  continue
+              print(f"{dest}\t{repo}\t{branch}")
+          # ---8<--- OMN-18588 END cwd-branch-resolution
+          PYEOF
+
+          echo "== cwd destinations with their resolved branch =="
+          cat "${RUNNER_TEMP}/cwd-dests-branch.tsv"
+          if [ -s "${RUNNER_TEMP}/cwd-branch-unresolved.tsv" ]; then
+            echo "== destinations with no resolvable branch (reported, never defaulted) =="
+            cat "${RUNNER_TEMP}/cwd-branch-unresolved.tsv"
+            while IFS=$'\t' read -r marker dest repo; do
+              [ -n "${dest:-}" ] || continue
+              echo "::warning::OMN-18588 ${dest}: ${marker} for OmniNode-ai/${repo}. Behaviour checks pinned at this cwd are not executed this run; the branch was not guessed."
+              printf '%s\t%s\t%s\n' "${dest}" "${repo}" "${marker}" \
+                >> "${RUNNER_TEMP}/cwd-materialisation.pending.tsv"
+            done < "${RUNNER_TEMP}/cwd-branch-unresolved.tsv"
+          fi
+
+          # Credentials reach git through GIT_ASKPASS only: never written into
+          # a clone's config, never on a command line, never in the log. The
+          # helper itself is provisioned by its own step above (OMN-17976) so
+          # the SWEEP can point at the same file -- see that step for why.
+          export GIT_ASKPASS="${RUNNER_TEMP}/git-askpass.sh"
+          export GIT_TERMINAL_PROMPT=0
+
+          # OMN-18117. RECORD THE COMPARISON TARGET, once, here.
+          #
+          # `EvidenceCollector` decided freshness by fetching `origin/<branch>`
+          # again AT CHECK TIME and comparing the clone's HEAD against that
+          # fresh fetch's tip. This loop runs near the start of the job; the
+          # checks it is materialising for run for the next ~20 minutes. So any
+          # ordinary merge to a product repo's `dev` inside that window made an
+          # otherwise-correct clone read `behind N` and every behaviour check
+          # pinned there was refused UNEXECUTED as PRODUCT_CLONE_STALE — a
+          # "stale" verdict manufactured by the sweep's own elapsed wall-clock
+          # time. Run 34428131180 (2026-09-10T02:06:28Z) held EIGHT tickets
+          # that way, each with zero failed checks and nothing proven either
+          # direction.
+          #
+          # Re-materialising immediately before the check phase would close the
+          # window too, and is NOT taken: moving `${OMNI_HOME}/omnimarket`
+          # mid-run hard-fails the OMN-14060 drift guard against the dispatch
+          # venv, and moving `github.workspace` invalidates the gate venv the
+          # purity assertion measures. So the tree stays exactly where
+          # `--no-move` left it and the COMPARISON TARGET is frozen instead.
+          #
+          # What is recorded is the UPSTREAM TIP observed here, never the
+          # clone's own HEAD. Pinning to HEAD would make the comparison vacuous
+          # (HEAD always equals itself) and would launder a clone that was
+          # already behind when this loop picked it up — the OMN-16846 AC5
+          # refusal, which this must not weaken and which the fixture in
+          # omnimarket's tests/unit/nodes/node_dod_verify proves both ways.
+          #
+          # A tree with no recordable pin is WARNED and left unpinned, so it
+          # falls back to the live comparison — the behaviour that was already
+          # happening — rather than silently reading as fresh.
+          : > "${RUNNER_TEMP}/product-clone-pins.tsv"
+          record_clone_pin() {
+            local tree="$1" branch="$2"
+            local root tip
+            root="$(git -C "${tree}" rev-parse --show-toplevel 2>/dev/null || true)"
+            tip="$(git -C "${tree}" rev-parse "refs/remotes/origin/${branch}" 2>/dev/null || true)"
+            if [ -z "${root}" ] || [ -z "${tip}" ]; then
+              echo "::warning::OMN-18117 ${tree}: no comparison pin recorded (toplevel='${root}' tip='${tip}'); freshness there stays measured against the moving upstream tip."
+              return 0
+            fi
+            echo "    pin: ${root} -> ${tip} (origin/${branch})"
+            printf '%s\t%s\t%s\n' "${root}" "${tip}" "origin/${branch}" \
+              >> "${RUNNER_TEMP}/product-clone-pins.tsv"
+          }
+
+          cache="${RUNNER_TEMP}/cwd-repo-cache"
+          mkdir -p "${cache}"
+          : > "${RUNNER_TEMP}/cwd-materialisation.tsv"
+          # OMN-18588: the destinations whose branch could not be resolved are
+          # carried into the same record every other destination lands in, so
+          # the step summary names them rather than leaving them absent — an
+          # absent row and a satisfied one are indistinguishable.
+          if [ -s "${RUNNER_TEMP}/cwd-materialisation.pending.tsv" ]; then
+            cat "${RUNNER_TEMP}/cwd-materialisation.pending.tsv" \
+              >> "${RUNNER_TEMP}/cwd-materialisation.tsv"
+          fi
+          # OMN-17975: one row per destination recording whether dod_verify can
+          # establish that tree's freshness. Read back into the step summary
+          # below so a clone that could NOT be normalised is named in the run's
+          # own record rather than inferred later from a refused check.
+          : > "${RUNNER_TEMP}/cwd-freshness.tsv"
+
+          while IFS=$'\t' read -r dest repo branch; do
+            [ -n "${dest:-}" ] || continue
+            # OMN-18588: the resolver never emits a row with a blank branch, so
+            # this is an assertion that the contract between the two held, not a
+            # fallback. A blank one here would render `--branch ''`.
+            if [ -z "${branch:-}" ]; then
+              echo "::error::OMN-18588 ${dest}: reached the materialisation loop with no resolved branch, which the resolver above is supposed to make impossible." >&2
+              exit 1
+            fi
+            target="${OMNI_HOME}/${dest}"
+
+            # The gate checkout is already at ${OMNI_HOME}/omnibase_infra by
+            # construction (OMN-16845). Never re-materialise it: its `.venv` is
+            # the lock-exact gate venv every behaviour check runs pytest in.
+            if [ "${target}" = "${GITHUB_WORKSPACE}" ]; then
+              echo "  ${dest}: ALREADY_PRESENT_GATE_CHECKOUT"
+              printf '%s\t%s\t%s\n' "${dest}" "${repo}" "ALREADY_PRESENT_GATE_CHECKOUT" \
+                >> "${RUNNER_TEMP}/cwd-materialisation.tsv"
+              # OMN-17975. See the block at the bottom of this loop for why.
+              # This tree IS `github.workspace`, so `--no-move` is doubly
+              # required here: the gate venv was synced against this source, and
+              # the post-sweep purity assertion would otherwise be measuring a
+              # different tree than the one it installed.
+              freshness_out="$("${GITHUB_WORKSPACE}/scripts/ci/normalize_product_clone.sh" --no-move \
+                "${target}" "https://github.com/OmniNode-ai/${repo}.git" "${branch}" 2>&1)" \
+                && freshness_rc=0 || freshness_rc=$?
+              echo "    freshness: ${freshness_out}"
+              printf '%s\t%s\t%s\n' "${dest}" "${freshness_rc}" "${freshness_out%%$'\n'*}" \
+                >> "${RUNNER_TEMP}/cwd-freshness.tsv"
+              record_clone_pin "${target}" "${branch}"
+              continue
+            fi
+            # Containment, asserted before anything destructive runs.
+            case "${target}" in
+              "${OMNI_HOME}"/?*) : ;;
+              *)
+                echo "::error::refusing to materialise ${dest}: ${target} is not strictly under OMNI_HOME (${OMNI_HOME})." >&2
+                exit 1
+                ;;
+            esac
+
+            src="${cache}/${repo}"
+            if [ -d "${src}" ]; then
+              status="CACHED"
+            elif [ "${repo}" = "onex_change_control" ] && [ -d "${GITHUB_WORKSPACE}/.occ-src" ]; then
+              cp -a "${GITHUB_WORKSPACE}/.occ-src" "${src}"
+              status="REUSED_OCC_CHECKOUT"
+            elif [ "${repo}" = "omnimarket" ] && [ -d "${GITHUB_WORKSPACE}/.omnimarket-src" ]; then
+              cp -a "${GITHUB_WORKSPACE}/.omnimarket-src" "${src}"
+              status="REUSED_OMNIMARKET_CHECKOUT"
+            elif git clone --quiet --depth 1 --branch "${branch}" \
+                 "https://github.com/OmniNode-ai/${repo}.git" "${src}" \
+                 2> "${RUNNER_TEMP}/clone-${repo}.err"; then
+              status="CLONED_DEFAULT_BRANCH"
+            else
+              rm -rf "${src}"
+              # OMN-18588: the reason git gave, carried into the status rather
+              # than discarded. The previous revision recorded every clone
+              # failure as UNAVAILABLE_REPO_NOT_READABLE_BY_TOKEN whatever git
+              # actually said, so a missing branch read as a missing permission
+              # and was remediated as one for nine days.
+              clone_err="$(head -1 "${RUNNER_TEMP}/clone-${repo}.err" 2>/dev/null || true)"
+              case "${clone_err}" in
+                *"not found in upstream origin"*)
+                  status="UNAVAILABLE_BRANCH_ABSENT_ON_REMOTE" ;;
+                *)
+                  status="UNAVAILABLE_REPO_NOT_READABLE_BY_TOKEN" ;;
+              esac
+            fi
+
+            if [ ! -d "${src}" ]; then
+              # Named, not silent. This run's credential cannot see the repo, so
+              # any check pinned there still cannot execute — that is the
+              # App-token scope residual tracked on OMN-16832 (an operator-only
+              # grant), NOT a product defect and NOT something this job can fix.
+              echo "::warning::OMN-16902 ${dest}: ${status} for OmniNode-ai/${repo}. Behaviour checks pinned at this cwd remain unexecutable until the sweep's App token can read it (OMN-16832)."
+              printf '%s\t%s\t%s\n' "${dest}" "${repo}" "${status}" \
+                >> "${RUNNER_TEMP}/cwd-materialisation.tsv"
+              continue
+            fi
+
+            # Destructive refresh: a self-hosted runner keeps siblings of
+            # GITHUB_WORKSPACE across jobs, and a stale tree would ground a
+            # behaviour verdict in code nobody chose.
+            rm -rf "${target}"
+            mkdir -p "$(dirname "${target}")"
+            cp -a "${src}" "${target}"
+            echo "  ${dest}: ${status} -> ${target}"
+            printf '%s\t%s\t%s\n' "${dest}" "${repo}" "${status}" \
+              >> "${RUNNER_TEMP}/cwd-materialisation.tsv"
+
+            # OMN-17975. Everything above produces a DETACHED HEAD, and a
+            # detached tree is one dod_verify refuses to execute in.
+            #
+            # `REUSED_OMNIMARKET_CHECKOUT` and `REUSED_OCC_CHECKOUT` copy an
+            # `actions/checkout` tree pinned to a resolved SHA; `CLONED_DEFAULT_BRANCH`
+            # produces a branch but a `cp -a` of a cached copy carries whatever
+            # state the cache had. `EvidenceCollector` establishes freshness by
+            # reading `@{upstream}`, which fails outright on a detached HEAD
+            # ("fatal: HEAD does not point to a branch") — so the resolution is
+            # UNKNOWN, the cause is PRODUCT_CLONE_FRESHNESS_UNKNOWN, and the
+            # check is refused UNEXECUTED. Since OMN-16434 mints exactly one
+            # cwd-anchored behaviour proof per companion, that refusal landed on
+            # the ONLY behaviour-proving check every candidate had, and
+            # `behavior_proving_count` was 0 for the whole corpus across 24
+            # consecutive scheduled runs.
+            #
+            # Measured on the runner, dispatch dry-run 33997616996,
+            # 2026-09-05T23:05:36Z, against OMN-17907:
+            #   [skipped] dod-occ-diff-derived-behavior-proof:
+            #   PRODUCT_CLONE_NOT_FRESH: ... upstream <none> ... The command was
+            #   NOT executed.
+            #
+            # `--no-move`, deliberately, on EVERY dest — the defect is the
+            # missing upstream, not the commit. Two things downstream are pinned
+            # to the SHA these trees already carry: the OMN-14060 drift guard
+            # asserted in the next step requires
+            # `${OMNI_HOME}/omnimarket` HEAD == the commit co-installed into the
+            # dispatch venv, and the gate venv is synced against
+            # `github.workspace`. Fast-forwarding either would hard-fail the job
+            # on a race that only happens when a repo's `dev` advances during
+            # the run. So this establishes the upstream WITHOUT moving anything,
+            # and a tree that has genuinely fallen behind is reported BEHIND and
+            # left alone — its checks stay refused on the honest, pre-existing
+            # terms rather than being executed against a tree nobody chose.
+            #
+            # A failure here is a warning, not a job failure, for the same
+            # reason: the outcome it leaves is exactly the outcome that was
+            # already happening.
+            freshness_out="$("${GITHUB_WORKSPACE}/scripts/ci/normalize_product_clone.sh" --no-move \
+              "${target}" "https://github.com/OmniNode-ai/${repo}.git" "${branch}" 2>&1)" \
+              && freshness_rc=0 || freshness_rc=$?
+            echo "    freshness: ${freshness_out}"
+            if [ "${freshness_rc}" -ne 0 ]; then
+              echo "::warning::OMN-17975 ${dest}: freshness could not be established (exit ${freshness_rc}). Behaviour checks pinned at this cwd stay refused as PRODUCT_CLONE_NOT_FRESH."
+            fi
+            printf '%s\t%s\t%s\n' "${dest}" "${freshness_rc}" "${freshness_out%%$'\n'*}" \
+              >> "${RUNNER_TEMP}/cwd-freshness.tsv"
+            record_clone_pin "${target}" "${branch}"
+          done < "${RUNNER_TEMP}/cwd-dests-branch.tsv"
+
+          # OMN-18117. Render the recorded pins into the file the collector
+          # reads (DOD_VERIFY_PRODUCT_CLONE_PIN_FILE, exported on every
+          # check-bearing step below). Written UNCONDITIONALLY, even with zero
+          # pins: a present file declaring no pins says "this run pinned
+          # nothing", while an absent one is indistinguishable from a step that
+          # never ran, and the collector would warn about a path it cannot read
+          # on every candidate.
+          #
+          # The renderer is delimited so tests/ci/test_autoclose_clone_pin_omn18117.py
+          # extracts and EXECUTES this exact program rather than paraphrasing
+          # it — the OMN-16902 pattern in the classifier above, for the same
+          # reason: a renderer asserted by string match is one silent edit away
+          # from emitting a file the collector rejects, and a rejected pin file
+          # falls back to precisely the defect this closes.
+          python3 - "${RUNNER_TEMP}/product-clone-pins.tsv" \
+            "${RUNNER_TEMP}/product-clone-pins.json" <<'PYEOF'
+          # ---8<--- OMN-18117 BEGIN product-clone-pin-render
+          """Render the recorded (repo root, upstream tip, upstream ref) rows
+          into the pin file ``EvidenceCollector`` reads.
+
+          Shape is ``ModelProductClonePinSet`` (omnimarket,
+          node_dod_verify/models/model_dod_verify_state.py): a ``version`` this
+          collector understands plus a ``pins`` array. Both models declare
+          ``extra="forbid"``, so an unknown key here is a parse failure and a
+          silent fallback to the live comparison — emit exactly these fields.
+
+          A malformed row is DROPPED with a reason on stderr rather than
+          emitted: a pin whose SHA is not a full 40-char lowercase hex fails
+          the model's own pattern and would take the whole file down with it,
+          unpinning every repository including the well-formed ones.
+          """
+          import json
+          import re
+          import sys
+          from datetime import datetime, timezone
+
+          SCHEMA_VERSION = 1
+          SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+          src, dest = sys.argv[1], sys.argv[2]
+          recorded_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          pins: list[dict[str, str]] = []
+          seen: set[str] = set()
+          try:
+              with open(src, encoding="utf-8") as fh:
+                  rows = fh.read().splitlines()
+          except OSError as exc:
+              print(f"PIN_SOURCE_UNREADABLE\t{src}\t{exc}", file=sys.stderr)
+              rows = []
+
+          for row in rows:
+              if not row.strip():
+                  continue
+              parts = row.split("\t")
+              if len(parts) != 3:
+                  print(f"PIN_ROW_MALFORMED\t{row}", file=sys.stderr)
+                  continue
+              repo_root, pinned_sha, upstream_ref = (p.strip() for p in parts)
+              if not repo_root.startswith("/"):
+                  print(f"PIN_ROOT_NOT_ABSOLUTE\t{row}", file=sys.stderr)
+                  continue
+              if not SHA_RE.match(pinned_sha):
+                  print(f"PIN_SHA_NOT_FULL_HEX\t{row}", file=sys.stderr)
+                  continue
+              if repo_root in seen:
+                  # One tree, one comparison target. A second row for the same
+                  # root would be two answers to one question.
+                  print(f"PIN_ROOT_DUPLICATE\t{row}", file=sys.stderr)
+                  continue
+              seen.add(repo_root)
+              pins.append(
+                  {
+                      "repo_root": repo_root,
+                      "pinned_sha": pinned_sha,
+                      "upstream_ref": upstream_ref,
+                      "recorded_at": recorded_at,
+                  }
+              )
+
+          with open(dest, "w", encoding="utf-8") as fh:
+              json.dump({"version": SCHEMA_VERSION, "pins": pins}, fh, indent=2)
+              fh.write("\n")
+          print(f"wrote {len(pins)} product-clone pin(s) to {dest}")
+          # ---8<--- OMN-18117 END product-clone-pin-render
+          PYEOF
+
+          echo "== OMN-18117 product-clone comparison pins =="
+          cat "${RUNNER_TEMP}/product-clone-pins.json"
+
+          # One environment per repo, in that repo, built by that repo's own
+          # lockfile. Nothing is cross-installed into any other venv — the
+          # OMN-16846 separation is a property this step must preserve, not a
+          # one-off it may spend.
+          echo "== per-dest environments =="
+          while IFS=$'\t' read -r dest repo status; do
+            case "${status}" in
+              CLONED_DEFAULT_BRANCH|CACHED|REUSED_OCC_CHECKOUT|REUSED_OMNIMARKET_CHECKOUT) : ;;
+              *) continue ;;
+            esac
+            case "${dest}" in
+              */*) echo "  ${dest}: worktree-shaped dest, provisioned on demand"; continue ;;
+            esac
+            target="${OMNI_HOME}/${dest}"
+            if [ ! -f "${target}/pyproject.toml" ]; then
+              echo "  ${dest}: no pyproject.toml, nothing to sync"
+              continue
+            fi
+            if ( cd "${target}" && uv sync --quiet ); then
+              echo "  ${dest}: environment ready at ${target}/.venv"
+            else
+              echo "::warning::OMN-16902 ${dest}: uv sync failed; a check landing here will retry the sync on demand and report a real result either way."
+            fi
+          done < "${RUNNER_TEMP}/cwd-materialisation.tsv"
+
+          {
+            echo "### OMN-16902 cwd destinations"
+            echo ""
+            echo "| dest | repo | status |"
+            echo "| --- | --- | --- |"
+            while IFS=$'\t' read -r dest repo status; do
+              echo "| \`${dest}\` | ${repo} | ${status} |"
+            done < "${RUNNER_TEMP}/cwd-materialisation.tsv"
+            echo ""
+            echo "### OMN-17975 product-clone freshness"
+            echo ""
+            echo "A dest whose \`exit\` is not 0 has no establishable freshness, so every"
+            echo "behaviour check pinned there is refused UNEXECUTED as PRODUCT_CLONE_NOT_FRESH"
+            echo "and cannot contribute to \`behavior_proving_count\`."
+            echo ""
+            echo "| dest | exit | detail |"
+            echo "| --- | --- | --- |"
+            while IFS=$'\t' read -r dest rc detail; do
+              echo "| \`${dest}\` | ${rc} | ${detail} |"
+            done < "${RUNNER_TEMP}/cwd-freshness.tsv"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # -----------------------------------------------------------------
+      # OMN-17863: the Node half of the toolchain
+      # -----------------------------------------------------------------
+      #
+      # Every provisioning step above this point is Python-shaped, because
+      # until now every behaviour check was. `test_passes` is a semantic alias
+      # for `command` (OMN-16824) — dod_verify runs the declared string raw in
+      # its declared cwd — so a contract whose proof is `pnpm test:...` exits
+      # 127 on this job and is recorded `failed=1`. That asserts a product
+      # defect on the strength of the VERIFIER's missing runtime, and reads in
+      # a receipt exactly like the product genuinely failing. It is also
+      # strictly more blocking than the missing proof it would replace, which
+      # is why the OMN-17863 behaviour item was held unpushed rather than
+      # landed into a job that could not execute it.
+      #
+      # Placed AFTER the materialise step on purpose: the version is derived
+      # from the JS projects that were actually cloned, so it is the product's
+      # own declaration rather than a constant in this file that drifts.
+      - name: Derive the Node version the materialised JS projects declare (OMN-17863)
+        id: node-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "${OMNI_HOME}" "${RUNNER_TEMP}/cwd-materialisation.tsv" \
+            >> "$GITHUB_OUTPUT" <<'PYEOF'
+          # ---8<--- OMN-17863 BEGIN node-version-derivation
+          """Resolve one Node version satisfying every materialised JS project.
+
+          Reads each destination's own declaration -- `.nvmrc` first (it is the
+          more specific statement), then `engines.node`. Takes the HIGHEST
+          floor across the set, because a single runtime has to satisfy all of
+          them and the highest floor is the only one that can.
+
+          Prints `version=<x>` for the step output. When no materialised repo
+          declares anything it prints the workflow default rather than failing:
+          a run with no JS contract in scope must not be blocked by the absence
+          of a JS toolchain requirement.
+          """
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          omni_home = Path(sys.argv[1])
+          tsv = Path(sys.argv[2])
+          default = os.environ.get("NODE_VERSION_DEFAULT", "22")
+
+          _FLOOR = re.compile(r"(\d+(?:\.\d+){0,2})")
+
+          def _floor(raw: str) -> tuple[int, ...] | None:
+              match = _FLOOR.search(raw)
+              if match is None:
+                  return None
+              return tuple(int(part) for part in match.group(1).split("."))
+
+          found: list[tuple[tuple[int, ...], str, str]] = []
+          rows = tsv.read_text(encoding="utf-8").splitlines() if tsv.is_file() else []
+          for row in rows:
+              dest = row.split("\t")[0].strip()
+              if not dest:
+                  continue
+              root = omni_home / dest
+              nvmrc = root / ".nvmrc"
+              if nvmrc.is_file():
+                  raw = nvmrc.read_text(encoding="utf-8").strip().lstrip("v")
+                  parsed = _floor(raw)
+                  if parsed is not None:
+                      found.append((parsed, raw, f"{dest}/.nvmrc"))
+                      continue
+              manifest = root / "package.json"
+              if not manifest.is_file():
+                  continue
+              try:
+                  data = json.loads(manifest.read_text(encoding="utf-8"))
+              except ValueError:
+                  print(f"could not parse {manifest}", file=sys.stderr)
+                  continue
+              engines = data.get("engines") if isinstance(data, dict) else None
+              node = engines.get("node") if isinstance(engines, dict) else None
+              if not isinstance(node, str):
+                  continue
+              parsed = _floor(node)
+              if parsed is not None:
+                  found.append((parsed, ".".join(str(n) for n in parsed),
+                                f"{dest}/package.json engines.node ({node})"))
+
+          if found:
+              found.sort()
+              _, version, source = found[-1]
+              print(f"resolved from {source}", file=sys.stderr)
+          else:
+              version = default
+              print("no materialised repo declares a Node version", file=sys.stderr)
+          print(f"version={version}")
+          # ---8<--- OMN-17863 END node-version-derivation
+          PYEOF
+          echo "== Node version derivation =="
+          cat "$GITHUB_OUTPUT" | grep '^version=' || true
+
+      - name: Provision Node for JS behaviour checks (OMN-17863)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ steps.node-version.outputs.version }}
+
+      # `setup-node` does not enable corepack and does not ship pnpm, so a job
+      # with Node and no corepack has the same exit 127 by a different route.
+      # corepack is what makes a project's own `packageManager` pin the thing
+      # that actually runs, which is the property the staged toolchain in
+      # node_dod_verify resolves against (it refuses a near-miss version).
+      - name: Enable corepack for the pinned package manager (OMN-17863)
+        shell: bash
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          corepack enable
+          # Provisioning that reports success without being usable is the
+          # failure this repo keeps re-learning (OMN-17307) — assert it.
+          echo "node    $(node --version)"
+          echo "corepack $(corepack --version)"
+
+      # OMN-16902, second pass. Materialising ${OMNI_HOME}/omnimarket ARMS the
+      # OMN-14060 drift guard, which until then failed open on this runner
+      # because no canonical clone existed. Run 33217990549 proved the
+      # consequence: every one of the four diagnosed tickets produced NO
+      # stdout at all and died on `omnimarket is NOT INSTALLED from git in
+      # this interpreter` — a strictly worse outcome than the false FAILEDs
+      # this ticket set out to remove, because it removed the verdict entirely.
+      #
+      # So the guard is now asserted HERE, right after the clone appears and
+      # before anything dispatches, through the dispatch venv's own
+      # interpreter — the one the verifier actually runs in. It is the real
+      # predicate (`check_omnimarket_drift`), not a restatement, and
+      # `allow_drift` is left at its refusing default.
+      - name: Assert the omnimarket drift guard resolves in the dispatch venv (OMN-16902)
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${DISPATCH_VENV}/bin/python" - "${OMNI_HOME}" <<'PYEOF'
+          import sys
+
+          from omnibase_infra.cli.omnimarket_drift_guard import (
+              OmnimarketDriftError,
+              canonical_local_omnimarket_commit,
+              check_omnimarket_drift,
+              installed_omnimarket_commit,
+          )
+
+          omni_home = sys.argv[1]
+          canonical = canonical_local_omnimarket_commit(omni_home=omni_home)
+          installed = installed_omnimarket_commit()
+          print(f"canonical OMNI_HOME/omnimarket HEAD : {canonical}")
+          print(f"dispatch-venv installed commit      : {installed}")
+          if canonical is None:
+              print(
+                  "FAIL: ${OMNI_HOME}/omnimarket was not materialised, so the "
+                  "OMN-14060 guard fails open and OMN-16790's omnimarket-homed "
+                  "behaviour checks still cannot resolve their cwd.",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          try:
+              check_omnimarket_drift(omni_home)
+          except OmnimarketDriftError as exc:
+              print(f"FAIL: {exc}", file=sys.stderr)
+              raise SystemExit(1) from exc
+          print("OK: installed omnimarket == canonical clone HEAD; dispatch will not be refused")
+          PYEOF
+
+      # OMN-16902 D2, as an executable precondition rather than a comment.
+      #
+      # The OCC-homed `test_passes` checks do NOT run in `.occ-src`.
+      # `_infer_occ_cwd` returns `_occ_dev_root` — an ephemeral `git worktree`
+      # of the governance ref that the collector materialises mid-run. No step
+      # can pre-provision that path, so the only honest proof is: build a
+      # worktree the same way and show pytest spawns in it.
+      #
+      # What failed on run 33210339910, on all four seeds:
+      #   [failed] dod-occ-evidence-admissibility-validator: FAILED (12ms):
+      #     Creating virtual environment at: .venv
+      #     error: Failed to spawn: `pytest`
+      #
+      # 12ms and a freshly created empty `.venv` is the signature of
+      # UV_NO_SYNC=1 inherited into a project that had never been synced: uv
+      # made the environment and was forbidden from populating it. This step
+      # also warms the uv cache, so the worktree the sweep builds a few minutes
+      # later resolves from cache instead of the network.
+      - name: Prove an OCC governance worktree can spawn pytest (OMN-16902 D2)
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe="${RUNNER_TEMP}/occ-governance-probe"
+          rm -rf "${probe}"
+          git -C "${GITHUB_WORKSPACE}/.occ-src" worktree add --detach "${probe}" origin/dev
+          rc=0
+          ( cd "${probe}" && uv run pytest --version ) || rc=$?
+          git -C "${GITHUB_WORKSPACE}/.occ-src" worktree remove --force "${probe}" || true
+          if [ "${rc}" -ne 0 ]; then
+            echo '::error::a fresh onex_change_control worktree at origin/dev cannot spawn pytest. Every OCC-homed test_passes check would be recorded FAILED on "error: Failed to spawn: pytest" with no test having executed (run 33210339910, all four seeds) -- a false FAILED that names the runner, not the product (OMN-16902 D2).' >&2
+            exit 1
+          fi
+          echo "OK: a fresh OCC governance worktree provisions its own interpreter and spawns pytest"
+
+      # OMN-16788. The sweep records only COUNTS per ticket
+      # (`dod_verify_total_checks` / `verified` / `failed`); the per-check
+      # detail dod_verify produces goes to capture files this job does not
+      # publish. So when CI and a local run disagree on the same ticket and the
+      # same contract — 2026-08-27: OMN-16682 50/50 local vs 23/52 here,
+      # OMN-16626 8/8 vs 3/10, OMN-16690 12/14 vs 5/14, OMN-16761 6/6 vs 3/6 —
+      # the run log cannot say WHY, and "which verifier is authoritative" stays
+      # undecided. That question gates `--apply`.
+      #
+      # This step exists to answer it from a single dispatch. It runs ONLY when
+      # `diagnose_tickets` is non-empty, so every scheduled run pays nothing,
+      # and it runs BEFORE the sweep so a sweep timeout cannot swallow it.
+      #
+      # It reports two things:
+      #   1. What this run's GitHub credential can actually READ — per repo the
+      #      bound contracts cite. Contract evidence checks are overwhelmingly
+      #      `gh pr view` / `gh pr checks` / `gh api repos/.../pulls/...`, and
+      #      `_live_pr_checks_for_item` is fail-closed: unresolvable live PR
+      #      state is FAILED, not SKIPPED. A wrongly-scoped token therefore
+      #      produces a confident wrong verdict rather than an error.
+      #   2. The full per-check table for each named ticket.
+      #
+      # The ticket list is passed through env, never interpolated into the
+      # shell (OMN-16323), and is format-validated before use.
+      - name: Diagnose verdict divergence (OMN-16788; opt-in, default off)
+        if: ${{ github.event.inputs.diagnose_tickets != '' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # OMN-16902 D2: no UV_NO_SYNC here. This step spawns the same
+          # behaviour checks the sweep does, so it must reproduce the sweep's
+          # environment exactly — including the OCC governance worktree's
+          # ability to provision its own interpreter. See the sweep step below
+          # for the full reasoning; a divergence between these two steps would
+          # make the diagnostic lie about the thing it exists to diagnose.
+          ONEX_CC_REPO_PATH: ${{ github.workspace }}/.occ-src
+          DIAGNOSE_TICKETS: ${{ github.event.inputs.diagnose_tickets }}
+          # OMN-17976: `EvidenceCollector` spawns `git fetch` for itself as step 2
+          # of its product-clone freshness predicate. Without these two it
+          # prompts and dies, and every private-repo-homed behaviour check is
+          # recorded as an unexecuted PRODUCT_CLONE_NOT_FRESH refusal.
+          # GIT_TERMINAL_PROMPT=0 keeps a credential-less fetch a fast, named
+          # failure rather than a hang.
+          GIT_ASKPASS: ${{ runner.temp }}/git-askpass.sh
+          GIT_TERMINAL_PROMPT: "0"
+          # OMN-18117: the comparison targets this run materialised against,
+          # written by the materialise step above. With this set, the
+          # collector measures each clone's HEAD against the tip recorded when
+          # the run picked that tree up, instead of re-fetching a `dev` that
+          # has advanced since. Without it (every local invocation) the
+          # OMN-16846 live-fetch comparison is unchanged.
+          DOD_VERIFY_PRODUCT_CLONE_PIN_FILE: ${{ runner.temp }}/product-clone-pins.json
+          # OMN-17863: the JS half of the hermetic behaviour-check
+          # environment. node_dod_verify stages a lock-exact tree per
+          # (project, lockfile) and installs into it with
+          # `pnpm install --frozen-lockfile`; these three place and bound it.
+          #
+          # Under RUNNER_TEMP, not the workspace: a real project's node_modules
+          # is hundreds of megabytes, and inside GITHUB_WORKSPACE it would be
+          # walked by the gate-venv purity assertions and picked up by any
+          # later checkout. It is also where the dispatch venv already lives.
+          DOD_VERIFY_HERMETIC_NODE_ROOT: ${{ runner.temp }}/dod-verify-node
+          # The install is a DOWNLOAD, so it gets its own budget rather than
+          # the 180s per-check ceiling below. Charging a cold pnpm store to the
+          # per-check ceiling kills the check mid-flight and records
+          # CHECK_BUDGET_EXCEEDED — a verifier-side ceiling reported as a fact
+          # about the ticket, which is the confusion OMN-17795 had to unpick.
+          # 900s is the same default the uv sync carries; stated explicitly
+          # here because this job overrides the per-check ceiling and the two
+          # must be visibly separate.
+          DOD_VERIFY_HERMETIC_SYNC_TIMEOUT_S: "900"
+          # corepack asks before fetching a package manager it does not have.
+          # In a scheduled run nobody answers, so that is an indefinite hang
+          # inside the 60-minute job budget, reported as nothing at all.
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: |
+          set -uo pipefail
+
+          if ! printf '%s' "${DIAGNOSE_TICKETS}" | grep -qE '^OMN-[0-9]+(,OMN-[0-9]+)*$'; then
+            echo "::error::diagnose_tickets must be a comma-separated list of OMN-<digits> ids." >&2
+            exit 1
+          fi
+
+          # Probes capability, never the credential itself — no token value is
+          # printed, derived, or written anywhere in this step.
+          echo "== credential capability =="
+          for repo in \
+            OmniNode-ai/omnibase_infra \
+            OmniNode-ai/onex_change_control \
+            OmniNode-ai/omninode_infra \
+            OmniNode-ai/omnimarket \
+            OmniNode-ai/omnibase_core
+          do
+            if out="$(gh api "repos/${repo}/pulls?per_page=1" --jq 'length' 2>&1)"; then
+              echo "  READ_PULLS ${repo}: OK (${out} returned)"
+            else
+              echo "  READ_PULLS ${repo}: DENIED — ${out}"
+            fi
+          done
+
+          echo "== per-ticket dod_verify detail =="
+          IFS=',' read -ra TICKETS <<< "${DIAGNOSE_TICKETS}"
+          for ticket in "${TICKETS[@]}"; do
+            echo "---- ${ticket} ----"
+            # OMN-16846: the DISPATCH venv's own binary, matching exactly what
+            # the sweep spawns (`_dod_verify_argv`). Going through `uv run`
+            # would resolve the gate venv, which by design carries no
+            # node_dod_verify.
+            "${DISPATCH_VENV}/bin/onex" skill dod_verify "${ticket}" --execution-audience hosted > "${RUNNER_TEMP}/${ticket}.json" 2> "${RUNNER_TEMP}/${ticket}.err" || true
+            python3 - "${RUNNER_TEMP}/${ticket}.json" <<'PYEOF'
+          import json
+          import sys
+          from pathlib import Path
+
+          raw = Path(sys.argv[1]).read_text(encoding="utf-8").strip()
+          if not raw:
+              print("  (no stdout — see the .err capture in the step above)")
+              raise SystemExit(0)
+          try:
+              payload = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              print(f"  (unparseable dod_verify stdout: {exc})")
+              print(raw[:2000])
+              raise SystemExit(0)
+
+          # `onex skill dod_verify` emits ONE of TWO ModelSkillResult arms, and
+          # `receipt_mode` picks between them on the run's own outcome:
+          #   ModelDodVerifyState        -> `result` IS the verdict, flat
+          #                                 (success-like runs; a `verified`
+          #                                 verdict is always this one)
+          #   ModelReceiptRuntimeSummary -> the verdict is nested at
+          #                                 `result.terminal_payload`
+          # `result_model` is the receipt's own declared type tag, so this
+          # dispatches on it and refuses anything else.
+          #
+          # OMN-16961: a prior revision read `terminal_payload or envelope`.
+          # That fallback silently absorbed BOTH arms, which is precisely why
+          # this diagnostic printed clean verdicts for the same tickets the
+          # sweep — which hardcoded the nested arm — scored
+          # `error_verify_unparseable`. The two steps must read the receipt
+          # the same way or the diagnostic cannot diagnose the reader.
+          SUMMARY_MODEL = (
+              "omnibase_infra.cli.model_receipt_runtime_summary."
+              "ModelReceiptRuntimeSummary"
+          )
+          STATE_MODEL = (
+              "omnimarket.nodes.node_dod_verify.models.model_dod_verify_state."
+              "ModelDodVerifyState"
+          )
+          envelope = payload.get("result") or {}
+          result_model = payload.get("result_model")
+          if result_model == SUMMARY_MODEL:
+              result = envelope.get("terminal_payload") or {}
+          elif result_model == STATE_MODEL:
+              result = envelope
+          else:
+              print(
+                  f"  (unrecognised dod_verify result_model {result_model!r} — "
+                  f"top-level keys: {sorted(payload)}; result keys: "
+                  f"{sorted(envelope)})"
+              )
+              result = {}
+          print(f"  receipt_arm={result_model}")
+          if "status" not in result:
+              print(
+                  "  (no verdict in the declared arm — top-level keys: "
+                  f"{sorted(payload)}; result keys: {sorted(envelope)})"
+              )
+          # OMN-16821: non_probative and behavior_proving are printed because
+          # the flip predicate now READS both, and a divergence investigation
+          # that cannot see them cannot say why a ticket did or did not flip.
+          # The flip equality is `verified + non_probative == total` with
+          # `failed == 0`, `verified > 0` and `behavior_proving >= 1`; the line
+          # below carries every term of it.
+          print(
+              "  status={} total={} verified={} failed={} skipped={} superseded={}"
+              " non_probative={} behavior_proving={}".format(
+                  result.get("status"),
+                  result.get("total_checks"),
+                  result.get("verified_count"),
+                  result.get("failed_count"),
+                  result.get("skipped_count"),
+                  result.get("superseded_count"),
+                  result.get("non_probative_count"),
+                  result.get("behavior_proving_count"),
+              )
+          )
+          print(
+              "  occ_governance_ref={} refresh={} resolved_sha={}".format(
+                  result.get("occ_governance_ref"),
+                  result.get("occ_refresh_outcome"),
+                  result.get("occ_resolved_sha"),
+              )
+          )
+          for check in result.get("checks") or []:
+              message = (check.get("message") or "").replace("\n", " ⏎ ")
+              print(f"  [{check.get('status')}] {check.get('evidence_id')}: {message[:600]}")
+          PYEOF
+            echo "  -- stderr tail --"
+            tail -n 15 "${RUNNER_TEMP}/${ticket}.err" || true
+          done
+
+      - name: Run evidence autoclose sweep
+        env:
+          # OMN-17664. THE APPLICATION IDENTITY, and the personal key it
+          # supersedes. Both are supplied unconditionally; the handler decides
+          # which it uses and names that decision in the run log
+          # (EnumLinearIdentityPath). `LINEAR_API_KEY` is a PERSONAL key, so a
+          # flip written with it is indistinguishable on the ticket's own
+          # history from a human edit — measured on OMN-17957, where the sweep's
+          # own flip carried the same actorId a person's would. The org-scoped
+          # client-credentials pair yields an app actor token instead.
+          LINEAR_CLOSER_CLIENT_ID: ${{ secrets.LINEAR_CLOSER_CLIENT_ID }}
+          LINEAR_CLOSER_CLIENT_SECRET: ${{ secrets.LINEAR_CLOSER_CLIENT_SECRET }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          # OMN-16106. Passed as env, not interpolated into the run body.
+          # `${{ github.event.inputs.lookback_hours }}` pasted into a `run:`
+          # is substituted BEFORE bash parses the line, so the input's own
+          # characters become shell syntax — a workflow_dispatch string input
+          # is attacker-influenced in exactly the way that matters. As an env
+          # var referenced `"${LOOKBACK_HOURS}"` it is a value. The dispatch
+          # apply input reaches the shell the same way, via
+          # SWEEP_DISPATCH_APPLY at job level.
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '6' }}
+          # OMN-17342. Same discipline as LOOKBACK_HOURS and for the same
+          # reason: as `${{ ... }}` inside a `run:` body an input's characters
+          # become shell syntax; as `"${BACKFILL_LOOKBACK_HOURS}"` it is a
+          # value. `github.event.inputs` is null on a cron tick, so this renders
+          # '0' on every scheduled run — the arm is off unattended by the
+          # structure of the expression, not by a convention someone has to
+          # remember. That is deliberate and is asserted by
+          # tests/ci/test_evidence_autoclose_sweep_apply_input.py.
+          BACKFILL_LOOKBACK_HOURS: ${{ github.event.inputs.backfill_lookback_hours || '0' }}
+          # OMN-17891. Same discipline as LOOKBACK_HOURS and for the same
+          # reason: a workflow_dispatch STRING input is operator-typed text,
+          # and `${{ ... }}` pasted into a `run:` body is substituted before
+          # bash parses the line, so its characters would become shell syntax.
+          # As `"${EXCLUDE_TICKETS}"` it is a value. Renders as the empty
+          # string on schedule (no inputs), which the guard below reads as "no
+          # exclusions" — a scheduled dry run is unchanged by this field.
+          EXCLUDE_TICKETS: ${{ github.event.inputs.exclude || '' }}
+          # OMN-16106. THE STANDING FENCE, and the reason it is a variable.
+          #
+          # `github.event.inputs` is null on a cron tick, so EXCLUDE_TICKETS
+          # above renders empty on every scheduled run — which is every run
+          # nobody is watching, and now every run that WRITES. An exclusion
+          # that only a dispatcher can type is therefore a fence that is
+          # missing exactly when it is needed. Same shape of gap OMN-16792 AC3
+          # found in the kill switch, and the same fix: a repo variable, which
+          # is reachable from every event, plumbed explicitly into this step's
+          # environment because `vars.*` lives only in the expression context.
+          #
+          # Unset renders as the empty string, which the union below reads as
+          # "no standing exclusions" — a repo with no such variable behaves
+          # exactly as it did before this line existed.
+          STANDING_EXCLUDE_TICKETS: ${{ vars.ONEX_AUTOCLOSE_EXCLUDE }}
+          # OMN-16106. Same discipline as EXCLUDE_TICKETS and for the same
+          # reason: a workflow_dispatch STRING input is operator-typed text,
+          # and `${{ ... }}` pasted into a `run:` body is substituted before
+          # bash parses the line, so its characters would become shell syntax.
+          # As `"${OFFER_TICKETS}"` it is a value. Renders as the empty string
+          # on schedule (no inputs), which the guard below reads as "no offer"
+          # — so every scheduled tick keeps its ordinary forward + backfill
+          # discovery, by the structure of the expression rather than by a
+          # convention someone has to remember. There is no vars.* counterpart
+          # here on purpose: a standing offer would narrow every unattended run
+          # to a fixed list.
+          OFFER_TICKETS: ${{ github.event.inputs.offer || '' }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # OMN-16846 changed what UV_NO_SYNC was for; OMN-16902 removed it.
+          #
+          # The sweep and its per-ticket verifier no longer go through `uv run`
+          # at all (they run the dispatch venv's own binaries), so nothing at
+          # THIS level needed protecting from a re-sync. What does go through
+          # `uv run` is the innermost layer: each behaviour check is
+          # `uv run pytest ...` in whatever `cwd` its contract pins, inheriting
+          # this step's environment. UV_NO_SYNC was set to keep those on the
+          # already-synced gate venv rather than re-resolving per check.
+          #
+          # That reasoning held for exactly one cwd. `_infer_occ_cwd` runs
+          # OCC-homed checks in `_occ_dev_root` — an ephemeral `git worktree`
+          # of the governance ref the collector materialises DURING the run, at
+          # a path no step can pre-provision. UV_NO_SYNC there meant uv created
+          # an empty `.venv` and was then forbidden from populating it:
+          # `error: Failed to spawn: pytest` in 12ms, recorded as a substantive
+          # FAILED, on all four seeds of run 33210339910.
+          #
+          # So it is gone, and the cost it was avoiding is paid up-front
+          # instead: every repo-root dest is pre-synced by the materialise step
+          # above and the gate venv is already lock-exact, which makes each
+          # `uv run` a cache-hot no-op rather than a resolve. The safety it was
+          # incidentally providing is now asserted directly — `uv sync` is
+          # exact-mode, so it cannot make `.venv` impure, and the step after
+          # the sweep measures that instead of assuming it.
+          # First entry in EvidenceCollector's contract search path. Without it
+          # dod_verify finds no contract for any ticket and every verdict
+          # degrades to a single skipped check (OMN-16736).
+          ONEX_CC_REPO_PATH: ${{ github.workspace }}/.occ-src
+          # OMN-16792 AC3 — the kill switch, made reachable.
+          #
+          # `node_evidence_autoclose_sweep_effect` honours
+          # ONEX_AUTOCLOSE_DISABLED unconditionally and does ZERO I/O when it
+          # is set: no GitHub enumeration, no dod_verify subprocess, no Linear
+          # call. But it reads it from the PROCESS environment, and a GitHub
+          # repository variable never reaches a step's environment on its own —
+          # it lives in the `vars.*` expression context and nowhere else. This
+          # line is the whole wiring; without it `gh variable set
+          # ONEX_AUTOCLOSE_DISABLED --body 1` was a no-op and the documented
+          # halt procedure would have silently failed at the moment an operator
+          # needed it.
+          #
+          # Unset renders as "" and the node treats that as falsy, so a repo
+          # with no such variable behaves exactly as before.
+          #
+          # To halt:    gh variable set ONEX_AUTOCLOSE_DISABLED --repo OmniNode-ai/omnibase_infra --body 1
+          # To release: gh variable delete ONEX_AUTOCLOSE_DISABLED --repo OmniNode-ai/omnibase_infra
+          ONEX_AUTOCLOSE_DISABLED: ${{ vars.ONEX_AUTOCLOSE_DISABLED }}
+          # OMN-17975. The per-check subprocess ceiling, named from a
+          # measurement instead of inherited from a default nobody sized for
+          # this job.
+          #
+          # OMN-17795 made this bound overridable and deliberately left the
+          # 30s default in `evidence_collector.py:217` alone, so a raise here
+          # cannot shift any other host's verdict timing. Nothing ever set the
+          # override, so this job ran every behaviour check under a ceiling
+          # authored for a developer laptop.
+          #
+          # It has not been the binding constraint here — the clone-freshness
+          # defect above meant these commands were never executed at all — but
+          # it becomes one the moment they are, and these are the three
+          # measurements it is sized against:
+          #
+          #   11,375 ms  the OMN-17907 behaviour command executed end to end on
+          #              a GitHub runner (onex_change_control receipt
+          #              drift/dod_receipts/OMN-17907/
+          #              dod-occ-diff-derived-behavior-proof/
+          #              test_passes.supersede.2310.yaml: exit_code 0,
+          #              duration_ms 11375, "13 passed in 0.68s" — i.e. ~10.7s
+          #              of `uv run` resolution and collection, 0.68s of test).
+          #   19,850 ms  the same shape of check on the one run it reached
+          #              VERIFIED across 36 controlled runs
+          #              (evidence_collector.py:205-212), 18.3s of it import
+          #              and collection overhead.
+          #   77,000 ms  a hand-timed control of the identical command at host
+          #              load 54 (same comment block).
+          #
+          # 180s is ~16x the clean measurement and ~2.3x the worst observed. The
+          # per-run arithmetic that keeps this inside `timeout-minutes: 60`:
+          # `max_companions` caps enumeration at 50, OMN-16434 mints at most one
+          # cwd-anchored behaviour check per companion, and the measured
+          # population that actually reaches dod_verify is far smaller (5 of 29
+          # in scheduled run 33996170457 — the rest are skipped_already_done,
+          # excluded, or parents). At 180s the realistic worst case is ~15
+          # minutes of behaviour checks against a ~50-minute budget. A raise
+          # past this point would need the job timeout raised in the same
+          # change, because a job killed at 60 minutes reports nothing at all,
+          # which is a strictly worse signal than a named CHECK_BUDGET_EXCEEDED.
+          DOD_VERIFY_CHECK_TIMEOUT_S: "180"
+          # OMN-17658 AUTO-DISARM, the persisted half.
+          #
+          # The node disarms ITSELF within a run in exactly one case, narrowed
+          # by OMN-16106 D3: this run WROTE a Done and its own readback then
+          # saw a person move the ticket back out of a completed state. Every
+          # later candidate in that run is refused unwritten. That is immediate
+          # but not durable — the next cron tick starts a fresh process.
+          #
+          # It used to fire on the prior-revert fence instead — on the closer
+          # correctly REFUSING to re-assert a verdict a person had reversed.
+          # That refusal is recomputed from unchanged evidence on every tick,
+          # so the in-run disarm it triggered recurred forever with nothing to
+          # decay it: from 2026-09-06T03:36Z the OMN-17556 hold reported
+          # `mode=disarmed`, `tickets_flipped: 0` and `skipped_disarmed` on
+          # every other candidate, on every scheduled run, fleet-wide. The
+          # fence working is not the mechanism losing standing.
+          #
+          # This variable is the durable half, and it is deliberately the same
+          # shape as the kill switch above and for the same reason: a repo
+          # variable is reachable from EVERY event, including the scheduled
+          # ones, whereas a `workflow_dispatch` input is missing exactly when
+          # nobody is watching. Set it to the triggering ticket id and every
+          # subsequent scheduled run reaches all of its decisions and writes
+          # none of them, reporting mode=disarmed and naming the trigger. An
+          # operator re-arms by deleting it.
+          #
+          # It is NOT a kill switch and must not be confused with one: a halted
+          # run does zero I/O and produces no receipt, and an operator deciding
+          # whether to re-arm needs the receipt.
+          #
+          # To disarm:  gh variable set ONEX_AUTOCLOSE_DISARMED --repo OmniNode-ai/omnibase_infra --body OMN-17292
+          # To re-arm:  gh variable delete ONEX_AUTOCLOSE_DISARMED --repo OmniNode-ai/omnibase_infra
+          #
+          # Unset renders as "" and the guard below reads that as "not
+          # disarmed", so a repo with no such variable behaves exactly as it
+          # did before this line existed.
+          AUTOCLOSE_DISARMED_BY: ${{ vars.ONEX_AUTOCLOSE_DISARMED }}
+          # OMN-17976: `EvidenceCollector` spawns `git fetch` for itself as step 2
+          # of its product-clone freshness predicate. Without these two it
+          # prompts and dies, and every private-repo-homed behaviour check is
+          # recorded as an unexecuted PRODUCT_CLONE_NOT_FRESH refusal.
+          # GIT_TERMINAL_PROMPT=0 keeps a credential-less fetch a fast, named
+          # failure rather than a hang.
+          GIT_ASKPASS: ${{ runner.temp }}/git-askpass.sh
+          GIT_TERMINAL_PROMPT: "0"
+          # OMN-18117: the comparison targets this run materialised against,
+          # written by the materialise step above. With this set, the
+          # collector measures each clone's HEAD against the tip recorded when
+          # the run picked that tree up, instead of re-fetching a `dev` that
+          # has advanced since. Without it (every local invocation) the
+          # OMN-16846 live-fetch comparison is unchanged.
+          DOD_VERIFY_PRODUCT_CLONE_PIN_FILE: ${{ runner.temp }}/product-clone-pins.json
+          # OMN-17863: the JS half of the hermetic behaviour-check
+          # environment. node_dod_verify stages a lock-exact tree per
+          # (project, lockfile) and installs into it with
+          # `pnpm install --frozen-lockfile`; these three place and bound it.
+          #
+          # Under RUNNER_TEMP, not the workspace: a real project's node_modules
+          # is hundreds of megabytes, and inside GITHUB_WORKSPACE it would be
+          # walked by the gate-venv purity assertions and picked up by any
+          # later checkout. It is also where the dispatch venv already lives.
+          DOD_VERIFY_HERMETIC_NODE_ROOT: ${{ runner.temp }}/dod-verify-node
+          # The install is a DOWNLOAD, so it gets its own budget rather than
+          # the 180s per-check ceiling below. Charging a cold pnpm store to the
+          # per-check ceiling kills the check mid-flight and records
+          # CHECK_BUDGET_EXCEEDED — a verifier-side ceiling reported as a fact
+          # about the ticket, which is the confusion OMN-17795 had to unpick.
+          # 900s is the same default the uv sync carries; stated explicitly
+          # here because this job overrides the per-check ceiling and the two
+          # must be visibly separate.
+          DOD_VERIFY_HERMETIC_SYNC_TIMEOUT_S: "900"
+          # corepack asks before fetching a package manager it does not have.
+          # In a scheduled run nobody answers, so that is an indefinite hang
+          # inside the 60-minute job budget, reported as nothing at all.
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          # Fail fast on a missing secret rather than letting every ticket in
+          # the run degrade to a per-ticket ERROR_LINEAR_API outcome, which
+          # would silently mask a configuration problem as N unrelated
+          # per-ticket failures.
+          #
+          # OMN-17664. The same three states the handler resolves, checked here
+          # so a credential problem is one loud job failure instead of N
+          # per-ticket ERROR_LINEAR_API outcomes. Only NAMES are printed; no
+          # value, and no length, ever reaches the log.
+          if [ -n "${LINEAR_CLOSER_CLIENT_ID:-}" ] && [ -n "${LINEAR_CLOSER_CLIENT_SECRET:-}" ]; then
+            echo "Linear identity path: oauth_application — writes attribute to the closer application."
+          elif [ -n "${LINEAR_CLOSER_CLIENT_ID:-}" ] || [ -n "${LINEAR_CLOSER_CLIENT_SECRET:-}" ]; then
+            # Deliberately NOT a fall-through to the personal key. Whoever set
+            # one of the two believes the application path is live; a run that
+            # quietly wrote as a person under that belief is worse than a run
+            # that refused.
+            echo "::error::Partial Linear application identity — exactly one of LINEAR_CLOSER_CLIENT_ID / LINEAR_CLOSER_CLIENT_SECRET is set. Refusing to fall back to LINEAR_API_KEY."
+            exit 1
+          elif [ -n "${LINEAR_API_KEY:-}" ]; then
+            echo "::warning::Linear identity path: personal_api_key — LINEAR_CLOSER_CLIENT_ID / LINEAR_CLOSER_CLIENT_SECRET are absent, so every write this run makes is attributed on the ticket to the person who minted LINEAR_API_KEY."
+          else
+            echo "::error::No Linear credential is set — refusing to run the sweep. Set LINEAR_CLOSER_CLIENT_ID and LINEAR_CLOSER_CLIENT_SECRET, or LINEAR_API_KEY."
+            exit 1
+          fi
+          # OMN-16846: run from the DISPATCH venv. The sweep dispatches
+          # dod_verify from its own `sys.executable` (`_dod_verify_argv`), so
+          # launching it here is what decides which environment every
+          # per-ticket verifier runs in — and it must be the one carrying the
+          # co-installed omnimarket, not the lock-exact gate venv the
+          # behaviour checks then run pytest in.
+          # OMN-16106. `--apply` enters ONLY here, and only through the array
+          # the guard populates. It is deliberately absent from the invocation
+          # line itself: a guarded flag and an unconditional one read the same
+          # in a diff, so the invocation is asserted (by
+          # tests/ci/test_evidence_autoclose_sweep_apply_input.py) to contain
+          # no literal `--apply` at all.
+          # OMN-17891. The exclusion enters the same way `--apply` does — only
+          # through a shell array, never as a literal on the invocation line —
+          # and it is populated INDEPENDENTLY of the arming. That was a
+          # rehearsal argument when only a dispatch could write; now that the
+          # schedule writes it is load-bearing in its own right, because a fence
+          # evaluated inside a dispatch-shaped branch would leave every
+          # unattended write unfenced. It also stays a preview of the applying
+          # run: a dry run carrying the same lists refuses exactly the same
+          # candidates.
+          # OMN-16106. UNION, not override. The standing repo-variable fence
+          # comes first and the dispatch input is appended to it, so a dispatch
+          # naming one ticket ADDS a refusal rather than silently dropping every
+          # standing one — a fence that got smaller the more precisely you aimed
+          # it would be worse than no fence, because it would still read like a
+          # fence in the log. Duplicates are harmless: the node normalises and
+          # membership-tests, it does not iterate the list.
+          #
+          # Pure bash so `set -euo pipefail` has nothing to trip on: an external
+          # filter (`grep -v '^$'`) exits 1 on an all-empty list, which under
+          # pipefail would abort the sweep for the most ordinary input there is.
+          # `${var//,/ }` renders commas as spaces and the unquoted expansion
+          # word-splits, which also absorbs the whitespace an operator types.
+          fence_tickets=""
+          for candidate in ${STANDING_EXCLUDE_TICKETS//,/ } ${EXCLUDE_TICKETS//,/ }; do
+            [ -n "${candidate}" ] || continue
+            fence_tickets="${fence_tickets:+${fence_tickets},}${candidate}"
+          done
+          FENCE_TICKETS="${fence_tickets}"
+          exclude_args=()
+          if [ -n "${FENCE_TICKETS}" ]; then
+            exclude_args+=(--exclude "${FENCE_TICKETS}")
+            echo "fence: refusing ${FENCE_TICKETS} before any Linear read (OMN-17891). Every other bound ticket in the window is swept normally; this is a scope, not a halt."
+            echo "fence sources: standing=[${STANDING_EXCLUDE_TICKETS:-<unset>}] dispatch=[${EXCLUDE_TICKETS:-<none>}]"
+          else
+            echo "fence: none — no ticket is excluded from this run"
+          fi
+          # OMN-16106. The RESTRICTIVE SELECTOR enters through a shell array
+          # like every other value, never as a literal on the invocation line,
+          # so an unconditional flag and a guarded one cannot read the same in
+          # a diff. Empty (every scheduled tick) leaves the array empty and the
+          # run keeps its ordinary discovery.
+          offer_tickets=""
+          for candidate in ${OFFER_TICKETS//,/ }; do
+            [ -n "${candidate}" ] || continue
+            offer_tickets="${offer_tickets:+${offer_tickets},}${candidate}"
+          done
+          OFFER_LIST="${offer_tickets}"
+          offer_args=()
+          if [ -n "${OFFER_LIST}" ]; then
+            offer_args+=(--offer "${OFFER_LIST}")
+            echo "::warning title=RESTRICTIVE OFFER::This run adjudicates ONLY ${OFFER_LIST}. Ordinary discovery is REPLACED, not extended: no forward window is enumerated, no backfill pool is paginated and no slice is taken. Each named ticket's newest merged OCC companion is resolved directly and routed through the unchanged binding check and flip predicate. A ticket absent from this run's outcomes was not refused — it was not asked."
+          else
+            echo "offer: none — this run uses its ordinary forward-window and rotating-backfill discovery"
+          fi
+          # OMN-17342. The backfill flag enters the way `--apply` and
+          # `--exclude` do — only through a shell array, never as a literal on
+          # the invocation line — so a guard and an unconditional flag cannot
+          # read the same in a diff. The `-gt 0` test is what makes "absent"
+          # and "explicitly zero" the same run: both leave the array empty and
+          # the sweep single-armed.
+          backfill_args=()
+          case "${BACKFILL_LOOKBACK_HOURS:-0}" in
+            ''|*[!0-9]*)
+              # Loud, never silent, and never via a suppressed stderr: a
+              # malformed value that quietly reads as OFF is a run whose log
+              # says nothing while its coverage silently reverts.
+              echo "::warning title=backfill input ignored::backfill_lookback_hours=[${BACKFILL_LOOKBACK_HOURS:-}] is not a non-negative integer. The backfill arm is OFF for this run; the forward window is unaffected."
+              ;;
+            0)
+              # OMN-17658. "0" here means THIS RUN passes no backfill flag, so
+              # the node uses its contract-declared default. Since that default
+              # was armed (OMN-17342 arming, gated behind the fences in this
+              # same commit), that is no longer the same statement as "the
+              # backfill arm is off" — and a log line still saying so would be
+              # the OMN-17935 defect reproduced one field over. Turning the arm
+              # off is a contract change, not a dispatch.
+              echo "backfill: no flag passed by this run — the node's contract-declared backfill window applies. The receipt's backfill_pool_size / backfill_candidates_selected report what the arm actually did."
+              ;;
+            *)
+              backfill_args+=(--backfill-lookback-hours "${BACKFILL_LOOKBACK_HOURS}")
+              echo "backfill: second enumeration arm ON over ${BACKFILL_LOOKBACK_HOURS}h. A BOUNDED ROTATING SLICE of the companions older than the forward window is offered to the same pipeline; the flip predicate is unchanged. Coverage of the pool is per-slice, not per-run: a ticket absent from this run's outcomes has not been refused, its turn has not come round."
+              ;;
+          esac
+          # OMN-17658. The DISARM marker enters through an array like every
+          # other value, never as a literal, and it is populated independently
+          # of the trigger: a fence evaluated inside a dispatch-shaped branch
+          # would leave every unattended run unfenced, which is the shape of
+          # gap OMN-16792 AC3 already found once in the kill switch.
+          disarm_args=()
+          if [ -n "${AUTOCLOSE_DISARMED_BY:-}" ]; then
+            disarm_args+=(--disarmed-by "${AUTOCLOSE_DISARMED_BY}")
+            echo "::warning title=DISARMED::ONEX_AUTOCLOSE_DISARMED names ${AUTOCLOSE_DISARMED_BY}. This run reaches every decision and writes NONE of them. Delete the repo variable to re-arm the closer."
+          fi
+          # OMN-17658. `--apply` is the DISPATCH request only. The schedule
+          # passes no arming value at all: `--trigger schedule` states the fact
+          # and the node's contract-declared `scheduled_apply` decides. A
+          # `--scheduled-apply` flag must never appear here — a workflow that
+          # could pass one would be an arming authority again, which is the
+          # thing this ticket moved out of this file.
+          apply_args=()
+          if [ "${SWEEP_DISPATCH_APPLY}" = "true" ]; then
+            apply_args+=(--apply)
+            echo "::warning title=APPLY MODE::This run WILL write to Linear. Every ticket whose dod_verify verdict clears the flip predicate AND every OMN-17658/OMN-17934 fence is moved to Done and receives the audit comment carrying the counters and the bound state-history readback that justified it. Tickets that do not clear them are commented or refused, never flipped."
+          fi
+          # OMN-17935. The provenance is DERIVED from the event, at one site.
+          # The line this replaced read `mode: APPLY (operator-dispatched,
+          # github.event.inputs.apply=true)` unconditionally inside the apply
+          # branch, and since #3195 armed the schedule it asserted an operator
+          # who did not exist on exactly the runs where provenance matters most
+          # — run 33932169358 (event: schedule, no dispatcher, no inputs) said
+          # it while moving four tickets to Done. A string that reads as a fact
+          # and has stopped being one; the same defect class as OMN-16832, one
+          # field over.
+          #
+          # Note what this line does NOT say any more: whether the run writes.
+          # On a schedule that is the CONTRACT's answer, not this file's, and a
+          # log line here asserting it would be the same kind of claim. The
+          # receipt's own `mode` field carries it.
+          if [ "${SWEEP_TRIGGER}" = "schedule" ]; then
+            # No backticks in this string. They were command substitution
+            # inside the double quotes, not markdown: run 33958237006 printed
+            # `line 123: mode: command not found` to stderr and then rendered
+            # the sentence with an empty gap where the word should have been.
+            # A log line about provenance that mangles itself is the OMN-17935
+            # defect class reproduced by the fix for it.
+            echo "provenance: SCHEDULED (cron tick, no dispatcher). Whether this run writes is decided by the contract's scheduled_apply, and the sweep receipt's 'mode' field reports what it resolved to."
+          elif [ "${SWEEP_DISPATCH_APPLY}" = "true" ]; then
+            echo "provenance: OPERATOR-DISPATCHED with apply ticked — this run writes."
+          else
+            echo "provenance: OPERATOR-DISPATCHED with apply unticked — the diagnostic dry run; every decision is logged as a preview and none is written."
+          fi
+          # `${arr[@]+"${arr[@]}"}` rather than a bare `"${arr[@]}"`: under
+          # `set -u` an empty array expansion is an unbound-variable error on
+          # bash < 4.4, and this must not become the reason a dry run fails.
+          "${DISPATCH_VENV}/bin/onex" skill evidence_autoclose_sweep \
+            --lookback-hours "${LOOKBACK_HOURS}" \
+            --trigger "${SWEEP_TRIGGER}" \
+            ${backfill_args[@]+"${backfill_args[@]}"} \
+            ${exclude_args[@]+"${exclude_args[@]}"} \
+            ${offer_args[@]+"${offer_args[@]}"} \
+            ${disarm_args[@]+"${disarm_args[@]}"} \
+            ${apply_args[@]+"${apply_args[@]}"}
+
+      # OMN-16902, the enforcement half (CLAUDE.md rule 5). Dropping UV_NO_SYNC
+      # lets `uv run` sync projects mid-sweep, including the gate checkout.
+      # Exact-mode `uv sync` cannot install anything uv.lock does not declare,
+      # so `.venv` cannot become impure that way — but "cannot" is a claim, and
+      # OMN-16846 exists because a claim about this exact venv was wrong once.
+      # This is the measurement.
+      #
+      # `if: always()` is load-bearing: a sweep that fails for an unrelated
+      # reason must not be able to hide a corrupted gate venv, because the next
+      # scheduled run would then record N false FAILEDs and read them as N
+      # unproven tickets.
+      - name: Assert the gate venv is still pure after the sweep (OMN-16902)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! ./.venv/bin/python - <<'PYEOF'
+          import sys
+
+          from omnibase_infra.runtime.venv_purity import find_undeclared_onex_providers
+
+          undeclared = find_undeclared_onex_providers()
+          if undeclared:
+              print(
+                  "gate venv `.venv` carries undeclared onex.nodes provider(s) AFTER "
+                  "the sweep: " + "; ".join(f"{p.name}=={p.version}" for p in undeclared),
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          print("OK: gate venv `.venv` is still lock-exact after the sweep")
+          PYEOF
+          then
+            echo '::error::the gate venv became IMPURE during the sweep. Something installed an undeclared onex.nodes provider into .venv while the behaviour checks were running, and every subsequent "uv run pytest" check would be refused by the OMN-15620 purity gate and recorded FAILED without executing (OMN-16846, OMN-16902).' >&2
+            exit 1
+          fi
+
+      - name: Post summary
+        if: always()
+        # OMN-17658. The summary reports the TRIGGER and points at the receipt
+        # for the mode. It deliberately no longer renders "APPLY"/"DRY-RUN"
+        # from a workflow expression: since the arming authority moved into the
+        # node's contract (`scheduled_apply`), this file does not know what a
+        # scheduled run resolved to, and a summary that asserted it would be
+        # exactly the stale-string defect OMN-17935 records one line over.
+        env:
+          SWEEP_TRIGGER: ${{ github.event_name == 'schedule' && 'schedule' || 'dispatch' }}
+          SWEEP_DISPATCH_APPLY: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.apply == 'true') && 'true' || 'false' }}
+        run: |
+          {
+            echo "## Evidence Autoclose Sweep (OMN-16106)"
+            echo ""
+            echo "Enumerated merged onex_change_control companions, re-ran dod_verify,"
+            echo "and reached a flip/gap/refusal decision per bound ticket."
+            echo ""
+            if [ "${SWEEP_TRIGGER}" = "schedule" ]; then
+              echo "**Trigger: the schedule.** Whether this run wrote to Linear is"
+              echo "decided by the node contract's \`scheduled_apply\` (OMN-17658) — not by"
+              echo "this workflow, which passes no arming value. The sweep receipt's"
+              echo "\`mode\` field is the answer: \`apply_scheduled\`, \`dry_run\`,"
+              echo "\`disarmed\` or \`halted\`."
+            elif [ "${SWEEP_DISPATCH_APPLY}" = "true" ]; then
+              echo "**Trigger: an operator dispatch with apply ticked. Linear was written.**"
+              echo "Every ticket recorded \`flipped\` below was moved to Done and received an"
+              echo "audit comment naming its merged evidence companion, the dod_verify counters"
+              echo "that justified the flip, and the bound state-history readback proving the"
+              echo "state actually moved (OMN-17658)."
+            else
+              echo "**Trigger: an operator dispatch with apply unticked** — the diagnostic dry"
+              echo "run. Every decision in the sweep step's receipt is a preview of what a"
+              echo "writing run would have recorded."
+            fi
+            echo ""
+            echo "Refusals carry their own typed decision: \`skipped_has_children\`,"
+            echo "\`skipped_recurring_companion\`, \`skipped_prior_revert\`,"
+            echo "\`skipped_flip_budget_exhausted\`, \`skipped_disarmed\`,"
+            echo "\`skipped_excluded\` (OMN-17658 / OMN-17934 / OMN-17891)."
+          } >> "$GITHUB_STEP_SUMMARY"

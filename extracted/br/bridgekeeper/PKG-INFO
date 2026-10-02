@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: bridgekeeper
+Version: 0.9
+Summary: Django permissions that work with QuerySets.
+Home-page: https://bridgekeeper.leigh.party/
+License: MIT
+Author: Leigh Brenecki
+Author-email: leigh@brenecki.id.au
+Requires-Python: >=3.5
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Project-URL: Repository, https://github.com/excitedleigh/bridgekeeper
+Description-Content-Type: text/x-rst
+
+Bridgekeeper
+------------
+
+..
+
+    | Who would cross the Bridge of Death
+    | must answer me these questions three,
+    | ere the other side he see.
+
+    -- The Bridgekeeper, *Monty Python and the Holy Grail*
+
+Bridgekeeper is a permissions library for Django_ projects, where permissions are defined in your code, rather than in your database.
+
+It's heavily inspired by django-rules_, but with one important difference: **it works on QuerySets as well as individual model instances**.
+
+This means that you can efficiently show a list of all of the model instances that your user is allowed to edit, for instance, without having your permission-checking code in two different places.
+
+.. _django: https://djangoproject.com/
+.. _django-rules: https://github.com/dfunckt/django-rules
+
+Bridgekeeper is tested on Django 2.2 and 3.0 on all Python versions Django supports, and is licensed under the MIT License.
+

@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# scripts/ci/test_selection_adjacency.yaml
+# Static adjacency map from src/omnimarket/<module> to dependent modules.
+# When a key module changes, every module in `reverse_deps` ALSO has its tests run.
+# Treated as CI contract data — manually curated, reviewed in PRs that change it.
+#
+# NOTE: Most omnimarket tests live at tests/*.py (flat). The detector maps
+# src/omnimarket/<module> → tests/<module>/ for subdirs and tests/ (root) for
+# flat test files. Shared-module escalation forces tests/ (full suite).
+
+schema_version: 1
+
+# `shared_modules` triggers full-suite escalation if any of these change.
+# Curate based on operational risk + import fan-out across nodes and adapters.
+shared_modules:
+  - models
+  - protocols
+  - enums
+  - routing
+  - runtime
+  - events
+
+# Per-repo full-suite escalation threshold.
+thresholds:
+  modules_changed_for_full_suite: 6
+
+# OMN-15639: repo-wide gate directories, unioned into EVERY narrowed
+# selection. These assert invariants over files the adjacency map above
+# cannot attribute to one module — tests/gates/ walks all
+# src/**/contract.yaml, so a change to one node's contract narrows to
+# tests/nodes/ and would skip the gate entirely, leaving the invariant
+# reintroducible on the everyday dev path.
+always_selected_paths:
+  - tests/gates/
+
+# Test infrastructure — any change forces the full suite.
+test_infrastructure_paths:
+  - tests/conftest.py
+  - tests/fixtures/
+  - pytest.ini
+  - pyproject.toml
+
+# OMN-20180: repo-relative fnmatch globs for surfaces whose coverage spans
+# tests/unit/delegation/, tests/delegation_golden/ and flat tests/*.py.
+# Any matching change forces the full suite before module narrowing. Include
+# delegation projections and PR fixes, routing policy/house overlay nodes,
+# and LLM effects with an ADR or PR prefix as well as node_llm_*.
+# Test-directory changes already select their containing scope.
+full_suite_path_globs:
+  - src/omnimarket/delegation/**
+  - src/omnimarket/delegated_test_loop/**
+  - src/omnimarket/inference/**
+  - src/omnimarket/cost/**
+  - src/omnimarket/configs/**
+  - src/omnimarket/nodes/node_*delegat*/**
+  - src/omnimarket/nodes/node_*routing*/**
+  - src/omnimarket/nodes/node_model_router/**
+  - src/omnimarket/nodes/node_llm_*/**
+  - src/omnimarket/nodes/node_*_llm_effect/**
+  - src/omnimarket/nodes/node_ab_*/**
+  - src/omnimarket/nodes/node_judge_*/**
+  - src/omnimarket/nodes/node_*savings*/**
+  - src/omnimarket/nodes/node_*llm_cost*/**
+
+# Reverse dependency edges.
+# Key = changed src module; value = modules that import it.
+# Leaf modules with no dependents list empty reverse_deps.
+adjacency:
+  # High-fan-out shared modules (trigger full suite via shared_modules above)
+  models:
+    reverse_deps: [nodes, adapters, projection, inference, routing, runtime, classifiers, registry]
+  protocols:
+    reverse_deps: [nodes, adapters, inference, routing, runtime]
+  enums:
+    reverse_deps: [models, nodes, adapters, routing, runtime, events]
+  routing:
+    reverse_deps: [nodes, runtime, inference]
+  runtime:
+    reverse_deps: [nodes, inference]
+
+  # Mid-fan-out modules
+  adapters:
+    reverse_deps: [nodes, inference]
+  nodes:
+    reverse_deps: []
+  inference:
+    reverse_deps: [nodes]
+  projection:
+    reverse_deps: [nodes, runtime]
+  events:
+    reverse_deps: [nodes]
+  registry:
+    reverse_deps: [nodes, runtime]
+
+  # Leaf / low-fan-out modules
+  classifiers:
+    reverse_deps: []
+  cli:
+    reverse_deps: []
+  config:
+    reverse_deps: [nodes, runtime, inference]
+  intelligence:
+    reverse_deps: [nodes]
+  logging:
+    reverse_deps: []
+  validators:
+    reverse_deps: []

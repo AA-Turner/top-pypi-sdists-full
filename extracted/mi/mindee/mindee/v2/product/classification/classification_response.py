@@ -1,0 +1,20 @@
+from typing import ClassVar
+
+from mindee.parsing.common.string_dict import StringDict
+from mindee.v2.parsing.inference.base_inference_response import BaseInferenceResponse
+from mindee.v2.product.classification.classification_inference import (
+    ClassificationInference,
+)
+
+
+class ClassificationResponse(BaseInferenceResponse):
+    """Represent a classification inference response from Mindee V2 API."""
+
+    inference: ClassificationInference
+    """Inference object for classification inference."""
+
+    _slug: ClassVar[str] = "classification"
+
+    def __init__(self, raw_response: StringDict) -> None:
+        super().__init__(raw_response)
+        self.inference = ClassificationInference(raw_response["inference"])

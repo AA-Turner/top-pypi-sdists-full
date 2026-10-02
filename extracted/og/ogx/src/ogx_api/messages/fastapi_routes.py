@@ -1,0 +1,293 @@
+# Copyright (c) The OGX Contributors.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
+"""FastAPI router for the Anthropic Messages API.
+
+This module defines the FastAPI router for the /v1/messages endpoint,
+serving the Anthropic Messages API format.
+"""
+
+import logging  # allow-direct-logging
+from collections.abc import AsyncIterator
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Body, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
+
+from ogx_api.common.errors import ModelNotFoundError
+from ogx_api.router_utils import standard_responses
+from ogx_api.utils import create_sse_event_with_type, get_sse_error_message, sse_stream
+from ogx_api.version import OGX_API_V1
+
+from .api import Messages
+from .models import (
+    ANTHROPIC_VERSION,
+    AnthropicCountTokensRequest,
+    AnthropicCountTokensResponse,
+    AnthropicCreateMessageRequest,
+    AnthropicErrorResponse,
+    AnthropicMessageResponse,
+    CancelMessageBatchRequest,
+    CreateMessageBatchRequest,
+    ListMessageBatchesRequest,
+    ListMessageBatchesResponse,
+    MessageBatch,
+    RetrieveMessageBatchRequest,
+    RetrieveMessageBatchResultsRequest,
+    _AnthropicErrorDetail,
+)
+
+logger = logging.LoggerAdapter(logging.getLogger(__name__), {"category": "messages"})
+
+
+def _format_anthropic_sse_event(event: Any) -> str:
+    """Format an Anthropic stream event as a named SSE event."""
+    event_type = event.type if hasattr(event, "type") else "unknown"
+    return create_sse_event_with_type(event_type, event)
+
+
+def _format_anthropic_sse_error_event(e: Exception) -> str:
+    """Log and format an SSE stream error as an Anthropic error event."""
+    logger.exception("Error in Anthropic SSE generator")
+    error_resp = AnthropicErrorResponse(
+        error=_AnthropicErrorDetail(type="api_error", message=get_sse_error_message(e)),
+    )
+    return create_sse_event_with_type("error", error_resp)
+
+
+def _anthropic_error_response(status_code: int, message: str) -> JSONResponse:
+    """Create an Anthropic-format error JSONResponse."""
+    error_type_map = {
+        400: "invalid_request_error",
+        401: "authentication_error",
+        403: "permission_error",
+        404: "not_found_error",
+        429: "rate_limit_error",
+    }
+    error_type = error_type_map.get(status_code, "api_error")
+    body = AnthropicErrorResponse(
+        error=_AnthropicErrorDetail(type=error_type, message=message),
+    )
+    return JSONResponse(status_code=status_code, content=body.model_dump())
+
+
+def create_router(impl: Messages) -> APIRouter:
+    """Create a FastAPI router for the Anthropic Messages API.
+
+    Args:
+        impl: The Messages implementation instance
+
+    Returns:
+        APIRouter configured for the Messages API
+    """
+    router = APIRouter(
+        prefix=f"/{OGX_API_V1}",
+        tags=["Messages"],
+        responses=standard_responses,
+    )
+
+    @router.post(
+        "/messages",
+        summary="Create a message.",
+        description="Create a message using the Anthropic Messages API format.",
+        status_code=200,
+        response_model=AnthropicMessageResponse,
+        responses={
+            200: {
+                "description": "An AnthropicMessageResponse or a stream of Anthropic SSE events.",
+                "content": {
+                    "text/event-stream": {},
+                },
+            },
+        },
+    )
+    async def create_message(
+        raw_request: Request,
+        params: Annotated[AnthropicCreateMessageRequest, Body(...)],
+    ) -> Response:
+        try:
+            result = await impl.create_message(params)
+        except NotImplementedError as e:
+            return _anthropic_error_response(501, str(e))
+        except ModelNotFoundError as e:
+            return _anthropic_error_response(404, str(e))
+        except ValueError as e:
+            return _anthropic_error_response(400, str(e))
+        except HTTPException as e:
+            return _anthropic_error_response(e.status_code, e.detail)
+        except Exception:
+            logger.exception("Failed to create message")
+            return _anthropic_error_response(500, "Internal server error")
+
+        response_headers = {"anthropic-version": ANTHROPIC_VERSION}
+
+        if isinstance(result, AsyncIterator):
+            return StreamingResponse(
+                sse_stream(result, _format_anthropic_sse_event, _format_anthropic_sse_error_event),
+                media_type="text/event-stream",
+                headers=response_headers,
+            )
+
+        return JSONResponse(
+            content=result.model_dump(exclude_none=True),
+            headers=response_headers,
+        )
+
+    @router.post(
+        "/messages/count_tokens",
+        response_model=AnthropicCountTokensResponse,
+        summary="Count tokens in a message.",
+        description="Count the number of tokens in a message request. For some providers, this will cost input tokens and 1 output token.",
+        responses={
+            200: {"description": "Token count for the request."},
+        },
+    )
+    async def count_message_tokens(
+        params: Annotated[AnthropicCountTokensRequest, Body(...)],
+    ) -> Response:
+        try:
+            result = await impl.count_message_tokens(params)
+        except NotImplementedError as e:
+            return _anthropic_error_response(501, str(e))
+        except Exception:
+            logger.exception("Failed to count message tokens")
+            return _anthropic_error_response(500, "Internal server error")
+
+        return JSONResponse(
+            content=result.model_dump(),
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    # -- Message Batches --
+
+    @router.post(
+        "/messages/batches",
+        summary="Create a Message Batch.",
+        description="Send a batch of message creation requests.",
+        status_code=200,
+        response_model=MessageBatch,
+    )
+    async def create_message_batch(
+        params: Annotated[CreateMessageBatchRequest, Body(...)],
+    ) -> Response:
+        try:
+            result = await impl.create_message_batch(params)
+        except ValueError as e:
+            return _anthropic_error_response(400, str(e))
+        except Exception:
+            logger.exception("Failed to create message batch")
+            return _anthropic_error_response(500, "Internal server error")
+
+        return JSONResponse(
+            content=result.model_dump(exclude_none=True),
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    @router.get(
+        "/messages/batches/{message_batch_id}",
+        summary="Retrieve a Message Batch.",
+        description="Retrieve the status of a Message Batch by its ID.",
+        status_code=200,
+        response_model=MessageBatch,
+    )
+    async def retrieve_message_batch(
+        message_batch_id: str,
+    ) -> Response:
+        try:
+            result = await impl.retrieve_message_batch(
+                RetrieveMessageBatchRequest(batch_id=message_batch_id),
+            )
+        except KeyError:
+            return _anthropic_error_response(404, f"Message batch '{message_batch_id}' not found")
+        except Exception:
+            logger.exception("Failed to retrieve message batch")
+            return _anthropic_error_response(500, "Internal server error")
+
+        return JSONResponse(
+            content=result.model_dump(exclude_none=True),
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    @router.get(
+        "/messages/batches",
+        summary="List Message Batches.",
+        description="List all Message Batches with pagination.",
+        status_code=200,
+        response_model=ListMessageBatchesResponse,
+    )
+    async def list_message_batches(
+        request: Annotated[ListMessageBatchesRequest, Query()],
+    ) -> Response:
+        try:
+            result = await impl.list_message_batches(request)
+        except Exception:
+            logger.exception("Failed to list message batches")
+            return _anthropic_error_response(500, "Internal server error")
+
+        return JSONResponse(
+            content=result.model_dump(exclude_none=True),
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    @router.post(
+        "/messages/batches/{message_batch_id}/cancel",
+        summary="Cancel a Message Batch.",
+        description="Cancel a Message Batch before processing ends.",
+        status_code=200,
+        response_model=MessageBatch,
+    )
+    async def cancel_message_batch(
+        message_batch_id: str,
+    ) -> Response:
+        try:
+            result = await impl.cancel_message_batch(
+                CancelMessageBatchRequest(batch_id=message_batch_id),
+            )
+        except KeyError:
+            return _anthropic_error_response(404, f"Message batch '{message_batch_id}' not found")
+        except ValueError as e:
+            return _anthropic_error_response(400, str(e))
+        except Exception:
+            logger.exception("Failed to cancel message batch")
+            return _anthropic_error_response(500, "Internal server error")
+
+        return JSONResponse(
+            content=result.model_dump(exclude_none=True),
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    @router.get(
+        "/messages/batches/{message_batch_id}/results",
+        summary="Retrieve Message Batch results.",
+        description="Stream the results of a Message Batch as JSONL.",
+        status_code=200,
+    )
+    async def retrieve_message_batch_results(
+        message_batch_id: str,
+    ) -> Response:
+        try:
+            result_iter = await impl.retrieve_message_batch_results(
+                RetrieveMessageBatchResultsRequest(batch_id=message_batch_id),
+            )
+        except KeyError:
+            return _anthropic_error_response(404, f"Message batch '{message_batch_id}' not found")
+        except ValueError as e:
+            return _anthropic_error_response(400, str(e))
+        except Exception:
+            logger.exception("Failed to retrieve message batch results")
+            return _anthropic_error_response(500, "Internal server error")
+
+        async def jsonl_generator():
+            async for item in result_iter:
+                yield item.model_dump_json(exclude_none=True) + "\n"
+
+        return StreamingResponse(
+            jsonl_generator(),
+            media_type="application/x-jsonl",
+            headers={"anthropic-version": ANTHROPIC_VERSION},
+        )
+
+    return router

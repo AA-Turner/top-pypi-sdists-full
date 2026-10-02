@@ -1,0 +1,183 @@
+"""Test bootstrap for the channel tests.
+
+Isolates the app onto a throwaway SQLite DB + master key BEFORE any cowork
+module is imported (settings/engine are read at import time), then builds the
+schema directly and seeds the ``general`` project the runtime depends on.
+"""
+import importlib
+import os
+import pkgutil
+import tempfile
+from pathlib import Path
+
+TMP = Path(tempfile.mkdtemp(prefix="cowork-chan-test-"))
+# Force isolation (assignment, not setdefault, never touch a real DB).
+os.environ["DATABASE_URI"] = f"sqlite:///{TMP / 'test.db'}"
+os.environ["MASTER_KEY_PATH"] = str(TMP / "master.key")
+os.environ["COWORK_PUBLIC_BASE_URL"] = "https://hooks.example.com"
+os.environ["COWORK_CONVERSATION_LINK_TEMPLATE"] = "https://app.example.com/c/{conversation_id}"
+# Org mode roots every filesystem store at cowork_home() (see
+# scoped_storage_root), not just at the per-store COWORK_*_DIR override below,
+# so this has to be set too, or any test that runs in org mode writes into
+# the developer's real ~/.cowork/<org_id>/ and orphans dirs there.
+os.environ["COWORK_HOME"] = str(TMP)
+os.environ["COWORK_PROJECTS_DIR"] = str(TMP / "projects")
+# File bytes too - without this, any test using FileService writes into the
+# developer's real ~/.cowork/files/ and orphans dirs there.
+os.environ["COWORK_FILES_DIR"] = str(TMP / "files")
+# Without this, org-scoped tests write into the developer's real ~/.cowork/.
+os.environ["COWORK_SHARED_DIR"] = str(TMP / "shared")
+os.environ["ENV"] = "test"
+# require_auth now defaults on in local mode. Every test in this suite drives
+# create_app() through TestClient/ASGITransport with no bearer token, so
+# leaving the default on would 401 nearly everything. A test that means to
+# exercise the auth-on behavior sets this back explicitly.
+os.environ["COWORK_REQUIRE_AUTH"] = "false"
+
+import pytest
+from sqlmodel import Session, SQLModel
+
+
+@pytest.fixture(scope="session", autouse=True)
+def db_schema():
+    # Import every model module so the mapper + metadata are complete.
+    import cowork.models as models_pkg
+    for _, name, _ in pkgutil.iter_modules(models_pkg.__path__):
+        importlib.import_module(f"cowork.models.{name}")
+
+    from cowork.common.settings.app_settings import get_app_settings
+    from cowork.db.session import get_engine
+    from cowork.models.project import Project
+    from cowork.services.projects import GENERAL_PROJECT, GENERAL_PROJECT_ID
+
+    engine = get_engine(get_app_settings().database.uri)
+    SQLModel.metadata.create_all(engine)
+
+    # Under the projects root so the artifacts scanner treats it as registered.
+    general_dir = TMP / "projects" / "general"
+    general_dir.mkdir(parents=True, exist_ok=True)
+    with Session(engine) as session:
+        if session.get(Project, GENERAL_PROJECT_ID) is None:
+            session.add(Project(id=GENERAL_PROJECT_ID, name=GENERAL_PROJECT, path=str(general_dir)))
+            session.commit()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def keep_seeded_general_path():
+    """Put the seeded ``general`` row's path back after each test.
+
+    The default-project resolver writes on a read path: it re-points this row
+    onto whatever ``COWORK_PROJECTS_DIR`` currently names, so a test that moves
+    the root and then reaches a route leaves the row inside its own
+    ``tmp_path``, which pytest deletes. Later tests that resolve ``general``
+    from settings rather than from the row then disagree with it.
+
+    This repairs leakage only, at teardown. The write itself is asserted in
+    tests/test_general_project_root_change.py, so hiding it here costs no
+    coverage.
+    """
+    from cowork.common.settings.app_settings import get_app_settings
+    from cowork.db.session import get_engine
+    from cowork.models.project import Project
+    from cowork.services.projects import GENERAL_PROJECT_ID
+
+    engine = get_engine(get_app_settings().database.uri)
+    with Session(engine) as read:
+        seeded = read.get(Project, GENERAL_PROJECT_ID)
+        original = seeded.path if seeded is not None else None
+    yield
+    if original is None:
+        return
+    with Session(engine) as write:
+        row = write.get(Project, GENERAL_PROJECT_ID)
+        if row is not None and row.path != original:
+            row.path = original
+            write.add(row)
+            write.commit()
+
+
+@pytest.fixture(autouse=True)
+def close_coding_services():
+    yield
+    from coding_service_fakes import close_services
+
+    close_services()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def trust_test_client_host():
+    """Starlette's TestClient sends ``Host: testserver``; only tests trust it."""
+    from cowork.api.v1.endpoints import guards
+
+    production = guards._TRUSTED_LOOPBACK_HOSTS
+    guards._TRUSTED_LOOPBACK_HOSTS = production | {"testserver"}
+    yield
+    guards._TRUSTED_LOOPBACK_HOSTS = production
+
+
+@pytest.fixture
+def cleanup_tmp_projects(tmp_path):
+    """Delete Project rows created under this test's `tmp_path`, plus their
+    dependent TaskObject, Conversation, and SharedResourceAttribution rows.
+
+    Several artifact-ownership test modules create real Project rows against
+    the session-scoped test DB; a leaked row (especially one with a real
+    `.anton/artifacts` dir) pollutes other modules that scan or query all
+    projects. Not autouse: opt in per module with
+    `pytestmark = pytest.mark.usefixtures("cleanup_tmp_projects")`.
+    """
+    from sqlalchemy import delete, or_
+    from sqlmodel import select
+
+    from cowork.common.settings.app_settings import get_app_settings
+    from cowork.db.session import get_engine
+    from cowork.models.conversation import Conversation
+    from cowork.models.project import Project
+    from cowork.models.shared_resource import SharedResourceAttribution
+    from cowork.models.task_object import TaskObject
+
+    yield
+
+    engine = get_engine(get_app_settings().database.uri)
+    with Session(engine) as session:
+        leaked_ids = list(
+            session.exec(
+                select(Project.id).where(Project.path.startswith(tmp_path.as_posix()))
+            ).all()
+        )
+        if not leaked_ids:
+            return
+        session.exec(delete(TaskObject).where(TaskObject.project_id.in_(leaked_ids)))
+        session.exec(delete(Conversation).where(Conversation.project_id.in_(leaked_ids)))
+        # `artifact_resource_key` always starts with "<project_id>/".
+        session.exec(
+            delete(SharedResourceAttribution).where(
+                or_(
+                    *(
+                        SharedResourceAttribution.resource_key.startswith(f"{pid}/")
+                        for pid in leaked_ids
+                    )
+                )
+            )
+        )
+        session.exec(delete(Project).where(Project.id.in_(leaked_ids)))
+        session.commit()
+
+
+@pytest.fixture
+def granted_product_permissions(monkeypatch):
+    """Model built-in Member grants only for suites testing resource ownership.
+
+    Tests of live role decisions opt out and exercise the internal HTTP boundary.
+    This fixture does not override artifact ownership or tenancy resolution.
+    """
+    from cowork.services import product_permissions
+    from cowork.api.v1.endpoints import artifact_workspace
+
+    async def allowed(scope, permission):
+        assert permission in {"product.execute", "artifact.manage"}
+        return True
+
+    monkeypatch.setattr(product_permissions, "has_product_permission", allowed)
+    monkeypatch.setattr(artifact_workspace, "has_product_permission", allowed)

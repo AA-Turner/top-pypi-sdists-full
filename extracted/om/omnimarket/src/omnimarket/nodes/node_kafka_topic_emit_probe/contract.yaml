@@ -1,0 +1,85 @@
+---
+name: kafka_topic_emit_probe
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Emits synthetic events for each declared Kafka topic to verify
+  producers, consumers, and partition health. Runs hourly and validates
+  that consumer groups advance, catching silent failures like EMIT_FAILED.
+
+handler:
+  module: omnimarket.nodes.node_kafka_topic_emit_probe.handlers.handler_kafka_probe
+  class: HandlerKafkaProbe
+  input_model: omnimarket.nodes.node_kafka_topic_emit_probe.handlers.handler_kafka_probe.ModelKafkaProbeRequest
+
+handler_routing:
+  handlers:
+    - operation: kafka_topic_emit_probe
+      handler:
+        name: HandlerKafkaProbe
+        module: omnimarket.nodes.node_kafka_topic_emit_probe.handlers.handler_kafka_probe
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+
+inputs:
+  topics:
+    type: list[str]
+    description: "List of Kafka topic names to probe. If empty, default_topics is used."
+    required: false
+    default: []
+  default_topics:
+    type: list[str]
+    description: "Topics probed when no explicit topics list is supplied."
+    required: false
+    default:
+      - onex.evt.omnimarket.pr-lifecycle-orchestrator-completed.v1
+      - onex.evt.omnimarket.overseer-verify-completed.v1
+      - onex.evt.omnimarket.aislop-sweep-completed.v1
+  probe_interval_seconds:
+    type: int
+    description: "Scheduling metadata — how often callers should invoke this node (seconds). Not used for execution timing."
+    required: false
+    default: 3600
+  verify_consumers:
+    type: bool
+    description: "Whether to verify consumer group advancement"
+    required: false
+    default: true
+
+outputs:
+  probes_emitted:
+    type: int
+    description: "Number of synthetic events published"
+  consumers_advanced:
+    type: int
+    description: "Number of consumer groups observed advancing"
+  failures:
+    type: list[str]
+    description: "Topics/consumer groups that failed verification"
+
+terminal_event: onex.evt.omnimarket.kafka-probe-complete.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.kafka-probe-trigger.v1
+  publish_topics:
+    - onex.evt.omnimarket.kafka-probe-result.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.kafka-probe-trigger.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.kafka-probe-result.v1

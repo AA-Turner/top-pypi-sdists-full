@@ -8,7 +8,7 @@ use crate::{
     token_set::TS_NEXT_SECTION,
 };
 
-impl Parse for tombi_ast_syntax::Root {
+impl Parse for tombi_ast_syntax::Root<'_> {
     fn parse(p: &mut Parser<'_>) {
         let m = p.start();
 
@@ -56,7 +56,7 @@ fn unknwon_line(p: &mut Parser<'_>) {
     while !p.at_ts(TS_LINE_END) {
         p.bump_any();
     }
-    p.error(crate::Error::new(UnknownLine, p.current_range()));
+    p.error(crate::Error::new(UnknownLine, p.current_span()));
 
     trailing_comment(p);
 
@@ -72,14 +72,15 @@ mod test {
         fn preserves_grapheme_columns_after_combining_character(
             "\"e\u{301}\" = true"
         ) -> Ok(|root| -> {
+            use tombi_ast_syntax::AstNode as _;
+
             let value = root.key_values().next().unwrap().value().unwrap();
-            value.range()
-                == tombi_text::Range::new(
-                    tombi_text::Position::new(0, 6),
-                    tombi_text::Position::new(0, 10),
-                )
+            root.syntax()
+                .line_index()
+                .range(value.span(), tombi_text::EncodingKind::GraphemeCluster)
+                == tombi_text::Range::from(((0, 6), (0, 10)))
                 && matches!(
-                    root.nodes_at_position(tombi_text::Position::new(0, 6)).next(),
+                    root.nodes_at_offset(value.span().start).next(),
                     Some(tombi_ast_syntax::TomlNode::Boolean(_))
                 )
         })
@@ -90,14 +91,15 @@ mod test {
         fn preserves_grapheme_columns_after_zwj_emoji(
             "\"👨‍👩‍👧‍👦\" = true"
         ) -> Ok(|root| -> {
+            use tombi_ast_syntax::AstNode as _;
+
             let value = root.key_values().next().unwrap().value().unwrap();
-            value.range()
-                == tombi_text::Range::new(
-                    tombi_text::Position::new(0, 6),
-                    tombi_text::Position::new(0, 10),
-                )
+            root.syntax()
+                .line_index()
+                .range(value.span(), tombi_text::EncodingKind::GraphemeCluster)
+                == tombi_text::Range::from(((0, 6), (0, 10)))
                 && matches!(
-                    root.nodes_at_position(tombi_text::Position::new(0, 6)).next(),
+                    root.nodes_at_offset(value.span().start).next(),
                     Some(tombi_ast_syntax::TomlNode::Boolean(_))
                 )
         })
@@ -105,17 +107,18 @@ mod test {
 
     test_parser! {
         #[test]
-        fn preserves_grapheme_columns_after_unicode_checkpoint(
+        fn preserves_grapheme_columns_after_64_graphemes(
             &format!("\"{}\" = true", "é".repeat(80))
         ) -> Ok(|root| -> {
+            use tombi_ast_syntax::AstNode as _;
+
             let value = root.key_values().next().unwrap().value().unwrap();
-            value.range()
-                == tombi_text::Range::new(
-                    tombi_text::Position::new(0, 85),
-                    tombi_text::Position::new(0, 89),
-                )
+            root.syntax()
+                .line_index()
+                .range(value.span(), tombi_text::EncodingKind::GraphemeCluster)
+                == tombi_text::Range::from(((0, 85), (0, 89)))
                 && matches!(
-                    root.nodes_at_position(tombi_text::Position::new(0, 85)).next(),
+                    root.nodes_at_offset(value.span().start).next(),
                     Some(tombi_ast_syntax::TomlNode::Boolean(_))
                 )
         })
@@ -126,10 +129,15 @@ mod test {
         fn resolves_end_of_64_grapheme_unicode_line(
             &format!("é = \"{}\"", "a".repeat(58))
         ) -> Ok(|root| -> {
-            root.key_values().next().unwrap().value().unwrap().range().end
+            use tombi_ast_syntax::AstNode as _;
+
+            let end = root.key_values().next().unwrap().value().unwrap().span().end;
+            root.syntax()
+                .line_index()
+                .position(end, tombi_text::EncodingKind::GraphemeCluster)
                 == tombi_text::Position::new(0, 64)
                 && matches!(
-                    root.nodes_at_position(tombi_text::Position::new(0, 64)).next(),
+                    root.nodes_at_offset(end).next(),
                     Some(tombi_ast_syntax::TomlNode::BasicString(_))
                 )
         })
@@ -140,10 +148,15 @@ mod test {
         fn resolves_end_of_128_grapheme_unicode_line(
             &format!("é = \"{}\"", "a".repeat(122))
         ) -> Ok(|root| -> {
-            root.key_values().next().unwrap().value().unwrap().range().end
+            use tombi_ast_syntax::AstNode as _;
+
+            let end = root.key_values().next().unwrap().value().unwrap().span().end;
+            root.syntax()
+                .line_index()
+                .position(end, tombi_text::EncodingKind::GraphemeCluster)
                 == tombi_text::Position::new(0, 128)
                 && matches!(
-                    root.nodes_at_position(tombi_text::Position::new(0, 128)).next(),
+                    root.nodes_at_offset(end).next(),
                     Some(tombi_ast_syntax::TomlNode::BasicString(_))
                 )
         })
@@ -216,7 +229,7 @@ mod test {
         ) -> RawAssert(|parsed| {
             let root = parsed.root();
             !parsed.errors.is_empty()
-                && root.nodes_at_position(root.range().end).next().is_some()
+                && root.nodes_at_offset(root.span().end).next().is_some()
         })
     }
 
@@ -227,7 +240,7 @@ mod test {
         ) -> RawAssert(|parsed| {
             let root = parsed.root();
             !parsed.errors.is_empty()
-                && root.nodes_at_position(root.range().end).next().is_some()
+                && root.nodes_at_offset(root.span().end).next().is_some()
         })
     }
 

@@ -1,0 +1,340 @@
+---
+name: codeql
+
+# code scanning as a file rather than as a repository setting: the
+# languages, the query suite, the schedule and the permissions are
+# readable, reviewable and moved by dependabot, as every other check here
+# is. Nothing requires it: REPOSITORY.md's required checks are where that
+# is decided and it reads the endpoint rather than this file, and the
+# aggregate at the end of this file is the name such a rule would hold.
+#
+# It reproduces what the setting held rather than inventing a configuration,
+# which is what keeps the alert history continuous. Read from the API before
+# this file was written:
+#
+#     gh api repos/{owner}/{repo}/code-scanning/default-setup
+#     # languages: actions, python; query_suite: default; schedule: weekly
+#
+# The one thing that cannot be reproduced is the analysis *key*: default
+# setup's runs are `dynamic/github-code-scanning/codeql:analyze`, and an
+# advanced workflow's carry this file's path. The alerts survive that,
+# because what matches an alert across runs is the category below, which is
+# spelled exactly as default setup spelled it:
+#
+#     gh api repos/{owner}/{repo}/code-scanning/analyses \
+#       --jq '.[] | {ref, category, analysis_key}'
+#     # /language:python and /language:actions
+#
+# **Default setup does not stop this workflow running.** It runs, the
+# analysis completes, the SARIF uploads, and processing refuses it --
+#
+#     Code Scanning could not process the submitted SARIF file:
+#     CodeQL analyses from advanced configurations cannot be processed
+#     when the default setup is enabled
+#
+# -- so while the setting is on the jobs below are red rather than absent,
+# and the pull request that adds this file cannot show it passing. That is
+# what gives the switch its order: the branch rule drops the `CodeQL`
+# context, default setup is turned off, the checks are re-run, and only
+# then does the rule name the aggregate job at the end of this file.
+# REPOSITORY.md carries the commands, this being a rule that lives outside
+# the repository
+
+on:
+  # three triggers, and each answers what the other two cannot: the push
+  # below scans the commit a merge creates, the schedule scans an unchanged
+  # tree against a query pack that moved, and pull_request scans a branch
+  # while a finding is still cheap to answer.
+  # The cost of the last is a real one and is stated rather than assumed:
+  # it queues the matrix and the aggregate on every push to a branch,
+  # against the ceiling the plan puts on how many jobs the organization may
+  # run at once -- REPOSITORY.md's Plan-gated settings has the figure and
+  # the command that re-derives it. What buys it back is that the aggregate
+  # below becomes a name a branch rule could hold at all: a required status
+  # check reports on the run a pull request has, so without this trigger no
+  # rule could name a context this workflow produces, whatever the analysis
+  # found. btclib-org/.github#459 is where the organization settled that a
+  # matrix without a requirable aggregate is a result nothing can gate on,
+  # and btclib-org/.github#349 is the umbrella it answers.
+  # The OpenSSF Scorecard's SAST check is a second reader of this trigger:
+  # it asks whether the analysis ran on the commits of merged pull
+  # requests, so an analysis reaching a commit only after its merge scores
+  # against this repository however clean it is. scorecard.yml is what
+  # submits the result, and
+  #
+  #     repo=btclib-org/btclib-secp256k1
+  #     curl -s "https://api.scorecard.dev/projects/github.com/$repo" \
+  #       | jq '.checks[] | select(.name == "SAST")'
+  #
+  # is what answers it for the day it is read.
+  # What reads a branch beside it is lint.yml: zizmor is a pre-commit hook
+  # and reads exactly these files for an injected expression, which is one
+  # of the findings here; the python and actions queries are the rest.
+  # No path filter on any of the three: a filter would have to name every
+  # path a query reads
+  push:
+    # main only, and with a second reason this workflow does not share with
+    # the other gates: an analysis of the default branch is what an alert is
+    # measured against, so the branch every pull request is compared to has
+    # to be scanned itself, and a merge creates a commit nothing else tested
+    branches: [main]
+  pull_request:
+    # ready_for_review and closed, the same two types test.yml carries and
+    # for the reasons its own trigger gives at length: a pull request
+    # marked ready gets the run the draft condition below withheld, and a
+    # closed one lands in this pull request's own concurrency group so that
+    # the merge cancels the run still holding it rather than another
+    # group's
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+  schedule:
+    # Sunday, with scorecard.yml the hour after: the grid's two security
+    # rows share the day and not the hour. Weekly, which is what default
+    # setup ran, and it earns the slot: a CodeQL release can find in
+    # unchanged code what the queries of the week before did not look
+    # for, so a repository that sits still is not a repository that stays
+    # clean.
+    # The time is the organization grid -- section 10 of
+    # btclib-org/.github's README.md -- and not this file's to restate.
+    # A sibling repository analyses on the same day and not at the same
+    # minute, which is the whole of what the grid's minute is for.
+    # Only the default branch schedules workflows, so on any other branch
+    # this is reachable through the dispatch below, and through the
+    # pull_request trigger above.
+    - cron: "8 4 * * 0"
+  # the escape hatch: the analysis on demand for a branch whose pull
+  # request is not open yet, which the trigger above cannot reach
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job can read
+# it, and the analysis job below is the only one that writes anything
+permissions:
+  contents: read
+
+# cancel superseded runs on the same branch/PR, named literally rather than
+# through github.workflow for the reason lint.yml gives at length. No
+# concurrency-suffix input here, unlike every workflow release.yml calls
+# but pypi-install.yml, which takes a version instead: nothing calls this
+# workflow, so no caller's ref is in play.
+# Keyed on the pull request's number where there is one rather than on
+# github.ref alone: for a closed, merged pull request github.ref resolves
+# to the base branch's ref, which is the push trigger's own group, so a
+# group built from it would let the closed run cancel the analysis of the
+# merge commit
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # the analysis itself is btclib-org/.github's, called at @main so a fix
+  # there reaches this tree in one landing (section 10 of its README.md);
+  # what stays here is the trigger, the schedule, the concurrency group and
+  # the aggregate job below. No inputs: this tree and every sibling
+  # carrying codeql.yml scan the same two languages the same way, and an
+  # input for a difference none of them has would be a copy in disguise
+  # (btclib-org/.github#35)
+  analyze:
+    uses: btclib-org/.github/.github/workflows/reusable-codeql.yml@main
+    # permissions do not inherit through a call, and the called workflow
+    # names what it needs in its own header: security-events: write for
+    # the SARIF upload, contents: read to check out the tree, and
+    # actions: read for CodeQL to read run metadata in a private
+    # repository, inert here and kept so that making this repository
+    # private is not also a broken required check
+    permissions:
+      security-events: write # the SARIF upload
+      contents: read
+      actions: read # run metadata, inert while this repository is public
+
+  # one context for a branch rule to name, in place of job names that
+  # move: the matrix the called workflow runs produces one row per
+  # language, under a name this job's own id prefixes -- "analyze /
+  # Analyze actions", "analyze / Analyze python". The step below judges
+  # every job of the run by its conclusion and its status, and reads a
+  # row's name for that prefix alone, which is what says a row is one of
+  # analyze's own.
+  # A required status check reports on the run a pull request has, so this
+  # name is requirable only because the pull_request trigger above exists
+  # — btclib-org/.github#90 is where the organization settled that reading
+  # as section 10's one rule, in place of the two the standard used to
+  # hold apart. Whether main's rule actually asks for it is REPOSITORY.md's
+  # required checks, which reads the endpoint rather than this file
+  codeql-passed:
+    # the name and not the id is what branch protection matches, and it
+    # carries the workflow because a context is keyed by name alone: two
+    # workflows with a job named "every job passed" would produce one
+    # ambiguous check -- and test.yml's aggregate is required, so the two
+    # names must not converge
+    name: "codeql: every job passed"
+    # nothing in this tree calls this workflow (btclib-org/.github#982), so
+    # the step below reads the run's own job listing rather than
+    # `needs.*.result`. `needs` sequences this job after the call above,
+    # and `needs.analyze.result` is what the step reads for analyze's own
+    # rows where the listing still shows them unfinished, and what fails
+    # the step on its own where it is neither success nor skipped
+    needs: [analyze]
+    # not success(): a job whose dependencies failed is skipped, and a
+    # skipped check reports "skipped", which reads as satisfied wherever a
+    # check is read at all, so the gate has to run to be able to fail. A
+    # cancellation of the run itself is no evidence either way and the
+    # run's own cancellation already speaks for it, which is what
+    # `!cancelled()` and not `always()` buys -- test.yml's aggregate
+    # carries that reasoning at length. The draft flag is not part of
+    # this condition: a skipped required check reads as passing, and
+    # this job's own check run does not exist until analyze has settled,
+    # so declining it here while draft would leave the draft's skip as
+    # the only check of this name on the sha until a later run's own
+    # aggregate exists. The closed condition stays: a closed pull
+    # request has nothing left to become ready (btclib-org/.github#1327)
+    if: >-
+      ${{ !cancelled()
+      && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # what asking the API for this run's own jobs takes. A read, so the
+      # write-only census REPOSITORY.md's "Token permissions" hands the
+      # reader does not list it, as it does not list analyze's above. The
+      # trailing comment repeats it in one line for the reason
+      # btclib-org/.github#1164 gives: zizmor's undocumented-permissions
+      # audit (persona=auditor) reads the permission's own line and not
+      # the comment above it
+      actions: read # this run's own job listing, which contents: read misses
+    steps:
+      # the run's own job listing rather than `needs.*.result`, which is
+      # section 10 of the organization standard's shape for a workflow
+      # nothing calls: a matrix cell that died in *Set up job* is a
+      # `failure` row in the listing where `needs.analyze.result` does not
+      # carry it (btclib-org/btclib#1001). The price is a step per
+      # workflow rather than one shared with test.yml's aggregate, `needs`
+      # reaching nothing outside its own workflow -- and test.yml keeps
+      # `needs`, release.yml calling it
+      #
+      # the allowlist below names "success" and "skipped" both, which
+      # section 10 of the organization standard asks of a listing step
+      # whatever the workflow's own jobs can report today. Narrowing it to
+      # "success" reads well against the jobs here -- the step above
+      # already fails this job before this one runs while draft, so a run
+      # reaching here has ruled out the one condition under which
+      # analyze's own if:, which still carries draft, diverges from this
+      # job's, and no job is conditional on the diff, there being no
+      # `changes` job -- but that is a condition of the run rather than a
+      # property of the shape: a job added later, or an `if:` on one
+      # narrower than this job's own, re-opens "skipped", and the
+      # constant does not follow the jobs.
+      # What would report a narrowed allowlist having stopped matching
+      # the run is this job going red on the first run that legitimately
+      # skips, with no defect under it and nothing in the tree pointing
+      # here -- read in the Actions and Security tabs rather than on the
+      # merge path, `codeql: every job passed` being no required check
+      # here, which REPOSITORY.md's *Required checks on main* states as a
+      # decision of its own (btclib-org/.github#990)
+      # a skipped required check reads as passing, so the draft flag
+      # moves from the job's own `if:` above into this first step: the
+      # job still runs while draft, and reports a failure instead of a
+      # skip (btclib-org/.github#1327)
+      - name: Fail while this pull request is a draft
+        if: github.event.pull_request.draft
+        run: |
+          echo "::error::this pull request is a draft"
+          exit 1
+      - name: Fail unless every other job of this run succeeded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+        run: |
+          set -euo pipefail
+          # a row of analyze's that the listing still shows unfinished is
+          # accepted where analyze's own result is success or skipped:
+          # `needs` does not let this job start before analyze concludes,
+          # so such a row is the listing lagging and not the run
+          # (btclib-org/.github#1395). A row is analyze's where its name
+          # starts with this job's `needs` id and then a space, a slash and
+          # a space, the prefix GitHub lists a called workflow's jobs under;
+          # with any other result the prefix is empty and nothing is
+          # accepted this way
+          prefix=""
+          case "${ANALYZE_RESULT}" in
+            success | skipped) prefix="analyze / " ;;
+          esac
+          # such a row is read again, up to three times ten seconds apart,
+          # before it is accepted: analyze's result is not the listing's
+          # equal, `needs` having missed matrix cells that died in *Set up
+          # job* (btclib-org/btclib#1001), and a row that concludes between
+          # reads is judged below on its conclusion. Only a row this step
+          # would tolerate is waited for, which is a row whose job's result
+          # is success or skipped; a listing with no such row is read once
+          # (btclib-org/.github#1416)
+          reads=0
+          while :; do
+            # `.status` beside the conclusion so that an unfinished job
+            # says which kind it is: queued and running are one word to
+            # `.conclusion` and two facts to a reader of the log
+            jobs=$(gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+              --jq '.jobs[] | "\(.conclusion // "unfinished")\t\(.status)\t\(.name)"')
+            lagging=$(printf '%s\n' "${jobs}" | awk -F'\t' -v p="${prefix}" \
+              '$1 == "unfinished" && p != "" && index($3, p) == 1')
+            if [ -z "${lagging}" ] || [ "${reads}" -eq 3 ]; then
+              break
+            fi
+            reads=$((reads + 1))
+            echo "listed unfinished, read again in 10 s (${reads} of 3):"
+            printf '%s\n' "${lagging}"
+            sleep 10
+          done
+          # printed before it is judged: the job whose purpose is to be
+          # trusted is the one that has to be able to say what it saw
+          printf '%s\n' "${jobs}"
+          # awk and not grep: a tab in a grep pattern is one
+          # implementation's extension and a literal "t" in another's,
+          # where awk's field separator is POSIX
+          bad=$(printf '%s\n' "${jobs}" |
+            awk -F'\t' '$1 != "success" && $1 != "skipped" && $1 != "unfinished"')
+          if [ -n "${lagging}" ]; then
+            echo "still listed unfinished, accepted as analyze's (${ANALYZE_RESULT}):"
+            printf '%s\n' "${lagging}"
+          fi
+          counted=$(printf '%s\n' "${jobs}" | awk -F'\t' -v p="${prefix}" \
+            '$1 == "unfinished" && !(p != "" && index($3, p) == 1)')
+          unfinished=$(printf '%s' "${counted}" | awk 'END { print NR }')
+          # each annotation names the rows it is about, an annotation
+          # being what the checks page shows without the log being
+          # opened. `%0A` is a newline to one, and the tab goes with it:
+          # the columns line up in a log and not in this
+          annotate() {
+            printf '::error::%s' "$1"
+            printf '%s' "$2" | tr '\t' ' ' | awk '{ printf "%%0A%s", $0 }'
+            printf '\n'
+          }
+          verdict=0
+          # analyze's own result is judged beside the listing and not only
+          # through it: a failure `needs` reports with no row of analyze's
+          # listed as failed, or with its rows missing, is still a failure
+          # (btclib-org/.github#1424). This turns a pass into a fail and
+          # never the reverse, so the judgements of the listing below lose
+          # nothing
+          case "${ANALYZE_RESULT}" in
+            success | skipped) ;;
+            *)
+              annotate "analyze's own result is '${ANALYZE_RESULT}'" ""
+              verdict=1
+              ;;
+          esac
+          if [ -n "${bad}" ]; then
+            annotate "these jobs of the run did not succeed:" "${bad}"
+            verdict=1
+          fi
+          # beside analyze's accepted rows, exactly one job of the run may
+          # be unfinished, and it is this one. Counted rather than excluded
+          # by name, a name being what goes stale when this job is renamed
+          # -- and none unfinished at all is refused too, a listing with no
+          # job running not being a listing of the run this step is
+          # running in
+          if [ "${unfinished}" -ne 1 ]; then
+            annotate \
+              "this check should be the run's one unfinished job; ${unfinished} are" \
+              "${counted}"
+            verdict=1
+          fi
+          exit "${verdict}"

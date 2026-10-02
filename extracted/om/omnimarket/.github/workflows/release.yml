@@ -1,0 +1,227 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.tag.outputs.tag }}
+      tag_sha: ${{ steps.tag.outputs.tag_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Assert clean working tree
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Validate tag matches pyproject.toml version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="$RELEASE_TAG"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          TAG="${TAG#v}"
+          PKG_VERSION=$(python3 -c "
+          import tomllib, sys
+          with open('pyproject.toml', 'rb') as f:
+              d = tomllib.load(f)
+          v = d.get('project', {}).get('version')
+          if not v:
+              raise SystemExit('ERROR: missing [project].version in pyproject.toml')
+          print(v)
+          ")
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "ERROR: tag v${TAG} does not match pyproject.toml version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Version validated: $PKG_VERSION"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Verify dist artifacts exist
+        run: |
+          ls -la dist/
+          ls dist/*.whl dist/*.tar.gz >/dev/null 2>&1 || {
+            echo "ERROR: expected wheel + sdist in dist/"
+            exit 1
+          }
+
+      # OMN-18034 — the same pin-resolvability gate the release-cut workflow
+      # runs (release-on-merge.yml at the time of the incident below, retired
+      # under OMN-18010 in favor of an explicit-trigger release-cut.yml), here
+      # too, because this path is NOT dormant. The v0.4.20 tag push fired this
+      # workflow as run 34067071382 while release-on-merge run 34066508864 was
+      # publishing the same files (recorded in the Publish step's comment
+      # below). A gate on only one of the two publishing paths is not a gate;
+      # it is a coin flip over which run gets there first.
+      #
+      # Placed before Publish AND before "Set release tag" for the same reason
+      # as in the release-cut workflow: a red gate must leave nothing behind.
+      # On this path the tag already exists (it is the trigger), so the
+      # strongest available property is that nothing is published and no
+      # GitHub Release is cut.
+      #
+      # See release-cut.yml for the measurement behind the 900s budget and for
+      # the four unresolvable releases (0.4.21-0.4.24) that this gate would
+      # have refused.
+      - name: Verify PyPI dependency-pin resolvability (OMN-18034)
+        env:
+          PYPI_PIN_RESOLVE_TIMEOUT_SECONDS: '900'
+        run: python3 scripts/ci/verify_pypi_pin_resolvability.py dist/
+
+      # OMN-18010: --check-url makes the upload IDEMPOTENT — uv queries the
+      # PyPI simple index and skips every file already present. It is not a
+      # nicety here. The release-cut workflow (release-on-merge.yml at the time
+      # of the incident below) pushes the release tag with an App token, and
+      # the design assumed that push would be suppressed the way
+      # App-token branch pushes are on this org. Measured false: the v0.4.20
+      # tag push fired this workflow as run 34067071382 while
+      # release-on-merge run 34066508864 was still publishing the SAME files,
+      # so two `uv publish` calls for one version overlapped. That pair
+      # happened to survive; without --check-url the loser of the race gets a
+      # 400 from PyPI and a red release for an artifact that is already live.
+      #
+      # The URL must be the simple index ROOT — uv appends the package name
+      # itself; the package-scoped form re-uploads as if no --check-url had
+      # been passed (verified on uv 0.12.1, omnibase_core OMN-15603).
+      - name: Publish to PyPI
+        run: |
+          uv publish \
+            --check-url https://pypi.org/simple/ \
+            --token "$UV_PUBLISH_TOKEN" \
+            dist/*.whl dist/*.tar.gz
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Generate checksums
+        run: sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS.txt
+
+      - name: Set release tag
+        id: tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # A newline in the dispatch input would forge extra GITHUB_OUTPUT
+            # entries, so constrain it to the tag charset before writing it.
+            case "$RELEASE_TAG" in
+              ''|*[!A-Za-z0-9.+_-]*)
+                echo "::error::release tag contains unsupported characters"
+                exit 1
+                ;;
+            esac
+            TAG="$RELEASE_TAG"
+            echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+          TAG_SHA=$(git rev-list -n 1 "$TAG")
+          echo "tag_sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'rc') }}
+
+  sync-main:
+    needs: release
+    if: ${{ !contains(needs.release.outputs.version, 'rc') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # OMN-16289: main = the last release. Once a release publishes
+      # successfully, fast-forward main to the released tag's commit SHA.
+      # This job intentionally does not check out or execute repository code:
+      # it receives only the validated tag and commit SHA from the release job,
+      # then updates refs/heads/main through the GitHub API.
+      #
+      # OMN-16343: the workflow GITHUB_TOKEN is NOT an authorizable identity
+      # for a push-restricted branch — proven live on omnibase_core (GH006,
+      # 2026-08-21): the workflow-token push to main was rejected outright.
+      # Mint a short-lived installation token from the org-owned
+      # onexbot-occ-writer App (org secrets ONEXBOT_OCC_APP_ID /
+      # ONEXBOT_OCC_PRIVATE_KEY, visibility to this repo verified) via the
+      # same canonical `actions/create-github-app-token` pattern already used
+      # by call-occ-attestation-observe.yml / call-occ-companion-author.yml /
+      # pr-arch-review.yml, and push as that App identity instead.
+      - name: Mint sync-main push token (OnexBot-OCC-Writer App)
+        id: sync-main-app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Sync main to release tag
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.version }}
+          TAG_SHA: ${{ needs.release.outputs.tag_sha }}
+          SYNC_MAIN_TOKEN: ${{ steps.sync-main-app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          case "$RELEASE_TAG" in
+            ''|*[!A-Za-z0-9.+_-]*)
+              echo "::error::release tag contains unsupported characters"
+              exit 1
+              ;;
+          esac
+          if [[ ! "$TAG_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::release SHA is not a full commit SHA"
+            exit 1
+          fi
+          python3 - <<'PY' > update-main-ref.json
+          import json
+          import os
+
+          print(json.dumps({"sha": os.environ["TAG_SHA"], "force": False}))
+          PY
+          curl -fsS \
+            -X PATCH \
+            -H "Authorization: Bearer ${SYNC_MAIN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            --data @update-main-ref.json
+          echo "main fast-forwarded to $TAG_SHA ($RELEASE_TAG)"

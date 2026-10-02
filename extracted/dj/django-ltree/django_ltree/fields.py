@@ -1,0 +1,94 @@
+from collections import UserList
+from collections.abc import Iterable
+from django.core.exceptions import ValidationError
+from django.db.models.query_utils import DeferredAttribute
+from django.db.models.fields import TextField
+from django.forms.widgets import TextInput
+
+from .forms import PathFormField
+from .validators import path_label_validator
+
+
+class PathValue(UserList):
+    def __init__(self, value):
+        if isinstance(value, bool):
+            raise ValueError("Invalid value: {!r} for path".format(value))
+        elif isinstance(value, str):
+            if "/" in value and "." in value:
+                raise ValueError("PathValue cannot mix slashes and dots in the same value")
+
+            value = value.strip()
+            split_by = "/" if "/" in value else "."
+            value = value.split(split_by) if value else []
+        elif isinstance(value, int):
+            value = [str(value)]
+        elif isinstance(value, Iterable):
+            value = [str(v) for v in value]
+        else:
+            raise ValueError("Invalid value: {!r} for path".format(value))
+
+        super().__init__(initlist=value)
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return ".".join(self)
+
+
+class PathDescriptor(DeferredAttribute):
+    def __get__(self, instance, cls=None):
+        if instance is None:
+            return self
+        value = super().__get__(instance, cls)
+        if value is None or isinstance(value, PathValue):
+            return value
+        value = PathValue(value)
+        instance.__dict__[self.field.attname] = value
+        return value
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.field.attname] = value
+
+
+class PathField(TextField):
+    default_validators = [path_label_validator]
+    descriptor_class = PathDescriptor
+
+    def db_type(self, connection):
+        return "ltree"
+
+    def formfield(self, **kwargs):
+        kwargs["form_class"] = PathFormField
+        kwargs["widget"] = TextInput(attrs={"class": "vTextField"})
+        return super().formfield(**kwargs)
+
+    def from_db_value(self, value, expression, connection, *args):
+        if value is None:
+            return value
+        return PathValue(value)
+
+    def get_prep_value(self, value):
+        if value is None:
+            return value
+        return str(PathValue(value))
+
+    def to_python(self, value):
+        if value is None:
+            return value
+        elif isinstance(value, PathValue):
+            return value
+
+        try:
+            return PathValue(value)
+        except ValueError as error:
+            raise ValidationError(str(error), code="invalid") from error
+
+
+class LqueryField(TextField):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.editable = False
+
+    def db_type(self, connection):
+        return "lquery"

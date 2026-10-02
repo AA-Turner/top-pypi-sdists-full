@@ -45,11 +45,13 @@ install_requires = [
     "httplib2",
     "lazr.restfulclient>=0.14.2",
     "lazr.uri",
+    "pysocks",
+    'importlib_resources; python_version < "3.9"',
 ]
 
 setup(
     name="launchpadlib",
-    version="2.1.0",
+    version="2.2.0",
     packages=find_packages("src"),
     package_dir={"": "src"},
     include_package_data=True,
@@ -64,7 +66,7 @@ setup(
     license="LGPL v3",
     python_requires=">=3.8",
     install_requires=install_requires,
-    url="https://help.launchpad.net/API/launchpadlib",
+    url="https://launchpad.net/launchpadlib",
     project_urls={
         "Source": "https://code.launchpad.net/launchpadlib",
         "Issue Tracker": "https://bugs.launchpad.net/launchpadlib",
@@ -83,6 +85,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     extras_require={
         "keyring": ["keyring"],

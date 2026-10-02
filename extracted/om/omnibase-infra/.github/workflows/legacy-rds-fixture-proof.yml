@@ -1,0 +1,73 @@
+name: Sanitized Legacy RDS Fixture Proof
+
+# OMN-18926: the `pull_request` trigger is deliberately GONE and is replaced by
+# `workflow_call`, which ci.yml invokes from an unconditional `legacy-rds-fixture-proof`
+# job. This is the OMN-15378 pattern recorded in scripts/enforcement_parity_manifest.yaml
+# and already used by `deploy-agent-tests` and `route`.
+#
+# WHY. This proof is the ONLY leg anywhere that builds `omnidash_analytics` from EMPTY
+# and runs the real scripts/run-forward-migrations.sh over the real corpus. While it was
+# its own separately-triggered workflow it had its own run_id, so ci_summary_gate.py's
+# poll of this run's jobs structurally could not observe it, and `dev` requires exactly
+# one context ("CI Summary", the OMN-4497 single-umbrella design) -- a RED fixture proof
+# left the required context green. That is how OMN-18926's defect merged and stayed
+# merged: 107 migrations apply against a fresh pair and the 108th raises
+# `division by zero`, with nothing blocking on it.
+#
+# It is UNCONDITIONAL rather than path-filtered, which the STRICT registration requires
+# (absent/red/skipped all fail), and which also closes the path-filter hole: the corpus
+# can be broken from empty by a change to neither docker/migrations/** nor the runner --
+# a role or grant seam, for instance. Affordable: measured 0-1 min per run over the last
+# eight runs, among the cheapest jobs in this workflow.
+on:
+  workflow_call:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/legacy-rds-fixture-proof.yml"
+      - "docker/legacy-rds-fixture/**"
+      - "docker/migrations/**"
+      - "scripts/run-forward-migrations.sh"
+  workflow_dispatch:
+
+concurrency:
+  group: legacy-rds-fixture-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-proof:
+    name: PostgreSQL 16 Fresh + Legacy Fixture
+    # OMNI_RUNNER_SELECTOR_V1 - trusted Docker proofs default to self-hosted omnibase-ci; public forks default to ubuntu-latest.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # This proof is intentionally independent of OCC preflight. It validates
+      # sanitized fixture behavior on draft PRs; it grants no release or merge
+      # authorization, and the repository's OCC gates remain fail-closed.
+      - name: Sanitized legacy-RDS Docker proof
+        run: |
+          docker compose \
+            --project-name "omn15422-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            -f docker/legacy-rds-fixture/compose.yml \
+            up --build --abort-on-container-exit --exit-code-from proof
+
+      - name: Clean sanitized legacy-RDS Docker proof
+        if: always()
+        run: |
+          docker compose \
+            --project-name "omn15422-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            -f docker/legacy-rds-fixture/compose.yml \
+            down --volumes --remove-orphans --rmi local

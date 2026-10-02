@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.170
+Version: 8.4.171
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -48,7 +48,7 @@ Requires-Dist: torchvision>=0.9.0
 Requires-Dist: psutil>=5.8.0
 Requires-Dist: polars>=0.20.0
 Requires-Dist: nvidia-ml-py>=12.0.0
-Requires-Dist: ultralytics-thop>=2.2.0
+Requires-Dist: ultralytics-thop>=2.2.2
 Requires-Dist: ultralytics-platform>=0.1.45; python_version >= "3.11"
 Provides-Extra: dev
 Requires-Dist: ipython; extra == "dev"

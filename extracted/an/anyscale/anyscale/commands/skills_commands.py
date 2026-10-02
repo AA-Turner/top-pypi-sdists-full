@@ -37,7 +37,8 @@ from anyscale.skills.models import (
 
 
 _PLATFORM_CHOICES = click.Choice(
-    [platform.value for platform in Platform], case_sensitive=False,
+    [platform.value for platform in Platform],
+    case_sensitive=False,
 )
 
 _KNOWN_PLATFORM_VALUES = frozenset(platform.value for platform in Platform)
@@ -55,7 +56,9 @@ def _print_catalog(catalog: List[CatalogEntry]) -> None:
 
 
 def _print_diff(
-    added: List[CatalogEntry], removed: List[CatalogEntry], updated: List[CatalogEntry],
+    added: List[CatalogEntry],
+    removed: List[CatalogEntry],
+    updated: List[CatalogEntry],
 ) -> None:
     for entry in added:
         tags = ["new"]
@@ -86,8 +89,7 @@ def _print_installed_section(metadata: Optional[InstalledMetadata]) -> None:
         PLATFORMS[p].display if p in PLATFORMS else p.value for p in metadata.platforms
     )
     file_count = sum(
-        len(info.skills_files) + len(info.hooks_files)
-        for info in metadata.platforms.values()
+        len(info.skills_files) + len(info.hooks_files) for info in metadata.platforms.values()
     )
     click.echo(f"Installed: v{metadata.version} ({platforms_str}, {file_count} files)")
     if metadata.catalog:
@@ -108,9 +110,7 @@ def _print_update_section(info: SkillsListResult) -> None:
     elif info.up_to_date:
         click.echo("Skills are up to date.")
     else:
-        click.echo(
-            f"Update available: v{metadata.version} -> v{info.available_version}"
-        )
+        click.echo(f"Update available: v{metadata.version} -> v{info.available_version}")
         has_changes = bool(
             info.added
             or info.removed
@@ -189,7 +189,10 @@ def _prompt_platform_selection(
         click.echo(f"  {i}) {meta.display} ({_platform_prompt_label(meta)})")
     click.echo("")
 
-    choice = click.prompt("Platform", type=click.IntRange(1, len(platform_list) + 1),)
+    choice = click.prompt(
+        "Platform",
+        type=click.IntRange(1, len(platform_list) + 1),
+    )
 
     if choice == 1:
         return platform_list
@@ -284,9 +287,7 @@ def _build_list_output(info: SkillsListResult) -> SkillsListOutput:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -359,10 +360,7 @@ def skills_list(version: Optional[str], output_format: str) -> None:
     "from_file",
     type=click.Path(exists=True, dir_okay=False, readable=True),
     default=None,
-    help=(
-        "Install from a local bundle tarball instead of downloading. "
-        "Requires --accept-terms."
-    ),
+    help=("Install from a local bundle tarball instead of downloading. Requires --accept-terms."),
 )
 def skills_install(
     version: Optional[str],
@@ -379,9 +377,7 @@ def skills_install(
             try:
                 info = anyscale.skills.list(version=version)
                 available = (
-                    frozenset(
-                        p for entry in info.available_catalog for p in entry.platforms
-                    )
+                    frozenset(p for entry in info.available_catalog for p in entry.platforms)
                     & _KNOWN_PLATFORM_VALUES
                 )
             except Exception:  # noqa: BLE001
@@ -473,7 +469,8 @@ def skills_update(force: bool, accept_terms: bool) -> None:
     try:
         try:
             updated_version = anyscale.skills.update(
-                force=force, accept_terms=accept_terms,
+                force=force,
+                accept_terms=accept_terms,
             )
         except TermsNotAcceptedError as e:
             if not _prompt_terms_acceptance(e.terms):

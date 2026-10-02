@@ -68,13 +68,17 @@ from . import json as jdata
 from . import rowdat_1
 from . import utils
 from ... import connection
-from ... import manage_workspaces
 from ...config import get_option
+from ...management.stage import get_stage
 from ...mysql.constants import FIELD_TYPE as ft
 from ..signature import get_signature
 from ..signature import signature_to_sql
 from ..typing import Masked
 from ..typing import Table
+from .function_url import classify_interactive_registration
+from .function_url import extract_service_url
+from .function_url import is_function_not_defined
+from .function_url import urls_equal
 from .timer import Timer
 from singlestoredb.docstring.parser import parse
 from singlestoredb.functions.dtypes import escape_name
@@ -522,7 +526,7 @@ def build_udf_endpoint(
     """
     if returns_data_format in ['scalar', 'list']:
 
-        is_async = asyncio.iscoroutinefunction(func)
+        is_async = inspect.iscoroutinefunction(func)
 
         async def do_func(
             cancel_event: threading.Event,
@@ -568,7 +572,7 @@ def build_vector_udf_endpoint(
     """
     masks = get_masked_params(func)
     array_cls = get_array_class(returns_data_format)
-    is_async = asyncio.iscoroutinefunction(func)
+    is_async = inspect.iscoroutinefunction(func)
 
     async def do_func(
         cancel_event: threading.Event,
@@ -633,7 +637,7 @@ def build_tvf_endpoint(
     """
     if returns_data_format in ['scalar', 'list']:
 
-        is_async = asyncio.iscoroutinefunction(func)
+        is_async = inspect.iscoroutinefunction(func)
 
         async def do_func(
             cancel_event: threading.Event,
@@ -698,7 +702,7 @@ def build_vector_tvf_endpoint(
         #        each result row, so we just have to use the same
         #        row ID for all rows in the result.
 
-        is_async = asyncio.iscoroutinefunction(func)
+        is_async = inspect.iscoroutinefunction(func)
 
         # Call function on each column of data
         async with timer('call_function'):
@@ -787,7 +791,7 @@ def make_func(
     info['timeout'] = max(timeout, 1)
 
     # Set async flag
-    info['is_async'] = asyncio.iscoroutinefunction(func)
+    info['is_async'] = inspect.iscoroutinefunction(func)
 
     # Setup argument types for rowdat_1 parser
     colspec = []
@@ -1607,8 +1611,7 @@ class Application(object):
             # See if function URL matches url
             cur.execute(f'SHOW CREATE FUNCTION {database_prefix}{escape_name(name)}')
             for fname, _, code, *_ in list(cur):
-                m = re.search(r" (?:\w+) (?:SERVICE|MANAGED) '([^']+)'", code)
-                if m and m.group(1) == self.url:
+                if urls_equal(extract_service_url(code), self.url):
                     funcs.add(f'{database_prefix}{escape_name(fname)}')
                     if link and re.match(r'^py_ext_func_link_\S{14}$', link):
                         links.add(link)
@@ -1812,6 +1815,105 @@ class Application(object):
                 for func in self.get_create_functions(replace=replace):
                     cur.execute(func)
 
+    def _service_url_for_qualified(
+        self,
+        cur: Any,
+        qualified: str,
+    ) -> Optional[str]:
+        try:
+            cur.execute(f'SHOW CREATE FUNCTION {qualified}')
+        except Exception as exc:
+            if is_function_not_defined(exc):
+                return None
+            raise
+        rows = list(cur)
+        if not rows:
+            return None
+        code = rows[0][2]
+        if isinstance(code, bytes):
+            code = code.decode('utf-8')
+        return extract_service_url(code)
+
+    def _show_create_service_url(self, cur: Any, sql_name: str) -> Optional[str]:
+        if self.function_database:
+            qualified = (
+                f'{escape_name(self.function_database)}.{escape_name(sql_name)}'
+            )
+        else:
+            qualified = escape_name(sql_name)
+        return self._service_url_for_qualified(cur, qualified)
+
+    def _classify_interactive_name(self, cur: Any, sql_name: str) -> str:
+        existing = self._show_create_service_url(cur, sql_name)
+        try:
+            return classify_interactive_registration(existing, self.url)
+        except ValueError as exc:
+            raise RuntimeError(
+                f'Cannot register SQL function `{sql_name}`: {exc}',
+            ) from exc
+
+    def preflight_interactive_functions(
+        self,
+        *connection_args: Any,
+        **connection_kwargs: Any,
+    ) -> None:
+        """Raise if any current name is published or owned by another session.
+
+        Read-only: does not CREATE or DROP functions.
+        """
+        with connection.connect(*connection_args, **connection_kwargs) as conn:
+            with conn.cursor() as cur:
+                for _key, (_endpoint, info) in self.endpoints.items():
+                    sql_name = info['signature']['name']
+                    self._classify_interactive_name(cur, sql_name)
+
+    def register_interactive_functions(
+        self,
+        *connection_args: Any,
+        **connection_kwargs: Any,
+    ) -> None:
+        """Register functions for an interactive notebook session.
+
+        Creates or replaces a name only when it is missing or already
+        points at this session's interactive URL. Published and
+        other-session functions are left unchanged. Ownership is
+        re-checked immediately before each write or drop.
+        """
+        with connection.connect(*connection_args, **connection_kwargs) as conn:
+            with conn.cursor() as cur:
+                if self.function_database:
+                    database_prefix = escape_name(self.function_database) + '.'
+                else:
+                    database_prefix = ''
+                current_names = set()
+                for _key, (_endpoint, info) in self.endpoints.items():
+                    sql_name = info['signature']['name']
+                    current_names.add(
+                        f'{database_prefix}{escape_name(sql_name)}',
+                    )
+                    self._classify_interactive_name(cur, sql_name)
+
+                funcs, _links = self._locate_app_functions(cur)
+                for fname in funcs:
+                    if fname not in current_names:
+                        existing = self._service_url_for_qualified(cur, fname)
+                        if urls_equal(existing, self.url):
+                            cur.execute(f'DROP FUNCTION IF EXISTS {fname}')
+
+                for _key, (_endpoint, info) in self.endpoints.items():
+                    sig = info['signature']
+                    action = self._classify_interactive_name(cur, sig['name'])
+                    cur.execute(
+                        signature_to_sql(
+                            sig,
+                            url=self.url,
+                            data_format=self.data_format,
+                            app_mode=self.app_mode,
+                            replace=(action == 'replace'),
+                            database=self.function_database or None,
+                        ),
+                    )
+
     def drop_functions(
         self,
         *connection_args: Any,
@@ -1992,21 +2094,20 @@ class Application(object):
             if not url.path or url.path == '/':
                 raise ValueError(f'no stage path was specified: {destination}')
 
-            mgr = manage_workspaces()
-            if url.hostname:
-                wsg = mgr.get_workspace_group(url.hostname)
-            elif os.environ.get('SINGLESTOREDB_WORKSPACE_GROUP'):
-                wsg = mgr.get_workspace_group(
-                    os.environ['SINGLESTOREDB_WORKSPACE_GROUP'],
-                )
-            else:
-                raise ValueError(f'no workspace group specified: {destination}')
+            # The host names the deployment whose Stage is wanted: a cluster at
+            # v2, a workspace group at v1. With no host, get_stage falls back to
+            # the deployment named by the environment -- SINGLESTOREDB_WORKSPACE
+            # at v2, SINGLESTOREDB_WORKSPACE_GROUP at v1.
+            try:
+                stage = get_stage(url.hostname or None)
+            except RuntimeError:
+                raise ValueError(f'no deployment specified: {destination}')
 
             # Make intermediate directories
             if url.path.count('/') > 1:
-                wsg.stage.mkdirs(os.path.dirname(url.path))
+                stage.mkdirs(os.path.dirname(url.path))
 
-            wsg.stage.upload_file(
+            stage.upload_file(
                 local_path, url.path + f'{name}.env',
                 overwrite=overwrite,
             )
@@ -2205,21 +2306,21 @@ def main(argv: Optional[List[str]] = None) -> None:
                 if url.path.endswith('/'):
                     raise ValueError(f'an environment file must be specified: {f}')
 
-                mgr = manage_workspaces()
-                if url.hostname:
-                    wsg = mgr.get_workspace_group(url.hostname)
-                elif os.environ.get('SINGLESTOREDB_WORKSPACE_GROUP'):
-                    wsg = mgr.get_workspace_group(
-                        os.environ['SINGLESTOREDB_WORKSPACE_GROUP'],
-                    )
-                else:
-                    raise ValueError(f'no workspace group specified: {f}')
+                # The host names the deployment whose Stage is wanted: a cluster
+                # at v2, a workspace group at v1. With no host, get_stage falls
+                # back to the deployment named by the environment --
+                # SINGLESTOREDB_WORKSPACE at v2,
+                # SINGLESTOREDB_WORKSPACE_GROUP at v1.
+                try:
+                    stage = get_stage(url.hostname or None)
+                except RuntimeError:
+                    raise ValueError(f'no deployment specified: {f}')
 
                 if tmpdir is None:
                     tmpdir = tempfile.TemporaryDirectory()
 
                 local_path = os.path.join(tmpdir.name, url.path.split('/')[-1])
-                wsg.stage.download_file(url.path, local_path)
+                stage.download_file(url.path, local_path)
                 args.functions[i] = local_path
 
             elif f.startswith('http://') or f.startswith('https://'):

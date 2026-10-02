@@ -1,0 +1,241 @@
+"""Unit tests for ``BootstrapPlanner`` (issue #137 part 1).
+
+The planner is pure read-only logic — it queries pg_roles / pg_class /
+pg_namespace and decides which bootstrap steps are needed.  These tests
+mock the connection so they run without a real PostgreSQL.
+
+Integration tests covering the executor against a real DB live in
+``tests/integration/test_bootstrap_executor.py``.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+import pglast
+import pytest
+
+from confiture.config.environment import OwnershipApplyTo, OwnershipExpectation
+from confiture.core.bootstrap import (
+    BootstrapPlan,
+    BootstrapPlanner,
+    BootstrapStep,
+)
+from confiture.exceptions import BootstrapScopeError
+
+
+def _make_ownership(
+    *,
+    owner: str = "migrator",
+    apply_to_schemas: list[str] | None = None,
+    default_privileges: dict[str, dict[str, list[str]]] | None = None,
+) -> OwnershipExpectation:
+    schemas = apply_to_schemas if apply_to_schemas is not None else ["tenant"]
+    return OwnershipExpectation(
+        expected_owner=owner,
+        apply_to=[OwnershipApplyTo(schema=s) for s in schemas],
+        default_privileges=default_privileges,
+    )
+
+
+def _make_conn(
+    *,
+    role_exists: bool = True,
+    postgres_owned_schemas: list[str] | None = None,
+) -> MagicMock:
+    """Mock a psycopg connection that answers planner queries."""
+    conn = MagicMock()
+
+    def execute_side_effect(query: str, params: tuple | None = None):
+        result = MagicMock()
+        if "rolsuper" in query:
+            # The handover scan: one superuser-owned table per listed schema.
+            owned = postgres_owned_schemas or []
+            result.fetchall.return_value = [(s, f"ALTER TABLE {s}.t") for s in owned]
+        elif "pg_roles" in query and "rolname" in query and "%s" in query:
+            result.fetchone.return_value = (1,) if role_exists else None
+        else:
+            result.fetchone.return_value = None
+            result.fetchall.return_value = []
+        return result
+
+    conn.execute.side_effect = execute_side_effect
+    return conn
+
+
+# ---------------------------------------------------------------------------
+# Empty-plan happy path
+# ---------------------------------------------------------------------------
+
+
+def test_empty_plan_when_role_exists_and_no_drift() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership())
+    conn = _make_conn(role_exists=True, postgres_owned_schemas=[])
+    plan = planner.plan(conn)
+    assert plan.is_empty
+    assert plan.observed_postgres_owned_schemas == ()
+
+
+# ---------------------------------------------------------------------------
+# Role creation step
+# ---------------------------------------------------------------------------
+
+
+def test_plan_includes_role_creation_when_missing() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership())
+    conn = _make_conn(role_exists=False, postgres_owned_schemas=[])
+    plan = planner.plan(conn)
+    assert len(plan.steps) == 1
+    step = plan.steps[0]
+    assert step.label == "create_role"
+    assert step.sql == "CREATE ROLE migrator WITH LOGIN NOCREATEROLE"
+
+
+# ---------------------------------------------------------------------------
+# Handover step: one ALTER … OWNER TO per superuser-owned object
+# ---------------------------------------------------------------------------
+
+
+def test_plan_includes_reassign_when_postgres_owns_in_scope_schemas() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership(apply_to_schemas=["tenant"]))
+    conn = _make_conn(
+        role_exists=True,
+        postgres_owned_schemas=["tenant"],  # In scope
+    )
+    plan = planner.plan(conn)
+    labels = [s.label for s in plan.steps]
+    assert "reassign_owned" in labels
+    reassign = next(s for s in plan.steps if s.label == "reassign_owned")
+    assert reassign.sql == "ALTER TABLE tenant.t OWNER TO migrator;"
+    assert "REASSIGN" not in reassign.sql
+
+
+# ---------------------------------------------------------------------------
+# --all-schemas safety check
+# ---------------------------------------------------------------------------
+
+
+def test_plan_refuses_without_all_schemas_flag_when_outside_apply_to() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership(apply_to_schemas=["tenant"]))
+    conn = _make_conn(
+        role_exists=True,
+        postgres_owned_schemas=["tenant", "public"],  # public is out of scope
+    )
+    with pytest.raises(BootstrapScopeError) as excinfo:
+        planner.plan(conn, all_schemas=False)
+    assert "public" in str(excinfo.value)
+
+
+def test_plan_allows_reassign_with_all_schemas_flag() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership(apply_to_schemas=["tenant"]))
+    conn = _make_conn(
+        role_exists=True,
+        postgres_owned_schemas=["tenant", "public"],
+    )
+    plan = planner.plan(conn, all_schemas=True)
+    labels = [s.label for s in plan.steps]
+    assert "reassign_owned" in labels
+
+
+# ---------------------------------------------------------------------------
+# ALTER DEFAULT PRIVILEGES step
+# ---------------------------------------------------------------------------
+
+
+def test_plan_includes_alter_default_privileges_per_schema_role() -> None:
+    planner = BootstrapPlanner(
+        ownership=_make_ownership(
+            apply_to_schemas=["tenant"],
+            default_privileges={
+                "tenant": {
+                    "app": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+                    "readonly": ["SELECT"],
+                }
+            },
+        )
+    )
+    conn = _make_conn(role_exists=True, postgres_owned_schemas=[])
+    plan = planner.plan(conn)
+    adp_steps = [s for s in plan.steps if s.label.startswith("default_privileges_")]
+    assert len(adp_steps) == 2
+    for s in adp_steps:
+        assert "ALTER DEFAULT PRIVILEGES FOR ROLE" in s.sql
+        assert "IN SCHEMA" in s.sql
+        assert "GRANT" in s.sql
+        assert "ON TABLES TO" in s.sql
+    sqls = " | ".join(s.sql for s in adp_steps)
+    assert "SELECT, INSERT, UPDATE, DELETE" in sqls
+    assert "ON TABLES TO app" in sqls
+    assert "ON TABLES TO readonly" in sqls
+
+
+def test_plan_omits_default_privileges_when_unconfigured() -> None:
+    planner = BootstrapPlanner(ownership=_make_ownership(default_privileges=None))
+    conn = _make_conn(role_exists=True, postgres_owned_schemas=[])
+    plan = planner.plan(conn)
+    assert not any(s.label.startswith("default_privileges_") for s in plan.steps)
+
+
+# ---------------------------------------------------------------------------
+# Plan serialization
+# ---------------------------------------------------------------------------
+
+
+def test_plan_to_dict_round_trips_steps() -> None:
+    step = BootstrapStep(
+        label="dummy",
+        sql="SELECT 1",
+        description="noop",
+    )
+    plan = BootstrapPlan(steps=(step,))
+    data = plan.to_dict()
+    assert data["steps"] == [{"label": "dummy", "sql": "SELECT 1", "description": "noop"}]
+    assert data["is_empty"] is False
+
+
+# ---------------------------------------------------------------------------
+# Identifiers: one name each, whatever the config holds
+# ---------------------------------------------------------------------------
+
+#: A value that opens and closes with a quote but is not one quoted identifier.
+_INJECTED = '"app"; DROP TABLE keepme; --"'
+
+
+def _default_privileges_names(schema: str, grantee: str) -> tuple[object, ...]:
+    """What the one ``ALTER DEFAULT PRIVILEGES`` statement names, as PostgreSQL reads it."""
+    planner = BootstrapPlanner(
+        ownership=_make_ownership(default_privileges={schema: {grantee: ["SELECT"]}})
+    )
+    (step,) = planner.plan(_make_conn(role_exists=True, postgres_owned_schemas=[])).steps
+    statements = pglast.parse_sql(step.sql)
+    options = {option.defname: option.arg for option in statements[0].stmt.options}
+    return (
+        len(statements),
+        tuple(role.rolename for role in options["roles"]),
+        tuple(name.sval for name in options["schemas"]),
+        tuple(role.rolename for role in statements[0].stmt.action.grantees),
+    )
+
+
+@pytest.mark.parametrize(
+    ("schema", "grantee", "named"),
+    [
+        pytest.param("tenant", _INJECTED, ("tenant", _INJECTED), id="grantee-closes-its-quotes"),
+        pytest.param(_INJECTED, "app", (_INJECTED, "app"), id="schema-closes-its-quotes"),
+        pytest.param(
+            'ten"ant; --', 'a"pp;', ('ten"ant; --', 'a"pp;'), id="embedded-quote-and-semicolon"
+        ),
+        pytest.param('"Tenant"', '"App""s"', ("Tenant", 'App"s'), id="quoted-form-is-its-name"),
+    ],
+)
+def test_a_default_privileges_statement_names_each_identifier_once(
+    schema: str, grantee: str, named: tuple[str, str]
+) -> None:
+    assert _default_privileges_names(schema, grantee) == (1, ("migrator",), *[(n,) for n in named])
+
+
+def test_a_mixed_case_role_is_created_by_its_quoted_name() -> None:
+    """The one quoter writes the role's identity as SQL must: ``AppOwner`` quoted."""
+    planner = BootstrapPlanner(ownership=_make_ownership(owner='"AppOwner"'))
+    (step,) = planner.plan(_make_conn(role_exists=False, postgres_owned_schemas=[])).steps
+    assert step.sql == 'CREATE ROLE "AppOwner" WITH LOGIN NOCREATEROLE'

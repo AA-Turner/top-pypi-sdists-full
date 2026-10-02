@@ -1,0 +1,99 @@
+"""Console adapter: live lines and end-of-trace tree."""
+
+from __future__ import annotations
+
+import io
+
+import ai
+from ai.experimental_telemetry.utils import console
+from ai.types import usage
+
+
+async def test_console_prints_tree() -> None:
+    out = io.StringIO()
+    adapter = console.ConsoleAdapter(out=out)
+    ai.experimental_telemetry.register(adapter)
+    try:
+        async with ai.experimental_telemetry.span("outer"):
+            async with ai.experimental_telemetry.span("inner") as sp:
+                sp.set_attrs(k=1)
+    finally:
+        ai.experimental_telemetry.unregister(adapter)
+
+    text = out.getvalue()
+    assert "▸ outer" in text
+    # The live line prints at span start, before attributes are set;
+    # the end-of-trace tree shows them.
+    assert "▸   inner" in text
+    assert "└─ inner (k=1)" in text
+    assert "trace " in text
+
+
+async def test_console_prints_live_span_events() -> None:
+    out = io.StringIO()
+    adapter = console.ConsoleAdapter(out=out)
+    ai.experimental_telemetry.register(adapter)
+    try:
+        async with ai.experimental_telemetry.span("outer") as sp:
+            sp.events.append(
+                ai.experimental_telemetry.SpanEvent(
+                    name="first_token",
+                    time_ns=ai.experimental_telemetry.now_ns(),
+                    attrs={"event_type": "TextStart"},
+                )
+            )
+            await sp.push()
+    finally:
+        ai.experimental_telemetry.unregister(adapter)
+
+    text = out.getvalue()
+    assert "·   first_token +" in text
+    assert "ms (event_type='TextStart')" in text
+
+
+async def test_console_labels_ops_span() -> None:
+    out = io.StringIO()
+    adapter = console.ConsoleAdapter(out=out)
+    data = ai.experimental_telemetry.EmbedSpanData(
+        model="text-embedding-3-small",
+        input_count=1,
+    )
+    ai.experimental_telemetry.register(adapter)
+    try:
+        async with ai.experimental_telemetry.span(data) as sp:
+            sp.data.usage = usage.Usage(input_tokens=9)
+    finally:
+        ai.experimental_telemetry.unregister(adapter)
+
+    text = out.getvalue()
+    assert "▸ embed text-embedding-3-small" in text
+    assert "embed text-embedding-3-small  in:9 out:0 tok" in text
+
+
+async def test_console_tree_uses_response_complete_duration() -> None:
+    out = io.StringIO()
+    adapter = console.ConsoleAdapter(out=out)
+    span = ai.experimental_telemetry.Span(
+        name="ai_stream",
+        data=ai.experimental_telemetry.AiStreamSpanData(model="m", messages=[]),
+        id="span-1",
+        trace_id="trace-1",
+        parent_id=None,
+        started_at=0,
+        ended_at=5_000_000_000,
+        events=[
+            ai.experimental_telemetry.SpanEvent(
+                name=ai.experimental_telemetry.RESPONSE_COMPLETE,
+                time_ns=1_500_000_000,
+                attrs={},
+            )
+        ],
+    )
+    await adapter.on_span_start(span)
+    await adapter.on_span_end(span)
+
+    text = out.getvalue()
+    # The reported duration is the model latency, not the span
+    # lifetime (which includes tool dispatch while the stream is open).
+    assert "1.50s" in text
+    assert "5.00s" not in text

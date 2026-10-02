@@ -1,0 +1,1584 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Tests for ``onex node --output receipt`` (OMN-13094).
+
+Acceptance is STRUCTURAL, not size-based (plan Open Question 3 resolution):
+
+- stdout parses as exactly ONE JSON object validating against
+  ``ModelSkillResult`` — zero intermediate context leaks;
+- zero RuntimeLocal INFO lines on stdout/stderr;
+- the full capture log and handler result are content-addressed in the
+  artifact store and hash-verified on retrieval;
+- ``artifact.captured`` + ``tool.output.captured`` are emitted via the emit
+  daemon socket; an unreachable daemon loses them silently (no spool, no
+  alternate path, no warning);
+- ONEX_ARTIFACT_STORE_ROOT defaults to ``<state_root>/artifacts`` when unset
+  so durable capture succeeds without a pre-exported env var (OMN-13537);
+- a genuine (non-env) artifact-write failure prints the FULL output instead of
+  a receipt (no hidden loss);
+- node failure produces ``status=failed`` with the full error output inline.
+
+These tests run the REAL dispatch path: the actual click command through the
+actual RuntimeLocal with the in-memory bus and the committed proof-noop
+fixture handler (no mocked runtime).
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import shutil
+import socket
+import tempfile
+import threading
+import uuid
+import warnings
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner, Result
+from pydantic import JsonValue
+
+from omnibase_core.artifacts.artifact_store import ArtifactStore
+from omnibase_core.enums.enum_workflow_result import EnumWorkflowResult
+from omnibase_core.models.artifacts.model_artifact_ref import ModelArtifactRef
+from omnibase_core.models.dispatch.model_skill_result import ModelSkillResult
+from omnibase_infra.cli.cli_node import run_node_by_name
+from omnibase_infra.cli.receipt_mode import (
+    CAPTURE_DIR_NAME,
+    WORKFLOW_RESULT_FILENAME,
+    _explain_absent_receipt,
+    _extract_correlation_id,
+    _verify_workflow_data_correlation,
+    _verify_workflow_data_identity,
+    run_receipt_mode,
+)
+
+pytestmark = pytest.mark.unit
+
+# OMN-20146: the receipt-mode emit spool was removed; nothing may recreate it.
+_RETIRED_SPOOL_DIR = "emit_spool"
+
+_PROOF_NOOP_CONTRACT = (
+    "---\n"
+    "name: proof_noop\n"
+    "node_type: compute\n"
+    "terminal_event: onex.evt.proof.noop-completed.v1\n"
+    "handler:\n"
+    "  module: tests.fixtures.handler_proof_noop\n"
+    "  class: HandlerProofNoop\n"
+    "  input_model: tests.fixtures.handler_proof_noop.ModelProofNoopRequest\n"
+    "handler_routing:\n"
+    "  default_handler: tests.fixtures.handler_proof_noop:HandlerProofNoop\n"
+)
+
+_BROKEN_CONTRACT = (
+    "---\n"
+    "name: broken_node\n"
+    "node_type: compute\n"
+    "terminal_event: onex.evt.proof.broken-completed.v1\n"
+    "handler:\n"
+    "  module: tests.fixtures.does_not_exist_module\n"
+    "  class: HandlerDoesNotExist\n"
+    "handler_routing:\n"
+    "  default_handler: tests.fixtures.does_not_exist_module:HandlerDoesNotExist\n"
+)
+
+
+def _write_fixture_inputs(tmp_path: Path, contract_text: str) -> tuple[Path, Path]:
+    contract_path = tmp_path / "contract.yaml"
+    contract_path.write_text(contract_text, encoding="utf-8")
+    input_path = tmp_path / "input.json"
+    input_path.write_text(
+        json.dumps({"name": "receipt-proof", "count": 3}), encoding="utf-8"
+    )
+    return contract_path, input_path
+
+
+def _invoke_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    contract_text: str = _PROOF_NOOP_CONTRACT,
+    store_root: Path | None | str = "default",
+    socket_path: Path | None = None,
+) -> tuple[Result, Path]:
+    """Run the real CLI in receipt mode against the proof-noop fixture."""
+    contract_path, input_path = _write_fixture_inputs(tmp_path, contract_text)
+    state_root = tmp_path / "state"
+
+    if store_root == "default":
+        store_root = tmp_path / "artifacts"
+    if store_root is None:
+        monkeypatch.delenv("ONEX_ARTIFACT_STORE_ROOT", raising=False)
+    else:
+        monkeypatch.setenv("ONEX_ARTIFACT_STORE_ROOT", str(store_root))
+
+    resolved_socket = socket_path or (tmp_path / "no-daemon.sock")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        run_node_by_name,
+        [
+            "proof_noop",
+            "--contract",
+            str(contract_path),
+            "--input",
+            str(input_path),
+            "--state-root",
+            str(state_root),
+            "--output",
+            "receipt",
+            "--emit-socket",
+            str(resolved_socket),
+        ],
+        catch_exceptions=False,
+    )
+    return result, state_root
+
+
+def _parse_single_receipt(stdout: str) -> dict[str, object]:
+    """stdout must be exactly one JSON object — anything else is a leak."""
+    stripped = stdout.strip()
+    parsed: object = json.loads(stripped)  # raises if anything else leaked
+    assert isinstance(parsed, dict)
+    # Round-trip guard: the single line IS the whole stdout payload.
+    assert stripped.startswith("{") and stripped.endswith("}")
+    assert "\n" not in stripped, "receipt must be a single JSON line"
+    return parsed
+
+
+class TestReceiptModeSuccess:
+    def test_stdout_is_exactly_one_validated_skill_result(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result, _ = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0, result.output
+        payload = _parse_single_receipt(result.stdout)
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert receipt.node_name == "proof_noop"
+        assert receipt.status.is_success_like
+        assert receipt.exit_code == 0
+        # The FULL handler result travels in the receipt, untruncated.
+        assert payload["result"] == {
+            "status": "success",
+            "echoed_name": "receipt-proof",
+            "echoed_count": 3,
+        }
+        assert str(payload["result_model"]).endswith("ModelProofNoopResult")
+        assert receipt.artifact_refs, "capture log must be artifact-backed"
+
+    def test_validator_replaces_completed_receipt_before_stdout(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A completed run missing required evidence never prints success first."""
+        contract_path, input_path = _write_fixture_inputs(
+            tmp_path, _PROOF_NOOP_CONTRACT
+        )
+        monkeypatch.setenv("ONEX_ARTIFACT_STORE_ROOT", str(tmp_path / "artifacts"))
+        observed: list[ModelSkillResult[object]] = []
+
+        def reject_completed_receipt(receipt: object) -> str | None:
+            assert isinstance(receipt, ModelSkillResult)
+            assert receipt.status.is_success_like
+            return (
+                "completed delegation terminal omits required evidence: "
+                "budget_evidence, response_contract_evidence"
+            )
+
+        def observe_callback(receipt: object) -> None:
+            assert isinstance(receipt, ModelSkillResult)
+            observed.append(receipt)
+
+        exit_code = run_receipt_mode(
+            node_name="proof_noop",
+            contract_path=contract_path,
+            input_path=input_path,
+            state_root=tmp_path / "state",
+            backend_overrides={"event_bus": "inmemory"},
+            timeout=30,
+            verbose=False,
+            emit_socket=tmp_path / "no-daemon.sock",
+            receipt_validator=reject_completed_receipt,
+            receipt_callback=observe_callback,
+        )
+
+        stdout = capsys.readouterr().out
+        assert exit_code == 1
+        payload = _parse_single_receipt(stdout)
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert receipt.status.value == "failed"
+        assert receipt.exit_code == 1
+        result = payload["result"]
+        assert isinstance(result, dict)
+        assert result["error"] == (
+            "completed delegation terminal omits required evidence: "
+            "budget_evidence, response_contract_evidence"
+        )
+        # The callback receives the replaced failed receipt, so a delegate
+        # artifact writer cannot persist the completed envelope after this gate.
+        assert len(observed) == 1
+        assert observed[0].status.value == "failed"
+        assert observed[0].exit_code == 1
+
+    def test_zero_runtime_log_lines_on_stdout_or_stderr(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0
+        combined = result.stdout + result.stderr
+        assert "RuntimeLocal" not in combined
+        assert "INFO" not in combined
+        # The runtime stream went to the run_id-suffixed capture file instead.
+        captures = list((state_root / CAPTURE_DIR_NAME).glob("proof_noop-*.log"))
+        assert len(captures) == 1
+        capture_text = captures[0].read_text(encoding="utf-8")
+        assert "RuntimeLocal" in capture_text
+
+    def test_onex_state_dir_is_bound_to_state_root_during_runtime(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        previous_state_dir = tmp_path / "operator-state"
+        monkeypatch.setenv("ONEX_STATE_DIR", str(previous_state_dir))
+
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch)
+
+        assert result.exit_code == 0, result.output
+        # OMN-16533: the fixture handler is injected with the RUN's own root,
+        # so its record lands under ``runs/<run_id>/``. What this test pins is
+        # unchanged and is the point: the env var the handler reads still
+        # names the CALLER's state root, not the per-run subtree, so a handler
+        # that wants the shared root still has one.
+        env_records = sorted(state_root.rglob("env.json"))
+        assert len(env_records) == 1, env_records
+        env_record = json.loads(env_records[0].read_text(encoding="utf-8"))
+        assert env_record["ONEX_STATE_DIR"] == str(state_root.resolve())
+        assert os.environ["ONEX_STATE_DIR"] == str(previous_state_dir)
+
+    def test_artifacts_are_retrievable_and_hash_verified(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0
+        payload = _parse_single_receipt(result.stdout)
+        refs = payload["artifact_refs"]
+        assert isinstance(refs, list) and len(refs) == 2  # capture log + result
+
+        store = ArtifactStore()
+        blobs = []
+        for raw_ref in refs:
+            assert isinstance(raw_ref, dict)
+            ref = ModelArtifactRef.model_validate(raw_ref)
+            # read_blob re-hashes and raises on mismatch — retrieval IS the
+            # hash verification.
+            blobs.append(store.read_blob(ref))
+            meta = store.read_meta(ref)
+            assert meta.source_system == "onex_cli"
+
+        capture_file = next((state_root / CAPTURE_DIR_NAME).glob("proof_noop-*.log"))
+        assert capture_file.read_bytes() in blobs
+        assert json.dumps(payload["result"]).encode("utf-8") in blobs
+
+    def test_unreachable_daemon_leaves_no_spool_and_no_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-20146: no daemon is the normal state of a fresh install.
+
+        The receipt still prints, nothing is written to a local outbox, and the
+        capture log carries no warning naming a spool.
+        """
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0
+        _parse_single_receipt(result.stdout)
+
+        assert not (state_root / _RETIRED_SPOOL_DIR).exists()
+        assert "spool" not in result.output.lower()
+        for capture_file in (state_root / CAPTURE_DIR_NAME).glob("*.log"):
+            assert "spool" not in capture_file.read_text(encoding="utf-8").lower()
+
+    def test_events_emitted_when_daemon_available(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # UDS paths are capped (~104 chars on macOS); pytest tmp_path under
+        # xdist can exceed that, so the socket gets its own short tempdir.
+        socket_dir = Path(tempfile.mkdtemp(prefix="omn13094-"))
+        socket_path = socket_dir / "emit.sock"
+        if len(str(socket_path)) > 100:
+            pytest.skip("temp dir too long for a Unix domain socket")
+
+        received: list[dict[str, object]] = []
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(str(socket_path))
+        server.listen(8)
+        server.settimeout(10.0)
+        stop = threading.Event()
+
+        def serve() -> None:
+            while not stop.is_set():
+                try:
+                    conn, _ = server.accept()
+                except (TimeoutError, OSError):
+                    return
+                with conn:
+                    data = b""
+                    while not data.endswith(b"\n"):
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                    if data:
+                        received.append(json.loads(data.decode("utf-8")))
+                    conn.sendall(b'{"status": "queued", "event_id": "test"}\n')
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        try:
+            result, state_root = _invoke_receipt(
+                tmp_path, monkeypatch, socket_path=socket_path
+            )
+        finally:
+            stop.set()
+            server.close()
+            thread.join(timeout=5.0)
+            shutil.rmtree(socket_dir, ignore_errors=True)
+
+        assert result.exit_code == 0
+        _parse_single_receipt(result.stdout)
+        event_types = sorted(str(r["event_type"]) for r in received)
+        assert event_types == [
+            "artifact.captured",
+            "artifact.captured",
+            "onex.evt.omniclaude.skill-completed.v1",
+            "onex.evt.omniclaude.skill-started.v1",
+            "tool.output.captured",
+        ]
+        # Daemon accepted everything — nothing may be spooled.
+        assert not (state_root / _RETIRED_SPOOL_DIR).exists()
+
+
+class TestSkillLifecycleEvents:
+    """OMN-13830: headless receipt-mode runs populate skill_executions.
+
+    Every ``onex skill/node <name>`` run emits a ``skill-started`` event before
+    the body and a ``skill-completed`` event after it, through the SAME emit
+    daemon socket as the capture events. Both share one run_id (the projection
+    join key) and one correlation_id, and their topic strings match exactly what
+    ``skill_lifecycle/consumer.py`` subscribes to.
+    """
+
+    _STARTED_TOPIC = "onex.evt.omniclaude.skill-started.v1"
+    _COMPLETED_TOPIC = "onex.evt.omniclaude.skill-completed.v1"
+
+    def test_started_and_completed_share_ids_and_shape(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # UDS paths are capped (~104 chars on macOS); use a short tempdir.
+        socket_dir = Path(tempfile.mkdtemp(prefix="omn13830-"))
+        socket_path = socket_dir / "emit.sock"
+        if len(str(socket_path)) > 100:
+            pytest.skip("temp dir too long for a Unix domain socket")
+
+        received: list[dict[str, object]] = []
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(str(socket_path))
+        server.listen(8)
+        server.settimeout(10.0)
+        stop = threading.Event()
+
+        def serve() -> None:
+            while not stop.is_set():
+                try:
+                    conn, _ = server.accept()
+                except (TimeoutError, OSError):
+                    return
+                with conn:
+                    data = b""
+                    while not data.endswith(b"\n"):
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                    if data:
+                        received.append(json.loads(data.decode("utf-8")))
+                    conn.sendall(b'{"status": "queued", "event_id": "test"}\n')
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        try:
+            result, _ = _invoke_receipt(tmp_path, monkeypatch, socket_path=socket_path)
+        finally:
+            stop.set()
+            server.close()
+            thread.join(timeout=5.0)
+            shutil.rmtree(socket_dir, ignore_errors=True)
+
+        assert result.exit_code == 0
+        _parse_single_receipt(result.stdout)
+
+        by_topic = {
+            str(r["event_type"]): r["payload"]
+            for r in received
+            if str(r["event_type"]).startswith("onex.evt.omniclaude.skill-")
+        }
+        # Both lifecycle events must have been emitted, on the EXACT topics the
+        # consumer subscribes to.
+        assert self._STARTED_TOPIC in by_topic
+        assert self._COMPLETED_TOPIC in by_topic
+
+        started = by_topic[self._STARTED_TOPIC]
+        completed = by_topic[self._COMPLETED_TOPIC]
+        assert isinstance(started, dict)
+        assert isinstance(completed, dict)
+
+        # Shared invocation identity: one run_id (join key) + one correlation_id.
+        assert started["run_id"] == completed["run_id"]
+        assert started["correlation_id"] == completed["correlation_id"]
+        # Distinct event_ids (the table's idempotency primary key).
+        assert started["event_id"] != completed["event_id"]
+
+        # started payload shaped for migration 048 required + optional columns.
+        for field in (
+            "event_id",
+            "run_id",
+            "skill_name",
+            "repo_id",
+            "correlation_id",
+            "emitted_at",
+        ):
+            assert field in started, field
+        assert started["skill_name"] == "proof_noop"
+        assert started["skill_id"]  # repo-relative contract path
+
+        # completed payload shaped for migration 048 required + completed columns.
+        for field in (
+            "event_id",
+            "run_id",
+            "skill_name",
+            "repo_id",
+            "correlation_id",
+            "status",
+            "duration_ms",
+            "emitted_at",
+        ):
+            assert field in completed, field
+        assert completed["skill_name"] == "proof_noop"
+        # DB CHECK admits only success | failed | partial.
+        assert completed["status"] in {"success", "failed", "partial"}
+        assert completed["status"] == "success"
+        assert isinstance(completed["duration_ms"], int)
+        # Daemon accepted the started emit, so no orphan flag.
+        assert completed["started_emit_failed"] is False
+
+    def test_lifecycle_started_emit_failure_is_recorded_without_a_spool(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No daemon: the completed event's flag is the only trace of the loss."""
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0
+        _parse_single_receipt(result.stdout)
+        assert not (state_root / _RETIRED_SPOOL_DIR).exists()
+
+
+class TestArtifactStoreRootDefault:
+    """OMN-13537: ONEX_ARTIFACT_STORE_ROOT defaults to <state_root>/artifacts.
+
+    Before this fix the unset env var raised KeyError in the store constructor
+    and the receipt path failed OPEN — receipts were silently never captured.
+    """
+
+    def test_unset_env_captures_under_state_root_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Unset ONEX_ARTIFACT_STORE_ROOT ⇒ default-resolve, receipt captured."""
+        result, state_root = _invoke_receipt(tmp_path, monkeypatch, store_root=None)
+        assert result.exit_code == 0, result.output
+        # No fail-open: the KeyError line must NOT appear.
+        assert "artifact capture failed" not in result.stderr
+        assert "no hidden loss" not in result.stderr
+        # Exactly one receipt JSON on stdout (capture succeeded).
+        payload = _parse_single_receipt(result.stdout)
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert receipt.status.is_success_like
+        assert receipt.artifact_refs, "capture must be artifact-backed via default"
+
+        # Artifacts physically landed under the defaulted <state_root>/artifacts.
+        default_store_root = state_root / "artifacts"
+        assert default_store_root.is_dir()
+        # The CLI defaults this env only for its own operation; receipt mode
+        # must not retain process-global configuration after it returns.
+        assert os.environ.get("ONEX_ARTIFACT_STORE_ROOT") is None
+        monkeypatch.setenv("ONEX_ARTIFACT_STORE_ROOT", str(default_store_root))
+        store = ArtifactStore()
+        assert store.root == default_store_root.resolve()
+        artifact_refs = payload["artifact_refs"]
+        assert isinstance(artifact_refs, list)
+        for raw_ref in artifact_refs:
+            assert isinstance(raw_ref, dict)
+            ref = ModelArtifactRef.model_validate(raw_ref)
+            store.read_blob(ref)  # re-hashes; raises on mismatch
+            assert store.read_meta(ref).source_system == "onex_cli"
+
+    def test_explicit_env_override_wins_over_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An explicit ONEX_ARTIFACT_STORE_ROOT is honored, not the default."""
+        explicit_root = tmp_path / "operator-chosen-artifacts"
+        result, state_root = _invoke_receipt(
+            tmp_path, monkeypatch, store_root=explicit_root
+        )
+        assert result.exit_code == 0, result.output
+        _parse_single_receipt(result.stdout)
+        # Artifacts went to the operator path, NOT the state-root default.
+        assert explicit_root.is_dir()
+        assert list(explicit_root.iterdir()), "explicit store root must hold blobs"
+        default_store_root = state_root / "artifacts"
+        assert not default_store_root.exists(), "default must not be used on override"
+
+
+class TestReceiptModeFailureAsymmetry:
+    def test_genuine_write_failure_prints_full_output_not_receipt(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A real (non-env) artifact write failure ⇒ FULL output, no receipt.
+
+        Fail-loud is preserved for genuine write errors: pointing the store
+        root at an existing regular FILE makes the store's shard ``mkdir`` raise
+        ``NotADirectoryError`` (an ``OSError``), which must surface the full
+        output (no hidden loss) rather than a receipt.
+        """
+        store_file = tmp_path / "store-is-a-file"
+        store_file.write_text("not a directory", encoding="utf-8")
+        result, _ = _invoke_receipt(tmp_path, monkeypatch, store_root=store_file)
+        # The run itself succeeded; capture failed for a real reason.
+        assert result.exit_code == 0
+        assert "artifact capture failed" in result.stderr
+        assert "no hidden loss" in result.stderr
+        # Full capture stream passes through instead of a receipt.
+        assert "RuntimeLocal" in result.stdout
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.stdout.strip())
+
+    def test_node_failure_reports_failed_with_error_inline(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result, _ = _invoke_receipt(
+            tmp_path, monkeypatch, contract_text=_BROKEN_CONTRACT
+        )
+        assert result.exit_code != 0
+        payload = _parse_single_receipt(result.stdout)
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert not receipt.status.is_success_like
+        result_body = payload["result"]
+        assert isinstance(result_body, dict)
+        # Errors are never hidden: the full capture log travels inline.
+        assert result_body["capture_log"], "failure must inline the capture log"
+        assert str(payload["result_model"]).endswith("ModelReceiptRuntimeSummary")
+        # The capture log is ADDITIONALLY artifact-backed.
+        assert payload["artifact_refs"]
+
+
+class TestDefaultModeUnchanged:
+    def test_default_mode_does_not_print_receipt_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        contract_path, input_path = _write_fixture_inputs(
+            tmp_path, _PROOF_NOOP_CONTRACT
+        )
+        monkeypatch.delenv("ONEX_ARTIFACT_STORE_ROOT", raising=False)
+        runner = CliRunner()
+        result = runner.invoke(
+            run_node_by_name,
+            [
+                "proof_noop",
+                "--contract",
+                str(contract_path),
+                "--input",
+                str(input_path),
+                "--state-root",
+                str(tmp_path / "state"),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        # No single-JSON receipt contract in default mode (behavior preserved).
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.stdout.strip() or "not-json")
+
+
+class TestWorkflowResultIdentityAnchor:
+    """OMN-15449: ``_verify_workflow_data_identity`` — the fail-closed join.
+
+    ``workflow_result.json`` is a FIXED path shared by every invocation
+    against the same ``state_root``. These tests cover the pure join
+    function directly (no RuntimeLocal needed — it only needs a dict and a
+    run_id), then a full real-dispatch-path test proving the join actually
+    protects the printed receipt.
+    """
+
+    def test_matching_run_id_passes_through_unchanged(self) -> None:
+        run_id = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "run_id": str(run_id),
+            "handler_result": {"ticket_id": "OMN-1"},
+        }
+        verified, reason = _verify_workflow_data_identity(data, run_id)
+        assert verified == data
+        assert reason is None
+
+    def test_empty_workflow_data_passes_through_with_no_reason(self) -> None:
+        """Nothing to distrust: a genuinely empty result is not a mismatch."""
+        verified, reason = _verify_workflow_data_identity({}, uuid.uuid4())
+        assert verified == {}
+        assert reason is None
+
+    def test_mismatched_run_id_is_discarded_with_a_reason(self) -> None:
+        """A DIFFERENT run's content must never be handed back as if it were ours."""
+        foreign_run_id = uuid.uuid4()
+        this_run_id = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "run_id": str(foreign_run_id),
+            "handler_result": {"ticket_id": "OMN-FOREIGN"},
+        }
+        verified, reason = _verify_workflow_data_identity(data, this_run_id)
+        assert verified == {}
+        assert reason is not None
+        assert str(foreign_run_id) in reason
+        assert str(this_run_id) in reason
+
+    def test_absent_run_id_fails_closed_same_as_a_mismatch(self) -> None:
+        """An old-writer file with no run_id field is UNKNOWN, not fresh.
+
+        UNKNOWN freshness must never read as fresh (same discipline as the
+        OMN-15396 AC5 health gate) — an absent field is indistinguishable
+        from "this belongs to some other run" and must refuse the same way.
+        """
+        data: dict[str, JsonValue] = {
+            "handler_result": {"ticket_id": "OMN-PRE-FIX-WRITER"}
+        }
+        verified, reason = _verify_workflow_data_identity(data, uuid.uuid4())
+        assert verified == {}
+        assert reason is not None
+
+    def test_real_dispatch_path_never_leaks_a_foreign_runs_result(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end proof, driving the REAL CLI + RuntimeLocal (OMN-15449).
+
+        Simulates the reported failure mode: something else finishes writing
+        to the SAME shared ``state_root`` in the window between this run's
+        ``RuntimeLocal.run()`` returning and receipt_mode reading the file
+        back — a concurrent ``onex`` invocation for a different ticket/run is
+        the live-observed cause, reproduced here by monkeypatching the same
+        read function to plant foreign content immediately before it reads.
+
+        Pre-fix (no run_id stamp, no join): the foreign content is served as
+        if it were this run's own — the exact false-Done shape reported.
+        Post-fix: the join refuses it and the receipt reflects THIS run's
+        real (successful, correct) result instead.
+        """
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        real_load = receipt_mode_module._load_workflow_data
+
+        def _load_and_plant_foreign_write(state_root: Path) -> dict[str, JsonValue]:
+            foreign: dict[str, JsonValue] = {
+                "result": "completed",
+                "exit_code": 0,
+                "workflow": "a-different-concurrent-invocation",
+                "run_id": str(uuid.uuid4()),
+                "terminal_payload": {
+                    "correlation_id": str(uuid.uuid4()),
+                    "ticket_id": "OMN-FOREIGN",
+                },
+                "handler_result": {
+                    "status": "success",
+                    "echoed_name": "someone-elses-ticket",
+                    "echoed_count": 999,
+                },
+            }
+            (state_root / WORKFLOW_RESULT_FILENAME).write_text(
+                json.dumps(foreign), encoding="utf-8"
+            )
+            return real_load(state_root)
+
+        monkeypatch.setattr(
+            receipt_mode_module, "_load_workflow_data", _load_and_plant_foreign_write
+        )
+
+        result, _ = _invoke_receipt(tmp_path, monkeypatch)
+
+        payload = _parse_single_receipt(result.stdout)
+        assert payload["result"] != {
+            "status": "success",
+            "echoed_name": "someone-elses-ticket",
+            "echoed_count": 999,
+        }, "receipt must never carry a foreign run's result"
+        # Refused, not silently degraded: non-zero exit, ERROR status, and
+        # the refusal reason is visible rather than swallowed.
+        assert result.exit_code != 0
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert not receipt.status.is_success_like
+        result_body = payload["result"]
+        assert isinstance(result_body, dict)
+        assert "anchor-join refusal" in str(result_body.get("error", ""))
+
+
+class TestReceiptCorrelationJoin:
+    """OMN-17295 / OMN-14872: the receipt must select strictly by THIS run's
+    correlation id, or say "no receipt found" — never render another run's.
+
+    Live observation (2026-08-31, this repo's ``.onex_state``): a
+    ``workflow_result.json`` written at 04:11 local carried
+    ``run_id=2cf21c13-…`` (a fresh run, so the OMN-15449 anchor join passed)
+    with a ``terminal_payload`` whose ``envelope_timestamp`` was
+    ``2026-08-30T23:02:44Z`` — the previous evening — and whose
+    ``payload.prompt_text`` was a DIFFERENT prompt
+    (``"reply with the single word: ok"``). The anchor join only proves the
+    FILE was written by this run; it says nothing about whose terminal
+    envelope the runtime put inside it. ``RuntimeLocal._on_terminal_event``
+    accepts the first terminal that arrives on the subscribed topic with no
+    correlation filter, so a retained terminal from a previous night is
+    adopted as this run's own result.
+
+    The CLI is the last boundary that knows the correlation id it minted, so
+    the join lands here: content is served ONLY when the correlation it
+    declares is the one this invocation asked for.
+    """
+
+    _LAST_NIGHT = "2026-08-30T23:02:44.294729Z"
+
+    @staticmethod
+    def _stored_receipt(
+        *, correlation_id: uuid.UUID, prompt_text: str, envelope_timestamp: str
+    ) -> dict[str, JsonValue]:
+        """One stored terminal receipt, shaped like the live delegate envelope."""
+        return {
+            "correlation_id": str(correlation_id),
+            "envelope_timestamp": envelope_timestamp,
+            "event_type": "omnimarket.delegate-skill-completed",
+            "payload": {
+                "status": "success",
+                "correlation_id": str(correlation_id),
+                "prompt_text": prompt_text,
+                "response": f"response for {prompt_text!r}",
+            },
+        }
+
+    def test_matching_correlation_passes_through_unchanged(self) -> None:
+        expected = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "run_id": str(uuid.uuid4()),
+            "terminal_payload": self._stored_receipt(
+                correlation_id=expected,
+                prompt_text="this run's prompt",
+                envelope_timestamp="2026-08-31T11:11:00Z",
+            ),
+        }
+        verified, reason = _verify_workflow_data_correlation(
+            data, expected, workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == data
+        assert reason is None
+
+    def test_no_expected_correlation_leaves_content_untouched(self) -> None:
+        """``onex node`` / ``onex skill`` callers mint no correlation id."""
+        data: dict[str, JsonValue] = {"handler_result": {"status": "success"}}
+        verified, reason = _verify_workflow_data_correlation(
+            data, None, workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == data
+        assert reason is None
+
+    def test_empty_workflow_data_is_not_a_mismatch(self) -> None:
+        verified, reason = _verify_workflow_data_correlation(
+            {}, uuid.uuid4(), workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == {}
+        assert reason is None
+
+    def test_two_stored_receipts_the_wrong_one_is_refused(self) -> None:
+        """RED: two stored receipts, the stale one on disk — it must not serve.
+
+        ``last_night`` and ``this_run`` are two receipts the delegate CLI
+        could be handed back. ``workflow_result.json`` holds ``last_night``
+        while THIS invocation asked for ``this_run``. Pre-fix the selector had
+        no correlation predicate at all and handed the stale envelope back.
+        """
+        last_night_correlation = uuid.uuid4()
+        this_run_correlation = uuid.uuid4()
+        last_night = self._stored_receipt(
+            correlation_id=last_night_correlation,
+            prompt_text="reply with the single word: ok",
+            envelope_timestamp=self._LAST_NIGHT,
+        )
+        this_run = self._stored_receipt(
+            correlation_id=this_run_correlation,
+            prompt_text="Reply with exactly the word: alive",
+            envelope_timestamp="2026-08-31T11:11:00Z",
+        )
+        assert last_night != this_run
+
+        stored_on_disk: dict[str, JsonValue] = {
+            "run_id": str(uuid.uuid4()),
+            "terminal_payload": last_night,
+        }
+        verified, reason = _verify_workflow_data_correlation(
+            stored_on_disk,
+            this_run_correlation,
+            workflow_result=EnumWorkflowResult.COMPLETED,
+        )
+        assert verified == {}, "a foreign correlation's receipt must be discarded"
+        assert reason is not None
+        assert "no receipt found" in reason
+        assert str(this_run_correlation) in reason
+        assert str(last_night_correlation) in reason
+
+    def test_nested_payload_correlation_is_checked_too(self) -> None:
+        """The mismatch can hide one level down, under ``payload``."""
+        expected = uuid.uuid4()
+        foreign = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "terminal_payload": {
+                "correlation_id": str(expected),
+                "payload": {"correlation_id": str(foreign), "prompt_text": "other"},
+            }
+        }
+        verified, reason = _verify_workflow_data_correlation(
+            data, expected, workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == {}
+        assert reason is not None
+        assert str(foreign) in reason
+
+    def test_absent_correlation_fails_closed(self) -> None:
+        """UNKNOWN provenance reads as untrustworthy, never as ours.
+
+        Same discipline as the OMN-15449 anchor join's absent-``run_id`` arm.
+        """
+        data: dict[str, JsonValue] = {
+            "terminal_payload": {"status": "success", "response": "unattributed"}
+        }
+        verified, reason = _verify_workflow_data_correlation(
+            data, uuid.uuid4(), workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == {}
+        assert reason is not None
+        assert "no receipt found" in reason
+
+    def test_extract_correlation_id_prefers_this_runs_identity(self) -> None:
+        """The receipt must never report a foreign correlation as its own."""
+        expected = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "terminal_payload": {"correlation_id": str(uuid.uuid4())}
+        }
+        assert _extract_correlation_id(data, expected) == expected
+
+    def test_real_dispatch_path_refuses_a_stale_terminal_envelope(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """End-to-end through the REAL ``run_receipt_mode`` + RuntimeLocal.
+
+        Two runs share one ``state_root``. Run 1 stores its receipt. Run 2
+        asks for its own correlation, but the runtime adopts run 1's retained
+        terminal envelope and stamps run 2's ``run_id`` over it — the exact
+        live shape. Run 2's receipt must refuse, not render run 1's prompt.
+        """
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        contract_path, input_path = _write_fixture_inputs(
+            tmp_path, _PROOF_NOOP_CONTRACT
+        )
+        state_root = tmp_path / "state"
+        monkeypatch.setenv("ONEX_ARTIFACT_STORE_ROOT", str(tmp_path / "artifacts"))
+
+        run_one_correlation = uuid.uuid4()
+        run_two_correlation = uuid.uuid4()
+        run_one_receipt = self._stored_receipt(
+            correlation_id=run_one_correlation,
+            prompt_text="reply with the single word: ok",
+            envelope_timestamp=self._LAST_NIGHT,
+        )
+
+        real_load = receipt_mode_module._load_workflow_data
+
+        def _adopt_run_one_terminal(root: Path) -> dict[str, JsonValue]:
+            loaded = real_load(root)
+            # RuntimeLocal wrote THIS run's run_id (anchor join passes) but
+            # captured the retained terminal from the earlier run.
+            loaded["terminal_payload"] = run_one_receipt
+            loaded.pop("handler_result", None)
+            return loaded
+
+        monkeypatch.setattr(
+            receipt_mode_module, "_load_workflow_data", _adopt_run_one_terminal
+        )
+
+        exit_code = run_receipt_mode(
+            node_name="proof_noop",
+            contract_path=contract_path,
+            input_path=input_path,
+            state_root=state_root,
+            backend_overrides={"event_bus": "inmemory"},
+            timeout=30,
+            verbose=False,
+            emit_socket=tmp_path / "no-daemon.sock",
+            expected_correlation_id=run_two_correlation,
+        )
+
+        assert exit_code != 0, "a receipt that cannot be attributed must fail loud"
+        stdout = capsys.readouterr().out
+        payload = _parse_single_receipt(stdout)
+        receipt: ModelSkillResult[object] = ModelSkillResult.model_validate(payload)
+        assert not receipt.status.is_success_like
+        # The receipt names THIS run's correlation, never the stale one.
+        assert str(receipt.correlation_id) == str(run_two_correlation)
+        body = payload["result"]
+        assert isinstance(body, dict)
+        assert body.get("terminal_payload") is None, (
+            "the stale envelope must be discarded, not rendered"
+        )
+        error_text = str(body.get("error", ""))
+        assert "no receipt found" in error_text
+        assert str(run_one_correlation) in error_text
+        # The other run's prompt text never reaches stdout.
+        assert "reply with the single word: ok" not in stdout
+
+
+class TestNoReceiptIsNotAJoinRefusal:
+    """OMN-17295: a run that produced NO receipt is a timeout, not a mismatch.
+
+    Measured live 2026-09-16 (lane ``bus-dogfood-1305``): 8
+    ``onex delegate --bus kafka --lane dev`` runs, 4 of which never received a
+    terminal — two published and timed out with ``events received: 0``, two
+    never published at all because the broker refused connections for ~30 s
+    and the terminal consumer never got a partition assignment
+    (``Timeout starting consumer ... after 30s``). Each of the four stored
+    exactly this shape, read off disk::
+
+        {"result": "timeout", "exit_code": 1, "workflow": "...",
+         "run_id": "777b6ac0-...", "handler_locus": "dispatched",
+         "wire_correlation_id": "6918912c-f4df-45bb-aae3-7424c0ac91f8"}
+
+    — its own truthful outcome, and this run's own correlation. All four were
+    reported as ``the stored receipt names no correlation id at all``, which
+    is false twice over: there is no stored receipt, and the file names this
+    run's correlation. The refusal also discarded the whole file, so the
+    receipt lost the ``wire_correlation_id`` that is the only handle for
+    grepping the lane.
+    """
+
+    @staticmethod
+    def _timed_out_run(
+        *, correlation_id: uuid.UUID, run_id: uuid.UUID, result: str = "timeout"
+    ) -> dict[str, JsonValue]:
+        """The exact file a dispatched run with no terminal leaves behind."""
+        return {
+            "result": result,
+            "exit_code": 1,
+            "workflow": "/venv/omnimarket/nodes/node_delegate_skill_orchestrator/contract.yaml",
+            "run_id": str(run_id),
+            "handler_locus": "dispatched",
+            "wire_correlation_id": str(correlation_id),
+        }
+
+    def test_timed_out_run_passes_through_with_its_outcome_intact(self) -> None:
+        """RED pre-fix: this returned ``({}, 'names no correlation id at all')``."""
+        correlation = uuid.uuid4()
+        data = self._timed_out_run(correlation_id=correlation, run_id=uuid.uuid4())
+        verified, reason = _verify_workflow_data_correlation(
+            data, correlation, workflow_result=EnumWorkflowResult.TIMEOUT
+        )
+        assert reason is None, "no receipt exists, so there is no join to refuse"
+        assert verified == data
+        assert verified["wire_correlation_id"] == str(correlation)
+        assert verified["result"] == "timeout"
+
+    def test_transport_failure_before_publish_passes_through_too(self) -> None:
+        correlation = uuid.uuid4()
+        data = self._timed_out_run(
+            correlation_id=correlation, run_id=uuid.uuid4(), result="failed"
+        )
+        verified, reason = _verify_workflow_data_correlation(
+            data, correlation, workflow_result=EnumWorkflowResult.FAILED
+        )
+        assert reason is None
+        assert verified == data
+
+    def test_completed_with_no_receipt_still_fails_closed(self) -> None:
+        """The one content-free shape that could still mislead keeps refusing."""
+        correlation = uuid.uuid4()
+        data = self._timed_out_run(
+            correlation_id=correlation, run_id=uuid.uuid4(), result="completed"
+        )
+        verified, reason = _verify_workflow_data_correlation(
+            data, correlation, workflow_result=EnumWorkflowResult.COMPLETED
+        )
+        assert verified == {}
+        assert reason is not None
+        assert "stored no terminal envelope" in reason
+
+    def test_explanation_names_the_wire_correlation_to_grep(self) -> None:
+        correlation = uuid.uuid4()
+        data = self._timed_out_run(correlation_id=correlation, run_id=uuid.uuid4())
+        explanation = _explain_absent_receipt(
+            data, correlation, EnumWorkflowResult.TIMEOUT
+        )
+        assert str(correlation) in explanation
+        assert "not a receipt-selection failure" in explanation
+
+    def test_explanation_is_silent_when_a_receipt_exists(self) -> None:
+        correlation = uuid.uuid4()
+        data: dict[str, JsonValue] = {
+            "result": "completed",
+            "terminal_payload": {"correlation_id": str(correlation)},
+        }
+        assert (
+            _explain_absent_receipt(data, correlation, EnumWorkflowResult.COMPLETED)
+            == ""
+        )
+
+    def test_two_runs_in_flight_each_resolves_its_own_outcome(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Two submissions in flight: one terminal lands, one does not.
+
+        The pre-image resolved the landed one correctly and reported the other
+        as a correlation-join refusal naming no correlation — which is how a
+        lane driving concurrent submissions concluded the receipt join was
+        broken when the transport was. Each run must now resolve strictly its
+        own outcome: its own terminal, or its own timeout.
+        """
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        contract_path, input_path = _write_fixture_inputs(
+            tmp_path, _PROOF_NOOP_CONTRACT
+        )
+        monkeypatch.setenv("ONEX_ARTIFACT_STORE_ROOT", str(tmp_path / "artifacts"))
+
+        landed_correlation = uuid.uuid4()
+        timed_out_correlation = uuid.uuid4()
+        landed_answer = "the answer that belongs to the run that landed"
+
+        class _StubRuntime:
+            """Writes exactly what the live runtime writes, for either outcome."""
+
+            def __init__(self, **kwargs: object) -> None:
+                state_root = kwargs["state_root"]
+                assert isinstance(state_root, Path)
+                run_id = kwargs["run_id"]
+                assert isinstance(run_id, uuid.UUID)
+                self._state_root = state_root
+                self._run_id = run_id
+                self._correlation = _StubRuntime.next_correlation
+                self._lands = _StubRuntime.next_lands
+
+            # Set by the caller immediately before each run_receipt_mode call.
+            next_correlation: uuid.UUID = landed_correlation
+            next_lands: bool = True
+
+            def run(self) -> EnumWorkflowResult:
+                self._state_root.mkdir(parents=True, exist_ok=True)
+                stored: dict[str, JsonValue] = {
+                    "result": "completed" if self._lands else "timeout",
+                    "exit_code": 0 if self._lands else 1,
+                    "workflow": str(contract_path),
+                    "run_id": str(self._run_id),
+                    "handler_locus": "dispatched",
+                    "wire_correlation_id": str(self._correlation),
+                }
+                if self._lands:
+                    stored["terminal_payload"] = {
+                        "correlation_id": str(self._correlation),
+                        "payload": {
+                            "status": "success",
+                            "correlation_id": str(self._correlation),
+                            "response": landed_answer,
+                        },
+                    }
+                (self._state_root / "workflow_result.json").write_text(
+                    json.dumps(stored), encoding="utf-8"
+                )
+                return (
+                    EnumWorkflowResult.COMPLETED
+                    if self._lands
+                    else EnumWorkflowResult.TIMEOUT
+                )
+
+            @property
+            def exit_code(self) -> int:
+                return 0 if self._lands else 1
+
+            @property
+            def handler_result(self) -> object | None:
+                return None
+
+        monkeypatch.setattr(receipt_mode_module, "RuntimeLocal", _StubRuntime)
+
+        def _submit(correlation: uuid.UUID, *, lands: bool) -> dict[str, object]:
+            _StubRuntime.next_correlation = correlation
+            _StubRuntime.next_lands = lands
+            run_receipt_mode(
+                node_name="proof_noop",
+                contract_path=contract_path,
+                input_path=input_path,
+                state_root=tmp_path / "state",
+                backend_overrides={"event_bus": "inmemory"},
+                timeout=30,
+                verbose=False,
+                emit_socket=tmp_path / "no-daemon.sock",
+                expected_correlation_id=correlation,
+            )
+            return _parse_single_receipt(capsys.readouterr().out)
+
+        landed_payload = _submit(landed_correlation, lands=True)
+        timed_out_payload = _submit(timed_out_correlation, lands=False)
+
+        landed_body = landed_payload["result"]
+        assert isinstance(landed_body, dict)
+        assert landed_payload["correlation_id"] == str(landed_correlation)
+        assert landed_answer in json.dumps(landed_body["terminal_payload"])
+
+        timed_out_body = timed_out_payload["result"]
+        assert isinstance(timed_out_body, dict)
+        assert timed_out_payload["correlation_id"] == str(timed_out_correlation)
+        # Its own outcome, not a story about receipt selection.
+        assert timed_out_body["workflow_result"] == "timeout"
+        assert timed_out_body["terminal_payload"] is None
+        error_text = str(timed_out_body.get("error", ""))
+        assert "correlation-join refusal" not in error_text
+        assert "produced no receipt" in error_text
+        # The handle for grepping the lane survives the run that needed it.
+        assert timed_out_body["wire_correlation_id"] == str(timed_out_correlation)
+        # And it never borrows the concurrent run's answer.
+        assert landed_answer not in json.dumps(timed_out_payload)
+
+
+class TestReceiptModeInProcessIsolation:
+    """OMN-14872: concurrent receipt calls cannot share process-global state."""
+
+    def test_shared_socket_concurrent_runs_are_serialized_and_isolated(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Prove every global receipt boundary belongs to exactly one caller.
+
+        The first fake runtime blocks after entering the receipt critical
+        section.  The second caller starts concurrently but cannot reach its
+        runtime until the first is explicitly released; this is a causal
+        assertion, not a timing-based race probe.
+        """
+        from omnibase_core.artifacts.artifact_store import ARTIFACT_STORE_ROOT_ENV
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        socket_dir = Path(tempfile.mkdtemp(prefix="omn14872-"))
+        socket_path = socket_dir / "emit.sock"
+        if len(str(socket_path)) > 100:
+            pytest.skip("temp dir too long for a Unix domain socket")
+
+        monkeypatch.delenv("ONEX_STATE_DIR", raising=False)
+        monkeypatch.delenv(ARTIFACT_STORE_ROOT_ENV, raising=False)
+        original_handlers = tuple(logging.getLogger().handlers)
+        original_level = logging.getLogger().level
+        original_disabled = logging.getLogger().disabled
+        first_runtime_entered = threading.Event()
+        release_first_runtime = threading.Event()
+        runtime_entries: list[str] = []
+        runtime_entries_lock = threading.Lock()
+        received: list[dict[str, object]] = []
+        received_condition = threading.Condition()
+        stop_server = threading.Event()
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(str(socket_path))
+        server.listen(16)
+        server.settimeout(0.1)
+
+        def serve() -> None:
+            while not stop_server.is_set():
+                try:
+                    connection, _ = server.accept()
+                except TimeoutError:
+                    continue
+                except OSError:
+                    return
+                with connection:
+                    data = b""
+                    while not data.endswith(b"\n"):
+                        chunk = connection.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                    if data:
+                        with received_condition:
+                            received.append(json.loads(data.decode("utf-8")))
+                            received_condition.notify_all()
+                    connection.sendall(b'{"status": "queued", "event_id": "test"}\n')
+
+        server_thread = threading.Thread(target=serve, daemon=True)
+        server_thread.start()
+
+        correlations = {"first": uuid.uuid4(), "second": uuid.uuid4()}
+        state_roots = {marker: tmp_path / f"state-{marker}" for marker in correlations}
+        callbacks: dict[str, ModelSkillResult[object]] = {}
+        stdout_by_thread: dict[int, list[str]] = {}
+        worker_threads: dict[str, int] = {}
+        worker_errors: list[BaseException] = []
+        worker_exit_codes: dict[str, int] = {}
+        start_barrier = threading.Barrier(3)
+
+        class BlockingRuntime:
+            def __init__(
+                self,
+                *,
+                state_root: Path,
+                input_path: Path | None,
+                run_id: uuid.UUID,
+                **_: object,
+            ) -> None:
+                assert input_path is not None
+                self._state_root = state_root
+                self._input_path = input_path
+                self._run_id = run_id
+                self.exit_code = 0
+                self.handler_result: object | None = None
+
+            def run(self) -> EnumWorkflowResult:
+                payload = json.loads(self._input_path.read_text(encoding="utf-8"))
+                marker = str(payload["marker"])
+                correlation_id = str(payload["correlation_id"])
+                with runtime_entries_lock:
+                    runtime_entries.append(marker)
+                    first_entry = len(runtime_entries) == 1
+                logging.getLogger("omn14872").info("capture-%s", marker)
+                if first_entry:
+                    first_runtime_entered.set()
+                    assert release_first_runtime.wait(5), (
+                        "test did not release first run"
+                    )
+                self.handler_result = {
+                    "marker": marker,
+                    "correlation_id": correlation_id,
+                    "content": f"only-{marker}",
+                }
+                self._state_root.mkdir(parents=True, exist_ok=True)
+                (self._state_root / WORKFLOW_RESULT_FILENAME).write_text(
+                    json.dumps(
+                        {
+                            "run_id": str(self._run_id),
+                            "handler_result": self.handler_result,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return EnumWorkflowResult.COMPLETED
+
+        def record_echo(
+            message: object = "", *, err: bool = False, **_: object
+        ) -> None:
+            if not err:
+                stdout_by_thread.setdefault(threading.get_ident(), []).append(
+                    str(message)
+                )
+
+        monkeypatch.setattr(receipt_mode_module, "RuntimeLocal", BlockingRuntime)
+        monkeypatch.setattr(receipt_mode_module.click, "echo", record_echo)
+
+        def worker(marker: str) -> None:
+            worker_threads[marker] = threading.get_ident()
+            contract_path = tmp_path / f"{marker}.yaml"
+            input_path = tmp_path / f"{marker}.json"
+            contract_path.write_text("name: test\n", encoding="utf-8")
+            input_path.write_text(
+                json.dumps(
+                    {"marker": marker, "correlation_id": str(correlations[marker])}
+                ),
+                encoding="utf-8",
+            )
+            try:
+                start_barrier.wait()
+                worker_exit_codes[marker] = run_receipt_mode(
+                    node_name=f"receipt_{marker}",
+                    contract_path=contract_path,
+                    input_path=input_path,
+                    state_root=state_roots[marker],
+                    backend_overrides={"event_bus": "inmemory"},
+                    timeout=30,
+                    verbose=False,
+                    emit_socket=socket_path,
+                    expected_correlation_id=correlations[marker],
+                    receipt_callback=lambda receipt: callbacks.__setitem__(
+                        marker, receipt
+                    ),
+                )
+            except (AssertionError, OSError, RuntimeError, ValueError) as exc:
+                worker_errors.append(exc)
+
+        threads: list[threading.Thread] = []
+        try:
+            threads = [
+                threading.Thread(target=worker, args=(marker,))
+                for marker in correlations
+            ]
+            for thread in threads:
+                thread.start()
+            start_barrier.wait()
+            assert first_runtime_entered.wait(5), "no receipt runtime entered"
+            with runtime_entries_lock:
+                assert len(runtime_entries) == 1, "second runtime bypassed receipt lock"
+            release_first_runtime.set()
+            for thread in threads:
+                thread.join(timeout=10)
+                assert not thread.is_alive(), "receipt worker did not complete"
+            with received_condition:
+                assert received_condition.wait_for(
+                    lambda: len(received) == 10, timeout=5
+                )
+        finally:
+            release_first_runtime.set()
+            for thread in threads:
+                thread.join(timeout=5)
+            stop_server.set()
+            server.close()
+            server_thread.join(timeout=5)
+            shutil.rmtree(socket_dir, ignore_errors=True)
+
+        assert not worker_errors
+        assert worker_exit_codes == {"first": 0, "second": 0}
+        assert set(runtime_entries) == set(correlations)
+        assert tuple(logging.getLogger().handlers) == original_handlers
+        assert logging.getLogger().level == original_level
+        assert logging.getLogger().disabled is original_disabled
+        assert os.environ.get("ONEX_STATE_DIR") is None
+        assert os.environ.get(ARTIFACT_STORE_ROOT_ENV) is None
+
+        for marker, correlation_id in correlations.items():
+            callback = callbacks[marker]
+            assert str(callback.correlation_id) == str(correlation_id)
+            assert isinstance(callback.result, dict)
+            assert callback.result["marker"] == marker
+            stdout_lines = stdout_by_thread[worker_threads[marker]]
+            assert len(stdout_lines) == 1
+            stdout_receipt = json.loads(stdout_lines[0])
+            assert stdout_receipt["correlation_id"] == str(correlation_id)
+            assert stdout_receipt["result"]["marker"] == marker
+
+            capture_files = list((state_roots[marker] / CAPTURE_DIR_NAME).glob("*.log"))
+            assert len(capture_files) == 1
+            capture_text = capture_files[0].read_text(encoding="utf-8")
+            assert f"capture-{marker}" in capture_text
+            other_marker = "second" if marker == "first" else "first"
+            assert f"capture-{other_marker}" not in capture_text
+            artifact_text = "".join(
+                path.read_text(encoding="utf-8", errors="ignore")
+                for path in (state_roots[marker] / "artifacts").rglob("*")
+                if path.is_file()
+            )
+            assert f"only-{marker}" in artifact_text
+            assert f"only-{other_marker}" not in artifact_text
+            assert not (state_roots[marker] / _RETIRED_SPOOL_DIR).exists()
+
+        event_correlation_ids = {
+            str(record["payload"].get("correlation_id"))
+            for record in received
+            if isinstance(record.get("payload"), dict)
+            and record["payload"].get("correlation_id")
+            in {str(correlation) for correlation in correlations.values()}
+        }
+        assert event_correlation_ids == {
+            str(correlation) for correlation in correlations.values()
+        }
+
+
+class TestReceiptModeProcessState:
+    """Receipt-mode global state is restored on every operation outcome."""
+
+    @staticmethod
+    def _run_with_stubbed_operation() -> int:
+        return run_receipt_mode(
+            node_name="test",
+            contract_path=Path("test.yaml"),
+            input_path=None,
+            state_root=Path("state"),
+            backend_overrides={},
+            timeout=1,
+            verbose=False,
+            emit_socket=Path("emit.sock"),
+        )
+
+    def test_cleanup_failure_after_success_is_visible_and_restores_both_envs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omnibase_core.artifacts.artifact_store import ARTIFACT_STORE_ROOT_ENV
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        monkeypatch.setenv("ONEX_STATE_DIR", "before-state")
+        monkeypatch.setenv(ARTIFACT_STORE_ROOT_ENV, "before-artifacts")
+
+        def mutate_then_succeed(**_: object) -> int:
+            os.environ["ONEX_STATE_DIR"] = "during-state"
+            os.environ[ARTIFACT_STORE_ROOT_ENV] = "during-artifacts"
+            return 0
+
+        def fail_logging_restore(*_: object) -> None:
+            raise OSError("logging restore failed")
+
+        monkeypatch.setattr(
+            receipt_mode_module, "_run_receipt_mode", mutate_then_succeed
+        )
+        monkeypatch.setattr(
+            receipt_mode_module, "_restore_root_logging_state", fail_logging_restore
+        )
+
+        with pytest.raises(OSError, match="logging restore failed"):
+            self._run_with_stubbed_operation()
+        assert os.environ["ONEX_STATE_DIR"] == "before-state"
+        assert os.environ[ARTIFACT_STORE_ROOT_ENV] == "before-artifacts"
+
+    def test_cleanup_failure_never_masks_the_original_operation_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omnibase_core.artifacts.artifact_store import ARTIFACT_STORE_ROOT_ENV
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        monkeypatch.setenv("ONEX_STATE_DIR", "before-state")
+        monkeypatch.setenv(ARTIFACT_STORE_ROOT_ENV, "before-artifacts")
+
+        def mutate_then_fail(**_: object) -> int:
+            os.environ["ONEX_STATE_DIR"] = "during-state"
+            os.environ[ARTIFACT_STORE_ROOT_ENV] = "during-artifacts"
+            raise RuntimeError("operation failed")
+
+        def fail_logging_restore(*_: object) -> None:
+            raise OSError("logging restore failed")
+
+        monkeypatch.setattr(receipt_mode_module, "_run_receipt_mode", mutate_then_fail)
+        monkeypatch.setattr(
+            receipt_mode_module, "_restore_root_logging_state", fail_logging_restore
+        )
+
+        with pytest.raises(RuntimeError, match="operation failed") as raised:
+            self._run_with_stubbed_operation()
+        assert any("logging restore failed" in note for note in raised.value.__notes__)
+        assert os.environ["ONEX_STATE_DIR"] == "before-state"
+        assert os.environ[ARTIFACT_STORE_ROOT_ENV] == "before-artifacts"
+
+    def test_register_at_fork_capability_guard_is_portable(self) -> None:
+        """No-fork platforms skip registration without touching global state."""
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        registrations: list[object] = []
+
+        def fake_registrar(**kwargs: object) -> None:
+            registrations.append(kwargs["after_in_child"])
+
+        receipt_mode_module._register_receipt_mode_lock_at_fork(None)
+        receipt_mode_module._register_receipt_mode_lock_at_fork(object())
+        assert registrations == []
+        receipt_mode_module._register_receipt_mode_lock_at_fork(fake_registrar)
+        assert registrations == [
+            receipt_mode_module._reset_receipt_mode_lock_after_fork
+        ]
+
+    def test_fork_child_reinitializes_a_parent_held_receipt_lock(self) -> None:
+        from omnibase_infra.cli import receipt_mode as receipt_mode_module
+
+        if not hasattr(os, "fork"):
+            pytest.skip("requires POSIX fork")
+
+        lock_held = threading.Event()
+        release_lock = threading.Event()
+
+        def hold_lock() -> None:
+            with receipt_mode_module._RECEIPT_MODE_LOCK_STATE.lock:
+                lock_held.set()
+                assert release_lock.wait(5), "test did not release parent lock"
+
+        holder = threading.Thread(target=hold_lock)
+        holder.start()
+        assert lock_held.wait(5), "parent thread did not acquire receipt lock"
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                child_pid = os.fork()
+            if child_pid == 0:
+                acquired = receipt_mode_module._RECEIPT_MODE_LOCK_STATE.lock.acquire(
+                    blocking=False
+                )
+                os._exit(0 if acquired else 1)
+            _, status = os.waitpid(child_pid, 0)
+            assert os.WIFEXITED(status)
+            assert os.WEXITSTATUS(status) == 0, "child inherited a held receipt lock"
+        finally:
+            release_lock.set()
+            holder.join(timeout=5)
+            assert not holder.is_alive()
+
+
+@pytest.mark.unit
+class TestRuntimeIdentityStamp:
+    """Every receipt-mode dispatch self-identifies (OMN-17310, epic OMN-17306).
+
+    Before this, a receipt printed by a stale local venv was byte-identical in
+    shape to one printed by a deployed lane. That indistinguishability is what
+    let the 2026-08-31T08:10:54Z probe be read as a `.201` statement while its
+    orchestrator ran on the operator's laptop (OMN-17295).
+    """
+
+    def test_receipt_carries_the_stamp_with_every_required_package(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omnibase_core.validation.validator_receipt_runtime_identity import (
+            DEFAULT_REQUIRED_PACKAGES,
+        )
+
+        result, _ = _invoke_receipt(tmp_path, monkeypatch)
+        assert result.exit_code == 0, result.output
+        payload = _parse_single_receipt(result.stdout)
+        identity = payload["runtime_identity"]
+        assert isinstance(identity, dict)
+        assert set(DEFAULT_REQUIRED_PACKAGES) <= set(identity["packages"])
+        assert identity["host"] and identity["interpreter"]
+
+    def test_config_source_names_the_contract_that_actually_ran(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The field that would have shown OMN-17295's local site-packages."""
+        result, _ = _invoke_receipt(tmp_path, monkeypatch)
+        payload = _parse_single_receipt(result.stdout)
+        identity = payload["runtime_identity"]
+        assert isinstance(identity, dict)
+        assert str(identity["config_source"]).endswith(".yaml")
+
+    def test_the_one_line_render_goes_to_stderr_not_stdout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """stdout stays exactly one receipt JSON — this module's invariant."""
+        result, _ = _invoke_receipt(tmp_path, monkeypatch)
+        assert "identity: host=" in result.stderr
+        assert "identity: host=" not in result.stdout
+        _parse_single_receipt(result.stdout)
+
+    def test_a_failing_dispatch_still_says_what_failed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The failure branch matters most: a red receipt still self-identifies.
+
+        A receipt that failed is still evidence about a process, and the first
+        question about a red run is which build produced it.
+        """
+        result, _ = _invoke_receipt(
+            tmp_path, monkeypatch, contract_text=_BROKEN_CONTRACT
+        )
+        assert result.exit_code != 0
+        payload = _parse_single_receipt(result.stdout)
+        assert payload["runtime_identity"] is not None
+        assert "identity: host=" in result.stderr

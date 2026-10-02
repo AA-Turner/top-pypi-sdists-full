@@ -73,6 +73,13 @@ if TYPE_CHECKING:
 
     from chalk.client._chalkdf_import import ChalkDfDataFrame
     from chalk.client.api import APINamespace
+    from chalk.client.model_deployment import (
+        ListModelDeploymentRevisionsResponse,
+        ListModelDeploymentsResponse,
+        ModelDeployment,
+        ModelDeploymentRevision,
+        ModelDeploymentSpec,
+    )
     from chalk.features._encoding.inputs import InputSchemaHint
     from chalk.queries.data_quality import DataQualityCheck
     from chalk.queries.named_query import NamedQuery
@@ -3070,16 +3077,28 @@ class ChalkClient:
         self,
         name: str,
         version: Optional[int] = None,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
     ) -> ModelVersionResponse:
-        """Retrieve a single model version (latest when ``version`` is omitted).
+        """Retrieve a single model version, and the deployment that serves it.
 
-        Returns a `DeployedModelVersion` when the version is deployed to a scaling group —
-        its ``.remote(*args, **kwargs)`` invokes the model directly — otherwise a
-        `RegisteredModelVersion`, whose ``.remote()`` raises until it is deployed.
+        Returns a `DeployedModelVersion` when the version's deployment is serving —
+        its ``.deployment`` is that `ModelDeployment`, and its ``.remote()`` and
+        ``.defer()`` call it — otherwise a `RegisteredModelVersion`, whose ``.remote()``
+        raises until it is deployed.
+
+        A model version can be served by several deployments. Without ``deployment_id``
+        or ``deployment_name``, ``version`` (default: the latest) must be served by at most
+        one, or ``ModelDeploymentAmbiguousError`` is raised. With one of them, that
+        deployment is used; ``version`` defaults to the version it serves, and an explicit
+        ``version`` must match it. A selected deployment that is missing, serves another
+        version, or has no URL yet raises instead of returning a `RegisteredModelVersion`.
 
         >>> from chalk.client import ChalkClient
         >>> latest_risk_model = ChalkClient().get_model_version("RiskScoreModel")
         >>> latest_risk_model.remote(txn_amount=42.0, account_age_days=365)
+        >>> canary = ChalkClient().get_model_version("RiskScoreModel", deployment_name="risk-canary")
         """
         ...
 
@@ -3304,6 +3323,278 @@ class ChalkClient:
         """
         ...
 
+    def create_model_deployment(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        scaling: Optional["AutoScalingSpec"] = None,
+        resources: Optional["ScalingGroupResourceRequest"] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Mapping[str, str]] = None,
+        secrets: Optional[Sequence[Any]] = None,
+        readiness_probe: Optional["GrpcReadinessProbe"] = None,
+        startup_probe: Optional["GrpcStartupProbe"] = None,
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+        chalk_workload_identity: bool = False,
+    ) -> "ModelDeployment":
+        """Deploy a registered model version behind a stable, named endpoint.
+
+        To change an existing deployment, use `update_model_deployment`. Note that the
+        server treats a create with an existing deployment's name as a new revision of
+        that deployment.
+
+        Parameters
+        ----------
+        name
+            Name of the deployment.
+        model_name
+            Name of the registered model.
+        model_version
+            Version number of the model to deploy.
+        scaling
+            Autoscaling configuration (min/max replicas, CPU target). Defaults to one replica.
+        resources
+            Resource requests (CPU, memory, GPU).
+        handler
+            Dotted path to the handler function. Inferred for Chalk-built images.
+        env_vars
+            Extra environment variables for the container. The mapping is not modified.
+        secrets
+            Secret Registry secrets (``chalkcompute.Secret``) to inject into the container.
+        readiness_probe
+            gRPC readiness probe. Model deployments only support gRPC readiness checks.
+        startup_probe
+            gRPC startup probe. Defaults to the standard gRPC health check method.
+        validate
+            Validate the model handler when inferring an image for the model.
+        wait_ready
+            Block until the deployment can serve ``.remote()`` calls.
+        wait_timeout
+            Seconds to wait for readiness before raising ``ModelDeploymentTimeoutError``.
+        environment
+            Environment to deploy to.
+        chalk_workload_identity
+            Use Chalk workload identity for cloud resource access.
+
+        Returns
+        -------
+        ModelDeployment
+            The deployment; ready when ``wait_ready`` is set.
+
+        Raises
+        ------
+        ModelDeploymentFailedError
+            The deployment reached a terminal state while waiting.
+        ModelDeploymentTimeoutError
+            The deployment was not ready within ``wait_timeout`` seconds.
+
+        Examples
+        --------
+        >>> from chalk.scalinggroup import AutoScalingSpec, ScalingGroupResourceRequest
+        >>> deployment = client.create_model_deployment(
+        ...     name="ner",
+        ...     model_name="ner-model",
+        ...     model_version=3,
+        ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
+        ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
+        ... )
+        >>> deployment.remote(text="Ada Lovelace was born in London")
+        >>> deployment.defer(text="Ada Lovelace was born in London").get(timeout=30)
+        """
+        ...
+
+    def get_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ModelDeployment":
+        """Get a model deployment by exactly one of ``id`` or ``name``.
+
+        Parameters
+        ----------
+        id
+            Stable ID of the deployment. Preferred over the name.
+        name
+            Name of the deployment.
+        include_deleted
+            Also find a deleted deployment.
+        environment
+            Environment of the deployment.
+        """
+        ...
+
+    def list_model_deployments(
+        self,
+        *,
+        model_name: Optional[str] = None,
+        model_version: Optional[int] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ListModelDeploymentsResponse":
+        """List one page of model deployments.
+
+        Pass the response's ``next_cursor`` back as ``cursor`` for the next page.
+
+        Parameters
+        ----------
+        model_name
+            Only deployments of this model.
+        model_version
+            Only deployments of this version of ``model_name``.
+        cursor
+            Cursor from a previous page.
+        limit
+            Maximum number of deployments in the page.
+        include_deleted
+            Include deleted deployments.
+        environment
+            Environment to list.
+        """
+        ...
+
+    def update_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        spec: "ModelDeploymentSpec",
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ModelDeployment":
+        """Replace a deployment's spec with a new revision, which is created and selected.
+
+        Identify the deployment by exactly one of ``id`` or ``name``.
+
+        ``spec`` replaces the current spec entirely: fields left at their defaults take
+        those defaults, and nothing is carried over, so pass the full spec you want even for
+        a resources-only change.
+
+        Parameters
+        ----------
+        id
+            Stable ID of the deployment. Preferred over the name.
+        name
+            Name of the deployment.
+        spec
+            The complete spec for the new revision.
+        validate
+            Validate the model handler when ``spec.model_version`` needs an inferred image.
+        wait_ready
+            Block until the new revision can serve ``.remote()`` calls.
+        wait_timeout
+            Seconds to wait for readiness before raising ``ModelDeploymentTimeoutError``.
+        environment
+            Environment of the deployment.
+
+        Examples
+        --------
+        >>> from chalk.client.model_deployment import ModelDeploymentSpec
+        >>> from chalk.scalinggroup import ScalingGroupResourceRequest
+        >>> current = client.get_model_deployment(name="ner")
+        >>> client.update_model_deployment(  # change resources, keeping version and scaling
+        ...     id=current.id,
+        ...     spec=ModelDeploymentSpec(
+        ...         model_version=current.model_version,
+        ...         scaling=current.scaling,
+        ...         resources=ScalingGroupResourceRequest(cpu="4", memory="8Gi"),
+        ...     ),
+        ... )
+        """
+        ...
+
+    def rollback_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        revision_id: str,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ModelDeployment":
+        """Serve an existing revision of a deployment.
+
+        Usually used to roll back after an update, but any revision works, including a
+        newer one rolled back from. Nothing is rebuilt: traffic moves to the revision's
+        already-built spec. Identify the deployment by exactly one of ``id`` or ``name``.
+
+        Parameters
+        ----------
+        id
+            Stable ID of the deployment. Preferred over the name.
+        name
+            Name of the deployment.
+        revision_id
+            The revision to serve. Revisions are listed by `list_model_deployment_revisions`,
+            where ``selected`` marks the one currently served.
+        wait_ready
+            Block until the revision can serve ``.remote()`` calls.
+        wait_timeout
+            Seconds to wait for readiness before raising ``ModelDeploymentTimeoutError``.
+        environment
+            Environment of the deployment.
+
+        Examples
+        --------
+        >>> revisions = client.list_model_deployment_revisions(deployment_name="ner").revisions
+        >>> previous = next(r for r in revisions if not r.selected)
+        >>> client.rollback_model_deployment(name="ner", revision_id=previous.id)
+        """
+        ...
+
+    def delete_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ModelDeployment":
+        """Delete a model deployment by exactly one of ``id`` or ``name``.
+
+        Deleting frees its model version to be deployed again.
+        """
+        ...
+
+    def get_model_deployment_revision(
+        self,
+        revision_id: str,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ModelDeploymentRevision":
+        """Get one revision of a deployment identified by exactly one of ID or name."""
+        ...
+
+    def list_model_deployment_revisions(
+        self,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> "ListModelDeploymentRevisionsResponse":
+        """List one page of a deployment's revisions, identified by exactly one of ID or name.
+
+        ``ModelDeploymentRevision.selected`` marks the revision being served, which after a
+        rollback is not the newest.
+        """
+        ...
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,
@@ -3316,51 +3607,16 @@ class ChalkClient:
         secrets: Optional[List[Any]] = None,
         readiness_probe: Optional["GrpcReadinessProbe"] = None,
         startup_probe: Optional["GrpcStartupProbe"] = None,
+        environment: Optional[EnvironmentId] = None,
+        chalk_workload_identity: bool = False,
+        validate: bool = True,
     ) -> dict[str, Any]:
-        """Deploy a registered model version as a scaling group.
+        """Deprecated: use `create_model_deployment`, which returns a typed
+        `ModelDeployment` and can wait for readiness.
 
-        Parameters
-        ----------
-        name
-            Name for the scaling group.
-        model_name
-            Name of the registered model.
-        model_version
-            Version number of the model to deploy.
-        scaling
-            Autoscaling configuration (min/max replicas, CPU target).
-        resources
-            Resource requests (CPU, memory, GPU).
-        handler
-            Dotted path to handler function (default: "model.handler").
-        env_vars
-            Extra environment variables to inject into the container.
-        secrets
-            List of Secret Registry secrets to be injected into the Scaling Group
-        readiness_probe
-            Optional gRPC readiness probe configuration. Model deployments only
-            support gRPC readiness checks.
-        startup_probe
-            Optional gRPC startup probe configuration. Model deployments only
-            support gRPC startup checks; if omitted, defaults to the standard
-            gRPC health check method.
-
-        Examples
-        --------
-        >>> from chalk.scalinggroup import AutoScalingSpec, ScalingGroupResourceRequest
-        >>> model_version = client.register_model_version(
-        ...     name="ner-model",
-        ...     input_schema={"text": pa.large_string()},
-        ...     output_schema={"entities": pa.large_string()},
-        ...     model_image="ghcr.io/my-org/ner-model:latest",
-        ... )
-        >>> client.deploy_model_version_to_scaling_group(
-        ...     name="my-ner-sg",
-        ...     model_name="ner-model",
-        ...     model_version=model_version.model_version,
-        ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
-        ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
-        ... )
+        Deploys a registered model version without waiting for readiness and
+        returns the raw response as a dictionary. Parameters match
+        `create_model_deployment`, with ``name`` as the deployment name.
         """
         ...
 

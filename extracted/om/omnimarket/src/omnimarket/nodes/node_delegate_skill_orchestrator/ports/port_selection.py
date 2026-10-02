@@ -1,0 +1,116 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Transport-aware delegation dispatch-port selection.
+
+The ports package — not the domain handler — owns the knowledge of which
+transport a runtime bus represents. The handler asks this factory for a port
+given the bus it was injected with; the factory returns the dispatch port whose
+execution model matches that bus.
+
+Two execution models exist (OMN-13601):
+
+* In-memory single-process runtime (``onex delegate --bus inmemory``): the
+  orchestrator is the only node booted; there is no co-deployed downstream
+  delegation consumer of the runtime command topic. Publishing a runtime command
+  and awaiting a terminal event would time out at the orchestrator's wait ceiling
+  with no evidence row. The local in-process port instead resolves routing, runs
+  the canonical LLM effect, applies the quality gate, and writes the sqlite
+  evidence row — all in-process — so the bus-less CLI path is end-to-end
+  functional.
+
+* External broker runtime (deployed lanes): the full multi-node runtime,
+  including the downstream delegation consumer, is co-deployed. The orchestrator
+  publishes the runtime command and awaits the correlated terminal over the bus.
+"""
+
+from __future__ import annotations
+
+from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
+
+from omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_delegate_skill import (
+    ProtocolDelegationDispatchPort,
+)
+from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_delegation_claim import (
+    ProtocolDelegationIdempotencyPort,
+)
+from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_runtime_delegation_dispatch import (
+    ProtocolDelegationEventBus,
+    RuntimeDelegationDispatchPort,
+)
+
+
+def select_delegation_dispatch_port(
+    event_bus: ProtocolDelegationEventBus | None,
+) -> ProtocolDelegationDispatchPort:
+    """Return the dispatch port whose execution model matches ``event_bus``.
+
+    * ``None`` or an in-memory bus → :class:`LocalDelegationDispatchPort`
+      (in-process effect + quality gate + config-resolved evidence row).
+    * Any other (external broker) bus → :class:`RuntimeDelegationDispatchPort`
+      (publish runtime command, await terminal over the bus).
+
+    OMN-14015: this factory is the composition root for the local port, so it
+    resolves the evidence DB target from config here (via
+    ``resolve_local_delegation_evidence_db`` — the projection runtime binding
+    overlay, defaulting to the local SQLite target) and injects it through the
+    port's ``evidence_db`` seam, rather than letting the port fall back to a
+    baked-in default. This is what lets the bus-less CLI target the platform
+    Postgres substrate purely by overlay.
+    """
+    if event_bus is None or isinstance(event_bus, EventBusInmemory):
+        # Imported lazily so compile-only / payload-building paths and unit tests
+        # do not require the local effect + projection stack.
+        from omnimarket.nodes.node_delegate_skill_orchestrator.ports.evidence_db_resolution import (
+            resolve_local_delegation_evidence_db,
+        )
+        from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_local_delegation_dispatch import (
+            LocalDelegationDispatchPort,
+        )
+        from omnimarket.routing import dod_overlay
+
+        # OMN-19528: the OMN-14001 overlay seam now reads the per-(task type,
+        # model) DoD pass rate, the same signal the deployed-lane routing
+        # consumer reads, instead of ``context_roi_scores``, and (OMN-19797)
+        # learns from a class only while its eval false-pass line is MET.
+        # No DSN, no reader:
+        # the port's default reader returns None and routing stays static.
+        dod_reader = dod_overlay.resolve_dod_outcome_reader()
+        return LocalDelegationDispatchPort(
+            evidence_db=resolve_local_delegation_evidence_db(),
+            roi_overlay_reader=(
+                dod_overlay.dod_roi_overlay_reader(
+                    dod_reader, dod_overlay.resolve_eval_line_reader()
+                )
+                if dod_reader is not None
+                else None
+            ),
+        )
+    return RuntimeDelegationDispatchPort(event_bus=event_bus)
+
+
+def select_delegation_idempotency_port() -> ProtocolDelegationIdempotencyPort:
+    """Return the durable claim port (OMN-18887).
+
+    Resolved through the SAME evidence-DB seam the local dispatch port uses,
+    so the claim lands on whichever target the projection binding overlay
+    selects -- local SQLite by default, the Postgres substrate when one is
+    configured -- and AC4's durability does not depend on which.
+
+    There is deliberately no bus-conditional branch here. A redelivery is a
+    transport event, but the exposure it creates is a PROVIDER CALL, and that
+    is issued on every path: the bus consumer, the bus-less CLI, and the two
+    other handler construction sites. A port that was a no-op off the bus
+    would leave the CLI able to double-bill, which is the same defect wearing
+    a different hat.
+    """
+    from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_delegation_claim import (
+        resolve_delegation_claim_store,
+    )
+
+    return resolve_delegation_claim_store()
+
+
+__all__ = [
+    "select_delegation_dispatch_port",
+    "select_delegation_idempotency_port",
+]

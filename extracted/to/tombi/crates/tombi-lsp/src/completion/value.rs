@@ -37,16 +37,17 @@ use super::{
     schema_completion::SchemaCompletion,
 };
 
-impl FindCompletionContents for tombi_document_tree_syntax::Value {
+impl FindCompletionContents for tombi_document_tree_syntax::Value<'_> {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
         log::trace!("accessors = {:?}", accessors);
         log::trace!("keys = {:?}", keys);
@@ -60,7 +61,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
             {
                 return self
                     .find_completion_contents(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(&current_schema),
@@ -89,7 +90,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::Boolean(boolean) => {
                     boolean
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -101,7 +102,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::Integer(integer) => {
                     integer
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -113,7 +114,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::Float(float) => {
                     float
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -125,7 +126,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::OffsetDateTime(offset_date_time) => {
                     offset_date_time
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -137,7 +138,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::LocalDateTime(local_date_time) => {
                     local_date_time
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -149,7 +150,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::LocalDate(local_date) => {
                     local_date
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -161,7 +162,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::LocalTime(local_time) => {
                     local_time
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -173,7 +174,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::String(string_value) => {
                     string_value
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -185,7 +186,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::Array(array) => {
                     array
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -197,7 +198,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                 Self::Table(table) => {
                     table
                         .find_completion_contents(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -210,7 +211,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                     Some(current_schema) => {
                         SchemaCompletion
                             .find_completion_contents(
-                                position,
+                                cursor,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -223,17 +224,17 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
                         let last_key = keys.last();
 
                         match (&last_key, completion_hint) {
-                            (Some(last_key), Some(CompletionHint::EqualTrigger { range, .. }))
-                                if range.end < position =>
+                            (Some(last_key), Some(CompletionHint::EqualTrigger { span, .. }))
+                                if span.end < offset =>
                             {
                                 vec![CompletionContent::new_type_hint_key(
                                     last_key.value(),
-                                    last_key.range(),
+                                    last_key.span(),
                                     None,
                                     completion_hint,
                                 )]
                             }
-                            _ => type_hint_value(last_key, position, None, completion_hint),
+                            _ => type_hint_value(last_key, offset, None, completion_hint),
                         }
                     }
                 },
@@ -244,23 +245,23 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
 }
 
 pub fn type_hint_value(
-    key: Option<&tombi_document_tree_syntax::Key>,
-    position: tombi_text::Position,
+    key: Option<&tombi_document_tree_syntax::Key<'_>>,
+    offset: tombi_text::Offset,
     schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     let mut completion_contents = itertools::concat([
-        type_hint_boolean(position, schema_base_uri, completion_hint),
-        type_hint_integer(position, schema_base_uri, completion_hint),
-        type_hint_float(position, schema_base_uri, completion_hint),
-        type_hint_string(position, schema_base_uri, completion_hint),
-        type_hint_local_date_time(position, schema_base_uri, completion_hint),
-        type_hint_local_date(position, schema_base_uri, completion_hint),
-        type_hint_local_time(position, schema_base_uri, completion_hint),
-        type_hint_offset_date_time(position, schema_base_uri, completion_hint),
-        type_hint_array(position, schema_base_uri, completion_hint),
+        type_hint_boolean(offset, schema_base_uri, completion_hint),
+        type_hint_integer(offset, schema_base_uri, completion_hint),
+        type_hint_float(offset, schema_base_uri, completion_hint),
+        type_hint_string(offset, schema_base_uri, completion_hint),
+        type_hint_local_date_time(offset, schema_base_uri, completion_hint),
+        type_hint_local_date(offset, schema_base_uri, completion_hint),
+        type_hint_local_time(offset, schema_base_uri, completion_hint),
+        type_hint_offset_date_time(offset, schema_base_uri, completion_hint),
+        type_hint_array(offset, schema_base_uri, completion_hint),
         vec![CompletionContent::new_type_hint_inline_table(
-            position,
+            offset,
             schema_base_uri,
             completion_hint,
         )],
@@ -269,9 +270,8 @@ pub fn type_hint_value(
     if let Some(key) = key {
         let need_key_hint = match completion_hint {
             Some(
-                CompletionHint::DotTrigger { range, .. }
-                | CompletionHint::EqualTrigger { range, .. },
-            ) => range.end == position || range.end <= key.range().start,
+                CompletionHint::DotTrigger { span, .. } | CompletionHint::EqualTrigger { span, .. },
+            ) => span.end == offset || span.end <= key.span().start,
             Some(
                 CompletionHint::InTableHeader
                 | CompletionHint::InArray { .. }
@@ -282,14 +282,14 @@ pub fn type_hint_value(
         if need_key_hint {
             completion_contents.push(CompletionContent::new_type_hint_key(
                 key.value(),
-                key.range(),
+                key.span(),
                 schema_base_uri,
                 completion_hint,
             ));
         }
     } else {
         completion_contents.push(CompletionContent::new_type_hint_empty_key(
-            position,
+            offset,
             schema_base_uri,
             completion_hint,
         ))

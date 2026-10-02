@@ -1,0 +1,196 @@
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, MutableMapping
+from functools import cached_property
+from typing import Any, cast
+
+from guard_core.protocols.request_protocol import GuardRequest
+from guard_core.protocols.response_protocol import GuardResponse
+from starlette.datastructures import Headers
+from starlette.requests import Request
+from starlette.responses import RedirectResponse, Response, StreamingResponse
+from starlette.routing import get_route_path
+from starlette.types import Message
+
+
+async def _replay_then_continue(
+    captured: list[Any], stream: AsyncIterator[Any]
+) -> AsyncIterator[Any]:
+    for chunk in captured:
+        yield chunk
+    async for chunk in stream:
+        yield chunk
+
+
+def _join_repeated_header_lines(headers: Headers) -> Headers:
+    joined: dict[str, str] = {}
+    for key in headers.keys():
+        if key not in joined:
+            joined[key] = ", ".join(headers.getlist(key))
+    raw = [
+        (key.encode("latin-1"), value.encode("latin-1"))
+        for key, value in joined.items()
+    ]
+    return Headers(raw=raw)
+
+
+class StarletteGuardRequest:
+    def __init__(self, request: Request) -> None:
+        self._request = request
+
+    @property
+    def url_path(self) -> str:
+        return get_route_path(self._request.scope)
+
+    @property
+    def url_scheme(self) -> str:
+        return self._request.url.scheme
+
+    @property
+    def url_full(self) -> str:
+        return str(self._request.url)
+
+    def url_replace_scheme(self, scheme: str) -> str:
+        return str(self._request.url.replace(scheme=scheme))
+
+    @property
+    def method(self) -> str:
+        return self._request.method
+
+    @property
+    def client_host(self) -> str | None:
+        if self._request.client:
+            return self._request.client.host
+        return None
+
+    @cached_property
+    def headers(self) -> Mapping[str, str]:
+        return _join_repeated_header_lines(self._request.headers)
+
+    @property
+    def query_params(self) -> Mapping[str, str]:
+        return self._request.query_params
+
+    async def body(self) -> bytes:
+        return await self._request.body()
+
+    async def read_body_prefix(self, max_bytes: int) -> bytes:
+        if max_bytes <= 0:
+            return b""
+        cached = getattr(self._request, "_body", None)
+        if cached is not None:
+            return bytes(cached[:max_bytes])
+        if self._request._stream_consumed:
+            return b""
+
+        original_receive = self._request._receive
+        replay_buffer: list[Message] = []
+
+        async def replaying_receive() -> Message:
+            if replay_buffer:
+                return replay_buffer.pop(0)
+            return await original_receive()
+
+        self._request._receive = replaying_receive
+
+        collected: list[bytes] = []
+        received = 0
+        while received < max_bytes:
+            message = await original_receive()
+            replay_buffer.append(message)
+            if message["type"] != "http.request":
+                break
+            chunk = message.get("body", b"")
+            if chunk:
+                collected.append(chunk[: max_bytes - received])
+                received += len(chunk)
+            if not message.get("more_body", False):
+                break
+        return b"".join(collected)
+
+    @property
+    def state(self) -> Any:
+        return self._request.state
+
+    @property
+    def scope(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self._request.scope)
+
+
+class StarletteGuardResponse:
+    def __init__(self, response: Response) -> None:
+        self._response = response
+
+    @property
+    def status_code(self) -> int:
+        return self._response.status_code
+
+    @property
+    def headers(self) -> MutableMapping[str, str]:
+        return cast(MutableMapping[str, str], self._response.headers)
+
+    @property
+    def body(self) -> bytes | None:
+        return bytes(self._response.body)
+
+    async def read_body_prefix(self, max_bytes: int) -> bytes:
+        if max_bytes <= 0:
+            return b""
+        materialized = getattr(self._response, "body", None)
+        if materialized is not None:
+            return bytes(materialized)[:max_bytes]
+        iterator = getattr(self._response, "body_iterator", None)
+        if iterator is None:
+            return b""
+
+        stream = aiter(iterator)
+        captured: list[Any] = []
+        streaming = cast(StreamingResponse, self._response)
+        streaming.body_iterator = _replay_then_continue(captured, stream)
+
+        try:
+            first_chunk = await anext(stream)
+        except StopAsyncIteration:
+            return b""
+        captured.append(first_chunk)
+
+        if isinstance(first_chunk, bytes):
+            raw = first_chunk
+        elif isinstance(first_chunk, memoryview):
+            raw = bytes(first_chunk)
+        else:
+            raw = str(first_chunk).encode("utf-8", errors="replace")
+        return raw[:max_bytes]
+
+
+class StarletteResponseFactory:
+    def create_response(self, content: str, status_code: int) -> StarletteGuardResponse:
+        return StarletteGuardResponse(
+            Response(content=content, status_code=status_code, media_type="text/plain")
+        )
+
+    def create_redirect_response(
+        self, url: str, status_code: int
+    ) -> StarletteGuardResponse:
+        return StarletteGuardResponse(
+            RedirectResponse(url=url, status_code=status_code)
+        )
+
+
+def wrap_call_next(
+    call_next: Callable[[Request], Awaitable[Response]],
+    starlette_request: Request,
+) -> Callable[[GuardRequest], Awaitable[GuardResponse]]:
+    async def wrapped(guard_request: GuardRequest) -> GuardResponse:
+        response = await call_next(starlette_request)
+        return StarletteGuardResponse(response)
+
+    return wrapped
+
+
+def unwrap_response(guard_response: GuardResponse) -> Response:
+    if isinstance(guard_response, StarletteGuardResponse):
+        return guard_response._response
+    return Response(
+        content=guard_response.body,
+        status_code=guard_response.status_code,
+        headers=dict(guard_response.headers),
+    )

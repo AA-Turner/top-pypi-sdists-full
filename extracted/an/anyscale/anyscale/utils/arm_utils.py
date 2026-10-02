@@ -155,9 +155,7 @@ class ARMTemplateUtils:
                     time.sleep(5)
 
                 except HttpResponseError as e:
-                    raise ClickException(
-                        f"Error checking deployment status: {e.message}"
-                    )
+                    raise ClickException(f"Error checking deployment status: {e.message}")
 
             # Timeout
             raise ClickException(
@@ -182,7 +180,10 @@ class ARMTemplateUtils:
         return outputs
 
     def _get_deployment_errors(
-        self, client: DeploymentsMgmtClient, resource_group: str, deployment_name: str,
+        self,
+        client: DeploymentsMgmtClient,
+        resource_group: str,
+        deployment_name: str,
     ) -> str:
         """Get detailed error messages from deployment operations."""
         try:
@@ -208,9 +209,7 @@ class ARMTemplateUtils:
                         operation.properties.target_resource
                         and operation.properties.target_resource.resource_name
                     ):
-                        resource_name = (
-                            operation.properties.target_resource.resource_name
-                        )
+                        resource_name = operation.properties.target_resource.resource_name
                     errors.append(f"Resource: {resource_name}, Error: {error_detail}")
 
             return "; ".join(errors) if errors else "No detailed error information"
@@ -218,9 +217,7 @@ class ARMTemplateUtils:
         except Exception as e:  # noqa: BLE001
             return f"Could not retrieve error details: {e}"
 
-    def get_deployment_outputs(
-        self, deployment_name: str, resource_group: str
-    ) -> Dict[str, Any]:
+    def get_deployment_outputs(self, deployment_name: str, resource_group: str) -> Dict[str, Any]:
         """
         Get outputs from an existing ARM deployment.
 

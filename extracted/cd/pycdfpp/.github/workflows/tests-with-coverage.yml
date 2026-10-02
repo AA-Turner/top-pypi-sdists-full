@@ -1,0 +1,70 @@
+name: Tests Linux with coverage
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build an tests with coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      # Shared with every other job that runs tests/full_corpus (see test.py's
+      # fetch_cdf): same key everywhere so one populated cache serves them all,
+      # instead of each job re-fetching the same ~33 files from the mirror.
+      - name: Cache full_corpus fixtures
+        uses: actions/cache@v6
+        with:
+          path: tests/full_corpus/.cache
+          key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
+          restore-keys: cdf-corpus-v1-
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y lcov g++ catch2
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install Python dependencies
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich coverage
+      # Python tests run in their own processes: this .pth starts coverage in each of them
+      # when COVERAGE_PROCESS_START is set (see .coveragerc).
+      - name: Collect Python coverage in every test process
+        run: |
+          site=$(python3.14 -c "import site; print(site.getsitepackages()[0])")
+          echo "import coverage; coverage.process_startup()" > "$site/coverage_startup.pth"
+      # Atomic counters: blocks are (de)compressed on several threads, and the default racy
+      # updates give negative counts that make lcov fail.
+      - name: Configure with meson
+        run: >
+          meson -Db_coverage=true -Dwith_tests=true -Dwith_experimental_zstd=true
+          -Dc_args=-fprofile-update=atomic -Dcpp_args=-fprofile-update=atomic . build
+      - name: Build (meson)
+        run: ninja -C build
+      - name: Run tests (meson)
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          COVERAGE_FILE: ${{ github.workspace }}/.coverage
+        run: ninja test -C build
+      - name: Generate Coverage report
+        run: |
+          lcov --capture --ignore-errors=inconsistent,mismatch --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --ignore-errors=unused --output-file coverage.info
+          lcov --remove coverage.info '*/catch*' --ignore-errors=unused --output-file coverage.info
+          lcov --list coverage.info
+          python3.14 -m coverage combine
+          python3.14 -m coverage xml -o python-coverage.xml
+          python3.14 -m coverage report --skip-empty
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.info,./python-coverage.xml
+          flags: unittests
+          name: codecov-cdfpp
+          yml: ./codecov.yml
+          fail_ci_if_error: true

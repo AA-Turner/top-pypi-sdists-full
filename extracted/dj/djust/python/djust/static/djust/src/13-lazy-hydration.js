@@ -1,0 +1,286 @@
+
+// ============================================================================
+// Lazy Hydration Support (Performance Optimization)
+// ============================================================================
+
+/**
+ * Lazy LiveView Hydration Manager
+ *
+ * Defers WebSocket connection and LiveView mounting until elements enter the
+ * viewport. This significantly reduces memory usage and WebSocket connections
+ * for pages with below-fold LiveView components.
+ *
+ * Usage:
+ *   <div dj-view="my_view" dj-lazy>
+ *     <!-- Content loads when element scrolls into view -->
+ *   </div>
+ *
+ *   <div dj-view="my_view" dj-lazy="click">
+ *     <!-- Content loads on first user interaction -->
+ *   </div>
+ *
+ * Supported lazy modes:
+ *   - "viewport" (default): Mount when element enters viewport
+ *   - "click": Mount on first click within the element
+ *   - "hover": Mount on first mouse hover
+ *   - "idle": Mount when browser is idle (requestIdleCallback)
+ */
+const lazyHydrationManager = {
+    // Set of element IDs that have been hydrated
+    hydratedElements: new Set(),
+
+    // IntersectionObserver instance for viewport-based hydration
+    viewportObserver: null,
+
+    // Queue of elements waiting for WebSocket connection
+    pendingMounts: [],
+
+    // In-flight mount_batch — populated when a mount_batch frame is sent, cleared
+    // when the server responds (success or known error). #1031: enables fallback
+    // to per-view mount when an old server returns "Unknown message type:
+    // mount_batch" instead of handling the batch frame.
+    inFlightBatch: null,
+
+    // Initialize lazy hydration
+    init() {
+        // Clear pending mounts on reinit (e.g., TurboNav navigation)
+        this.pendingMounts = [];
+        this.hydratedElements.clear();
+
+        // Inject CSS for lazy click elements (only once)
+        if (!document.getElementById('djust-lazy-styles')) {
+            const style = document.createElement('style');
+            style.id = 'djust-lazy-styles';
+            style.textContent = '.djust-lazy-click { cursor: pointer; }';
+            document.head.appendChild(style);
+        }
+
+        // Create viewport observer if supported
+        if ('IntersectionObserver' in window) {
+            this.viewportObserver = new IntersectionObserver(
+                (entries) => this.handleIntersection(entries),
+                {
+                    // Start loading slightly before element is visible
+                    rootMargin: '50px',
+                    threshold: 0
+                }
+            );
+        }
+    },
+
+    // Handle viewport intersection
+    handleIntersection(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const element = entry.target;
+                this.hydrateElement(element);
+                this.viewportObserver.unobserve(element);
+            }
+        });
+    },
+
+    // Register an element for lazy hydration
+    register(element) {
+        const lazyMode = element.getAttribute('dj-lazy') || 'viewport';
+
+        switch (lazyMode) {
+            case 'click':
+                element.addEventListener('click', () => this.hydrateElement(element), { once: true });
+                // Add CSS class for styling (avoids overriding inline styles)
+                element.classList.add('djust-lazy-click');
+                break;
+
+            case 'hover':
+                element.addEventListener('mouseenter', () => this.hydrateElement(element), { once: true });
+                break;
+
+            case 'idle':
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => this.hydrateElement(element), { timeout: 5000 });
+                } else {
+                    // Fallback: use setTimeout
+                    setTimeout(() => this.hydrateElement(element), 2000);
+                }
+                break;
+
+            case 'viewport':
+            case '':
+            default:
+                if (this.viewportObserver) {
+                    this.viewportObserver.observe(element);
+                } else {
+                    // Fallback for browsers without IntersectionObserver
+                    this.hydrateElement(element);
+                }
+                break;
+        }
+
+        if (globalThis.djustDebug) {
+            djLog(`[LiveView:lazy] Registered element for lazy hydration (mode: ${lazyMode})`, element);
+        }
+    },
+
+    // Hydrate a single element
+    hydrateElement(element) {
+        const elementId = element.id || element.getAttribute('dj-view');
+
+        // Prevent double hydration
+        if (this.hydratedElements.has(elementId)) {
+            return;
+        }
+        this.hydratedElements.add(elementId);
+
+        const viewPath = element.getAttribute('dj-view');
+        if (!viewPath) {
+            console.warn('[LiveView:lazy] Element missing dj-view attribute', element);
+            return;
+        }
+
+        if (globalThis.djustDebug) console.log(`[LiveView:lazy] Hydrating: ${viewPath}`);
+
+        // Ensure WebSocket is connected (skip in HTTP-only mode)
+        if (window.DJUST_USE_WEBSOCKET === false) {
+            if (globalThis.djustDebug) console.log('[LiveView:lazy] HTTP-only mode — skipping WebSocket for lazy element');
+            return;
+        }
+        if (!liveViewWS || !liveViewWS.enabled) {
+            liveViewWS = new LiveViewWebSocket();
+            window.djust.liveViewInstance = liveViewWS;
+            liveViewWS.connect();
+        }
+
+        // Wait for WebSocket connection then mount
+        if (isWSConnected()) {
+            this.mountElement(element, viewPath);
+        } else {
+            // Queue mount for when WebSocket connects (handles multiple lazy elements)
+            this.pendingMounts.push({ element, viewPath });
+
+            // Set up connection callback if not already done
+            if (this.pendingMounts.length === 1 && liveViewWS.ws) {
+                const originalOnOpen = liveViewWS.ws.onopen;
+                liveViewWS.ws.onopen = (event) => {
+                    if (originalOnOpen) originalOnOpen.call(liveViewWS.ws, event);
+                    this.processPendingMounts();
+                };
+            }
+        }
+    },
+
+    // Process all queued mounts when WebSocket connects
+    processPendingMounts() {
+        if (globalThis.djustDebug) console.log(`[LiveView:lazy] Processing ${this.pendingMounts.length} pending mounts`);
+        const mounts = this.pendingMounts.slice();
+        this.pendingMounts = [];
+
+        // Mount-batch optimization (v0.6.0): when 2+ lazy views are
+        // hydrating together, send one mount_batch WebSocket frame
+        // instead of N separate mount frames. Opt out via
+        // window.DJUST_USE_MOUNT_BATCH = false.
+        const useBatch = (
+            mounts.length >= 2
+            && window.DJUST_USE_MOUNT_BATCH !== false
+            && liveViewWS
+            && typeof liveViewWS.sendMessage === 'function'
+            && isWSConnected()
+        );
+        if (useBatch) {
+            const viewEntries = [];
+            const urlParams = Object.fromEntries(new URLSearchParams(window.location.search));
+            mounts.forEach(({ element, viewPath }) => {
+                const targetId = element.getAttribute('data-djust-target')
+                    || element.id
+                    || ('dj-target-' + Math.random().toString(36).slice(2, 10));
+                if (!element.getAttribute('data-djust-target')) {
+                    element.setAttribute('data-djust-target', targetId);
+                }
+                const hasContent = element.innerHTML && element.innerHTML.trim().length > 0;
+                viewEntries.push({
+                    view: viewPath,
+                    params: urlParams,
+                    url: window.location.pathname,
+                    target_id: targetId,
+                    has_prerendered: !!hasContent,
+                });
+                element.removeAttribute('dj-lazy');
+                element.setAttribute('data-live-hydrated', 'true');
+            });
+            let clientTimezone = null;
+            try {
+                clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            } catch (_e) { /* tz detect failure — omit */ }
+            // #1031: stash the original mounts so the websocket error
+            // handler can fall back to per-view mounts if the server
+            // returns "Unknown message type: mount_batch".
+            this.inFlightBatch = mounts;
+            liveViewWS.sendMessage({
+                type: 'mount_batch',
+                views: viewEntries,
+                client_timezone: clientTimezone,
+            });
+            return;
+        }
+
+        mounts.forEach(({ element, viewPath }) => {
+            this.mountElement(element, viewPath);
+        });
+    },
+
+    // #1031: invoked from the websocket error handler when the server
+    // doesn't recognize the mount_batch frame. Falls back to per-view
+    // mount calls so older servers (pre-v0.6.0) keep working with newer
+    // clients. Idempotent — clears inFlightBatch before iterating so a
+    // late mount_batch response can't double-trigger.
+    handleMountBatchFallback() {
+        if (!this.inFlightBatch) return;
+        const mounts = this.inFlightBatch;
+        this.inFlightBatch = null;
+        if (globalThis.djustDebug) {
+            console.warn('[LiveView:lazy] mount_batch unsupported by server — falling back to %d per-view mounts', mounts.length);
+        }
+        mounts.forEach(({ element, viewPath }) => {
+            // Reset the data-live-hydrated attr that processPendingMounts
+            // set optimistically; mountElement will set it again on success.
+            element.removeAttribute('data-live-hydrated');
+            element.setAttribute('dj-lazy', '');
+            this.mountElement(element, viewPath);
+        });
+    },
+
+    // Mount a specific element
+    mountElement(element, viewPath) {
+        // Check if content was already pre-rendered
+        const hasContent = element.innerHTML && element.innerHTML.trim().length > 0;
+
+        if (hasContent) {
+            if (globalThis.djustDebug) console.log('[LiveView:lazy] Using pre-rendered content');
+            liveViewWS.skipMountHtml = true;
+        }
+
+        // Pass URL query params
+        const urlParams = Object.fromEntries(new URLSearchParams(window.location.search));
+        liveViewWS.mount(viewPath, urlParams);
+
+        // Remove lazy attribute to indicate hydration complete
+        element.removeAttribute('dj-lazy');
+        element.setAttribute('data-live-hydrated', 'true');
+
+        // Bind events and hooks to the newly hydrated content
+        reinitAfterDOMUpdate();
+    },
+
+    // Check if an element is lazily loaded
+    isLazy(element) {
+        return element.hasAttribute('dj-lazy');
+    },
+
+    // Force hydrate all lazy elements (useful for testing or SPA navigation)
+    hydrateAll() {
+        document.querySelectorAll('[dj-lazy]').forEach(el => {
+            this.hydrateElement(el);
+        });
+    }
+};
+
+// Expose lazy hydration API
+window.djust.lazyHydration = lazyHydrationManager;

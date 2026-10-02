@@ -1,0 +1,28 @@
+version: "1.0"
+name: "Test Layer Convention"
+description: "Test routing rules to determine which layer a test belongs to based on acceptance criteria keywords."
+
+# =============================================================================
+# Atomized to conventions/nodes/ (core tester convention decomposition, #1215)
+# =============================================================================
+# The protocol-level layer-keyword taxonomy (backend/frontend ×
+# presentation/application/domain/integration keyword routing, with the
+# routing_examples) was atomized into a single-node core convention:
+#   - tester.routing.layer-keyword-taxonomy
+#     (nodes/tester.routing.layer-keyword-taxonomy.convention.yaml)
+# The registry/graph read it there; it is the single source of truth.
+#
+# The workspace-bound rule below (`tester.routing.path` — test path determines
+# the concrete runtime python/ vs supabase/ vs web/) is NOT protocol-agnostic
+# and is retained here pending relocation to a workspace package.
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: "tester.routing.path"
+    aliases: ["TESTER-ROUTING-PATH-001"]
+    severity: 2
+    disposition: documentation-only
+    description: "Test path determines the runtime that executes it (python/ vs supabase/ vs web/)"
+    introduced_in: "1.67.0"

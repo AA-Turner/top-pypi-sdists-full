@@ -46,6 +46,8 @@ from .literals import (
     DateRangeComparisonType,
     DiscoveryTypeType,
     EnablementStatusType,
+    ExposureImpactType,
+    ExposureSeverityType,
     FeatureStatusType,
     FindingHistoryUpdateSourceTypeType,
     FindingsTrendsStringFieldType,
@@ -53,6 +55,7 @@ from .literals import (
     FreeTrialTypeType,
     GranularityFieldType,
     GroupByFieldType,
+    GuidanceFormatType,
     HealthIssueCodeType,
     IntegrationTypeType,
     IntegrationV2TypeType,
@@ -73,6 +76,9 @@ from .literals import (
     RecommendationStatusType,
     RecordStateType,
     RegionAvailabilityStatusType,
+    RemediationPriorityType,
+    RemediationStatusType,
+    RemediationStringFieldType,
     ResourceCategoryType,
     ResourceGroupByFieldType,
     ResourcesDateFieldType,
@@ -1150,6 +1156,7 @@ __all__ = (
     "EnableSecurityHubV2ResponseTypeDef",
     "EnumConfigurationOptionsTypeDef",
     "EnumListConfigurationOptionsTypeDef",
+    "ExposureFindingTypeDef",
     "ExternalIntegrationConfigurationTypeDef",
     "FeatureDetailTypeDef",
     "FilePathsTypeDef",
@@ -1225,6 +1232,9 @@ __all__ = (
     "GetRecommendedPolicyV2RequestPaginateTypeDef",
     "GetRecommendedPolicyV2RequestTypeDef",
     "GetRecommendedPolicyV2ResponseTypeDef",
+    "GetRemediationsV2RequestPaginateTypeDef",
+    "GetRemediationsV2RequestTypeDef",
+    "GetRemediationsV2ResponseTypeDef",
     "GetResourcesStatisticsV2RequestTypeDef",
     "GetResourcesStatisticsV2ResponseTypeDef",
     "GetResourcesTrendsV2RequestPaginateTypeDef",
@@ -1259,6 +1269,7 @@ __all__ = (
     "JiraCloudDetailTypeDef",
     "JiraCloudProviderConfigurationTypeDef",
     "JiraCloudUpdateConfigurationTypeDef",
+    "KbArticleTypeDef",
     "KeywordFilterTypeDef",
     "ListAggregatorsV2RequestPaginateTypeDef",
     "ListAggregatorsV2RequestTypeDef",
@@ -1280,6 +1291,9 @@ __all__ = (
     "ListEnabledProductsForImportRequestPaginateTypeDef",
     "ListEnabledProductsForImportRequestTypeDef",
     "ListEnabledProductsForImportResponseTypeDef",
+    "ListExposuresByRemediationV2RequestPaginateTypeDef",
+    "ListExposuresByRemediationV2RequestTypeDef",
+    "ListExposuresByRemediationV2ResponseTypeDef",
     "ListFindingAggregatorsRequestPaginateTypeDef",
     "ListFindingAggregatorsRequestTypeDef",
     "ListFindingAggregatorsResponseTypeDef",
@@ -1375,7 +1389,23 @@ __all__ = (
     "RegisterConnectorV2RequestTypeDef",
     "RegisterConnectorV2ResponseTypeDef",
     "RelatedFindingTypeDef",
+    "RemediationCompositeFilterTypeDef",
+    "RemediationFiltersTypeDef",
+    "RemediationGuidanceContextTypeDef",
+    "RemediationGuidanceExamplesTypeDef",
+    "RemediationGuidanceMetadataTypeDef",
+    "RemediationGuidanceSpecificationTypeDef",
+    "RemediationGuidanceTypeDef",
+    "RemediationOutcomeTypeDef",
+    "RemediationParameterTypeDef",
+    "RemediationResourceTypeDef",
+    "RemediationStepTypeDef",
+    "RemediationStringFilterConditionTypeDef",
+    "RemediationStringFilterTypeDef",
+    "RemediationSummaryDetailTypeDef",
+    "RemediationTraitTypeDef",
     "RemediationTypeDef",
+    "RemediationV2ItemTypeDef",
     "ResourceDetailsOutputTypeDef",
     "ResourceDetailsTypeDef",
     "ResourceDetailsUnionTypeDef",
@@ -4491,6 +4521,14 @@ class EnableSecurityHubV2RequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
+class ExposureFindingTypeDef(TypedDict):
+    MetadataUid: str
+    Title: str
+    PreviousSeverity: ExposureSeverityType
+    ProjectedSeverity: ExposureSeverityType
+    Impact: ExposureImpactType
+
+
 class FilePathsTypeDef(TypedDict):
     FilePath: NotRequired[str]
     FileName: NotRequired[str]
@@ -4676,6 +4714,11 @@ class JiraCloudUpdateConfigurationTypeDef(TypedDict):
     ProjectKey: NotRequired[str]
 
 
+class KbArticleTypeDef(TypedDict):
+    Title: str
+    Url: str
+
+
 class ListAggregatorsV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -4715,6 +4758,36 @@ class ListConnectorsV2RequestTypeDef(TypedDict):
 class ListEnabledProductsForImportRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListExposuresByRemediationV2RequestTypeDef(TypedDict):
+    TargetUid: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+RemediationResourceTypeDef = TypedDict(
+    "RemediationResourceTypeDef",
+    {
+        "AccountId": str,
+        "Region": str,
+        "Type": str,
+        "Id": str,
+        "ResourceRegion": str,
+        "CloudProvider": CloudProviderNameType,
+        "ResourceOwnerAccountId": NotRequired[str],
+        "ResourceOwnerOrgId": NotRequired[str],
+        "Name": NotRequired[str],
+        "ResourceGuid": NotRequired[str],
+    },
+)
+RemediationTraitTypeDef = TypedDict(
+    "RemediationTraitTypeDef",
+    {
+        "Type": str,
+        "Title": str,
+    },
+)
 
 
 class ListFindingAggregatorsRequestTypeDef(TypedDict):
@@ -4864,6 +4937,68 @@ RecommendationTypeDef = TypedDict(
 class RegisterConnectorV2RequestTypeDef(TypedDict):
     AuthCode: str
     AuthState: str
+
+
+class RemediationGuidanceContextTypeDef(TypedDict):
+    ProblemStatement: NotRequired[str]
+    RiskAssessment: NotRequired[str]
+    AffectedScope: NotRequired[str]
+    Prerequisites: NotRequired[list[str]]
+
+
+class RemediationGuidanceExamplesTypeDef(TypedDict):
+    AwsCli: NotRequired[str]
+    Cli: NotRequired[str]
+    Python: NotRequired[str]
+    Terraform: NotRequired[str]
+    Cdk: NotRequired[str]
+    CloudFormation: NotRequired[str]
+    IaC: NotRequired[str]
+    Template: NotRequired[str]
+
+
+class RemediationGuidanceMetadataTypeDef(TypedDict):
+    ResourceType: str
+    ExposureType: str
+    TraitTitles: list[str]
+    Reversibility: str
+    FixEffect: str
+    RiskLevel: str
+    AutomationLevel: NotRequired[str]
+    HumanReviewRequired: NotRequired[bool]
+    GeneratedAt: NotRequired[datetime]
+    VerificationStatus: NotRequired[str]
+
+
+RemediationParameterTypeDef = TypedDict(
+    "RemediationParameterTypeDef",
+    {
+        "Name": str,
+        "Type": str,
+        "Description": str,
+        "Required": NotRequired[bool],
+    },
+)
+
+
+class RemediationStepTypeDef(TypedDict):
+    Phase: str
+    Description: str
+    Service: str
+    Action: str
+    Logic: NotRequired[str]
+    Inverse: NotRequired[str]
+    VerifyAfter: NotRequired[str]
+
+
+class RemediationOutcomeTypeDef(TypedDict):
+    ResolvedFindingsCount: int
+    SeverityReductionFindingsCount: int
+    SeverityUnchangedCount: int
+
+
+class RemediationStringFilterConditionTypeDef(TypedDict):
+    Value: str
 
 
 class ResourceSeverityBreakdownTypeDef(TypedDict):
@@ -7645,6 +7780,11 @@ class ListEnabledProductsForImportRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListExposuresByRemediationV2RequestPaginateTypeDef(TypedDict):
+    TargetUid: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListFindingAggregatorsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7864,6 +8004,24 @@ class InsightResultsTypeDef(TypedDict):
     ResultValues: list[InsightResultValueTypeDef]
 
 
+class RemediationSummaryDetailTypeDef(TypedDict):
+    Action: str
+    IsImmediate: bool
+    Description: NotRequired[str]
+    PostRemediationSteps: NotRequired[list[str]]
+    KbArticles: NotRequired[list[KbArticleTypeDef]]
+
+
+class ListExposuresByRemediationV2ResponseTypeDef(TypedDict):
+    Items: list[ExposureFindingTypeDef]
+    TargetUid: str
+    Resource: RemediationResourceTypeDef
+    TotalCount: int
+    Trait: RemediationTraitTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListStandardsControlAssociationsResponseTypeDef(TypedDict):
     StandardsControlAssociationSummaries: list[StandardsControlAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7929,6 +8087,18 @@ class RecommendationStepTypeDef(TypedDict):
 
 class RemediationTypeDef(TypedDict):
     Recommendation: NotRequired[RecommendationTypeDef]
+
+
+class RemediationGuidanceSpecificationTypeDef(TypedDict):
+    Parameters: NotRequired[list[RemediationParameterTypeDef]]
+    Steps: NotRequired[list[RemediationStepTypeDef]]
+    ExpectedEndState: NotRequired[str]
+    RequiredPermissions: NotRequired[list[str]]
+
+
+class RemediationStringFilterTypeDef(TypedDict):
+    FieldName: RemediationStringFieldType
+    Filter: RemediationStringFilterConditionTypeDef
 
 
 class ResourceFindingsSummaryTypeDef(TypedDict):
@@ -9981,6 +10151,20 @@ class GetRecommendedPolicyV2ResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class RemediationGuidanceTypeDef(TypedDict):
+    TargetTypeName: str
+    Pattern: str
+    Version: str
+    Context: RemediationGuidanceContextTypeDef
+    Specification: RemediationGuidanceSpecificationTypeDef
+    Examples: RemediationGuidanceExamplesTypeDef
+    Metadata: RemediationGuidanceMetadataTypeDef
+
+
+class RemediationCompositeFilterTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[RemediationStringFilterTypeDef]]
+
+
 class ResourceResultTypeDef(TypedDict):
     ResourceId: str
     AccountId: str
@@ -11066,6 +11250,22 @@ class SecurityControlCustomParameterTypeDef(TypedDict):
     Parameters: NotRequired[Mapping[str, ParameterConfigurationTypeDef]]
 
 
+class RemediationV2ItemTypeDef(TypedDict):
+    TargetUid: str
+    Outcome: RemediationOutcomeTypeDef
+    Priority: RemediationPriorityType
+    RemediationSummary: RemediationSummaryDetailTypeDef
+    Resource: RemediationResourceTypeDef
+    Status: RemediationStatusType
+    Trait: RemediationTraitTypeDef
+    Guidance: NotRequired[RemediationGuidanceTypeDef]
+    UpdatedAt: NotRequired[datetime]
+
+
+class RemediationFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[RemediationCompositeFilterTypeDef]]
+
+
 class GetResourcesV2ResponseTypeDef(TypedDict):
     Resources: list[ResourceResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -11790,6 +11990,31 @@ class SecurityControlsConfigurationTypeDef(TypedDict):
     EnabledSecurityControlIdentifiers: NotRequired[Sequence[str]]
     DisabledSecurityControlIdentifiers: NotRequired[Sequence[str]]
     SecurityControlCustomParameters: NotRequired[Sequence[SecurityControlCustomParameterTypeDef]]
+
+
+class GetRemediationsV2ResponseTypeDef(TypedDict):
+    Items: list[RemediationV2ItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetRemediationsV2RequestPaginateTypeDef(TypedDict):
+    TargetUid: NotRequired[str]
+    MetadataUid: NotRequired[str]
+    Filters: NotRequired[RemediationFiltersTypeDef]
+    ShowGuidance: NotRequired[bool]
+    GuidanceFormat: NotRequired[GuidanceFormatType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetRemediationsV2RequestTypeDef(TypedDict):
+    TargetUid: NotRequired[str]
+    MetadataUid: NotRequired[str]
+    Filters: NotRequired[RemediationFiltersTypeDef]
+    ShowGuidance: NotRequired[bool]
+    GuidanceFormat: NotRequired[GuidanceFormatType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class RuleGroupSourceStatelessRuleDefinitionTypeDef(TypedDict):

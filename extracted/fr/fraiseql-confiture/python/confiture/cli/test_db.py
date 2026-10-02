@@ -1,0 +1,353 @@
+"""``confiture test-db``: provision isolated template/clone test databases.
+
+A CI-path primitive (not the deploy ops-path). Composable subcommands a Dagger /
+GitHub Actions / local script calls directly to build a template once and hand
+out lock-free per-worker clones.
+"""
+
+from __future__ import annotations
+
+import os
+import pwd
+from pathlib import Path
+
+import typer
+
+from confiture.cli.error_json import cli_boundary
+from confiture.cli.helpers import console, emit, is_json, redact_url
+from confiture.cli.markup import verbatim
+from confiture.cli.options import database_url_option, env_option, format_option
+from confiture.config.environment import Environment
+from confiture.core.builder import SchemaBuilder
+from confiture.core.seed.applier import apply_profile_filter
+from confiture.core.test_db import (
+    RamSetupResult,
+    TemplateState,
+    TestDbProvisioner,
+)
+from confiture.error_codes import FINDINGS
+from confiture.exceptions import ConfigurationError
+from confiture.testing.worker_db import resolve_clone_strategy
+
+test_db_app = typer.Typer(help="Provision isolated template/clone test databases for parallel CI.")
+
+# tmpfs roots a RAM tablespace LOCATION may live under without --force. Guards a
+# fat-fingered real path (e.g. /var/lib/...) from becoming a dropped tablespace.
+_RAM_LOCATION_ROOTS = ("/dev/shm", "/run")  # nosec B108 - tmpfs mount roots for an allowlist, not temp-file creation
+
+# ram-setup exit code when confiture lacks the OS rights to prepare the LOCATION
+# dir and a privileged manual step is required (the "guided" mode). It shares the
+# precondition bucket (5); the machine-readable distinguisher is the result's
+# ``action_required`` field (and ``action_command`` in JSON).
+_ACTION_REQUIRED_EXIT_CODE = 5
+
+
+def _resolve_server_url(database_url: str | None, env: str, project_dir: Path) -> str:
+    """Resolve the PG server URL from --database-url or the environment config."""
+    if database_url:
+        return database_url
+    return Environment.load(env, project_dir).database_url
+
+
+def _guard_ram_location(location: str, *, force: bool) -> None:
+    """Reject a LOCATION outside the tmpfs allowlist unless *force*."""
+    if force:
+        return
+    if not any(location == root or location.startswith(root + "/") for root in _RAM_LOCATION_ROOTS):
+        raise ConfigurationError(
+            f"Refusing a tablespace LOCATION outside {_RAM_LOCATION_ROOTS}: {location!r}.",
+            error_code="CONFIG_010",
+            resolution_hint="Use a path under /dev/shm or /run, or pass --force to override.",
+        )
+
+
+def _resolve_owner(owner: str) -> tuple[int, int]:
+    """Resolve *owner* to a (uid, gid), or fail clearly if the user does not exist."""
+    try:
+        pw = pwd.getpwnam(owner)
+    except KeyError as e:
+        raise ConfigurationError(
+            f"Owner user {owner!r} does not exist on this host.",
+            error_code="CONFIG_010",
+            resolution_hint="Pass --owner naming the OS user the PostgreSQL server runs as.",
+        ) from e
+    return pw.pw_uid, pw.pw_gid
+
+
+def _prepare_location_dir(location: str, uid: int, gid: int) -> bool:
+    """Create *location* and hand it to the PG OS user. True if prepared, else False.
+
+    PostgreSQL requires the LOCATION dir to exist, be empty, and be owned by the
+    server's OS user before ``CREATE TABLESPACE``. Returns False (caller switches
+    to guided mode) when confiture lacks the rights — it is a *client* and may run
+    as a different user than the server.
+    """
+    try:
+        Path(location).mkdir(mode=0o700, exist_ok=True, parents=True)
+        os.chown(location, uid, gid)
+    except PermissionError:
+        return False
+    return True
+
+
+def _print_ram_setup_text(result: RamSetupResult, guided_command: str | None) -> None:
+    if result.action_required:
+        console.print(
+            f"[yellow]⚠ Action required:[/yellow] confiture cannot prepare the LOCATION "
+            f"directory {verbatim(repr(result.location))} (insufficient OS privileges)."
+        )
+        console.print(
+            "Run this once as a privileged user, then re-run `confiture test-db ram-setup`:"
+        )
+        console.print(f"  [bold]{verbatim(guided_command)}[/bold]")
+        return
+    verb = "Reset" if result.recreated else "Created"
+    console.print(
+        f"[green]✅ {verbatim(verb)} tablespace '{verbatim(result.tablespace)}' at {verbatim(result.location)}[/green]"
+    )
+    if result.dropped_databases:
+        names = ", ".join(result.dropped_databases)
+        console.print(
+            f"  Dropped {len(result.dropped_databases)} database(s) in the tablespace: {verbatim(names)}"
+        )
+
+
+@test_db_app.command("provision-template")
+@cli_boundary
+def provision_template(
+    template: str = typer.Option(..., "--template", help="Template database name."),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    from_artifact: Path = typer.Option(
+        None,
+        "--from-artifact",
+        help="Restore a pg_dump -Fc/-Fd artifact (from 'build --dump') instead of applying DDL.",
+    ),
+    seed_profile: str = typer.Option(
+        None,
+        "--seed-profile",
+        help="Apply only the named seed profile (seed.profiles.<name>) on the DDL path.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Replace a same-named database even if not confiture-managed."
+    ),
+    database_url: str = database_url_option(help="PG server URL (default: from env config)."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Build (or restore) a template database and stamp its db/ content hash."""
+    builder = SchemaBuilder(env=env, project_dir=project_dir)
+    schema_hash = builder.compute_hash()
+    server_url = database_url or builder.env_config.database_url
+    provisioner = TestDbProvisioner(server_url)
+
+    if from_artifact is not None:
+        status = provisioner.provision_template(
+            template, schema_hash=schema_hash, from_artifact=from_artifact, force=force
+        )
+    else:
+        schema_sql = builder.build(schema_only=True)
+        _schema_files, seed_files = builder.categorize_sql_files()
+        if seed_profile is not None:
+            profile_obj = builder.env_config.seed.get_profile(seed_profile)
+            seed_files = apply_profile_filter(
+                seed_files, profile_obj, anchor=builder.base_dir.parent
+            )
+        status = provisioner.provision_template(
+            template,
+            schema_hash=schema_hash,
+            schema_sql=schema_sql,
+            seed_files=seed_files or None,
+            force=force,
+        )
+
+    if is_json(format_type):
+        emit(status.to_dict(), None, console)
+    else:
+        console.print(
+            f"[green]✅ Template '{verbatim(template)}' provisioned ({verbatim(status.state.value)})[/green]"
+        )
+
+
+@test_db_app.command("clone")
+@cli_boundary
+def clone(
+    template: str = typer.Option(..., "--template", help="Source template database."),
+    target: str = typer.Option(..., "--target", help="Clone database name to create."),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    sync_commit_off: bool = typer.Option(
+        True,
+        "--sync-commit-off/--no-sync-commit-off",
+        help="Set synchronous_commit=off on the clone (default on; opt out for durable commits).",
+    ),
+    max_clone_concurrency: int = typer.Option(
+        None,
+        "--max-clone-concurrency",
+        help="Bound concurrent clones of this template across processes (>=1); "
+        "default unbounded. Throttles WAL/checkpoint thrash on fsync=on clusters.",
+    ),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Clone a template into a fresh database via CREATE DATABASE … WITH TEMPLATE.
+
+    Set CONFITURE_TEST_CLONE_STRATEGY=file_copy to copy the template's files
+    instead of writing them through WAL (PostgreSQL 15+): far faster for a large
+    template on an fsync=on cluster, not crash-safe, not for a replicated cluster.
+    The pytest worker-db fixture reads the same variable.
+    """
+    provisioner = TestDbProvisioner(_resolve_server_url(database_url, env, project_dir))
+    result = provisioner.clone(
+        template,
+        target,
+        sync_commit_off=sync_commit_off,
+        max_concurrency=max_clone_concurrency,
+        strategy=resolve_clone_strategy(),
+    )
+    if is_json(format_type):
+        payload = result.to_dict()
+        payload["target_url"] = redact_url(payload["target_url"])  # no DSN creds in logs
+        emit(payload, None, console)
+    else:
+        console.print(f"[green]✅ Cloned '{verbatim(template)}' → '{verbatim(target)}'[/green]")
+
+
+@test_db_app.command("ram-setup")
+@cli_boundary
+def ram_setup(
+    tablespace: str = typer.Option(..., "--tablespace", help="Tablespace name to (re)create."),
+    location: str = typer.Option(
+        ..., "--location", help="tmpfs LOCATION directory (e.g. /dev/shm/<dir>)."
+    ),
+    owner: str = typer.Option(
+        "postgres", "--owner", help="OS user the PG server runs as (owns the LOCATION dir)."
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Drop non-managed DBs in the tablespace and bypass the tmpfs-root allowlist.",
+    ),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Create or idempotently reset a tmpfs-backed tablespace for RAM clones.
+
+    A *reset*: drops the databases living in the tablespace (only confiture-managed
+    ones unless --force), drops and re-creates the tablespace (the post-reboot
+    /dev/shm fix), and verifies it is usable. When confiture lacks the OS rights to
+    prepare the LOCATION dir, it prints the privileged command instead of failing
+    silently (exit 5, action_required).
+    """
+    _guard_ram_location(location, force=force)
+    uid, gid = _resolve_owner(owner)
+    provisioner = TestDbProvisioner(_resolve_server_url(database_url, env, project_dir))
+    prepared = _prepare_location_dir(location, uid, gid)
+    result = provisioner.setup_ram_tablespace(
+        tablespace, location, owner=owner, force=force, dir_prepared=prepared
+    )
+    guided_command = (
+        None if prepared else f"sudo install -d -o {owner} -g {owner} -m 700 {location}"
+    )
+
+    if is_json(format_type):
+        payload = result.to_dict()
+        if guided_command is not None:
+            payload["action_command"] = guided_command
+        emit(payload, None, console)
+    else:
+        _print_ram_setup_text(result, guided_command)
+
+    if result.action_required:
+        raise typer.Exit(_ACTION_REQUIRED_EXIT_CODE)
+
+
+@test_db_app.command("drop")
+@cli_boundary
+def drop(
+    target: str = typer.Option(..., "--target", help="Database to drop."),
+    force: bool = typer.Option(
+        False, "--force", help="Drop even if not confiture-managed (use with care)."
+    ),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Drop a confiture-managed clone or template (terminating its backends)."""
+    provisioner = TestDbProvisioner(_resolve_server_url(database_url, env, project_dir))
+    dropped = provisioner.drop(target, force=force)
+    if is_json(format_type):
+        emit({"target": target, "dropped": dropped}, None, console)
+    elif dropped:
+        console.print(f"[green]✅ Dropped '{verbatim(target)}'[/green]")
+    else:
+        console.print(f"[yellow]ℹ '{verbatim(target)}' did not exist[/yellow]")
+
+
+@test_db_app.command("status")
+@cli_boundary
+def status(
+    template: str = typer.Option(..., "--template", help="Template database name."),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Report template staleness vs the current db/ hash (exit 0 current, 1 stale/absent)."""
+    builder = SchemaBuilder(env=env, project_dir=project_dir)
+    current_hash = builder.compute_hash()
+    server_url = database_url or builder.env_config.database_url
+    provisioner = TestDbProvisioner(server_url)
+    result = provisioner.template_status(template, current_hash)
+
+    if is_json(format_type):
+        emit(result.to_dict(), None, console)
+    else:
+        console.print(
+            f"Template '{verbatim(template)}': [bold]{verbatim(result.state.value)}[/bold]"
+        )
+
+    if result.state is not TemplateState.CURRENT:
+        raise typer.Exit(FINDINGS)
+
+
+@test_db_app.command("list")
+@cli_boundary
+def list_databases(
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """List confiture-managed templates and clones on the server."""
+    provisioner = TestDbProvisioner(_resolve_server_url(database_url, env, project_dir))
+    databases = provisioner.list_databases()
+    if is_json(format_type):
+        emit({"databases": [d.to_dict() for d in databases]}, None, console)
+    elif databases:
+        for db in databases:
+            console.print(
+                f"  {verbatim(db.kind, '9')} {verbatim(db.name)}  ({verbatim(db.detail)})"
+            )
+    else:
+        console.print("[yellow]ℹ No confiture-managed databases found[/yellow]")
+
+
+@test_db_app.command("prune")
+@cli_boundary
+def prune(
+    template: str = typer.Option(..., "--template", help="Template whose clones to drop."),
+    env: str = env_option(),
+    project_dir: Path = typer.Option(Path(), "--project-dir", help="Project directory."),
+    database_url: str = database_url_option(help="PG server URL."),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Drop every clone of a template (reaps clones leaked by crashed workers)."""
+    provisioner = TestDbProvisioner(_resolve_server_url(database_url, env, project_dir))
+    dropped = provisioner.prune(template)
+    if is_json(format_type):
+        emit({"template": template, "dropped": dropped}, None, console)
+    else:
+        console.print(f"[green]✅ Pruned {len(dropped)} clone(s) of '{verbatim(template)}'[/green]")

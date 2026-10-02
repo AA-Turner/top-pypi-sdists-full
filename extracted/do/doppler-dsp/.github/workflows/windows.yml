@@ -1,0 +1,152 @@
+name: Windows (clang reference)
+
+# NON-BINDING. It builds the C library and runs the full C suite under the GNU
+# `clang` driver, as a reference leg. The clang-cl build -- the one Windows
+# users run, and the one release.yml publishes as a zip -- moved to ci.yml,
+# where it is BINDING (`build-and-test-windows`). What the Windows build
+# includes and leaves out is documented in docs/install/source.md#windows.
+#
+# Not required to pass
+# --------------------
+# `protect-main` requires exactly one status check, `CI passed` -- the
+# `ci-passed` job at the bottom of ci.yml, which is green only when every job
+# in its `needs` succeeded. This workflow lives in its own file, so it is not
+# in that list and cannot be: `scripts/check_ci_aggregator.py` requires every
+# job *in ci.yml* to feed the aggregator, with no exemption -- which is exactly
+# why the clang-cl leg moved THERE once it was published, and why this
+# reference leg stays HERE.
+#
+# A separate file is therefore the mechanism, not a workaround -- and it is
+# preferable to `continue-on-error: true`, which would paint a failing build
+# green. Red here is informative and blocks nothing. That is the point: this
+# runner exists to SHOW what Windows does, and a gate that cannot report bad
+# news is worth nothing.
+#
+# Publishes nothing
+# -----------------
+# Nothing is uploaded that another workflow consumes. The Windows zip on a
+# GitHub Release is built by release.yml with clang-cl, and the same zip is
+# packaged and consumed on every PR by ci.yml's binding Windows job.
+#
+# What it actually tests
+# ----------------------
+# That doppler's C builds and its C suite passes against the MSVC ABI and the
+# MSVC runtime, using clang-cl (clang on Windows targets MSVC by default).
+# MSVC's own `cl.exe` has no `_Complex` at all and cannot build this tree --
+# `native/inc/doppler/dp_complex.h` says so with an `#error`.
+#
+# The complex-math surface is what made this plausible: measured on clang 22
+# against `x86_64-pc-windows-msvc` with doppler's own flags, a complex kernel
+# routed through `dp_complex.h` leaves only `_fltused atan2f cosf expf hypotf
+# sinf` undefined -- all plain-float UCRT exports, no `_Fcomplex` across the
+# ABI, and `__mulsc3` inlined away by `-ffast-math`. So there is no
+# compiler-rt dependency and no complex-typed CRT call.
+#
+# Python is OFF here (`BUILD_PYTHON` already defaults OFF). The C library is
+# the part with a plausible Windows story; the extension modules are jm's
+# territory and `just-makeit.toml` declares `platforms = ["linux", "macos"]`.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    # Only when something that could plausibly break it moves -- this is an
+    # non-binding signal, not a reason to burn a runner on every docs PR.
+    paths:
+      - 'native/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test-windows:
+    name: C build + ctest (${{ matrix.cc }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # TWO drivers are tested, because they are two configurations: this job
+    # was once named clang-cl and ran `clang`, the GNU driver, under which
+    # CMake does NOT set MSVC -- so every `NOT MSVC` block in CMakeLists.txt
+    # applied here and none applied to a user building with clang-cl. That
+    # gap is how `undefined symbol: ___muldc3` reached a user with this job
+    # green. `clang` stays here as the reference leg; `clang-cl`, the one
+    # people run and the one published, is ci.yml's binding Windows job.
+    strategy:
+      fail-fast: false
+      matrix:
+        # clang-cl is ci.yml's binding job; only the reference leg is here.
+        cc: [clang]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # clang-cl drives the MSVC toolchain the way cl.exe does and expects
+      # its environment (INCLUDE / LIB / the linker); the GNU `clang` driver
+      # finds the toolchain on its own. Loading vcvars64 for both keeps the
+      # two legs identical except for the driver under test.
+      - name: MSVC developer environment (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Record the toolchain
+        shell: bash
+        run: |
+          ${{ matrix.cc }} --version
+          cmake --version
+          ninja --version || echo "ninja not on PATH; the configure step names a generator"
+
+      # Under `clang` doppler's GCC-style flags (-march=x86-64-v2 -ffast-math)
+      # are accepted as written. Under `clang-cl` CMake sets MSVC, those
+      # blocks are skipped, and CMakeLists.txt has to say what clang-cl gets
+      # instead, spelled /clang: -- the numeric policy is the one that turned
+      # out to be load-bearing for the link.
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DBUILD_PYTHON=OFF
+
+      # Split into three steps so the result says WHICH claim holds, rather
+      # than one opaque red. The library is the substantive one: it is every
+      # component core, and it is what a Windows consumer would link.
+      - name: Build the C library
+        shell: bash
+        run: cmake --build build --parallel --target doppler_lib doppler_lib_static
+
+      # Tests and benchmarks are their own step so a red one says which half
+      # broke. The benchmarks used to fail here on `clock_gettime` in every
+      # generated main(); just-buildit/just-makeit#1341 fixed that upstream,
+      # in jm_bench.h, rather than doppler patching a private copy.
+      - name: Build everything else (tests, benchmarks)
+        if: always()
+        shell: bash
+        # -k 0: keep going past the first failure. This runner is non-binding
+        # and its job is to show every wall, and ninja's default stops
+        # scheduling at the first -- one error per CI round, which is the
+        # slowest possible way to learn a list. Measured: the last run stopped
+        # at object 37 of 575.
+        run: cmake --build build --parallel -- -k 0
+
+      # Which symbols the objects actually need is the claim this runner is
+      # here to check, so print it rather than infer it from a green build.
+      # Which symbols the objects actually need is the claim this runner is
+      # here to check, so read it rather than infer it from a green build.
+      # One recipe for both Windows legs; ci.yml's clang-cl job runs it too.
+      - name: What the link actually required
+        if: always()
+        shell: bash
+        run: make complex-helpers-check
+
+      - name: C suite
+        if: always()
+        shell: bash
+        run: ctest --test-dir build --output-on-failure

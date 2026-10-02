@@ -1,0 +1,1033 @@
+"""Tests for Ollama LLM provider."""
+
+import os
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from pydantic import BaseModel
+
+from esperanto.common_types import (
+    ChatCompletion,
+    StructuredOutputValidationError,
+    Tool,
+    ToolCall,
+    ToolFunction,
+)
+from esperanto.providers.llm.ollama import OllamaLanguageModel
+
+
+@pytest.fixture
+def mock_ollama_response():
+    return {
+        "model": "gemma2",
+        "created_at": "2024-01-01T00:00:00Z",
+        "message": {"role": "assistant", "content": "Test response"},
+        "done": True,
+        "context": [],
+        "total_duration": 100000000,
+        "load_duration": 10000000,
+        "prompt_eval_duration": 50000000,
+        "eval_duration": 40000000,
+        "eval_count": 10,
+    }
+
+
+@pytest.fixture
+def mock_ollama_stream_response():
+    return [
+        {
+            "model": "gemma2",
+            "created_at": "2024-01-01T00:00:00Z",
+            "message": {"role": "assistant", "content": "Test"},
+            "done": False,
+        },
+        {
+            "model": "gemma2",
+            "created_at": "2024-01-01T00:00:00Z",
+            "message": {"role": "assistant", "content": " response"},
+            "done": True,
+        },
+    ]
+
+
+@pytest.fixture
+def ollama_model():
+    """Create a test Ollama model with mocked clients."""
+    with patch("ollama.Client") as mock_client:
+        client_instance = Mock()
+        mock_client.return_value = client_instance
+
+        with patch("ollama.AsyncClient") as mock_async_client:
+            async_client_instance = AsyncMock()
+            mock_async_client.return_value = async_client_instance
+
+            model = OllamaLanguageModel(model_name="gemma2")
+            model.client = client_instance
+            model.async_client = async_client_instance
+            return model
+
+
+def test_ollama_provider_name(ollama_model):
+    """Test provider name."""
+    assert ollama_model.provider == "ollama"
+
+
+def test_ollama_default_model():
+    """Test default model name."""
+    model = OllamaLanguageModel()
+    assert model._get_default_model() == "gemma2"
+
+
+def test_ollama_initialization_with_base_url():
+    """Test initialization with base URL."""
+    model = OllamaLanguageModel(base_url="http://custom:11434")
+    assert model.base_url == "http://custom:11434"
+
+
+def test_ollama_initialization_with_env_var():
+    """Test initialization with environment variable."""
+    with patch.dict(os.environ, {"OLLAMA_BASE_URL": "http://env:11434"}):
+        model = OllamaLanguageModel()
+        assert model.base_url == "http://env:11434"
+
+
+def test_ollama_chat_complete():
+    """Test chat completion with httpx mocking."""
+    from unittest.mock import Mock
+
+    from esperanto.providers.llm.ollama import OllamaLanguageModel
+    
+    # Create fresh model instance
+    model = OllamaLanguageModel(model_name="gemma2")
+    
+    messages = [{"role": "user", "content": "Hello"}]
+
+    # Mock Ollama API response data
+    mock_response_data = {
+        "model": "gemma2",
+        "created_at": "2024-01-01T00:00:00Z",
+        "message": {
+            "role": "assistant",
+            "content": "Test response"
+        },
+        "done": True,
+        "total_duration": 1000000000,
+        "load_duration": 500000000,
+        "prompt_eval_count": 10,
+        "prompt_eval_duration": 100000000,
+        "eval_count": 5,
+        "eval_duration": 200000000
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    completion = model.chat_complete(messages)
+
+    assert completion.choices[0].message.content == "Test response"
+    assert completion.model == "gemma2"
+    assert completion.provider == "ollama"
+
+
+def test_ollama_chat_complete_streaming():
+    """Test streaming chat completion with httpx mocking."""
+    from unittest.mock import Mock
+
+    from esperanto.providers.llm.ollama import OllamaLanguageModel
+    
+    # Create fresh model instance
+    model = OllamaLanguageModel(model_name="gemma2")
+    
+    messages = [{"role": "user", "content": "Hello"}]
+
+    # Mock Ollama streaming response - multiple JSONL responses
+    stream_data = [
+        '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":"Test"},"done":false}\n',
+        '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":" response"},"done":false}\n',
+        '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":""},"done":true}\n'
+    ]
+    
+    # Mock HTTP response for streaming
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.iter_lines.return_value = stream_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    stream = model.chat_complete(messages, stream=True)
+    chunks = list(stream)
+    
+    assert len(chunks) > 0
+    assert chunks[0].choices[0].delta.content == "Test"
+
+
+@pytest.mark.asyncio
+async def test_ollama_achat_complete():
+    """Test async chat completion with httpx mocking."""
+    from unittest.mock import AsyncMock, Mock
+
+    from esperanto.providers.llm.ollama import OllamaLanguageModel
+    
+    # Create fresh model instance
+    model = OllamaLanguageModel(model_name="gemma2")
+    
+    messages = [{"role": "user", "content": "Hello"}]
+
+    # Mock Ollama API response data
+    mock_response_data = {
+        "model": "gemma2",
+        "created_at": "2024-01-01T00:00:00Z",
+        "message": {
+            "role": "assistant",
+            "content": "Test response"
+        },
+        "done": True
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the async client
+    mock_async_client = AsyncMock()
+    mock_async_client.post.return_value = mock_response
+    model.async_client = mock_async_client
+
+    completion = await model.achat_complete(messages)
+
+    assert completion.choices[0].message.content == "Test response"
+    assert completion.model == "gemma2"
+    assert completion.provider == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_ollama_achat_complete_streaming():
+    """Test async streaming chat completion with httpx mocking."""
+    from unittest.mock import AsyncMock, Mock
+
+    from esperanto.providers.llm.ollama import OllamaLanguageModel
+    
+    # Create fresh model instance
+    model = OllamaLanguageModel(model_name="gemma2")
+    
+    messages = [{"role": "user", "content": "Hello"}]
+
+    # Mock Ollama streaming response - multiple JSONL responses
+    async def mock_aiter_lines():
+        yield '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":"Test"},"done":false}\n'
+        yield '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":" response"},"done":false}\n'
+        yield '{"model":"gemma2","created_at":"2024-01-01T00:00:00Z","message":{"role":"assistant","content":""},"done":true}\n'
+    
+    # Mock HTTP response for streaming
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.aiter_lines = mock_aiter_lines
+    
+    # Mock the async client
+    mock_async_client = AsyncMock()
+    mock_async_client.post.return_value = mock_response
+    model.async_client = mock_async_client
+
+    stream = await model.achat_complete(messages, stream=True)
+    chunks = []
+    async for chunk in stream:
+        chunks.append(chunk)
+
+    assert len(chunks) > 0
+    assert chunks[0].choices[0].delta.content == "Test"
+
+
+def test_ollama_to_langchain(ollama_model):
+    """Test conversion to LangChain."""
+    langchain_model = ollama_model.to_langchain()
+    assert langchain_model is not None
+    assert hasattr(langchain_model, "invoke")
+    assert langchain_model.base_url == ollama_model.base_url
+    assert langchain_model.model == "gemma2"
+
+
+def test_ollama_to_langchain_with_json_format():
+    """Test that to_langchain passes format parameter when structured={"type": "json"}."""
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json"}
+    )
+    langchain_model = model.to_langchain()
+    assert langchain_model.format == "json"
+
+
+def test_ollama_to_langchain_with_json_object_format():
+    """Test that to_langchain passes format parameter when structured={"type": "json_object"}."""
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_object"}
+    )
+    langchain_model = model.to_langchain()
+    assert langchain_model.format == "json"
+
+
+def test_ollama_to_langchain_without_structured():
+    """Test that to_langchain does not set format when structured is not set."""
+    model = OllamaLanguageModel(model_name="gemma2")
+    langchain_model = model.to_langchain()
+    assert langchain_model.format is None
+
+
+class OllamaCapitalResponse(BaseModel):
+    capital: str
+
+
+def test_ollama_json_schema_structured_output_payload_and_parsed_result():
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_schema", "schema": OllamaCapitalResponse},
+    )
+    messages = [{"role": "user", "content": "Capital?"}]
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "model": "gemma2",
+        "message": {"role": "assistant", "content": '{"capital":"Paris"}'},
+        "done": True,
+    }
+
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    response = model.chat_complete(messages, stream=False)
+    payload = model.client.post.call_args[1]["json"]
+    assert isinstance(payload["format"], dict)
+    assert payload["format"]["type"] == "object"
+    assert isinstance(response.structured, OllamaCapitalResponse)
+
+
+def test_ollama_json_schema_streaming_not_supported():
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_schema", "schema": OllamaCapitalResponse},
+    )
+    with pytest.raises(ValueError, match="not supported with streaming"):
+        model.chat_complete([{"role": "user", "content": "Capital?"}], stream=True)
+
+
+@pytest.mark.asyncio
+async def test_ollama_json_schema_streaming_not_supported_async():
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_schema", "schema": OllamaCapitalResponse},
+    )
+    with pytest.raises(ValueError, match="not supported with streaming"):
+        await model.achat_complete([{"role": "user", "content": "Capital?"}], stream=True)
+
+
+def test_ollama_json_schema_invalid_json_raises():
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_schema", "schema": OllamaCapitalResponse},
+    )
+    messages = [{"role": "user", "content": "Capital?"}]
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "model": "gemma2",
+        "message": {"role": "assistant", "content": "not-json"},
+        "done": True,
+    }
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    with pytest.raises(StructuredOutputValidationError):
+        model.chat_complete(messages, stream=False)
+
+
+def test_ollama_to_langchain_with_json_schema():
+    model = OllamaLanguageModel(
+        model_name="gemma2",
+        structured={"type": "json_schema", "schema": OllamaCapitalResponse},
+    )
+    langchain_model = model.to_langchain()
+    assert isinstance(langchain_model.format, dict)
+    assert langchain_model.format["type"] == "object"
+
+
+def test_ollama_chat_complete_with_system_message():
+    """Test chat completion with system message using httpx mocking."""
+    from unittest.mock import Mock
+
+    from esperanto.providers.llm.ollama import OllamaLanguageModel
+    
+    # Create fresh model instance
+    model = OllamaLanguageModel(model_name="gemma2")
+    
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    # Mock Ollama API response data
+    mock_response_data = {
+        "model": "gemma2",
+        "created_at": "2024-01-01T00:00:00Z",
+        "message": {
+            "role": "assistant",
+            "content": "Test response"
+        },
+        "done": True,
+        "context": [],
+        "total_duration": 100000000,
+        "load_duration": 10000000,
+        "prompt_eval_duration": 50000000,
+        "eval_duration": 40000000,
+        "eval_count": 10,
+    }
+    
+    # Mock HTTP response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+    
+    # Mock the client
+    mock_client = Mock()
+    mock_client.post.return_value = mock_response
+    model.client = mock_client
+
+    completion = model.chat_complete(messages)
+    assert isinstance(completion, ChatCompletion)
+    assert completion.choices[0].message.content == "Test response"
+
+
+def test_ollama_chat_complete_with_invalid_messages():
+    """Test chat completion with invalid messages."""
+    model = OllamaLanguageModel()
+    with pytest.raises(ValueError, match="Messages cannot be empty"):
+        model.chat_complete([])
+    with pytest.raises(ValueError, match="Invalid role"):
+        model.chat_complete([{"role": "invalid", "content": "test"}])
+    with pytest.raises(ValueError, match="Missing content"):
+        model.chat_complete([{"role": "user"}])
+
+
+def test_ollama_model_parameters():
+    """Test model parameters are correctly set."""
+    model = OllamaLanguageModel(
+        model_name="gemma2", temperature=0.7, top_p=0.9, max_tokens=100, streaming=True
+    )
+    assert model.model_name == "gemma2"
+    assert model.temperature == 0.7
+    assert model.top_p == 0.9
+    assert model.max_tokens == 100
+    assert model.streaming is True
+
+
+# =============================================================================
+# Tool Calling Tests
+# =============================================================================
+
+
+@pytest.fixture
+def sample_tools():
+    """Sample tools for testing."""
+    return [
+        Tool(
+            function=ToolFunction(
+                name="get_weather",
+                description="Get the current weather for a location",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "location": {"type": "string", "description": "The city name"},
+                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+                    },
+                    "required": ["location"]
+                }
+            )
+        ),
+        Tool(
+            function=ToolFunction(
+                name="get_time",
+                description="Get the current time for a timezone",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "timezone": {"type": "string", "description": "The timezone"}
+                    }
+                }
+            )
+        )
+    ]
+
+
+@pytest.fixture
+def mock_ollama_tool_call_response():
+    """Mock HTTP response for Ollama chat completions with tool calls."""
+    return {
+        "model": "llama3.2",
+        "created_at": "2024-01-01T00:00:00Z",
+        "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_abc123",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": {"location": "San Francisco", "unit": "celsius"}
+                    }
+                }
+            ]
+        },
+        "done": True,
+        "done_reason": "tool_call"
+    }
+
+
+@pytest.fixture
+def ollama_model_with_tool_response(mock_ollama_tool_call_response):
+    """Create an Ollama model with tool call response mocked."""
+    model = OllamaLanguageModel(model_name="llama3.2")
+
+    mock_client = Mock()
+    mock_async_client = AsyncMock()
+
+    def make_response(status_code, json_data):
+        response = Mock()
+        response.status_code = status_code
+        response.json.return_value = json_data
+        return response
+
+    mock_client.post.return_value = make_response(200, mock_ollama_tool_call_response)
+    mock_async_client.post.return_value = make_response(200, mock_ollama_tool_call_response)
+
+    model.client = mock_client
+    model.async_client = mock_async_client
+    return model
+
+
+class TestToolConversion:
+    """Tests for tool conversion to Ollama format."""
+
+    def test_convert_single_tool(self, sample_tools):
+        """Test converting a single tool to Ollama format."""
+        model = OllamaLanguageModel(model_name="llama3.2")
+        result = model._convert_tools_to_ollama([sample_tools[0]])
+
+        assert len(result) == 1
+        assert result[0]["type"] == "function"
+        assert result[0]["function"]["name"] == "get_weather"
+        assert result[0]["function"]["description"] == "Get the current weather for a location"
+        assert result[0]["function"]["parameters"]["type"] == "object"
+        assert "location" in result[0]["function"]["parameters"]["properties"]
+
+    def test_convert_multiple_tools(self, sample_tools):
+        """Test converting multiple tools to Ollama format."""
+        model = OllamaLanguageModel(model_name="llama3.2")
+        result = model._convert_tools_to_ollama(sample_tools)
+
+        assert len(result) == 2
+        assert result[0]["function"]["name"] == "get_weather"
+        assert result[1]["function"]["name"] == "get_time"
+
+    def test_convert_none_tools(self):
+        """Test converting None returns None."""
+        model = OllamaLanguageModel(model_name="llama3.2")
+        result = model._convert_tools_to_ollama(None)
+        assert result is None
+
+    def test_convert_empty_tools(self):
+        """Test converting empty list returns None."""
+        model = OllamaLanguageModel(model_name="llama3.2")
+        result = model._convert_tools_to_ollama([])
+        assert result is None
+
+
+class TestToolCallResponse:
+    """Tests for handling tool call responses."""
+
+    def test_chat_complete_with_tools(self, ollama_model_with_tool_response, sample_tools):
+        """Test chat_complete with tools returns tool calls."""
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        response = ollama_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools
+        )
+
+        # Check payload included tools
+        call_args = ollama_model_with_tool_response.client.post.call_args
+        json_payload = call_args[1]["json"]
+        assert "tools" in json_payload
+        assert len(json_payload["tools"]) == 2
+
+        # Check response has tool calls
+        assert len(response.choices) == 1
+        assert response.choices[0].message.tool_calls is not None
+        assert len(response.choices[0].message.tool_calls) == 1
+
+        tool_call = response.choices[0].message.tool_calls[0]
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.id == "call_abc123"
+        assert tool_call.function.name == "get_weather"
+
+    def test_chat_complete_with_tool_choice(self, ollama_model_with_tool_response, sample_tools):
+        """Test chat_complete with tool_choice parameter."""
+        messages = [{"role": "user", "content": "What's the weather?"}]
+
+        ollama_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools, tool_choice="required"
+        )
+
+        call_args = ollama_model_with_tool_response.client.post.call_args
+        json_payload = call_args[1]["json"]
+        # Ollama may or may not support tool_choice - just verify it's passed
+        assert "tools" in json_payload
+
+    @pytest.mark.asyncio
+    async def test_achat_complete_with_tools(self, ollama_model_with_tool_response, sample_tools):
+        """Test async chat_complete with tools returns tool calls."""
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        response = await ollama_model_with_tool_response.achat_complete(
+            messages, tools=sample_tools
+        )
+
+        # Check payload included tools
+        call_args = ollama_model_with_tool_response.async_client.post.call_args
+        json_payload = call_args[1]["json"]
+        assert "tools" in json_payload
+
+        # Check response has tool calls
+        assert response.choices[0].message.tool_calls is not None
+        tool_call = response.choices[0].message.tool_calls[0]
+        assert tool_call.function.name == "get_weather"
+
+    def test_normalize_chunk_with_tool_calls(self):
+        """Test _normalize_chunk returns ToolCall objects (not dicts) for streaming tool calls."""
+        model = OllamaLanguageModel(model_name="llama3.2")
+        chunk = {
+            "model": "llama3.2",
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_abc123",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": {"location": "San Francisco"},
+                        },
+                    }
+                ],
+            },
+            "done": True,
+        }
+
+        result = model._normalize_chunk(chunk)
+
+        assert result is not None
+        delta = result.choices[0].delta
+        assert delta.tool_calls is not None
+        assert len(delta.tool_calls) == 1
+        tool_call = delta.tool_calls[0]
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.function.name == "get_weather"
+
+
+class TestParameterOverrides:
+    """Tests for per-call max_tokens, temperature, top_p overrides."""
+
+    def _make_model_with_mock_client(self):
+        """Return a fresh OllamaLanguageModel with a sync mock client."""
+        model = OllamaLanguageModel(model_name="gemma2")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "model": "gemma2",
+            "message": {"role": "assistant", "content": "Test"},
+            "done": True,
+        }
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+        model.client = mock_client
+        return model
+
+    def test_max_tokens_override(self):
+        """Per-call max_tokens maps to options['num_predict'] instead of instance default."""
+        model = self._make_model_with_mock_client()
+        messages = [{"role": "user", "content": "Hello"}]
+        model.chat_complete(messages, max_tokens=500)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload["options"]["num_predict"] == 500
+
+    def test_temperature_override(self):
+        """Per-call temperature overrides the instance default in options."""
+        model = self._make_model_with_mock_client()
+        messages = [{"role": "user", "content": "Hello"}]
+        model.chat_complete(messages, temperature=0.2)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload["options"]["temperature"] == 0.2
+
+    def test_top_p_override(self):
+        """Per-call top_p overrides the instance default in options."""
+        model = self._make_model_with_mock_client()
+        messages = [{"role": "user", "content": "Hello"}]
+        model.chat_complete(messages, top_p=0.7)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload["options"]["top_p"] == 0.7
+
+    def test_instance_defaults_when_no_overrides(self):
+        """Regression guard: omitting overrides uses instance-level values."""
+        model = self._make_model_with_mock_client()
+        messages = [{"role": "user", "content": "Hello"}]
+        model.chat_complete(messages)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload["options"]["num_predict"] == 850
+        assert json_payload["options"]["temperature"] == 1.0
+
+    @pytest.mark.asyncio
+    async def test_async_max_tokens_override(self):
+        """Async: per-call max_tokens maps to options['num_predict']."""
+        model = OllamaLanguageModel(model_name="gemma2")
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "model": "gemma2",
+            "message": {"role": "assistant", "content": "Test"},
+            "done": True,
+        }
+        mock_async_client = AsyncMock()
+        mock_async_client.post.return_value = mock_response
+        model.async_client = mock_async_client
+
+        messages = [{"role": "user", "content": "Hello"}]
+        await model.achat_complete(messages, max_tokens=500)
+        json_payload = mock_async_client.post.call_args[1]["json"]
+        assert json_payload["options"]["num_predict"] == 500
+
+
+class TestToolCallValidation:
+    """Tests for tool call validation."""
+
+    def test_validation_passes_for_valid_tool_call(
+        self, ollama_model_with_tool_response, sample_tools
+    ):
+        """Test that validation passes for valid tool calls."""
+        pytest.importorskip("jsonschema")
+
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        # Should not raise
+        response = ollama_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools, validate_tool_calls=True
+        )
+
+        assert response.choices[0].message.tool_calls is not None
+
+
+# =============================================================================
+# Thinking Model Tests
+# =============================================================================
+
+
+class TestOllamaThinkingModels:
+    """Tests for Ollama thinking models (e.g., Qwen 3.5) that return a separate thinking field."""
+
+    def test_chat_complete_with_thinking(self):
+        """Test that thinking field from Ollama response is preserved."""
+        model = OllamaLanguageModel(model_name="qwen3.5:9b")
+
+        mock_response_data = {
+            "model": "qwen3.5:9b",
+            "message": {
+                "role": "assistant",
+                "content": "Hello",
+                "thinking": "The user asked me to say hello. I should respond with a greeting.",
+            },
+            "done": True,
+            "eval_count": 50,
+            "prompt_eval_count": 10,
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_response_data
+
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+        model.client = mock_client
+
+        completion = model.chat_complete([{"role": "user", "content": "Say hello"}])
+
+        msg = completion.choices[0].message
+        assert msg.cleaned_content == "Hello"
+        assert msg.thinking == "The user asked me to say hello. I should respond with a greeting."
+
+    def test_chat_complete_thinking_with_empty_content(self):
+        """Test thinking model response when content is empty."""
+        model = OllamaLanguageModel(model_name="qwen3.5:9b")
+
+        mock_response_data = {
+            "model": "qwen3.5:9b",
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "thinking": "Extensive reasoning here...",
+            },
+            "done": True,
+            "eval_count": 850,
+            "prompt_eval_count": 10,
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_response_data
+
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+        model.client = mock_client
+
+        completion = model.chat_complete([{"role": "user", "content": "Think hard"}])
+
+        msg = completion.choices[0].message
+        assert msg.thinking == "Extensive reasoning here..."
+        assert msg.cleaned_content == ""
+
+    def test_chat_complete_without_thinking(self):
+        """Test that normal responses (no thinking field) still work."""
+        model = OllamaLanguageModel(model_name="gemma2")
+
+        mock_response_data = {
+            "model": "gemma2",
+            "message": {
+                "role": "assistant",
+                "content": "Normal response",
+            },
+            "done": True,
+            "eval_count": 5,
+            "prompt_eval_count": 10,
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_response_data
+
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+        model.client = mock_client
+
+        completion = model.chat_complete([{"role": "user", "content": "Hello"}])
+
+        msg = completion.choices[0].message
+        assert msg.content == "Normal response"
+        assert msg.thinking is None
+        assert msg.cleaned_content == "Normal response"
+
+    @pytest.mark.asyncio
+    async def test_achat_complete_with_thinking(self):
+        """Test async chat completion with thinking field."""
+        model = OllamaLanguageModel(model_name="qwen3.5:9b")
+
+        mock_response_data = {
+            "model": "qwen3.5:9b",
+            "message": {
+                "role": "assistant",
+                "content": "42",
+                "thinking": "The answer to life, the universe, and everything.",
+            },
+            "done": True,
+            "eval_count": 30,
+            "prompt_eval_count": 10,
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_response_data
+
+        mock_async_client = AsyncMock()
+        mock_async_client.post.return_value = mock_response
+        model.async_client = mock_async_client
+
+        completion = await model.achat_complete(
+            [{"role": "user", "content": "What is the answer?"}]
+        )
+
+        msg = completion.choices[0].message
+        assert msg.cleaned_content == "42"
+        assert msg.thinking == "The answer to life, the universe, and everything."
+
+    def test_streaming_with_thinking(self):
+        """Test streaming response with thinking field in chunks."""
+        model = OllamaLanguageModel(model_name="qwen3.5:9b")
+
+        stream_data = [
+            '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"","thinking":"Let me think..."},"done":false}',
+            '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"Hello"},"done":false}',
+            '{"model":"qwen3.5:9b","message":{"role":"assistant","content":""},"done":true}',
+        ]
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = stream_data
+
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+        model.client = mock_client
+
+        chunks = list(
+            model.chat_complete(
+                [{"role": "user", "content": "Hello"}], stream=True
+            )
+        )
+
+        assert len(chunks) == 3
+        # First chunk has thinking
+        assert chunks[0].choices[0].delta.thinking == "Let me think..."
+        # Second chunk has content
+        assert chunks[1].choices[0].delta.cleaned_content == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_async_streaming_with_thinking(self):
+        """Test async streaming response with thinking field."""
+        model = OllamaLanguageModel(model_name="qwen3.5:9b")
+
+        async def mock_aiter_lines():
+            yield '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"","thinking":"Reasoning..."},"done":false}'
+            yield '{"model":"qwen3.5:9b","message":{"role":"assistant","content":"Result"},"done":true}'
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.aiter_lines = mock_aiter_lines
+
+        mock_async_client = AsyncMock()
+        mock_async_client.post.return_value = mock_response
+        model.async_client = mock_async_client
+
+        stream = await model.achat_complete(
+            [{"role": "user", "content": "Think"}], stream=True
+        )
+        chunks = []
+        async for chunk in stream:
+            chunks.append(chunk)
+
+        assert len(chunks) == 2
+        assert chunks[0].choices[0].delta.thinking == "Reasoning..."
+        assert chunks[1].choices[0].delta.cleaned_content == "Result"
+
+
+# =============================================================================
+# Trailing Slash Tests
+# =============================================================================
+
+
+def test_ollama_base_url_trailing_slash_stripped():
+    """Test that trailing slash in base_url is stripped to avoid double-slash."""
+    model = OllamaLanguageModel(base_url="http://localhost:11434/")
+    assert model.base_url == "http://localhost:11434"
+
+
+def test_ollama_base_url_multiple_trailing_slashes_stripped():
+    """Test that multiple trailing slashes are stripped."""
+    model = OllamaLanguageModel(base_url="http://localhost:11434///")
+    assert model.base_url == "http://localhost:11434"
+
+
+def test_ollama_base_url_no_trailing_slash_unchanged():
+    """Test that base_url without trailing slash is unchanged."""
+    model = OllamaLanguageModel(base_url="http://localhost:11434")
+    assert model.base_url == "http://localhost:11434"
+
+
+def test_ollama_base_url_env_var_trailing_slash_stripped():
+    """Test that trailing slash from env var is also stripped."""
+    with patch.dict(os.environ, {"OLLAMA_BASE_URL": "http://env:11434/"}):
+        model = OllamaLanguageModel()
+        assert model.base_url == "http://env:11434"
+
+
+def test_ollama_default_num_ctx():
+    """Test that default num_ctx (8192) is applied when not specified."""
+    model = OllamaLanguageModel(model_name="gemma2")
+    api_kwargs = model._get_api_kwargs()
+
+    assert "options" in api_kwargs
+    assert api_kwargs["options"]["num_ctx"] == 8192
+
+
+def test_ollama_custom_num_ctx():
+    """Test that custom num_ctx is passed correctly via config."""
+    model = OllamaLanguageModel(model_name="gemma2", config={"num_ctx": 32768})
+    api_kwargs = model._get_api_kwargs()
+
+    assert "options" in api_kwargs
+    assert api_kwargs["options"]["num_ctx"] == 32768
+
+
+def test_ollama_to_langchain_default_num_ctx():
+    """Test that to_langchain uses default num_ctx (8192) when not specified."""
+    model = OllamaLanguageModel(model_name="gemma2")
+    langchain_model = model.to_langchain()
+
+    assert langchain_model.num_ctx == 8192
+
+
+def test_ollama_to_langchain_custom_num_ctx():
+    """Test that to_langchain passes custom num_ctx from config."""
+    model = OllamaLanguageModel(model_name="gemma2", config={"num_ctx": 65536})
+    langchain_model = model.to_langchain()
+
+    assert langchain_model.num_ctx == 65536
+
+
+def test_ollama_keep_alive_not_set_by_default():
+    """Test that keep_alive is not set when not specified (no forced memory usage)."""
+    model = OllamaLanguageModel(model_name="gemma2")
+    api_kwargs = model._get_api_kwargs()
+
+    assert "keep_alive" not in api_kwargs
+
+
+def test_ollama_keep_alive_custom():
+    """Test that custom keep_alive is passed correctly via config."""
+    model = OllamaLanguageModel(model_name="gemma2", config={"keep_alive": "10m"})
+    api_kwargs = model._get_api_kwargs()
+
+    assert api_kwargs["keep_alive"] == "10m"
+
+
+def test_ollama_keep_alive_zero():
+    """Test that keep_alive can be set to 0 to unload immediately."""
+    model = OllamaLanguageModel(model_name="gemma2", config={"keep_alive": "0"})
+    api_kwargs = model._get_api_kwargs()
+
+    assert api_kwargs["keep_alive"] == "0"
+
+
+def test_ollama_to_langchain_no_keep_alive_by_default():
+    """Test that to_langchain does not set keep_alive when not specified."""
+    model = OllamaLanguageModel(model_name="gemma2")
+    langchain_model = model.to_langchain()
+
+    # LangChain's ChatOllama should not have keep_alive set
+    assert langchain_model.keep_alive is None
+
+
+def test_ollama_to_langchain_custom_keep_alive():
+    """Test that to_langchain passes custom keep_alive from config."""
+    model = OllamaLanguageModel(model_name="gemma2", config={"keep_alive": "30m"})
+    langchain_model = model.to_langchain()
+
+    assert langchain_model.keep_alive == "30m"

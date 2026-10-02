@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# CodeQL security and quality analysis for omnimemory.
+# Calls the reusable workflow in onex_change_control.
+# OMN-5424
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, 'hotfix/**']
+  pull_request:
+    branches: [main, dev]
+  merge_group:
+  schedule:
+    # Run weekly on Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  codeql:
+    name: CodeQL
+    uses: OmniNode-ai/onex_change_control/.github/workflows/codeql-reusable.yml@main
+    with:
+      language: python
+      query_suite: security-and-quality
+    permissions:
+      actions: read
+      contents: read
+      security-events: write

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.10.0
+Version: 2.11.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -110,7 +110,7 @@ Requires-Dist: python-dateutil>=2.9.0.post0,<3 ; extra == "all"
 Requires-Dist: redis>=4.2 ; extra == "all"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "all"
 Requires-Dist: slack-bolt>=1.22 ; extra == "all"
-Requires-Dist: sqlalchemy>=2,<3 ; extra == "all"
+Requires-Dist: sqlalchemy[asyncio]>=2,<3 ; extra == "all"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "all"
 Requires-Dist: tabulate>=0.9 ; extra == "all"
 Requires-Dist: toolbox-adk>=1,<2 ; extra == "all"
@@ -124,7 +124,7 @@ Requires-Dist: google-cloud-storage>=2.18,<4 ; extra == "bigquery-analytics"
 Requires-Dist: pyarrow>=14 ; extra == "bigquery-analytics"
 Requires-Dist: google-adk-community ; extra == "community"
 Requires-Dist: daytona>=0.191 ; extra == "daytona"
-Requires-Dist: sqlalchemy>=2,<3 ; extra == "db"
+Requires-Dist: sqlalchemy[asyncio]>=2,<3 ; extra == "db"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "db"
 Requires-Dist: codespell[toml]==2.4.2 ; extra == "dev"
 Requires-Dist: flit>=3.10 ; extra == "dev"
@@ -274,7 +274,7 @@ Requires-Dist: python-dateutil>=2.9.0.post0,<3 ; extra == "test"
 Requires-Dist: python-multipart>=0.0.9 ; extra == "test"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "test"
 Requires-Dist: slack-bolt>=1.22 ; extra == "test"
-Requires-Dist: sqlalchemy>=2,<3 ; extra == "test"
+Requires-Dist: sqlalchemy[asyncio]>=2,<3 ; extra == "test"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "test"
 Requires-Dist: tabulate>=0.9 ; extra == "test"
 Requires-Dist: tomli>=2,<3 ; extra == "test" and ( python_version<'3.11')

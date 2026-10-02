@@ -31,6 +31,7 @@ from anyscale_client.models.cloud_config import CloudConfig
 from anyscale_client.models.cloud_deployment_compute_config import CloudDeploymentComputeConfig
 from anyscale_client.models.cloud_list_response import CloudListResponse
 from anyscale_client.models.cloud_providers import CloudProviders
+from anyscale_client.models.cloud_resource_traffic_distribution import CloudResourceTrafficDistribution
 from anyscale_client.models.cloud_response import CloudResponse
 from anyscale_client.models.cloud_state import CloudState
 from anyscale_client.models.cloud_status import CloudStatus
@@ -164,7 +165,9 @@ from anyscale_client.models.service_model import ServiceModel
 from anyscale_client.models.service_observability_urls import ServiceObservabilityUrls
 from anyscale_client.models.service_sort_field import ServiceSortField
 from anyscale_client.models.service_status_checklist import ServiceStatusChecklist
+from anyscale_client.models.service_traffic_distribution import ServiceTrafficDistribution
 from anyscale_client.models.service_type import ServiceType
+from anyscale_client.models.service_version_placement import ServiceVersionPlacement
 from anyscale_client.models.service_version_state import ServiceVersionState
 from anyscale_client.models.servicemodel_list_response import ServicemodelListResponse
 from anyscale_client.models.servicemodel_response import ServicemodelResponse
@@ -191,5 +194,7 @@ from anyscale_client.models.update_organization import UpdateOrganization
 from anyscale_client.models.user_service_access_types import UserServiceAccessTypes
 from anyscale_client.models.validation_error import ValidationError
 from anyscale_client.models.version_checklist import VersionChecklist
+from anyscale_client.models.version_traffic_share import VersionTrafficShare
+from anyscale_client.models.version_traffic_total import VersionTrafficTotal
 from anyscale_client.models.worker_node_type import WorkerNodeType
 from anyscale_client.models.workload_type import WorkloadType

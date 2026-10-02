@@ -1,0 +1,166 @@
+---
+name: pr_polish
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  PR readiness polish WorkflowPackage. Resolves merge conflicts, fixes CI
+  failures, addresses review comments, and runs local review. Phases: INIT ->
+  RESOLVE_CONFLICTS -> FIX_CI -> ADDRESS_COMMENTS -> LOCAL_REVIEW -> DONE.
+  Circuit breaker trips after 3 consecutive failures.
+
+handler:
+  module: omnimarket.nodes.node_pr_polish.handlers.handler_pr_polish
+  class: HandlerPrPolish
+  input_model: omnimarket.nodes.node_pr_polish.models.model_pr_polish_start_command.ModelPrPolishStartCommand
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: pr_polish
+      handler:
+        name: HandlerPrPolish
+        module: omnimarket.nodes.node_pr_polish.handlers.handler_pr_polish
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 300000
+
+inputs:
+  repo:
+    type: str
+    description: "GitHub repo slug (owner/repo) for live polish"
+    required: false
+  pr_number:
+    type: int
+    description: "PR number to polish"
+    required: false
+  ticket_id:
+    type: str
+    description: "Linear ticket ID for traceability"
+    required: false
+  required_clean_runs:
+    type: int
+    description: "Consecutive clean local-review passes required before done"
+    required: false
+    default: 4
+  max_iterations:
+    type: int
+    description: "Maximum local-review cycles before stopping"
+    required: false
+    default: 10
+  skip_conflicts:
+    type: bool
+    description: "Skip merge conflict resolution phase"
+    required: false
+    default: false
+  skip_pr_review:
+    type: bool
+    description: "Skip PR review comments and CI repair phase"
+    required: false
+    default: false
+  skip_local_review:
+    type: bool
+    description: "Skip local review phase"
+    required: false
+    default: false
+  no_ci:
+    type: bool
+    description: "Skip CI fetch in the PR review phase"
+    required: false
+    default: false
+  no_push:
+    type: bool
+    description: "Apply fixes locally without pushing"
+    required: false
+    default: false
+  no_automerge:
+    type: bool
+    description: "Skip enabling GitHub automerge at the end"
+    required: false
+    default: false
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+  worktree_path:
+    type: str
+    description: "Explicit worktree path override for live polish"
+    required: false
+  run_dir:
+    type: str
+    description: "Explicit state directory for breadcrumbs and result.json"
+    required: false
+  skip_repair_dispatch:
+    type: bool
+    description: "Skip compiling and dispatching the repair-worker agent spec"
+    required: false
+    default: false
+
+outputs:
+  final_phase:
+    type: str
+    description: "Terminal phase reached"
+  conflicts_resolved:
+    type: int
+    description: "Merge conflicts resolved"
+  ci_fixes_applied:
+    type: int
+    description: "CI fixes applied"
+  comments_addressed:
+    type: int
+    description: "Review comments addressed"
+  run_dir:
+    type: str
+    description: "State directory containing PR polish artifacts"
+  dispatch_worker_spec_path:
+    type: str
+    description: "Compiled fixer worker spec artifact path"
+  dispatch_execution_result_path:
+    type: str
+    description: "Dispatch-worker execution outcome artifact path"
+  delegation_payloads_path:
+    type: str
+    description: "Persisted repair delegation payload artifact path"
+  repair_worker_payloads_prepared:
+    type: int
+    description: "Repair worker payloads prepared by the execution effect"
+  repair_workers_dispatched:
+    type: int
+    description: "Repair worker payloads published to the runtime bus"
+  delegation_publish_status:
+    type: str
+    description: "Runtime delegation publish status"
+  precommit_failure:
+    type: str
+    description: >-
+      Structured pre-commit failure signal (JSON object with hook_ids, paths,
+      command, exit_code, output_tail); absent when pre-commit passed or did
+      not run. Lets a downstream classifier route repo-baseline debt.
+    required: false
+
+terminal_event: onex.evt.omnimarket.pr-polish-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-polish-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-polish-phase-transition.v1
+    - onex.evt.omnimarket.pr-polish-completed.v1
+    - onex.cmd.omnimarket.delegation-request.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.cmd.omnimarket.delegation-request.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_pr_polish/models/model_pr_polish_precommit_failure.py
+  - onex.evt.omnimarket.pr-polish-completed.v1
+  - onex.evt.omnimarket.pr-polish-phase-transition.v1

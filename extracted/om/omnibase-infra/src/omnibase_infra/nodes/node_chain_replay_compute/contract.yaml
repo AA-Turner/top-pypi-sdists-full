@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Chain Replay Compute
+#
+# Pure computation: adapts a cached chain to a new prompt context.
+#
+# Related Tickets:
+#   - OMN-14815: HandlerChainReplay flipped to canonical def-B
+#     handle(request) using the existing ModelChainReplayInput contract model.
+#
+name: "node_chain_replay_compute"
+node_type: "COMPUTE_GENERIC"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 1
+node_version: "1.0.1"
+description: >
+  Compute node that takes a cached chain and new prompt context through the canonical def-B ModelChainReplayInput request, then adapts the chain steps via variable substitution and context adjustment. Returns adapted steps with a confidence score.
+
+input_model:
+  name: "ModelChainReplayInput"
+  module: "omnibase_infra.nodes.node_chain_orchestrator.models.model_chain_replay_input"
+  description: "Cached chain and new prompt context for adaptation."
+output_model:
+  name: "ModelChainReplayResult"
+  module: "omnibase_infra.nodes.node_chain_orchestrator.models.model_chain_replay_result"
+  description: "Adapted chain steps with confidence score."
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "chain.replay"
+      handler:
+        name: "HandlerChainReplay"
+        module: "omnibase_infra.nodes.node_chain_replay_compute.handlers.handler_chain_replay"
+      input_model:
+        name: "ModelChainReplayInput"
+        module: "omnibase_infra.nodes.node_chain_orchestrator.models.model_chain_replay_input"
+        description: "Typed def-B request for chain replay adaptation."
+metadata:
+  description: "Chain replay adaptation compute for chain learning using canonical def-B handle(request) dispatch."
+  author: "OmniNode Team"
+  created: "2026-04-02"
+  updated: "2026-07-20"
+  tags:
+    - "compute"
+    - "chain-learning"
+    - "replay"
+  related_tickets:
+    - "OMN-14815"

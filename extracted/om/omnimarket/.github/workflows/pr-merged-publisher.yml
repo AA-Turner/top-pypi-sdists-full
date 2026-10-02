@@ -1,0 +1,226 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# pr-merged-publisher.yml
+#
+# Publishes onex.evt.github.pr-merged.v1 to the canonical event bus whenever a
+# PR merges to any branch. The event payload carries {repo, branch, pr_number,
+# ticket, merged_at} and is consumed by the projection node (OMN-13227) which
+# materialises a queryable projection at GET /projection/onex.evt.github.pr-merged.v1
+# on the local projection API. The per-machine worktree reaper (T4, OMN-13228)
+# polls that projection to trigger prune-worktrees.sh on matched worktrees.
+#
+# ============================================================================
+# OMN-17378 -- THIS WORKFLOW WAS GREEN AND SILENT FOR FOUR DAYS. READ THIS.
+# ============================================================================
+# From 2026-08-27 to 2026-08-31 every run reported `success` and published
+# nothing. The dev-lane topic sat at HIGH-WATERMARK 97 (last message PR #2159,
+# 2026-08-27) while omnimarket merged through PR #2249; eight green runs on
+# 08-31 alone produced zero messages. Forensic run: 33436788824.
+#
+# CAUSE: `OMNI_TRUSTED_CI_RUNS_ON_JSON` was flipped to `["ubuntu-latest"]` at org
+# AND repo scope under the public-repo hosted-runner policy. That variable was
+# this job's trusted-branch selector, so a LAN-bound publisher silently
+# relocated onto a GitHub-hosted runner, where `source ~/.omnibase/.env` no-ops.
+# The `KAFKA_BOOTSTRAP_SERVERS` secret was still injected, so the old "broker
+# unset -> skip" branch never fired; instead librdkafka could not resolve the
+# name, `flush()` returned with the message still queued, the script discarded
+# that return value, and it printed `Published ... event_id=...` and exited 0.
+#
+# TWO FIXES, both landed here:
+#
+# 1. ROUTING -- a DEDICATED runner variable, pinned to the fleet.
+#    The trusted branch now reads `OMNI_PR_MERGED_PUBLISHER_RUNS_ON_JSON`, NOT
+#    the shared `OMNI_TRUSTED_CI_RUNS_ON_JSON` seam that governs lint/test/build.
+#    This is NOT an override of the hosted-runner policy: that policy's own text
+#    carves out "deploys, LAN-reaching, fleet-secret-bound" jobs to stay
+#    self-hosted with an inline reason comment. It is also the exact remedy
+#    already applied to call-occ-autobind.yml in this repo after the SAME
+#    variable flip broke OCC autobind fleet-wide on 2026-08-26 (incident
+#    OMN-16691, OMN-16682 constraint 8) -- a carve-out this workflow needed and
+#    did not get. The literal `["self-hosted","omnibase-ci"]` fallback IS the
+#    operating value; `OMNI_PR_MERGED_PUBLISHER_RUNS_ON_JSON` is deliberately
+#    left UNSET at org and repo scope, so this job pins to the fleet no matter
+#    what the shared seam is flipped to, while leaving one explicit,
+#    single-purpose knob for the day the lane broker is reachable from another
+#    runner class.
+#
+#    REJECTED ALTERNATIVE (recorded on OMN-17378): route the publish through a
+#    broker a hosted runner can reach (managed/cloud Kafka, or a relay).
+#    Rejected on evidence, not preference -- (a) no cloud broker is provisioned:
+#    no cloud broker exists to authenticate to. (The `KAFKA_SASL_*` pair injected
+#    below is org-scoped, dates from 2026-09-07, and authenticates to THIS LAN
+#    broker's SCRAM listener -- it is not a cloud credential and does not revive
+#    this alternative.) (b) the consumer this feed exists to serve,
+#    node_pr_merged_projection, consumes the dev-lane Redpanda on .201, so
+#    producing to a different broker would turn the check green and leave the
+#    feed just as dead; (c) the fleet path is proven working on this exact
+#    broker today -- call-occ-autobind.yml publishes to it on every PR
+#    (run 33431916475, runner omninode-runner-12, ack in 8ms).
+#
+# 2. FAIL-CLOSED -- see scripts/publish_pr_merged_event.py. A non-zero flush
+#    remainder now raises; graceful exit-0 skip survives ONLY on the
+#    fork/hosted fallback path, distinguished EXPLICITLY by `RUNNER_IS_TRUSTED`
+#    rather than implicitly by which env vars happen to be set.
+#
+# BROKER RESOLUTION -- SECRET-FREE (OMN-14801 point 5, closed here):
+#   `--lane dev` resolves the broker from the checked-in
+#   `config/ci_bus_lanes.yaml` overlay, which declares the concrete dev-lane
+#   Redpanda external listener. The `KAFKA_BOOTSTRAP_SERVERS` secret injection
+#   and the `source ~/.omnibase/.env` line are both GONE: each was an opaque,
+#   unreviewable config surface, and the secret is precisely what let a
+#   hosted-runner misroute masquerade as a configured broker. If a secret is
+#   ever re-injected it is fail-loud-checked against the overlay (OMN-14800
+#   silent-repoint guard). This closes the residual the overlay header names by
+#   file: "pr-merged-publisher.yml ... do NOT use this overlay yet".
+#
+# PUBLISH RECEIPT: the publisher writes topic + event_id + partition + offset to
+# the step summary, so "did it actually publish" is readable from the run page
+# without a broker probe.
+#
+# Ticket: OMN-13226, OMN-14639, OMN-14801, OMN-17378
+
+name: PR Merged Publisher
+
+on:
+  pull_request:
+    types: [closed]
+  # Backfill / proof path (OMN-17378 fix item 4). `pull_request: closed`
+  # workflows always run the BASE branch's copy of this file, so a fix landing
+  # here cannot be proven by its own merge — the merge that lands it still runs
+  # the old file. This input republishes any already-merged PR by number, which
+  # is also how the 08-27 -> present gap gets backfilled.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Merged PR number to publish (backfill / proof)"
+        required: true
+        type: string
+
+# OMN-19643: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  publish-pr-merged:
+    name: Publish pr-merged event
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.merged == true
+    # RUNNER CARVE-OUT (OMN-17378; mirrors OMN-16691 / OMN-16682 constraint 8) —
+    # the trusted branch reads the DEDICATED
+    # `OMNI_PR_MERGED_PUBLISHER_RUNS_ON_JSON` variable, NOT the shared
+    # `OMNI_TRUSTED_CI_RUNS_ON_JSON` seam. See the long note in the header: this
+    # job publishes to the tailnet-only dev-lane broker declared in
+    # config/ci_bus_lanes.yaml, and only the self-hosted `omnibase-ci` fleet on
+    # .201 is on that tailnet. A GitHub-hosted runner cannot resolve the name at
+    # all — which is exactly how this publisher went silent for four days.
+    #
+    # Fork PRs keep the `OMNI_PUBLIC_PR_RUNS_ON_JSON` path: no broker is
+    # provisioned there by design, the publisher skips gracefully (exit 0), and
+    # fork isolation (OMN-16683) is untouched. `workflow_dispatch` has no
+    # `pull_request` context, so it falls to the trusted branch — correct, since
+    # only a maintainer can dispatch.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_PR_MERGED_PUBLISHER_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # Same fork/non-fork test as `runs-on:` above, threaded into the publish step
+    # so the script can tell an expected fork-runner skip apart from a trusted-
+    # runner misconfiguration — and fail loudly on the latter instead of exiting
+    # 0. Not defaulted anywhere: an unset value is itself a wiring gap and reds.
+    env:
+      RUNNER_IS_TRUSTED: >-
+        ${{
+          (github.event_name == 'pull_request' &&
+           github.event.pull_request.head.repo.full_name != github.repository)
+          && 'false' || 'true'
+        }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # This job only runs a Python publisher; it never pushes to git, so do
+          # not persist the auto-injected token into .git/config.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          # pyyaml: parse the checked-in config/ci_bus_lanes.yaml lane overlay
+          # (OMN-14801). Kept deliberately thin — no product graph import.
+          pip install --quiet confluent-kafka click pydantic pyyaml
+
+      - name: Publish onex.evt.github.pr-merged.v1
+        # All potentially attacker-controlled inputs (branch name, PR title) are
+        # passed through environment variables to prevent shell injection.
+        #
+        # OMN-17378: the broker is CONFIG, not a secret. `KAFKA_BOOTSTRAP_SERVERS`
+        # is not injected and `source ~/.omnibase/.env` is gone — the broker
+        # resolves from the committed `config/ci_bus_lanes.yaml` overlay via
+        # `--lane dev`.
+        #
+        # OMN-18012 CORRECTION: this comment used to end "the dev lane is
+        # plaintext Redpanda, so there are no SASL creds to supply". That stopped
+        # being true at ~16:40Z on 2026-09-07, when SASL/SCRAM-SHA-256 was
+        # enabled on the dev-lane Redpanda EXTERNAL listener. The lane now
+        # declares `security_protocol: SASL_PLAINTEXT` /
+        # `sasl_mechanism: SCRAM-SHA-256` in that same overlay, and the publisher
+        # reads the declaration rather than inferring one — so the SCRAM
+        # principal must be supplied, or the publish fails closed instead of
+        # silently attempting plaintext. Same two org secrets
+        # call-occ-autobind.yml already injects for the same lane and the same
+        # broker. The credential is a secret; the transport and the broker are
+        # not.
+        env:
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DISPATCH_PR_NUMBER: ${{ inputs.pr_number }}
+          PR_REPO: ${{ github.repository }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_MERGED_AT: ${{ github.event.pull_request.merged_at }}
+          # Best-effort ticket extraction: the script also parses PR_BRANCH
+          PR_TICKET: ""
+        run: |
+          set -euo pipefail
+
+          # workflow_dispatch carries no pull_request context, so resolve the
+          # merge facts from the API. Resolution stays INSIDE this step rather
+          # than crossing a step boundary via $GITHUB_OUTPUT — a PR-controlled
+          # branch name never touches a file the runner parses back as config.
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            case "${DISPATCH_PR_NUMBER}" in
+              ''|*[!0-9]*)
+                echo "ERROR: pr_number must be a positive integer, got: '${DISPATCH_PR_NUMBER}'" >&2
+                exit 1
+                ;;
+            esac
+            PR_NUMBER="${DISPATCH_PR_NUMBER}"
+            PR_BRANCH="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.head.ref')"
+            PR_MERGED_AT="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.merged_at // ""')"
+            if [ -z "${PR_MERGED_AT}" ]; then
+              echo "ERROR: PR #${PR_NUMBER} is not merged; refusing to publish a pr-merged event for it." >&2
+              exit 1
+            fi
+            export PR_NUMBER PR_BRANCH PR_MERGED_AT
+          fi
+
+          python scripts/publish_pr_merged_event.py --lane dev

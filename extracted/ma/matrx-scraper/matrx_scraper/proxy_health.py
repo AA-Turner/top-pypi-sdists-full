@@ -35,6 +35,11 @@ _counters: Counter[str] = Counter()
 _refused_hosts: dict[str, float] = {}
 _last_proxy_error: str | None = None
 _last_proxy_error_at: float | None = None
+#: Monotonic time a proxy last CARRIED any request (the site answered through
+#: it, whatever the status). This is what separates "the vendor refuses this
+#: one destination" from "the pool is exhausted": a pool that carried another
+#: host a minute ago is not exhausted (system_error 586170ad, 2026-10-01).
+_last_proxy_carried_at: float | None = None
 
 
 def host_of(url: str) -> str:
@@ -73,6 +78,24 @@ def record_proxy_success(url: str) -> None:
     with _lock:
         _counters["proxy_successes"] += 1
         _refused_hosts.pop(host, None)
+
+
+def record_proxy_carried() -> None:
+    """A proxy delivered the request to the site (any non-proxy outcome)."""
+    global _last_proxy_carried_at
+    with _lock:
+        _last_proxy_carried_at = time.monotonic()
+
+
+def pool_carried_recently() -> bool:
+    """Has ANY proxy carried ANY request within the refusal window?
+
+    `False` is the only evidence that the whole pool is exhausted; `True`
+    means a full-pool refusal of one URL is the vendor declining that
+    destination, which `record_proxy_refusal` already remembers per host."""
+    with _lock:
+        seen = _last_proxy_carried_at
+    return seen is not None and time.monotonic() - seen <= REFUSAL_MEMORY_SECONDS
 
 
 def pool_refuses(url: str) -> bool:
@@ -125,9 +148,10 @@ def proxy_health_snapshot() -> dict[str, object]:
 
 
 def reset_for_tests() -> None:
-    global _last_proxy_error, _last_proxy_error_at
+    global _last_proxy_error, _last_proxy_error_at, _last_proxy_carried_at
     with _lock:
         _counters.clear()
         _refused_hosts.clear()
         _last_proxy_error = None
         _last_proxy_error_at = None
+        _last_proxy_carried_at = None

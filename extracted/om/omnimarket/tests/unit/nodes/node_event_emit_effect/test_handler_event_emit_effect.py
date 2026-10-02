@@ -1,0 +1,681 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for node_event_emit_effect's handler (OMN-15965 R1).
+
+Covers:
+- Happy path resolves topic(s)+tier from the registry and publishes.
+- Multi-topic fan-out (e.g. prompt.submitted -> two topics).
+- Unknown event_type fails fast (no silent default topic).
+- Handler constructor does no I/O -- only handle() touches disk/network.
+- Spool-only mode when KAFKA_BOOTSTRAP_SERVERS is unset.
+- Models reject extra fields / empty event_type.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from omnimarket.nodes.node_event_emit_effect.errors import UnresolvableTransformError
+from omnimarket.nodes.node_event_emit_effect.handlers.handler_event_emit_effect import (
+    HandlerEventEmitEffect,
+)
+from omnimarket.nodes.node_event_emit_effect.models.model_emit_request import (
+    JsonType,
+    ModelEmitRequest,
+)
+from omnimarket.nodes.node_event_emit_effect.spool.spool_outbox import SpoolOutbox
+from omnimarket.nodes.node_event_emit_effect.spool.topic_resolver import (
+    UnknownEventTypeError,
+)
+
+pytestmark = pytest.mark.unit
+
+
+class FakePublishAdapter:
+    """Records publish calls; never touches the network."""
+
+    def __init__(self, *, fail_topics: frozenset[str] = frozenset()) -> None:
+        self.calls: list[tuple[str, JsonType, str | None, str | None]] = []
+        self.content_event_ids: list[str | None] = []
+        self._fail_topics = fail_topics
+
+    def publish(
+        self,
+        topic: str,
+        payload: JsonType,
+        *,
+        key: str | None,
+        correlation_id: str | None,
+        content_event_id: str | None,
+        timeout_seconds: float | None = None,
+    ) -> None:
+        if topic in self._fail_topics:
+            raise RuntimeError(f"simulated publish failure for {topic}")
+        self.calls.append((topic, payload, key, correlation_id))
+        self.content_event_ids.append(content_event_id)
+
+
+# ---------------------------------------------------------------------------
+# Happy path / fan-out
+# ---------------------------------------------------------------------------
+
+
+def test_happy_path_resolves_topic_and_publishes(tmp_path: Path) -> None:
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    request = ModelEmitRequest(
+        event_type="session.started", payload={"session_id": "abc"}
+    )
+    result = handler.handle(request)
+
+    assert result.published is True
+    assert result.topics_published == ["onex.evt.omniclaude.session-started.v1"]
+    assert result.drained_count == 0
+    assert result.dropped_count == 0
+    assert result.event_id == request.event_id
+    assert len(adapter.calls) == 1
+    assert spool.pending_count() == 0  # acked after successful publish
+
+
+def test_capture_fanout_carries_post_redaction_content_identity(tmp_path: Path) -> None:
+    """The typed key hashes the stored redacted payload, never the raw input."""
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    result = handler.handle(
+        ModelEmitRequest(
+            event_type="tool.executed",
+            payload={
+                "session_id": "content-id-session",
+                "tool_name": "Read",
+                "details": {"b": "\u03b1", "a": [1, True]},
+            },
+        )
+    )
+
+    assert result.published is True
+    topic, published_payload, _key, _correlation_id = adapter.calls[0]
+    assert isinstance(published_payload, dict)
+    # The unclassified nested value is hash-only before identity construction.
+    assert isinstance(published_payload["details"], str)
+    assert published_payload["details"].startswith("sha256:")
+    expected = hashlib.sha256(
+        (
+            topic
+            + "\n"
+            + json.dumps(
+                published_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                default=str,
+            )
+        ).encode("utf-8")
+    ).hexdigest()
+    assert adapter.content_event_ids == [expected]
+
+
+def test_multi_topic_fan_out_publishes_all_topics(tmp_path: Path) -> None:
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    request = ModelEmitRequest(
+        event_type="prompt.submitted",
+        payload={"session_id": "s1", "prompt_preview": "hi"},
+    )
+    result = handler.handle(request)
+
+    assert result.published is True
+    assert set(result.topics_published) == {
+        "onex.cmd.omniintelligence.claude-hook-event.v1",
+        "onex.evt.omniclaude.prompt-submitted.v1",
+    }
+    assert len(adapter.calls) == 2
+
+
+def test_explicit_topic_override(tmp_path: Path) -> None:
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    request = ModelEmitRequest(
+        event_type="routing.decision",
+        payload={"session_id": "abc"},
+        topic="onex.evt.omniclaude.routing-feedback.v1",
+    )
+    result = handler.handle(request)
+
+    assert result.topics_published == ["onex.evt.omniclaude.routing-feedback.v1"]
+
+
+# ---------------------------------------------------------------------------
+# Unknown event_type
+# ---------------------------------------------------------------------------
+
+
+def test_unknown_event_type_fails_fast(tmp_path: Path) -> None:
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=FakePublishAdapter())
+    request = ModelEmitRequest(event_type="totally.unregistered.event", payload={})
+
+    with pytest.raises(UnknownEventTypeError):
+        handler.handle(request)
+
+    # No silent default topic: nothing should have been spooled either.
+    assert spool.pending_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Registered event type with an empty fan_out (OMN-16021)
+# ---------------------------------------------------------------------------
+
+
+def test_zero_fan_out_registered_event_type_returns_structured_result(
+    tmp_path: Path,
+) -> None:
+    """``skill.friction_recorded`` is registered with ``fan_out: []``
+
+    ("Side-channel only, no Kafka fan-out" by design -- topics.yaml itself is
+    not changed). Prior to OMN-16021 this crashed ``handle()`` with an
+    unhandled ``UnknownEventTypeError`` instead of returning a typed
+    ``ModelEmitResult`` -- a robustness regression versus the old
+    ``node_emit_daemon``, which returned a graceful structured error for the
+    identical input. This reproduces the exact failure the
+    ``shadow_mode_parity_proof.py`` harness caught (``new_path_errors``:
+    ``["skill.friction_recorded", "UNHANDLED EXCEPTION: UnknownEventTypeError..."]``).
+    """
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    request = ModelEmitRequest(
+        event_type="skill.friction_recorded",
+        payload={"skill": "code-review", "session_id": "sess-1"},
+    )
+
+    # Must not raise -- this is the regression under test.
+    result = handler.handle(request)
+
+    assert result.published is False
+    assert result.topics_published == []
+    assert result.spool_only is False
+    assert result.event_id == request.event_id
+    # Nothing to publish means nothing was spooled, and no publish adapter
+    # call was made -- this is a graceful no-op, not a failed attempt.
+    assert spool.pending_count() == 0
+    assert adapter.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Purity: constructor does no I/O
+# ---------------------------------------------------------------------------
+
+
+def test_handler_constructor_performs_no_io(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spool_dir = tmp_path / "not-yet-created" / "spool"
+    monkeypatch.setenv("ONEX_EMIT_EFFECT_SPOOL_DIR", str(spool_dir))
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+
+    HandlerEventEmitEffect()  # construction only -- no spool_dir override injected
+
+    assert not spool_dir.exists(), (
+        "handler __init__ must not touch disk; only handle() may create the spool dir"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spool-only mode
+# ---------------------------------------------------------------------------
+
+
+def test_spool_only_mode_when_kafka_unconfigured_and_opted_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The legitimate "intentionally no Kafka target yet" case (OMN-16167):
+    ONEX_EMIT_EFFECT_SPOOL_ONLY is the explicit, contract-declared opt-out --
+    absence of KAFKA_BOOTSTRAP_SERVERS no longer silently selects this mode
+    on its own (see test_kafka_unconfigured_without_opt_out_fails_loudly)."""
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    monkeypatch.setenv("ONEX_EMIT_EFFECT_SPOOL_ONLY", "true")
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool)  # no publish_adapter injected
+
+    request = ModelEmitRequest(
+        event_type="session.started", payload={"session_id": "x"}
+    )
+    result = handler.handle(request)
+
+    assert result.published is False
+    assert result.spool_only is True
+    assert result.topics_published == []
+    assert result.drained_count == 0
+    assert spool.pending_count() == 1  # accumulates until Kafka is configured
+
+
+def test_kafka_unconfigured_without_opt_out_fails_loudly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OMN-16167: a genuinely unconfigured Kafka target (no opt-out declared)
+    must fail loudly at adapter construction -- not silently degrade to
+    spool-only the way a bare ``os.environ.get("KAFKA_BOOTSTRAP_SERVERS")``
+    read used to. The event must still be durably spooled first, so the
+    loud failure does not also lose data (no durability regression)."""
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    monkeypatch.delenv("ONEX_EMIT_EFFECT_SPOOL_ONLY", raising=False)
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool)  # no publish_adapter injected
+
+    request = ModelEmitRequest(
+        event_type="session.started", payload={"session_id": "x"}
+    )
+
+    with pytest.raises(KeyError, match="KAFKA_BOOTSTRAP_SERVERS"):
+        handler.handle(request)
+
+    # Durability preserved: the event was appended to the spool outbox
+    # before adapter resolution raised.
+    assert spool.pending_count() == 1
+
+
+def test_kafka_unconfigured_spool_only_opt_out_accepts_common_truthy_spellings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    monkeypatch.setenv("ONEX_EMIT_EFFECT_SPOOL_ONLY", "1")
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool)
+
+    result = handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"session_id": "x"})
+    )
+    assert result.published is False
+    assert result.spool_only is True
+
+
+def test_oversized_current_event_is_dropped_but_backlog_still_drains(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the current event itself is too large to spool (oversized
+    telemetry -- see SpoolOutbox._append_telemetry), it can't be published,
+    but an existing backlog is still opportunistically drained."""
+    # The cap must sit above an enriched empty-payload record (~460 B since
+    # OMN-16048 added correlation_id/emitted_at/entity_id/schema_version) and
+    # below that record plus the 1000-byte blob below. The env is pinned so
+    # the optional session_id/entity_id injection cannot move the record size
+    # across the cap on a developer machine that has the var set.
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    spool = SpoolOutbox(tmp_path / "spool", max_telemetry_bytes=800)
+    adapter = FakePublishAdapter()
+
+    # Pre-populate a small backlog record that fits comfortably.
+    backlog_handler = HandlerEventEmitEffect(
+        spool=spool, publish_adapter=None
+    )  # spool-only, so it just gets appended
+    # Use the smallest possible request so it fits under the byte cap.
+    small_request = ModelEmitRequest(
+        event_type="routing.decision", payload={"session_id": "backlog-session"}
+    )
+    backlog_handler.handle(small_request)
+    assert spool.pending_count() == 1
+
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+    oversized_request = ModelEmitRequest(
+        event_type="routing.decision",
+        payload={"session_id": "current-session", "blob": "x" * 1000},
+    )
+    result = handler.handle(oversized_request)
+
+    assert result.published is False
+    assert result.topics_published == []
+    assert result.dropped_count == 1  # the oversized current event itself
+    assert result.drained_count == 1  # the pre-existing small backlog record
+    assert spool.pending_count() == 0
+
+
+def test_capture_redaction_hashes_unclassified_large_field_before_spooling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Capture fan-outs stay bounded because redaction precedes persistence."""
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    spool = SpoolOutbox(tmp_path / "spool", max_telemetry_bytes=800)
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+
+    result = handler.handle(
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={"session_id": "capture-session", "blob": "x" * 1000},
+        )
+    )
+
+    assert result.spool_only is True
+    assert result.dropped_count == 0
+    pending = spool.list_pending()
+    assert len(pending) == 1
+    assert isinstance(pending[0].record.payload, dict)
+    assert str(pending[0].record.payload["blob"]).startswith("sha256:")
+
+
+# ---------------------------------------------------------------------------
+# Model validation
+# ---------------------------------------------------------------------------
+
+
+def test_model_emit_request_rejects_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        ModelEmitRequest.model_validate(
+            {"event_type": "session.started", "payload": {}, "bogus": "field"}
+        )
+
+
+def test_model_emit_request_rejects_empty_event_type() -> None:
+    with pytest.raises(ValidationError):
+        ModelEmitRequest(event_type="", payload={})
+
+
+def test_model_emit_request_rejects_malformed_topic_override() -> None:
+    with pytest.raises(ValidationError):
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={},
+            topic="not-a-topic",
+        )
+
+
+def test_model_emit_request_accepts_well_formed_topic_override_outside_registry() -> (
+    None
+):
+    """The override is a deliberate escape hatch -- shape-checked, not
+    registry-membership-checked (see the field's own description)."""
+    request = ModelEmitRequest(
+        event_type="session.started",
+        payload={},
+        topic="onex.evt.omnimarket.some-topic-not-in-the-registry.v1",
+    )
+    assert request.topic == "onex.evt.omnimarket.some-topic-not-in-the-registry.v1"
+
+
+def test_model_emit_result_rejects_extra_fields() -> None:
+    from omnimarket.nodes.node_event_emit_effect.models.model_emit_result import (
+        ModelEmitResult,
+    )
+
+    with pytest.raises(ValidationError):
+        ModelEmitResult.model_validate(
+            {"event_id": "e1", "published": True, "bogus": "field"}
+        )
+
+
+# ---------------------------------------------------------------------------
+# OMN-15987 finding 3: event_id must not be able to land in a filesystem
+# path outside the spool directory (spool_outbox.py embeds it verbatim in
+# the filename).
+# ---------------------------------------------------------------------------
+
+
+def test_model_emit_request_rejects_event_id_with_path_separator() -> None:
+    with pytest.raises(ValidationError):
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={},
+            event_id="../../etc/passwd",
+        )
+
+
+def test_model_emit_request_rejects_event_id_with_forward_slash() -> None:
+    with pytest.raises(ValidationError):
+        ModelEmitRequest(event_type="session.started", payload={}, event_id="a/b")
+
+
+def test_model_emit_request_accepts_filesystem_safe_event_id() -> None:
+    request = ModelEmitRequest(
+        event_type="session.started",
+        payload={},
+        event_id="valid-event.id_123",
+    )
+    assert request.event_id == "valid-event.id_123"
+
+
+def test_model_emit_request_default_event_id_is_filesystem_safe() -> None:
+    """The auto-generated event_id (str(uuid4())) must itself satisfy the
+    new pattern constraint -- regression guard against the default and the
+    validator drifting apart."""
+    request = ModelEmitRequest(event_type="session.started", payload={})
+    import re
+
+    assert re.match(r"^[A-Za-z0-9._-]+$", request.event_id)
+
+
+# ---------------------------------------------------------------------------
+# OMN-15987 finding 4: topic override must work for an event_type outside
+# the registry's scope entirely.
+# ---------------------------------------------------------------------------
+
+
+def test_topic_override_with_unregistered_event_type_refuses(
+    tmp_path: Path,
+) -> None:
+    """OMN-17237 H2 inverted this test's premise.
+
+    An unregistered event_type pointed at an unregistered topic has no
+    declared redaction posture on either side, so nothing states what may
+    reach that topic. This used to publish -- which made the override field a
+    bypass of the whole event registry, reachable from any caller. The
+    conservative-tier reasoning of OMN-15987 finding 4 (below) still stands
+    for an override onto a topic the registry DOES declare; what changed is
+    that "declared nowhere" is no longer a publishable state.
+    """
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    request = ModelEmitRequest(
+        event_type="totally.unregistered.event",
+        payload={"x": 1},
+        topic="onex.evt.omnimarket.some-topic-not-in-the-registry.v1",
+    )
+
+    with pytest.raises(UnresolvableTransformError):
+        handler.handle(request)
+
+    assert adapter.calls == []
+    assert spool.pending_count() == 0
+
+
+def test_topic_override_with_unregistered_event_type_defaults_to_telemetry_tier(
+    tmp_path: Path,
+) -> None:
+    """Unregistered event_type + override topic must not silently inherit
+    never-drop duty_critical semantics it was never declared for -- it
+    defaults to the conservative (bounded, drop-oldest) telemetry tier.
+
+    The override topics here are registry-DECLARED (OMN-17237 H2): the tier
+    fallback under test is reached via an unregistered ``event_type``, and
+    that is now only publishable when the topic itself declares a redaction
+    posture. Both topics chosen below declare no transform, so this exercises
+    the tier path and nothing else. Picking undeclared topics, as this test
+    originally did, now refuses before any tier is assigned.
+    """
+    spool = SpoolOutbox(
+        tmp_path / "spool", max_telemetry_messages=1, max_duty_critical_messages=1
+    )
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+
+    handler.handle(
+        ModelEmitRequest(
+            event_type="unregistered.one",
+            payload={},
+            topic="onex.evt.omniclaude.session-started.v1",
+        )
+    )
+    # A second telemetry-tier event should evict the first (bounded,
+    # drop-oldest) rather than raising SpoolFullError (which duty_critical
+    # would).
+    result = handler.handle(
+        ModelEmitRequest(
+            event_type="unregistered.two",
+            payload={},
+            topic="onex.evt.omniclaude.session-ended.v1",
+        )
+    )
+    assert result.dropped_count == 1
+    assert spool.pending_count() == 1
+
+
+def test_topic_override_with_registered_event_type_keeps_registry_tier(
+    tmp_path: Path,
+) -> None:
+    """When event_type IS registered, its registry-derived tier still
+    applies even with an override topic -- the override changes where it
+    publishes, not how durable it is."""
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+
+    handler.handle(
+        ModelEmitRequest(
+            event_type="routing.decision",  # registered, telemetry-tier
+            payload={"session_id": "tier-session"},
+            topic="onex.evt.omniclaude.routing-feedback.v1",
+        )
+    )
+    pending = spool.list_pending()
+    assert len(pending) == 1
+    from omnimarket.nodes.node_event_emit_effect.spool.topic_resolver import (
+        EnumDurabilityTier,
+    )
+
+    assert pending[0].record.tier is EnumDurabilityTier.TELEMETRY
+
+
+# ---------------------------------------------------------------------------
+# OMN-15987 finding 1 (result shape): spool_only distinguishes "no adapter
+# configured" from "publish attempted and failed".
+# ---------------------------------------------------------------------------
+
+
+def test_spool_only_true_when_no_adapter_configured(tmp_path: Path) -> None:
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+
+    result = handler.handle(ModelEmitRequest(event_type="session.started", payload={}))
+    assert result.published is False
+    assert result.spool_only is True
+
+
+def test_spool_only_false_when_publish_attempted_and_failed(
+    tmp_path: Path,
+) -> None:
+    adapter = FakePublishAdapter(
+        fail_topics=frozenset({"onex.evt.omniclaude.session-started.v1"})
+    )
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    result = handler.handle(ModelEmitRequest(event_type="session.started", payload={}))
+    assert result.published is False
+    assert result.spool_only is False
+
+
+def test_spool_only_false_when_publish_succeeds(tmp_path: Path) -> None:
+    adapter = FakePublishAdapter()
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+
+    result = handler.handle(ModelEmitRequest(event_type="session.started", payload={}))
+    assert result.published is True
+    assert result.spool_only is False
+
+
+# ---------------------------------------------------------------------------
+# OMN-15987 finding 2: shared publish budget across current-event publish +
+# backlog drain, checked before every topic (not just between records).
+# ---------------------------------------------------------------------------
+
+
+class _SlowPublishAdapter:
+    """Publishes instantly but records the timeout_seconds it was granted
+    for every call -- used to assert the shared-deadline math without
+    actually sleeping in the test."""
+
+    def __init__(self) -> None:
+        self.granted_timeouts: list[float | None] = []
+
+    def publish(
+        self,
+        topic: str,
+        payload: JsonType,
+        *,
+        key: str | None,
+        correlation_id: str | None,
+        content_event_id: str | None,
+        timeout_seconds: float | None = None,
+    ) -> None:
+        self.granted_timeouts.append(timeout_seconds)
+
+
+def test_drain_budget_is_shared_across_current_event_and_backlog(
+    tmp_path: Path,
+) -> None:
+    """Every publish call (current event's own topics AND every backlog
+    record's topics) must be granted a timeout_seconds derived from ONE
+    shared deadline for the whole invocation -- not a separate fresh budget
+    for the drain phase (the pre-fix overrun bug)."""
+    spool = SpoolOutbox(tmp_path / "spool")
+    adapter = _SlowPublishAdapter()
+    backlog_handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+    for i in range(3):
+        backlog_handler.handle(
+            ModelEmitRequest(event_type="session.started", payload={"i": i})
+        )
+    assert spool.pending_count() == 3
+
+    handler = HandlerEventEmitEffect(spool=spool, publish_adapter=adapter)
+    result = handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"cur": True})
+    )
+
+    assert result.published is True
+    assert result.drained_count == 3
+    # 1 current-event publish + 3 backlog publishes, all sharing one budget.
+    assert len(adapter.granted_timeouts) == 4
+    for granted in adapter.granted_timeouts:
+        assert granted is not None
+        assert 0 < granted <= 5.0  # bounded by the shared deadline / single-publish cap
+
+
+def test_drain_stops_when_shared_budget_is_exhausted(tmp_path: Path) -> None:
+    """When the shared per-invocation budget is already exhausted before a
+    backlog record's topic gets a turn, that record is left un-acked rather
+    than published with a zero/negative timeout."""
+    spool = SpoolOutbox(tmp_path / "spool")
+    backlog_handler = HandlerEventEmitEffect(spool=spool, publish_adapter=None)
+    for i in range(2):
+        backlog_handler.handle(
+            ModelEmitRequest(event_type="session.started", payload={"i": i})
+        )
+    assert spool.pending_count() == 2
+
+    adapter = FakePublishAdapter()
+    # A budget of 0 means the deadline is already in the past by the time
+    # the current event's own publish is attempted.
+    handler = HandlerEventEmitEffect(
+        spool=spool, publish_adapter=adapter, drain_budget_seconds=0.0
+    )
+    result = handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"cur": True})
+    )
+
+    assert result.published is False
+    assert result.drained_count == 0
+    assert spool.pending_count() == 3  # nothing acked: current + both backlog

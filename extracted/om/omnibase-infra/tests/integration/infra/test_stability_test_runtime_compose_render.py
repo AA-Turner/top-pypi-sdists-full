@@ -1,0 +1,903 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Non-mutating compose render checks for the OMN-10281 stability-test lane."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, cast
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+COMPOSE_FILES = (
+    "docker/docker-compose.infra.yml",
+    "docker/docker-compose.stability-test.yml",
+)
+# OMN-14013: kept in sync with STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD in
+# tests/unit/infra/test_stability_test_runtime_lane.py -- see that constant's
+# docstring for why the durable committed value is raised above the base
+# redpanda.yaml default (7000).
+STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD = 15000
+REQUIRED_RUNTIME_SERVICES = {
+    "omninode-runtime",
+    "runtime-effects",
+    "runtime-worker",
+}
+_BIFROST_CONTRACT_PATH = "/app/data/delegation/bifrost_delegation.yaml"
+_BIFROST_OVERLAY_TARGET = "/app/config/delegation/dev.bifrost.yaml"
+_BIFROST_OVERLAY_SOURCE = REPO_ROOT / "docker" / "lane-overlays" / "dev.bifrost.yaml"
+# OMN-17562: the standalone projection writers, mirrored onto the PROOF lane.
+#
+# The stability lane is where the `stability-proven` premise of every live
+# prod-promotion grant is resolved from (OMN-15243), and until this change it
+# ran ZERO writers while the throwaway dev lane ran two — the proof lane weaker
+# than the mutable one, which inverts what the two lanes are for. The shared
+# kernel subscribes each of these contracts' topics and its dispatch callback
+# returns before any handler runs (OMN-15905 / OMN-16874), so on a lane with no
+# writer process the events are consumed, acked and destroyed.
+#
+# Service name -> the runner module its `__main__` block starts. Held here and
+# in tests/integration/infra/test_dev_runtime_compose_render.py per lane;
+# tests/ci/test_lane_projection_writer_coverage_omn17562.py is what stops the
+# two lanes' lists from drifting apart or away from the omnimarket contracts.
+_WRITER_MODULES = {
+    "projection-tenant-registry-writer": (
+        "omnimarket.nodes.node_projection_tenant_registry.handlers"
+        ".handler_tenant_registry_projection"
+    ),
+    "projection-delegation-writer": (
+        "omnimarket.nodes.node_projection_delegation.handlers.handler_delegation"
+    ),
+    "projection-registration-writer": (
+        "omnimarket.nodes.node_projection_registration.handlers.handler_registration"
+    ),
+    "projection-savings-writer": (
+        "omnimarket.nodes.node_projection_savings.handlers.handler_savings"
+    ),
+    "projection-tenant-credentials-writer": (
+        "omnimarket.nodes.node_projection_tenant_credentials.handlers"
+        ".handler_tenant_credentials_projection"
+    ),
+    "projection-live-events-writer": (
+        "omnimarket.nodes.node_projection_live_events.handlers.handler_live_events"
+    ),
+}
+WRITER_SERVICES = frozenset(_WRITER_MODULES)
+# OMN-18114: the TENANT-domain projection CARRIER, mirrored onto the proof lane
+# on the same reasoning as the writers above.
+#
+# It is a DIFFERENT shape and is deliberately not folded into WRITER_SERVICES:
+# those are `python -m <runner>` BaseProjectionRunner processes, each owning one
+# contract through its own KAFKA_CONSUMER_GROUP. This is the ONEX runtime kernel
+# itself under RUNTIME_PROFILE=tenant-projection, with no `command:` override,
+# owning the eight contracts that declare `runtime_profiles: [tenant-projection]`
+# and are therefore dropped from `main` and `effects` by
+# filter_manifest_for_runtime_profile. Before it existed on this lane those eight
+# were consumed by nothing at all -- not consumed-and-discarded like a writerless
+# runner contract, but never subscribed.
+#
+# Declared in docker/docker-compose.infra.yml under a compose profile no lane
+# requests, so prod and judge render it and never start it; this lane's overlay
+# is what moves it into `runtime`. Cross-lane parity is held by
+# tests/ci/test_lane_runtime_profile_carriage_omn18114.py.
+PROFILE_CARRIER_SERVICES = frozenset({"tenant-projection-writer"})
+EXPECTED_RENDERED_SERVICES = {
+    "postgres",
+    "redpanda",
+    "redpanda-partition-cap",
+    "valkey",
+    "forward-migration",
+    "intelligence-migration",
+    "migration-gate",
+    "keycloak",
+    "projection-api",
+    *REQUIRED_RUNTIME_SERVICES,
+    *WRITER_SERVICES,
+    *PROFILE_CARRIER_SERVICES,
+}
+OUT_OF_LANE_SERVICES = {
+    "agent-actions-consumer",
+    "skill-lifecycle-consumer",
+    "context-audit-consumer",
+    "intelligence-api",
+    "omninode-contract-resolver",
+    "phoenix",
+    "autoheal",
+    "infisical",
+}
+EXPECTED_PUBLISHED_PORTS = {
+    "postgres": {"15436"},
+    "redpanda": {"39092", "29644"},
+    "valkey": {"26379"},
+    "omninode-runtime": {"18085"},
+    "runtime-effects": {"18086"},
+    "runtime-worker": set(),
+    "projection-api": {"13002"},
+    "forward-migration": set(),
+    "intelligence-migration": set(),
+    "migration-gate": set(),
+    "redpanda-partition-cap": set(),
+    "keycloak": {"38080"},
+    # Every writer publishes NOTHING. `PROJECTION_RUNNER_HEALTH_PORT` is
+    # container-internal: the service's own healthcheck curls localhost, and
+    # publishing it would put six processes with no host-side reader into the
+    # lane port map, where a future lane would have to route around them.
+    **{name: set() for name in WRITER_SERVICES},
+    # OMN-18114: the carrier publishes nothing either. It serves /health on the
+    # container-internal 8085 that its own healthcheck curls; publishing that
+    # would put a second runtime port in the lane map with no host-side reader
+    # and collide with the dev lane's carrier on the same host.
+    **{name: set() for name in PROFILE_CARRIER_SERVICES},
+}
+PRODUCTION_PUBLISHED_PORTS = {
+    "5436",
+    "19092",
+    "18082",
+    "18081",
+    "9644",
+    "16379",
+    "8881",  # OMN-13417: dev lane infisical host port (was 8880)
+    "8085",
+    "8086",
+    "8087",
+    "8053",
+    "8091",
+    "8092",
+    "8093",
+    "6006",
+    "28080",
+}
+PRODUCTION_CONTAINER_NAMES = {
+    "omninode-runtime",
+    "omninode-runtime-effects",
+    "omnibase-infra-postgres",
+    "omnibase-infra-redpanda",
+    "omnibase-infra-valkey",
+    "omnibase-infra-forward-migration",
+    "omnibase-infra-infisical",
+    "omninode-agent-actions-consumer",
+    "omninode-skill-lifecycle-consumer",
+    "omninode-context-audit-consumer",
+    "omnibase-intelligence-api",
+    "omnibase-intelligence-migration",
+    "omninode-contract-resolver",
+    "omnibase-infra-phoenix",
+    "omnibase-infra-autoheal",
+    "omnibase-infra-keycloak",
+    "omnimarket-projection-api",
+}
+
+
+def _http_url(authority: str) -> str:
+    return "http" + "://" + authority
+
+
+def _chat_url(authority: str) -> str:
+    return f"{_http_url(authority)}/v1/chat/completions"
+
+
+def _cidr(prefix: str, suffix: str) -> str:
+    return prefix + "." + suffix
+
+
+COMPOSE_RENDER_ENV = {
+    "INFISICAL_AUTH_SECRET": "render-only-infisical-auth-secret",
+    "INFISICAL_DB_CONNECTION_URI": "postgresql://postgres:postgres@postgres:5432/infisical",
+    "INFISICAL_ENCRYPTION_KEY": "render-only-infisical-encryption-key-32",
+    "INFISICAL_REDIS_URL": "redis://:render-only-valkey-password@valkey:6379",
+    "CI_CALLBACK_TOKEN": "deploy-agent-compose-parse-only",
+    "GITHUB_TOKEN": "render-only-github-token",
+    "GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL": _http_url(
+        "keycloak:8080/realms/omninode/protocol/openid-connect/token/introspect"
+    ),
+    "GATEWAY_ATTACH_KEYCLOAK_JWKS_URL": _http_url(
+        "keycloak:8080/realms/omninode/protocol/openid-connect/certs"
+    ),
+    "DEPLOY_AGENT_HMAC_SECRET": "render-only-deploy-agent-hmac-secret",
+    "KEYCLOAK_ADMIN_CLIENT_SECRET": "render-only-admin-client-secret",
+    "LINEAR_API_KEY": "render-only-linear-api-key",
+    "LINEAR_WEBHOOK_SECRET": "deploy-agent-compose-parse-only",
+    "LLM_CODER_FAST_URL": _http_url("llm-coder-fast.invalid"),
+    "LLM_CODER_URL": _http_url("llm-coder.invalid"),
+    "LLM_DEEPSEEK_R1_URL": _http_url("llm-deepseek.invalid"),
+    "LLM_EMBEDDING_URL": _http_url("llm-embedding.invalid"),
+    "BIFROST_LOCAL_CODER_ENDPOINT_URL": _chat_url("llm-coder.invalid"),
+    "BIFROST_LOCAL_REASONER_ENDPOINT_URL": _chat_url("llm-coder-fast.invalid"),
+    "BIFROST_LOCAL_EMBEDDING_ENDPOINT_URL": _chat_url("llm-embedding.invalid"),
+    "BIFROST_LOCAL_DS_V4_FLASH_ENDPOINT_URL": _chat_url("llm-deepseek.invalid"),
+    "LLM_GLM_API_KEY": "render-only-glm-api-key",
+    "LLM_GLM_MODEL_NAME": "glm-4.5",
+    "LLM_GLM_URL": _http_url("glm.invalid/v1"),
+    "GEMINI_API_KEY": "render-only-gemini-api-key",
+    "GOOGLE_API_KEY": "render-only-google-api-key",
+    "OPENROUTER_API_KEY": "render-only-openrouter-api-key",
+    "LLM_ENDPOINT_CIDR_ALLOWLIST": _cidr("192.168.86", "0/24"),
+    "LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST": "generativelanguage.googleapis.com,api.z.ai",
+    "LOCAL_LLM_SHARED_SECRET": "render-only-local-llm-secret",
+    # OMN-16843: x-runtime-env builds OMNINODE_INTERNAL_DB_URL from this with
+    # the fail-closed ${VAR:?} form, so `docker compose config` aborts without
+    # it. Render-only, never a real credential.
+    "OMNINODE_RUNTIME_PASSWORD": "render-only-omninode-runtime-password",
+    # OMN-15425: TENANT-domain counterpart, same `:?` seam in x-runtime-env.
+    "TENANT_PROJECTION_WRITER_PASSWORD": "render-only-tenant-projection-writer-password",
+    "OMNI_HOME": "/data/omninode/omni_home",
+    "ONEX_REGISTRATION_AUTO_ACK": "false",
+    "ONEX_INFRA_HOST": "192.168.86.201",
+    "ONEX_INFRA_USER": "jonah",
+    "ONEX_SERVICE_CLIENT_SECRET": "render-only-client-secret",
+    "OMNIBASE_INFRA_INJECTION_EFFECTIVENESS_POSTGRES_DSN": (
+        "postgresql://postgres:postgres@postgres:5432/omnidash_analytics"
+    ),
+    "OMNIDASH_ANALYTICS_DB_URL": (
+        "postgresql://postgres:postgres@postgres:5432/omnidash_analytics"
+    ),
+    # OMN-15425: the catalog-generated lane compose injects this as a
+    # `${VAR:?}` required env on the four omnimarket-projection-* services,
+    # because database-consumers.yaml declares them consumers of the
+    # `tenant_projection` binding and the topology-parity gate
+    # (validate_docker_catalog_parity) requires each consumer to name its
+    # binding's dsn_env. Distinct from the base file's x-runtime-env value,
+    # which is rendered from TENANT_PROJECTION_WRITER_PASSWORD for the anchor
+    # services. Render-only, never a real credential.
+    "ONEX_TENANT_DB_URL": (
+        "postgresql://tenant_projection_writer:render-only"
+        "@postgres:5432/omnidash_analytics"
+    ),
+    "POSTGRES_PASSWORD": "postgres",
+    # OMN-15263: `:?`-required in the base infra file (OMN-15173) and
+    # interpolated by this layered render even though the stability overlay
+    # replaces redpanda's `command:`. `localhost` is deliberate: it keeps the
+    # `"localhost:19092" not in redpanda_command` overlay-leak assertion below
+    # able to catch a base command that stops being overridden.
+    "DEV_REDPANDA_ADVERTISE_HOST": "localhost",  # kafka-fallback-ok — test fixture
+    "REDPANDA_ADVERTISE_HOST": "192.168.86.201",
+    "STABILITY_TEST_POSTGRES_EXTERNAL_PORT": "15436",
+    "STABILITY_TEST_VALKEY_EXTERNAL_PORT": "26379",
+    "STABILITY_TEST_KEYCLOAK_EXTERNAL_PORT": "38080",
+    "VALKEY_PASSWORD": "render-only-valkey-password",
+    "WAITLIST_NOTIFIER_SLACK_BOT_TOKEN": "deploy-agent-compose-parse-only",
+    "WAITLIST_NOTIFIER_SLACK_CHANNEL_ID": "deploy-agent-compose-parse-only",
+}
+
+
+def _docker_compose_command(*args: str) -> list[str]:
+    return [
+        "docker",
+        "compose",
+        "--env-file",
+        "docker/runtime-policy.env",
+        "-f",
+        COMPOSE_FILES[0],
+        "-f",
+        COMPOSE_FILES[1],
+        "--profile",
+        "runtime",
+        *args,
+    ]
+
+
+def _docker_compose_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    result = subprocess.run(
+        ["docker", "compose", "version"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _compose_render_env() -> dict[str, str]:
+    python_path = os.pathsep.join(
+        path
+        for path in (
+            str(REPO_ROOT / "src"),
+            str(REPO_ROOT),
+            os.environ.get("PYTHONPATH", ""),
+        )
+        if path
+    )
+    return {
+        "HOME": os.environ.get("HOME", ""),
+        "PATH": os.environ.get("PATH", ""),
+        "PYTHONPATH": python_path,
+        "USER": os.environ.get("USER", ""),
+        **COMPOSE_RENDER_ENV,
+    }
+
+
+def _run_compose_config(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        _docker_compose_command("config", *args),
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+
+
+def _compose_config_json() -> dict[str, Any]:
+    result = _run_compose_config("--format", "json")
+
+    rendered_config = json.loads(result.stdout)
+    assert isinstance(rendered_config, dict)
+    return cast("dict[str, Any]", rendered_config)
+
+
+def _published_ports(service_config: dict[str, Any]) -> set[str]:
+    ports = cast("list[dict[str, Any]]", service_config.get("ports", []))
+    return {str(port["published"]) for port in ports}
+
+
+def _label_value(service_config: dict[str, Any], key: str) -> str | None:
+    labels = service_config.get("labels", {})
+    if isinstance(labels, dict):
+        value = labels.get(key)
+        return str(value) if value is not None else None
+    if isinstance(labels, list):
+        prefix = f"{key}="
+        for label in labels:
+            if isinstance(label, str) and label.startswith(prefix):
+                return label.removeprefix(prefix)
+    return None
+
+
+pytestmark = pytest.mark.skipif(
+    not _docker_compose_available(),
+    reason="docker compose is required for non-mutating compose render validation",
+)
+
+
+@pytest.mark.integration
+def test_stability_lane_runtime_services_render_with_runtime_profile() -> None:
+    result = _run_compose_config("--services")
+
+    rendered_services = set(result.stdout.splitlines())
+
+    assert rendered_services == EXPECTED_RENDERED_SERVICES
+    assert rendered_services.isdisjoint(OUT_OF_LANE_SERVICES)
+
+
+@pytest.mark.integration
+def test_stability_lane_renders_the_standalone_projection_writers() -> None:
+    """OMN-17562: the proof lane runs a real write path, not just the dev lane.
+
+    Each service must invoke the runner module's own ``__main__`` entrypoint and
+    hold its own consumer group. A command that started the kernel instead would
+    reproduce the defect exactly — the process would come up healthy, join the
+    group, and dispatch nothing. A SHARED group is worse than no writer at all:
+    the topic's partitions would be split between two processes that project
+    different relations, so each would silently drop whatever the other was
+    assigned, and it would look like it was working.
+    """
+    services = cast("dict[str, Any]", _compose_config_json()["services"])
+
+    groups: list[str] = []
+    for name, module in sorted(_WRITER_MODULES.items()):
+        assert name in services, (
+            f"the stability-test lane must declare {name!r}: without it the "
+            "shared kernel subscribes this projection's topics, commits every "
+            "offset, and writes nothing (OMN-17562)"
+        )
+        command = [str(part) for part in services[name]["command"]]
+        assert command[:3] == ["python", "-m", module], (
+            f"{name} must run {module} as a module entrypoint; got {command!r}"
+        )
+        group = services[name]["environment"]["KAFKA_CONSUMER_GROUP"]
+        assert group, (
+            f"{name} has no KAFKA_CONSUMER_GROUP, so it falls back to "
+            "BaseProjectionRunner's DEFAULT_GROUP_ID, which every writer shares"
+        )
+        assert group.startswith("stability-test."), (
+            f"{name} joins {group!r}. A lane-agnostic group name lets this lane's "
+            "writer and another lane's answer to the same identity the moment "
+            "two lanes ever share a broker."
+        )
+        groups.append(group)
+
+    assert len(set(groups)) == len(groups), (
+        f"each standalone writer needs its own consumer group; got {groups!r}"
+    )
+
+
+@pytest.mark.integration
+def test_stability_writers_bind_the_declared_database_principals() -> None:
+    """The three OMN-17454 split writers need both existing topology DSNs.
+
+    Other writers retain their legacy analytics binding until their own
+    contract and physical-schema cutovers. The new variables are already
+    required by the base runtime env; this test checks the rendered principals.
+    """
+    services = cast("dict[str, Any]", _compose_config_json()["services"])
+    split = {
+        "projection-delegation-writer",
+        "projection-savings-writer",
+        "projection-tenant-credentials-writer",
+    }
+
+    for name in sorted(WRITER_SERVICES):
+        environment = cast("dict[str, Any]", services[name]["environment"])
+        db_keys = sorted(key for key in environment if key.endswith("_DB_URL"))
+        expected = ["OMNIDASH_ANALYTICS_DB_URL"]
+        if name in split:
+            expected.extend(["OMNINODE_INTERNAL_DB_URL", "ONEX_TENANT_DB_URL"])
+            assert environment["ONEX_DATABASE_TOPOLOGY_PROFILE"] == "stability-test"
+            assert environment["OMNINODE_INTERNAL_DB_URL"].startswith(
+                "postgresql://omninode_runtime:"
+            ), name
+            assert environment["ONEX_TENANT_DB_URL"].startswith(
+                "postgresql://tenant_projection_writer:"
+            ), name
+        assert db_keys == expected, (name, db_keys)
+        assert "omnidash_analytics" in environment["OMNIDASH_ANALYTICS_DB_URL"]
+        assert "ROLE_OMNIDASH_PASSWORD" not in environment, name
+
+
+@pytest.mark.integration
+def test_stability_lane_catalog_generated_runtime_compose_is_valid(
+    tmp_path: Path,
+) -> None:
+    """Deploy-agent compose_gen output must validate with the stability overlay."""
+    generated_compose = tmp_path / "docker-compose.generated.yml"
+    generate_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "omnibase_infra.docker.catalog.cli",
+            "generate",
+            "core",
+            "runtime",
+            "--output",
+            str(generated_compose),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+    assert generate_result.returncode == 0, generate_result.stderr
+
+    compose_prefix = [
+        "docker",
+        "compose",
+        "--env-file",
+        "docker/runtime-policy.env",
+        "-f",
+        str(generated_compose),
+        "-f",
+        COMPOSE_FILES[1],
+        "--profile",
+        "runtime",
+    ]
+    validate_result = subprocess.run(
+        [*compose_prefix, "config", "--quiet"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+    assert validate_result.returncode == 0, validate_result.stderr
+
+    services_result = subprocess.run(
+        [*compose_prefix, "config", "--services"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        env=_compose_render_env(),
+        text=True,
+    )
+    assert services_result.returncode == 0, services_result.stderr
+    rendered_services = set(services_result.stdout.splitlines())
+    assert EXPECTED_RENDERED_SERVICES.issubset(rendered_services)
+
+
+@pytest.mark.integration
+def test_stability_lane_render_contains_isolated_runtime_identity() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    assert services["omninode-runtime"]["container_name"] == (
+        "omninode-stability-test-runtime"
+    )
+    assert services["runtime-effects"]["container_name"] == (
+        "omninode-stability-test-runtime-effects"
+    )
+    assert services["runtime-worker"]["container_name"] == (
+        "omninode-stability-test-runtime-worker"
+    )
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        environment = services[service_name]["environment"]
+        assert "BUILD_SOURCE" not in environment
+        assert "EXPECTED_BUILD_SOURCE" not in environment
+        assert environment["OMNIMEMORY_ENABLED"] == "false"
+        assert environment["OMNIMEMORY_MEMGRAPH_HOST"] == ""
+        assert environment["ONEX_ENVIRONMENT"] == "stability-test"
+        assert environment["KAFKA_ENVIRONMENT"] == "stability-test"
+        assert environment["ONEX_INFRA_HOST"] == "192.168.86.201"
+        assert environment["ONEX_INFRA_USER"] == "jonah"
+        assert environment["ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS"] == "1"
+        assert environment["KAFKA_INSTANCE_ID"].startswith("stability-test-")
+        assert environment["KAFKA_MAX_POLL_INTERVAL_MS"] == "1800000"
+        assert environment["ONEX_SECRET_RESOLVER_CONFIG_PATH"] == (
+            "/app/data/delegation/secret_resolver.yaml"
+        )
+        assert "ONEX_SECRET_RESOLVER_CONFIG_JSON" in environment
+        assert "image" not in services[service_name]
+        assert services[service_name]["restart"] == "unless-stopped"
+        assert environment["ONEX_RUNTIME_ADDRESS"].startswith(
+            "runtime://omninode-pc/stability-test/"
+        )
+        assert environment["ONEX_RUNTIME_ID"].startswith("stability-test-")
+        assert environment["ONEX_STATE_DIR"] == environment["ONEX_STATE_ROOT"]
+        assert environment["BIFROST_CONTRACT_PATH"] == _BIFROST_CONTRACT_PATH
+        assert "BIFROST_LOCAL_CODER_ENDPOINT_URL" not in environment
+        assert "BIFROST_LOCAL_REASONER_ENDPOINT_URL" not in environment
+        assert "BIFROST_LOCAL_EMBEDDING_ENDPOINT_URL" not in environment
+        assert "BIFROST_LOCAL_DS_V4_FLASH_ENDPOINT_URL" not in environment
+        volumes = services[service_name]["volumes"]
+        overlay_binds = [
+            volume for volume in volumes if volume["target"] == _BIFROST_OVERLAY_TARGET
+        ]
+        assert len(overlay_binds) == 1
+        overlay_bind = overlay_binds[0]
+        assert overlay_bind["type"] == "bind"
+        assert overlay_bind["source"] == str(_BIFROST_OVERLAY_SOURCE.resolve())
+        assert overlay_bind["read_only"] is True
+        assert (
+            _label_value(
+                services[service_name],
+                "com.omninode.runtime.address",
+            )
+            == environment["ONEX_RUNTIME_ADDRESS"]
+        )
+        assert (
+            _label_value(
+                services[service_name],
+                "com.omninode.runtime.id",
+            )
+            == environment["ONEX_RUNTIME_ID"]
+        )
+
+    assert services["omninode-runtime"]["environment"]["ONEX_GROUP_ID"] == (
+        "onex-stability-test-runtime-main"
+    )
+    assert services["forward-migration"]["container_name"] == (
+        "omnibase-infra-stability-test-forward-migration"
+    )
+    assert services["intelligence-migration"]["container_name"] == (
+        "omnibase-infra-stability-test-intelligence-migration"
+    )
+    assert services["redpanda-partition-cap"]["container_name"] == (
+        "omnibase-infra-stability-test-redpanda-partition-cap"
+    )
+    assert (
+        services["omninode-runtime"]["depends_on"]["intelligence-migration"][
+            "condition"
+        ]
+        == "service_completed_successfully"
+    )
+    assert (
+        services["omninode-runtime"]["depends_on"]["redpanda-partition-cap"][
+            "condition"
+        ]
+        == "service_completed_successfully"
+    )
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        assert (
+            services[service_name]["depends_on"]["migration-gate"]["condition"]
+            == "service_healthy"
+        )
+    assert services["redpanda-partition-cap"]["depends_on"]["redpanda"][
+        "condition"
+    ] == ("service_healthy")
+
+
+@pytest.mark.integration
+def test_stability_lane_delegation_routing_tiers_path_binding() -> None:
+    """OMN-15645: DELEGATION_ROUTING_TIERS_PATH must be bound on every runtime
+    service in the stability-test lane, to a fixed, non-version-embedded
+    in-image path.
+
+    omnimarket#2000 (OMN-15628) removed the packaged-default fallback for this
+    key in the delegation routing reducer's ``_get_config()`` singleton; an
+    unbound key now raises ``ProtocolConfigurationError`` at first config read.
+    See ``test_dev_lane_delegation_routing_tiers_path_binding`` in
+    ``test_dev_runtime_compose_render.py`` for the full seam citation.
+    """
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    expected_path = "/app/config/delegation/routing_tiers.yaml"
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        environment = services[service_name]["environment"]
+        assert environment.get("DELEGATION_ROUTING_TIERS_PATH") == expected_path, (
+            f"Service '{service_name}' must bind DELEGATION_ROUTING_TIERS_PATH="
+            f"{expected_path!r}; got "
+            f"{environment.get('DELEGATION_ROUTING_TIERS_PATH')!r}"
+        )
+
+    # NOTE: omninode-contract-resolver is not rendered under --profile runtime
+    # for this lane (observed live via docker compose config, 2026-08-02);
+    # only projection-api is checked unconditionally.
+    for service_name in ("projection-api", "omninode-contract-resolver"):
+        service = services.get(service_name)
+        if service is None:
+            continue
+        environment = service["environment"]
+        assert environment.get("DELEGATION_ROUTING_TIERS_PATH", "") == "", (
+            f"Service '{service_name}' deliberately has no delegation-routing "
+            "surface and must not bind DELEGATION_ROUTING_TIERS_PATH; got "
+            f"{environment.get('DELEGATION_ROUTING_TIERS_PATH')!r}"
+        )
+
+
+@pytest.mark.integration
+def test_stability_lane_render_pins_worker_replicas_to_one() -> None:
+    """The stability worker must render with deploy.replicas == 1 (OMN-12988).
+
+    The base infra compose used to default runtime-worker to replicas 0 via a
+    bare ``${WORKER_REPLICAS:-0}`` (lane-prefixed and fail-closed since
+    OMN-14968); without a hard pin in the stability override a plain compose
+    recreate silently drops the worker (4-container census). This
+    ratchet fails if the override regresses to 0 or to an env-interpolation
+    default that resolves to anything other than 1.
+    """
+    rendered_config = _compose_config_json()
+    worker = rendered_config["services"]["runtime-worker"]
+
+    deploy = worker.get("deploy")
+    assert deploy is not None, "runtime-worker must declare a deploy block"
+    assert deploy.get("replicas") == 1, (
+        "stability-test runtime-worker must render deploy.replicas == 1; got "
+        f"{deploy.get('replicas')!r}"
+    )
+
+
+@pytest.mark.integration
+def test_stability_lane_render_inherits_release_build_source() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        build = services[service_name]["build"]
+        assert build["context"] == str(REPO_ROOT)
+        assert build["dockerfile"] == "docker/Dockerfile.runtime"
+        assert build["args"] == {
+            "BUILD_SOURCE": "release",
+            "EXPECTED_BUILD_SOURCE": "release",
+        }
+
+
+@pytest.mark.integration
+def test_stability_lane_runtime_socket_uses_owned_tmpfs() -> None:
+    rendered_config = _compose_config_json()
+    runtime_service = rendered_config["services"]["omninode-runtime"]
+
+    assert runtime_service["tmpfs"] == ["/run/onex-runtime:uid=1000,gid=1000,mode=0770"]
+    volume_targets = {
+        volume["target"]
+        for volume in runtime_service.get("volumes", [])
+        if isinstance(volume, dict) and "target" in volume
+    }
+    assert "/run/onex-runtime" not in volume_targets
+
+
+@pytest.mark.integration
+def test_stability_projection_api_has_separate_infra_and_analytics_dsns() -> None:
+    rendered_config = _compose_config_json()
+    environment = rendered_config["services"]["projection-api"]["environment"]
+
+    assert environment["ONEX_ENVIRONMENT"] == "stability-test"
+    assert environment["KAFKA_ENVIRONMENT"] == "stability-test"
+    assert environment["OMNIBASE_INFRA_DB_URL"].endswith("/omnibase_infra")
+    assert environment["OMNIDASH_ANALYTICS_DB_URL"].endswith("/omnidash_analytics")
+
+
+@pytest.mark.integration
+def test_stability_lane_render_resolves_strict_semantic_healthcheck() -> None:
+    """The *rendered* lane must run the semantic probe with autoheal disarmed.
+
+    OMN-15217. The unit test reads the overlay file; this reads what compose
+    actually resolves after merging base + overlay, which is the only surface
+    that can catch a merge-semantics mistake. Two merge behaviours make that
+    distinction load-bearing:
+
+    * ``healthcheck`` is replaced wholesale, so a mis-authored override shows up
+      here as the inherited ``curl -sf`` probe rather than as a file diff.
+    * ``labels`` are *appended*, so the base service's ``autoheal=true`` survives
+      a plain ``labels:`` block. Only ``labels: !override`` disarms it, and the
+      overlay file alone cannot prove that — the parsed overlay looks identical
+      either way.
+
+    Strict health plus autoheal is the harmful combination: semantic degradation
+    is typically restart-immune (contracts that fail to import will fail again),
+    so an armed autoheal would convert an honest unhealthy signal into a restart
+    loop and destroy the forensic state this lane exists to preserve.
+    """
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        healthcheck = services[service_name]["healthcheck"]
+
+        assert healthcheck["test"] == [
+            "CMD",
+            "python",
+            "/usr/local/bin/onex-container-healthcheck",
+            "--degraded-policy",
+            "fail",
+        ], (
+            f"{service_name}: rendered lane must run the strict semantic check; "
+            "the shallow curl probe passes a DEGRADED runtime (200 by design)"
+        )
+
+        assert _label_value(services[service_name], "autoheal") is None, (
+            f"{service_name}: autoheal survived into the rendered lane — compose "
+            "appends label sequences, so `labels:` must be `labels: !override`. "
+            "Strict health + autoheal restart-loops a restart-immune defect."
+        )
+        assert _label_value(services[service_name], "com.omninode.lane") == (
+            "stability-test"
+        )
+
+
+@pytest.mark.integration
+def test_stability_lane_render_does_not_expose_production_ports_or_services() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    assert set(services) == EXPECTED_RENDERED_SERVICES
+    assert set(services).isdisjoint(OUT_OF_LANE_SERVICES)
+    assert rendered_config["networks"]["omnibase-infra-network"]["name"] == (
+        "omnibase-infra-stability-test-network"
+    )
+    assert rendered_config["networks"]["omnibase-infra-network"]["driver"] == "bridge"
+    assert rendered_config["networks"]["omnimemory-network"]["name"] == (
+        "omnibase-infra-stability-test-omnimemory-network"
+    )
+    assert rendered_config["networks"]["omnimemory-network"]["driver"] == "bridge"
+    assert (
+        rendered_config["networks"]["omnimemory-network"].get("external", False)
+        is False
+    )
+
+    rendered_container_names = {
+        service_config["container_name"]
+        for service_config in services.values()
+        if "container_name" in service_config
+    }
+    assert rendered_container_names.isdisjoint(PRODUCTION_CONTAINER_NAMES)
+
+    for service_name, service_config in services.items():
+        published_ports = _published_ports(service_config)
+        assert published_ports == EXPECTED_PUBLISHED_PORTS[service_name]
+        assert published_ports.isdisjoint(PRODUCTION_PUBLISHED_PORTS)
+
+    redpanda_command = " ".join(services["redpanda"]["command"])
+    assert "100.109.203.94:39092" in redpanda_command
+    assert "100.109.203.94:28082" in redpanda_command
+    assert "192.168.86.201:39092" not in redpanda_command
+    assert "localhost:19092" not in redpanda_command
+    assert "STABILITY_TEST_REDPANDA_ADVERTISE_HOST" not in redpanda_command
+    assert "REDPANDA_ADVERTISE_HOST" not in redpanda_command
+    # OMN-14013: belt #2 (redpanda's own startup flag) must be present (this
+    # lane's `command: !override` previously dropped it entirely) and agree
+    # numerically with belt #3 below -- a substring check alone is not
+    # sufficient here since the rendered command string also carries this
+    # lane's own commented history of prior/stopgap cap values.
+    redpanda_set_flag_match = re.search(
+        r"topic_partitions_per_shard=(\d+)", redpanda_command
+    )
+    assert redpanda_set_flag_match is not None, redpanda_command
+    assert int(redpanda_set_flag_match.group(1)) == (
+        STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD
+    )
+
+    partition_cap_command = "\n".join(services["redpanda-partition-cap"]["command"])
+    assert "/usr/bin/rpk -X brokers=redpanda:9092" in partition_cap_command
+    assert "admin.hosts=redpanda:9644" in partition_cap_command
+    assert "topic_partitions_per_shard" in partition_cap_command
+    # Extract the literal value passed to `rpk cluster config set`, not a bare
+    # substring match (this rendered command string also contains this lane's
+    # own comment mentioning superseded values -- see docker-compose.stability-
+    # test.yml's OMN-14013 comment block).
+    partition_cap_match = re.search(
+        r"cluster config set topic_partitions_per_shard\s+(\d+)",
+        partition_cap_command,
+    )
+    assert partition_cap_match is not None, partition_cap_command
+    assert int(partition_cap_match.group(1)) == (
+        STABILITY_TEST_TOPIC_PARTITIONS_PER_SHARD
+    )
+    assert "topic_memory_per_partition" in partition_cap_command
+    assert "1048576" in partition_cap_command
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        volume_targets = {
+            volume["target"] for volume in services[service_name].get("volumes", [])
+        }
+        assert "/app/contracts" not in volume_targets, service_name
+        assert "/app/skills" in volume_targets, service_name
+        assert "/data/omninode/omni_home" in volume_targets, service_name
+
+
+@pytest.mark.integration
+def test_stability_redpanda_advertise_identity_is_contract_overlay_owned() -> None:
+    overlay_text = (REPO_ROOT / COMPOSE_FILES[1]).read_text(encoding="utf-8")
+
+    assert "x-omninode-contract-overlay:" in overlay_text
+    assert "100.109.203.94:39092" in overlay_text
+    assert "100.109.203.94:28082" in overlay_text
+    assert "STABILITY_TEST_REDPANDA_ADVERTISE_HOST" not in overlay_text
+    assert "STABILITY_TEST_REDPANDA_EXTERNAL_PORT" not in overlay_text
+    assert "STABILITY_TEST_REDPANDA_PANDAPROXY_PORT" not in overlay_text
+    assert "STABILITY_TEST_REDPANDA_ADMIN_PORT" not in overlay_text
+
+
+@pytest.mark.integration
+def test_stability_secret_refs_are_contract_overlay_owned() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+    policy_text = (
+        REPO_ROOT / "contracts" / "services" / "runtime_policy.contract.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert "secret_resolver_mappings:" in policy_text
+    assert "llm.openrouter.api_key" in policy_text
+    assert "llm.glm.api_key" in policy_text
+    assert "llm.gemini.api_key" in policy_text
+    # OMN-16891: this guard used to forbid the NO-underscore spelling, on
+    # OMN-13943's premise that ``OPEN_ROUTER_API_KEY`` was canonical. Live
+    # probe 2026-08-28 inverted that: the .201 host exports
+    # ``OPENROUTER_API_KEY`` (len 73) and defines the underscored form
+    # nowhere, so the underscored name is the one that must never appear.
+    assert "OPEN_ROUTER_API_KEY" not in policy_text
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        environment = services[service_name]["environment"]
+        resolver_config = json.loads(environment["ONEX_SECRET_RESOLVER_CONFIG_JSON"])
+        mappings = {
+            mapping["logical_name"]: mapping["source"]
+            for mapping in resolver_config["mappings"]
+        }
+
+        assert resolver_config["enable_convention_fallback"] is False
+        assert mappings["llm.openrouter.api_key"] == {
+            "source_type": "env",
+            "source_path": "OPENROUTER_API_KEY",
+        }
+        assert mappings["llm.glm.api_key"] == {
+            "source_type": "env",
+            "source_path": "LLM_GLM_API_KEY",
+        }
+        assert mappings["llm.gemini.api_key"] == {
+            "source_type": "env",
+            "source_path": "GEMINI_API_KEY",
+        }
+        # OMN-16891: inverted alongside the policy_text guard above.
+        assert "OPEN_ROUTER_API_KEY" not in json.dumps(resolver_config)
+
+
+@pytest.mark.integration
+def test_stability_lane_render_exposes_session_health_contract() -> None:
+    rendered_config = _compose_config_json()
+    services = rendered_config["services"]
+
+    for service_name in REQUIRED_RUNTIME_SERVICES:
+        environment = services[service_name]["environment"]
+        assert environment["ONEX_INFRA_HOST"] == "192.168.86.201"
+        assert environment["ONEX_INFRA_USER"] == "jonah"
+        assert environment["OMNI_HOME"] == "/data/omninode/omni_home"
+        assert environment["SSH_STRICT_HOST_KEY_CHECKING"] == "accept-new"

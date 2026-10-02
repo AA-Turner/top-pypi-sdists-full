@@ -11,7 +11,8 @@ from typing import Any, AnyStr, Callable
 
 import lupa
 
-from fakeredis._commands import Float, Int, Signature, command
+from fakeredis._command_args_parsing import Float, Int
+from fakeredis._commands import Signature, command
 from fakeredis._helpers import (
     OK,
     SimpleError,
@@ -21,7 +22,7 @@ from fakeredis._helpers import (
 )
 
 from .. import _msgs as msgs
-from .._server import FakeServer
+from .._core import FakeServer
 from .._typing import ServerType, VersionType
 from ._mixin_base import CommandsMixinBase
 
@@ -414,6 +415,9 @@ class ScriptingCommandsMixin(CommandsMixinBase):
     def script_help(self, *args: bytes) -> list[bytes]:
         if self.server_type == "dragonfly":
             return [s.encode() for s in DRAGONFLY_SCRIPT_HELP]
+        if self.server_type == "kividb":
+            # KiviDB's SCRIPT has no HELP subcommand.
+            raise SimpleError(msgs.KIVIDB_UNKNOWN_SCRIPT_SUBCOMMAND_MSG.format("help"))
         help_strings = [
             "SCRIPT <subcommand> [<arg> [value] [opt] ...]. Subcommands are:",
             "DEBUG (YES|SYNC|NO)",

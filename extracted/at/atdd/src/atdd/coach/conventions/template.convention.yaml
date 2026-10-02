@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+convention_id: "coach.template"
+name: "Conductor Template Convention"
+description: |
+  The ``coach.template.*`` rule family enforces what may and may not
+  appear in the ATDD base instruction template
+  (``src/atdd/coach/templates/CONDUCTOR.md``). The template ships into
+  every consumer repo via ``atdd sync`` and is the agent-facing
+  bootstrap surface — its job is to point at canonical sources, NOT to
+  be a second copy of them.
+
+  Background (#919): the Coach Decomposition (#887) has been actively
+  removing duplicated convention content from the template. The
+  ``state_machine`` block was excised in #888; the
+  ``atdd_cycle.phases`` table is canonical in
+  ``phase_machine.convention.yaml``; the ``audits.*`` surface is
+  printable via ``atdd validate --help`` / ``atdd repo --help``. Without
+  a substrate rule, future PRs can quietly re-introduce the bloat that
+  prior PRs removed. This convention closes that gap.
+
+rationale: |
+  "Memory is weak" (operator, #919): anything code-enforceable belongs
+  in the toolkit, not in agent-facing prose or operator memory. This
+  rule turns the no-duplicated-convention invariant into a CI gate that
+  fails strictly when CONDUCTOR.md re-introduces a forbidden
+  top-level section.
+
+  Defense in depth: the validator runs as part of the coach-archetype
+  validate suite (substrate); its rule_id is bound via ``bind_rule`` so
+  ``test_repo_validator_binding`` enforces the bidirectional binding
+  contract (#921 pattern).
+

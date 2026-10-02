@@ -85,6 +85,10 @@ class ExecutionControl:
             if len(self._counted_failures) >= self.max_failures:
                 self.has_reached_the_failure_limit = True
 
+    def reach_failure_limit(self) -> None:
+        """Stop the run as if the failure budget were spent, e.g. on a failure without `continue-on-failure`."""
+        self.has_reached_the_failure_limit = True
+
     @property
     def stop_reason(self) -> StopReason:
         from schemathesis.engine import StopReason
@@ -95,8 +99,9 @@ class ExecutionControl:
         # Winding down after the server went away takes time; the clock must not take the credit for stopping.
         if self.is_server_unavailable:
             return StopReason.SERVER_UNAVAILABLE
-        if self.has_reached_time_limit:
-            return StopReason.MAX_TIME
+        # Same for failures: workers may still be finishing when the deadline passes.
         if self.has_reached_the_failure_limit:
             return StopReason.FAILURE_LIMIT
+        if self.has_reached_time_limit:
+            return StopReason.MAX_TIME
         return StopReason.COMPLETED

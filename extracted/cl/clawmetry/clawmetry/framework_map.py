@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional
 
 #: Bumped whenever an identifier, an edition or a kind's mapping changes, so a
 #: stored finding says which contract labelled it.
-MAPPING_VERSION = "2026-09-30.1"
+MAPPING_VERSION = "2026-09-30.2"
 
 #: What a finding can establish. The same for every kind today, declared once
 #: so no surface re-derives it.
@@ -333,12 +333,15 @@ MAPPINGS: Dict[str, Dict[str, Any]] = {
         "rationale": ("AML.T0081 is modifying an agent's configuration so a change persists and "
                       "affects every agent that reads it, including its system prompt. ASI04 covers "
                       "tampered artefacts an agent loads, with pinning configs as a mitigation."),
-        "limits": ("Flags hook commands ClawMetry did not install, and changes to an agent's "
-                   "instruction, hook and settings files after they were first inventoried. The "
-                   "project author, the operator or the agent itself may have made either on "
-                   "purpose. It does not show who wrote them, and a file edited before its first "
-                   "inventory is part of the baseline."),
-        "requires": "the session's working directory is known",
+        "limits": ("Flags hook commands ClawMetry did not install, changes to an agent's "
+                   "instruction, hook and settings files after they were first inventoried, and "
+                   "system-prompt, Skill or rules files whose text tells the agent to fetch tasks "
+                   "from a URL and carry them out, contact a URL without telling the user, or pipe "
+                   "a downloaded script into a shell. The project author, the operator or the "
+                   "agent itself may have made any of them on purpose. It does not show who wrote "
+                   "them, a file edited before its first inventory is part of the baseline, and a "
+                   "standing instruction outside those three shapes is not read as one."),
+        "requires": "the session's working directory is known (for OpenClaw, its workspace)",
         "tests": {"positive": "tests/test_guard_workspace_kinds.py::test_claude_hook_file_on_a_cursor_session_names_cursor",
                   "benign": "tests/test_guard_workspace_kinds.py::test_all_clawmetry_hooks_emit_no_finding"},
     },

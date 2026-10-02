@@ -1,0 +1,77 @@
+[project]
+authors = [
+    { name = "Michael Harris", email = "mharris@definite.app" },
+]
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic<3,>=2",
+]
+name = "cube-http-client"
+version = "0.6.1"
+description = "Pythonic HTTP client for Cube.js REST API (sync + async)"
+readme = "README.md"
+keywords = [
+    "cube.js",
+    "cube js",
+    "cube.dev",
+    "cube",
+]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+homepage = "https://github.com/mharrisb1/cube-http-client"
+repository = "https://github.com/mharrisb1/cube-http-client"
+documentation = "https://github.com/mharrisb1/cube-http-client"
+
+[dependency-groups]
+dev = [
+    "deadcode>=2.4.1",
+    "pytest<9.0.0,>=8.3.2",
+    "pytest-asyncio<1.0.0,>=0.23.8",
+    "ruff>=0.11.9",
+    "ty>=0.0.1a1",
+]
+
+[tool.pdm.build]
+includes = [
+    "src/cube_http",
+]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 81
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "UP",
+    "B",
+    "SIM",
+    "I",
+]
+ignore = [
+    "E501",
+    "F403",
+    "UP007",
+    "UP035",
+    "B008",
+    "B904",
+]
+external = [
+    "DC",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

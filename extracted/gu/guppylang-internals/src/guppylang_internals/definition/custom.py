@@ -1,0 +1,663 @@
+import ast
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Generator, Iterable, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import TYPE_CHECKING, ClassVar, override
+
+from hugr import Wire
+from hugr import tys as ht
+from hugr.ops import DataflowOp
+from hugr.std.collections.borrow_array import EXTENSION as BORROW_ARRAY_EXTENSION
+
+from guppylang_internals.ast_util import (
+    AstNode,
+    get_type,
+    has_empty_body,
+    with_loc,
+    with_type,
+)
+from guppylang_internals.checker.core import Context, Globals
+from guppylang_internals.checker.expr_checker import (
+    check_call,
+    make_global_call,
+    synthesize_call,
+)
+from guppylang_internals.checker.func_checker import check_signature
+from guppylang_internals.compiler.builder import (
+    DFBuilder,
+    FunctionBuilder,
+    pure,
+)
+from guppylang_internals.compiler.core import (
+    CompilerContext,
+    DFContainer,
+    GlobalConstId,
+)
+from guppylang_internals.definition.common import CheckableGenericDef, ParsableDef
+from guppylang_internals.definition.value import (
+    CallableDef,
+    CallableEffects,
+    CallReturnWires,
+    CompiledCallableDef,
+)
+from guppylang_internals.diagnostic import Error, Help
+from guppylang_internals.error import GuppyError, InternalGuppyError
+from guppylang_internals.nodes import GlobalCall
+from guppylang_internals.span import SourceMap
+from guppylang_internals.tys import Effect
+from guppylang_internals.tys.param import Parameter
+from guppylang_internals.tys.subst import Inst, Subst
+from guppylang_internals.tys.ty import (
+    FuncInput,
+    FunctionType,
+    InputFlags,
+    NoneType,
+    Type,
+    UnitaryFlags,
+    type_to_row,
+)
+
+if TYPE_CHECKING:
+    from guppylang_internals.definition.function import PyFunc
+
+
+@dataclass(frozen=True)
+class BodyNotEmptyError(Error):
+    title: ClassVar[str] = "Unexpected function body"
+    span_label: ClassVar[str] = "Body of custom function `{name}` must be empty"
+    name: str
+
+
+@dataclass(frozen=True)
+class NoSignatureError(Error):
+    title: ClassVar[str] = "Type signature missing"
+    span_label: ClassVar[str] = "Custom function `{name}` requires a type signature"
+    name: str
+
+    @dataclass(frozen=True)
+    class Suggestion(Help):
+        message: ClassVar[str] = (
+            "Annotate the type signature of `{name}` or disallow the use of `{name}` "
+            "as a higher-order value: `@custom_function(..., higher_order_value=False)`"
+        )
+
+    def __post_init__(self) -> None:
+        self.add_sub_diagnostic(NoSignatureError.Suggestion(None))
+
+
+@dataclass(frozen=True)
+class NotHigherOrderError(Error):
+    title: ClassVar[str] = "Not higher-order"
+    span_label: ClassVar[str] = (
+        "Function `{name}` may not be used as a higher-order value"
+    )
+    name: str
+
+
+@dataclass(frozen=True)
+class RawCustomFunctionDef(ParsableDef):
+    """A raw custom function definition provided by the user.
+
+    Custom functions provide their own checking and compilation logic using a
+    `CustomCallChecker` and a `CustomCallCompiler`.
+
+    The raw definition stores exactly what the user has written (i.e. the AST together
+    with the provided checker and compiler), without inspecting the signature.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the definition.
+        defined_at: The AST node where the definition was defined.
+        call_checker: The custom call checker.
+        call_compiler: The custom call compiler.
+        higher_order_value: Whether the function may be used as a higher-order value.
+        signature: User-provided signature.
+    """
+
+    python_func: "PyFunc"
+    call_checker: "CustomCallChecker"
+    call_compiler: "CustomInoutCallCompiler"
+
+    # Whether the function may be used as a higher-order value. This is only possible
+    # if a static type for the function is provided.
+    higher_order_value: bool
+
+    signature: FunctionType | None
+    effects: Iterable[Effect]
+
+    unitary_flags: UnitaryFlags = field(default=UnitaryFlags.NoFlags)
+
+    # Whether the custom function accepts a variable number of arguments (not supported
+    # in Guppy functions in general but some custom functions make use of them).
+    has_var_args: bool = field(default=False)
+
+    description: str = field(default="function", init=False)
+
+    @override
+    def parse(self, globals: "Globals", sources: SourceMap) -> "CustomFunctionDef":
+        """Parses and checks the signature of the custom function.
+
+        The signature is optional if custom type checking logic is provided by the user.
+        However, note that a signature must be provided by either annotation or as an
+        argument, if we want to use the function as a higher-order value. If a signature
+        is provided as an argument, this will override any annotation.
+
+        If no signature is provided, we fill in the dummy signature `() -> ()`. This
+        type will never be inspected, since we rely on the provided custom checking
+        code. The only information we need to access is that it's a function type and
+        that there are no unsolved existential vars.
+        """
+        from guppylang_internals.definition.function import (
+            parse_py_func,
+        )
+
+        if isinstance(self.python_func, staticmethod):
+            is_static = True
+            py_func = self.python_func.__func__
+        else:
+            is_static = False
+            py_func = self.python_func
+
+        func_ast, _docstring = parse_py_func(py_func, sources)
+        if not has_empty_body(func_ast):
+            raise GuppyError(BodyNotEmptyError(func_ast.body[0], self.name))
+        sig = self.signature or self._get_signature(func_ast, globals)
+        ty = sig or FunctionType([], NoneType())
+        ty = ty.with_unitary_flags(self.unitary_flags)
+        return CustomFunctionDef(
+            self.id,
+            self.name,
+            func_ast,
+            ty,
+            self.call_checker,
+            self.call_compiler,
+            self.higher_order_value,
+            GlobalConstId.fresh(self.name),
+            sig is not None,
+            self.has_var_args,
+            self.effects,
+            is_static=is_static,
+        )
+
+    def _get_signature(
+        self, node: ast.FunctionDef, globals: Globals
+    ) -> FunctionType | None:
+        """Returns the type of the function, if known.
+
+        Type annotations are needed if we rely on the default call checker or
+        want to allow the usage of the function as a higher-order value.
+
+        Some function types like python's `int()` cannot be expressed in the Guppy
+        type system, so we return `None` here and rely on the specialized compiler
+        to handle the call.
+        """
+        requires_type_annotation = (
+            isinstance(self.call_checker, DefaultCallChecker) or self.higher_order_value
+        )
+        has_type_annotation = node.returns or any(
+            arg.annotation for arg in node.args.args
+        )
+
+        if requires_type_annotation and not has_type_annotation:
+            raise GuppyError(NoSignatureError(node, self.name))
+
+        if requires_type_annotation:
+            return check_signature(node, globals, self.id)
+        else:
+            return None
+
+
+@dataclass(frozen=True)
+class CustomFunctionDef(CallableDef, CheckableGenericDef, CallableEffects):
+    """A custom function with parsed and checked signature.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the definition.
+        defined_at: The AST node where the definition was defined.
+        ty: The type of the function. This may be a dummy value if `has_signature` is
+            false.
+        call_checker: The custom call checker.
+        call_compiler: The custom call compiler.
+        higher_order_value: Whether the function may be used as a higher-order value.
+        higher_order_func_id: If the function is used as a higher-order value, we need
+            to build Hugr function to load as the value. This is the global const
+            identifier we use to keep track of this function.
+        has_signature: Whether the function has a declared signature.
+
+    """
+
+    defined_at: AstNode | None
+    call_checker: "CustomCallChecker"
+    call_compiler: "CustomInoutCallCompiler"
+    higher_order_value: bool
+    higher_order_func_id: GlobalConstId
+    has_signature: bool
+    has_var_args: bool
+    effects: Iterable[Effect]
+
+    description: str = field(default="function", init=False)
+
+    @property
+    @override
+    def call_effects(self) -> Iterable[Effect]:
+        return self.effects
+
+    @property
+    def params(self) -> Sequence[Parameter]:
+        return self.ty.params
+
+    @override
+    def check(self, type_args: Inst, globals: Globals) -> "CustomMonoFunctionDef":
+        mono_ty = self.ty.instantiate(type_args) if self.has_signature else self.ty
+        return CustomMonoFunctionDef(
+            self.id,
+            self.name,
+            self.defined_at,
+            mono_ty,
+            self.call_checker,
+            self.call_compiler,
+            self.higher_order_value,
+            self.higher_order_func_id,
+            self.has_signature,
+            self.has_var_args,
+            self.effects,
+            type_args,
+            is_static=self.is_static,
+        )
+
+    @override
+    def check_call(
+        self, args: list[ast.expr], ty: Type, node: ast.Call, ctx: Context
+    ) -> tuple[ast.expr, Subst]:
+        """Checks the return type of a function call against a given type.
+
+        This is done by invoking the provided `CustomCallChecker`.
+        """
+        with self.call_checker._setup(ctx, node, self) as checker:
+            new_node, subst = checker.check(args, ty)
+        return with_type(ty, with_loc(node, new_node)), subst
+
+    @override
+    def synthesize_call(
+        self, args: list[ast.expr], node: AstNode, ctx: "Context"
+    ) -> tuple[ast.expr, Type]:
+        """Synthesizes the return type of a function call.
+
+        This is done by invoking the provided `CustomCallChecker`.
+        """
+        with self.call_checker._setup(ctx, node, self) as checker:
+            new_node, ty = checker.synthesize(args)
+        return with_type(ty, with_loc(node, new_node)), ty
+
+
+@dataclass(frozen=True)
+class CustomMonoFunctionDef(CustomFunctionDef, CompiledCallableDef):
+    """A custom function with instantiated generic type parameters.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the definition.
+        defined_at: The AST node where the definition was defined.
+        ty: The type of the function. This may be a dummy value if `has_signature` is
+            false.
+        call_checker: The custom call checker.
+        call_compiler: The custom call compiler.
+        higher_order_value: Whether the function may be used as a higher-order value.
+        higher_order_func_id: If the function is used as a higher-order value, we need
+            to build Hugr function to load as the value. This is the global const
+            identifier we use to keep track of this function.
+        has_signature: Whether the function has a declared signature.
+        type_args: Instantiation of the generic parameters of this function.
+    """
+
+    type_args: Inst
+
+    @override
+    def check(self, type_args: Inst, globals: Globals) -> "CustomMonoFunctionDef":
+        raise InternalGuppyError("Function is already monomorphized and checked")
+
+    @override
+    def load(self, dfg: "DFContainer", ctx: CompilerContext, node: AstNode) -> Wire:
+        """Loads the custom function as a value into a local dataflow graph.
+
+        This will place a `FunctionDef` node in the local DFG, and load with a
+        `LoadFunc` node. This operation will fail if the function is not allowed
+        to be used as a higher-order value.
+        """
+        # TODO: This should be raised during checking, not compilation!
+        if not self.higher_order_value:
+            raise GuppyError(NotHigherOrderError(node, self.name))
+
+        # We create a monomorphic `FunctionDef` that takes some inputs, contains the
+        # results of compiling a call to the function, and returns those results
+        func, already_defined = ctx.declare_global_func(
+            self.higher_order_func_id,
+            self.ty.to_hugr_poly(ctx),
+            self.type_args,
+        )
+        if not already_defined:
+            func = FunctionBuilder(func)
+            func_dfg = DFContainer(func, ctx, dfg.locals.copy())
+            args: list[Wire] = list(func.inputs())
+            returns = self.compile_call(args, func_dfg, ctx, node)
+            func.set_outputs(*returns.regular_returns, *returns.inout_returns)
+
+        # Finally, load the function into the local DFG
+        return dfg.builder.load_function(func)
+
+    @override
+    def compile_call(
+        self,
+        args: list[Wire],
+        dfg: "DFContainer",
+        ctx: CompilerContext,
+        node: AstNode,
+    ) -> CallReturnWires:
+        """Compiles a call to the function."""
+        if self.has_signature:
+            concrete_ty = self.ty
+        else:
+            assert isinstance(node, GlobalCall)
+            concrete_ty = FunctionType(
+                [FuncInput(get_type(arg), InputFlags.NoFlags) for arg in node.args],
+                get_type(node),
+            )
+        hugr_ty = concrete_ty.to_hugr(ctx)
+
+        with self.call_compiler._setup(
+            self.type_args, dfg, ctx, node, hugr_ty, self
+        ) as compiler:
+            return compiler.compile_with_inouts(args)
+
+
+class InputFlagDefaultMode(Enum):
+    """Controls the default behaviour of `compute_input_flags` for linear arguments."""
+
+    RAISE = auto()  # raise InternalGuppyError (current default)
+    INOUT = auto()  # borrow all linear args
+    OWNED = auto()  # consume all linear args
+
+
+class CustomCallChecker(ABC):
+    """Abstract base class for custom function call type checkers."""
+
+    ctx: Context
+    node: AstNode
+    func: CustomFunctionDef
+
+    # If `func` has no or an incomplete signature and `compute_input_flags` is not
+    # overridden, this controls the default behaviour of `compute_input_flags`.
+    input_flag_mode: ClassVar[InputFlagDefaultMode] = InputFlagDefaultMode.RAISE
+
+    _depth = 0
+
+    @contextmanager
+    def _setup(
+        self, ctx: Context, node: AstNode, func: CustomFunctionDef
+    ) -> Generator["CustomCallChecker", None, None]:
+        """
+        A context manager to temporarily set up the checker with required arguments, and
+        properly tear down the checker afterwards to avoid memory leaks.
+
+        See https://github.com/Quantinuum/guppylang/issues/1735.
+        """
+        self.ctx = ctx
+        self.node = node
+        self.func = func
+        try:
+            yield self
+        finally:
+            self._depth -= 1
+            # Only clean when there are no parent recursions, as otherwise the fields
+            # may still be in use.
+            if self._depth == 0:
+                del self.ctx
+                del self.node
+                del self.func
+
+    def check(self, args: list[ast.expr], ty: Type) -> tuple[ast.expr, Subst]:
+        """Checks the return value against a given type.
+
+        Returns a (possibly) transformed and annotated AST node for the call.
+        """
+        from guppylang_internals.checker.expr_checker import check_type_against
+
+        expr, res_ty = self.synthesize(args)
+        expr, subst, _ = check_type_against(res_ty, ty, expr, self.ctx)
+        return expr, subst
+
+    @abstractmethod
+    def synthesize(self, args: list[ast.expr]) -> tuple[ast.expr, Type]:
+        """Synthesizes a type for the return value of a call.
+
+        Also returns a (possibly) transformed and annotated argument list.
+        """
+
+    def compute_input_flags(self, args: list[ast.expr]) -> list[InputFlags]:
+        flags: list[InputFlags] = []
+        for arg in args:
+            ty = get_type(arg)
+            if ty.linear:
+                match self.input_flag_mode:
+                    case InputFlagDefaultMode.INOUT:
+                        flags.append(InputFlags.Inout)
+                    case InputFlagDefaultMode.OWNED:
+                        flags.append(InputFlags.Owned)
+                    case InputFlagDefaultMode.RAISE:
+                        raise InternalGuppyError(
+                            "Missing implementation of `compute_input_flags` for linear"
+                            f" argument of type `{ty}` for custom function "
+                            f"`{self.func.name}`. Add an implementation or a signature"
+                            " to the function definition."
+                        )
+            else:
+                flags.append(InputFlags.NoFlags)
+        return flags
+
+
+class CustomInoutCallCompiler(ABC):
+    """Abstract base class for custom function call compilers with borrowed args.
+
+    Args:
+        builder: The function builder where the function should be defined.
+        type_args: The type arguments for the function.
+        globals: The compiled globals.
+        node: The AST node where the function is defined.
+        ty: The type of the function, if known.
+    """
+
+    dfg: DFContainer
+    type_args: Inst
+    ctx: CompilerContext
+    node: AstNode
+    ty: ht.FunctionType
+    func: CustomMonoFunctionDef
+
+    _depth = 0
+
+    @contextmanager
+    def _setup(
+        self,
+        type_args: Inst,
+        dfg: DFContainer,
+        ctx: CompilerContext,
+        node: AstNode,
+        hugr_ty: ht.FunctionType,
+        func: CustomMonoFunctionDef,
+    ) -> Generator["CustomInoutCallCompiler", None, None]:
+        """
+        A context manager to temporarily set up the compiler with required arguments,
+        and properly tear down the compiler afterwards to avoid memory leaks.
+
+        See https://github.com/Quantinuum/guppylang/issues/1735.
+        """
+        self.type_args = type_args
+        self.dfg = dfg
+        self.ctx = ctx
+        self.node = node
+        self.ty = hugr_ty
+        self.func = func
+
+        # The only source code we can map any operations inside a custom compiled
+        # function to is the function definition itself, so we set the function
+        # definition node as the AST context in the builder.
+        self.builder.current_ast_node = self.node
+        self._depth += 1
+        try:
+            yield self
+        finally:
+            self._depth -= 1
+            # Only clean when there are no parent recursions, as otherwise the fields
+            # may still be in use.
+            if self._depth == 0:
+                del self.type_args
+                del self.dfg
+                del self.ctx
+                del self.node
+                del self.ty
+                del self.func
+
+    @abstractmethod
+    def compile_with_inouts(self, args: list[Wire]) -> CallReturnWires:
+        """Compiles a custom function call.
+
+        Returns the outputs of the call together with any borrowed arguments that are
+        passed through the function.
+        """
+
+    @property
+    def builder(self) -> DFBuilder:
+        """The hugr dataflow builder."""
+        return self.dfg.builder
+
+
+class CustomCallCompiler(CustomInoutCallCompiler, ABC):
+    """Abstract base class for custom function call compilers with only owned args."""
+
+    @abstractmethod
+    def compile(self, args: list[Wire]) -> list[Wire]:
+        """Compiles a custom function call and returns the resulting ports."""
+
+    @override
+    def compile_with_inouts(self, args: list[Wire]) -> CallReturnWires:
+        return CallReturnWires(self.compile(args), inout_returns=[])
+
+
+class DefaultCallChecker(CustomCallChecker):
+    """Checks function calls by comparing to a type signature."""
+
+    @override
+    def check(self, args: list[ast.expr], ty: Type) -> tuple[ast.expr, Subst]:
+        # Use default implementation from the expression checker
+        args, subst, inst = check_call(
+            self.func.ty, args, ty, self.node, self.ctx, self.func
+        )
+        return make_global_call(self.func, args, inst), subst
+
+    @override
+    def synthesize(self, args: list[ast.expr]) -> tuple[ast.expr, Type]:
+        # Use default implementation from the expression checker
+        args, ty, inst = synthesize_call(
+            self.func.ty, args, self.node, self.ctx, self.func
+        )
+        return make_global_call(self.func, args, inst), ty
+
+
+class OwnedArgumentsCallChecker(DefaultCallChecker):
+    """Same as `DefaultCallChecker`, but assumes all input arguments are owned."""
+
+    input_flag_mode = InputFlagDefaultMode.OWNED
+
+
+class NotImplementedCallCompiler(CustomCallCompiler):
+    """Call compiler for custom functions that are already lowered during checking.
+
+    For example, the custom checker could replace the call with a series of calls to
+    other functions. In that case, the original function will no longer be present and
+    thus doesn't need to be compiled.
+    """
+
+    @override
+    def compile(self, args: list[Wire]) -> list[Wire]:
+        raise InternalGuppyError("Function should have been removed during checking")
+
+
+class OpCompiler(CustomInoutCallCompiler):
+    """Call compiler for functions that are directly implemented via Hugr ops.
+
+    args:
+        op: A function that takes an instantiation of the type arguments as well as
+            the monomorphic function type, and returns a concrete HUGR op.
+    """
+
+    op: Callable[[ht.FunctionType, Inst, CompilerContext], DataflowOp]
+
+    def __init__(
+        self, op: Callable[[ht.FunctionType, Inst, CompilerContext], DataflowOp]
+    ) -> None:
+        self.op = op
+
+    @override
+    def compile_with_inouts(self, args: list[Wire]) -> CallReturnWires:
+        op = self.op(self.ty, self.type_args, self.ctx)
+        node = self.builder.add_op((op, self.func.call_effects), *args)
+        num_returns = (
+            len(type_to_row(self.func.ty.output)) if self.func else len(self.ty.output)
+        )
+        return CallReturnWires(
+            regular_returns=list(node[:num_returns]),
+            inout_returns=list(node[num_returns:]),
+        )
+
+
+class NoopCompiler(CustomCallCompiler):
+    """Call compiler for functions that are noops."""
+
+    @override
+    def compile(self, args: list[Wire]) -> list[Wire]:
+        return args
+
+
+class CopyInoutCompiler(CustomInoutCallCompiler):
+    """Call compiler for functions that borrow one argument to copy it."""
+
+    @override
+    def compile_with_inouts(self, args: list[Wire]) -> CallReturnWires:
+        assert len(self.ty.input) == 1
+        inp_ty = self.ty.input[0]
+        if inp_ty.type_bound() == ht.TypeBound.Linear:
+            (arg,) = args
+            copies = self._handle_affine_type(inp_ty, arg)
+            return CallReturnWires(
+                regular_returns=[copies[0]], inout_returns=[copies[1]]
+            )
+        return CallReturnWires(regular_returns=args, inout_returns=args)
+
+    # Affine types in Guppy backed by a linear Hugr type need to be copied explicitly.
+    # TODO: Handle affine extension types more generally (borrow arrays are currently
+    # the only case).
+    def _handle_affine_type(self, ty: ht.Type, arg: Wire) -> list[Wire]:
+        match ty:
+            case ht.ExtType(type_def=type_def, args=type_args):
+                if (
+                    type_def.qualified_name()
+                    == BORROW_ARRAY_EXTENSION.get_type("borrow_array").qualified_name()
+                ):
+                    assert len(type_args) == 2
+                    # Manually instantiate here to avoid circular import and use
+                    # type args directly.
+                    clone_op = BORROW_ARRAY_EXTENSION.get_op("clone").instantiate(
+                        type_args,
+                        ht.FunctionType(self.ty.input, self.ty.output),
+                    )
+                    # We never borrow copyable elements, so this never panics
+                    return list(self.builder.add_op(pure(clone_op), arg))
+            case _:
+                pass
+        raise InternalGuppyError(
+            f"Type `{ty}` needs an explicit handler in the `copy` compiler as "
+            "it is an affine Guppy type backed by a linear Hugr type."
+        )

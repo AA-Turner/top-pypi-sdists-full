@@ -1,0 +1,277 @@
+"""Linting models for schema validation.
+
+This module provides data structures for schema linting including:
+- Violation: A single schema quality issue
+- LintSeverity: Severity level of violations
+- LintConfig: Configuration for linting rules
+- LintReport: Aggregated linting results
+"""
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+
+class LintSeverity(str, Enum):
+    """Severity levels for linting violations.
+
+    Attributes:
+        ERROR: Blocking issue - must fix before migration
+        WARNING: Should fix but optional
+        INFO: Informational only
+    """
+
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
+
+
+@dataclass
+class Violation:
+    """A single schema quality violation.
+
+    Attributes:
+        rule_name: Human-readable name of the rule that detected this violation
+        rule_id: Stable rule code (``naming_001``…), the identifier
+            ``confiture lint --select`` / ``--ignore`` take. Empty for a
+            violation from a rule with no registry entry (#150).
+        severity: Severity level (ERROR, WARNING, INFO)
+        message: Human-readable description of the issue
+        location: Where the violation occurred (table name, column, etc.)
+        suggested_fix: Optional suggestion on how to fix it
+        file: Path of the source file the finding is in, relative to the
+            project root, or ``None`` when the rule read a string rather than
+            a tree (``SchemaLinter.lint(schema=...)``).
+        line: 1-based line within ``file``, or ``None`` for the same reason.
+            Never a line in the concatenated build: a line without a file is
+            not a location.
+        finding_class: For a ``body`` finding, ``real`` or the analysis
+            artefact it is (#354); ``None``, and absent from the JSON, otherwise.
+    """
+
+    rule_name: str
+    severity: LintSeverity
+    message: str
+    location: str
+    suggested_fix: str | None = None
+    rule_id: str = ""
+    file: str | None = None
+    line: int | None = None
+    finding_class: str | None = None
+
+    def __str__(self) -> str:
+        """Format violation for human consumption."""
+        return f"[{self.severity.upper()}] {self.location}: {self.message}"
+
+    def __repr__(self) -> str:
+        """Return repr for debugging."""
+        return (
+            f"Violation(rule={self.rule_name}, severity={self.severity}, location={self.location})"
+        )
+
+
+@dataclass
+class LintConfig:
+    """Configuration for schema linting.
+
+    Attributes:
+        enabled: Whether linting is enabled
+        rules: Dict mapping rule names to their configs
+        fail_on_error: Exit with error code if violations found
+        fail_on_warning: Exit with error code if warnings found (stricter)
+        exclude_tables: List of table name patterns to exclude from linting
+    """
+
+    enabled: bool = True
+    rules: dict[str, Any] = field(default_factory=dict)
+    fail_on_error: bool = True
+    fail_on_warning: bool = False
+    exclude_tables: list[str] = field(default_factory=list)
+
+    @classmethod
+    def default(cls) -> "LintConfig":
+        """Create LintConfig with sensible defaults for all rules.
+
+        Returns:
+            LintConfig with all 6 rules enabled with default settings
+
+        Example:
+            >>> config = LintConfig.default()
+            >>> config.rules.keys()
+            dict_keys(['naming_convention', 'primary_key', ...])
+        """
+        return cls(
+            enabled=True,
+            fail_on_error=True,
+            fail_on_warning=False,
+            rules={
+                "naming_convention": {
+                    "enabled": True,
+                    "style": "snake_case",
+                },
+                "primary_key": {
+                    "enabled": True,
+                },
+                "documentation": {
+                    "enabled": True,
+                },
+                "multi_tenant": {
+                    "enabled": True,
+                    "identifier": "tenant_id",
+                },
+                "missing_index": {
+                    "enabled": True,
+                },
+                "security": {
+                    "enabled": True,
+                },
+            },
+        )
+
+
+@dataclass
+class LintReport:
+    """Results of a complete linting pass.
+
+    Attributes:
+        violations: List of all violations found
+        schema_name: Name of schema that was linted
+        tables_checked: Tables in the files that parsed. A file pglast rejects
+            contributes none of its objects (#274), so on a tree with one this
+            is smaller than the tree holds — which is honest only because
+            ``degraded`` names the file and the rules that read it short.
+        columns_checked: Columns of those same tables, on the same terms.
+        errors_count: Number of ERROR level violations
+        warnings_count: Number of WARNING level violations
+        info_count: Number of INFO level violations
+        execution_time_ms: Time taken to lint in milliseconds
+        gate: What decided the exit code and whether anything could have
+            reached it — see ``core.linting.gate.Gate.to_dict``. Every
+            ``confiture lint`` run sets it; a report a library caller builds
+            itself has none.
+        skipped: Rules that did not run, each with a reason. A skip is not a
+            pass, and a payload that omitted it would read as one.
+        degraded: Rules that ran on less than the whole schema, each with its
+            own reason: ``build_003`` with no live database is one, and every
+            rule that reads DDL when a file would not parse is the other.
+            Never written to a baseline, so a project that records an
+            ``UNPARSEABLE`` as known still sees what it costs on every run.
+        documentation: How much of the schema carries a comment and how long
+            those comments are, per ``doc`` rule and for the family (#250).
+            ``None`` when the family did not run: absent means unmeasured,
+            which is not the same as zero.
+    """
+
+    violations: list[Violation]
+    schema_name: str
+    tables_checked: int
+    columns_checked: int
+    errors_count: int
+    warnings_count: int
+    info_count: int
+    execution_time_ms: int
+    baseline: dict[str, Any] | None = None
+    gate: dict[str, Any] | None = None
+    skipped: list[dict[str, str]] = field(default_factory=list)
+    degraded: list[dict[str, str]] = field(default_factory=list)
+    documentation: dict[str, Any] | None = None
+
+    @property
+    def has_errors(self) -> bool:
+        """Whether there are any ERROR level violations.
+
+        Returns:
+            True if errors_count > 0, False otherwise
+        """
+        return self.errors_count > 0
+
+    @property
+    def has_warnings(self) -> bool:
+        """Whether there are any WARNING level violations.
+
+        Returns:
+            True if warnings_count > 0, False otherwise
+        """
+        return self.warnings_count > 0
+
+    def violations_by_severity(self) -> dict[LintSeverity, list[Violation]]:
+        """Group violations by their severity level.
+
+        Returns:
+            Dict mapping LintSeverity to list of violations at that level
+
+        Example:
+            >>> report.violations_by_severity()
+            {
+                <LintSeverity.ERROR: 'error'>: [Violation(...), ...],
+                <LintSeverity.WARNING: 'warning'>: [...],
+                <LintSeverity.INFO: 'info'>: [...],
+            }
+        """
+        grouped: dict[LintSeverity, list[Violation]] = {}
+
+        for severity in LintSeverity:
+            grouped[severity] = [v for v in self.violations if v.severity == severity]
+
+        return grouped
+
+    def __str__(self) -> str:
+        """Format report for human consumption.
+
+        Returns:
+            Multi-line string with summary of linting results
+        """
+        tables_with_violations = {v.location.split(".")[0] for v in self.violations}
+        lines = [
+            f"Schema: {self.schema_name}",
+            f"Tables: {self.tables_checked} checked, {len(tables_with_violations)} with violations",
+            f"Violations: {self.errors_count} errors, {self.warnings_count} warnings, {self.info_count} info",
+            f"Time: {self.execution_time_ms}ms",
+        ]
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        """The ``lint --format json`` payload (before the envelope adds ``parser``).
+
+        ``baseline`` is present only when the run compared against one (#219);
+        ``gate`` only when a gate decided the outcome, which is every run of
+        the command; ``documentation`` only when the ``doc`` family ran. ``skipped`` and ``degraded`` are always present, empty
+        when nothing was skipped or degraded: a consumer that has to tell
+        "nothing was skipped" from "this payload predates the field" is a
+        consumer that will assume the first.
+        """
+        payload: dict[str, Any] = {
+            "schema_name": self.schema_name,
+            "tables_checked": self.tables_checked,
+            "columns_checked": self.columns_checked,
+            "execution_time_ms": self.execution_time_ms,
+            "violations": {
+                "total": len(self.violations),
+                "errors": self.errors_count,
+                "warnings": self.warnings_count,
+                "info": self.info_count,
+                "items": [
+                    {
+                        "rule": v.rule_name,
+                        "rule_id": v.rule_id,
+                        "severity": v.severity.value,
+                        "location": v.location,
+                        "file": v.file,
+                        "line": v.line,
+                        "message": v.message,
+                        "suggested_fix": v.suggested_fix,
+                        **({"class": v.finding_class} if v.finding_class else {}),
+                    }
+                    for v in self.violations
+                ],
+            },
+        }
+        payload["skipped"] = list(self.skipped)
+        payload["degraded"] = list(self.degraded)
+        if self.documentation is not None:
+            payload["documentation"] = self.documentation
+        if self.baseline is not None:
+            payload["baseline"] = self.baseline
+        if self.gate is not None:
+            payload["gate"] = self.gate
+        return payload

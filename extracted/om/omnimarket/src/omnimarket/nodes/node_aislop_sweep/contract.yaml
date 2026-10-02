@@ -1,0 +1,89 @@
+---
+name: aislop_sweep
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Detect AI-generated quality anti-patterns across repos. Scans for phantom callables,
+  backwards-compat shims, prohibited env var patterns, hardcoded topic strings,
+  agent-left TODO/FIXME markers, and empty implementations.
+
+handler:
+  module: omnimarket.nodes.node_aislop_sweep.handlers.handler_aislop_sweep
+  class: NodeAislopSweep
+  input_model: omnimarket.nodes.node_aislop_sweep.handlers.handler_aislop_sweep.AislopSweepRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: sweep
+      handler:
+        name: NodeAislopSweep
+        module: omnimarket.nodes.node_aislop_sweep.handlers.handler_aislop_sweep
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 120000
+
+inputs:
+  target_dirs:
+    type: list[str]
+    description: "Explicit absolute directory paths to scan (overrides repos)"
+    required: false
+    default: []
+  repos:
+    type: list[str]
+    description: >
+      Bare repository names resolved against $OMNI_HOME to absolute scan dirs.
+      Defaults to the canonical repo set when both repos and target_dirs are
+      empty, so a no-arg dispatch scans the real repo universe (OMN-13538).
+    required: false
+    default: []
+  checks:
+    type: list[str] | null
+    description: "Optional sweep check categories to run; null means all checks"
+    required: false
+    default: null
+  dry_run:
+    type: bool
+    description: "If true, report findings without creating tickets"
+    required: false
+    default: false
+  severity_threshold:
+    type: str
+    description: "Minimum severity threshold to report"
+    required: false
+    default: "WARNING"
+
+outputs:
+  findings:
+    type: list[SweepFinding]
+    description: "List of detected anti-pattern findings"
+  summary:
+    type: object
+    description: "Aggregated summary with counts by severity and check type"
+
+terminal_event: onex.evt.omnimarket.aislop-sweep-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.aislop-sweep-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.aislop-sweep-finding.v1
+    - onex.evt.omnimarket.aislop-sweep-completed.v1
+    - onex.evt.omnimarket.sweep-result.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # referenced outside the node graph at omnimarket/scripts/classify_contract_graph_orphans.py
+  - onex.evt.omnimarket.aislop-sweep-completed.v1
+  - onex.evt.omnimarket.aislop-sweep-finding.v1
+  - onex.evt.omnimarket.sweep-result.v1

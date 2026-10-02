@@ -1,0 +1,202 @@
+# To register as required status check after merging:
+#   gh api repos/OmniNode-ai/omnimarket/branches/main/protection \
+#     --method PUT \
+#     --field required_status_checks='{"strict":false,"contexts":["dep-health / scan"]}'
+#
+# Phased rollout:
+#   Phase 1 (advisory): no baseline file → run sweep, upload artifact, exit 0
+#   Phase 2 (blocking): baseline committed → delta-mode, block on new MAJOR+ findings
+#
+# Baseline-first: commit .onex_state/dep_health_baseline.json to enable Phase 2.
+---
+name: dep-health-gate
+
+"on":
+  pull_request:
+  merge_group:
+
+# OMN-19643: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+jobs:
+  occ-preflight:
+    name: OCC Preflight Dependency
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    steps:
+      - name: Wait for required OCC preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -uo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "OCC preflight dependency is enforced by the pull_request gate; continuing for ${GITHUB_EVENT_NAME}."
+            exit 0
+          fi
+
+          # OMN-14343: desynchronize the ~33 same-PR pollers (one per workflow file
+          # -- GH Actions `needs:` can't cross workflow-file boundaries) so they
+          # don't all hit the Checks API in the same instant every 10s and exhaust
+          # the shared per-repo GitHub App installation rate-limit bucket.
+          sleep "$(( RANDOM % 15 ))"
+
+          backoff=5
+          elapsed=0
+          # The eligibility check bounds its own wait for the cited OCC companion at
+          # 1500 s, so this poller waits that long plus 180 s of scheduling slack.
+          # At 720 s it gave up on an eligibility run that was still waiting on its
+          # companion, failed, and skipped the test shards behind it.
+          deadline=1680
+
+          while [ "$elapsed" -lt "$deadline" ]; do
+            # NOTE(OMN-14343): GH Actions runs run: steps under `bash -e {0}` by
+            # default -- that -e is already active before this script's own
+            # `set -uo pipefail` runs, and `set -uo pipefail` does NOT clear an
+            # inherited -e. A bare `response="$(gh api ...)"; status=$?` would
+            # therefore abort the whole step on ANY gh api failure before status
+            # is ever checked, silently defeating the retry logic below. Using
+            # the command substitution as the condition of this `if` is the
+            # errexit-safe form -- bash does not trigger -e for a command that is
+            # part of an if/while/until condition, regardless of ambient -e state.
+            response=""
+            status=0
+            if response="$(
+              gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs?filter=latest&check_name=occ-preflight%20%2F%20eligibility&per_page=1" \
+                --jq 'first(.check_runs[] | .conclusion) // ""' \
+                2>&1
+            )"; then
+              status=0
+            else
+              status=$?
+            fi
+
+            if [ "$status" -ne 0 ]; then
+              if echo "$response" | grep -qi "rate limit"; then
+                echo "::warning::gh api rate-limited waiting for occ-preflight; backing off ${backoff}s."
+                sleep "$backoff"
+                elapsed=$((elapsed + backoff))
+                backoff=$(( backoff * 2 < 60 ? backoff * 2 : 60 ))
+                continue
+              fi
+              echo "::error::gh api call failed (non-rate-limit): ${response}"
+              exit 1
+            fi
+            backoff=5
+
+            conclusion="$response"
+
+            case "$conclusion" in
+              success)
+                echo "OCC preflight passed for ${HEAD_SHA}."
+                exit 0
+                ;;
+              cancelled)
+                # OMN-20038: a cancelled preflight that a newer run for this head is
+                # replacing is pending, not refused. With no run queued or in progress the
+                # cancel is final and refuses exactly as before (fail closed on any read error).
+                in_flight="$(gh api "repos/${REPO}/actions/workflows/call-occ-preflight.yml/runs?head_sha=${HEAD_SHA}&per_page=30" --jq '[.workflow_runs[] | select(.status != "completed")] | length')" || in_flight=0
+                if [ "$in_flight" -gt 0 ] 2>/dev/null; then
+                  echo "OCC preflight was cancelled but ${in_flight} newer run(s) are pending for ${HEAD_SHA}; waiting."
+                else
+                  echo "::error::OCC preflight concluded cancelled with no newer run pending; refusing to start this workflow."
+                  exit 1
+                fi
+                ;;
+              failure|timed_out|action_required|startup_failure)
+                echo "::error::OCC preflight concluded ${conclusion}; refusing to start this workflow."
+                exit 1
+                ;;
+              "")
+                echo "Waiting for occ-preflight / eligibility to post for ${HEAD_SHA}..."
+                ;;
+              *)
+                echo "OCC preflight is ${conclusion}; waiting."
+                ;;
+            esac
+
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+
+          echo "::error::Timed out waiting for occ-preflight / eligibility on ${HEAD_SHA}."
+          exit 1
+  dep-health:
+    needs: occ-preflight
+    name: dep-health / scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --extra dep-health
+
+      # Phase 1 — Advisory run (always runs, uploads artifact for baseline generation)
+      - name: Dep health sweep (advisory)
+        id: advisory
+        continue-on-error: true
+        run: |
+          uv run python scripts/ci/run_dep_health_sweep.py \
+            --repo-roots src/ \
+            --severity-threshold MAJOR \
+            > dep-health-advisory.json 2>&1 || true
+          echo "Advisory run complete"
+
+      - name: Upload advisory artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dep-health-baseline
+          path: dep-health-advisory.json
+          retention-days: 30
+
+      # Phase 2 — Delta run (only when baseline file exists)
+      #
+      # NON-BLOCKING SINCE 2026-09-27, TEMPORARILY, UNDER OMN-19889.
+      #
+      # OMN-19677 (ff67f869, #2928) did three things at once: it shrank
+      # .onex_state/dep_health_baseline.json from 584 entries to 49, it switched
+      # this gate to block on any NEW finding rather than the net baseline delta,
+      # and it removed the advisory fallback so the job became blocking. Each is
+      # defensible; together they made every omnimarket branch red. The 535
+      # de-banked findings all read as new against a blocking gate with no
+      # non-blocking path, so `dep-health / scan` failed on eight consecutive
+      # runs across seven different authors' branches -- including branches whose
+      # diff adds and removes no topic -- and nothing in the repository could
+      # merge. Its own branch, jonah/omn-19677-ratchet-oneway-omnimarket, was
+      # already failing this gate at 11:59Z and 12:11Z before it merged at
+      # 12:57:19Z; the last green run was 12:56:45Z and the first red 12:58:35Z.
+      #
+      # WHAT THIS DOES NOT CHANGE. --delta-mode still runs, still computes, and
+      # still reports; run_dep_health_sweep.py and its OMN-19677 regression
+      # tests are untouched, so a genuinely new finding still exits non-zero and
+      # is still printed in this step's log. The baseline is untouched, so the
+      # shrink-only direction is intact and nothing is re-banked -- re-banking is
+      # growth and needs an explicit ruling, not a silent edit.
+      #
+      # WHAT REMOVES THIS. OMN-19889 AC1/AC3: the 535 findings are resolved
+      # (subscribed, or declared externally consumed) or explicitly re-banked by
+      # ruling. When the sweep is clean against the baseline, delete this
+      # continue-on-error and the gate blocks again with no other change.
+      - name: Dep health sweep (delta)
+        continue-on-error: true  # advisory-ok: OMN-19889 535 de-banked dep-health findings block every branch; remove when the sweep is clean
+        if: hashFiles('.onex_state/dep_health_baseline.json') != ''
+        run: |
+          uv run python scripts/ci/run_dep_health_sweep.py \
+            --repo-roots src/ \
+            --severity-threshold MAJOR \
+            --baseline-path .onex_state/dep_health_baseline.json \
+            --delta-mode

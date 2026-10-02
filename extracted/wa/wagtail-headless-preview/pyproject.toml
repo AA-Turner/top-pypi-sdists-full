@@ -1,0 +1,103 @@
+[project]
+name = "wagtail-headless-preview"
+description = "Enhance Wagtail previews in headless setups."
+authors = [{name = "Dan Braghis", email = "dan.braghis@torchbox.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["Wagtail", "Django", "headless"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Framework :: Wagtail",
+    "Framework :: Wagtail :: 7",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = ["Wagtail>=7.0"]
+
+[project.optional-dependencies]
+testing = [
+    "django-cors-headers",
+    "tox>=4",
+    "coverage[toml]>=7.0,<8.0",
+]
+
+[project.urls]
+Repository = "https://github.com/torchbox/wagtail-headless-preview"
+Changelog = "https://github.com/torchbox/wagtail-headless-preview/blob/main/CHANGELOG.md"
+Issues = "https://github.com/torchbox/wagtail-headless-preview/issues"
+
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "wagtail_headless_preview"
+
+[tool.flit.sdist]
+exclude = [
+    "tests",
+    "Makefile",
+    ".*",
+    "*.json",
+    "*.ini",
+    "*.yml",
+    "*.yaml",
+    "CHANGELOG.md",
+    "manage.py",
+    "runtests.py",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["wagtail_headless_preview"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/py*/**/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+skip_empty = true
+skip_covered = true
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc.)?abstractmethod",
+
+    # Nor complain about type checking
+    "if TYPE_CHECKING:",
+]

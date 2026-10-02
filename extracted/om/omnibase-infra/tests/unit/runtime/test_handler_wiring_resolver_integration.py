@@ -1,0 +1,942 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for handler_wiring → ServiceHandlerResolver integration (OMN-9201).
+
+Verifies the Task 5 BOOT-PATH cutover: handler_wiring.py delegates handler
+construction to ``ServiceHandlerResolver`` via a ``ModelHandlerResolverContext``
+instead of running the inline OMN-8735 decision tree.
+
+Test matrix (plan §Task 5 acceptance):
+- _assert_is_ownership_query rejects non-protocol objects at the infra
+  boundary BEFORE the resolver is invoked.
+- Resolver is invoked exactly once per handler entry; outcome flows into
+  ``ModelContractWiringResult.wirings``.
+- LOCAL_OWNERSHIP_SKIP outcomes land in ``skipped_handlers`` and do NOT
+  register the dispatcher/routes on the engine.
+- OMN-8735 fail-fast preserved: unresolvable handlers raise ``TypeError``
+  that propagates unchanged through ``wire_from_manifest``.
+- wire_from_manifest produces structurally identical reports across two
+  runs (determinism).
+- Protocol conformance: ``ServiceLocalHandlerOwnershipQuery`` satisfies
+  ``ProtocolHandlerOwnershipQuery`` (spi).
+- Full wiring + materialized deps: an explicit-dep map is threaded through
+  ``_prepare_handler_wiring`` into the resolver.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Protocol
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+from omnibase_core.enums.enum_handler_resolution_outcome import (
+    EnumHandlerResolutionOutcome,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_command import (
+    ModelDispatchBusCommand,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_terminal_result import (
+    ModelDispatchBusTerminalResult,
+)
+from omnibase_core.models.errors import ModelOnexError
+from omnibase_core.services.service_handler_resolver import ServiceHandlerResolver
+from omnibase_core.services.service_local_handler_ownership_query import (
+    ServiceLocalHandlerOwnershipQuery,
+)
+from omnibase_infra.protocols import ProtocolEventBusLike
+from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+    _assert_is_ownership_query,
+    _build_topic_migration_executor_dependencies,
+    _prepare_handler_wiring,
+    wire_from_manifest,
+)
+from omnibase_infra.runtime.auto_wiring.models import (
+    ModelAutoWiringManifest,
+    ModelContractVersion,
+    ModelDiscoveredContract,
+    ModelEventBusWiring,
+    ModelHandlerRef,
+    ModelHandlerRouting,
+    ModelHandlerRoutingEntry,
+)
+from omnibase_infra.runtime.runtime_local_ingress import ModelRuntimeLocalIngressRoute
+from omnibase_spi.protocols.runtime.protocol_handler_ownership_query import (
+    ProtocolHandlerOwnershipQuery,
+)
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+def _make_contract(
+    name: str = "node_local",
+    handler_name: str = "HandlerFoo",
+    handler_module: str = "fake.module",
+    topics: tuple[str, ...] = ("onex.evt.platform.local-input.v1",),
+) -> ModelDiscoveredContract:
+    return ModelDiscoveredContract(
+        name=name,
+        node_type="EFFECT_GENERIC",
+        contract_version=ModelContractVersion(major=1, minor=0, patch=0),
+        contract_path=Path("/fake/contract.yaml"),
+        entry_point_name=name,
+        package_name="test-pkg",
+        event_bus=ModelEventBusWiring(subscribe_topics=topics, publish_topics=()),
+        handler_routing=ModelHandlerRouting(
+            routing_strategy="payload_type_match",
+            handlers=(
+                ModelHandlerRoutingEntry(
+                    handler=ModelHandlerRef(name=handler_name, module=handler_module),
+                    event_model=None,
+                    operation=None,
+                ),
+            ),
+        ),
+    )
+
+
+def _make_manifest(*contracts: ModelDiscoveredContract) -> ModelAutoWiringManifest:
+    return ModelAutoWiringManifest(contracts=contracts)
+
+
+def _make_zero_arg_handler_cls() -> type:
+    class FakeHandler:
+        async def handle(self, envelope: object) -> None:
+            return None
+
+    return FakeHandler
+
+
+# ---------------------------------------------------------------------------
+# _assert_is_ownership_query — infra-boundary protocol check
+# ---------------------------------------------------------------------------
+
+
+class TestAssertIsOwnershipQuery:
+    @pytest.mark.unit
+    def test_accepts_service_local_ownership_query(self) -> None:
+        svc = ServiceLocalHandlerOwnershipQuery(local_node_names=frozenset({"a"}))
+        # Should not raise.
+        _assert_is_ownership_query(svc)
+
+    @pytest.mark.unit
+    def test_rejects_bare_object(self) -> None:
+        with pytest.raises(ModelOnexError) as exc_info:
+            _assert_is_ownership_query(object())
+        assert "ProtocolHandlerOwnershipQuery" in str(exc_info.value)
+
+    @pytest.mark.unit
+    def test_rejects_object_without_is_owned_here(self) -> None:
+        class BadQuery:
+            def unrelated(self) -> bool:
+                return True
+
+        with pytest.raises(ModelOnexError):
+            _assert_is_ownership_query(BadQuery())
+
+    @pytest.mark.unit
+    def test_service_local_conforms_to_spi_protocol(self) -> None:
+        """Layering: the core-layer service satisfies the spi-layer protocol."""
+        svc = ServiceLocalHandlerOwnershipQuery(local_node_names=frozenset({"x"}))
+        assert isinstance(svc, ProtocolHandlerOwnershipQuery)
+
+
+# ---------------------------------------------------------------------------
+# wire_from_manifest — boundary check runs BEFORE resolver
+# ---------------------------------------------------------------------------
+
+
+class TestWireFromManifestBoundary:
+    @pytest.mark.asyncio
+    async def test_asserts_ownership_query_protocol_conformance(self) -> None:
+        """Layering boundary test (plan Task 5 acceptance).
+
+        Patching ServiceLocalHandlerOwnershipQuery to return a bare object()
+        proves the infra-boundary check runs before the resolver is invoked.
+        """
+        manifest = _make_manifest(_make_contract())
+        engine = MagicMock()
+
+        # Patch the constructor inside handler_wiring's namespace so
+        # wire_from_manifest uses our non-conforming stand-in.
+        bad = object()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring."
+            "ServiceLocalHandlerOwnershipQuery",
+            return_value=bad,
+        ):
+            with pytest.raises(ModelOnexError) as exc_info:
+                await wire_from_manifest(manifest, engine)
+        assert "ProtocolHandlerOwnershipQuery" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# _prepare_handler_wiring — resolver delegation
+# ---------------------------------------------------------------------------
+
+
+class TestPrepareHandlerWiringDelegatesToResolver:
+    @pytest.mark.unit
+    def test_delegates_to_resolver(self) -> None:
+        """Plan Task 5 acceptance: resolver.resolve is invoked exactly once."""
+        contract = _make_contract()
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+        handler_cls = _make_zero_arg_handler_cls()
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        # dispatch_engine=None avoids MagicMock's auto-attributes that would
+        # expose a fake ``_container`` and redirect the resolver chain.
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=handler_cls,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=None,
+                container=None,
+            )
+        assert prepared.is_skip is False
+        assert (
+            prepared.resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_ZERO_ARG
+        )
+        assert prepared.handler_name == entry.handler.name
+
+    @pytest.mark.unit
+    def test_skip_when_node_not_owned(self) -> None:
+        """Plan Task 5 acceptance: LOCAL_OWNERSHIP_SKIP is recorded, no TypeError."""
+        contract = _make_contract(name="foreign_node")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+        handler_cls = _make_zero_arg_handler_cls()
+        # Ownership says the node is NOT owned here.
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({"some_other_node"})
+        )
+        resolver = ServiceHandlerResolver()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=handler_cls,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=MagicMock(),
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=None,
+                container=None,
+            )
+        assert prepared.is_skip is True
+        assert prepared.handler_name == entry.handler.name
+        assert "foreign_node" in prepared.skip_reason
+        # Skip entries never carry a dispatcher_id.
+        assert prepared.dispatcher_id == ""
+        assert prepared.route_ids == []
+
+    @pytest.mark.unit
+    def test_unresolvable_handler_quarantined_in_default_mode(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-13203: an unresolvable handler is quarantined (not boot-fatal).
+
+        Default mode contains the resolver's unsatisfiable-ctor TypeError so
+        runtime boot completes; the bad handler is reported as
+        UNRESOLVABLE_HANDLER.
+        """
+        from omnibase_infra.runtime.auto_wiring.enum_quarantine_reason import (
+            EnumQuarantineReason,
+        )
+
+        monkeypatch.delenv("ONEX_WIRING_STRICT_MODE", raising=False)
+        contract = _make_contract()
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class HandlerWithDeps:
+            def __init__(self, required_service: object) -> None:
+                self.required_service = required_service
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithDeps,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=None,
+                container=None,
+            )
+        assert prepared.is_quarantined is True
+        assert prepared.quarantine_reason is EnumQuarantineReason.UNRESOLVABLE_HANDLER
+        assert "required_service" in prepared.quarantine_detail
+
+    @pytest.mark.unit
+    def test_raises_typeerror_when_unresolvable_in_strict_mode(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-8735 fail-fast invariant preserved under strict mode."""
+        monkeypatch.setenv("ONEX_WIRING_STRICT_MODE", "1")
+        contract = _make_contract()
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class HandlerWithDeps:
+            def __init__(self, required_service: object) -> None:
+                self.required_service = required_service
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithDeps,
+        ):
+            with pytest.raises(TypeError) as exc_info:
+                _prepare_handler_wiring(
+                    contract=contract,
+                    entry=entry,
+                    dispatch_engine=None,
+                    resolver=resolver,
+                    ownership_query=ownership,
+                    event_bus=None,
+                    container=None,
+                )
+        assert "required_service" in str(exc_info.value)
+
+    @pytest.mark.unit
+    def test_materialized_deps_threaded_to_resolver(self) -> None:
+        """Materialized explicit deps reach the resolver (Step 2 path)."""
+        contract = _make_contract(handler_name="HandlerWithExplicitDep")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class HandlerWithExplicitDep:
+            def __init__(self, projection_reader: object) -> None:
+                self.projection_reader = projection_reader
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        fake_reader = MagicMock()
+        materialized: dict[str, dict[str, object]] = {
+            "HandlerWithExplicitDep": {"projection_reader": fake_reader}
+        }
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithExplicitDep,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=None,
+                container=None,
+                materialized_explicit_dependencies=materialized,
+            )
+        assert prepared.is_skip is False
+        assert (
+            prepared.resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_NODE_REGISTRY
+        )
+
+    @pytest.mark.unit
+    def test_topic_migration_executor_deps_materialized(self) -> None:
+        """Runtime materializes topic-migration executor collaborators."""
+        contract = _make_contract(handler_name="HandlerTopicMigrationExecutor")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class HandlerTopicMigrationExecutor:
+            def __init__(self, provisioner: object, drain_proof_gate: object) -> None:
+                self.provisioner = provisioner
+                self.drain_proof_gate = drain_proof_gate
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        fake_provisioner = object()
+        fake_gate = object()
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+
+        with (
+            patch(
+                "omnibase_infra.runtime.auto_wiring.handler_wiring."
+                "_import_handler_class",
+                return_value=HandlerTopicMigrationExecutor,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.handler_wiring."
+                "_build_topic_migration_executor_dependencies",
+                return_value={
+                    "provisioner": fake_provisioner,
+                    "drain_proof_gate": fake_gate,
+                },
+            ),
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=None,
+                container=None,
+            )
+
+        assert prepared.is_skip is False
+        assert (
+            prepared.resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_NODE_REGISTRY
+        )
+        assert prepared.dispatcher is not None
+
+    @pytest.mark.unit
+    def test_topic_migration_executor_builder_uses_admin_namespace(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pinned aiokafka exposes AIOKafkaAdminClient from aiokafka.admin."""
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+
+        with (
+            patch("aiokafka.admin.AIOKafkaAdminClient") as admin_cls,
+            patch("aiokafka.AIOKafkaConsumer") as consumer_cls,
+        ):
+            deps = _build_topic_migration_executor_dependencies()
+
+        admin_cls.assert_called_once_with(bootstrap_servers="localhost:9092")
+        consumer_cls.assert_called_once_with(bootstrap_servers="localhost:9092")
+        assert set(deps) == {"provisioner", "drain_proof_gate"}
+
+    @pytest.mark.unit
+    def test_topic_migration_executor_builder_passes_msk_iam_auth(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Migration lag clients receive MSK IAM auth kwargs when configured."""
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "b-1.example:9098")
+        monkeypatch.setenv("KAFKA_SECURITY_PROTOCOL", "SASL_SSL")
+        monkeypatch.setenv("KAFKA_SASL_MECHANISM", "AWS_MSK_IAM")
+        monkeypatch.setenv("KAFKA_MSK_REGION", "us-east-1")
+
+        with (
+            patch("aiokafka.admin.AIOKafkaAdminClient") as admin_cls,
+            patch("aiokafka.AIOKafkaConsumer") as consumer_cls,
+        ):
+            deps = _build_topic_migration_executor_dependencies()
+
+        from omnibase_infra.event_bus.kafka_auth import MSKTokenProvider
+
+        for kwargs in (admin_cls.call_args.kwargs, consumer_cls.call_args.kwargs):
+            assert kwargs["bootstrap_servers"] == "b-1.example:9098"
+            assert kwargs["security_protocol"] == "SASL_SSL"
+            assert kwargs["sasl_mechanism"] == "OAUTHBEARER"
+            assert isinstance(kwargs["sasl_oauth_token_provider"], MSKTokenProvider)
+        assert set(deps) == {"provisioner", "drain_proof_gate"}
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_wire_from_manifest_threads_materialized_deps_to_resolver(
+        self,
+    ) -> None:
+        """wire_from_manifest exposes materialized deps for runtime-owned pools."""
+        from omnibase_infra.runtime.message_dispatch_engine import (
+            MessageDispatchEngine,
+        )
+
+        contract = _make_contract(handler_name="HandlerWithExplicitDep")
+        manifest = _make_manifest(contract)
+        engine = MessageDispatchEngine()
+
+        class HandlerWithExplicitDep:
+            def __init__(self, pool: object) -> None:
+                self.pool = pool
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        fake_pool = MagicMock()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithExplicitDep,
+        ):
+            report = await wire_from_manifest(
+                manifest,
+                engine,
+                materialized_explicit_dependencies={
+                    "HandlerWithExplicitDep": {"pool": fake_pool}
+                },
+            )
+
+        assert report.total_failed == 0
+        assert (
+            report.results[0].wirings[0].resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_NODE_REGISTRY
+        )
+
+    @pytest.mark.unit
+    def test_delegation_dispatch_port_materialized_from_event_bus(self) -> None:
+        """Runtime materializes HandlerDelegateSkill's annotated dispatch port."""
+        contract = _make_contract(handler_name="HandlerWithDispatchPort")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class ProtocolDelegationDispatchPort(Protocol):
+            def dispatch(self, **kwargs: object) -> Awaitable[dict[str, object]]:
+                """Protocol method stub for dispatch port."""
+
+        class HandlerWithDispatchPort:
+            def __init__(
+                self, *, dispatch_port: ProtocolDelegationDispatchPort
+            ) -> None:
+                self.dispatch_port = dispatch_port
+
+            def handle(self, envelope: object) -> None:
+                return None
+
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        event_bus = MagicMock(spec=ProtocolEventBusLike)
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithDispatchPort,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=event_bus,
+                container=None,
+            )
+
+        assert prepared.is_skip is False
+        assert (
+            prepared.resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_NODE_REGISTRY
+        )
+
+    @pytest.mark.unit
+    def test_optional_delegation_dispatch_port_materialized_from_event_bus(
+        self,
+    ) -> None:
+        """Runtime injects HandlerDelegateSkill's optional dispatch port override."""
+        contract = _make_contract(handler_name="HandlerWithOptionalDispatchPort")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class ProtocolDelegationDispatchPort(Protocol):
+            def dispatch(self, **kwargs: object) -> Awaitable[dict[str, object]]:
+                """Protocol method stub for dispatch port."""
+
+        class HandlerWithOptionalDispatchPort:
+            last_dispatch_port: object | None = None
+
+            def __init__(
+                self,
+                event_bus: object,
+                dispatch_port: ProtocolDelegationDispatchPort | None = None,
+            ) -> None:
+                self.event_bus = event_bus
+                self.dispatch_port = dispatch_port
+                HandlerWithOptionalDispatchPort.last_dispatch_port = dispatch_port
+
+            def handle(self, envelope: object) -> None:
+                return None
+
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        event_bus = MagicMock(spec=ProtocolEventBusLike)
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithOptionalDispatchPort,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=event_bus,
+                container=None,
+            )
+
+        from omnibase_infra.runtime.service_delegation_dispatch_port import (
+            RuntimeDelegationDispatchPort,
+        )
+
+        assert prepared.is_skip is False
+        assert isinstance(
+            HandlerWithOptionalDispatchPort.last_dispatch_port,
+            RuntimeDelegationDispatchPort,
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_wired_dispatch_port_accepts_omnimarket_call_shape(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-14628 regression pin: the REAL auto-wired dispatch port must accept
+        the exact keyword-argument shape omnimarket's ``HandlerDelegateSkill.handle()``
+        passes to ``self._dispatch_port.dispatch(...)`` (including ``tenant_id``,
+        added by OMN-14349).
+
+        This is a non-mock end-to-end test: it drives handler_wiring.py's real
+        ``_prepare_handler_wiring`` -> ``_materialize_known_handler_dependencies``
+        auto-wiring path (the code that decides which concrete
+        ``RuntimeDelegationDispatchPort`` a handler receives), obtains the REAL
+        infra-owned dispatch port instance it constructs, and calls its REAL
+        ``.dispatch()`` method (including the REAL ``_select_delegation_route``
+        selection logic) with the production kwarg set. Only two I/O
+        boundaries are faked: on-disk package/contract discovery (the
+        omnimarket package is not an omnibase_infra runtime dependency, so
+        discovery is seeded with an equivalent synthetic route instead of
+        performing filesystem scanning) and the outbound Kafka broker
+        transport -- the same boundary a live cluster crosses.
+
+        Before the OMN-14628 fix this raised
+        ``TypeError: dispatch() got an unexpected keyword argument 'tenant_id'``
+        on every ``onex delegate --bus kafka`` invocation platform-wide. The
+        prior coverage for this seam
+        (``test_handler_propagates_verified_tenant_id_to_dispatch_port`` in
+        omnimarket) used ``AsyncMock()`` for the port and could not catch this --
+        the mock accepted any keyword argument silently.
+        """
+        contract = _make_contract(handler_name="HandlerWithOptionalDispatchPort")
+        entry = contract.handler_routing.handlers[0]  # type: ignore[union-attr]
+
+        class ProtocolDelegationDispatchPort(Protocol):
+            def dispatch(self, **kwargs: object) -> Awaitable[dict[str, object]]:
+                """Protocol method stub for dispatch port."""
+
+        class HandlerWithOptionalDispatchPort:
+            last_dispatch_port: object | None = None
+
+            def __init__(
+                self,
+                event_bus: object,
+                dispatch_port: ProtocolDelegationDispatchPort | None = None,
+            ) -> None:
+                self.event_bus = event_bus
+                self.dispatch_port = dispatch_port
+                HandlerWithOptionalDispatchPort.last_dispatch_port = dispatch_port
+
+            def handle(self, envelope: object) -> None:
+                return None
+
+        ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset({contract.name})
+        )
+        resolver = ServiceHandlerResolver()
+        event_bus = MagicMock(spec=ProtocolEventBusLike)
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerWithOptionalDispatchPort,
+        ):
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=None,
+                resolver=resolver,
+                ownership_query=ownership,
+                event_bus=event_bus,
+                container=None,
+            )
+
+        assert prepared.is_skip is False
+        dispatch_port = HandlerWithOptionalDispatchPort.last_dispatch_port
+        from omnibase_infra.runtime.service_delegation_dispatch_port import (
+            RuntimeDelegationDispatchPort,
+        )
+
+        assert isinstance(dispatch_port, RuntimeDelegationDispatchPort)
+
+        # Seed route discovery with a real-shaped omnimarket delegation route.
+        # (omnimarket is not an omnibase_infra runtime dependency, so on-disk
+        # contract discovery cannot resolve it here; production discovers
+        # this same route from the installed omnimarket package via
+        # ONEX_ACTIVE_RUNTIME_PACKAGES.) The REAL _select_delegation_route
+        # filtering/selection logic still runs against this route unmocked.
+        omnimarket_route = ModelRuntimeLocalIngressRoute(
+            node_name="node_delegation_orchestrator",
+            contract_name="node_delegation_orchestrator",
+            command_topic="onex.cmd.omnimarket.delegation-request.v1",
+            event_type="omnimarket.delegation-request",
+            terminal_event="onex.evt.omnimarket.delegation-completed.v1",
+            terminal_events=(
+                "onex.evt.omnimarket.delegation-completed.v1",
+                "onex.evt.omnimarket.delegation-failed.v1",
+            ),
+            contract_path="/contracts/omnimarket/node_delegation_orchestrator.yaml",
+            package_name="omnimarket",
+        )
+        monkeypatch.setattr(
+            "omnibase_infra.runtime.service_delegation_dispatch_port."
+            "discover_runtime_local_ingress_routes",
+            lambda package_names: {
+                "omnimarket.node_delegation_orchestrator.delegation.orchestrate": (
+                    omnimarket_route
+                )
+            },
+        )
+
+        captured_payloads: list[dict[str, object]] = []
+
+        class FakeBroker:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                pass
+
+            async def dispatch_request(
+                self, command: ModelDispatchBusCommand
+            ) -> tuple[object, ModelDispatchBusTerminalResult]:
+                await asyncio.sleep(0)
+                captured_payloads.append(dict(command.payload))
+                return object(), ModelDispatchBusTerminalResult(
+                    correlation_id=command.correlation_id,
+                    status="completed",
+                    payload={"content": "ok"},
+                    completed_at=datetime.now(UTC),
+                )
+
+        monkeypatch.setattr(
+            "omnibase_infra.runtime.service_delegation_dispatch_port.RuntimePatternBBroker",
+            FakeBroker,
+        )
+
+        # Exact kwarg shape from
+        # omnimarket/src/omnimarket/nodes/node_delegate_skill_orchestrator/
+        # handlers/handler_delegate_skill.py::HandlerDelegateSkill.handle().
+        result = await dispatch_port.dispatch(
+            prompt="respond with the word ready",
+            task_type="test",
+            correlation_id=uuid4(),
+            max_tokens=64,
+            source_file_path=None,
+            source_session_id=None,
+            wait=True,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="extend_task_class",
+            acceptance_criteria=(),
+            tenant_id="omn-14628-regression-tenant",
+            system_prompt=None,
+            temperature=None,
+            response_format=None,
+        )
+
+        assert result["status"] == "completed"
+        assert captured_payloads[0]["tenant_id"] == "omn-14628-regression-tenant"
+        assert "system_prompt" not in captured_payloads[0]
+        assert "temperature" not in captured_payloads[0]
+        assert "response_format" not in captured_payloads[0]
+
+
+# ---------------------------------------------------------------------------
+# wire_from_manifest — full-flow skip + determinism + fail-fast
+# ---------------------------------------------------------------------------
+
+
+class TestWireFromManifestResolverOutcomes:
+    @pytest.mark.asyncio
+    async def test_skip_surfaces_in_wiring_report(self) -> None:
+        """Plan Task 5 acceptance: skip-path invariant test."""
+        from omnibase_infra.runtime.message_dispatch_engine import (
+            MessageDispatchEngine,
+        )
+
+        # Two contracts — only one is "owned here". Because wire_from_manifest
+        # constructs the ownership_query from the manifest node names,
+        # both contracts are owned. To trigger a skip we patch the
+        # constructor with a narrower set.
+        contract = _make_contract(name="foreign_node")
+        manifest = _make_manifest(contract)
+        engine = MessageDispatchEngine()
+        handler_cls = _make_zero_arg_handler_cls()
+
+        # Construct a ServiceLocalHandlerOwnershipQuery that excludes
+        # the contract's node. This proves the skip path works end-to-end.
+        narrow_ownership = ServiceLocalHandlerOwnershipQuery(
+            local_node_names=frozenset()  # empty — nothing owned here
+        )
+        with (
+            patch(
+                "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+                return_value=handler_cls,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.handler_wiring."
+                "ServiceLocalHandlerOwnershipQuery",
+                return_value=narrow_ownership,
+            ),
+        ):
+            report = await wire_from_manifest(manifest, engine)
+
+        # Contract-level outcome is WIRED (not an error), but its single
+        # handler lands in skipped_handlers with no dispatcher registration.
+        assert report.total_failed == 0
+        result = report.results[0]
+        assert len(result.skipped_handlers) == 1
+        assert result.skipped_handlers[0].handler_name == "HandlerFoo"
+        assert "foreign_node" in result.skipped_handlers[0].reason
+        assert len(result.wirings) == 1
+        assert (
+            result.wirings[0].resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_LOCAL_OWNERSHIP_SKIP
+        )
+        # No dispatcher was registered for the skipped handler.
+        assert result.dispatchers_registered == ()
+        assert result.routes_registered == ()
+
+    @pytest.mark.asyncio
+    async def test_unresolvable_quarantined_default_raises_strict(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-13203: unresolvable handler is quarantined in default mode, raised in strict.
+
+        Default mode: wire_from_manifest COMPLETES (no exception) and the
+        handler is reported failed + quarantined. Strict mode preserves the
+        OMN-8735 fail-fast invariant — the resolver TypeError propagates.
+        """
+        from omnibase_infra.runtime.auto_wiring.enum_quarantine_reason import (
+            EnumQuarantineReason,
+        )
+        from omnibase_infra.runtime.message_dispatch_engine import (
+            MessageDispatchEngine,
+        )
+
+        contract = _make_contract(handler_name="HandlerNeedsDep")
+        manifest = _make_manifest(contract)
+
+        class HandlerNeedsDep:
+            def __init__(self, required_service: object) -> None:
+                self.required_service = required_service
+
+            async def handle(self, envelope: object) -> None:
+                return None
+
+        # Default (non-strict) mode: quarantine + complete.
+        monkeypatch.delenv("ONEX_WIRING_STRICT_MODE", raising=False)
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerNeedsDep,
+        ):
+            report = await wire_from_manifest(manifest, MessageDispatchEngine())
+        assert report.total_failed >= 1
+        assert report.total_quarantined == 1
+        assert (
+            report.quarantined_handlers[0].reason
+            is EnumQuarantineReason.UNRESOLVABLE_HANDLER
+        )
+
+        # Strict mode: the resolver TypeError still propagates unchanged.
+        monkeypatch.setenv("ONEX_WIRING_STRICT_MODE", "1")
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=HandlerNeedsDep,
+        ):
+            with pytest.raises(TypeError) as exc_info:
+                await wire_from_manifest(manifest, MessageDispatchEngine())
+        assert "required_service" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_report_is_deterministic(self) -> None:
+        """Plan Task 5 acceptance: determinism across two identical runs."""
+        from omnibase_infra.runtime.message_dispatch_engine import (
+            MessageDispatchEngine,
+        )
+
+        contract = _make_contract()
+        manifest = _make_manifest(contract)
+        handler_cls = _make_zero_arg_handler_cls()
+
+        engine_a = MessageDispatchEngine()
+        engine_b = MessageDispatchEngine()
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=handler_cls,
+        ):
+            report_a = await wire_from_manifest(manifest, engine_a)
+            report_b = await wire_from_manifest(manifest, engine_b)
+
+        assert report_a.total_wired == report_b.total_wired
+        assert report_a.total_failed == report_b.total_failed
+        assert report_a.total_skipped == report_b.total_skipped
+        results_a = report_a.results
+        results_b = report_b.results
+        assert len(results_a) == len(results_b)
+        for r_a, r_b in zip(results_a, results_b, strict=True):
+            assert r_a.contract_name == r_b.contract_name
+            assert r_a.outcome == r_b.outcome
+            assert r_a.dispatchers_registered == r_b.dispatchers_registered
+            assert r_a.routes_registered == r_b.routes_registered
+            assert len(r_a.wirings) == len(r_b.wirings)
+            for w_a, w_b in zip(r_a.wirings, r_b.wirings, strict=True):
+                assert w_a.handler_name == w_b.handler_name
+                assert w_a.resolution_outcome == w_b.resolution_outcome
+                assert w_a.skipped_reason == w_b.skipped_reason
+            assert len(r_a.skipped_handlers) == len(r_b.skipped_handlers)
+            for s_a, s_b in zip(
+                r_a.skipped_handlers, r_b.skipped_handlers, strict=True
+            ):
+                assert s_a.handler_name == s_b.handler_name
+                assert s_a.reason == s_b.reason
+
+    @pytest.mark.asyncio
+    async def test_wired_handler_outcome_is_recorded(self) -> None:
+        """Per-handler ModelWiringOutcome rows are populated."""
+        from omnibase_infra.runtime.message_dispatch_engine import (
+            MessageDispatchEngine,
+        )
+
+        contract = _make_contract()
+        manifest = _make_manifest(contract)
+        engine = MessageDispatchEngine()
+        # Real class: ModelHandlerResolverContext.handler_cls requires type.
+        handler_cls = _make_zero_arg_handler_cls()
+
+        with patch(
+            "omnibase_infra.runtime.auto_wiring.handler_wiring._import_handler_class",
+            return_value=handler_cls,
+        ):
+            report = await wire_from_manifest(manifest, engine)
+
+        assert report.total_wired == 1
+        result = report.results[0]
+        assert len(result.wirings) == 1
+        assert result.wirings[0].handler_name == "HandlerFoo"
+        assert (
+            result.wirings[0].resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_ZERO_ARG
+        )

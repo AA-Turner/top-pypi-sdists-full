@@ -465,11 +465,19 @@ def windows_info() -> dict[str, Any]:
     """Fetch detailed Windows version information.
 
     Returns a dictionary with the same structure as `distro.info()` for
-    consistency, including:
+    consistency, plus a `release` key. It includes:
 
-    - `version`: Full version string (e.g., "10.0.19041")
+    - `release`: Product release (e.g., "11", or "2022Server" on Windows Server)
+    - `version`: Full NT version string (e.g., "10.0.26100")
     - `version_parts`: Dictionary with `major`, `minor`, `build_number`
-    - `codename`: A combination of version and edition (e.g., "10 Enterprise")
+    - `codename`: A combination of release and edition (e.g., "11 Professional")
+
+    ```{note}
+    Windows 11 kept the NT version of Windows 10, `10.0`, so `version_parts`
+    reads major `10` on both: only the build number tells them apart, and names
+    the feature update (`26100` is 24H2). {func}`platform.win32_ver` derives the
+    release from that build number.
+    ```
 
     :returns: A dictionary containing Windows version details.
 
@@ -478,9 +486,10 @@ def windows_info() -> dict[str, Any]:
     https://github.com/saltstack/salt/blob/246d066/salt/grains/core.py#L1432-L1488
     ```
     """
-    release, _version, _csd, _ptype = platform.win32_ver()
+    release, version, _csd, _ptype = platform.win32_ver()
     return {
-        "version": release,
-        "version_parts": _version_parts(release),
+        "release": release,
+        "version": version,
+        "version_parts": _version_parts(version),
         "codename": f"{release} {platform.win32_edition()}",
     }

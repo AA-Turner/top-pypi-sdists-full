@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-18781 — silent-skip guard config for the `service-integration-suites` job.
+#
+# WHY A SECOND CONFIG
+# -------------------
+# `integration_skip_guard.yaml` is keyed to what the `integration-guard` job
+# provisions: Postgres, and nothing else. It therefore classifies Kafka and
+# Qdrant absence skips as legitimately optional, which is correct THERE and
+# wrong HERE — the `service-integration-suites` job starts a real Redpanda and a
+# real Qdrant before it runs anything. The set of provisioned services is a
+# property of the JOB, so each provisioning job brings its own config rather
+# than one file trying to describe both.
+#
+# What this guards, concretely: the two suites this config covers were collected
+# on every pull request, skipped in full on opt-in variables no workflow set, and
+# reported green for months. A pytest exit code of 0 cannot tell "19 cases
+# passed" from "19 cases skipped". This config makes the second one red.
+silent_skip_allowed: false
+# The suites the `service-integration-suites` job runs. INFORMATIONAL — the gate
+# keys on junit skip reasons, not on this list — kept in sync with the ci.yml
+# "Run the service-backed suites" step.
+curated_test_paths:
+  - "tests/integration/event_bus/test_kafka_event_bus_integration.py"
+  - "tests/integration/handlers/test_handler_qdrant_integration.py"
+  # OMN-18795: six suites that had no execution path at all.
+  - "tests/integration/event_bus/test_dlq_integration.py"
+  - "tests/integration/nodes/test_node_reward_binder_effect.py"
+  - "tests/integration/handlers/test_handler_graph_integration.py"
+  - "tests/integration/correlation/test_correlation_propagation_heavy.py"
+  - "tests/integration/registration/e2e/test_topic_catalog_e2e.py"
+  - "tests/integration/registration/e2e/test_full_orchestrator_flow.py"
+  - "tests/integration/registration/e2e/test_two_way_registration_e2e.py"
+# Measured against real services on the lab, 2026-09-19: 19 + 9 + 17 + 2 + 44 +
+# 7 + 7 + 9 + 27 = 141 executed, zero skipped. The floor is deliberately well
+# below that total and far above zero: it must catch a collection that silently
+# selects nothing or nearly nothing (the original defect), without going red
+# every time a case is legitimately added or removed.
+require_executed_min: 100
+# Services this job PROVISIONS. A skip whose reason names one of these as absent
+# is a false green: the service is right there.
+required_services:
+  kafka:
+    provisioned_by: "ci.yml `service-integration-suites` job (explicit fail-closed `docker pull`/`docker run` of redpandadata/redpanda, plaintext external listener, advertised on the resolved runner-reachable host, KAFKA_BOOTSTRAP_SERVERS + KAFKA_INTEGRATION_TESTS=1 exported)"
+    missing_skip_patterns:
+      # tests/helpers/service_env.py local-skip text, should it ever reach CI
+      - "Kafka/Redpanda integration suite not opted in"
+      # the pre-OMN-18781 module-level skipif vocabulary, in case it returns
+      - "Kafka not available"
+      - "Kafka not reachable"
+      - "Redpanda broker not reachable"
+      - "KAFKA_INTEGRATION_TESTS"
+  qdrant:
+    provisioned_by: "ci.yml `service-integration-suites` job (explicit fail-closed `docker pull`/`docker run` of qdrant/qdrant, QDRANT_URL + QDRANT_INTEGRATION_TESTS=1 exported)"
+    missing_skip_patterns:
+      - "Qdrant integration suite not opted in"
+      - "Qdrant not available"
+      - "QDRANT_URL not set"
+      - "QDRANT_INTEGRATION_TESTS"
+  memgraph:
+    provisioned_by: "ci.yml `service-integration-suites` job (explicit fail-closed `docker pull`/`docker run` of memgraph/memgraph, MEMGRAPH_BOLT_URL + GRAPH_INTEGRATION_TESTS=1 exported) -- OMN-18795"
+    missing_skip_patterns:
+      - "Memgraph integration suite not opted in"
+      - "MEMGRAPH_BOLT_URL not set"
+      - "GRAPH_INTEGRATION_TESTS"
+      - "Graph integration tests skipped"
+  postgres:
+    provisioned_by: "ci.yml `service-integration-suites` job (explicit fail-closed `docker pull`/`docker run` of postgres:16-alpine, migrations applied by scripts/run-migrations.py, OMNIBASE_INFRA_DB_URL + POSTGRES_* exported) -- OMN-18795"
+    missing_skip_patterns:
+      # The registration E2E conftest and the correlation suite both used to
+      # skip on an unreachable database. On THIS job the database is running,
+      # so any of these reaching the junit is a false green.
+      - "Kafka and Postgres integration suite not opted in"
+      - "PostgreSQL: MISSING"
+      - "Postgres not reachable"
+      - "POSTGRES_HOST"
+      - "OMNIBASE_INFRA_DB_URL"
+# Nothing is legitimately optional on this job: it provisions every service its
+# suites need. The list is present and empty so that `--strict` reports an
+# unrecognised skip reason for a human to classify rather than passing it.
+allowed_optional_skip_patterns: []

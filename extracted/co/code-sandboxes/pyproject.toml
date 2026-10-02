@@ -1,0 +1,191 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[build-system]
+requires = ["hatchling~=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "code_sandboxes"
+authors = [{ name = "Datalayer", email = "info@datalayer.io" }]
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["AI", "AI Agent", "Code Sandboxes"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "faker",
+  "jupyter-kernel-client>=1.0.2",
+  "jupyter-server",
+  "jupyter-server-client",
+  "pydantic>=2.0",
+  "pyyaml",
+  "rich",
+  "typer>=0.12.0",
+]
+
+[project.scripts]
+code-sandbox = "code_sandboxes.cli:main"
+code-sandboxes = "code_sandboxes.cli:main"
+
+[project.optional-dependencies]
+# What the sandbox-side bridge filesystem (`code_sandboxes.bridge_mount`)
+# needs where it RUNS — inside a sandbox image that exposes /dev/fuse. The
+# host side needs none of it.
+# `datalayer-core` carries the frame protocol both ends speak.
+bridge = ["datalayer-core>=1.2.12", "fusepy>=3.0", "websockets>=12"]
+cloudflare = ["httpx>=0.27"]
+# What the Datalayer Environment builder needs where it RUNS — the durable
+# worker (PLAN_ENV.md E1-07): the ECR API for the owner's repository, the
+# artifact and its scan; `httpx` for an imported image's own registry (E3-04).
+# `buildctl` is a binary in that image, not a package.
+environments-builder = ["boto3>=1.34", "httpx>=0.27"]
+coreweave = ["cwsandbox>=1.6"]
+datalayer = ["agent_runtimes>=1.3.13"]
+daytona = ["daytona>=0.205.1"]
+docker = ["docker>=6.0"]
+e2b = ["e2b-code-interpreter>=2.9.1"]
+google-colab = []
+kaggle = ["kaggle>=1.6"]
+monty = ["pydantic-monty"]
+modal = ["modal>=1.5.2"]
+all = [
+  "agent_runtimes",
+  "cwsandbox>=1.6",
+  "daytona>=0.205.1",
+  "docker>=6.0",
+  "e2b-code-interpreter>=2.9.1",
+  "httpx>=0.27",
+  "kaggle>=1.6",
+  "pydantic-monty",
+  "modal>=1.5.2",
+]
+test = [
+  "httpx>=0.27",
+  "ipykernel",
+  "jupyter-server>=1.6,<3",
+  "pytest>=7.0",
+  "pytest-asyncio>=0.21",
+  "pytest-cov>=4.0",
+]
+lint = ["mdformat>0.7", "mdformat-gfm>=0.3.5", "ruff"]
+typing = ["mypy>=0.990", "types-PyYAML"]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Home = "https://github.com/datalayer/code-sandboxes"
+
+[tool.hatch.version]
+path = "code_sandboxes/__version__.py"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+  "live: runs against the real sandbox providers; needs CODE_SANDBOXES_LIVE=1 and credentials",
+]
+addopts = "-m 'not live'"
+filterwarnings = [
+  "error",
+  "ignore::pytest.PytestUnraisableExceptionWarning",
+  "ignore:There is no current event loop:DeprecationWarning",
+  "module:make_current is deprecated:DeprecationWarning",
+  "module:clear_current is deprecated:DeprecationWarning",
+  "module:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning",
+  # The Datalayer client emits the same migration warning under its own name,
+  # so the line above never matched it, and with `error` in force the first
+  # use of the client in a test became an exception. It took the live matrix
+  # against a real Datalayer sandbox down before the sandbox was reached.
+  "module:Datalayer is migrating its paths to use standard platformdirs:DeprecationWarning",
+  # The Daytona SDK (0.205) reads its own deprecated `DaytonaConfig.server_url`
+  # inside `Daytona(config)`: with `error` in force, every live Daytona test
+  # failed before reaching Daytona, and a nightly that skipped hid it.
+  "ignore:`server_url` is deprecated:DeprecationWarning",
+]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = false
+no_implicit_optional = true
+pretty = true
+show_error_context = true
+show_error_codes = true
+strict_equality = true
+warn_unused_configs = true
+warn_unused_ignores = false
+warn_redundant_casts = true
+ignore_missing_imports = true
+disable_error_code = [
+  "arg-type",
+  "assignment",
+  "attr-defined",
+  "call-arg",
+  "import-untyped",
+  "method-assign",
+  "no-untyped-def",
+  "override",
+  "union-attr",
+  "unused-ignore",
+  "valid-type",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "B",
+  "C",
+  "E",
+  "F",
+  "FBT",
+  "I",
+  "N",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "UP",
+  "W",
+  "YTT",
+]
+ignore = [
+  # FBT001 Boolean positional arg in function definition
+  "FBT001",
+  "FBT002",
+  "FBT003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# S101 Use of `assert` detected
+# S105/S106 the credentials a test asserts on are invented for the test
+"tests/*" = ["S101", "S105", "S106"]
+# Deprecated monolithic test module retained only as a skipped compatibility stub.
+"tests/test_sandboxes.py" = ["F821"]
+"examples/*" = ["S108", "T201"]
+"code_sandboxes/base.py" = ["UP007"]
+"code_sandboxes/sandboxes/datalayer/datalayer.py" = ["C901", "S110"]
+"code_sandboxes/sandboxes/docker/docker.py" = ["C901", "S110", "UP007"]
+"code_sandboxes/sandboxes/eval/eval.py" = ["C901", "S102", "S307"]
+"code_sandboxes/sandboxes/e2b/e2b.py" = ["C901"]
+# The module the kernel executes: its answers ARE stdout (T201), by design.
+"code_sandboxes/sandboxes/marimo/reactive_kernel.py" = ["T201"]
+# A serializer, the Dockerfile parser and the spec's rules read top to bottom;
+# splitting them to please a complexity count would hide the rules.
+"code_sandboxes/environments/canonical.py" = ["C901"]
+"code_sandboxes/environments/contract.py" = ["C901"]
+"code_sandboxes/environments/spec.py" = ["C901"]
+# uv writes its refusals in a box: the `×` and `╰─▶` are the resolver's own
+# characters, and the parser and its recordings quote them exactly.
+"code_sandboxes/environments/resolve.py" = ["RUF001"]
+"tests/test_environment_resolve.py" = ["RUF001"]

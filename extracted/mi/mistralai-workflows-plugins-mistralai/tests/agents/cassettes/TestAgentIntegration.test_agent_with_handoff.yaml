@@ -1,0 +1,184 @@
+interactions:
+- request:
+    body: '{"model":"mistral-medium-latest","messages":[{"content":"You are part of
+      a multi-agent system, designed to make agent coordination and execution easy.
+      An agent encompasses instructions and tools and can hand off a conversation
+      to another agent when appropriate. Handoffs are achieved by calling a handoff
+      function named `handoff_to_<agent_name>` with empty params (`{}`). Transfers
+      between agents are handled seamlessly in the background; do not mention or draw
+      attention to these transfers in your conversation with the user.\n\n### When
+      to transfer to another agent\n\nWhen you don''t have the capabilities or available
+      tools to answer the request you can pick another agent that is better suited
+      to add new information to the request.\n\n### When to not transfer to another
+      agent\n\nIf you are capable of answering the request, don''t transfer it on
+      to another agent and complete the request. Following are the available handoff
+      tools:\n- handoff_to_math_agent: Invokes the Agent(name=router-agent, description=,
+      available_tools=None)","role":"system"},{"content":"Route math questions to
+      the math agent.","role":"system"},{"content":"What is 5 * 7?","role":"user"}],"stream":false,"tools":[{"function":{"name":"handoff_to_math_agent","parameters":{},"description":"Invokes
+      the Agent(name=math-agent, description=, available_tools=None)"},"type":"function"}]}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1360'
+      Host:
+      - api.mistral.ai
+      authorization:
+      - REDACTED
+      content-type:
+      - application/json
+      user-agent:
+      - mistral-client-python/1.9.11
+    method: POST
+    uri: https://api.mistral.ai/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"8864d9b4db2b4238a8c05efe78aa036d","created":1768918834,"model":"mistral-medium-latest","usage":{"prompt_tokens":269,"total_tokens":279,"completion_tokens":10},"object":"chat.completion","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","tool_calls":[{"id":"7ey1kN6SV","function":{"name":"handoff_to_math_agent","arguments":"{}"},"index":0}],"content":""}}]}'
+    headers:
+      CF-RAY:
+      - 9c0f36999d8fd2f7-FRA
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 20 Jan 2026 14:20:34 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=IdfVLBWD_cYPXkEtzUPkihcCqrH5bN7pGbj3MQ9MqHM-1768918834-1.0.1.1-N8j9p2ep1US5ue1LVdmiZTNiJY8BU3zU5WGqADkrSYWk6dnlFqB7D1vBs85P8cK9CoNR5le3GyA7Yecn.gJfCqJKE4YFTHwWtCqTthR7Snk;
+        path=/; expires=Tue, 20-Jan-26 14:50:34 GMT; domain=.mistral.ai; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YVfPyOPQFC4QtT_OJ6gFXvtt2PckNPYRSN9bKONkRBk-1768918834464-0.0.1.1-604800000;
+        path=/; domain=.mistral.ai; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '395'
+      mistral-correlation-id:
+      - 019bdbc7-5c1c-751c-bd89-36ff006cfe39
+      x-envoy-upstream-service-time:
+      - '227'
+      x-kong-proxy-latency:
+      - '6'
+      x-kong-request-id:
+      - 019bdbc7-5c1c-751c-bd89-36ff006cfe39
+      x-kong-upstream-latency:
+      - '228'
+      x-ratelimit-limit-req-60-second:
+      - '7200'
+      x-ratelimit-limit-tokens-5-minute:
+      - '600000'
+      x-ratelimit-limit-tokens-month:
+      - '500000000000'
+      x-ratelimit-remaining-req-60-second:
+      - '7198'
+      x-ratelimit-remaining-tokens-5-minute:
+      - '599692'
+      x-ratelimit-remaining-tokens-month:
+      - '499993903354'
+      x-ratelimit-tokens-query-cost:
+      - '279'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model":"mistral-medium-latest","messages":[{"content":"You are a math
+      expert. Answer math questions concisely.","role":"system"},{"content":"What
+      is 5 * 7?","role":"user"},{"content":"","tool_calls":[{"function":{"name":"handoff_to_math_agent","arguments":"{}"},"id":"7ey1kN6SV","index":0}],"prefix":false,"role":"assistant"},{"content":"current
+      assistant is now: math-agent","tool_call_id":"7ey1kN6SV","role":"tool"}],"stream":false}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '436'
+      Host:
+      - api.mistral.ai
+      authorization:
+      - REDACTED
+      content-type:
+      - application/json
+      user-agent:
+      - mistral-client-python/1.9.11
+    method: POST
+    uri: https://api.mistral.ai/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"b60c90af0c34402ab92d7382739c3eb6","created":1768918834,"model":"mistral-medium-latest","usage":{"prompt_tokens":45,"total_tokens":48,"completion_tokens":3},"object":"chat.completion","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","tool_calls":null,"content":"35"}}]}'
+    headers:
+      CF-RAY:
+      - 9c0f369ddcc81c40-FRA
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 20 Jan 2026 14:20:35 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=W2PCiJ4lm58nDt41A535wKk1oy2MIGnS6uSSwW4obcI-1768918835-1.0.1.1-ZjK0qlbGWWI78TVTGX2Uk5Eo10b.IjvOI0OMI_bBnQVWIbE75FRDerRv78tjpqkC4iBTFOBfYsG0k.kqXDB_DiiFYDtUDG58Xe0Lq4tqhwk;
+        path=/; expires=Tue, 20-Jan-26 14:50:35 GMT; domain=.mistral.ai; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=EeOTkyTCkCcAIA47ZOdboIusIyF6q6FzSjwuBYpKFpM-1768918835035-0.0.1.1-604800000;
+        path=/; domain=.mistral.ai; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      content-length:
+      - '301'
+      mistral-correlation-id:
+      - 019bdbc7-5ec1-7adb-a401-52c9a55b97ce
+      x-envoy-upstream-service-time:
+      - '131'
+      x-kong-proxy-latency:
+      - '8'
+      x-kong-request-id:
+      - 019bdbc7-5ec1-7adb-a401-52c9a55b97ce
+      x-kong-upstream-latency:
+      - '132'
+      x-ratelimit-limit-req-60-second:
+      - '7200'
+      x-ratelimit-limit-tokens-5-minute:
+      - '600000'
+      x-ratelimit-limit-tokens-month:
+      - '500000000000'
+      x-ratelimit-remaining-req-60-second:
+      - '7197'
+      x-ratelimit-remaining-tokens-5-minute:
+      - '599644'
+      x-ratelimit-remaining-tokens-month:
+      - '499993903309'
+      x-ratelimit-tokens-query-cost:
+      - '48'
+    status:
+      code: 200
+      message: OK
+version: 1

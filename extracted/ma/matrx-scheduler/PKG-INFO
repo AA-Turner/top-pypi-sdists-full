@@ -1,0 +1,154 @@
+Metadata-Version: 2.5
+Name: matrx-scheduler
+Version: 0.3.280
+Summary: Server-side execution engine for the matrx scheduling spine (sch_* tables): scanner, claim, runner, cron parser, HTTP API.
+Author-email: Matrx <admin@aimatrx.com>
+License: MIT
+Keywords: agents,cron,matrx,scheduler,supabase
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.13
+Requires-Dist: croniter>=2.0
+Requires-Dist: matrx-utils>=2.0.58
+Requires-Dist: pydantic>=2.12
+Requires-Dist: supabase>=2.0
+Provides-Extra: api
+Requires-Dist: fastapi>=0.115; extra == 'api'
+Requires-Dist: httpx>=0.27; extra == 'api'
+Requires-Dist: matrx-connect>=0.1.160; extra == 'api'
+Requires-Dist: pyjwt>=2.8; extra == 'api'
+Provides-Extra: dev
+Requires-Dist: fastapi>=0.115; extra == 'dev'
+Requires-Dist: freezegun>=1.4; extra == 'dev'
+Requires-Dist: httpx>=0.27; extra == 'dev'
+Requires-Dist: matrx-connect>=0.1.160; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Provides-Extra: host
+Requires-Dist: matrx-ai>=0.5.416; extra == 'host'
+Requires-Dist: matrx-connect>=0.1.160; extra == 'host'
+Requires-Dist: matrx-orm>=3.1.202; extra == 'host'
+Description-Content-Type: text/markdown
+
+# matrx-scheduler
+
+Server-side execution engine for the matrx scheduling spine (`sch_*` tables in
+Supabase). Provides:
+
+- a scanner loop that claims due tasks atomically,
+- a runner that drives the host's agent_runner / tool_runner,
+- an authoritative cron parser + next-due computation,
+- and (since 0.3) an HTTP API surface (FastAPI) for task / trigger / run CRUD,
+  manual fires, scanner status, and cron preview.
+
+Any host application (aidream is the reference) wires it up via `configure()`
+and either runs the scanner directly, mounts the HTTP routes, or both.
+
+## What it does (under the hood)
+
+- Polls `sch_task` for rows where `next_due_at <= now()` and the host surface
+  is in `surfaces[]` (or `'any'`).
+- Atomically claims a candidate by inserting a `sch_run` with `claim_token`
+  and `claim_expires_at` (the lease).
+- Drives the matrx-ai agent runner (host-injected) against the claimed task,
+  or the host's tool_runner for `kind='tool'`.
+- Writes back results (`status`, `result_summary`, `output_ref`, etc.).
+- Recomputes the next fire time on recurring triggers; the DB cascade
+  updates `sch_task.next_due_at` automatically.
+
+## Capability-within, injection-without
+
+`matrx-scheduler` doesn't import from a host app. It exposes a `configure()`
+function the host calls at startup, passing in:
+
+- `supabase_client` — service-role client used by the SCANNER to read sch_task
+  across users and update lease state.
+- `surface` — the string this host identifies as in `sch_task.surfaces[]`
+  (e.g. `'server'` for aidream, `'desktop'` for matrx-local).
+- `agent_runner` — callable that runs an agent (kind='agent' tasks).
+- `tool_runner` — optional callable for kind='tool' tasks. Hosts that don't
+  claim tool tasks (e.g. aidream itself) leave this unset.
+- `user_supabase_factory` — optional callable `(user_jwt) -> AsyncClient`
+  used by the HTTP routes to build per-request user-scoped clients. If not
+  provided, the package falls back to an env-based factory keyed on
+  `SUPABASE_MATRIX_URL` + `SUPABASE_MATRIX_PUBLISHABLE_KEY`.
+- `get_app_context`, `emitter_factory`, `scan_interval_seconds`,
+  `lease_seconds` — see the `_ext.configure` docstring.
+
+Install with the `host` extra (`pip install matrx-scheduler[host]`) when
+using it inside a full host app. Add the `api` extra
+(`pip install matrx-scheduler[api]`) to mount the HTTP routes.
+
+## HTTP API
+
+Available since 0.3. Optional — drop the import if you only want the scanner.
+
+```python
+from fastapi import FastAPI
+import matrx_scheduler
+
+app = FastAPI()
+
+# Host startup wiring (any host).
+matrx_scheduler.configure(
+    supabase_client=service_role_client,
+    surface="server",  # or "desktop", "extension", ...
+    agent_runner=my_agent_runner,
+    user_supabase_factory=my_user_client_factory,  # optional
+)
+await matrx_scheduler.start_scanner()
+
+# Mount the HTTP routes.
+matrx_scheduler.api.include_routers(app, prefix="/scheduler")
+```
+
+### Endpoints
+
+All routes use `matrx_connect.AppContext` via `Depends(context_dep)`. Every
+write goes through a per-request Supabase client built from the caller's JWT;
+RLS is the only line of authority on row ownership. The service-role client
+(used by the scanner) is **never** accessible from these routes.
+
+Cross-owner responses are expected authorization refusals. The defensive
+owner-mismatch diagnostic is logged at WARNING, not ERROR, so routine denied
+requests do not create production-failure telemetry families.
+
+| Method | Path                                    | Purpose                                              |
+| ------ | --------------------------------------- | ---------------------------------------------------- |
+| POST   | `/scheduler/tasks`                      | Create a task (optionally with agent_task + trigger) |
+| GET    | `/scheduler/tasks`                      | List tasks (filter by kind, enabled)                 |
+| GET    | `/scheduler/tasks/{id}`                 | Get task hydrated with agent_task, triggers, runs    |
+| PATCH  | `/scheduler/tasks/{id}`                 | Patch task fields (title, enabled, tags, etc.)       |
+| DELETE | `/scheduler/tasks/{id}`                 | Soft-delete (set enabled=false)                      |
+| POST   | `/scheduler/tasks/{id}/run-now`         | Enqueue a manual run via `sch_enqueue_manual_run`    |
+| GET    | `/scheduler/triggers?task_id=...`       | List triggers for a task                             |
+| POST   | `/scheduler/triggers`                   | Create a trigger on an existing task                 |
+| PATCH  | `/scheduler/triggers/{id}`              | Patch a trigger (recomputes next_due_at if type/config changed) |
+| DELETE | `/scheduler/triggers/{id}`              | Hard-delete a trigger                                |
+| GET    | `/scheduler/runs?task_id=...&status=...`| List run history                                     |
+| GET    | `/scheduler/runs/{id}`                  | Get one run                                          |
+| POST   | `/scheduler/cron/validate`              | Validate a cron expression + preview next N fires    |
+| POST   | `/scheduler/cron/preview-fires`         | Preview next-fire times for any trigger config       |
+| POST   | `/scheduler/compute-next-due-at`        | Compute the single next due_at for a trigger config  |
+| GET    | `/scheduler/status`                     | Scanner health (admin only)                          |
+
+PATCH distinguishes an omitted nullable field from an explicit JSON `null`.
+Sending `{"description": null}` or `{"expires_at": null}` clears that field;
+omitting it leaves the stored value unchanged. This distinction is enforced
+with Pydantic's `model_fields_set`, never by dropping every `None` value.
+
+### Co-existence with aidream's `/scheduling/*`
+
+aidream had a small router at `/scheduling/*` (cron validation, run-now,
+admin force-disable) before this surface existed. The package routes use
+`/scheduler/*` (singular) so they don't collide. aidream can mount both
+simultaneously, or migrate clients to the package routes opportunistically.
+matrx-local mounts only the package routes; it has no `/scheduling/*` routes
+to begin with.
+
+See `docs/SCHEDULING.md` in the matrx-frontend repo for the full data-model
+spec, trigger taxonomy, and lifecycle.

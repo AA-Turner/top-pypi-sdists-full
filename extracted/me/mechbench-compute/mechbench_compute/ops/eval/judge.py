@@ -1,0 +1,469 @@
+from __future__ import annotations
+
+import re
+import statistics
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from mechbench_compute import chat as chat_mod
+from mechbench_compute.chat.read_empty import read_empty
+from mechbench_compute.judge.constants import FIRST_NUMBER, SCALES
+from mechbench_compute.judge.parse_json_object import parse_json_object
+from mechbench_compute.judge.read_rationale import read_rationale
+from mechbench_compute.lexicon._base import In, Op, Output, P, Resume
+from mechbench_compute.resume import read_model_level
+
+_PROVIDER_OPTIONS_DOC = (
+    "Provider-native request fields this block does not model, **keyed by "
+    "provider** — `{\"anthropic\": {\"thinking\": {…}}}` — passed through "
+    "as given. A key that names no provider is refused.")
+
+
+OP = Op(
+    name="eval/judge",
+    needs=frozenset({"model.sample", "provider.chat", "secrets"}),
+    resume=Resume("exchangeable", items=True),
+    summary=(
+        "Have a model grade each record against a rubric — a score, a label "
+        "or an A/B preference — with repeated votes, the spread between "
+        "them, and the position order randomised and recorded."
+    ),
+    description="""\
+Each record's `text` (for a pairwise scale, its `text_a` and `text_b`) is
+shown to the judge — that field and nothing else, so it cannot see the
+condition labels — together with the rubric and an instruction to answer in
+JSON. A record that carries the text under another name goes through
+`records/derive` first. Three commitments make the numbers usable:
+
+* **Votes, not a verdict.** `n_votes` repeats the call. Numeric scores
+  are averaged and their spread kept; labels and preferences take the
+  majority, and `agreement` records how often the judge agreed with itself.
+  A rubric that produces 0.5 there is a finding.
+* **Position is randomised, recorded, and undone.** In pairwise mode the
+  A/B order flips per vote from a seeded coin; each vote records the
+  order it saw and the letter it answered, and the answer is mapped back
+  to the record's own `text_a`/`text_b` before anything counts it. The
+  summary reports how often the option shown FIRST won across every vote
+  — 0.5 is the honest number, and 1.0 is a judge with no opinion about
+  the writing.
+* **Parsing is honest.** A vote that could not be read is recorded as
+  unparsed rather than scored; a numeric answer outside the scale is
+  clamped and flagged. A remote judge's reply that comes back empty —
+  its allowance spent on reasoning, its content filtered — is an
+  unparsed vote carrying `empty` (the cause), paid for and never a
+  failed node.
+* **An empty subject is not judged.** A record whose judged field is
+  missing or blank is never scored, because a winner over an empty
+  string looks exactly like every other winner in the column. By
+  default it is kept as an unjudged row naming what was absent, counted
+  in the summary, and the rest are graded — so a `text/chat` node that
+  kept an empty reply (`on_empty: "keep"`) feeds a judge that completes.
+  This is also reachable from a `records/zip` with `on_missing:
+  "placeholder"`, which keeps the key of a branch that failed.
+  `on_missing: "error"` refuses such a record by name instead, the
+  strict choice for a protocol designed to stop on one.
+
+The judge runs through `chat`, so it inherits the budget cap, concurrency,
+resumability and per-call provenance; a local model is the cheap first test.
+""",
+    inputs=(
+        In("records", "records/record",
+           "The subjects to grade, each with `text` — or `text_a` and "
+           "`text_b` for a pairwise scale. A document collection is read the "
+           "same way.", many=True),
+    ),
+    output=Output('eval/verdict', collection=True, doc='One item per subject: `id`, `coords`, the verdict (`score`/`spread`/`min`/`max`, or `label`/`counts`/`agreement`, or `winner`/`counts`/`agreement`), `rationale`, `n_votes`, `n_parsed`, every `vote`, `unparsed: true` when no vote could be read, and `unjudged: true` with the `missing` field names when there was nothing to judge. The header carries `judge` (who graded and how), `summary` (mean/median/stdev or counts, `n_unparsed`, `n_unjudged` and which, `first_shown_win_rate` for pairwise) and `spend`.'),
+    params=(
+        P("judge", "object",
+          "Who grades: `{\"model\": …, \"system\": rubric, \"max_tokens\": "
+          "512, \"temperature\": …, \"budget_usd\": …, "
+          "\"provider_options\": …}`. `model` is required; `rubric`, when "
+          "given, is appended to `system`. `temperature` is sent only if "
+          "you name one — a judge's steadiness comes from `n_votes` and "
+          "is reported as `agreement`, and some models refuse the "
+          "parameter outright.", fields=(
+              P("model", "model", "The judge's model."),
+              P("system", "string", "The judge's system prompt; `rubric` is appended to it.", ""),
+              P("max_tokens", "int", "The longest verdict, in tokens.", 512),
+              P("temperature", "float", "Sampling temperature, sent only when named.", None),
+              P("budget_usd", "float", "The spend cap, when the node sets none.", None),
+              P("provider_options", "map[string, map[string, json]]", _PROVIDER_OPTIONS_DOC, None),
+          )),
+        P("rubric", "string",
+          "The standard the judge applies, appended to `judge.system`. One "
+          "of the two must be present — an unstated standard is not a "
+          "measurement.",
+          ""),
+        P("scale", "object",
+          "What the judge answers with: `{\"type\": \"numeric\", \"min\": 1, "
+          "\"max\": 5}` (or `\"range\": [1, 5]`); `{\"type\": "
+          "\"categorical\", \"labels\": [...]}`; or `{\"type\": "
+          "\"pairwise\"}`.",
+          {"type": "numeric", "min": 1, "max": 5}, fields=(
+              P("type", "string", "What kind of answer.", "numeric",
+                choices=("numeric", "categorical", "pairwise")),
+              P("kind", "string", "The older spelling of `type`; read when `type` is absent.", None,
+                choices=("numeric", "categorical", "pairwise")),
+              P("min", "float", "For `numeric`: the lowest score. Defaults to `range[0]`, else 1.", None),
+              P("max", "float", "For `numeric`: the highest score. Defaults to `range[1]`, else 5.", None),
+              P("range", "list[float]", "For `numeric`: `[min, max]` in one field.", None),
+              P("labels", "list[string]", "For `categorical`: the labels, at least two.", None),
+          )),
+        P("n_votes", "int", "How many times each subject is judged.", 1),
+        P("budget_usd", "float",
+          "The most this node may spend on provider calls, in US dollars. "
+          "Required when the model is a hosted endpoint; the node stops "
+          "with what it has when the cap is reached. A job-level cap, if "
+          "one is set, bounds it further.",
+          None),
+        P("concurrency", "int",
+          "How many judge requests are in flight at once (remote judges).",
+          4),
+        P("on_missing", "string",
+          "A record whose judged field is missing or blank. `\"skip\"`, "
+          "the default, keeps it as an unjudged row naming what was "
+          "absent, counts it in the summary (`n_unjudged` and which), and "
+          "grades the rest; `\"error\"` refuses it by name, the strict "
+          "choice for a protocol designed to stop on one.",
+          "skip", choices=("error", "skip")),
+    ),
+    example={
+        "judge": {"model": {"provider": "anthropic", "model": "claude-sonnet-5"},
+                  "system": "You grade short stories for originality."},
+        "rubric": "1 = a stock plot told plainly; 5 = a premise you have not seen before.",
+        "scale": {"type": "numeric", "min": 1, "max": 5},
+        "n_votes": 3,
+        "budget_usd": 3.0,
+    },
+    example_inputs={"records": {"$ref": {"bench": "you/lab/stories"}}},
+)
+
+
+def read_resume_level(params, inputs=None):
+    return read_model_level(((params or {}).get("judge") or {}).get("model"))
+
+
+def run(ctx, inputs, params):
+    from mechbench_compute import model_ref as model_ref_mod
+
+    spec = dict(params.get("judge") or {})
+    ref = model_ref_mod.parse(spec.get("model")) if spec.get("model") else None
+    model = provider = None
+    if ref is not None and not ref.is_endpoint:
+        model = ctx.model(ref)
+    elif ref is not None:
+        provider = ctx.provider(ref)
+    return run_judge(params, inputs=inputs, provider=provider,
+                     model=model, on_item=ctx.on_item, on_start=ctx.on_start,
+                     resume_items=ctx.resume_items)
+
+
+
+class Scale:
+    def __init__(self, spec: Mapping[str, Any] | None) -> None:
+        spec = dict(spec or {})
+        self.kind = str(spec.get("type") or spec.get("kind") or "numeric")
+        if self.kind not in SCALES:
+            raise ValueError(f"unknown scale {self.kind!r} — one of {SCALES}")
+        rng = spec.get("range")
+        self.low = float(spec.get("min", rng[0] if rng else 1))
+        self.high = float(spec.get("max", rng[1] if rng else 5))
+        if self.kind == "numeric" and self.high <= self.low:
+            raise ValueError(f"a numeric scale needs max > min, got {self.low}–{self.high}")
+        self.labels = [str(x) for x in (spec.get("labels") or [])]
+        if self.kind == "categorical" and len(self.labels) < 2:
+            raise ValueError("a categorical scale needs at least two labels")
+
+    def instruction(self) -> str:
+        if self.kind == "numeric":
+            return (f"Answer with JSON: {{\"score\": <number from {self.low:g} to "
+                    f"{self.high:g}>, \"rationale\": \"<one sentence>\"}}.")
+        if self.kind == "categorical":
+            options = ", ".join(f'"{x}"' for x in self.labels)
+            return (f"Answer with JSON: {{\"label\": <one of {options}>, "
+                    f"\"rationale\": \"<one sentence>\"}}.")
+        return ('Answer with JSON: {"winner": "A" or "B", '
+                '"rationale": "<one sentence>"}.')
+
+    def read(self, text: str) -> dict[str, Any]:
+        payload = parse_json_object(text)
+        if self.kind == "numeric":
+            value = payload.get("score") if payload else None
+            if value is None:
+                m = FIRST_NUMBER.search(text)
+                value = m.group(0) if m else None
+            try:
+                score = float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return {}
+            clamped = min(max(score, self.low), self.high)
+            out: dict[str, Any] = {"score": clamped,
+                                   "rationale": read_rationale(payload, text)}
+            if clamped != score:
+                out["out_of_range"] = score
+            return out
+        if self.kind == "categorical":
+            label = str(payload.get("label", "")) if payload else ""
+            if label not in self.labels:
+                label = next((x for x in self.labels
+                              if re.search(rf"\b{re.escape(x)}\b", text, re.IGNORECASE)), "")
+            if not label:
+                return {}
+            return {"label": label, "rationale": read_rationale(payload, text)}
+        winner = str(payload.get("winner", "")).strip().upper()[:1] if payload else ""
+        if winner not in ("A", "B"):
+            m = re.search(r"\b([AB])\b", text.upper())
+            winner = m.group(1) if m else ""
+        if not winner:
+            return {}
+        return {"winner": winner, "rationale": read_rationale(payload, text)}
+
+
+def read_subject_coords(rec: Mapping[str, Any]) -> dict[str, Any]:
+    top = rec.get("coords")
+    if isinstance(top, Mapping):
+        return dict(top)
+    meta = rec.get("metadata")
+    if isinstance(meta, Mapping) and isinstance(meta.get("coords"), Mapping):
+        return dict(meta["coords"])
+    return {}
+
+
+def render_subject(rec: Mapping[str, Any], fields: Sequence[str]) -> str:
+    parts = []
+    for f in fields:
+        value = rec.get(f)
+        if value is None and isinstance(rec.get("metadata"), Mapping):
+            value = rec["metadata"].get(f)
+        if value is None:
+            continue
+        parts.append(f"{f}:\n{value}" if len(fields) > 1 else str(value))
+    return "\n\n".join(parts)
+
+
+def build_prompts(records: Sequence[Mapping[str, Any]], *, scale: Scale,
+                  rubric: str, fields: Sequence[str], n_votes: int,
+                  seed: Any, pairwise_fields: Sequence[str] = ()) -> list[dict[str, Any]]:
+    from mechbench_compute.seeds import item_seed
+
+    out: list[dict[str, Any]] = []
+    for rec in records:
+        rid = str(rec.get("id", ""))
+        for k in range(n_votes):
+            body: dict[str, Any] = {
+                "id": f"{rid}:v{k}",
+                "coords": {**read_subject_coords(rec), "subject": rid, "vote": k},
+                "system": rubric,
+            }
+            if scale.kind == "pairwise":
+                a_field, b_field = pairwise_fields
+                flipped = bool(item_seed(seed, rid, k) % 2)
+                first, second = ((b_field, a_field) if flipped
+                                 else (a_field, b_field))
+                body["order"] = "BA" if flipped else "AB"
+                body["user"] = (
+                    f"A:\n{rec.get(first, '')}\n\nB:\n{rec.get(second, '')}\n\n"
+                    f"{scale.instruction()}")
+            else:
+                body["user"] = (f"{render_subject(rec, fields)}\n\n"
+                                f"{scale.instruction()}")
+            out.append(body)
+    return out
+
+
+def aggregate(subject: Mapping[str, Any], votes: Sequence[Mapping[str, Any]], *,
+              scale: Scale) -> dict[str, Any]:
+    parsed = [v for v in votes if v.get("parsed")]
+    row: dict[str, Any] = {
+        "id": subject.get("id"),
+        "coords": read_subject_coords(subject),
+        "n_votes": len(votes),
+        "n_parsed": len(parsed),
+        "votes": [dict(v) for v in votes],
+    }
+    if not parsed:
+        row["unparsed"] = True
+        return row
+    if scale.kind == "numeric":
+        scores = [float(v["score"]) for v in parsed]
+        row["score"] = round(statistics.fmean(scores), 4)
+        row["spread"] = (round(statistics.stdev(scores), 4) if len(scores) > 1
+                         else 0.0)
+        row["min"] = min(scores)
+        row["max"] = max(scores)
+    else:
+        key = "label" if scale.kind == "categorical" else "winner"
+        counts: dict[str, int] = {}
+        for v in parsed:
+            counts[str(v[key])] = counts.get(str(v[key]), 0) + 1
+        winner, top = max(counts.items(), key=lambda kv: (kv[1], kv[0]))
+        row[key] = winner
+        row["counts"] = counts
+        row["agreement"] = round(top / len(parsed), 4)
+    spoke = next((v for v in parsed if v.get("order", "AB") == "AB"), parsed[0])
+    row["rationale"] = str(spoke.get("rationale", ""))
+    if scale.kind == "pairwise" and spoke.get("order") == "BA":
+        row["rationale_order"] = "BA"
+    return row
+
+
+def summarize(rows: Sequence[Mapping[str, Any]], *, scale: Scale,
+              votes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    scored = [r for r in rows
+              if not r.get("unparsed") and not r.get("unjudged")]
+    out: dict[str, Any] = {
+        "scale": scale.kind,
+        "n_subjects": len(rows),
+        "n_unparsed": sum(1 for r in rows if r.get("unparsed")),
+    }
+    unjudged = [r for r in rows if r.get("unjudged")]
+    if unjudged:
+        out["n_unjudged"] = len(unjudged)
+        out["unjudged"] = [str(r.get("id")) for r in unjudged][:50]
+    if scale.kind == "numeric" and scored:
+        values = [float(r["score"]) for r in scored]
+        out["mean"] = round(statistics.fmean(values), 4)
+        out["median"] = round(statistics.median(values), 4)
+        if len(values) > 1:
+            out["stdev"] = round(statistics.stdev(values), 4)
+    elif scored:
+        key = "label" if scale.kind == "categorical" else "winner"
+        counts: dict[str, int] = {}
+        for r in scored:
+            counts[str(r[key])] = counts.get(str(r[key]), 0) + 1
+        out["counts"] = counts
+        out["mean_agreement"] = round(
+            statistics.fmean([float(r.get("agreement", 0.0)) for r in scored]), 4)
+    if scale.kind == "pairwise":
+        shown_first = [v for v in votes if v.get("parsed")]
+        if shown_first:
+            first_wins = sum(
+                1 for v in shown_first
+                if (v.get("winner") == "A") == (v.get("order", "AB") == "AB")
+            )
+            out["first_shown_win_rate"] = round(first_wins / len(shown_first), 4)
+    return out
+
+
+def run_judge(params: Mapping[str, Any], *, inputs: Mapping[str, Any] | None = None,
+        provider=None, model=None,
+        on_item=None, on_start=None, resume_items=None) -> dict[str, Any]:
+    from mechbench_compute import model_ref as mr
+
+    inputs = inputs or {}
+    judge = dict(params.get("judge") or {})
+    if "model" not in judge:
+        raise ValueError(
+            "a judge node needs `judge: {model, system}` — who is grading is "
+            "the first thing a reader will ask")
+    scale = Scale(params.get("scale"))
+    fields = ["text"]
+    pairwise_fields = ["text_a", "text_b"]
+    n_votes = max(1, int(params.get("n_votes", 1)))
+    seed = params.get("seed", 0)
+    rubric = "\n\n".join(x for x in (str(judge.get("system", "")),
+                                     str(params.get("rubric", ""))) if x)
+    if not rubric:
+        raise ValueError(
+            "a judge node needs a rubric — an unstated standard is not a "
+            "measurement")
+
+    from mechbench_compute.lexicon import kinds as K
+
+    subjects = K.items_of(inputs.get("records") or [])
+    want = list(pairwise_fields if scale.kind == "pairwise" else fields)
+    on_missing = str(params.get("on_missing", "skip"))
+    if on_missing not in ("error", "skip"):
+        raise ValueError(
+            f"on_missing is 'error' or 'skip', not {on_missing!r}")
+    def absent(rec):
+        return [f for f in want if rec.get(f) is None or not str(rec.get(f)).strip()]
+
+    empty = {id(s): absent(s) for s in subjects if absent(s)}
+    if empty and on_missing == "error":
+        names = ", ".join(repr(str(s.get("id"))) for s in subjects
+                          if id(s) in empty)
+        raise ValueError(
+            f"{len(empty)} record(s) have no {' and '.join(want)} to judge "
+            f"({names[:120]}). An empty side would be scored against a real "
+            f"one. `on_missing: \"skip\"` (the default) records them as "
+            f"unjudged and grades the rest.")
+    judged = [s for s in subjects if id(s) not in empty]
+    prompts = build_prompts(judged, scale=scale, rubric=rubric, fields=fields,
+                            n_votes=n_votes, seed=seed,
+                            pairwise_fields=pairwise_fields)
+
+    ref = mr.parse(judge["model"])
+    chat_params = {
+        "model": judge["model"],
+        "max_tokens": int(judge.get("max_tokens", 512)),
+        "temperature": judge.get("temperature"),
+        "seed": seed,
+        "budget_usd": params.get("budget_usd") or judge.get("budget_usd"),
+        "provider_options": dict(judge.get("provider_options") or {}),
+        "concurrency": int(params.get("concurrency", 4)),
+        "dry_run": bool(params.get("dry_run", False)),
+        "name": params.get("name", "judgements"),
+        "on_empty": "keep",
+    }
+    if ref.is_endpoint:
+        if provider is None:
+            from mechbench_compute.providers.provider_client import ProviderClient
+
+            provider = ProviderClient(ref)
+        graded = provider.chat(prompts, chat_params,
+                               on_item=on_item, on_start=on_start,
+                               resume_items=resume_items)
+    else:
+        if model is None:
+            raise ValueError(
+                "a local judge needs the executor's loaded model — run this "
+                "as a protocol node")
+        graded = chat_mod.run_local(model, ref, prompts, chat_params,
+                                    on_item=on_item, on_start=on_start,
+                                    resume_items=resume_items)
+
+    by_subject: dict[str, list[dict[str, Any]]] = {}
+    order_by_id = {p["id"]: p.get("order", "AB") for p in prompts}
+    all_votes: list[dict[str, Any]] = []
+    from mechbench_compute.lexicon import kinds as K
+
+    for item in K.items_of(graded):
+        coords = (item.get("metadata") or {}).get("coords") or {}
+        subject_id = str(coords.get("subject", ""))
+        blank = read_empty(item)
+        read = {} if blank else dict(scale.read(str(item.get("text", ""))))
+        order = order_by_id.get(item["id"].rsplit("-s", 1)[0], "AB")
+        if scale.kind == "pairwise" and read.get("winner"):
+            read["shown_winner"] = read["winner"]
+            if order == "BA":
+                read["winner"] = "B" if read["winner"] == "A" else "A"
+        vote: dict[str, Any] = {
+            "vote": int(coords.get("vote", 0)),
+            "parsed": bool(read),
+            "order": order,
+            **read,
+        }
+        if blank:
+            vote["empty"] = blank["cause"]
+        call = (item.get("metadata") or {}).get("call")
+        if call:
+            vote["call"] = call
+        by_subject.setdefault(subject_id, []).append(vote)
+        all_votes.append(vote)
+
+    rows = [(aggregate(s, by_subject.get(str(s.get("id", "")), []), scale=scale)
+             if id(s) not in empty else
+             {"id": s.get("id"), "coords": read_subject_coords(s), "unjudged": True,
+              "missing": empty[id(s)]})
+            for s in subjects]
+    return K.collection(
+        "eval/verdict", rows,
+        name=params.get("name", "judgements"),
+        description=params.get("description", ""),
+        judge={"model": ref.to_wire() if ref.is_endpoint else judge["model"],
+               "scale": scale.kind, "n_votes": n_votes,
+               "rubric": rubric[:2000]},
+        summary=summarize(rows, scale=scale, votes=all_votes),
+        spend=graded.get("spend") or None,
+    )

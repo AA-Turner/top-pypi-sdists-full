@@ -1,0 +1,285 @@
+Metadata-Version: 2.4
+Name: testmuai-appium-bindings
+Version: 0.4.5
+Summary: Testmu binding for Appium Python — thin mobile test runtime for LambdaTest exports
+Author-email: LambdaTest <engineering@lambdatest.com>
+License-Expression: LicenseRef-Proprietary
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Framework :: Pytest
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: Appium-Python-Client>=4.0.1
+Requires-Dist: selenium>=4.17.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: tenacity>=8.5.0
+Requires-Dist: pyotp>=2.9.0
+Requires-Dist: requests>=2.28.0
+Requires-Dist: Pillow>=11.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: lambdatest-selenium-driver>=1.0.9
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12; extra == "dev"
+Requires-Dist: respx>=0.20; extra == "dev"
+Requires-Dist: build>=1.0; extra == "dev"
+Requires-Dist: twine>=5.0; extra == "dev"
+
+# testmuai-appium-bindings
+
+Appium runtime bindings for KaneAI v4 mobile exports.
+
+> **Distribution name vs import name**
+> Install `testmuai-appium-bindings`; import `testmu_appium`.
+
+## Installation
+
+```bash
+pip install testmuai-appium-bindings
+```
+
+## Quick start
+
+A generated mobile test is a thin script over this runtime:
+
+```python
+import testmu_appium
+from testmu_appium import var, set_var
+
+testmu_appium.configure(kane_run_v4=True, app_id="com.google.android.gm", platform="android")
+
+@testmu_appium.test
+def test(driver):
+    with testmu_appium.step("Tap the Compose button"):
+        testmu_appium.click(
+            driver,
+            selectors=[
+                {"strategy": "view_id", "selector": "com.google.android.gm:id/compose",
+                 "score": 90, "isXPath": False},
+                {"strategy": "accessibility_id", "selector": "Compose",
+                 "score": 80, "isXPath": False},
+            ],
+            description="PRIMARY: Compose button HINTS: bottom-right, red FAB",
+            fallback_coordinates={"x_ratio": 0.8631, "y_ratio": 0.9012,
+                                  "orientation": "portrait", "window": [1080, 2340]},
+        )
+
+if __name__ == "__main__":
+    testmu_appium.run(test)
+```
+
+The generated code is platform-portable: it carries selector *data* and semantic key
+names only. Strategy compilation, keycode maps and picker machinery are runtime data
+tables keyed off the configured `platform`.
+
+## Configuration
+
+| Env var | Default | Purpose |
+| --- | --- | --- |
+| `TESTMU_RUN_TARGET` | `local` | `local` (Appium server) or `cloud` (LT mobile hub) |
+| `APPIUM_URL` | `http://127.0.0.1:4723` | Local Appium server |
+| `LT_HUB_URL` | `https://mobile-hub.lambdatest.com/wd/hub` | LambdaTest mobile hub |
+| `LT_USERNAME` / `LT_ACCESS_KEY` | — | LambdaTest credentials |
+| `TESTMU_SMART` | `1` | Autoheal + AI-backed helpers |
+| `TESTMU_AI_API_HOST` | `https://kaneai-api.lambdatest.com/v16-server` | Autoheal / query endpoints |
+| `TESTMU_ACTION_TIMEOUT_MS` | `10000` | Per-action find budget (`default_action_timeout_ms`) |
+| `TESTMU_SETTLE_TIMEOUT_MS` | `3000` | Pre-action stability wait budget |
+| `TESTMU_SCREENSHOT_SOURCE` | `auto` | `auto`, `mjpeg` or `appium` (`screenshot_source`) |
+| `TESTMU_MJPEG_PORT` | `7813` | Host port Appium forwards the MJPEG stream to (`mjpeg_port`) |
+
+`configure()` raises on unknown keys — a generator emitting a key this binding
+version does not understand fails at import instead of silently dropping it.
+
+### Screenshots
+
+Perception screenshots come from the uiautomator2 server's MJPEG broadcaster where
+it is reachable, and from `driver.get_screenshot_as_png()` otherwise. The session
+asks Appium for the `appium:mjpegServerPort` forward on a local run target only —
+a cloud session's forward lives on the device host, which `127.0.0.1` here does not
+reach — and a stream that fails once is not tried again for the rest of the session.
+`Perception.screenshot_source` names the path that served the frame.
+
+`screenshot_source="mjpeg"` takes the stream on any run target and forbids the
+Appium fallback; `screenshot_source="appium"` never opens the stream.
+
+## The generated call surface
+
+The verb names and their parameters are a contract shared with the code
+generator, pinned on this side by `tests/test_public_surface.py`
+(`BINDING_PUBLIC_SURFACE`) and on the generator's side by its verb-table test.
+Both tables carry the same rows and are edited together.
+
+Verbs come in three shapes:
+
+- **element** — `click`, `type`, `search`, `clear`, `select`, `scroll`,
+  `scroll_until`. Take `selectors`; run settle → find → act → heal.
+- **driver** — `drag`, `navigate`, `keyevent`, `app_lifecycle`,
+  `device_control`, `wait`, `smartui_screenshot`, `check_until_condition`,
+  `verify_assertion`, `textual_query`, `vision_query`, `network_query`,
+  `network_capture_query`. Take the
+  driver, never take selectors, never heal.
+- **value** — `evaluate_math`, `math`, `execute_api`, `execute_db`. Pure; take no
+  driver at all.
+
+`verify_assertion(tree=...)` and `evaluate_math(tree=...)` accept the recorded
+`assertion_tree` / `mathmatic_tree` the generator emits. `assertion(...)` and
+`math(expression=...)` are the flat-argument forms behind them and stay
+available for hand-written tests.
+
+## Network capture contracts
+
+Generated artifacts should use `network_capture_query(driver, contract=...)` with
+`network.capture.v1`: exactly `schema_version`, a selector (`method`, `url`,
+zero-based `occurrence`, `flow_id`), and millisecond `wait` values. The provider is
+runtime configuration only: `TESTMU_NETWORK_CAPTURE_URL` selects the stable
+`GET /v1/network/capture/flows`, `/flows/{id}`, and `/capabilities` contract;
+`TESTMU_NETWORK_CAPTURE_PROVIDER=lambda-har` adapts a legacy `/har` provider.
+Without an explicit URL, a runtime that provides `HOST_IP` and `PROXY_API_PORT`
+derives the legacy endpoint (environment first, then `rd-details.env` in the temp
+directory), including authoring runs whose local run-target setting has not changed.
+`network_capture_capabilities()` reports provider readiness. `network_query(...)`
+remains a compatibility wrapper around the canonical contract.
+
+`evaluate_network_assertion(tree, contract_version="network.assert.v1")` returns
+a deterministic passed/failed/indeterminate result with evidence and matching flow
+IDs. Failed or unavailable-body results raise `NetworkAssertionError` unless
+`TESTMU_SKIP_ASSERTION_FAILURE` is truthy.
+
+## Perception API
+
+The UI-tree parser is published for callers outside this package — a host runtime
+driving its own mobile session, for instance. Import it from
+`testmu_appium.perception`; the same names are re-exported from the package root.
+
+```python
+from testmu_appium.perception import (
+    parse_tree, format_for_prompt, find_by_fingerprint, position_hint,
+    EDITABLE_CLASSES, ROLE_MAP,
+)
+```
+
+The binding owns this parser. V16, healing, and generated-test runtime all consume
+the public API above so document order and element identity have one definition.
+`testmu_appium._helpers._tree` remains an implementation detail.
+
+### `parse_tree(xml_str, screen_w, screen_h) -> list[dict]`
+
+Parses an Appium page-source XML document into a flat list of useful on-screen
+nodes. A node is kept when it has a readable label, a resource id, or responds to
+touch; pure layout wrappers are skipped and their children promoted. Nodes are
+dropped when their `bounds` attribute is missing, zero-area, hidden, or outside
+the `screen_w` x `screen_h` viewport. Entries are de-duplicated on
+`(role, name, center)`, first occurrence winning.
+
+Every row carries `interactive` and `depth`. `format_for_prompt` filters to the
+interactive subset and assigns its own dense display numbering, preserving the
+visual-mode contract while text-mode consumers can reference informational rows.
+
+**Indices are 1-based.** `entry["index"]` runs `1..len(result)` over the returned
+list with no gaps, and that index is what the autoheal endpoint's `dom_index` refers
+to. Re-parsing a changed screen renumbers everything, so an index is only meaningful
+against the parse it came from.
+
+Each entry carries exactly these keys:
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `index` | `int` | 1-based position in the returned list |
+| `role` | `str` | One of `input`, `button`, `text`, `image`, `switch`, `checkbox`, `radio`, `slider`, `picker`, `dropdown`, `webview`, `scrollable`, `item` |
+| `name` | `str` | The element's label: its own `text`, else `content-desc`, else `hint`. A clickable node with no label of its own borrows up to 3 labels from its non-interactive descendants, joined with `" · "`. Truncated to 80 characters. |
+| `bounds` | `tuple[int, int, int, int]` | `(x1, y1, x2, y2)` in device pixels |
+| `center` | `tuple[int, int]` | `(cx, cy)` in device pixels |
+| `states` | `list[str]` | Any of `checked`, `disabled`, `focused`, `selected`, `password` |
+| `scrollable` | `bool` | The node's `scrollable` attribute |
+| `cls` | `str` | Raw `class` attribute |
+| `resource_id` | `str` | Raw `resource-id` attribute, `""` when absent |
+| `content_desc` | `str` | Raw `content-desc` attribute, `""` when absent |
+| `text` | `str` | Raw `text` attribute, `""` when absent |
+| `hint` | `str` | Raw `hint` attribute, `""` when absent |
+| `position` | `str` | `<top\|middle\|bottom>-<left\|center\|right>`, from the centre against the viewport thirds |
+
+`screen_w` / `screen_h` are the live window size in device pixels — the same units the
+`bounds` attribute uses.
+
+## Textual analyzer
+
+`textual_analyzer()` runs a recorded `extract(tree)` function against a fresh native
+viewport capture. The capture settles before it is read — it waits for two
+consecutive page-source reads to agree — so the extraction sees a screen that has
+stopped moving. The function receives rows projected to
+`testmu-appium.element-contract.v1` and must select rows through
+`tree.where(**predicates)` before returning a number, string, or boolean.
+
+```python
+visible_total = testmu_appium.textual_analyzer(
+    driver,
+    code=(
+        "def extract(tree):\n"
+        "    prices = tree.where(resource_id__startswith='product-price-')\n"
+        "    return sum(float(row['text'].replace('$', '')) for row in prices)\n"
+    ),
+    selection=[{
+        "where": {"resource_id__startswith": "product-price-"},
+        "matched": 2,
+    }],
+    tree_contract="testmu-appium.element-contract.v1",
+    return_type="number",
+    authoring_row_count=56,
+    extraction_description="sum of product prices currently in the viewport",
+)
+```
+
+The same verb name exists in the web bindings, where it executes recorded
+JavaScript over element handles; here it executes recorded Python over the
+viewport tree.
+
+The v1 row fields are `index`, `parent_index`, `depth`, `role`, `cls`,
+`resource_id`, `content_desc`, `text`, `name`, `hint`, `bounds`, `center`,
+`enabled`, `checked`, `selected`, and `clickable`. `bounds` is the tuple
+`(x1, y1, x2, y2)`. `index` and `parent_index` are capture-local and are valid
+only within the single call that produced them.
+
+`authoring_row_count` is the total number of parser rows in the capture that
+committed the extraction. A populated capture collapsing to one tenth or less of
+that count fails before the script runs. `None` or `0` records no baseline and
+skips only that collapse check.
+
+### `format_for_prompt(elements) -> str`
+
+Renders the list from `parse_tree` as one line per entry, in the form a reasoning
+model reads: `[<index>] <role> "<name>" [<states>] (<position>)`. Scrollable entries
+get a line noting that content may exist beyond the viewport. Returns
+`"(no interactive elements detected — rely on the screenshot)"` for an empty list.
+
+### `find_by_fingerprint(elements, fp) -> dict | None`
+
+Re-finds a previously recorded element in a fresh `parse_tree` result. `fp` is a dict
+that may carry `resource_id`, `text`, `content_desc` and `name`; they are tried in
+that order, with `resource_id` + `text` preferred over `resource_id` alone. Returns
+the matching entry, or `None` when nothing matches.
+
+### `ROLE_MAP`
+
+The ordered `(class-name suffix, role)` pairs `parse_tree` uses to assign `role`,
+matched by `class.endswith(suffix)`, first match winning. A node matching no suffix
+becomes `scrollable` when its `scrollable` attribute is set, else `item`.
+
+## Platform support
+
+Android ships today. iOS is accepted as configuration (`platform="ios"`) so its
+arrival is a data event, but the iOS strategy column, keycode map and session-options
+row are not shipped yet and raise `UnsupportedOnPlatform`.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest -v
+```
+
+Tests are hermetic — no live device, no live grid, no live HTTP.

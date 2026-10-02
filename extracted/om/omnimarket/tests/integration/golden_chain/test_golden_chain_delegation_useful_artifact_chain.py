@@ -1,0 +1,287 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Recorded-from-real delegation golden chain (OMN-13499 reference migration).
+
+This is the Phase-0 REFERENCE chain migrated end-to-end to the canonical
+``omnibase_core.runtime.golden_chain`` harness. It replaces the previous
+legacy hand-rolled ``httpx.Client`` boundary-fake (which returned canned bytes and hid the
+real request the handler constructs) with the canonical
+``RecordedReplayInferenceTransport``.
+
+What runs LIVE on replay (everything except the model response bytes):
+
+  * ``HandlerDelegationWorkflow.handle_delegation_request`` — routing intents,
+  * ``HandlerRoutingIntent`` — routing-contract resolution + backend selection,
+  * ``handle_routing_decision`` — inference-intent + endpoint/model resolution,
+  * ``HandlerInferenceIntent._call_llm`` — REAL OpenAI-compatible request
+    construction (system prompt + inference-protocol shaping + max_tokens +
+    temperature + chat_template_kwargs) and the POST,
+  * ``HandlerQualityGateIntent`` — quality gate over the artifact.
+
+Only the model's HTTP response bytes come from the provenance-stamped fixture
+``tests/fixtures/golden_chain/delegation_test_artifact_chain.json`` — recorded
+from the real request the live path constructs (concrete model ``qwen3.8`` at
+the resolved endpoint), pinned by ``request_hash``.
+
+OMN-16442 re-derived that provenance. The reference bifrost contract used to
+declare backend_id ``local-reasoner`` (``.201:8001``, model
+``Qwen3.6-27B-MTP-IQ4_XS.gguf``); that backend is retired — the RTX 4090 was
+physically removed for RMA (OMN-16407) — and ``test``'s local membership in the
+REAL ``routing_tiers.yaml`` moved to ``local-coder``. Only the bifrost side of
+this chain is a fixture; the tier ladder is the live contract, so a fixture
+backend_id the live local tier no longer declares makes routing resolve nothing
+(``ONEX_CORE_041``: "No tier has a configured endpoint for task_type='test'").
+The fixture was therefore re-recorded against the live path, not hand-patched:
+``endpoint``, ``endpoint_ref``, ``model_id``, ``request_hash``, ``prompt_hash``
+and ``routing_contract_hash`` all come from the real constructed request. Only
+the model's recorded RESPONSE bytes were left unchanged by THAT pass — see the
+OMN-7942 note below, which is the one change that did touch them.
+
+REPLAY IS EVIDENCE, NOT AUTHORITY — the planted routing-failure test below proves
+a chain that resolves the WRONG model FAILS the replay (REQUEST_HASH_MISMATCH)
+rather than "succeeding anyway".
+
+OMN-7942 re-recorded the REQUEST side and adapted the RESPONSE side, and the two
+halves have different standing, so both are stated rather than one implied:
+
+  * ``request_hash`` / ``prompt_hash`` were RE-RECORDED from the real request
+    this live path now constructs. The system prompt gained the task class's
+    declared response-contract instruction (``test`` declares markdown with the
+    ``### ANSWER`` start marker), so the recorded request bytes genuinely
+    changed and the old hashes were no longer evidence for this request. They
+    come from ``canonical_request_hash`` / ``canonical_prompt_hash`` over the
+    live payload, not from a hand-edit — the same procedure OMN-16442 used.
+  * the recorded RESPONSE content was ADAPTED, not re-recorded: the declared
+    ``### ANSWER`` marker line was prefixed to the model's recorded bytes. The
+    recording predates the contract, so it carries no marker, and the response
+    path now refuses an unmarked markdown deliverable typed rather than guessing
+    a boundary out of prose. Prefixing the marker is what a COMPLIANT provider
+    would have emitted for the request now being sent; the model's own bytes
+    below the marker are untouched. This is the same adaptation the sibling
+    golden chain ``tests/test_golden_chain_node_delegate_skill_orchestrator.py``
+    took for its own recorded ``test``-class response in this change.
+
+OMN-18349 re-recorded the REQUEST side again, by the same procedure: the user
+turn now opens with the declared extraction-marker sentence, so the request
+bytes changed. ``request_hash`` and ``prompt_hash`` were captured from
+``canonical_request_hash`` / ``canonical_prompt_hash`` over the live payload;
+the RESPONSE bytes are untouched.
+
+OMN-19406 re-recorded the REQUEST side a third time, by the same procedure: the
+system prompt's text-shape instruction sentence changed. It no longer forbids
+reasoning before the deliverable; it forbids scratch work before the extraction
+marker and places any reasoning the request asks for inside the deliverable, so
+the request bytes changed. ``request_hash`` and ``prompt_hash`` were captured from
+``canonical_request_hash`` / ``canonical_prompt_hash`` over the live payload; with
+the pre-change instruction the same capture reproduces the previously recorded
+hashes exactly. The RESPONSE bytes are untouched.
+
+Neither half weakens the harness: the wrong-model and tier-name-as-model proofs
+below still fail closed, and they are what make a green replay here probative.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from pathlib import Path
+from unittest.mock import patch
+from uuid import uuid4
+
+import pytest
+from omnibase_core.runtime.golden_chain import (
+    EnumGoldenChainFailureClass,
+    GoldenChainReplayError,
+    RecordedReplayInferenceTransport,
+    load_fixture,
+)
+
+from omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow import (
+    HandlerDelegationWorkflow,
+)
+from omnimarket.nodes.node_delegation_orchestrator.models.model_delegation_request import (
+    ModelDelegationRequest,
+)
+from omnimarket.nodes.node_delegation_orchestrator.models.model_inference_intent import (
+    ModelInferenceIntent,
+)
+from omnimarket.nodes.node_delegation_orchestrator.models.model_quality_gate_intent import (
+    ModelQualityGateIntent,
+)
+from omnimarket.nodes.node_delegation_quality_gate_reducer.handlers.handler_quality_gate_intent import (
+    HandlerQualityGateIntent,
+)
+from omnimarket.nodes.node_delegation_routing_reducer.handlers import (
+    handler_delegation_routing,
+)
+from omnimarket.nodes.node_delegation_routing_reducer.handlers.handler_routing_intent import (
+    HandlerRoutingIntent,
+)
+from omnimarket.nodes.node_llm_delegation_call_effect.handlers.handler_inference_intent import (
+    HandlerInferenceIntent,
+)
+
+pytestmark = pytest.mark.usefixtures("stub_provider_quota_reader")
+
+_FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "golden_chain"
+_FIXTURE_PATH = _FIXTURE_DIR / "delegation_test_artifact_chain.json"
+_BIFROST_CONTRACT_PATH = _FIXTURE_DIR / "bifrost_delegation_reference.yaml"
+
+_EXPECTED_MARKERS = ("@pytest.mark.unit", "with pytest.raises", "Edge case")
+
+
+@pytest.fixture(autouse=True)
+def _bifrost_contract(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Point the live router at the SAME committed contract the fixture recorded.
+
+    The fixture's ``routing_contract_hash`` was recorded against
+    ``bifrost_delegation_reference.yaml``; the chain resolves its route from that
+    exact file so routing runs for real and the recorded request matches.
+    """
+    handler_delegation_routing._config = None
+    handler_delegation_routing._load_bifrost_endpoints.cache_clear()
+    handler_delegation_routing._get_task_class_contract.cache_clear()
+    monkeypatch.setenv("BIFROST_CONTRACT_PATH", str(_BIFROST_CONTRACT_PATH))
+    yield
+    handler_delegation_routing._config = None
+    handler_delegation_routing._load_bifrost_endpoints.cache_clear()
+    handler_delegation_routing._get_task_class_contract.cache_clear()
+
+
+def _run_chain_to_inference_intent(prompt: str) -> ModelInferenceIntent:
+    """Run routing + intent construction LIVE and return the inference intent."""
+    workflow = HandlerDelegationWorkflow(workflows={})
+    request = ModelDelegationRequest(
+        prompt=prompt,
+        task_type="test",
+        correlation_id=uuid4(),
+        max_tokens=4096,
+        emitted_at=datetime.now(UTC),
+    )
+    routing_intents = workflow.handle_delegation_request(request)
+    decision = HandlerRoutingIntent().handle(routing_intents[0])
+    assert decision.task_type == "test"
+    assert "final_artifact_only" in decision.dod_deterministic
+    inference_intents = workflow.handle_routing_decision(decision)
+    assert len(inference_intents) == 1
+    intent = inference_intents[0]
+    assert isinstance(intent, ModelInferenceIntent)
+    return intent
+
+
+@pytest.mark.integration
+def test_delegation_chain_returns_useful_task_artifact() -> None:
+    """End-to-end: real routing + real request construction + recorded replay + gate."""
+    fixture = load_fixture(_FIXTURE_PATH)
+    transport = RecordedReplayInferenceTransport([fixture])
+
+    workflow = HandlerDelegationWorkflow(workflows={})
+    request = ModelDelegationRequest(
+        prompt="Write pytest unit tests for omnibase_infra normalize_unit_state(state: str).",
+        task_type="test",
+        correlation_id=uuid4(),
+        max_tokens=4096,
+        emitted_at=datetime.now(UTC),
+    )
+    routing_intents = workflow.handle_delegation_request(request)
+    decision = HandlerRoutingIntent().handle(routing_intents[0])
+    inference_intents = workflow.handle_routing_decision(decision)
+    intent = inference_intents[0]
+
+    # Swap ONLY the httpx.Client the inference handler uses. The handler still
+    # constructs the OpenAI-compatible request LIVE; the transport returns the
+    # recorded bytes only because the live request matches the recorded route +
+    # request_hash.
+    with patch("httpx.Client", return_value=transport):
+        response = HandlerInferenceIntent().handle(intent)
+
+    assert response.error_message == ""
+    for marker in _EXPECTED_MARKERS:
+        assert marker in response.content
+
+    # The live path resolved the CONCRETE recorded model, not a tier name.
+    assert transport.calls[0]["model"] == fixture.provenance.model_id.root
+
+    gate_intents = workflow.handle_inference_response(response)
+    assert len(gate_intents) == 1
+    assert isinstance(gate_intents[0], ModelQualityGateIntent)
+    gate_result = HandlerQualityGateIntent().handle(gate_intents[0])
+    assert gate_result.passed is True
+    assert gate_result.failure_reasons == ()
+
+
+@pytest.mark.integration
+def test_replay_is_deterministic_across_runs() -> None:
+    """Replay returns identical recorded bytes on repeated runs (offline-of-model)."""
+    fixture = load_fixture(_FIXTURE_PATH)
+    intent = _run_chain_to_inference_intent(
+        "Write pytest unit tests for omnibase_infra normalize_unit_state(state: str)."
+    )
+    contents = []
+    for _ in range(2):
+        transport = RecordedReplayInferenceTransport([fixture])
+        with patch("httpx.Client", return_value=transport):
+            response = HandlerInferenceIntent().handle(intent)
+        contents.append(response.content)
+    assert contents[0] == contents[1]
+
+
+# ---------------------------------------------------------------------------
+# THE ROUTING-FAILURE PROOF — replay is EVIDENCE, not AUTHORITY.
+# A chain that resolves the WRONG model must FAIL the replay, not pass anyway.
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+def test_wrong_model_route_fails_replay_not_pass_anyway() -> None:
+    """Planted wrong-route: the live path posts a DIFFERENT model than recorded.
+
+    The handler still constructs a real request and posts it, but because the
+    resolved model (hence request_hash) differs from the recorded fixture, the
+    canonical transport raises REQUEST_HASH_MISMATCH. A fake adapter would have
+    returned its canned bytes and let the broken route ship green — this proves
+    the harness cannot hide a broken route.
+    """
+    fixture = load_fixture(_FIXTURE_PATH)
+    transport = RecordedReplayInferenceTransport([fixture])
+    intent = _run_chain_to_inference_intent(
+        "Write pytest unit tests for omnibase_infra normalize_unit_state(state: str)."
+    )
+    # Plant the wrong route: same endpoint, but a different concrete model than
+    # the fixture was recorded against (simulates a routing/selection regression).
+    wrong_intent = intent.model_copy(update={"model": "gpt-4o-wrong-route"})
+
+    with (
+        pytest.raises(GoldenChainReplayError) as exc,
+        patch("httpx.Client", return_value=transport),
+    ):
+        HandlerInferenceIntent()._call_llm(
+            wrong_intent,
+            "call-1",
+            # OMN-18196: resolved by ``handle`` and passed in. This test drives
+            # the private path directly and fails before the request is built,
+            # so neither value is exercised.
+            api_key=None,
+            credential_source=None,
+        )
+    assert exc.value.failure_class is EnumGoldenChainFailureClass.REQUEST_HASH_MISMATCH
+
+
+@pytest.mark.integration
+def test_tier_name_as_model_fails_route_not_resolved() -> None:
+    """A delegation TIER name reaching inference as the model fails closed."""
+    fixture = load_fixture(_FIXTURE_PATH)
+    transport = RecordedReplayInferenceTransport([fixture])
+    intent = _run_chain_to_inference_intent(
+        "Write pytest unit tests for omnibase_infra normalize_unit_state(state: str)."
+    )
+    tier_intent = intent.model_copy(update={"model": "cheap_cloud"})
+    with (
+        pytest.raises(GoldenChainReplayError) as exc,
+        patch("httpx.Client", return_value=transport),
+    ):
+        HandlerInferenceIntent()._call_llm(
+            tier_intent,
+            "call-2",
+            api_key=None,
+            credential_source=None,
+        )
+    assert exc.value.failure_class is EnumGoldenChainFailureClass.ROUTE_NOT_RESOLVED

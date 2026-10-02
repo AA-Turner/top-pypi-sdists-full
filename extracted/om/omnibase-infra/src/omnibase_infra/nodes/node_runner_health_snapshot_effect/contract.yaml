@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeRunnerHealthSnapshotEffect
+#
+# Read-only EFFECT node for the runner-fleet-maintain workflow (OMN-13942,
+# Increment 1). Gathers gh-api runner records, SSH/Docker inspection facts
+# (incl. RestartCount + _diag heartbeat freshness), queue/run-age facts, and
+# the two new OMN-13932 probes (buildx availability, codeload-throttle
+# signatures), then publishes a facts-only ModelRunnerFleetSnapshot. No
+# mutation capability is compiled into this node.
+#
+# Completes the OMN-6091 stub in place -- this is the same contract/topics
+# declared since OMN-6082, not a fork.
+#
+# Related Tickets:
+#   - OMN-6082: Runner health snapshot CLI emitter
+#   - OMN-6091: Full ONEX node conversion (deferred; completed by OMN-13942)
+#   - OMN-7114: Register missing topics in provisioner
+#   - OMN-12566: Docker subnet-pool occupancy events (network-pool-status.v1
+#     remains deferred -- not implemented by this node, still declared for
+#     provisioning continuity)
+#   - OMN-13109 / OMN-13912 / OMN-13915: wedge/crash-loop/heartbeat heuristics
+#     whose raw facts this node now gathers (classification lives in
+#     node_runner_fleet_health_compute)
+#   - OMN-13932: motivating gap (buildx/codeload blind spots)
+#   - OMN-15255 (friction F-04): gathers the three facts the composite readiness
+#     signals need and that no prior probe collected -- container Docker health
+#     status, Runner.Listener process/orphan (PPID 1) topology, and runner-host
+#     disk used-percent. All three are read-only inspects/ps/df. Unknowns are
+#     reported as unknown (empty health, None counts, None disk) and are never
+#     defaulted to a passing value, so a failed probe becomes an UNKNOWN readiness
+#     signal downstream rather than a fabricated PASS.
+#   - OMN-15195: replaced this handler's direct env reads (WEDGE_QUEUE_AGE_SECONDS,
+#     RUNNER_CODELOAD_SCAN_LIMIT, WEDGE_WATCH_REPOS) with the typed
+#     ModelRunnerFleetConfig (observability.runner_health.model_runner_fleet_config),
+#     loaded once at construction via load_runner_fleet_config() from
+#     config/runner_fleet.yaml. wedge_queue_age_seconds / codeload_scan_limit /
+#     watch_repos are now config-model fields, not per-call env reads; defaults
+#     are unchanged (600s / 5 / built-in OmniNode repo list).
+name: "node_runner_health_snapshot_effect"
+contract_version:
+  major: 1
+  minor: 1
+  patch: 1
+node_version:
+  major: 1
+  minor: 1
+  patch: 1
+node_type: "EFFECT_GENERIC"
+description: >
+  Effect node for runner-fleet snapshot gathering. Publishes read-only, facts-only health snapshots from GitHub Actions runners + Docker inspection via the event bus, including container health status, Runner.Listener process/orphan topology, and runner-host disk usage (OMN-15255). Completed for OMN-13942 (was a contract stub since OMN-6091).
+
+input_model:
+  name: "ModelRunnerFleetSnapshotGatherCommand"
+  module: "omnibase_infra.nodes.node_runner_health_snapshot_effect.models.model_runner_fleet_snapshot_gather_command"
+  description: "Command to gather a point-in-time runner-fleet snapshot."
+output_model:
+  name: "ModelRunnerFleetSnapshot"
+  module: "omnibase_infra.nodes.node_runner_health_snapshot_effect.models.model_runner_fleet_snapshot"
+  description: "Facts-only runner-fleet snapshot (no classification), incl. OMN-15255 readiness facts: per-runner docker_health / listener_process_count / orphaned_listener_count and snapshot-level host_disk_used_percent."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - event_model:
+        name: "ModelRunnerFleetSnapshotGatherCommand"
+        module: "omnibase_infra.nodes.node_runner_health_snapshot_effect.models.model_runner_fleet_snapshot_gather_command"
+      handler:
+        name: "HandlerRunnerFleetSnapshot"
+        module: "omnibase_infra.nodes.node_runner_health_snapshot_effect.handlers.handler_runner_fleet_snapshot"
+      output_events:
+        - "ModelRunnerFleetSnapshot"
+runtime_profiles:
+  - effects
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.omnibase-infra.runner-fleet-snapshot-gather.v1"
+  publish_topics:
+    - "onex.evt.omnibase-infra.runner-health-snapshot.v1"
+    - "onex.evt.omnibase-infra.network-pool-status.v1"
+published_events:
+  - topic: "onex.evt.omnibase-infra.runner-health-snapshot.v1"
+    event_type: "RunnerHealthSnapshotEvent"
+    message_category: "EVENT"
+    description: "Periodic health snapshot from GitHub Actions runners"
+    topic_config:
+      partitions: 1
+      replication_factor: 2
+      kafka_config:
+        "retention.ms": "604800000"
+        "cleanup.policy": "delete"
+  - topic: "onex.evt.omnibase-infra.network-pool-status.v1"
+    event_type: "NetworkPoolStatusEvent"
+    message_category: "EVENT"
+    description: "Periodic Docker subnet-pool occupancy snapshot from runner hosts"
+    topic_config:
+      partitions: 1
+      replication_factor: 2
+      kafka_config:
+        "retention.ms": "604800000"
+        "cleanup.policy": "delete"
+metadata:
+  description: "Captures point-in-time health metrics from GitHub Actions runners and publishes snapshots for trend analysis"
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-31"
+  updated: "2026-07-26"
+  ticket: "OMN-15195"
+  tags:
+    - effect
+    - health
+    - runner
+    - snapshot

@@ -21,6 +21,8 @@ from typing import Any
 import httpx
 from matrx_utils import vcprint
 
+from matrx_ai.providers.errors import is_billing_refusal, mark_billing_checked
+
 from .client import (
     acquire_fastino_slot,
     build_fastino_client,
@@ -145,6 +147,12 @@ def _raise_if_permanently_refused() -> None:
     err = cls(f"Not sent — Fastino refused permanently moments ago: {message}", status_code=status)
     err.permanent = True  # type: ignore[attr-defined]
     raise err
+
+
+def _is_billing_refusal(resp: httpx.Response) -> bool:
+    """The platform's Pioneer/Fastino account cannot pay — the SHARED wording list
+    decides. Such a refusal can arrive as a 429; retrying it is paid-for noise."""
+    return resp.status_code == 402 or is_billing_refusal(resp.text)
 
 
 def _handle_response(resp: httpx.Response) -> dict[str, Any]:
@@ -386,8 +394,49 @@ class FastinoExtraction:
         model_class: str | None = None,
         include_confidence: bool = True,
         include_spans: bool = True,
+        profile: Any | None = None,
     ) -> SpanExtractionResult:
+        """Extract spans through the shared dispatch seam.
+
+        ``profile`` is the catalog route when the caller resolved one
+        (``extract_spans``); a direct caller gets the Fastino pool's own
+        identity. Either way the call takes admission, the out-of-credit alarm
+        and LAYER 2 from ``UnifiedAIClient._dispatch_with_billing_net``.
+        """
+        from types import SimpleNamespace
+
+        from matrx_ai.providers.unified_client import UnifiedAIClient
+
         model_id = model_class or DEFAULT_GLINER2_MODEL
+        route = profile or SimpleNamespace(
+            vendor="fastino",
+            model_name=model_id,
+            endpoint_id="fastino-direct",
+            base_url=gliner2_url(),
+            offering_metadata={},
+        )
+        async def _dispatch() -> SpanExtractionResult:
+            try:
+                return await self._extract(
+                    text, labels, threshold, model_id, include_confidence, include_spans
+                )
+            except BaseException as exc:
+                # The gateway reports no usage, so a failed extraction carries
+                # none: the adapter looked, and LAYER 2 must not call it forgotten.
+                mark_billing_checked(exc)
+                raise
+
+        return await UnifiedAIClient._dispatch_with_billing_net(_dispatch, profile=route)
+
+    async def _extract(
+        self,
+        text: str,
+        labels: list[str],
+        threshold: float,
+        model_id: str,
+        include_confidence: bool,
+        include_spans: bool,
+    ) -> SpanExtractionResult:
 
         # Window oversized input so GLiNER2's max_model_len ceiling can never
         # turn into a dropped chunk (see the windowing rationale above). The
@@ -527,7 +576,11 @@ class FastinoExtraction:
                 # On the last attempt, OR for a non-retryable status, hand the
                 # response to _handle_response: it returns parsed data on success
                 # and raises the precise typed error otherwise.
-                if is_last or resp.status_code not in _RETRYABLE_STATUS:
+                if (
+                    is_last
+                    or resp.status_code not in _RETRYABLE_STATUS
+                    or _is_billing_refusal(resp)
+                ):
                     return await asyncio.to_thread(_handle_response, resp)
                 retry_after = _parse_retry_after(resp.headers.get("retry-after"))
                 last_exc = FastinoServerError(

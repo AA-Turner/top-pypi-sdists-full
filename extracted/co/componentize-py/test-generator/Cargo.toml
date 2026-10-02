@@ -1,0 +1,13 @@
+[package]
+name = "componentize-py-test-generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "`componentize-py` test generator"
+
+[dependencies]
+anyhow = "1.0.91"
+getrandom = { version = "0.2.15", features = ['std'] }
+hex = "0.4.3"
+proptest = "1.5.0"

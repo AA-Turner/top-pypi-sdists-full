@@ -1,0 +1,115 @@
+name: DjVu conformance
+
+# Reproducible differential gate and public history:
+# https://matyushkin.github.io/djvu-rs/dev/conformance/
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'crates/**'
+      - 'examples/diff_djvulibre.rs'
+      - 'examples/conformance_semantic.rs'
+      - 'examples/interop_encode.rs'
+      - 'examples/writer_conformance.rs'
+      - 'scripts/conformance_report.py'
+      - 'scripts/test_conformance_report.py'
+      - 'scripts/run_conformance.sh'
+      - 'conformance/**'
+      - 'fuzz/corpus-regressions/diff_fuzz/**'
+      - '.github/workflows/diff.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'crates/**'
+      - 'examples/diff_djvulibre.rs'
+      - 'examples/conformance_semantic.rs'
+      - 'examples/interop_encode.rs'
+      - 'examples/writer_conformance.rs'
+      - 'scripts/conformance_report.py'
+      - 'scripts/test_conformance_report.py'
+      - 'scripts/run_conformance.sh'
+      - 'conformance/**'
+      - 'fuzz/corpus-regressions/diff_fuzz/**'
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  conformance:
+    name: Differential conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pinned DjVuLibre
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends djvulibre-bin
+          banner="$(ddjvu --help 2>&1 | head -1)"
+          package="$(dpkg-query --show --showformat='${Version}' djvulibre-bin)"
+          test "$banner" = 'DDJVU --- DjVuLibre-3.5.28'
+          echo "DJVULIBRE_ID=$banner (Ubuntu $package)" >> "$GITHUB_ENV"
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: conformance-ubuntu
+
+      - name: Restore published history
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          curl --fail --silent --show-error --location \
+            https://matyushkin.github.io/djvu-rs/dev/conformance/history.json \
+            --output previous_history.json
+
+      - name: Run conformance gate
+        run: |
+          if test -s previous_history.json; then
+            export CONFORMANCE_HISTORY_INPUT=previous_history.json
+          fi
+          export CONFORMANCE_OUT_DIR=conformance_site
+          export DJVULIBRE_ID
+          bash scripts/run_conformance.sh
+
+      - name: Upload conformance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results
+          path: |
+            diff_results.jsonl
+            semantic_results.jsonl
+            writer_results.txt
+            writer_status.txt
+            writer_conformance_results.txt
+            conformance_site/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish dashboard
+        if: github.event_name != 'pull_request' && success()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: conformance_site
+          destination_dir: dev/conformance
+          keep_files: true

@@ -18,7 +18,11 @@
 
 """Resources for use in unit tests with the C{testresources} module."""
 
-from pkg_resources import resource_string
+# Using the backport of importlib.resources for Python 3.8
+try:
+    from importlib.resources import files
+except ImportError:
+    from importlib_resources import files
 
 from testresources import TestResource
 
@@ -40,7 +44,11 @@ def get_application():
     global launchpad_testing_application
     if launchpad_testing_application is None:
         markup_url = "https://api.launchpad.net/1.0/"
-        markup = resource_string("launchpadlib.testing", "launchpad-wadl.xml")
+        markup = (
+            files("launchpadlib.testing")
+            .joinpath("launchpad-wadl.xml")
+            .read_bytes()
+        )
         launchpad_testing_application = Application(markup_url, markup)
     return launchpad_testing_application
 
@@ -50,6 +58,8 @@ class FakeLaunchpadResource(TestResource):
         return FakeLaunchpad(
             application=Application(
                 "https://api.example.com/testing/",
-                resource_string("launchpadlib.testing", "testing-wadl.xml"),
+                files("launchpadlib.testing")
+                .joinpath("testing-wadl.xml")
+                .read_bytes(),
             )
         )

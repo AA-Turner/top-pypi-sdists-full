@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trajectory-sdk"
+version = "0.8.10"
+description = "Generated Trajectory API client and high-level workflows"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.28.1",
+  "pathspec>=0.12",
+  "pydantic>=2.0",
+  "tqdm>=4.67",
+]
+
+[dependency-groups]
+dev = [
+  "h2",
+  "pytest>=8",
+  "pytest-asyncio>=0.25",
+  "ruff>=0.14",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["trajectory", "trajectory.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

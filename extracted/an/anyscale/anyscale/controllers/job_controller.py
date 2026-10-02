@@ -143,7 +143,8 @@ class JobController(BaseController):
         }
 
         config_dict = populate_unspecified_cluster_configs_from_current_workspace(
-            config_dict, self.anyscale_api_client,
+            config_dict,
+            self.anyscale_api_client,
         )
 
         return JobConfig.parse_obj(config_dict)
@@ -223,19 +224,19 @@ class JobController(BaseController):
         self.log.info(
             f"Job {job.id} has been successfully submitted. Current state of job: {job.state.current_state}."
         )
-        self.log.info(
-            f"Query the status of the job with `anyscale job list --job-id {job.id}`."
-        )
+        self.log.info(f"Query the status of the job with `anyscale job list --job-id {job.id}`.")
         self.log.info(
             f"Get the logs for the job with `anyscale job logs --job-id {job.id} --follow`."
         )
-        self.log.info(f'View the job in the UI at {get_endpoint(f"/jobs/{job.id}")}')
+        self.log.info(f"View the job in the UI at {get_endpoint(f'/jobs/{job.id}')}")
         return job.id
 
     def _get_maximum_uptime_output(self, job: ProductionJob) -> str:
-        compute_config: ComputeTemplate = self.api_client.get_compute_template_api_v2_compute_templates_template_id_get(
-            job.config.compute_config_id
-        ).result
+        compute_config: ComputeTemplate = (
+            self.api_client.get_compute_template_api_v2_compute_templates_template_id_get(
+                job.config.compute_config_id
+            ).result
+        )
         maximum_uptime_minutes = compute_config.config.maximum_uptime_minutes
         if maximum_uptime_minutes and maximum_uptime_minutes > 0:
             return f"set to {maximum_uptime_minutes} minutes"
@@ -270,7 +271,7 @@ class JobController(BaseController):
         """
         This function will list jobs.
         """
-        print(f'View your Jobs in the UI at {get_endpoint("/jobs")}')
+        print(f"View your Jobs in the UI at {get_endpoint('/jobs')}")
 
         jobs_list = []
         if job_id:
@@ -297,16 +298,12 @@ class JobController(BaseController):
                 if len(job.config.entrypoint) < 100
                 else job.config.entrypoint[:100] + " ...",
             }
-            output_str = "\n".join(
-                [f"\t{key}: {output_map[key]}" for key in output_map]
-            )
+            output_str = "\n".join([f"\t{key}: {output_map[key]}" for key in output_map])
             print(output_str)
             return
         else:
             if not include_all_users:
-                creator_id = (
-                    self.api_client.get_user_info_api_v2_userinfo_get().result.id
-                )
+                creator_id = self.api_client.get_user_info_api_v2_userinfo_get().result.id
             else:
                 creator_id = None
 
@@ -398,26 +395,23 @@ class JobController(BaseController):
         self.log.info(
             f" Current state of Job: {job.state.current_state}. Goal state of Job: {job.state.goal_state}"
         )
-        self.log.info(
-            f"Query the status of the Job with `anyscale job list --job-id {job.id}`."
-        )
+        self.log.info(f"Query the status of the Job with `anyscale job list --job-id {job.id}`.")
 
     def _resolve_job_object(
         self, job_id: Optional[str], job_name: Optional[str]
     ) -> DecoratedProductionJob:
         """Given job_id or job_name, retrieve decorated ha job spec"""
         if job_id is None and job_name is None:
-            raise click.ClickException(
-                "Either `--id` or `--name` must be passed in for Job."
-            )
+            raise click.ClickException("Either `--id` or `--name` must be passed in for Job.")
         if job_id:
             return self._get_job(job_id)
 
-        jobs_list_resp: List[
-            DecoratedProductionJob
-        ] = self.api_client.list_decorated_jobs_api_v2_decorated_ha_jobs_get(
-            name=job_name, type_filter="BATCH_JOB",
-        ).results
+        jobs_list_resp: List[DecoratedProductionJob] = (
+            self.api_client.list_decorated_jobs_api_v2_decorated_ha_jobs_get(
+                name=job_name,
+                type_filter="BATCH_JOB",
+            ).results
+        )
         if len(jobs_list_resp) == 0:
             raise click.ClickException(
                 f"No Job found with name {job_name}. Please either pass `--id` or list the "
@@ -435,15 +429,11 @@ class JobController(BaseController):
         ).result
         return job_object
 
-    def _get_formatted_latest_job_run(
-        self, job: DecoratedProductionJob
-    ) -> Optional[MiniJobRun]:
+    def _get_formatted_latest_job_run(self, job: DecoratedProductionJob) -> Optional[MiniJobRun]:
         job_state = job.state.current_state
         last_job_run_id = job.last_job_run_id
         if job_state in _TERMINAL_STATES and last_job_run_id is None:
-            raise click.ClickException(
-                f"Can't find latest job run for {job_state} job."
-            )
+            raise click.ClickException(f"Can't find latest job run for {job_state} job.")
         if not last_job_run_id:
             return None
         return MiniJobRun(
@@ -464,9 +454,7 @@ class JobController(BaseController):
         with self.log.spinner("Waiting for job run..."):
             while last_job_run_id is None or job_state in _PENDING_STATES:
                 if job_state in _TERMINAL_STATES:
-                    raise click.ClickException(
-                        f"Can't find latest job run for {job_state} job."
-                    )
+                    raise click.ClickException(f"Can't find latest job run for {job_state} job.")
                 time.sleep(max(0, 3 - (time.monotonic() - start)))
                 start = time.monotonic()
                 job = self._get_job(job.id)
@@ -482,8 +470,7 @@ class JobController(BaseController):
                     if len(lines):
                         self.log.info("Job run found. Cluster launching...")
                     self._cluster_journal_events_start_line = (
-                        cluster_journal_events.start_line
-                        + cluster_journal_events.num_lines
+                        cluster_journal_events.start_line + cluster_journal_events.num_lines
                     )
 
                     for line in lines:
@@ -588,7 +575,9 @@ class JobController(BaseController):
         )  # type: ignore
         for job_run_id in job_run_ids:
             self.log.open_block(
-                job_run_id, f"Job Run Id: {job_run_id}", auto_close=True,
+                job_run_id,
+                f"Job Run Id: {job_run_id}",
+                auto_close=True,
             )
             self._print_logs_using_streaming_job_logs(
                 job_run_id,
@@ -614,7 +603,8 @@ class JobController(BaseController):
                 show_ray_client_runs_only=False,
                 sort_by_clauses=[
                     SortByClauseJobsSortField(
-                        sort_field=JobsSortField.CREATED_AT, sort_order=SortOrder.ASC,
+                        sort_field=JobsSortField.CREATED_AT,
+                        sort_order=SortOrder.ASC,
                     )
                 ],
                 paging=PageQuery(),

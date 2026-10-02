@@ -1,29 +1,28 @@
 Metadata-Version: 2.4
 Name: renault-api
-Version: 0.5.13
+Version: 0.5.14
 Summary: Renault API
-License: MIT
-License-File: LICENSE.rst
 Author: epenet
-Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: MIT License
+License-Expression: MIT
+License-File: LICENSE.rst
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Provides-Extra: cli
-Requires-Dist: PyJWT (>=2.8.0)
-Requires-Dist: aiohttp (>=3.9.5)
-Requires-Dist: click (>=8.0.1) ; extra == "cli"
-Requires-Dist: dateparser (>=1.0.0) ; extra == "cli"
-Requires-Dist: marshmallow-dataclass (>=8.2.0)
-Requires-Dist: tabulate (>=0.8.7) ; extra == "cli"
-Project-URL: Changelog, https://github.com/hacf-fr/renault-api/releases
-Project-URL: Documentation, https://renault-api.readthedocs.io
+Requires-Dist: aiohttp>=3.9.5
+Requires-Dist: pyjwt>=2.8.0
+Requires-Dist: marshmallow-dataclass>=8.2.0
+Requires-Dist: click>=8.0.1 ; extra == 'cli'
+Requires-Dist: dateparser>=1.0.0 ; extra == 'cli'
+Requires-Dist: tabulate>=0.8.7 ; extra == 'cli'
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/hacf-fr/renault-api
 Project-URL: Repository, https://github.com/hacf-fr/renault-api
+Project-URL: Documentation, https://renault-api.readthedocs.io
+Project-URL: Changelog, https://github.com/hacf-fr/renault-api/releases
+Provides-Extra: cli
 Description-Content-Type: text/x-rst
 
 Renault API
@@ -33,7 +32,7 @@ Renault API
 
 |Read the Docs| |Tests| |Codecov|
 
-|pre-commit| |Ruff|
+|prek| |Ruff|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/renault-api.svg
    :target: https://pypi.org/project/renault-api/
@@ -53,9 +52,9 @@ Renault API
 .. |Codecov| image:: https://codecov.io/gh/hacf-fr/renault-api/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/hacf-fr/renault-api
    :alt: Codecov
-.. |pre-commit| image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
-   :target: https://github.com/pre-commit/pre-commit
-   :alt: pre-commit
+.. |prek| image:: https://img.shields.io/badge/prek-enabled-brightgreen
+   :target: https://github.com/j178/prek
+   :alt: prek
 .. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
     :target: https://github.com/astral-sh/ruff
     :alt: Ruff
@@ -216,4 +215,3 @@ This project was heavily based on `@jamesremuscat`_'s `PyZE`_ python client for 
 .. github-only
 .. _Contributor Guide: CONTRIBUTING.rst
 .. _Usage: https://renault-api.readthedocs.io/en/latest/usage.html
-

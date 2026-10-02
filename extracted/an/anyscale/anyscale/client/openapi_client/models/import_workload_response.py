@@ -46,7 +46,8 @@ class ImportWorkloadResponse(object):
         'project_name': 'str',
         'cloud_provider': 'str',
         'customer_storage_bucket_name': 'str',
-        'customer_storage_bucket_region': 'str'
+        'customer_storage_bucket_region': 'str',
+        'observability_config': 'ObservabilityConfig'
     }
 
     attribute_map = {
@@ -63,10 +64,11 @@ class ImportWorkloadResponse(object):
         'project_name': 'project_name',
         'cloud_provider': 'cloud_provider',
         'customer_storage_bucket_name': 'customer_storage_bucket_name',
-        'customer_storage_bucket_region': 'customer_storage_bucket_region'
+        'customer_storage_bucket_region': 'customer_storage_bucket_region',
+        'observability_config': 'observability_config'
     }
 
-    def __init__(self, workload_id=None, session_id=None, workload_spec_id=None, created=None, state=None, bucket_log_prefix=None, cloud_id=None, organization_id=None, organization_public_identifier=None, project_id=None, project_name=None, cloud_provider=None, customer_storage_bucket_name=None, customer_storage_bucket_region=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_id=None, session_id=None, workload_spec_id=None, created=None, state=None, bucket_log_prefix=None, cloud_id=None, organization_id=None, organization_public_identifier=None, project_id=None, project_name=None, cloud_provider=None, customer_storage_bucket_name=None, customer_storage_bucket_region=None, observability_config=None, local_vars_configuration=None):  # noqa: E501
         """ImportWorkloadResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +88,7 @@ class ImportWorkloadResponse(object):
         self._cloud_provider = None
         self._customer_storage_bucket_name = None
         self._customer_storage_bucket_region = None
+        self._observability_config = None
         self.discriminator = None
 
         self.workload_id = workload_id
@@ -106,6 +109,8 @@ class ImportWorkloadResponse(object):
             self.customer_storage_bucket_name = customer_storage_bucket_name
         if customer_storage_bucket_region is not None:
             self.customer_storage_bucket_region = customer_storage_bucket_region
+        if observability_config is not None:
+            self.observability_config = observability_config
 
     @property
     def workload_id(self):
@@ -426,6 +431,27 @@ class ImportWorkloadResponse(object):
         """
 
         self._customer_storage_bucket_region = customer_storage_bucket_region
+
+    @property
+    def observability_config(self):
+        """Gets the observability_config of this ImportWorkloadResponse.  # noqa: E501
+
+
+        :return: The observability_config of this ImportWorkloadResponse.  # noqa: E501
+        :rtype: ObservabilityConfig
+        """
+        return self._observability_config
+
+    @observability_config.setter
+    def observability_config(self, observability_config):
+        """Sets the observability_config of this ImportWorkloadResponse.
+
+
+        :param observability_config: The observability_config of this ImportWorkloadResponse.  # noqa: E501
+        :type: ObservabilityConfig
+        """
+
+        self._observability_config = observability_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

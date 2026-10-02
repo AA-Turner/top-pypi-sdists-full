@@ -1,0 +1,525 @@
+import os
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from pydantic import BaseModel
+
+from esperanto.common_types import (
+    StructuredOutputValidationError,
+    Tool,
+    ToolCall,
+    ToolFunction,
+)
+from esperanto.providers.llm.openrouter import OpenRouterLanguageModel
+
+
+class OpenRouterCapitalResponse(BaseModel):
+    capital: str
+
+
+def test_provider_name():
+    model = OpenRouterLanguageModel(api_key="test-key")
+    assert model.provider == "openrouter"
+
+def test_initialization_with_api_key():
+    model = OpenRouterLanguageModel(api_key="test-key")
+    assert model.api_key == "test-key"
+    assert model.base_url == "https://openrouter.ai/api/v1"
+
+def test_initialization_with_env_var():
+    with patch.dict(os.environ, {
+        "OPENROUTER_API_KEY": "env-test-key",
+        "OPENROUTER_BASE_URL": "https://custom.openrouter.ai/v1"
+    }):
+        model = OpenRouterLanguageModel()
+        assert model.api_key == "env-test-key"
+        assert model.base_url == "https://custom.openrouter.ai/v1"
+
+def test_initialization_without_api_key():
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(ValueError, match="OpenRouter API key not found"):
+            OpenRouterLanguageModel()
+
+def test_custom_base_url():
+    model = OpenRouterLanguageModel(
+        api_key="test-key",
+        base_url="https://custom.openrouter.ai/v1"
+    )
+    assert model.base_url == "https://custom.openrouter.ai/v1"
+
+
+def test_initialization_with_api_key_in_config():
+    """Test that api_key can be passed via config dict (GitHub issue #68)."""
+    model = OpenRouterLanguageModel(config={"api_key": "config-test-key"})
+    assert model.api_key == "config-test-key"
+    assert model.base_url == "https://openrouter.ai/api/v1"
+
+
+def test_initialization_with_base_url_in_config():
+    """Test that base_url can be passed via config dict."""
+    model = OpenRouterLanguageModel(
+        api_key="test-key",
+        config={"base_url": "https://custom.openrouter.ai/v1"}
+    )
+    assert model.base_url == "https://custom.openrouter.ai/v1"
+
+
+def test_initialization_with_api_key_and_base_url_in_config():
+    """Test that both api_key and base_url can be passed via config dict."""
+    model = OpenRouterLanguageModel(
+        config={
+            "api_key": "config-test-key",
+            "base_url": "https://custom.openrouter.ai/v1"
+        }
+    )
+    assert model.api_key == "config-test-key"
+    assert model.base_url == "https://custom.openrouter.ai/v1"
+
+
+# =============================================================================
+# Tool Calling Tests
+# =============================================================================
+
+
+@pytest.fixture
+def sample_tools():
+    """Sample tools for testing."""
+    return [
+        Tool(
+            function=ToolFunction(
+                name="get_weather",
+                description="Get the current weather for a location",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "location": {"type": "string", "description": "The city name"},
+                        "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+                    },
+                    "required": ["location"]
+                }
+            )
+        ),
+        Tool(
+            function=ToolFunction(
+                name="get_time",
+                description="Get the current time for a timezone",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "timezone": {"type": "string", "description": "The timezone"}
+                    }
+                }
+            )
+        )
+    ]
+
+
+@pytest.fixture
+def mock_openrouter_tool_call_response():
+    """Mock HTTP response for OpenRouter chat completions with tool calls."""
+    return {
+        "id": "chatcmpl-tool-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "openai/gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_abc123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location": "San Francisco", "unit": "celsius"}'
+                            }
+                        }
+                    ]
+                },
+                "finish_reason": "tool_calls"
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70
+        }
+    }
+
+
+@pytest.fixture
+def openrouter_model():
+    """Create an OpenRouter model with mocked HTTP client."""
+    model = OpenRouterLanguageModel(api_key="test-key", model_name="openai/gpt-4")
+
+    client = Mock()
+    async_client = AsyncMock()
+
+    mock_response_data = {
+        "id": "chatcmpl-123",
+        "created": 1677858242,
+        "model": "openai/gpt-4",
+        "object": "chat.completion",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"content": "Test response", "role": "assistant"},
+                "finish_reason": "stop"
+            }
+        ],
+        "usage": {"completion_tokens": 10, "prompt_tokens": 20, "total_tokens": 30}
+    }
+
+    def mock_post(url, **kwargs):
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = mock_response_data
+        return response
+
+    async def mock_async_post(url, **kwargs):
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = mock_response_data
+        return response
+
+    client.post.side_effect = mock_post
+    async_client.post.side_effect = mock_async_post
+
+    model.client = client
+    model.async_client = async_client
+    return model
+
+
+@pytest.fixture
+def openrouter_model_with_tool_response(mock_openrouter_tool_call_response):
+    """Create an OpenRouter model with tool call response mocked."""
+    model = OpenRouterLanguageModel(api_key="test-key", model_name="openai/gpt-4")
+
+    client = Mock()
+    async_client = AsyncMock()
+
+    def make_response(status_code, json_data):
+        response = Mock()
+        response.status_code = status_code
+        response.json.return_value = json_data
+        return response
+
+    client.post.return_value = make_response(200, mock_openrouter_tool_call_response)
+    async_client.post.return_value = make_response(200, mock_openrouter_tool_call_response)
+
+    model.client = client
+    model.async_client = async_client
+    return model
+
+
+class TestToolConversion:
+    """Tests for tool conversion to OpenAI format (OpenRouter uses OpenAI-compatible format)."""
+
+    def test_convert_single_tool(self, openrouter_model, sample_tools):
+        """Test converting a single tool to OpenAI format."""
+        result = openrouter_model._convert_tools_to_openai([sample_tools[0]])
+
+        assert len(result) == 1
+        assert result[0]["type"] == "function"
+        assert result[0]["function"]["name"] == "get_weather"
+        assert result[0]["function"]["description"] == "Get the current weather for a location"
+        assert result[0]["function"]["parameters"]["type"] == "object"
+        assert "location" in result[0]["function"]["parameters"]["properties"]
+
+    def test_convert_multiple_tools(self, openrouter_model, sample_tools):
+        """Test converting multiple tools to OpenAI format."""
+        result = openrouter_model._convert_tools_to_openai(sample_tools)
+
+        assert len(result) == 2
+        assert result[0]["function"]["name"] == "get_weather"
+        assert result[1]["function"]["name"] == "get_time"
+
+    def test_convert_none_tools(self, openrouter_model):
+        """Test converting None returns None."""
+        result = openrouter_model._convert_tools_to_openai(None)
+        assert result is None
+
+    def test_convert_empty_tools(self, openrouter_model):
+        """Test converting empty list returns None."""
+        result = openrouter_model._convert_tools_to_openai([])
+        assert result is None
+
+
+class TestToolCallResponse:
+    """Tests for handling tool call responses."""
+
+    def test_chat_complete_with_tools(self, openrouter_model_with_tool_response, sample_tools):
+        """Test chat_complete with tools returns tool calls."""
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        response = openrouter_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools
+        )
+
+        # Check payload included tools
+        call_args = openrouter_model_with_tool_response.client.post.call_args
+        json_payload = call_args.kwargs["json"]
+        assert "tools" in json_payload
+        assert len(json_payload["tools"]) == 2
+
+        # Check response has tool calls
+        assert len(response.choices) == 1
+        assert response.choices[0].message.tool_calls is not None
+        assert len(response.choices[0].message.tool_calls) == 1
+
+        tool_call = response.choices[0].message.tool_calls[0]
+        assert isinstance(tool_call, ToolCall)
+        assert tool_call.id == "call_abc123"
+        assert tool_call.function.name == "get_weather"
+        assert '"location": "San Francisco"' in tool_call.function.arguments
+
+    def test_chat_complete_with_tool_choice(self, openrouter_model_with_tool_response, sample_tools):
+        """Test chat_complete with tool_choice parameter."""
+        messages = [{"role": "user", "content": "What's the weather?"}]
+
+        openrouter_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools, tool_choice="required"
+        )
+
+        call_args = openrouter_model_with_tool_response.client.post.call_args
+        json_payload = call_args.kwargs["json"]
+        assert json_payload["tool_choice"] == "required"
+
+    @pytest.mark.asyncio
+    async def test_achat_complete_with_tools(self, openrouter_model_with_tool_response, sample_tools):
+        """Test async chat_complete with tools returns tool calls."""
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        response = await openrouter_model_with_tool_response.achat_complete(
+            messages, tools=sample_tools
+        )
+
+        # Check payload included tools
+        call_args = openrouter_model_with_tool_response.async_client.post.call_args
+        json_payload = call_args.kwargs["json"]
+        assert "tools" in json_payload
+
+        # Check response has tool calls
+        assert response.choices[0].message.tool_calls is not None
+        tool_call = response.choices[0].message.tool_calls[0]
+        assert tool_call.function.name == "get_weather"
+
+
+class TestToolCallValidation:
+    """Tests for tool call validation."""
+
+    def test_validation_passes_for_valid_tool_call(
+        self, openrouter_model_with_tool_response, sample_tools
+    ):
+        """Test that validation passes for valid tool calls."""
+        pytest.importorskip("jsonschema")
+
+        messages = [{"role": "user", "content": "What's the weather in SF?"}]
+
+        # Should not raise
+        response = openrouter_model_with_tool_response.chat_complete(
+            messages, tools=sample_tools, validate_tool_calls=True
+        )
+
+        assert response.choices[0].message.tool_calls is not None
+
+
+class TestStructuredOutput:
+    """Tests for schema-driven structured output."""
+
+    def test_chat_complete_json_schema_payload_and_structured_pydantic(self, openrouter_model):
+        openrouter_model.structured = {
+            "type": "json_schema",
+            "schema": OpenRouterCapitalResponse,
+        }
+        custom_response = Mock()
+        custom_response.status_code = 200
+        custom_response.json.return_value = {
+            "id": "chatcmpl-structured-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "openai/gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": '{"capital":"Paris"}'},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        openrouter_model.client.post.side_effect = None
+        openrouter_model.client.post.return_value = custom_response
+
+        response = openrouter_model.chat_complete(
+            [{"role": "user", "content": "Capital?"}],
+            stream=False,
+        )
+
+        payload = openrouter_model.client.post.call_args.kwargs["json"]
+        assert payload["response_format"]["type"] == "json_schema"
+        assert isinstance(response.structured, OpenRouterCapitalResponse)
+        assert response.structured.capital == "Paris"
+
+    def test_chat_complete_json_schema_not_stripped_for_non_openai_models(self):
+        model = OpenRouterLanguageModel(
+            api_key="test-key",
+            model_name="anthropic/claude-3.5-sonnet",
+            structured={"type": "json_schema", "schema": OpenRouterCapitalResponse},
+        )
+        client = Mock()
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "id": "chatcmpl-structured-nonopenai",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "anthropic/claude-3.5-sonnet",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": '{"capital":"Rome"}'},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        client.post.return_value = response
+        model.client = client
+
+        model.chat_complete([{"role": "user", "content": "Capital?"}], stream=False)
+        payload = model.client.post.call_args.kwargs["json"]
+        assert payload["response_format"]["type"] == "json_schema"
+
+    def test_chat_complete_json_schema_invalid_json_raises(self, openrouter_model):
+        openrouter_model.structured = {
+            "type": "json_schema",
+            "schema": OpenRouterCapitalResponse,
+        }
+        custom_response = Mock()
+        custom_response.status_code = 200
+        custom_response.json.return_value = {
+            "id": "chatcmpl-structured-bad",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "openai/gpt-4",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "not-json"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        openrouter_model.client.post.side_effect = None
+        openrouter_model.client.post.return_value = custom_response
+
+        with pytest.raises(StructuredOutputValidationError):
+            openrouter_model.chat_complete(
+                [{"role": "user", "content": "Capital?"}],
+                stream=False,
+            )
+
+    def test_chat_complete_json_schema_streaming_not_supported(self, openrouter_model):
+        openrouter_model.structured = {
+            "type": "json_schema",
+            "schema": OpenRouterCapitalResponse,
+        }
+        with pytest.raises(ValueError, match="not supported with streaming"):
+            openrouter_model.chat_complete(
+                [{"role": "user", "content": "Capital?"}],
+                stream=True,
+            )
+
+    @pytest.mark.asyncio
+    async def test_achat_complete_json_schema_streaming_not_supported(self, openrouter_model):
+        openrouter_model.structured = {
+            "type": "json_schema",
+            "schema": OpenRouterCapitalResponse,
+        }
+        with pytest.raises(ValueError, match="not supported with streaming"):
+            await openrouter_model.achat_complete(
+                [{"role": "user", "content": "Capital?"}],
+                stream=True,
+            )
+
+    def test_to_langchain_json_schema_response_format(self):
+        pytest.importorskip("langchain_openai")
+        model = OpenRouterLanguageModel(
+            api_key="test-key",
+            model_name="anthropic/claude-3.5-sonnet",
+            structured={"type": "json_schema", "schema": OpenRouterCapitalResponse},
+        )
+        langchain_model = model.to_langchain()
+        assert langchain_model.model_kwargs["response_format"]["type"] == "json_schema"
+
+
+# =============================================================================
+# LangChain Conversion Tests
+# =============================================================================
+
+
+def test_openrouter_langchain_conversion():
+    pytest.importorskip("langchain_openai")
+    from langchain_openai import ChatOpenAI
+
+    model = OpenRouterLanguageModel(
+        api_key="test-key",
+        model_name="gpt-3.5-turbo",
+        temperature=0.7,
+        max_tokens=100,
+        streaming=True,
+        top_p=0.9,
+    )
+    langchain_model = model.to_langchain()
+    assert isinstance(langchain_model, ChatOpenAI)
+    assert langchain_model.model_name == "gpt-3.5-turbo"
+    assert langchain_model.temperature == 0.7
+    assert langchain_model.max_tokens == 100
+    assert langchain_model.streaming is True
+    assert langchain_model.top_p == 0.9
+    assert langchain_model.openai_api_base == "https://openrouter.ai/api/v1"
+
+
+class TestParameterOverrides:
+    """Per-call max_tokens, temperature, top_p override tests (issue #102)."""
+
+    def _make_model(self):
+        from unittest.mock import Mock
+        model = OpenRouterLanguageModel(api_key="test-key")
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "id": "x", "object": "chat.completion", "created": 1, "model": "openai/gpt-3.5-turbo",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+        client = Mock()
+        client.post.return_value = response
+        model.client = client
+        return model
+
+    def test_per_call_max_tokens_override(self):
+        """Per-call max_tokens overrides instance default."""
+        model = self._make_model()
+        model.chat_complete([{"role": "user", "content": "Hello"}], max_tokens=500)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload.get("max_tokens") == 500
+
+    def test_per_call_temperature_override(self):
+        """Per-call temperature overrides instance default."""
+        model = self._make_model()
+        model.chat_complete([{"role": "user", "content": "Hello"}], temperature=0.2)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload.get("temperature") == 0.2
+
+    def test_per_call_top_p_override(self):
+        """Per-call top_p overrides instance default."""
+        model = self._make_model()
+        model.chat_complete([{"role": "user", "content": "Hello"}], top_p=0.7)
+        json_payload = model.client.post.call_args[1]["json"]
+        assert json_payload.get("top_p") == 0.7

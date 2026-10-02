@@ -41,15 +41,17 @@ class ComputeConfigSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateComputeConfigSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateComputeConfigSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_ARG_DOCSTRINGS,
+        doc_py_example=_CREATE_EXAMPLE,
+        arg_docstrings=_CREATE_ARG_DOCSTRINGS,
     )
     def create(  # noqa: F811
-        self, config: ComputeConfigType, *, name: Optional[str],
+        self,
+        config: ComputeConfigType,
+        *,
+        name: Optional[str],
     ) -> str:
         """Create a new version of a compute config.
 
@@ -59,10 +61,15 @@ class ComputeConfigSDK:
         return full_name
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(  # noqa: F811
-        self, name: str, *, include_archived: bool = False, _id: Optional[str] = None,
+        self,
+        name: str,
+        *,
+        include_archived: bool = False,
+        _id: Optional[str] = None,
     ) -> ComputeConfigVersion:
         """Get the compute config with the specified name.
 
@@ -77,7 +84,8 @@ class ComputeConfigSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+        doc_py_example=_ARCHIVE_EXAMPLE,
+        arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
     def archive(self, name: str, *, _id: Optional[str] = None):  # noqa: F811
         """Archive a compute config and all of its versions.
@@ -90,13 +98,20 @@ class ComputeConfigSDK:
         # NOTE(edoakes): I want to avoid exposing fetching by ID in the public API,
         # but it's needed for parity with the existing CLI. Therefore I am adding it
         # as a hidden private API that can be used like: (`name="", _id=id`).
-        return self._private_sdk.archive_compute_config(name=name or None, id=_id,)
+        return self._private_sdk.archive_compute_config(
+            name=name or None,
+            id=_id,
+        )
 
     @sdk_docs(
-        doc_py_example=_GET_DEFAULT_EXAMPLE, arg_docstrings=_GET_DEFAULT_ARG_DOCSTRINGS,
+        doc_py_example=_GET_DEFAULT_EXAMPLE,
+        arg_docstrings=_GET_DEFAULT_ARG_DOCSTRINGS,
     )
     def get_default(  # noqa: F811
-        self, *, cloud: Optional[str] = None, cloud_resource: Optional[str] = None,
+        self,
+        *,
+        cloud: Optional[str] = None,
+        cloud_resource: Optional[str] = None,
     ) -> ComputeConfigVersion:
         """Get the default compute config for the specified cloud.
 
@@ -116,7 +131,8 @@ class ComputeConfigSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(  # noqa: F811, A003, PLR0913
         self,
@@ -156,9 +172,7 @@ class ComputeConfigSDK:
             ValueError: If both cloud_id and cloud_name are provided
         """
         if cloud_id and cloud_name:
-            raise ValueError(
-                "Only one of cloud_id or cloud_name can be provided, not both."
-            )
+            raise ValueError("Only one of cloud_id or cloud_name can be provided, not both.")
 
         return self._private_sdk.list_compute_configs(
             name=name,

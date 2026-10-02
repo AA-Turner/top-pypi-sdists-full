@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.24.2
+Version: 3.25.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -94,6 +94,7 @@ This guide walks you through both installation and usage.
         4. [Commit History Scan](#commit-history-scan)
             1. [Commit Range Option (Diff Scanning)](#commit-range-option-diff-scanning)
         5. [Pre-Commit Scan](#pre-commit-scan)
+            1. [Local Diff Scanning (IDE Integrations)](#local-diff-scanning-ide-integrations)
         6. [Pre-Push Scan](#pre-push-scan)
     2. [Scan Results](#scan-results)
         1. [Show/Hide Secrets](#showhide-secrets)
@@ -304,7 +305,7 @@ Perform the following steps to install the pre-commit hook:
     ```yaml
     repos:
       - repo: https://github.com/cycodehq/cycode-cli
-        rev: v3.5.0
+        rev: v3.25.0
         hooks:
           - id: cycode
             stages: [pre-commit]
@@ -315,7 +316,7 @@ Perform the following steps to install the pre-commit hook:
     ```yaml
     repos:
       - repo: https://github.com/cycodehq/cycode-cli
-        rev: v3.5.0
+        rev: v3.25.0
         hooks:
           - id: cycode
             stages: [pre-commit]
@@ -354,7 +355,7 @@ To install the pre-push hook in addition to or instead of the pre-commit hook:
    ```yaml
    repos:
      - repo: https://github.com/cycodehq/cycode-cli
-       rev: v3.5.0
+       rev: v3.25.0
        hooks:
          - id: cycode-pre-push
            stages: [pre-push]
@@ -844,12 +845,12 @@ The Cycode CLI application offers several types of scans so that you can choose 
 | `--maven-settings-file`                                    | For Maven only, allows using a custom [settings.xml](https://maven.apache.org/settings.html) file when scanning for dependencies |
 | `--help`                                                   | Show options for given command.                                                                                                  |
 
-| Command                                | Description                                                           |
-|----------------------------------------|-----------------------------------------------------------------------|
-| [commit-history](#commit-history-scan) | Scan commit history or perform diff scanning between specific commits |
-| [path](#path-scan)                     | Scan the files in the path supplied in the command                    |
-| [pre-commit](#pre-commit-scan)         | Use this command to scan the content that was not committed yet       |
-| [repository](#repository-scan)         | Scan git repository including its history                             |
+| Command                                | Description                                                                                       |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------|
+| [commit-history](#commit-history-scan) | Scan commit history or perform diff scanning between specific commits                              |
+| [path](#path-scan)                     | Scan the files in the path supplied in the command                                                |
+| [pre-commit](#pre-commit-scan)         | Scan content that was not committed yet; also supports local diff scanning via flags (IDE-friendly) |
+| [repository](#repository-scan)         | Scan git repository including its history                                                         |
 
 ### Options
 
@@ -1131,6 +1132,36 @@ After installing the pre-commit hook, you may occasionally wish to skip scanning
 SKIP=cycode git commit -m <your commit message>`
 ```
 
+The following options are available for use with this command:
+
+| Option                | Description                                                                                                        |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------|
+| `-b, --base-ref TEXT` | Git ref (commit, branch, or tag) to diff against; defaults to `HEAD`, matching the pre-commit hook behavior          |
+| `--include-unstaged`  | Also scan unstaged changes to tracked files, not just what is staged; off by default                                |
+| `--path PATH`         | Optional path(s) to scope the diff scan to; repeatable; defaults to the entire working directory                    |
+
+#### Local Diff Scanning (IDE Integrations)
+
+`--base-ref` and `--include-unstaged` turn `pre-commit` into a general-purpose **local diff scan**: comparing any commit (default `HEAD`) against your current working directory — including edits that aren't staged yet. This is intended for IDE plugins and other tools that need continuous, real-time feedback as you work, rather than the git hook flow. Combined with `--include-unstaged`, `--path` lets an IDE scope the scan to just the file currently open in the editor.
+
+> [!NOTE]
+> Local diff scanning (via these flags) is not available for IaC scans.
+
+**Scan everything currently changed (staged + unstaged) against the last commit:**
+```bash
+cycode scan pre-commit --include-unstaged
+```
+
+**Scan changes against a specific commit or branch:**
+```bash
+cycode scan pre-commit --include-unstaged --base-ref main
+```
+
+**Scan only a specific file (e.g., the file currently open in your IDE):**
+```bash
+cycode scan pre-commit --include-unstaged --path src/app.py
+```
+
 ### Pre-Push Scan
 
 A pre-push scan automatically identifies any issues before you push changes to the remote repository. This hook runs on the client side and scans only the commits that are about to be pushed, making it efficient for catching issues before they reach the remote repository.
@@ -1155,7 +1186,7 @@ To set up the pre-push hook using the pre-commit framework:
    ```yaml
    repos:
      - repo: https://github.com/cycodehq/cycode-cli
-       rev: v3.5.0
+       rev: v3.25.0
        hooks:
          - id: cycode-pre-push
            stages: [pre-push]
@@ -1166,7 +1197,7 @@ To set up the pre-push hook using the pre-commit framework:
    ```yaml
    repos:
      - repo: https://github.com/cycodehq/cycode-cli
-       rev: v3.5.0
+       rev: v3.25.0
        hooks:
          - id: cycode-pre-push          # Secrets scan
            stages: [pre-push]
@@ -1192,16 +1223,15 @@ To set up the pre-push hook using the pre-commit framework:
 
 #### How Pre-Push Scanning Works
 
-The pre-push hook:
-- Receives information about what commits are being pushed
-- Calculates the appropriate commit range to scan
-- For new branches: scans all commits from the merge base with the default branch
-- For existing branches: scans only the new commits since the last push
-- Runs the same comprehensive scanning as other Cycode scan modes
+The hook scans every commit being pushed, one commit at a time, so a secret added in one commit and removed in a later one is still caught. When installed through the pre-commit framework, the pushed range is taken from the framework: new commits since the remote branch for existing branches, and the commits not yet on the remote for new branches (all commits when pushing to an empty remote). When run from a hand-written `.git/hooks/pre-push`, the range is read from git's hook input, and new branches are scanned from their merge base with the default branch (see below).
+
+Pushes with nothing to scan, such as tags, branch deletions, and up-to-date pushes, pass without a scan. If the hook cannot determine what is being pushed, it fails and blocks the push instead of passing silently.
+
+The Cycode pre-push hooks set `always_run: true` and `pass_filenames: false`, because the scan covers the pushed commits rather than a list of files. Without `always_run`, the pre-commit framework skips the hook when the pushed commits add up to no changed files, such as a secret added in one commit and deleted in the next. Without `pass_filenames: false`, the framework passes changed file names the scan does not use, and on large pushes it splits them into batches and runs the full scan once per batch. If you define the hook yourself (for example, as a `repo: local` hook), set both options.
 
 #### Smart Default Branch Detection
 
-The pre-push hook intelligently detects the default branch for merge base calculation using this priority order:
+When run from a hand-written hook, the pre-push scan detects the default branch for merge base calculation using this priority order:
 
 1. **Environment Variable**: `CYCODE_DEFAULT_BRANCH` - allows manual override
 2. **Git Remote HEAD**: Uses `git symbolic-ref refs/remotes/origin/HEAD` to detect the actual remote default branch

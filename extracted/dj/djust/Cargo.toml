@@ -1,0 +1,70 @@
+[workspace]
+members = ["crates/djust_core", "crates/djust_templates", "crates/djust_vdom", "crates/djust_live", "crates/djust_components"]
+resolver = "2"
+
+[workspace.package]
+version = "1.2.2"
+edition = "2021"
+authors = ["djust contributors"]
+license = "MIT"
+repository = "https://github.com/djust-org/djust"
+
+[workspace.dependencies]
+# PyO3 without extension-module (added per-crate as needed)
+# PyO3 0.25+ adds native Python 3.14 support (0.24 hard-caps at 3.13)
+# 0.29 fixes GHSA-36hh-v3qg-5jq4 (OOB read in nth/nth_back) +
+# GHSA-chgr-c6px-7xpp (missing Sync bound on new_closure).
+pyo3 = { version = "0.29" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rmp-serde = "1.3"  # MessagePack for binary serialization
+tokio = { version = "1.52", features = ["full"] }
+ahash = "0.8"  # Faster hashing
+dashmap = "6.2"  # Concurrent HashMap for template caching
+indexmap = { version = "2.13", features = ["serde"] }  # HashMap that preserves insertion order; serde for Value (#2203)
+smallvec = "1.13"
+regex = "1.12"
+once_cell = "1.21"
+thiserror = "2.0"
+quick-xml = "0.36"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
+chrono = "0.4"  # DateTime handling for timesince filter
+# Timezone database for USE_TZ/TIME_ZONE parity (#2209). Bundles compiled
+# tzdata: +1.16 MB raw on the extension, +136 KB compressed (what a wheel
+# actually ships). Measured before adopting — a fixed UTC offset would have
+# been free but is wrong across a DST boundary, which a single render can
+# straddle (Jan renders -0500, Aug -0400 for the same zone).
+chrono-tz = "0.10"
+# Unicode normalization for `Truncator.chars`'s NFC + combining-class skip and
+# `slugify`'s NFKD ASCII fold (#2319). NFC needs canonical decomposition,
+# canonical ordering AND the composition-exclusion set; there is no
+# hand-rollable subset, which is what separates this from the `py_repr_string`
+# table (#2292), where the stable part collapsed to 28 ranges and needed no
+# crate.
+#
+# Safe to pin a table here in a way `str.isprintable()` was not: canonical
+# combining class and canonical decomposition are covered by the Unicode
+# Character Encoding Stability Policies and are immutable once a code point is
+# assigned. Measured across CPython 3.10-3.14 (Unicode 13.0 -> 16.0), ZERO
+# existing code points changed either — against 11130 that changed
+# printability. Re-derived on the running interpreter by
+# `python/tests/test_truncate_nfc_slugify_fold_2319.py`.
+#
+# unicode-rs, MIT/Apache-2.0, one transitive dep (`tinyvec`, `alloc`).
+unicode-normalization = "0.1"
+
+# Actor system dependencies
+parking_lot = "0.12"  # Faster sync primitives
+tracing = "0.1"  # Structured logging
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }  # PyO3 async bridge (matches pyo3 0.29)
+bincode = "2.0"  # Internal message serialization
+tokio-test = "0.4"  # Tokio testing utilities
+uuid = { version = "1.23", features = ["v4", "serde"] }  # UUID for view identification (Phase 6)
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

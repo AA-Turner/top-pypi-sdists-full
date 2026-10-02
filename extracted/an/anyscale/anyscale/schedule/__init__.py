@@ -40,14 +40,16 @@ class ScheduleSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateScheduleSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateScheduleSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_APPLY_EXAMPLE, arg_docstrings=_APPLY_ARG_DOCSTRINGS,
+        doc_py_example=_APPLY_EXAMPLE,
+        arg_docstrings=_APPLY_ARG_DOCSTRINGS,
     )
-    def apply(self, config: ScheduleConfig,) -> str:  # noqa: F811
+    def apply(
+        self,
+        config: ScheduleConfig,
+    ) -> str:  # noqa: F811
         """Apply or update a schedule.
 
         Returns the id of the schedule.
@@ -55,7 +57,8 @@ class ScheduleSDK:
         return self._private_sdk.apply(config=config)
 
     @sdk_docs(
-        doc_py_example=_SET_STATE_EXAMPLE, arg_docstrings=_SET_STATE_ARG_DOCSTRINGS,
+        doc_py_example=_SET_STATE_EXAMPLE,
+        arg_docstrings=_SET_STATE_ARG_DOCSTRINGS,
     )
     def set_state(  # noqa: F811
         self,
@@ -71,7 +74,11 @@ class ScheduleSDK:
         Returns the id of the schedule.
         """
         return self._private_sdk.set_state(
-            id=id, name=name, cloud=cloud, project=project, state=state,
+            id=id,
+            name=name,
+            cloud=cloud,
+            project=project,
+            state=state,
         )
 
     @sdk_docs(doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS)
@@ -83,8 +90,7 @@ class ScheduleSDK:
         cloud: Optional[str] = None,
         project: Optional[str] = None,
     ) -> ScheduleStatus:
-        """Return the status of the schedule.
-        """
+        """Return the status of the schedule."""
         return self._private_sdk.status(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(doc_py_example=_TRIGGER_EXAMPLE, arg_docstrings=_TRIGGER_ARG_DOCSTRINGS)
@@ -96,8 +102,7 @@ class ScheduleSDK:
         cloud: Optional[str] = None,
         project: Optional[str] = None,
     ) -> str:
-        """Trigger the execution of the schedule.
-        """
+        """Trigger the execution of the schedule."""
         return self._private_sdk.trigger(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(doc_py_example=_URL_EXAMPLE, arg_docstrings=_URL_ARG_DOCSTRINGS)

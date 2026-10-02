@@ -47,8 +47,7 @@ binding = PolicyBinding(role_name="collaborator", principals=["ug_abc123"])
         allowed = {"owner", "collaborator", "readonly"}
         if normalized not in allowed:
             raise ValueError(
-                f"Invalid role_name '{role_name}'. Allowed values: "
-                f"{', '.join(sorted(allowed))}."
+                f"Invalid role_name '{role_name}'. Allowed values: {', '.join(sorted(allowed))}."
             )
         return normalized
 
@@ -132,9 +131,7 @@ for policy in policies:
             raise TypeError("bindings must be a list.")
 
     sync_status: PolicySyncStatus = field(
-        metadata={
-            "docstring": "Sync status of the policy (pending, success, or failed)."
-        }
+        metadata={"docstring": "Sync status of the policy (pending, success, or failed)."}
     )
 
     def _validate_sync_status(self, sync_status: PolicySyncStatus):
@@ -165,9 +162,7 @@ for binding in policy.bindings:
             raise TypeError("bindings must be a list.")
 
     sync_status: PolicySyncStatus = field(
-        metadata={
-            "docstring": "Sync status of the policy (pending, success, or failed)."
-        }
+        metadata={"docstring": "Sync status of the policy (pending, success, or failed)."}
     )
 
     def _validate_sync_status(self, sync_status: PolicySyncStatus):

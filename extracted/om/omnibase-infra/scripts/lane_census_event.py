@@ -1,0 +1,308 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""lane_census_event.py — Build the typed lane-census-drift bus event (OMN-13011).
+
+Pure builder so the drift-event schema is deterministic and unit-testable. Takes
+the drift plan emitted by lane_census_plan.py and produces one JSON object on
+stdout for `rpk topic produce` to publish to onex.evt.infra.lane-census-drift.v1.
+
+The event is the alert authority: a downstream consumer (the runtime_sweep /
+sweep auto-ticket path) creates the Linear ticket naming exactly what is missing
+or extra. This keeps a single ticket-creation authority rather than letting every
+cron script talk to Linear directly — the same pattern as the disk-watermark
+event (OMN-13008).
+
+The `alert_key` deduplicates: one open ticket per (host, lane, kind-set) so a
+persistent outage does not spam a new ticket every reconcile tick.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+from datetime import UTC, datetime
+from typing import Any
+
+DRIFT_TOPIC = "onex.evt.infra.lane-census-drift.v1"
+
+#: OMN-19411. 1.1.0 widens the finding ``kind`` vocabulary with the eleven
+#: lab-sync kinds (``lane_census_plan.LAB_SYNC_FINDING_KINDS``) and changes
+#: nothing else: every 1.0.0 key is present with its 1.0.0 type, and no key is
+#: added. A consumer that reads the 1.0.0 key set parses a 1.1.0 event
+#: unchanged; one that switches on ``kind`` must treat an unknown kind as drift.
+EVENT_SCHEMA_VERSION = "1.1.0"
+
+#: The versions ``validate_event`` accepts. 1.0.0 stays readable because
+#: snapshots written before this bump (and by a .201 clone that has not yet
+#: pulled it) carry it.
+SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1.0.0", EVENT_SCHEMA_VERSION})
+
+#: The 1.0.0 drift-event key set and the JSON type of each value. 1.1.0 keeps
+#: it byte-for-byte, which is what makes the bump minor.
+DRIFT_EVENT_FIELDS: dict[str, type | tuple[type, ...]] = {
+    "schema_version": str,
+    "event_type": str,
+    "topic": str,
+    "host": str,
+    "host_id": (str, type(None)),
+    "emitted_at": str,
+    "severity": str,
+    "lanes_checked": list,
+    "lanes_not_applicable": list,
+    "lanes_skipped_optional_down": list,
+    "drift_count": int,
+    "findings": list,
+    "alert_key": str,
+    "ticket_title": str,
+    "ticket_body": str,
+}
+
+#: The five keys of every finding, all strings.
+FINDING_FIELDS: tuple[str, ...] = ("lane", "kind", "container", "detail", "severity")
+
+#: OMN-18769. The census-OBSERVED topic, published on EVERY run rather than
+#: only on drift.
+#:
+#: Why a second topic instead of publishing the drift event on clean runs: the
+#: drift topic is the ALERT authority. A downstream consumer (the runtime_sweep
+#: auto-ticket path) creates a Linear ticket from what lands there, so a
+#: no-drift event on it would be a ticket about nothing, six times a day.
+#:
+#: Why a second topic instead of nothing: a topic that only carries drift
+#: cannot distinguish "the lane matches its manifest" from "the census has not
+#: run for two days". A lane-health panel needs both answers, and a reducer
+#: fed only the drift topic renders a silent fleet identically to a healthy
+#: one -- which is the false-green this whole surface exists to remove.
+#: The producer segment is ``omnibase-infra``, not ``infra``: the topic-naming
+#: lint in the consuming repository admits only real repository names, and the
+#: older ``onex.evt.infra.lane-census-drift.v1`` above predates that rule and
+#: sits in its baseline. A new topic does not get to inherit a baselined
+#: spelling.
+OBSERVED_TOPIC = "onex.evt.omnibase-infra.lane-census-observed.v1"
+
+# A drift finding is a flat string mapping (lane, kind, container, detail, severity)
+# as emitted by lane_census_plan.py. The plan envelope is loosely typed (str/Any)
+# because it round-trips through JSON; the helpers below narrow it locally.
+Finding = dict[str, str]
+Plan = dict[str, Any]
+
+
+def _findings(plan: Plan) -> list[Finding]:
+    """Narrow the loosely-typed plan envelope to its findings list."""
+    raw = plan.get("findings", [])
+    return list(raw)
+
+
+def _alert_key(host: str, plan: Plan) -> str:
+    """Stable dedupe key over the (host, lane, kind, container) finding set."""
+    signature = sorted(
+        f"{f['lane']}:{f['kind']}:{f['container']}" for f in _findings(plan)
+    )
+    digest = hashlib.sha256("|".join(signature).encode("utf-8")).hexdigest()[:16]
+    return f"lane-census-drift:{host}:{digest}"
+
+
+def _ticket_title(plan: Plan) -> str:
+    """One-line title naming exactly what is wrong."""
+    findings = _findings(plan)
+    if not findings:
+        return "lane census: no drift"
+    lanes = sorted({f["lane"] for f in findings})
+    # Summarize by kind for a precise, greppable title.
+    kinds: dict[str, int] = {}
+    for f in findings:
+        kinds[f["kind"]] = kinds.get(f["kind"], 0) + 1
+    kind_summary = ", ".join(
+        f"{count}x {kind}" for kind, count in sorted(kinds.items())
+    )
+    return f"fix(infra): lane drift [{', '.join(lanes)}] — {kind_summary}"
+
+
+def _ticket_body(host: str, plan: Plan) -> str:
+    findings = _findings(plan)
+    lanes_checked: list[str] = list(plan.get("lanes_checked", []))
+    lines = [
+        "## Lane census drift detected",
+        "",
+        f"Host: `{host}`",
+        f"Lanes checked: {', '.join(lanes_checked)}",
+        # OMN-19088: lanes the manifest declares for another host. Not absent here.
+        f"Lanes not applicable on this host: "
+        f"{', '.join(plan.get('lanes_not_applicable', [])) or '(none)'}",
+        "",
+        "The desired-state lane census (deploy/lane-census/lane-manifest.yaml)",
+        "does not match the live runtime. Drift items below name exactly what is",
+        "missing or extra. This is the regression class the lane-census ratchet",
+        "(OMN-13011) exists to catch — it would have fired on 2026-06-11 when prod",
+        "runtime containers and the broker network were silently absent.",
+        "",
+        "## Findings",
+        "",
+    ]
+    for f in findings:
+        lines.append(
+            f"- **[{f['severity']}] {f['kind']}** `{f['container']}` ({f['lane']}): {f['detail']}"
+        )
+    lines.append("")
+    lines.append("## Action")
+    lines.append(
+        "Bring the lane back to declared state (compose up the absent containers / "
+        "reattach the network), or update the lane manifest in the same PR if the "
+        "desired state legitimately changed. Do not silence the check."
+    )
+    return "\n".join(lines)
+
+
+def build_event(
+    *,
+    host: str,
+    plan: Plan,
+    topic: str = DRIFT_TOPIC,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Construct the typed lane-census-drift event payload."""
+    now = now or datetime.now(UTC)
+    findings = _findings(plan)
+    severity = (
+        "critical" if any(f["severity"] == "critical" for f in findings) else "warning"
+    )
+    return {
+        "schema_version": EVENT_SCHEMA_VERSION,
+        "event_type": "lane-census-drift",
+        "topic": topic,
+        "host": host,
+        # OMN-19088: the host id the manifest's registry resolved `host` to.
+        "host_id": plan.get("host"),
+        "emitted_at": now.isoformat(),
+        "severity": severity,
+        "lanes_checked": plan.get("lanes_checked", []),
+        "lanes_not_applicable": plan.get("lanes_not_applicable", []),
+        "lanes_skipped_optional_down": plan.get("lanes_skipped_optional_down", []),
+        "drift_count": len(findings),
+        "findings": findings,
+        "alert_key": _alert_key(host, plan),
+        "ticket_title": _ticket_title(plan),
+        "ticket_body": _ticket_body(host, plan),
+    }
+
+
+def build_observed_event(
+    *,
+    host: str,
+    plan: Plan,
+    topic: str = OBSERVED_TOPIC,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Construct the census-OBSERVED event, drift or no drift (OMN-18769).
+
+    This is a statement that the census RAN and what it saw, which is a
+    different claim from the drift event's "something is wrong". It carries no
+    ``alert_key``, no ``ticket_title`` and no ``ticket_body``: it is not an
+    alert and must never be mistaken for one by a consumer that pattern-matches
+    on those fields.
+
+    ``observed_at`` rather than ``emitted_at`` is deliberate. The consumer keys
+    this fact's freshness on it, and "when the census looked" is the honest
+    name for that instant; ``emitted_at`` would invite a republisher to restamp
+    it and make a two-day-old observation read as current.
+    """
+    now = now or datetime.now(UTC)
+    findings = _findings(plan)
+    return {
+        "schema_version": EVENT_SCHEMA_VERSION,
+        "event_type": "lane-census-observed",
+        "topic": topic,
+        "host": host,
+        "host_id": plan.get("host"),
+        "observed_at": now.isoformat(),
+        "lanes_checked": plan.get("lanes_checked", []),
+        # OMN-19088. A lane declared for another host was not looked at here, so
+        # its absence from `lanes_checked` is scope, not a clean reading.
+        "lanes_not_applicable": plan.get("lanes_not_applicable", []),
+        # OMN-18890. Carried on the OBSERVED event for the same reason the event
+        # exists at all: "the census ran and saw nothing wrong here" and "the
+        # census skipped this lane because it is optional and absent" are
+        # different observations, and a consumer that reads zero findings alone
+        # cannot tell them apart.
+        "lanes_skipped_optional_down": plan.get("lanes_skipped_optional_down", []),
+        "drift_count": len(findings),
+        "findings": findings,
+    }
+
+
+def validate_event(
+    event: dict[str, Any], *, kind_severity: dict[str, str]
+) -> list[str]:
+    """Return every way ``event`` breaks the drift-event contract; empty is valid.
+
+    ``kind_severity`` is ``lane_census_plan.FINDING_KIND_SEVERITY``, passed in
+    rather than imported so this module keeps no dependency on the planner (the
+    planner needs PyYAML; this module needs nothing outside the standard
+    library). A finding whose kind the table does not declare, or whose
+    severity is not its kind's, is an error: the kind table is the contract.
+    """
+    errors: list[str] = []
+    version = event.get("schema_version")
+    if version not in SUPPORTED_EVENT_SCHEMA_VERSIONS:
+        errors.append(
+            f"schema_version {version!r} is not one of "
+            f"{sorted(SUPPORTED_EVENT_SCHEMA_VERSIONS)}"
+        )
+    for key, expected in DRIFT_EVENT_FIELDS.items():
+        if key not in event:
+            errors.append(f"missing key {key!r}")
+        elif not isinstance(event[key], expected) or isinstance(event[key], bool):
+            errors.append(
+                f"key {key!r} has type {type(event[key]).__name__}, expected {expected}"
+            )
+    extra = sorted(set(event) - set(DRIFT_EVENT_FIELDS))
+    if extra:
+        errors.append(f"keys outside the contract: {extra}")
+    findings = event.get("findings")
+    if not isinstance(findings, list):
+        return errors
+    if event.get("drift_count") != len(findings):
+        errors.append(
+            f"drift_count {event.get('drift_count')!r} != {len(findings)} findings"
+        )
+    for index, finding in enumerate(findings):
+        if not isinstance(finding, dict):
+            errors.append(f"findings[{index}] is not an object")
+            continue
+        for key in FINDING_FIELDS:
+            if not isinstance(finding.get(key), str):
+                errors.append(f"findings[{index}].{key} is not a string")
+        kind = finding.get("kind")
+        if kind not in kind_severity:
+            errors.append(f"findings[{index}].kind {kind!r} is not a declared kind")
+        elif finding.get("severity") != kind_severity[kind]:
+            errors.append(
+                f"findings[{index}] kind {kind!r} has severity "
+                f"{finding.get('severity')!r}, declared {kind_severity[kind]!r}"
+            )
+    return errors
+
+
+def main() -> int:
+    host = os.environ.get("LANE_CENSUS_HOST", "")
+    if not host:
+        # Fail-fast: never silently fabricate a host into the alert_key.
+        print("ERROR: LANE_CENSUS_HOST must be set", file=sys.stderr)
+        return 2
+    plan = json.load(sys.stdin)
+    # The default stays the drift event so every existing caller is byte-for-byte
+    # unchanged; --observed is additive.
+    if "--observed" in sys.argv[1:]:
+        event = build_observed_event(host=host, plan=plan)
+    else:
+        event = build_event(host=host, plan=plan)
+    json.dump(event, sys.stdout)
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

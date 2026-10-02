@@ -167,7 +167,9 @@ ALL_MODULES = [
         cli_prefix="anyscale aggregated-instance-usage",
         cli_commands=[aggregated_instance_usage_commands.download_csv],
         sdk_prefix="anyscale.aggregated_instance_usage",
-        sdk_commands=[anyscale.aggregated_instance_usage.download_csv,],
+        sdk_commands=[
+            anyscale.aggregated_instance_usage.download_csv,
+        ],
         models=[DownloadCSVFilters],
     ),
     Module(
@@ -324,17 +326,20 @@ ALL_MODULES = [
         cli_prefix="anyscale scheduler",
         cli_commands=[
             scheduler_commands.apply,
+            scheduler_commands.rollback,
             scheduler_commands.get,
             scheduler_commands.list_versions,
         ],
         cli_command_group_prefix={
             scheduler_commands.apply: "config",
+            scheduler_commands.rollback: "config",
             scheduler_commands.get: "config",
             scheduler_commands.list_versions: "config",
         },
         sdk_prefix="anyscale.scheduler",
         sdk_commands=[
             anyscale.scheduler.apply_config,
+            anyscale.scheduler.rollback_config,
             anyscale.scheduler.get_config,
             anyscale.scheduler.list_config_versions,
         ],
@@ -670,8 +675,12 @@ ALL_MODULES = [
         sdk_prefix="anyscale.cluster",
         sdk_commands=[],
         models=[],
-        legacy_sdk_commands={"get_cluster": None,},
-        legacy_sdk_models=["ClusterResponse",],
+        legacy_sdk_commands={
+            "get_cluster": None,
+        },
+        legacy_sdk_models=[
+            "ClusterResponse",
+        ],
     ),
     Module(
         title="Resource quotas",
@@ -721,9 +730,14 @@ ALL_MODULES = [
             user_group_commands.list_memberships,
         ],
         sdk_prefix="anyscale.user_group",
-        sdk_commands=[anyscale.user_group.list, anyscale.user_group.get,],
+        sdk_commands=[
+            anyscale.user_group.list,
+            anyscale.user_group.get,
+        ],
         models=[UserGroup],
-        cli_command_group_prefix={user_group_commands.list_memberships: "membership",},
+        cli_command_group_prefix={
+            user_group_commands.list_memberships: "membership",
+        },
     ),
     Module(
         title="Policy",
@@ -735,7 +749,11 @@ ALL_MODULES = [
             policy_commands.list_policies,
         ],
         sdk_prefix="anyscale.policy",
-        sdk_commands=[anyscale.policy.set, anyscale.policy.get, anyscale.policy.list,],
+        sdk_commands=[
+            anyscale.policy.set,
+            anyscale.policy.get,
+            anyscale.policy.list,
+        ],
         models=[Policy, PolicyBinding, PolicyConfig, PolicySyncStatus, ResourcePolicy],
     ),
     Module(
@@ -743,8 +761,8 @@ ALL_MODULES = [
         filename="scim.md",
         cli_prefix="anyscale scim",
         cli_commands=[
-            scim_commands.enforce_group_permissions,
             scim_commands.check_permissions,
+            scim_commands.enforce_group_permissions,
         ],
         sdk_prefix="anyscale.scim",
         sdk_commands=[],
@@ -760,7 +778,9 @@ ALL_MODULES = [
             scripts.version_cli,
             auth_commands.auth_show,
         ],
-        cli_command_group_prefix={auth_commands.auth_show: "auth",},
+        cli_command_group_prefix={
+            auth_commands.auth_show: "auth",
+        },
         sdk_prefix="",
         sdk_commands=[],
         models=[],
@@ -778,7 +798,9 @@ ALL_MODULES = [
     help="If set, all files in the 'output_dir' that were not generated will be removed.",
 )
 def generate(
-    output_dir: str, *, remove_existing: bool = False,
+    output_dir: str,
+    *,
+    remove_existing: bool = False,
 ):
     if not os.path.isdir(output_dir):
         raise RuntimeError(f"output_dir '{output_dir}' does not exist.")

@@ -1,0 +1,71 @@
+[project]
+name = "django-admin-action-forms"
+version = "3.0.0"
+description = "Extension for the Django admin panel that allows passing additional parameters to actions by creating intermediate pages with forms."
+readme = "README.md"
+license-files = ["LICENSE"]
+keywords = [
+    "django",
+    "admin",
+    "action",
+    "actions",
+    "form",
+    "forms",
+    "pass",
+    "intermediate",
+    "args",
+    "arguments",
+    "params",
+    "parameters",
+    "inline",
+    "inlines",
+    "formset",
+    "formsets",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 4",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 5",
+    "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = ["django>=3.2"]
+
+[[project.authors]]
+name = "Michał Pokusa"
+
+[[project.maintainers]]
+name = "Michał Pokusa"
+
+[project.urls]
+Repository = "https://github.com/michalpokusa/django-admin-action-forms"
+Changelog = "https://github.com/michalpokusa/django-admin-action-forms/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["uv_build>=0.11.26,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "django_admin_action_forms"
+module-root = ""

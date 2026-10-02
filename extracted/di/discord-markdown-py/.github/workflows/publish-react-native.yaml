@@ -1,0 +1,126 @@
+name: Publish React Native NPM
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        required: true
+        type: boolean
+        default: false
+        description: "Publish to NPM? (unchecked = dry-run)"
+      tag:
+        required: false
+        type: string
+        default: "latest"
+        description: "NPM version tag"
+
+concurrency:
+  group: publish-npm-react-native
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Cross-compiles the Rust parser for every Android ABI directly with cargo-ndk, mirroring
+  # what lib/react-native/android/build.gradle's cargoBuildRust/copyRustLibs tasks do for an
+  # in-repo app build. Building the example app itself isn't needed here: publishing only
+  # needs the resulting static libraries in android/prebuilt/, not an APK.
+  build_android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+
+      - name: Add Android Rust targets
+        run: rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Rust for all Android ABIs
+        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 build -p discord-markdown-c --release
+
+      # Matches the abi -> triple mapping in android/build.gradle.
+      - name: Assemble prebuilt/
+        run: |
+          declare -A triples=(
+            [armeabi-v7a]=armv7-linux-androideabi
+            [arm64-v8a]=aarch64-linux-android
+            [x86]=i686-linux-android
+            [x86_64]=x86_64-linux-android
+          )
+          for abi in "${!triples[@]}"; do
+            triple="${triples[$abi]}"
+            mkdir -p "lib/react-native/android/prebuilt/$abi"
+            cp "target/$triple/release/libdiscord_markdown_c.a" "lib/react-native/android/prebuilt/$abi/"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: react-native-android-prebuilt
+          path: lib/react-native/android/prebuilt
+
+  # Builds ios/DiscordMarkdownC.xcframework for both device and simulator via
+  # ios/build-rust.sh, the same script the example app's Podfile runs in-repo — see the
+  # comment in lib/react-native/DiscordMarkdown.podspec ("or at publish time for npm
+  # consumers").
+  build_ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+
+      - name: Add iOS Rust targets
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+      - name: Build xcframework
+        run: lib/react-native/ios/build-rust.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: react-native-ios-xcframework
+          path: lib/react-native/ios/DiscordMarkdownC.xcframework
+
+  publish:
+    needs: [build_android, build_ios]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+    env:
+      TAG: ${{ inputs.tag }}
+      # "true" for a real publish; anything else makes publish.sh use --dry-run.
+      PUBLISH: ${{ inputs.publish }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: react-native-android-prebuilt
+          path: lib/react-native/android/prebuilt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: react-native-ios-xcframework
+          path: lib/react-native/ios/DiscordMarkdownC.xcframework
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false  # never use caching in release builds
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          run_install: true
+
+      - name: Publish @discord/markdown-react-native
+        run: .github/workflows/publish.sh lib/react-native

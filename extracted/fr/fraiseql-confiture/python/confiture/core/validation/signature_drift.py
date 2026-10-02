@@ -1,0 +1,175 @@
+"""``migrate validate --check-signatures`` (+ ``--check-body``) logic.
+
+Compares the routines the source schema declares — the schema model, read by
+the lint inventory — against the ones the live database holds, read by
+``core/live_catalog``: their signatures, detecting stale overloads left behind
+by ``CREATE OR REPLACE`` with changed parameter types, and optionally their
+bodies. ``--check-body-replay`` asks the same body question of another expected
+side, a migration replay (:mod:`confiture.core.validation.replay_drift`).
+
+``load_config`` / ``open_connection`` are imported at module scope so tests can
+patch them on this module.
+"""
+
+from __future__ import annotations
+
+from contextlib import nullcontext
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from confiture.config.environment import SshTunnelConfig
+from confiture.core import builder as _core_builder
+from confiture.core.connection import load_config, open_connection
+from confiture.core.function_body_drift import FunctionBodyDriftDetector
+from confiture.core.function_signature_drift import (
+    FunctionSignatureDriftDetector,
+    declared_routines,
+    live_routines,
+    schemas_to_scan,
+)
+from confiture.exceptions import ConfigurationError
+
+if TYPE_CHECKING:
+    from confiture.core.function_body_drift import FunctionBodyDriftReport
+    from confiture.core.function_signature_drift import FunctionSignatureDriftReport
+    from confiture.core.validation.context import ValidationContext
+
+
+@dataclass
+class SignatureDriftResult:
+    """Outcome of a signature (and optional body) drift check.
+
+    ``auto_built`` / ``ssh_target`` are progress signals the caller renders as
+    text-mode hints; they carry no bearing on the gate decision.
+    """
+
+    drift_report: FunctionSignatureDriftReport
+    body_report: FunctionBodyDriftReport | None
+    auto_built: bool
+    ssh_target: str | None
+
+    @property
+    def has_any_drift(self) -> bool:
+        return self.drift_report.has_critical_drift or (
+            self.body_report is not None and self.body_report.has_drift
+        )
+
+
+def _ssh_override(config_data: Any, ssh_via: str) -> Any:
+    """Layer an ssh_tunnel onto *config_data* from a ``user@host`` / ``host`` spec."""
+
+    parts = ssh_via.split("@", 1)
+    ssh_host = parts[1] if len(parts) == 2 else parts[0]
+    ssh_user = parts[0] if len(parts) == 2 else None
+
+    class _SshOverride:
+        """Thin adapter that layers an ssh_tunnel onto config_data."""
+
+        def __init__(self, base: Any, tunnel: SshTunnelConfig) -> None:
+            self._base = base
+            self.ssh_tunnel = tunnel
+
+        @property
+        def database_url(self) -> str:
+            if hasattr(self._base, "database_url"):
+                return self._base.database_url
+            return self._base.get("database_url", "")
+
+        def get(self, key: str, default: Any = None) -> Any:
+            return getattr(self._base, key, None) or (
+                self._base.get(key, default) if isinstance(self._base, dict) else default
+            )
+
+    return _SshOverride(config_data, SshTunnelConfig(host=ssh_host, user=ssh_user))
+
+
+def _resolve_source_sql(config_data: Any, schema_file: Path | None) -> tuple[str, bool]:
+    """Return ``(source_sql, auto_built)`` from an explicit file or a fresh build.
+
+    Raises:
+        ConfigurationError: ``--schema`` was omitted and the auto-build failed.
+    """
+    if schema_file is not None:
+        return schema_file.read_text(), False
+
+    try:
+        env_name = (
+            config_data.get("name")
+            if isinstance(config_data, dict)
+            else getattr(config_data, "name", None)
+        )
+        if not env_name:
+            raise ValueError(
+                "Config has no 'name' field — cannot auto-build schema. Pass --schema explicitly."
+            )
+        return _core_builder.SchemaBuilder(env=env_name).build(schema_only=True), True
+    # Reason: an auto-build failure of any kind is reported with the --schema remedy
+    except Exception as build_exc:
+        raise ConfigurationError(
+            f"--schema not provided and auto-build failed: {build_exc}. "
+            "Either run 'confiture build' first or pass --schema explicitly."
+        ) from build_exc
+
+
+def check_signature_drift(
+    *,
+    config_path: Path,
+    schema_file: Path | None,
+    schemas: str | None,
+    check_body: bool,
+    ssh_via: str | None,
+    ctx: ValidationContext | None = None,
+    missing_is_drift: bool = False,
+) -> SignatureDriftResult:
+    """Detect signature (and optional body) drift against the live database.
+
+    Args:
+        config_path: Config file resolving the database connection.
+        schema_file: Explicit source schema SQL; auto-built from DDL if ``None``.
+        schemas: Comma-separated DB schema names to scan (e.g. ``"public,auth"``).
+            ``None`` means the schemas the **source** declares, which is the
+            answer ``--check-live-drift`` derives from the same tree (#303).
+        check_body: Also compare function bodies (heavier).
+        missing_is_drift: Whether a routine the source declares and the database
+            has not got makes the verdict critical (#303).
+        ssh_via: Optional ``user@host`` SSH tunnel target overriding the config.
+        ctx: Shared per-run resources. When given, the config and the live
+            connection come from there, so several checks in one
+            ``migrate validate`` run connect once between them. When ``None``
+            this function is fully standalone: it loads the config and opens its
+            own connection.
+
+    Raises:
+        ConfigurationError: config missing, auto-build failed, or connection failed.
+    """
+
+    if not config_path.exists():
+        raise ConfigurationError(f"Config file not found: {config_path}", error_code="CONFIG_004")
+
+    config_data = ctx.config_data if ctx is not None else load_config(config_path)
+
+    source_sql, auto_built = _resolve_source_sql(config_data, schema_file)
+    declared = declared_routines(source_sql)
+    schema_list = schemas_to_scan(schemas, declared)
+
+    effective_config: Any = config_data
+    if ssh_via:
+        effective_config = _ssh_override(config_data, ssh_via)
+
+    conn_cm = (
+        nullcontext(ctx.connection()) if ctx is not None else open_connection(effective_config)
+    )
+    with conn_cm as conn:
+        live = live_routines(conn, schema_list)
+    drift_report = FunctionSignatureDriftDetector().compare(
+        declared, live, schemas_checked=schema_list, missing_is_drift=missing_is_drift
+    )
+    body_report = FunctionBodyDriftDetector().compare(declared, live) if check_body else None
+
+    return SignatureDriftResult(
+        drift_report=drift_report,
+        body_report=body_report,
+        auto_built=auto_built,
+        ssh_target=ssh_via,
+    )

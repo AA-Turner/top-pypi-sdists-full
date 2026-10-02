@@ -1,0 +1,233 @@
+---
+name: autopilot_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  4-phase autonomous close-out pipeline orchestrator.
+  Dispatches to sub-nodes via Kafka publish and FSM state tracking.
+
+  Phase A: Worktree health sweep (node_worktree_triage or prune script)
+  Phase B: Merge sweep (node_pr_lifecycle_orchestrator)
+  Phase C: Infra health gate (node_platform_diagnostics)
+  Phase D: Quality sweeps (aislop_sweep, dod_verify, gap)
+
+  Circuit breaker: 3 consecutive phase failures -> FAILED.
+  Each phase records pass | pass_repaired | warn | fail | halt | skipped.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: autopilot
+      handler:
+        name: HandlerAutopilotOrchestrator
+        module: omnimarket.nodes.node_autopilot_orchestrator.handlers.handler_autopilot_orchestrator
+      event_model:
+        name: ModelAutopilotStartCommand
+        module: omnimarket.nodes.node_autopilot_orchestrator.models.model_autopilot_start_command
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles:
+    - effects
+  idempotent: false
+  timeout_ms: 3600000
+  runtime_profiles:
+    - effects
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Unique pipeline run ID"
+    required: true
+  mode:
+    type: str
+    description: "close-out | build"
+    required: false
+    default: "close-out"
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+  autonomous:
+    type: bool
+    description: "No human gates"
+    required: false
+    default: true
+
+outputs:
+  overall_status:
+    type: str
+    description: "complete | halted | circuit_breaker | failed"
+  halt_reason:
+    type: str
+    description: "Phase that triggered halt, or empty on complete"
+  phases_completed:
+    type: int
+    description: "Count of phases that reached pass or warn"
+  phases_failed:
+    type: int
+    description: "Count of phases that reached fail or halt"
+
+terminal_event: onex.evt.omnimarket.autopilot-orchestrator-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.autopilot-orchestrator-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.autopilot-orchestrator-phase-transition.v1
+    - onex.evt.omnimarket.autopilot-orchestrator-completed.v1
+    - onex.evt.omnimarket.autopilot-orchestrator-failed.v1
+    - onex.cmd.omnimarket.pr-lifecycle-orchestrator-start.v1
+    - onex.cmd.omnimarket.platform-diagnostics-start.v1
+    - onex.cmd.omnimarket.aislop-sweep-start.v1
+    - onex.cmd.omnimarket.dod-verify-start.v1
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: autopilot_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "Autopilot close-out pipeline: worktree sweep, merge sweep, infra gate (halt authority), quality sweeps. The handler drives it in order in handle(); an uncaught exception in any phase ends in FAILED."
+  initial_state: IDLE
+  terminal_states: [COMPLETE, HALTED, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: IDLE
+      state_type: operational
+      description: "No run started."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: PHASE_A_WORKTREE
+      state_type: operational
+      description: "Worktree health sweep."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: PHASE_B_MERGE_SWEEP
+      state_type: operational
+      description: "Merge sweep."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: PHASE_C_INFRA_GATE
+      state_type: operational
+      description: "Infra health gate, which may halt the run."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: PHASE_D_QUALITY_SWEEPS
+      state_type: operational
+      description: "Parallel quality sweeps; a hard-gate failure halts."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "All phases ran."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: HALTED
+      state_type: terminal
+      description: "A gate with halt authority stopped the run."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "The circuit breaker tripped or a phase raised."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # start command received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_phase_a_worktree
+      from_state: IDLE
+      to_state: PHASE_A_WORKTREE
+      trigger: start_received
+    # worktree sweep completed (pass | warn | fail)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_a_worktree_to_phase_b_merge_sweep
+      from_state: PHASE_A_WORKTREE
+      to_state: PHASE_B_MERGE_SWEEP
+      trigger: worktree_sweep_completed
+    # merge sweep completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_b_merge_sweep_to_phase_c_infra_gate
+      from_state: PHASE_B_MERGE_SWEEP
+      to_state: PHASE_C_INFRA_GATE
+      trigger: merge_sweep_completed
+    # infra gate passed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_c_infra_gate_to_phase_d_quality_sweeps
+      from_state: PHASE_C_INFRA_GATE
+      to_state: PHASE_D_QUALITY_SWEEPS
+      trigger: infra_gate_passed
+    # infra gate failed (halt authority)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_c_infra_gate_to_halted
+      from_state: PHASE_C_INFRA_GATE
+      to_state: HALTED
+      trigger: infra_gate_halted
+    # quality sweeps completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_d_quality_sweeps_to_complete
+      from_state: PHASE_D_QUALITY_SWEEPS
+      to_state: COMPLETE
+      trigger: quality_sweeps_completed
+    # hard-gate quality check failed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_d_quality_sweeps_to_halted
+      from_state: PHASE_D_QUALITY_SWEEPS
+      to_state: HALTED
+      trigger: quality_hard_gate_halted
+    # circuit breaker tripped, or the phase raised
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_a_worktree_to_failed
+      from_state: PHASE_A_WORKTREE
+      to_state: FAILED
+      trigger: circuit_breaker
+    # circuit breaker tripped, or the phase raised
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_b_merge_sweep_to_failed
+      from_state: PHASE_B_MERGE_SWEEP
+      to_state: FAILED
+      trigger: circuit_breaker
+    # OMN-19548: circuit breaker tripped after the infra gate, or the phase raised.
+    # The handler takes this edge (handle(), after phase C) but the old fsm: block
+    # did not declare it.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_c_infra_gate_to_failed
+      from_state: PHASE_C_INFRA_GATE
+      to_state: FAILED
+      trigger: circuit_breaker
+    # circuit breaker tripped, or the phase raised
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: phase_d_quality_sweeps_to_failed
+      from_state: PHASE_D_QUALITY_SWEEPS
+      to_state: FAILED
+      trigger: circuit_breaker
+
+metadata:
+  description: "Autopilot orchestrator — 4-phase close-out pipeline FSM"
+  author: "OmniNode Platform Team"
+  created: "2026-04-10"
+  tags:
+    - "autopilot"
+    - "orchestrator"
+    - "pipeline"
+    - "close-out"
+    - "fsm"
+    - "OMN-6872"
+  related_tickets:
+    - "OMN-6872"
+    - "OMN-6867"
+    - "OMN-8087"
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.autopilot-orchestrator-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # consumed off-graph by omnimarket/src/omnimarket/nodes/node_autopilot_orchestrator/consumer.py
+  - onex.evt.omnimarket.autopilot-orchestrator-completed.v1
+  # consumed off-graph by omnimarket/src/omnimarket/nodes/node_autopilot_orchestrator/consumer.py
+  - onex.evt.omnimarket.autopilot-orchestrator-failed.v1
+  - onex.evt.omnimarket.autopilot-orchestrator-phase-transition.v1

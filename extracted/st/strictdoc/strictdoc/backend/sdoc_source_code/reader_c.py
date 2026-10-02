@@ -1,0 +1,539 @@
+"""
+@relation(SDOC-SRS-142, SDOC-SRS-146, scope=file)
+"""
+
+from typing import Final, List, Optional, Sequence
+
+import tree_sitter_c
+import tree_sitter_cpp
+from tree_sitter import Language, Node, Parser
+
+from strictdoc.backend.sdoc_source_code.constants import FunctionAttribute
+from strictdoc.backend.sdoc_source_code.marker_parser import MarkerParser
+from strictdoc.backend.sdoc_source_code.models.language import LanguageItem
+from strictdoc.backend.sdoc_source_code.models.language_item_marker import (
+    LanguageItemMarker,
+    RangeMarkerType,
+)
+from strictdoc.backend.sdoc_source_code.models.line_marker import LineMarker
+from strictdoc.backend.sdoc_source_code.models.range_marker import (
+    RangeMarker,
+)
+from strictdoc.backend.sdoc_source_code.models.source_file_info import (
+    SourceFileTraceabilityInfo,
+)
+from strictdoc.backend.sdoc_source_code.models.source_location import ByteRange
+from strictdoc.backend.sdoc_source_code.models.source_node import SourceNode
+from strictdoc.backend.sdoc_source_code.parse_context import ParseContext
+from strictdoc.backend.sdoc_source_code.processors.general_language_marker_processors import (
+    language_item_marker_processor,
+    line_marker_processor,
+    range_marker_processor,
+    source_file_traceability_info_processor,
+)
+from strictdoc.backend.sdoc_source_code.tree_sitter_helpers import (
+    traverse_tree,
+    ts_find_child_node_by_type,
+    ts_find_child_nodes_by_type,
+)
+from strictdoc.helpers.cast import assert_cast
+from strictdoc.helpers.file_stats import SourceFileStats
+from strictdoc.helpers.file_system import file_open_read_bytes
+
+KNOWN_FUNCTION_DEFINITION_MACROS: Final[frozenset[str]] = frozenset(
+    (
+        # Linux
+        "COMPAT_SYSCALL_DEFINE0",
+        "COMPAT_SYSCALL_DEFINE1",
+        "COMPAT_SYSCALL_DEFINE2",
+        "COMPAT_SYSCALL_DEFINE3",
+        "COMPAT_SYSCALL_DEFINE4",
+        "COMPAT_SYSCALL_DEFINE5",
+        "COMPAT_SYSCALL_DEFINE6",
+        "FIXTURE_SETUP",
+        "FIXTURE_TEARDOWN",
+        "SYSCALL_DEFINE0",
+        "SYSCALL_DEFINE1",
+        "SYSCALL_DEFINE2",
+        "SYSCALL_DEFINE3",
+        "SYSCALL_DEFINE4",
+        "SYSCALL_DEFINE5",
+        "SYSCALL_DEFINE6",
+        # Google Benchmark
+        "BENCHMARK",
+        "BENCHMARK_F",
+        "BENCHMARK_DEFINE_F",
+        "BENCHMARK_TEMPLATE",
+        "BENCHMARK_TEMPLATE_F",
+        "BENCHMARK_TEMPLATE_DEFINE_F",
+        # Google Test and Linux
+        "TEST",
+        "TEST_F",
+        "TEST_P",
+        "TEST_F_SIGNAL",
+        "TYPED_TEST",
+        # Zephyr
+        "ZTEST_USER",
+    )
+)
+
+
+class SourceFileTraceabilityReader_C:
+    @staticmethod
+    def supported_elements() -> list[str]:
+        return ["function", "class"]
+
+    def __init__(self, custom_tags: Optional[set[str]] = None) -> None:
+        self.custom_tags: Optional[set[str]] = custom_tags
+
+    def read(
+        self,
+        input_buffer: bytes,
+        file_path: Optional[str] = None,
+    ) -> SourceFileTraceabilityInfo:
+        assert isinstance(input_buffer, bytes)
+
+        file_stats = SourceFileStats.create(input_buffer)
+        parse_context = ParseContext(file_path, file_stats)
+
+        language_arg: object
+        if file_path is not None and file_path.endswith(".c"):
+            language_arg = tree_sitter_c.language()
+        else:
+            language_arg = tree_sitter_cpp.language()
+        py_language = Language(language_arg)
+        parser = Parser(py_language)
+
+        tree = parser.parse(input_buffer)
+
+        traceability_info = SourceFileTraceabilityInfo([])
+
+        nodes = traverse_tree(tree)
+
+        source_node: Optional[SourceNode]
+        for node_ in nodes:
+            function_name: str
+            language_item_markers: List[LanguageItemMarker]
+            function_comment_node: Optional[Node]
+            if node_.type == "translation_unit":
+                if (
+                    len(node_.children) > 0
+                    and node_.children[0].type == "comment"
+                    and (comment_node := node_.children[0])
+                ):
+                    if comment_node.text is not None:
+                        comment_text = comment_node.text.decode("utf-8")
+                        source_node = MarkerParser.parse(
+                            input_string=comment_text,
+                            line_start=node_.start_point[0] + 1,
+                            # It is important that +1 is not present here because
+                            # currently StrictDoc does not display the last empty line (\n is 10).
+                            line_end=node_.end_point[0]
+                            if input_buffer[-1] == 10
+                            else node_.end_point[0] + 1,
+                            comment_line_start=node_.start_point[0] + 1,
+                            comment_byte_range=ByteRange.create_from_ts_node(
+                                comment_node
+                            ),
+                            filename=parse_context.filename,
+                            custom_tags=self.custom_tags,
+                        )
+                        for marker_ in source_node.markers:
+                            if not isinstance(marker_, LanguageItemMarker):
+                                continue
+                            # At the top level, only accept the scope=file markers.
+                            # Everything else will be handled by functions and classes.
+                            if marker_.scope != RangeMarkerType.FILE:
+                                continue
+                            if isinstance(marker_, LanguageItemMarker) and (
+                                language_item_marker_ := marker_
+                            ):
+                                language_item_marker_processor(
+                                    language_item_marker_, parse_context
+                                )
+                                traceability_info.markers.append(
+                                    language_item_marker_
+                                )
+
+            elif node_.type in ("declaration", "field_declaration"):
+                # Pointer return types ("SomeType *foo();") and C++
+                # reference declarations ("TrkVertex& operator-=(...);")
+                # wrap the function declarator one or more times.
+                function_declarator_node = self._find_function_declarator_node(
+                    node_
+                )
+                if function_declarator_node is None:
+                    continue
+
+                # For normal C functions the identifier is "identifier".
+                # For C++, there are:
+                # Class function declarations: bool CanSend(const CanFrame &frame);         # noqa: ERA001
+                # Operators:                   TrkVertex& operator-=(const TrkVertex& c);   # noqa: ERA001
+                # Destructors:                 ~TrkVertex();                                # noqa: ERA001
+                function_identifier_node = self._get_function_name_node(
+                    function_declarator_node,
+                )
+                if function_identifier_node is None:
+                    continue
+
+                if function_identifier_node.text is None:
+                    continue
+
+                assert function_identifier_node.text is not None, node_.text
+                function_display_name = function_identifier_node.text.decode(
+                    "utf8"
+                )
+
+                assert function_declarator_node.text is not None, node_.text
+                function_name = function_declarator_node.text.decode("utf8")
+                assert function_name is not None, node_.text
+                # Remove extra trailing spaces, newlines etc added by code-formatting or linters
+                function_name = " ".join(function_name.split())
+
+                parent_names = self.get_node_ns(node_)
+                if len(parent_names) > 0:
+                    function_name = (
+                        f"{'::'.join(parent_names)}::{function_name}"
+                    )
+                    function_display_name = (
+                        f"{'::'.join(parent_names)}::{function_display_name}"
+                    )
+
+                function_attributes = {FunctionAttribute.DECLARATION}
+                for specifier_node_ in ts_find_child_nodes_by_type(
+                    node_, "storage_class_specifier"
+                ):
+                    if specifier_node_.text == b"static":
+                        function_attributes.add(FunctionAttribute.STATIC)
+
+                source_node = None
+                language_item_markers = []
+                function_comment_node = None
+                if (
+                    node_.prev_sibling is not None
+                    and node_.prev_sibling.type == "comment"
+                ):
+                    function_comment_node = node_.prev_sibling
+                    assert function_comment_node.text is not None, node_.text
+                    function_comment_text = function_comment_node.text.decode(
+                        "utf8"
+                    )
+
+                    function_last_line = node_.end_point[0] + 1
+
+                    source_node = MarkerParser.parse(
+                        input_string=function_comment_text,
+                        line_start=function_comment_node.start_point[0] + 1,
+                        line_end=function_last_line,
+                        comment_line_start=function_comment_node.start_point[0]
+                        + 1,
+                        comment_byte_range=ByteRange.create_from_ts_node(
+                            function_comment_node
+                        ),
+                        filename=parse_context.filename,
+                        entity_name=function_display_name,
+                        custom_tags=self.custom_tags,
+                    )
+                    for marker_ in source_node.markers:
+                        if isinstance(marker_, LanguageItemMarker) and (
+                            language_item_marker_ := marker_
+                        ):
+                            language_item_marker_processor(
+                                language_item_marker_, parse_context
+                            )
+                            traceability_info.markers.append(
+                                language_item_marker_
+                            )
+                            language_item_markers.append(marker_)
+
+                # The function range includes the top comment if it exists.
+                new_function = LanguageItem(
+                    parent=traceability_info,
+                    name=function_name,
+                    display_name=function_display_name,
+                    line_begin=function_comment_node.start_point[0] + 1
+                    if function_comment_node is not None
+                    else node_.range.start_point[0] + 1,
+                    line_end=node_.range.end_point[0] + 1,
+                    code_byte_range=ByteRange.create_from_ts_node(node_),
+                    child_functions=[],
+                    markers=language_item_markers,
+                    attributes=function_attributes,
+                )
+                if source_node is not None:
+                    source_node.function = new_function
+                traceability_info.functions.append(new_function)
+
+            elif node_.type == "function_definition":
+                function_name = ""
+
+                # Pointer return types ("SomeType *foo() { ... }") and C++
+                # reference declarations ("Foo& Foo::operator+(...) {...}")
+                # wrap the function declarator one or more times.
+                try:
+                    function_declarator_node = (
+                        self._find_function_declarator_node(
+                            node_, raise_on_error=True
+                        )
+                    )
+                except LookupError:
+                    # Probably confused by macro, skip node to avoid processing random subtrees.
+                    continue
+                if function_declarator_node is None:
+                    continue
+
+                assert function_declarator_node is not None, node_.text
+
+                assert function_declarator_node.text is not None, node_.text
+                function_name = function_declarator_node.text.decode("utf8")
+
+                identifier_node = self._get_function_name_node(
+                    function_declarator_node
+                )
+                if identifier_node is None:
+                    print(  # noqa: T201
+                        "warning: C/C++ source reader: skipping unsupported "
+                        "function declarator at "
+                        f"{parse_context.filename}:"
+                        f"{function_declarator_node.start_point[0] + 1}: "
+                        f"{function_declarator_node}"
+                    )
+                    continue
+
+                assert identifier_node.text is not None, node_.text
+                function_display_name = identifier_node.text.decode("utf8")
+
+                assert function_name is not None, node_.text
+                # Remove extra trailing spaces, newlines etc added by code-formatting or linters
+                function_name = " ".join(function_name.split())
+                parent_names = self.get_node_ns(node_)
+
+                # The first if branch handles a special case where selected
+                # macros are actually function definitions. Typical examples of
+                # such functions:
+                # 1) Google Test TEST(...)
+                # 2) Zephyr RTOS ZTEST_USER(...)
+                # 3) Linux SYSCALL2_DEFINE etc.
+                if function_display_name in KNOWN_FUNCTION_DEFINITION_MACROS:
+                    # Make the display name to include the entire macro/function
+                    # signature.
+                    # Example of this case:
+                    # function_name: ZTEST_USER(semaphore, test_k_sem_correct_count_limit)  # noqa: ERA001
+                    # function_display_name (before assignment): ZTEST_USER
+                    function_display_name = function_name
+                elif len(parent_names) > 0:
+                    function_name = (
+                        f"{'::'.join(parent_names)}::{function_name}"
+                    )
+                    function_display_name = (
+                        f"{'::'.join(parent_names)}::{function_display_name}"
+                    )
+
+                source_node = None
+                language_item_markers = []
+                function_comment_node = None
+                function_comment_text = None
+
+                # In the condition below, it is important that the comment is
+                # considered a function comment only if it there are no empty
+                # lines between the comment and function.
+                if (
+                    node_.prev_sibling is not None
+                    and node_.prev_sibling.type == "comment"
+                    and (node_.prev_sibling.end_point[0] + 1)
+                    == node_.start_point[0]
+                ):
+                    function_comment_node = node_.prev_sibling
+                    assert function_comment_node.text is not None, node_.text
+                    function_comment_text = function_comment_node.text.decode(
+                        "utf8"
+                    )
+
+                    function_last_line = node_.end_point[0] + 1
+
+                    source_node = MarkerParser.parse(
+                        input_string=function_comment_text,
+                        line_start=function_comment_node.start_point[0] + 1,
+                        line_end=function_last_line,
+                        comment_line_start=function_comment_node.start_point[0]
+                        + 1,
+                        comment_byte_range=ByteRange.create_from_ts_node(
+                            function_comment_node
+                        ),
+                        filename=parse_context.filename,
+                        entity_name=function_display_name,
+                        custom_tags=self.custom_tags,
+                    )
+
+                    traceability_info.source_nodes.append(source_node)
+                    for marker_ in source_node.markers:
+                        if isinstance(marker_, LanguageItemMarker):
+                            language_item_marker_processor(
+                                marker_, parse_context
+                            )
+                            traceability_info.markers.append(marker_)
+                            language_item_markers.append(marker_)
+
+                # The function range includes the top comment if it exists.
+                new_function = LanguageItem(
+                    parent=traceability_info,
+                    name=function_name,
+                    display_name=function_display_name,
+                    line_begin=function_comment_node.start_point[0] + 1
+                    if function_comment_node is not None
+                    else node_.range.start_point[0] + 1,
+                    line_end=node_.range.end_point[0] + 1,
+                    code_byte_range=ByteRange.create_from_ts_node(node_),
+                    child_functions=[],
+                    markers=language_item_markers,
+                    attributes={FunctionAttribute.DEFINITION},
+                )
+                traceability_info.functions.append(new_function)
+                if len(language_item_markers) > 0:
+                    traceability_info.ng_map_names_to_markers[function_name] = (
+                        # FIXME: Cannot win the fight with mypy without assert_cast.
+                        assert_cast(language_item_markers, list)
+                    )
+                    traceability_info.ng_map_names_to_definition_functions[
+                        function_name
+                    ] = new_function
+                if source_node is not None:
+                    source_node.function = new_function
+            elif node_.type == "comment":
+                #
+                # FIXME: Here parsing of function comments can happen as well
+                #        but this time the focus is ONLY on range and line markers.
+                #        The case which is handled here is when a user adds a
+                #        range_start marker in a function comment.
+                #        It is not good that parsing of function comments
+                #        happens twice.
+                #
+
+                assert node_.text is not None, (
+                    f"Comment without a text: {node_}"
+                )
+
+                node_text_string = node_.text.decode("utf8")
+
+                source_node = MarkerParser.parse(
+                    input_string=node_text_string,
+                    line_start=node_.start_point[0] + 1,
+                    line_end=node_.end_point[0] + 1,
+                    comment_line_start=node_.start_point[0] + 1,
+                    comment_byte_range=ByteRange.create_from_ts_node(node_),
+                    filename=parse_context.filename,
+                    custom_tags=None,
+                )
+
+                for marker_ in source_node.markers:
+                    if isinstance(marker_, RangeMarker) and (
+                        range_marker_ := marker_
+                    ):
+                        range_marker_processor(range_marker_, parse_context)
+                    elif isinstance(marker_, LineMarker) and (
+                        line_marker_ := marker_
+                    ):
+                        line_marker_processor(line_marker_, parse_context)
+                    else:
+                        pass
+            else:
+                pass
+
+        source_file_traceability_info_processor(
+            traceability_info, parse_context
+        )
+
+        traceability_info.ng_map_reqs_to_markers = (
+            parse_context.map_reqs_to_markers
+        )
+
+        return traceability_info
+
+    def read_from_file(self, file_path: str) -> SourceFileTraceabilityInfo:
+        with file_open_read_bytes(file_path) as file:
+            sdoc_content = file.read()
+            sdoc = self.read(sdoc_content, file_path=file_path)
+            return sdoc
+
+    @staticmethod
+    def _find_function_declarator_node(
+        node: Node, raise_on_error: bool = False
+    ) -> Optional[Node]:
+        """
+        Find a "function_declarator" among the node's children, descending
+        through "pointer_declarator" (pointer return types, e.g. "SomeType
+        *foo();") and "reference_declarator" (C++ reference return types,
+        e.g. "TrkVertex& foo();") wrappers, which may be nested (e.g.
+        "SomeType **foo();").
+        """
+        function_declarator_node = ts_find_child_node_by_type(
+            node, "function_declarator", raise_on_error=raise_on_error
+        )
+        if function_declarator_node is not None:
+            return function_declarator_node
+
+        for wrapper_type_ in ("pointer_declarator", "reference_declarator"):
+            wrapper_node = ts_find_child_node_by_type(node, wrapper_type_)
+            if wrapper_node is not None:
+                return SourceFileTraceabilityReader_C._find_function_declarator_node(
+                    wrapper_node, raise_on_error=raise_on_error
+                )
+
+        return None
+
+    @staticmethod
+    def _get_function_name_node(
+        function_declarator_node: Node,
+    ) -> Optional[Node]:
+        assert function_declarator_node.type == "function_declarator"
+        function_identifier_node = ts_find_child_node_by_type(
+            function_declarator_node,
+            node_type=(
+                "identifier",
+                "field_identifier",
+                "operator_name",
+                "destructor_name",
+                "qualified_identifier",
+            ),
+        )
+        if function_identifier_node is not None:
+            return function_identifier_node
+
+        nested_function_declarator_node = ts_find_child_node_by_type(
+            function_declarator_node,
+            "function_declarator",
+        )
+        if nested_function_declarator_node is not None:
+            return SourceFileTraceabilityReader_C._get_function_name_node(
+                nested_function_declarator_node
+            )
+
+        return None
+
+    @staticmethod
+    def get_node_ns(node: Node) -> Sequence[str]:
+        """
+        Walk up the tree and find parent classes.
+        """
+        parent_scopes = []
+        cursor: Optional[Node] = node
+        while cursor is not None:
+            if cursor.type == "class_specifier" and len(cursor.children) > 1:
+                second_node_or_none = cursor.children[1]
+                if (
+                    second_node_or_none.type == "type_identifier"
+                    and second_node_or_none.text is not None
+                ):
+                    parent_class_name = second_node_or_none.text.decode("utf8")
+                    parent_scopes.append(parent_class_name)
+            elif cursor.type == "namespace_definition":
+                for c in cursor.children:
+                    if c.type == "namespace_identifier" and c.text is not None:
+                        parent_class_name = c.text.decode("utf8")
+                        parent_scopes.append(parent_class_name)
+                        break
+
+            cursor = cursor.parent
+
+        parent_scopes.reverse()
+        return parent_scopes

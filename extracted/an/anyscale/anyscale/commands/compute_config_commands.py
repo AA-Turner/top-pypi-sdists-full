@@ -73,7 +73,8 @@ def _validate_name_and_id_args(
 
 
 @click.group(
-    "compute-config", help="Manage compute configurations.",
+    "compute-config",
+    help="Manage compute configurations.",
 )
 def compute_config_cli() -> None:
     pass
@@ -274,7 +275,11 @@ def archive_compute_config(
     help="Token for pagination to fetch the next page of results.",
 )
 @click.option(
-    "--cloud-id", required=False, default=None, type=str, help="Filter by cloud ID.",
+    "--cloud-id",
+    required=False,
+    default=None,
+    type=str,
+    help="Filter by cloud ID.",
 )
 @click.option(
     "--cloud",
@@ -335,8 +340,7 @@ def list_compute_configs(  # noqa: A001, PLR0913
     # Validate mutual exclusion: cloud_id and cloud_name cannot be used together
     if cloud_id and cloud_name:
         raise click.ClickException(
-            "Error: --cloud-id and --cloud-name are mutually exclusive. "
-            "Please provide only one."
+            "Error: --cloud-id and --cloud-name are mutually exclusive. Please provide only one."
         )
 
     # Use the SDK for listing compute configs
@@ -369,7 +373,10 @@ def list_compute_configs(  # noqa: A001, PLR0913
                 }
                 for cc in result.results
             ],
-            "metadata": {"count": result.count, "next_token": result.next_token,},
+            "metadata": {
+                "count": result.count,
+                "next_token": result.next_token,
+            },
         }
         print(json.dumps(output_data, indent=2))
         return
@@ -436,7 +443,11 @@ def list_compute_configs(  # noqa: A001, PLR0913
 )
 @click.argument("compute-config-name", required=False)
 @click.option(
-    "-n", "--name", required=False, default=None, help="Name of the compute config.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    help="Name of the compute config.",
 )
 @click.option(
     "--compute-config-id",
@@ -447,7 +458,9 @@ def list_compute_configs(  # noqa: A001, PLR0913
     hidden=True,
 )
 @click.option(
-    "--include-archived", is_flag=True, help="Include archived compute configurations.",
+    "--include-archived",
+    is_flag=True,
+    help="Include archived compute configurations.",
 )
 @click.option(
     "--cloud-id",
@@ -475,9 +488,7 @@ def list_compute_configs(  # noqa: A001, PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Ignored with --old-format.",
@@ -496,8 +507,7 @@ def get_compute_config(
     # Validate mutual exclusion: cloud_id and cloud_name cannot be used together
     if cloud_id and cloud_name:
         raise click.ClickException(
-            "Error: --cloud-id and --cloud-name are mutually exclusive. "
-            "Please provide only one."
+            "Error: --cloud-id and --cloud-name are mutually exclusive. Please provide only one."
         )
 
     name, cc_id = _validate_name_and_id_args(
@@ -525,7 +535,10 @@ def get_compute_config(
     else:
         # New format (YAML) - now supports cloud filtering
         config: ComputeConfigVersion = anyscale.compute_config.get(
-            name=name, _id=cc_id, cloud=cloud_filter, include_archived=include_archived,
+            name=name,
+            _id=cc_id,
+            cloud=cloud_filter,
+            include_archived=include_archived,
         )
         if output_format != OutputFormat.TEXT.value:
             print_output(config, output_format)

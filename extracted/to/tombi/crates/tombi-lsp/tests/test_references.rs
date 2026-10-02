@@ -118,7 +118,7 @@ async fn run_references_test(
         return Err("failed to find position marker (█) in the test data".into());
     };
     toml_text.remove(index);
-    let line_index = tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+    let line_index = tombi_text::LineIndex::new(toml_text.as_str());
 
     handle_did_open(
         backend,
@@ -136,9 +136,8 @@ async fn run_references_test(
     let params = ReferenceParams {
         text_document_position: TextDocumentPositionParams {
             text_document: TextDocumentIdentifier { uri: toml_file_url },
-            position: (tombi_text::Position::default()
-                + tombi_text::RelativePosition::of(&toml_text[..index]))
-            .into_lsp(&line_index),
+            position: tombi_text::Offset::of(&toml_text[..index])
+                .into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
         },
         context: ReferenceContext {
             include_declaration: args.include_declaration,
@@ -176,7 +175,10 @@ async fn run_references_test(
                 pretty_assertions::assert_eq!(
                     definition_links
                         .into_iter()
-                        .map(|link| (link.uri.to_file_path().unwrap(), link.range))
+                        .map(|link| {
+                            let range = link.range.unwrap_or_default();
+                            (link.uri.to_file_path().unwrap(), range)
+                        })
                         .collect_vec(),
                     expected_locations,
                 );

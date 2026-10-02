@@ -1,0 +1,427 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 OmniNode Team
+"""Concrete ProtocolModelRouter implementation with multi-provider routing.
+
+Coordinates request routing across multiple ProtocolLLMProvider instances
+based on availability, capability matching, and round-robin load balancing.
+Provides round-robin failover across healthy providers.
+
+Architecture:
+    - Maintains a registry of named providers
+    - Routes requests based on model availability and provider health
+    - Implements round-robin fallback across healthy providers
+    - Translates ProtocolLLMRequest to provider-specific formats
+
+Related Tickets:
+    - OMN-2319: Implement SPI LLM protocol adapters (Gap 2)
+    - OMN-7443: Add routing decision event emission
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
+
+from omnibase_infra.adapters.llm.model_llm_adapter_request import (
+    ModelLlmAdapterRequest,
+)
+from omnibase_infra.adapters.llm.model_llm_adapter_response import (
+    ModelLlmAdapterResponse,
+)
+from omnibase_infra.adapters.llm.model_routing_decided_event import (
+    ModelRoutingDecidedEvent,
+)
+from omnibase_infra.enums import EnumInfraTransportType
+from omnibase_infra.errors import (
+    InfraUnavailableError,
+    ModelInfraErrorContext,
+    ProtocolConfigurationError,
+)
+from omnibase_infra.utils.util_error_sanitization import sanitize_error_string
+
+if TYPE_CHECKING:
+    from omnibase_spi.protocols.llm.protocol_llm_provider import ProtocolLLMProvider
+
+logger = logging.getLogger(__name__)
+
+# Callback type for routing decision event emission.
+# Receives a dict with routing decision fields. Must be non-blocking.
+RoutingEventCallback = Callable[[dict[str, object]], Awaitable[None]]
+
+# Provider names registered via LLM_*_URL env vars that map to the local tier.
+# Keys are the friendly provider name (LLM_CODER_URL → "coder").
+_LOCAL_TIER_PROVIDERS: frozenset[str] = frozenset(
+    {"coder", "coder_fast", "deepseek_r1", "embedding", "small"}
+)
+# Providers that route to cheap cloud APIs (GLM, OpenRouter, etc.)
+_CLOUD_CHEAP_TIER_PROVIDERS: frozenset[str] = frozenset({"glm", "openrouter"})
+
+
+def _provider_to_tier(provider_name: str) -> str:
+    """Map a friendly provider name to its delegation tier.
+
+    Returns one of: "local", "cheap_cloud", "claude".
+    Used for enriching routing-decided events with tier visibility.
+    """
+    if provider_name in _LOCAL_TIER_PROVIDERS:
+        return "local"
+    if provider_name in _CLOUD_CHEAP_TIER_PROVIDERS:
+        return "cheap_cloud"
+    return "claude"
+
+
+class AdapterModelRouter:
+    """ProtocolModelRouter implementation with multi-provider routing.
+
+    Routes LLM requests across multiple provider instances with:
+    - Provider health checking and availability tracking
+    - Round-robin load balancing across healthy providers
+    - Automatic failover on provider failure
+    - Capability-based provider selection
+
+    Attributes:
+        _providers: Mapping of provider names to provider instances.
+        _provider_order: Ordered list of provider names for round-robin.
+        _current_index: Current position in the round-robin cycle.
+        _default_provider: Name of the default provider.
+
+    Example:
+        >>> router = AdapterModelRouter()
+        >>> router.register_provider("vllm", vllm_provider)
+        >>> router.register_provider("ollama", ollama_provider)
+        >>> response = await router.generate(request)
+    """
+
+    def __init__(
+        self,
+        default_provider: str | None = None,
+        on_routing_decided: RoutingEventCallback | None = None,
+    ) -> None:
+        """Initialize the model router.
+
+        Args:
+            default_provider: Name of the default provider. If None, the
+                first registered provider is used as default.
+            on_routing_decided: Optional async callback invoked after each
+                routing decision with a dict of decision fields. Used for
+                emitting routing-decided events to Kafka. Non-blocking:
+                failures are logged and dropped.
+        """
+        self._providers: dict[str, ProtocolLLMProvider] = {}
+        self._provider_order: list[str] = []
+        self._current_index: int = 0
+        self._default_provider = default_provider
+        self._lock = asyncio.Lock()
+        self._on_routing_decided = on_routing_decided
+
+    # ── Provider management ────────────────────────────────────────────
+
+    async def register_provider(
+        self,
+        name: str,
+        provider: ProtocolLLMProvider,
+    ) -> None:
+        """Register a provider instance for routing.
+
+        Args:
+            name: Unique provider name for routing.
+            provider: The provider adapter instance.
+        """
+        async with self._lock:
+            self._providers[name] = provider
+            if name not in self._provider_order:
+                self._provider_order.append(name)
+            if self._default_provider is None:
+                self._default_provider = name
+        logger.info(
+            "Registered LLM provider for routing: %s (total: %d)",
+            name,
+            len(self._providers),
+        )
+
+    async def remove_provider(self, name: str) -> None:
+        """Remove a provider from the routing pool.
+
+        Args:
+            name: Provider name to remove.
+        """
+        async with self._lock:
+            self._providers.pop(name, None)
+            if name in self._provider_order:
+                self._provider_order.remove(name)
+            if self._default_provider == name:
+                self._default_provider = (
+                    self._provider_order[0] if self._provider_order else None
+                )
+
+    # ── ProtocolModelRouter interface ──────────────────────────────────
+
+    async def generate(self, request: object) -> object:
+        """Generate response using intelligent provider routing.
+
+        Routes the request to the best available provider. If the selected
+        provider fails, automatically falls back to the next healthy provider
+        in the round-robin order.
+
+        The ``object`` parameter and return types satisfy the SPI
+        ``ProtocolModelRouter`` interface contract. For type-safe usage,
+        see :meth:`generate_typed` which accepts
+        ``ModelLlmAdapterRequest`` and returns ``ModelLlmAdapterResponse``.
+
+        Args:
+            request: LLM request (ModelLlmAdapterRequest or compatible).
+
+        Returns:
+            Generated response (ModelLlmAdapterResponse).
+
+        Raises:
+            ProtocolConfigurationError: If no providers are registered.
+            InfraUnavailableError: If all providers are unavailable or fail.
+            TypeError: If the request is not a ModelLlmAdapterRequest.
+        """
+        if not self._providers:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.HTTP,
+                operation="generate",
+                target_name="model-router",
+            )
+            raise ProtocolConfigurationError(
+                "No LLM providers registered with the router",
+                context=context,
+            )
+
+        if not isinstance(request, ModelLlmAdapterRequest):
+            raise TypeError(
+                f"Expected ModelLlmAdapterRequest, got {type(request).__name__}"
+            )
+
+        # Snapshot provider state under lock for thread-safe iteration.
+        # Both _provider_order and _providers are snapshotted together so a
+        # concurrent remove_provider() cannot delete a provider between the
+        # order snapshot and the dict lookup.
+        async with self._lock:
+            provider_order = list(self._provider_order)
+            providers_snapshot = dict(self._providers)
+            current_index = self._current_index
+
+        # Try providers in round-robin order, starting from current index
+        errors: list[tuple[str, str]] = []
+        attempted = 0
+        t0 = time.monotonic()
+
+        for i in range(len(provider_order)):
+            idx = (current_index + i) % len(provider_order)
+            provider_name = provider_order[idx]
+            provider = providers_snapshot.get(provider_name)
+
+            if provider is None or not provider.is_available:
+                continue
+
+            try:
+                response = await provider.generate_async(request)
+                # Advance round-robin for next call.
+                # NOTE: Round-robin is best-effort under concurrency -- two
+                # concurrent generate() calls may snapshot the same index.
+                # This is intentional: strict ordering would require holding
+                # the lock during network I/O.
+                async with self._lock:
+                    self._current_index = (idx + 1) % len(provider_order)
+
+                # Emit routing decision event (non-blocking, best-effort)
+                _is_fallback = attempted > 0
+                await self._emit_routing_decided(
+                    request=request,
+                    selected_provider=provider_name,
+                    is_fallback=_is_fallback,
+                    candidates_evaluated=attempted + 1,
+                    candidate_providers=provider_order,
+                    latency_ms=round((time.monotonic() - t0) * 1000, 2),
+                )
+                return response
+            except Exception as exc:  # noqa: BLE001 — boundary: logs warning and degrades
+                sanitized = sanitize_error_string(str(exc))
+                errors.append((provider_name, sanitized))
+                logger.warning(
+                    "Provider %s failed, trying next: %s",
+                    provider_name,
+                    sanitized,
+                )
+                attempted += 1
+
+        context = ModelInfraErrorContext.with_correlation(
+            transport_type=EnumInfraTransportType.HTTP,
+            operation="generate",
+            target_name="model-router",
+        )
+        if attempted == 0:
+            raise InfraUnavailableError(
+                f"All {len(provider_order)} registered LLM providers "
+                "report is_available=False (none were attempted). "
+                "Run health_check_all() to re-probe provider status.",
+                context=context,
+            )
+        error_details = "; ".join(f"{name}: {msg}" for name, msg in errors)
+        raise InfraUnavailableError(
+            f"All LLM providers failed ({attempted} attempted). "
+            f"Errors: {error_details}",
+            context=context,
+        )
+
+    async def generate_typed(
+        self, request: ModelLlmAdapterRequest
+    ) -> ModelLlmAdapterResponse:
+        """Type-safe wrapper around generate() for callers with known types.
+
+        Delegates to ``generate()`` and casts the result to
+        ``ModelLlmAdapterResponse``. This avoids the ``object`` return type
+        mandated by the SPI ``ProtocolModelRouter`` interface, giving callers
+        static type safety without a runtime isinstance check.
+
+        Args:
+            request: The typed LLM request.
+
+        Returns:
+            Generated response with full type information.
+
+        Raises:
+            ProtocolConfigurationError: If no providers are registered.
+            InfraUnavailableError: If all providers are unavailable or fail.
+            TypeError: If the provider returns an unexpected type.
+        """
+        result = await self.generate(request)
+        if not isinstance(result, ModelLlmAdapterResponse):
+            raise TypeError(
+                f"Expected ModelLlmAdapterResponse from generate(), "
+                f"got {type(result).__name__}"
+            )
+        return result
+
+    async def get_available_providers(self) -> list[str]:
+        """Get list of currently available provider names.
+
+        Returns:
+            List of provider names that are registered and reporting as available.
+        """
+        async with self._lock:
+            provider_order = list(self._provider_order)
+            providers_snapshot = dict(self._providers)
+
+        available = []
+        for name in provider_order:
+            provider = providers_snapshot.get(name)
+            if provider is not None and provider.is_available:
+                available.append(name)
+        return available
+
+    # ── Extended routing methods ───────────────────────────────────────
+
+    async def generate_with_provider(
+        self,
+        request: ModelLlmAdapterRequest,
+        provider_name: str,
+    ) -> object:
+        """Generate using a specific provider by name.
+
+        Args:
+            request: The LLM request.
+            provider_name: Target provider name.
+
+        Returns:
+            Generated response.
+
+        Raises:
+            KeyError: If provider_name is not registered.
+        """
+        async with self._lock:
+            provider = self._providers.get(provider_name)
+            if provider is None:
+                raise KeyError(
+                    f"Provider '{provider_name}' not registered. "
+                    f"Available: {list(self._providers.keys())}"
+                )
+        return await provider.generate_async(request)
+
+    async def _emit_routing_decided(
+        self,
+        *,
+        request: ModelLlmAdapterRequest,
+        selected_provider: str,
+        is_fallback: bool,
+        candidates_evaluated: int,
+        candidate_providers: list[str],
+        latency_ms: float,
+    ) -> None:
+        """Emit a routing decision event via the registered callback.
+
+        ``selection_mode`` is derived from routing state:
+        - ``"failover"`` when ``is_fallback`` is True (a prior provider failed)
+        - ``"round_robin"`` for a normal first-try load-balanced pick
+
+        ``fallback_indicator`` mirrors ``is_fallback`` using the canonical
+        SOW field name so downstream consumers have a stable contract.
+
+        Non-blocking: failures are logged at warning level and dropped.
+        Events are best-effort observability, not transactional guarantees.
+        """
+        if self._on_routing_decided is None:
+            return
+        try:
+            from datetime import UTC, datetime
+            from uuid import UUID
+
+            raw_cid = getattr(request, "correlation_id", None)
+            try:
+                correlation_id: UUID | None = UUID(str(raw_cid)) if raw_cid else None
+            except (ValueError, AttributeError):
+                correlation_id = None
+
+            selection_mode = "failover" if is_fallback else "round_robin"
+            event = ModelRoutingDecidedEvent(
+                correlation_id=correlation_id,
+                session_id=getattr(request, "session_id", None),
+                selected_provider=selected_provider,
+                selected_tier=_provider_to_tier(selected_provider),
+                selected_model=getattr(request, "model", None) or "",
+                reason="fallback" if is_fallback else "round_robin",
+                selection_mode=selection_mode,
+                fallback_indicator=is_fallback,
+                is_fallback=is_fallback,
+                candidates_evaluated=candidates_evaluated,
+                candidate_providers=candidate_providers,
+                task_type=getattr(request, "task_type", None),
+                latency_ms=latency_ms,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+            await self._on_routing_decided(event.model_dump(mode="json"))
+        except Exception:  # noqa: BLE001 — boundary: best-effort event emission
+            logger.warning(
+                "Failed to emit routing-decided event",
+                exc_info=True,
+            )
+
+    async def health_check_all(
+        self,
+    ) -> dict[str, object]:
+        """Run health checks on all registered providers.
+
+        Returns:
+            Mapping of provider names to health check results.
+        """
+        async with self._lock:
+            providers_snapshot = dict(self._providers)
+        results: dict[str, object] = {}
+        for name, provider in providers_snapshot.items():
+            try:
+                health = await provider.health_check()
+                results[name] = health
+            except Exception as exc:  # noqa: BLE001 — boundary: returns degraded response
+                results[name] = {"error": sanitize_error_string(str(exc))}
+        return results
+
+
+__all__: list[str] = ["AdapterModelRouter"]

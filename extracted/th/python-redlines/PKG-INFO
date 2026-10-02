@@ -1,0 +1,68 @@
+Metadata-Version: 2.5
+Name: python-redlines
+Version: 1.0.0
+Summary: Open-source DOCX comparison tool to generate native Word tracked changes (redlines) in Python without MS Word dependencies.
+Project-URL: Homepage, https://github.com/JSv4/Python-Redlines
+Project-URL: Documentation, https://jsv4.github.io/Python-Redlines/
+Project-URL: Demo, https://redlines.opensource.legal
+Project-URL: Issues, https://github.com/JSv4/Python-Redlines/issues
+Project-URL: Source, https://github.com/JSv4/Python-Redlines
+Author: John Scrudato IV
+License-Expression: MIT
+Keywords: compare-word-documents,diff,docx,docx-comparison,docxodus,legal-tech,openxml,python-docx-diff,redline,track-changes-api,tracked-changes,word
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.9
+Requires-Dist: platformdirs>=3.0
+Provides-Extra: all
+Requires-Dist: python-redlines-docxodus; extra == 'all'
+Requires-Dist: python-redlines-ooxmlpowertools; extra == 'all'
+Provides-Extra: docxodus
+Requires-Dist: python-redlines-docxodus; extra == 'docxodus'
+Provides-Extra: ooxmlpowertools
+Requires-Dist: python-redlines-ooxmlpowertools; extra == 'ooxmlpowertools'
+Description-Content-Type: text/markdown
+
+# python-redlines
+
+Generate tracked-change "redline" `.docx` documents by comparing two Word files.
+
+`python-redlines` is the pure-Python core. The comparison engines themselves are
+compiled .NET binaries shipped in separate, optional companion packages — install
+the one(s) you need as extras:
+
+```bash
+pip install python-redlines[docxodus]          # Docxodus engine
+pip install python-redlines[ooxmlpowertools]    # Open-XML-PowerTools engine
+pip install python-redlines[all]                # both
+```
+
+Binaries are prebuilt for each platform and embedded in the companion package's
+wheel — no .NET SDK and no local compilation are needed to install or use it.
+
+## Usage
+
+```python
+from python_redlines import DocxodusEngine
+
+engine = DocxodusEngine()
+redline_bytes, stdout, stderr = engine.run_redline(
+    "Author Name",
+    original=open("original.docx", "rb").read(),
+    modified=open("modified.docx", "rb").read(),
+)
+```
+
+`DocxodusEngine` accepts `engine="wmlcomparer"` (default) or `engine="docxdiff"` to select the
+comparison algorithm. See the [project README](https://github.com/JSv4/Python-Redlines#choosing-an-engine).
+
+If an engine's companion package is not installed, instantiating the engine
+raises `EngineNotInstalledError` with the `pip install` command to fix it.
+
+See the [project repository](https://github.com/JSv4/Python-Redlines) for details.

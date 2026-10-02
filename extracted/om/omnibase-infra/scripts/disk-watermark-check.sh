@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# disk-watermark-check.sh — Disk-usage watermark alert ratchet (OMN-13008, OMN-13229).
+#
+# WHY: the 2026-06-11 outage had NO pre-detonation alert — /data silently filled
+# until all three lanes crashed. This is the "pages before it detonates" fix.
+# OMN-13229 extends this to the Mac Data volume (/System/Volumes/Data) which was
+# at 91% on 2026-06-18. `df /` on macOS reports the sealed system snapshot and
+# is misleading — always pass --mount /System/Volumes/Data on the Mac.
+#
+# Behavior (df on the target mount):
+#   free_gb <  crit_free_gb (50): emit severity=critical, exit 20. THIS IS THE ONLY
+#                       HALT. Admission is an absolute question -- does the next
+#                       unit of work fit -- so the halt criterion is free space.
+#   free_gb <  warn_free_gb (100): emit severity=warning, exit 10.
+#   used_pct >= warn_pct (85): emit severity=warning, exit 10. The percentage is a
+#                       SECONDARY signal only and can never, on its own, produce
+#                       the critical exit code.
+#   otherwise         : no-op (exit 0, quiet).
+#
+# WHY THE PERCENTAGE IS NOT THE HALT (OMN-17872). Until 2026-09-04 this script
+# halted on percent-used alone -- a warning line at 85% and a critical line at
+# 90% -- while AVAIL_KB was measured and then ignored. On the 3.6 TiB Mac Data volume that called 87 GiB
+# free "critical" and stopped a lane at 2026-09-04T00:52:44Z, and still read
+# critical at 276 GiB free. Percent-used is a ratio; ten points on a 3.6 TiB
+# volume are 360 GB, two orders of magnitude more than any single lane needs.
+# The runner-side gate (docker/runners/runner-job-started.sh, OMN-16363) already
+# used an absolute floor; this is the repo-side guard converted to match.
+#
+# THRESHOLDS ARE NOT ENVIRONMENT-CONFIGURABLE. All three numbers, and the
+# measurements they were derived from, are declared in the guard's own config,
+# scripts/disk-watermark-thresholds.json, and read fail-fast at startup (Rule 8:
+# a missing or malformed declaration aborts, it never falls back to a default).
+#
+# The bus is the transport (ONEX doctrine): this script publishes the typed event
+# and does not itself talk to Linear. Ticket creation is the consumer's job, which
+# keeps a single auto-ticket authority (the sweep) instead of a second one here.
+#
+# Publish path (in preference order):
+#   1. rpk topic produce (present on .201 Redpanda hosts)
+#   2. curl POST to ONEX_BUS_PUBLISH_URL (thin-publish over HTTP; used on the Mac)
+#   3. Log-only if neither is available (event is durable in the log for replay)
+# ONEX_BUS_PUBLISH_URL must be the full endpoint URL from the contract (Rule 6 / Rule 8):
+#   e.g. http://192.168.86.201:3002/api/events   # onex-allow-internal-ip
+# Never hardcode LAN IPs in source; the operator exports ONEX_BUS_PUBLISH_URL.
+#
+# Usage:
+#   ./scripts/disk-watermark-check.sh                                       # check /data (.201)
+#   ./scripts/disk-watermark-check.sh --mount /System/Volumes/Data          # Mac Data volume
+#   ./scripts/disk-watermark-check.sh --dry-run                             # print event, no publish
+#
+# There is deliberately no --warn/--crit flag: a threshold an operator can retype
+# per invocation is not a declared threshold. Edit the JSON, in a reviewed commit.
+#
+# Exit codes: 0 ok (under every threshold, or published), 10 warn breached,
+#             20 crit breached (free space below the floor), 2 bad args or an
+#             unreadable threshold declaration. (Non-zero breach codes let the
+#             timer surface state in `systemctl --user status`.)
+#
+# Runs on .201 via deploy/disk-gc.timer (shares the GC timer). Log: ~/.local/log/onex/disk-watermark.log
+# Runs on Mac via the reaper daemon (T4/OMN-13228) or operator invocation.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MOUNT="/data"
+DRY_RUN=false
+TOPIC="onex.evt.infra.disk-watermark.v1"
+THRESHOLDS_FILE="${SCRIPT_DIR}/disk-watermark-thresholds.json"
+LOG_FILE="${HOME}/.local/log/onex/disk-watermark.log"
+HOSTNAME_TAG="$(hostname -s 2>/dev/null || echo unknown)"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mount) MOUNT="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    --help|-h) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p "$(dirname "$LOG_FILE")"
+log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [disk-watermark] $*" | tee -a "$LOG_FILE" >&2; }
+
+# Thresholds come from the guard's own declaration, fail-fast (Rule 8). A missing
+# or malformed file aborts with exit 2 -- it never falls back to a built-in
+# default, because a silently-defaulted admission threshold is the failure this
+# ticket exists to remove.
+if ! THRESHOLDS_RAW="$(python3 "${SCRIPT_DIR}/disk_watermark_thresholds.py" "$THRESHOLDS_FILE" 2>&1)"; then
+  log "ERROR: unusable threshold declaration ${THRESHOLDS_FILE}: ${THRESHOLDS_RAW}"
+  exit 2
+fi
+read -r CRIT_FREE_GB WARN_FREE_GB WARN_PCT <<<"$THRESHOLDS_RAW"
+
+# Resolve usage for the mount (fall back to / if MOUNT absent).
+#
+# `-k` IS LOAD-BEARING, NOT DECORATION. POSIX `df -P` alone reports 512-byte
+# blocks on BSD/macOS and 1024-byte blocks on GNU/Linux, so the same command
+# returns figures a factor of two apart on the two hosts this guard runs on.
+# While the halt was a percentage that never mattered; now that free space IS
+# the halt, a 2x unit error would admit at half the real floor. Measured on the
+# Mac 2026-09-04: `df -P` avail 579152816 vs `df -Pk` avail 289576408 for the
+# same 276 GiB. The runner-side gate already used `df -Pk`
+# (docker/runners/runner-job-started.sh:697); this matches it.
+target="$MOUNT"
+df -Pk "$target" >/dev/null 2>&1 || target="/"
+USED_PCT="$(df -Pk "$target" | awk 'NR==2 {gsub(/%/,"",$5); print $5}')"
+AVAIL_KB="$(df -Pk "$target" | awk 'NR==2 {print $4}')"
+
+if ! [[ "$USED_PCT" =~ ^[0-9]+$ ]] || ! [[ "$AVAIL_KB" =~ ^[0-9]+$ ]]; then
+  log "ERROR: could not parse df usage for $target"
+  exit 2
+fi
+
+AVAIL_GB=$(( AVAIL_KB / 1024 / 1024 ))
+
+log "mount=$target avail_gb=${AVAIL_GB} (crit_floor=${CRIT_FREE_GB} warn_floor=${WARN_FREE_GB}) used=${USED_PCT}% (advisory warn=${WARN_PCT}%) avail_kb=${AVAIL_KB}"
+
+# Free space is the halt. The percentage only ever warns.
+if (( AVAIL_GB < CRIT_FREE_GB )); then
+  SEVERITY="critical"
+  EXIT_CODE=20
+  HALT_REASON="free_space_below_crit_floor"
+elif (( AVAIL_GB < WARN_FREE_GB )); then
+  SEVERITY="warning"
+  EXIT_CODE=10
+  HALT_REASON="free_space_below_warn_floor"
+elif (( USED_PCT >= WARN_PCT )); then
+  SEVERITY="warning"
+  EXIT_CODE=10
+  HALT_REASON="used_pct_advisory"
+else
+  log "above both free-space floors and under the advisory percentage -- quiet"
+  exit 0
+fi
+
+# Build the typed event payload deterministically in Python so the schema is
+# stable and unit-testable.
+EVENT_JSON="$(
+  USED_PCT="$USED_PCT" AVAIL_KB="$AVAIL_KB" AVAIL_GB="$AVAIL_GB" MOUNT="$target" \
+  SEVERITY="$SEVERITY" HALT_REASON="$HALT_REASON" WARN_PCT="$WARN_PCT" \
+  CRIT_FREE_GB="$CRIT_FREE_GB" WARN_FREE_GB="$WARN_FREE_GB" \
+  HOSTNAME_TAG="$HOSTNAME_TAG" TOPIC="$TOPIC" \
+  python3 "${SCRIPT_DIR}/disk_watermark_event.py"
+)"
+
+log "event: $EVENT_JSON"
+
+if [[ "$DRY_RUN" == true ]]; then
+  echo "$EVENT_JSON"
+  log "DRY-RUN — not publishing (severity=$SEVERITY)"
+  exit "$EXIT_CODE"
+fi
+
+# Publish to the bus.
+#
+# Method 1: rpk (present on .201 Redpanda hosts). Broker address from KAFKA_BOOTSTRAP_SERVERS.
+# Method 2: curl thin-publish to ONEX_BUS_PUBLISH_URL (Mac or any host without rpk).
+# Method 3: log-only if neither is configured (event is durable in the log for replay).
+#
+# The broker/URL address MUST come from env — fail-fast, no localhost/default fallback
+# (Rule 8, OMN-10741). We never hardcode broker addresses or LAN IPs in source.
+_published=false
+if command -v rpk >/dev/null 2>&1 && [[ -n "${KAFKA_BOOTSTRAP_SERVERS:-}" ]]; then
+  BOOTSTRAP="$KAFKA_BOOTSTRAP_SERVERS"
+  if echo "$EVENT_JSON" | rpk topic produce "$TOPIC" --brokers "$BOOTSTRAP" >>"$LOG_FILE" 2>&1; then
+    log "published $SEVERITY event to $TOPIC via rpk (broker=$BOOTSTRAP)"
+    _published=true
+  else
+    log "FAILED to publish via rpk (broker=$BOOTSTRAP) — falling through to HTTP publish"
+  fi
+fi
+
+if [[ "$_published" == false ]] && [[ -n "${ONEX_BUS_PUBLISH_URL:-}" ]]; then
+  # HTTP thin-publish path (Mac / hosts without rpk).
+  # ONEX_BUS_PUBLISH_URL must be the complete endpoint URL from the contract.
+  _http_status="$(
+    curl -sS -o /dev/null -w "%{http_code}" \
+      -X POST "${ONEX_BUS_PUBLISH_URL}" \
+      -H "Content-Type: application/json" \
+      -d "$EVENT_JSON" 2>>"$LOG_FILE"
+  )"
+  if [[ "$_http_status" =~ ^2 ]]; then
+    log "published $SEVERITY event to $TOPIC via HTTP (url=${ONEX_BUS_PUBLISH_URL} status=${_http_status})"
+    _published=true
+  else
+    log "FAILED to publish via HTTP (url=${ONEX_BUS_PUBLISH_URL} status=${_http_status}) — event logged above for manual replay"
+  fi
+fi
+
+if [[ "$_published" == false ]]; then
+  if [[ -z "${KAFKA_BOOTSTRAP_SERVERS:-}" ]] && [[ -z "${ONEX_BUS_PUBLISH_URL:-}" ]]; then
+    log "KAFKA_BOOTSTRAP_SERVERS and ONEX_BUS_PUBLISH_URL both unset — event logged above for manual replay."
+  fi
+fi
+
+exit "$EXIT_CODE"

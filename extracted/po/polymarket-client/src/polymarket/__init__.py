@@ -8,6 +8,7 @@ from polymarket.errors import (
     ConnectionLostError,
     InsufficientAllowanceError,
     InsufficientLiquidityError,
+    PaginationLimitError,
     PolymarketError,
     RateLimitError,
     RequestRejectedError,
@@ -177,6 +178,7 @@ from polymarket.models.data import (
     PortfolioValue,
     Position,
     PositionFilterType,
+    PositionRowStatus,
     PositionSortBy,
     PositionStatus,
     PositionStatusFilter,
@@ -212,6 +214,19 @@ from polymarket.models.data import (
     UserVolume,
     WithdrawalActivity,
     YieldActivity,
+)
+from polymarket.models.perps.builder_events import PerpsBuilderFillEvent
+from polymarket.models.perps.builders import (
+    PerpsBuilderApproval,
+    PerpsBuilderAttribution,
+    PerpsBuilderEarning,
+    PerpsBuilderEarningsAsset,
+    PerpsBuilderEarningsPage,
+    PerpsBuilderEarningsPaginator,
+    PerpsBuilderEarningsSnapshot,
+    PerpsBuilderEarningsSummary,
+    PerpsBuilderStatus,
+    PerpsLiquidityRole,
 )
 from polymarket.pagination import AsyncPaginator, Page, Paginator
 from polymarket.rate_limit import RateLimitUpdate, RateLimitUpdateListener
@@ -277,6 +292,17 @@ from polymarket.types import EvmAddress, HexString, TransactionHash
 from polymarket.version import __version__
 
 __all__ = [
+    "PerpsBuilderAttribution",
+    "PerpsBuilderStatus",
+    "PerpsBuilderApproval",
+    "PerpsLiquidityRole",
+    "PerpsBuilderEarning",
+    "PerpsBuilderEarningsSnapshot",
+    "PerpsBuilderEarningsAsset",
+    "PerpsBuilderEarningsSummary",
+    "PerpsBuilderEarningsPage",
+    "PerpsBuilderEarningsPaginator",
+    "PerpsBuilderFillEvent",
     "Activity",
     "ActivityType",
     "ActivityTypeFilter",
@@ -317,6 +343,7 @@ __all__ = [
     "PortfolioValue",
     "Position",
     "PositionFilterType",
+    "PositionRowStatus",
     "PositionSortBy",
     "PositionStatus",
     "PositionStatusFilter",
@@ -441,6 +468,7 @@ __all__ = [
     "OrderSide",
     "OrderType",
     "Page",
+    "PaginationLimitError",
     "Paginator",
     "PerpsBalance",
     "PerpsBook",

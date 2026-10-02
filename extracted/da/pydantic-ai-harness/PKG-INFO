@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.52.0
+Version: 0.53.0
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://pydantic.dev/docs/ai/harness/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -24,29 +24,31 @@ Requires-Python: >=3.10
 Requires-Dist: genai-prices>=0.0.71
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-repair>=0.58.0
-Requires-Dist: pydantic-ai-slim==2.52.0
+Requires-Dist: pydantic-ai-slim==2.53.0
+Provides-Extra: absurd
+Requires-Dist: absurd-sdk<1,>=0.5.0; extra == 'absurd'
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: anthropic
-Requires-Dist: pydantic-ai-slim[anthropic]==2.52.0; extra == 'anthropic'
+Requires-Dist: pydantic-ai-slim[anthropic]==2.53.0; extra == 'anthropic'
 Provides-Extra: aws-lambda
 Requires-Dist: aws-durable-execution-sdk-python<2,>=1.7.0; (python_full_version >= '3.11') and extra == 'aws-lambda'
 Provides-Extra: browser-use
 Requires-Dist: browser-use<0.14,>=0.13.6; (python_full_version >= '3.11') and extra == 'browser-use'
 Provides-Extra: cli
-Requires-Dist: pydantic-ai-slim[cli]==2.52.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[cli]==2.53.0; extra == 'cli'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.52.0; extra == 'code-mode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.53.0; extra == 'code-mode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'code-mode'
 Provides-Extra: codemode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.52.0; extra == 'codemode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.53.0; extra == 'codemode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'codemode'
 Provides-Extra: coder
 Requires-Dist: ripgrep==14.1.0; (sys_platform != 'android') and extra == 'coder'
 Provides-Extra: day-ai
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'day-ai'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'day-ai'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.52.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.53.0; extra == 'dbos'
 Provides-Extra: dynamic-workflow
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'dynamic-workflow'
 Provides-Extra: e2b
@@ -54,51 +56,51 @@ Requires-Dist: e2b>=2.48.0; extra == 'e2b'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: github
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'github'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'github'
 Provides-Extra: google-workspace
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'google-workspace'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'google-workspace'
 Provides-Extra: grain
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'grain'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'grain'
 Provides-Extra: linear
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'linear'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'linear'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
-Requires-Dist: pydantic-ai-slim[spec]==2.52.0; extra == 'logfire'
+Requires-Dist: pydantic-ai-slim[spec]==2.53.0; extra == 'logfire'
 Requires-Dist: pydantic-handlebars>=0.2.1; extra == 'logfire'
 Provides-Extra: logfire-mcp
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'logfire-mcp'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'logfire-mcp'
 Provides-Extra: modal
 Requires-Dist: modal>=1.5.2; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.17.0; extra == 'mongodb'
 Provides-Extra: notion
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'notion'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'notion'
 Provides-Extra: ordinal
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'ordinal'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'ordinal'
 Provides-Extra: playwright
 Requires-Dist: idna>=3.4; extra == 'playwright'
 Requires-Dist: playwright>=1.61.0; extra == 'playwright'
 Provides-Extra: posthog
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'posthog'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'posthog'
 Provides-Extra: prompt-injection-defender
 Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender'
 Provides-Extra: prompt-injection-defender-ml
 Requires-Dist: stackone-defender[onnx]<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender-ml'
 Provides-Extra: pylon
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'pylon'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'pylon'
 Provides-Extra: researcher
-Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.52.0; extra == 'researcher'
+Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.53.0; extra == 'researcher'
 Provides-Extra: skills
 Requires-Dist: pyyaml>=6.0.2; extra == 'skills'
 Provides-Extra: slack
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'slack'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'slack'
 Provides-Extra: sprites
 Requires-Dist: sprites-py<0.8,>=0.7.0; extra == 'sprites'
 Provides-Extra: stackone
 Requires-Dist: fastmcp<4,>=3.4.5; extra == 'stackone'
-Requires-Dist: pydantic-ai-slim[mcp]==2.52.0; extra == 'stackone'
+Requires-Dist: pydantic-ai-slim[mcp]==2.53.0; extra == 'stackone'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.52.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.53.0; extra == 'temporal'
 Provides-Extra: youdotcom
 Requires-Dist: youdotcom<3.2,>=3.1.2; extra == 'youdotcom'
 Description-Content-Type: text/markdown
@@ -346,6 +348,7 @@ Bounding what the agent may do, and keeping it on-instructions.
 | [Spend Limits](pydantic_ai_harness/spend/) | Harness | Cross-window USD/token budgets and per-response cost tracking, per model and per tenant |
 | [Ask User](pydantic_ai_harness/ask_user/) | Harness | Let the model ask the user multiple-choice questions mid-run; you supply the answerer (terminal, web, test) |
 | [Tool approval](https://ai.pydantic.dev/deferred-tools#human-in-the-loop-tool-approval) | Core | Flag tool calls that need human approval before they run |
+| [Tool Call Judge](pydantic_ai_harness/tool_call_judge/) | Harness | A second model answers one risk question per tool call and blocks the call before the tool function runs |
 | [Handle Deferred Tool Calls](https://ai.pydantic.dev/capabilities/handle-deferred-tool-calls/) | Core | Resolve approval-deferred tool calls programmatically |
 | [System Reminders](pydantic_ai_harness/system_reminders/) | Harness | Cache-safe re-injection of guidance mid-run to counter instruction fade |
 | [Trajectory Judge](pydantic_ai_harness/trajectory_judge/) | Harness | A second model reviews the live run every N requests over a sliding token window and steers it mid-run |
@@ -364,6 +367,7 @@ Outside the loop: how runs persist, survive failures, and get observed and confi
 |---|---|---|
 | [Durable execution](https://ai.pydantic.dev/capabilities/durable_execution/overview/) | Core | Runs that survive restarts and failures on [Temporal](https://ai.pydantic.dev/capabilities/durable_execution/temporal/), [DBOS](https://ai.pydantic.dev/capabilities/durable_execution/dbos/), or [Prefect](https://ai.pydantic.dev/capabilities/durable_execution/prefect/), with [Restate](https://ai.pydantic.dev/capabilities/durable_execution/restate/), [Kitaru](https://ai.pydantic.dev/capabilities/durable_execution/kitaru/), and [Airflow](https://ai.pydantic.dev/capabilities/durable_execution/airflow/) integrations. See [what works on each engine](https://pydantic.dev/docs/ai/harness/durable-execution/) for Coder, Shell, and FileSystem |
 | [AWS Lambda durability](pydantic_ai_harness/aws_lambda/) | Harness | Checkpoint model requests and tool calls into AWS Lambda durable function steps |
+| [Absurd durability](pydantic_ai_harness/absurd/) | Harness | Checkpoint model requests, MCP calls, and tool calls into Absurd steps on PostgreSQL |
 | [Step Persistence](pydantic_ai_harness/step_persistence/) | Harness | Save, restore, resume (`continue_run`), and fork (`fork_run`) runs; file/SQLite/Mongo backends |
 | [Instrumentation](https://ai.pydantic.dev/capabilities/instrumentation/) | Core | OpenTelemetry GenAI spans for every model and tool call; the raw material for [Logfire](https://pydantic.dev/logfire) traces |
 | [Logfire MCP](pydantic_ai_harness/logfire_mcp/) | Harness | Query Logfire telemetry and manage observability resources. |

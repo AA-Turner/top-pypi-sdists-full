@@ -46,14 +46,19 @@ class SqlServiceStub:
         GetOfflineQueryInputsRequest,
         GetOfflineQueryInputsResponse,
     ]
+    """Deprecated: returns UNIMPLEMENTED. Query the offline query's data with ChalkSQL
+    (ExecuteSqlQuery) and get_dataset_revision / get_dataset_givens instead.
+    """
     GetOfflineQueryPreview: UnaryUnaryMultiCallable[
         GetOfflineQueryPreviewRequest,
         GetOfflineQueryPreviewResponse,
     ]
+    """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
     GetOfflineQueryStats: UnaryUnaryMultiCallable[
         GetOfflineQueryStatsRequest,
         GetOfflineQueryStatsResponse,
     ]
+    """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
     ExecuteSqlQuery: UnaryUnaryMultiCallable[
         ExecuteSqlQueryRequest,
         ExecuteSqlQueryResponse,
@@ -100,19 +105,24 @@ class SqlServiceServicer(metaclass=ABCMeta):
         self,
         request: GetOfflineQueryInputsRequest,
         context: ServicerContext,
-    ) -> GetOfflineQueryInputsResponse: ...
+    ) -> GetOfflineQueryInputsResponse:
+        """Deprecated: returns UNIMPLEMENTED. Query the offline query's data with ChalkSQL
+        (ExecuteSqlQuery) and get_dataset_revision / get_dataset_givens instead.
+        """
     @abstractmethod
     def GetOfflineQueryPreview(
         self,
         request: GetOfflineQueryPreviewRequest,
         context: ServicerContext,
-    ) -> GetOfflineQueryPreviewResponse: ...
+    ) -> GetOfflineQueryPreviewResponse:
+        """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
     @abstractmethod
     def GetOfflineQueryStats(
         self,
         request: GetOfflineQueryStatsRequest,
         context: ServicerContext,
-    ) -> GetOfflineQueryStatsResponse: ...
+    ) -> GetOfflineQueryStatsResponse:
+        """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
     @abstractmethod
     def ExecuteSqlQuery(
         self,

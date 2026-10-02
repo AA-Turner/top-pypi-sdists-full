@@ -1,0 +1,489 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+fallback_version = "1.4.0"
+
+[tool.uv]
+required-version = ">=0.7.0"
+constraint-dependencies = [
+    "aiohttp>=3.14.3",                # CVE-2026-69244: parser DoS
+    "authlib>=1.6.11",                 # CVE-2026-41425 + 7 more: account takeover, JWE padding oracle, sig bypass
+    "cryptography>=48.0.1",            # CVE-2026-39892: buffer overflow; CVE-2026-34073: DNS constraint bypass
+    "fonttools>=4.60.2",
+    "gitpython>=3.1.47",               # Command injection via Git options bypass
+    "h11>=0.16.0",
+    "idna>=3.15",
+    "joserfc>=1.6.8",
+    "langgraph-checkpoint>=4.1.1",
+    "langgraph-sdk>=0.3.15",
+    "langsmith>=0.8.18",
+    "lxml>=6.1.1",                     # Multiple CVEs
+    "msgpack>=1.2.1",
+    "pillow>=12.3.0",                  # CVE-2026-42311: PSD RCE; CVE-2026-55379/55380/54060: font/GD DoS
+    "protobuf>=5.29.6",               # CVE-2025-4565 + CVE-2026-0994: parsing vulnerabilities
+    "pyasn1>=0.6.4",                   # CVE-2026-30922: DoS via unbounded recursion
+    "pydantic-settings>=2.14.2",
+    "python-engineio>=4.13.2",
+    "python-multipart>=0.0.31",        # CVE-2026-40347: header injection; CVE-2026-42561: DoS via oversized headers
+    "python-socketio>=5.16.2",         # CVE-2025-61765: RCE via pickle deserialization
+    "requests>=2.34.2",
+    "setuptools<81",                   # milvus-lite imports pkg_resources; setuptools 81+ removes it
+    "starlette>=1.3.1",                # CVE-2026-48710
+    "tornado>=6.5.6",
+    "urllib3>=2.7.0",                  # CVE-2026-44432: DoS via excessive decompression; CVE-2026-44431: cross-origin redirect header leak
+    "transformers>=4.57.2,<5.0.0",     # CVE-2026-1839 fix only in 5.x; ogx doesn't use Trainer; 5.x breaks HybridCache imports
+    "werkzeug>=3.1.6",                 # CVE-2025-66221 + 2 more: safe_join() device name bypass
+]
+
+[project]
+name = "ogx"
+dynamic = ["version"]
+authors = [{ name = "The OGX Contributors", email = "contributors@ogx.dev" }]
+description = "Open-source, OpenAI-compatible API server with pluggable providers for any model and any infrastructure"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { "text" = "MIT" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "PyYAML>=6.0",
+    "fastapi>=0.115.0,<1.0",                          # server
+    "httpx",
+    "jinja2>=3.1.6",
+    "jsonschema",
+    "ogx-api",                                # API and provider specifications (local dev via tool.uv.sources)
+    "openai>=2.41.0",
+    "python-dotenv>=1.2.2",                              # CVE-2026-28684: arbitrary file overwrite via symlink following
+    "pyjwt[crypto]>=2.13.0",                          # Pull crypto to support RS256 for jwt. CVE-2026-48526: auth bypass via forged JWTs.
+    "pydantic>=2.11.9",
+    "rich",
+    "structlog>=24.1.0",
+    "termcolor",
+    "tiktoken",
+    "uvicorn>=0.34.0",                                # server
+    "websockets>=14.0",                               # server - WebSocket transport for the Responses API
+    "opentelemetry-sdk>=1.42.1",                      # server
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0", # server
+    "opentelemetry-exporter-otlp-proto-grpc>=1.30.0", # server (auto-instrumentation default)
+    "opentelemetry-exporter-prometheus>=0.60b1",      # server - Prometheus /metrics scrape endpoint; only pre-releases on PyPI
+    "opentelemetry-distro>=0.60b1",                  # optional CLI instrumentation; only pre-releases on PyPI (latest 0.60b1)
+    "aiosqlite>=0.21.0",                              # server - for metadata store
+    "asyncpg",                                        # for metadata store
+    "sqlalchemy[asyncio]>=2.0.41",                    # server - for conversations
+    "mcp>=1.28.1,<2.0",                                # for connectors
+    "zstandard>=0.23.0",                              # server - zstd request decompression
+    "models-dev>=1.0.398",
+]
+
+[project.optional-dependencies]
+client = [
+    "ogx-client==1.4.0", # Optional for library-only usage
+]
+openclient = [
+    "ogx-open-client>=1.0.2",
+]
+starter = [
+    "aiohttp",
+    "anthropic>=0.105.2",
+    "autoevals",
+    "boto3>=1.43.18",
+    "chardet",
+    "chromadb-client",
+    "datasets>=4.0.0",
+    "docling-slim[service-client]>=2.117.0",  # Chunk output through the convert endpoint added in 2.117.0
+    "einops",
+    "elasticsearch>=8.16.0,<9.0.0",
+    "emoji",
+    "faiss-cpu",
+    "fire",
+    "fireworks-ai<=0.17.16",
+    "google-genai>=1.69.0,<2",
+    "langdetect",
+    "markitdown[all]",
+    "matplotlib",
+    "nltk>=3.10.3",                                      # Multiple CVEs
+    "neo4j",
+    "numpy",
+    "ollama",
+    "pandas",
+    "pillow",
+    "pgvector>=0.3.0",
+    "pymilvus[milvus-lite]>=2.4.10",
+    "pymongo",
+    "pypdf>=6.13.3",
+    "pythainlp",
+    "qdrant-client",
+    "redis>=8.0.0",
+    "requests",
+    "safetensors",
+    "scipy",
+    "sentence-transformers>=5.6.0",
+    "sentencepiece",
+    "sqlite-vec",
+    "together>=2",
+    "tokenizers",
+    "torch>=2.13.0",
+    "tqdm",
+    "tree_sitter",
+    "unstructured-client>=0.25.0",
+    "weaviate-client>=4.16.5",
+]
+
+[dependency-groups]
+# The dev group contains everything needed for development: unit and integration test
+# dependencies, type stubs for complete mypy coverage, and developer tooling.
+# If a provider requires additional dependencies for testing, add them here too.
+dev = [
+    # Test dependencies (unit + integration)
+    "aiohttp",
+    "aiosqlite",
+    "anthropic>=0.105.2",
+    "asyncpg>=0.29.0",
+    "autoevals",
+    "blobfile",
+    "chardet",
+    "chromadb>=1.0.15",
+    "coverage",
+    "databricks-sdk>=0.114.0",
+    "datasets>=4.0.0",
+    "docling-slim[service-client]>=2.117.0",  # Chunk output through the convert endpoint added in 2.117.0
+    "elasticsearch>=8.16.0, <9.0.0",
+    "faiss-cpu",
+    "fairscale",
+    "google-genai>=1.69.0,<2",
+    "langchain-core>=0.3.85",                            # CVE-2026-44843: insecure deserialization
+    "langchain-openai>=1.2.2",
+    "langgraph",
+    "lm-format-enforcer",
+    "markitdown[all]",
+    "mcp>=1.28.1,<2.0",
+    "milvus-lite>=2.5.0; platform_machine == 'x86_64' or platform_machine == 'aarch64' or platform_machine == 'arm64'",
+    "moto[s3]>=5.1.10",
+    "nest-asyncio",
+    "neo4j",
+    "ollama",
+    "peft",
+    "pgvector>=0.3.0",
+    "psycopg2-binary>=2.9.0",
+    "pymilvus>=2.6.2",
+    "pymongo",
+    "pypdf>=6.13.3",
+    "qdrant-client",
+    "requests",
+    "sqlalchemy[asyncio]>=2.0.41",
+    "sqlite-vec",
+    "together>=2",
+    "torch>=2.13.0",
+    "torchtune",
+    "torchvision>=0.27.0",
+    "transformers",
+    "trl>=1.5.0",
+    "unstructured-client>=0.25.0",
+    "weaviate-client>=4.16.4",
+    # Type stubs and optional runtime dependencies for complete mypy coverage
+    "boto3-stubs[s3]",
+    "pandas",
+    "pandas-stubs",
+    "streamlit>=1.58.0",
+    "streamlit-option-menu",
+    "types-jsonschema",
+    "types-psutil>=7.2.2.20260518",
+    "types-requests",
+    "types-setuptools",
+    "types-tqdm",
+    # Developer tooling
+    "black>=26.5.1",
+    "boto3>=1.43.18",
+    "mypy",
+    "nbval",                         # For notebook testing
+    "ogx-open-client>=1.0.2",
+    "openapi-spec-validator>=0.9.0",
+    "pre-commit>=4.4.0",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov",
+    "pytest-html",
+    "pytest-json-report",
+    "pytest-socket>=0.8.0",                 # For blocking network access in unit tests
+    "pytest-timeout",
+    "ruff>=0.15.14",
+    "ruamel.yaml",                   # needed for openapi generator
+]
+docs = [
+    "setuptools",
+    "sphinx-autobuild",
+    "myst-parser>=5.1.0",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx_rtd_dark_mode",
+    "sphinx-copybutton",
+    "sphinx-tabs",
+    "sphinx-design",
+    "sphinxcontrib.redoc",
+    "sphinxcontrib.video",
+    "sphinxcontrib.mermaid",
+    "sphinx-reredirects",
+    "tomli",
+    "linkify",
+    "sphinxcontrib.openapi",
+    "requests",
+]
+codegen = ["rich", "pydantic>=2.11.9", "jinja2>=3.1.6"]
+benchmark = ["locust>=2.39.1"]
+
+[project.urls]
+Homepage = "https://github.com/ogx-ai/ogx"
+
+[project.scripts]
+ogx = "ogx.cli.ogx:main"
+install-wheel-from-presigned = "ogx.cli.scripts.run:install_wheel_from_presigned"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+    "ogx",
+    "ogx.*",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+ogx-api = [{ path = "src/ogx_api", editable = true }]
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    "./.git",
+    "./docs/*",
+    "./build",
+    "./venv",
+    "*.pyi",
+    ".pre-commit-config.yaml",
+    "*.md",
+    ".flake8",
+    "benchmarking/k8s-benchmark/results",
+]
+
+[tool.ruff.lint]
+select = [
+    "UP",      # pyupgrade
+    "B",       # flake8-bugbear
+    "B9",      # flake8-bugbear subset
+    "C",       # comprehensions
+    "E",       # pycodestyle
+    "F",       # Pyflakes
+    "N",       # Naming
+    "W",       # Warnings
+    "S",       # flake8-bandit (security)
+    "DTZ",     # datetime rules
+    "I",       # isort (imports order)
+    "RUF001",  # Checks for ambiguous Unicode characters in strings
+    "RUF002",  # Checks for ambiguous Unicode characters in docstrings
+    "RUF003",  # Checks for ambiguous Unicode characters in comments
+    "PLC2401", # Checks for the use of non-ASCII characters in variable names
+    "PLC2403", # Checks for the use of non-ASCII characters in import statements
+    "PLE2510", # Checks for strings that contain the control character BS.
+    "PLE2512", # Checks for strings that contain the raw control character SUB.
+    "PLE2513", # Checks for strings that contain the raw control character ESC.
+    "PLE2514", # Checks for strings that contain the raw control character NUL (0 byte).
+    "PLE2515", # Checks for strings that contain the zero width space character.
+    "D101",    # Missing docstring in public class
+]
+ignore = [
+    # The following ignores are desired by the project maintainers.
+    "E402", # Module level import not at top of file
+    "E501", # Line too long
+    "F405", # Maybe undefined or defined from star import
+    "C408", # Ignored because we like the dict keyword argument syntax
+    "N812", # Ignored because import torch.nn.functional as F is PyTorch convention
+
+    # These are the additional ones we started ignoring after moving to ruff. We should look into each one of them later.
+    "C901", # Complexity of the function is too high
+
+    # Security rules: assert is used extensively as an internal invariant pattern
+    "S101", # Use of assert detected
+]
+unfixable = [
+    "PLE2515",
+] # Do not fix this automatically since ruff will replace the zero-width space with \u200b - let's do it manually
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# Ignore the following errors for the following files
+# TODO: Fix in follow up PRs
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["DTZ", "D101", "S104", "S105", "S106", "S108", "S110", "S310", "S311", "S603", "S607", "S608"] # Ignore datetime, docstring, and security false positives for tests
+"benchmarking/**/*.py" = ["D101", "S104", "S110", "S311"] # Ignore docstring and security rules for benchmarking scripts
+"client-sdks/**/*.py" = ["D101", "S110", "S112", "S113"] # Ignore docstring and security rules for client SDKs
+"scripts/**/*.py" = ["D101", "S110", "S112", "S603", "S607"] # Ignore docstring and security rules for scripts
+"src/ogx/apis/**/__init__.py" = [
+    "F403",
+] # Using import * is acceptable (or at least tolerated) in an __init__.py of a package API
+# Security rule suppressions for known false positives
+"src/ogx/core/datatypes.py" = ["S105"] # Enum values like OAUTH2_TOKEN are not hardcoded secrets
+"src/ogx/distributions/**/*.py" = ["S106"] # Env var template defaults (e.g. ${env.PGVECTOR_PASSWORD:=})
+"src/ogx/providers/remote/vector_io/neo4j/config.py" = ["S107"] # Env var template defaults in sample_run_config
+"src/ogx/providers/remote/vector_io/pgvector/config.py" = ["S107"] # Env var template defaults in sample_run_config
+"src/ogx/cli/**/*.py" = ["S603", "S607"] # CLI tools legitimately invoke subprocesses
+"src/ogx/core/utils/exec.py" = ["S603"] # Command execution utility
+"src/ogx/core/storage/**/*.py" = ["S608"] # Table name interpolation covered by custom SQL injection hook
+"src/ogx/providers/**/vector_io/**/*.py" = ["S608"] # Table name interpolation covered by custom SQL injection hook
+"src/ogx/core/library_client.py" = ["S112"] # Intentional try-except-continue for type coercion
+"src/ogx/core/routers/tool_runtime.py" = ["S110"] # Intentional try-except-pass for optional metric context
+"src/ogx/core/routing_tables/models.py" = ["S112"] # Intentional try-except-continue for credential probing
+"src/ogx/providers/inline/messages/impl.py" = ["S110"] # Intentional try-except-pass for optional model lookup
+"src/ogx/providers/utils/memory/openai_vector_store_mixin.py" = ["S112", "S311"] # Intentional retry logic
+"src/ogx/testing/api_recorder.py" = ["S110", "S310"] # Test infrastructure
+
+[tool.mypy]
+mypy_path = ["src"]
+packages = ["ogx", "ogx_api"]
+plugins = ['pydantic.mypy']
+disable_error_code = []
+warn_return_any = true
+# # honor excludes by not following there through imports
+follow_imports = "silent"
+# Note: some entries are directories, not files. This is because mypy doesn't
+# respect __init__.py excludes, so the only way to suppress these right now is
+# to exclude the entire directory.
+exclude = [
+    # ============================================================================
+    # Section 1: Files that need type hints added (0 files)
+    # ============================================================================
+    # All files now have type annotations! 🎉
+    #
+    # ============================================================================
+    # Section 2: Files that need strict typing issues fixed (91 files)
+    # ============================================================================
+    # These files have some type hints but fail strict type checking due to
+    # incomplete annotations, Any usage, or other strict mode violations.
+    #
+    # CLI files (7 files)
+    "^src/ogx/cli/stack/_list_deps\\.py$",
+    "^src/ogx/cli/stack/list_apis\\.py$",
+    "^src/ogx/cli/stack/list_deps\\.py$",
+    "^src/ogx/cli/stack/list_providers\\.py$",
+    "^src/ogx/cli/stack/run\\.py$",
+    "^src/ogx/cli/stack/utils\\.py$",
+    "^src/ogx/cli/subcommand\\.py$",
+    # Providers - Inline (22 files)
+    "^src/ogx/providers/inline/batches/reference/__init__\\.py$",
+    "^src/ogx/providers/inline/batches/reference/batches\\.py$",
+    "^src/ogx/providers/inline/file_processor/pypdf/__init__\\.py$",
+    "^src/ogx/providers/inline/file_processor/pypdf/adapter\\.py$",
+    "^src/ogx/providers/inline/file_processor/pypdf/pypdf\\.py$",
+    "^src/ogx/providers/inline/files/localfs/__init__\\.py$",
+    "^src/ogx/providers/inline/tool_runtime/file_search/__init__\\.py$",
+    "^src/ogx/providers/inline/tool_runtime/file_search/context_retriever\\.py$",
+    "^src/ogx/providers/inline/tool_runtime/file_search/file_search\\.py$",
+    "^src/ogx/providers/inline/vector_io/chroma/__init__\\.py$",
+    "^src/ogx/providers/inline/vector_io/faiss/__init__\\.py$",
+    "^src/ogx/providers/inline/vector_io/faiss/faiss\\.py$",
+    "^src/ogx/providers/inline/vector_io/milvus/__init__\\.py$",
+    "^src/ogx/providers/inline/vector_io/qdrant/__init__\\.py$",
+    "^src/ogx/providers/inline/vector_io/sqlite_vec/__init__\\.py$",
+    "^src/ogx/providers/inline/vector_io/sqlite_vec/sqlite_vec\\.py$",
+    # Providers - Remote
+    "^src/ogx/providers/remote/files/openai/__init__\\.py$",
+    "^src/ogx/providers/remote/files/s3/__init__\\.py$",
+    "^src/ogx/providers/remote/inference/ollama/ollama\\.py$",
+    "^src/ogx/providers/remote/vector_io/infinispan/__init__\\.py$",
+    "^src/ogx/providers/remote/vector_io/infinispan/infinispan\\.py$",
+    "^src/ogx/providers/remote/vector_io/oci/__init__\\.py$",
+    "^src/ogx/providers/remote/vector_io/oci/oci26ai\\.py$",
+    # Providers - Utils
+    "^src/ogx/providers/utils/bedrock/client\\.py$",
+    "^src/ogx/providers/utils/bedrock/config\\.py$",
+    "^src/ogx/providers/utils/bedrock/refreshable_boto_session\\.py$",
+    "^src/ogx/providers/utils/common/data_url\\.py$",
+    "^src/ogx/providers/utils/inference/inference_store\\.py$",
+    "^src/ogx/providers/utils/inference/model_registry\\.py$",
+    "^src/ogx/providers/utils/memory/vector_store\\.py$",
+    "^src/ogx/providers/utils/responses/responses_store\\.py$",
+    "^src/ogx/providers/utils/tools/mcp\\.py$",
+    "^src/ogx/providers/utils/tools/ttl_dict\\.py$",
+    "^src/ogx/providers/utils/vector_io/vector_utils\\.py$",
+    # Distributions (1 files)
+    "^src/ogx/distributions/template\\.py$",
+    # Other (3 files)
+    "^src/ogx/log\\.py$",
+    "^src/ogx/models/llama/sku_types\\.py$",
+    "^src/ogx/testing/api_recorder\\.py$",
+    #
+    # ============================================================================
+    # Directory Excludes (19 directories)
+    # ============================================================================
+    # These are entire directories excluded from type checking. Files within
+    # these directories need to be analyzed individually and moved to Section 1
+    # or Section 2 as appropriate.
+    #
+    # Core directories
+    "^src/ogx/core/routers/",
+    "^src/ogx/core/routing_tables/",
+    # Provider directories - Remote
+    "^src/ogx/providers/remote/inference/bedrock/",
+    "^src/ogx/providers/remote/inference/oci/",
+    "^src/ogx/providers/remote/inference/watsonx/",
+    "^src/ogx/providers/remote/tool_runtime/bing_search/",
+    "^src/ogx/providers/remote/tool_runtime/brave_search/",
+    "^src/ogx/providers/remote/tool_runtime/model_context_protocol/",
+    "^src/ogx/providers/remote/tool_runtime/tavily_search/",
+    "^src/ogx/providers/remote/tool_runtime/wolfram_alpha/",
+    "^src/ogx/providers/remote/vector_io/chroma/",
+    "^src/ogx/providers/remote/vector_io/elasticsearch/",
+    "^src/ogx/providers/remote/vector_io/milvus/",
+    "^src/ogx/providers/remote/vector_io/pgvector/",
+    "^src/ogx/providers/remote/vector_io/qdrant/",
+    "^src/ogx/providers/remote/vector_io/weaviate/",
+]
+
+[[tool.mypy.overrides]]
+# packages that lack typing annotations, do not have stubs, or are unavailable.
+module = [
+    "yaml",
+    "fire",
+    "redis.asyncio",
+    "torchtune.*",
+    "fairscale.*",
+    "torchvision.*",
+    "datasets",
+    "nest_asyncio",
+    "streamlit_option_menu",
+    "lmformatenforcer.*",
+    "google.genai.*",
+    "docling.*",
+    "docling_core.*",
+    "unstructured.*",
+    "unstructured_client.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["classmethod", "pydantic.field_validator"]
+
+[tool.pytest.ini_options]
+addopts = ["--durations=10"]
+asyncio_mode = "auto"
+markers = ["allow_network: Allow network access for specific unit tests"]
+filterwarnings = "ignore::DeprecationWarning"

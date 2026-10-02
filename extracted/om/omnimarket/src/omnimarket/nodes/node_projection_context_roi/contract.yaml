@@ -1,0 +1,138 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Context-ROI scores projection (OMN-12955)
+#
+# Projects the per-(task x arm x trial) attempt-reduction rows carried on the
+# context-ROI runner terminal event into the context_roi_scores table, and
+# exposes that table through the projection API on
+#   onex.snapshot.projection.context.experiment-scores.v1  # onex-topic-allow: projection snapshot topics use the onex.snapshot.* prefix by convention
+# so the omnidash /experiments ContextExperimentHero + ContextEffectivenessHeatmap
+# panels read live experiment output instead of failing with unknown_topic.
+---
+name: projection_context_roi
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_projection_context_roi.handlers.handler_projection_context_roi.ModelContextRoiRunCompletedEvent
+description: >
+  Projects context-ROI experiment runner output into the context_roi_scores
+  table. Source topics: onex.evt.omnimarket.context-roi-run-completed.v1 AND
+  onex.evt.omnimarket.context-roi-run-failed.v1 — both carry a
+  ModelContextRoiRunResult whose rows are one ModelAttemptReductionRow per
+  (task x arm x trial) cell. A fully-failed run lands on the failed terminal and
+  is projected exactly the same way (its rows carry final_success=False /
+  failure_stage), so failed runs still materialise rows instead of wedging the
+  N-arm battery (OMN-13645). Each row is upserted by its runner-minted
+  correlation_id. The table is exposed through the projection API as the context
+  experiment-scores snapshot topic (declared under projection_api.exposures
+  below) for the /experiments hero + heatmap panels.
+
+# OMN-17556: this projection writes a TENANT-domain table, so its handler
+# resolves the tenant_projection binding. That binding's credential is a
+# store-resolved secret_ref read through SecretResolver at the binding
+# boundary, and exactly one process holds it: the consolidated writer that
+# boots RUNTIME_PROFILE=tenant-projection and owns every TENANT-domain
+# projection contract. `tenant-projection` is a registered, consumer-attached
+# runtime profile, so this contract is drained by that writer and is
+# deliberately absent from `main` and `effects` -- neither of those processes
+# carries the credential, and per the 2026-09-03 operator ruling neither ever
+# will as a container env var. This is the permanent ownership boundary, not
+# a temporary orphaning.
+runtime_profiles: [tenant-projection]
+
+handler:
+  module: omnimarket.nodes.node_projection_context_roi.handlers.handler_projection_context_roi
+  class: HandlerProjectionContextRoi
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: projection_context_roi
+      handler:
+        name: HandlerProjectionContextRoi
+        module: omnimarket.nodes.node_projection_context_roi.handlers.handler_projection_context_roi
+      handler_module: omnimarket.nodes.node_projection_context_roi.handlers.handler_projection_context_roi
+      event_model: omnimarket.nodes.node_projection_context_roi.handlers.handler_projection_context_roi.ModelContextRoiRunCompletedEvent
+
+terminal_event: onex.evt.omnimarket.projection-context-roi-applied.v1
+
+db_io:
+  db_tables:
+    - name: context_roi_scores
+      database_ref: application
+      # OMN-15655 / operator ruling 2026-08-02 (house tenant): workload-
+      # attributable rows live in the tenant domain; platform-own workloads
+      # are the house tenant's rows. ADR-0027 classification, not a rename.
+      schema: public
+      migration: "001_create_context_roi_scores.sql"
+      access: write
+      role: scores
+
+event_bus:
+  # Both runner terminals carry the same ModelContextRoiRunResult payload. The
+  # runner publishes a fully-failed run (every cell failed / no cells) on the
+  # FAILED terminal and an at-least-one-usable-row run on the COMPLETED terminal
+  # (node_context_roi_runner._emit_result, OMN-13645). Subscribing to BOTH so a
+  # failed run still materialises rows (final_success=False) into
+  # context_roi_scores — otherwise the N-arm battery wedges with zero usable
+  # rows for failed runs. Mirrors node_projection_delegation, which likewise
+  # consumes both the completed and failed generation/delegation terminals.
+  subscribe_topics:
+    - onex.evt.omnimarket.context-roi-run-completed.v1
+    - onex.evt.omnimarket.context-roi-run-failed.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-context-roi-applied.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.projection-context-roi-applied.v1
+
+projection_api:
+  expose: true
+  exposures:
+    - topic: onex.snapshot.projection.context.experiment-scores.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: context_roi_scores
+      schema: public
+      columns:
+        - id
+        - run_id
+        - correlation_id
+        - task_id
+        - run_order
+        - context_factor_subset
+        - context_pack_hash
+        - factor_subset_hash
+        - routing_source
+        - attempt_count
+        - first_pass_success
+        - final_success
+        - failure_stage
+        - prompt_tokens
+        - completion_tokens
+        - tokens_used
+        - estimated_cost
+        - model_id
+        - provider
+        - endpoint_ref
+        - proof_class
+        - created_at
+        - updated_at
+      order_by: created_at DESC
+      freshness_column: updated_at
+      limit: 1000
+
+metadata:
+  transport_type: kafka
+  description: "Context-ROI scores projection — projects runner attempt-reduction rows into context_roi_scores"
+  author: "OmniNode Platform Team"
+  implementation_wave: p0
+  tags:
+    - "reducer"
+    - "projection"
+    - "context-roi"
+    - "experiment"
+    - "OMN-12955"
+  related_tickets:
+    - "OMN-12955"
+    - "OMN-12798"
+    - "OMN-12797"

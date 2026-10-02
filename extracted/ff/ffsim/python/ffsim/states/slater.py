@@ -1,0 +1,354 @@
+# (C) Copyright IBM 2024.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""Functions for creating and manipulating Slater determinants."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import cast, overload
+
+import numpy as np
+import scipy.linalg
+from pyscf.fci import cistring
+
+from ffsim import linalg
+from ffsim.gates.orbital_rotation import apply_orbital_rotation
+from ffsim.states.bitstring import bitstring_to_occupied_orbitals
+from ffsim.states.dimensions import dims
+
+
+@overload
+def slater_determinant(
+    norb: int,
+    occupied_orbitals: Sequence[int],
+    orbital_rotation: np.ndarray | None = None,
+) -> np.ndarray: ...
+@overload
+def slater_determinant(
+    norb: int,
+    occupied_orbitals: tuple[Sequence[int], Sequence[int]],
+    orbital_rotation: np.ndarray
+    | tuple[np.ndarray | None, np.ndarray | None]
+    | None = None,
+) -> np.ndarray: ...
+def slater_determinant(
+    norb: int,
+    occupied_orbitals: Sequence[int] | tuple[Sequence[int], Sequence[int]],
+    orbital_rotation: np.ndarray
+    | tuple[np.ndarray | None, np.ndarray | None]
+    | None = None,
+) -> np.ndarray:
+    r"""Return a Slater determinant.
+
+    A Slater determinant is a state of the form
+
+    .. math::
+
+        \mathcal{U} \lvert x \rangle,
+
+    where :math:`\mathcal{U}` is an
+    :doc:`orbital rotation </explanations/orbital-rotation>` and
+    :math:`\lvert x \rangle` is an electronic configuration.
+
+    Args:
+        norb: The number of spatial orbitals.
+        occupied_orbitals: The occupied orbitals in the electronic configuration.
+            This is either a list of integers specifying spinless orbitals, or a
+            pair of lists, where the first list specifies the spin alpha orbitals and
+            the second list specifies the spin beta orbitals.
+        orbital_rotation: The optional orbital rotation.
+            You can pass either a single Numpy array specifying the orbital rotation
+            to apply to both spin sectors, or you can pass a pair of Numpy arrays
+            specifying independent orbital rotations for spin alpha and spin beta.
+            If passing a pair, you can use ``None`` for one of the
+            values in the pair to indicate that no operation should be applied to
+            that spin sector.
+
+    Returns:
+        The Slater determinant as a state vector.
+    """
+    if norb == 0:
+        return np.ones(1, dtype=complex)
+
+    if not occupied_orbitals or isinstance(occupied_orbitals[0], (int, np.integer)):
+        occupied_orbitals = (cast(Sequence[int], occupied_orbitals), [])
+
+    alpha_orbitals, beta_orbitals = cast(
+        tuple[Sequence[int], Sequence[int]], occupied_orbitals
+    )
+    n_alpha = len(alpha_orbitals)
+    n_beta = len(beta_orbitals)
+    nelec = (n_alpha, n_beta)
+    dim1, dim2 = dims(norb, nelec)
+    alpha_index = cistring.str2addr(norb, n_alpha, sum(1 << i for i in alpha_orbitals))
+    beta_index = cistring.str2addr(norb, n_beta, sum(1 << i for i in beta_orbitals))
+    vec = linalg.one_hot(
+        (dim1, dim2), (alpha_index, beta_index), dtype=complex
+    ).reshape(-1)
+    if orbital_rotation is not None:
+        vec = apply_orbital_rotation(
+            vec, orbital_rotation, norb=norb, nelec=nelec, copy=False
+        )
+    sign = _permutation_sign(np.argsort(alpha_orbitals)) * _permutation_sign(
+        np.argsort(beta_orbitals)
+    )
+    return sign * vec
+
+
+def _permutation_sign(perm: np.ndarray) -> int:
+    """Compute the sign of a permutation.
+
+    Reference: https://stackoverflow.com/a/73511014
+    """
+    assert set(perm) == set(range(len(perm)))
+    parity = False
+    perm = perm.copy()
+    for i in range(len(perm)):
+        while perm[i] != i:
+            parity = not parity
+            j = perm[i]
+            perm[i], perm[j] = perm[j], perm[i]
+    return -1 if parity else 1
+
+
+def hartree_fock_state(norb: int, nelec: int | tuple[int, int]) -> np.ndarray:
+    """Return the Hartree-Fock state.
+
+    Args:
+        norb: The number of spatial orbitals.
+        nelec: Either a single integer representing the number of fermions for a
+            spinless system, or a pair of integers storing the numbers of spin alpha
+            and spin beta fermions.
+
+    Returns:
+        The Hartree-Fock state as a state vector.
+    """
+    if isinstance(nelec, int):
+        return slater_determinant(norb, occupied_orbitals=range(nelec))
+
+    n_alpha, n_beta = nelec
+    return slater_determinant(norb, occupied_orbitals=(range(n_alpha), range(n_beta)))
+
+
+@overload
+def slater_determinant_rdms(
+    norb: int,
+    occupied_orbitals: Sequence[int],
+    orbital_rotation: np.ndarray | None = None,
+    *,
+    rank: int = 1,
+    reorder: bool = True,
+) -> np.ndarray | tuple[np.ndarray, ...]: ...
+@overload
+def slater_determinant_rdms(
+    norb: int,
+    occupied_orbitals: tuple[Sequence[int], Sequence[int]],
+    orbital_rotation: np.ndarray
+    | tuple[np.ndarray | None, np.ndarray | None]
+    | None = None,
+    *,
+    rank: int = 1,
+    reorder: bool = True,
+) -> np.ndarray | tuple[np.ndarray, ...]: ...
+def slater_determinant_rdms(
+    norb: int,
+    occupied_orbitals: Sequence[int] | tuple[Sequence[int], Sequence[int]],
+    orbital_rotation: np.ndarray
+    | tuple[np.ndarray | None, np.ndarray | None]
+    | None = None,
+    *,
+    rank: int = 1,
+    reorder: bool = True,
+) -> np.ndarray | tuple[np.ndarray, ...]:
+    """Return the reduced density matrices of a Slater determinant.
+
+    The rank 1 RDM is defined as follows:
+
+    .. code::
+
+        rdm1[p, q] = ⟨p+ q⟩
+
+    The definition of higher-rank RDMs depends on the ``reorder`` argument, which
+    defaults to True.
+
+    **reorder = True**
+
+    The reordered RDMs are defined as follows:
+
+    .. code::
+
+        rdm2[p, q, r, s] = ⟨p+ r+ s q⟩
+        rdm3[p, q, r, s, t, u] = ⟨p+ r+ t+ u s q⟩
+        rdm4[p, q, r, s, t, u, v, w] = ⟨p+ r+ t+ v+ w u s q⟩
+
+    **reorder = False**
+
+    If reorder is set to False, the RDMs are defined as follows:
+
+    .. code::
+
+        rdm2[p, q, r, s] = ⟨p+ q r+ s⟩
+        rdm3[p, q, r, s, t, u] = ⟨p+ q r+ s t+ u⟩
+        rdm4[p, q, r, s, t, u, v, w] = ⟨p+ q r+ s t+ u v+ w⟩
+
+    Note:
+        Currently, only ranks 1 and 2 are supported.
+
+    Args:
+        norb: The number of spatial orbitals.
+        occupied_orbitals: The occupied orbitals in the electronic configuration.
+            This is either a list of integers specifying spinless orbitals, or a
+            pair of lists, where the first list specifies the spin alpha orbitals and
+            the second list specifies the spin beta orbitals.
+        orbital_rotation: The optional orbital rotation.
+            You can pass either a single Numpy array specifying the orbital rotation
+            to apply to both spin sectors, or you can pass a pair of Numpy arrays
+            specifying independent orbital rotations for spin alpha and spin beta.
+            If passing a pair, you can use ``None`` for one of the
+            values in the pair to indicate that no operation should be applied to
+            that spin sector.
+        rank: The rank of the reduced density matrix. I.e., rank 1 corresponds to the
+            one-particle RDM, rank 2 corresponds to the 2-particle RDM, etc.
+        reorder: Whether to reorder the indices of the reduced density matrix.
+
+    Returns:
+        The reduced density matrices of the Slater determinant.
+        All RDMs up to and including the specified rank are returned, in increasing
+        order of rank. For example, if ``rank=2`` then a tuple ``(rdm1, rdm2)`` is
+        returned.
+        The representation of an RDM depends on whether ``occupied_orbitals`` is a
+        sequence of integers (spinless case), or a pair of such sequences
+        (spinful case). In the spinless case, the full RDM is returned.
+        In the spinful case, each RDM is represented as a stacked Numpy
+        array of sub-RDMs. For example, the 1-RDMs are: (alpha-alpha, beta-beta), and
+        the 2-RDMs are: (alpha-alpha, alpha-beta, beta-beta).
+    """
+    if not occupied_orbitals or isinstance(occupied_orbitals[0], (int, np.integer)):
+        # Spinless case
+        occupied_orbitals = list(cast(Sequence[int], occupied_orbitals))
+        rdm1 = np.zeros((norb, norb))
+        if occupied_orbitals:
+            rdm1[(occupied_orbitals, occupied_orbitals)] = 1
+        if orbital_rotation is not None:
+            orbital_rotation = cast(np.ndarray, orbital_rotation)
+            rdm1 = orbital_rotation.conj() @ rdm1 @ orbital_rotation.T
+        if rank == 1:
+            return rdm1
+        if rank == 2:
+            eye = np.eye(norb)
+            rdm2 = np.einsum("pq,rs->pqrs", rdm1, rdm1) - np.einsum(
+                "ps,rq->pqrs", rdm1, rdm1
+            )
+            if not reorder:
+                rdm2 += np.einsum("ps,qr->pqrs", rdm1, eye)
+            return rdm1, rdm2
+        raise NotImplementedError(
+            f"Returning the rank {rank} reduced density matrix is currently not "
+            "supported."
+        )
+    else:
+        # Spinful case
+        alpha_orbitals, beta_orbitals = cast(
+            tuple[Sequence[int], Sequence[int]], occupied_orbitals
+        )
+        alpha_orbitals = list(alpha_orbitals)
+        beta_orbitals = list(beta_orbitals)
+        rdm_a = np.zeros((norb, norb))
+        rdm_b = np.zeros((norb, norb))
+        if alpha_orbitals:
+            rdm_a[(alpha_orbitals, alpha_orbitals)] = 1
+        if beta_orbitals:
+            rdm_b[(beta_orbitals, beta_orbitals)] = 1
+        if orbital_rotation is not None:
+            if isinstance(orbital_rotation, np.ndarray) and orbital_rotation.ndim == 2:
+                orbital_rotation_a: np.ndarray | None = orbital_rotation
+                orbital_rotation_b: np.ndarray | None = orbital_rotation
+            else:
+                orbital_rotation_a, orbital_rotation_b = orbital_rotation
+            if orbital_rotation_a is not None:
+                rdm_a = orbital_rotation_a.conj() @ rdm_a @ orbital_rotation_a.T
+            if orbital_rotation_b is not None:
+                rdm_b = orbital_rotation_b.conj() @ rdm_b @ orbital_rotation_b.T
+        rdm1 = np.stack([rdm_a, rdm_b])
+        if rank == 1:
+            return rdm1
+        if rank == 2:
+            eye = np.eye(norb)
+            rdm2_aa = np.einsum("pq,rs->pqrs", rdm_a, rdm_a) - np.einsum(
+                "ps,rq->pqrs", rdm_a, rdm_a
+            )
+            rdm2_ab = np.einsum("pq,rs->pqrs", rdm_a, rdm_b)
+            rdm2_bb = np.einsum("pq,rs->pqrs", rdm_b, rdm_b) - np.einsum(
+                "ps,rq->pqrs", rdm_b, rdm_b
+            )
+            if not reorder:
+                rdm2_aa += np.einsum("ps,qr->pqrs", rdm_a, eye)
+                rdm2_bb += np.einsum("ps,qr->pqrs", rdm_b, eye)
+            rdm2 = np.stack([rdm2_aa, rdm2_ab, rdm2_bb])
+            return rdm1, rdm2
+        raise NotImplementedError(
+            f"Returning the rank {rank} reduced density matrix is currently not "
+            "supported."
+        )
+
+
+def slater_determinant_amplitudes(
+    bitstrings: Sequence[int] | tuple[Sequence[int], Sequence[int]],
+    norb: int,
+    occupied_orbitals: Sequence[int] | tuple[Sequence[int], Sequence[int]],
+    orbital_rotation: np.ndarray | tuple[np.ndarray, np.ndarray],
+) -> np.ndarray:
+    """Compute state vector amplitudes for a Slater determinant.
+
+    Args:
+        bitstrings: The bitstrings to return the amplitudes for, in integer
+            representation. In the spinless case this is a list of integers. In the
+            spinful case, this is a pair of lists of equal length specifying the
+            alpha and beta parts of the bitstrings.
+        norb: The number of spatial orbitals.
+        occupied_orbitals: The occupied orbitals in the electronic configuration.
+            This is either a list of integers specifying spinless orbitals, or a
+            pair of lists, where the first list specifies the spin alpha orbitals and
+            the second list specifies the spin beta orbitals.
+        orbital_rotation: The orbital rotation describing the Slater determinant.
+            You can pass either a single Numpy array specifying the orbital rotation
+            to apply to both spin sectors, or you can pass a pair of Numpy arrays
+            specifying independent orbital rotations for spin alpha and spin beta.
+
+    Returns:
+        The amplitudes of the requested bitstrings.
+    """
+    if not occupied_orbitals or isinstance(occupied_orbitals[0], (int, np.integer)):
+        # Spinless case
+        vecs = cast(np.ndarray, orbital_rotation)[:, occupied_orbitals]
+        amplitudes = []
+        for bitstring in cast(Sequence[int], bitstrings):
+            orbs = bitstring_to_occupied_orbitals(bitstring)
+            amplitudes.append(scipy.linalg.det(vecs[orbs]))
+        return np.array(amplitudes)
+
+    # Spinful case
+    occupied_orbitals_a, occupied_orbitals_b = cast(
+        tuple[Sequence[int], Sequence[int]], occupied_orbitals
+    )
+    bitstrings_a, bitstrings_b = cast(tuple[Sequence[int], Sequence[int]], bitstrings)
+    if isinstance(orbital_rotation, np.ndarray) and orbital_rotation.ndim == 2:
+        orbital_rotation_a = orbital_rotation
+        orbital_rotation_b = orbital_rotation
+    else:
+        orbital_rotation_a, orbital_rotation_b = orbital_rotation
+    amplitudes_a = slater_determinant_amplitudes(
+        bitstrings_a, norb, occupied_orbitals_a, orbital_rotation_a
+    )
+    amplitudes_b = slater_determinant_amplitudes(
+        bitstrings_b, norb, occupied_orbitals_b, orbital_rotation_b
+    )
+    return amplitudes_a * amplitudes_b

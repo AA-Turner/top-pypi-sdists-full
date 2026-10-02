@@ -1050,13 +1050,11 @@ class Telemetry:
                 / ``"drop"`` / ``"replace"``.
             ref_type: ``"branch"``, ``"tag"``, or ``"ref"`` (an unresolved
                 ``VERSION AS OF`` name that may be either a branch or a tag).
-            catalog_kind: ``"cld"`` / ``"managed"`` when cheaply available at the
-                call site; omitted otherwise. Matches the vocabulary emitted by
-                ``report_iceberg_incremental_read`` (SNOW-3957372), which is the
-                first caller to emit this dimension for real. Deliberately coarse:
-                Glue vs Unity vs Horizon isn't cheaply derivable (``CLDInfo`` only
-                carries ``is_cld``), and ``"managed"`` means "non-CLD session"
-                rather than "Snowflake-managed table".
+            catalog_kind: optional catalog provider label (see ``catalog_kind()``
+                -- ``"managed"`` or a CLD provider such as ``"glue"`` / ``"unity"`` /
+                ``"horizon"``). Omitted unless the caller passes it; WAP emitters do
+                not populate it today, so this field is currently absent on WAP
+                events (tracked as a follow-up).
             outcome: ``"attempted"`` (SCOS dispatched it -- default) or ``"rejected"``
                 (SCOS refused it at translate time). Execution success is separate;
                 see the Note below.
@@ -1123,9 +1121,10 @@ class Telemetry:
             surface: ``"plain_table"`` for the ``SPARK_INCREMENTAL_READ`` path, or
                 ``"changelog"`` for a ``.changes`` metadata read routed to
                 ``ICEBERG_CHANGELOG_SCAN`` (both are Iceberg incremental reads).
-            catalog_kind: ``"cld"`` / ``"managed"`` when known at the call site.
-                Derived from the session-level ``is_in_cld_context()`` hint, so
-                ``"managed"`` means "non-CLD session", not "Snowflake-managed table".
+            catalog_kind: catalog provider from ``catalog_kind()``: ``"managed"``
+                (non-CLD, not "Snowflake-managed table") or, for a CLD, the external
+                provider -- ``"glue"`` / ``"unity"`` / ``"horizon"`` /
+                ``"other"`` (or ``"unknown"``).
 
         Note:
             Emitted at translate time; join the request-level ``was_successful`` on
@@ -1173,7 +1172,8 @@ class Telemetry:
                 or, with ``detail="consumed_by_clause"``, via a dedicated clause),
                 ``"dropped"`` (not honored: gate off / managed target), or
                 ``"rejected"`` (SCOS refused it, e.g. max-snapshot-age on CLD).
-            catalog_kind: ``"managed"`` / ``"cld"`` when known at the call site.
+            catalog_kind: catalog provider from ``catalog_kind()`` -- ``"managed"``
+                or a CLD's external provider (glue / unity / horizon / other / unknown).
             detail: reason tag. ``"consumed_by_clause"`` pairs with
                 ``outcome="emitted"`` (honored via a dedicated clause e.g.
                 ``ICEBERG_VERSION`` instead of ``TABLE_PROPERTIES``); the
@@ -1251,8 +1251,10 @@ class Telemetry:
             op: the V2 write verb -- ``"create"`` / ``"replace"`` /
                 ``"create_or_replace"`` / ``"append"`` / ``"overwrite"`` /
                 ``"overwrite_partitions"``.
-            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
-                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+            catalog_kind: catalog provider from the session hint
+                (``catalog_kind()``): ``"managed"`` (non-CLD) or, for a CLD,
+                the external provider -- ``"glue"`` / ``"unity"`` / ``"horizon"``
+                / ``"other"`` (or ``"unknown"``).
             partitioned_by: whether the call carried a ``partitionedBy`` spec.
             table_property: whether the call carried any ``.tableProperty(...)``.
 
@@ -1301,8 +1303,10 @@ class Telemetry:
                 ``"rename_column"`` (schema evolution), ``"drop_table"`` (table
                 lifecycle), or ``"create_namespace"`` / ``"drop_namespace"``
                 (namespace DDL).
-            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
-                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+            catalog_kind: catalog provider from the session hint
+                (``catalog_kind()``): ``"managed"`` (non-CLD) or, for a CLD,
+                the external provider -- ``"glue"`` / ``"unity"`` / ``"horizon"``
+                / ``"other"`` (or ``"unknown"``).
             outcome: ``"attempted"`` (SCOS dispatched it -- default) or
                 ``"rejected"`` (SCOS refused it at translate time).
             detail: short reason tag from a small stable vocabulary (never a
@@ -1351,8 +1355,8 @@ class Telemetry:
                 ``"create_or_replace"`` / ``"append"`` / ``"overwrite"`` /
                 ``"overwrite_partitions"``.
             keys: iterable of the raw customer-supplied write-option keys for this op.
-            catalog_kind: ``"managed"`` / ``"cld"`` from the session CLD hint
-                (``is_in_cld_context()``) -- same vocabulary as
+            catalog_kind: catalog provider from ``catalog_kind()`` -- ``"managed"``
+                or a CLD's external provider (glue / unity / horizon / other / unknown); same vocabulary as
                 ``report_iceberg_table_properties`` / ``report_iceberg_incremental_read``.
 
         Note:
@@ -1417,8 +1421,10 @@ class Telemetry:
             bound_kind: how the read is pinned -- ``"snapshot"`` (snapshot-id /
                 ``VERSION AS OF <id>``) / ``"timestamp"`` (``as-of-timestamp`` /
                 ``TIMESTAMP AS OF``) / ``"tag"`` / ``"ref"`` / ``"branch"``.
-            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
-                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+            catalog_kind: catalog provider from the session hint
+                (``catalog_kind()``): ``"managed"`` (non-CLD) or, for a CLD,
+                the external provider -- ``"glue"`` / ``"unity"`` / ``"horizon"``
+                / ``"other"`` (or ``"unknown"``).
 
         Note:
             ``tag`` / ``ref`` / ``branch`` reads also emit a ``report_iceberg_wap``

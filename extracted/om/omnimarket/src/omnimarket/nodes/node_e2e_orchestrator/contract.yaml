@@ -1,0 +1,28 @@
+---
+name: node_e2e_orchestrator
+description: >
+  E2E orchestrator — bridges build-loop completion to merge sweep.
+  Subscribes to build-loop-orchestrator-completed, polls CI until green,
+  then publishes pr-lifecycle-orchestrator-start. On merge completion,
+  writes an evidence bundle to .onex_state/e2e-runs/{correlation_id}/.
+node_type: orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.build-loop-orchestrator-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-orchestrator-completed.v1
+  publish_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-orchestrator-start.v1
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles:
+    - workers
+
+runtime_dispatch:
+  addressable: false
+  invocation_mode: event_consumer
+  reason: "E2E orchestrator is a long-running Kafka consumer bridge triggered by build-loop and PR-lifecycle events; it does not own a request/response command route."

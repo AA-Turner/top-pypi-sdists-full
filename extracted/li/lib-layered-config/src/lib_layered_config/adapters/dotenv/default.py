@@ -24,10 +24,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
 from ...domain.errors import InvalidFormatError
-from ...observability import log_debug, log_error
+from ...observability import log_debug, log_error, log_warn
 from .._nested_keys import assign_nested
 from .._text_decoding import decode_utf8
 from .._value_coercion import parse_json_container
+from ..file_loaders.structured import ensure_within_size_cap
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -56,6 +57,15 @@ def _log_dotenv_missing() -> None:
 def _log_dotenv_error(path: Path, line_number: int) -> None:
     """Log a malformed line error with file path and line number."""
     log_error("dotenv_invalid_line", layer=DOTENV_LAYER, path=str(path), line=line_number)
+
+
+def _warn_dotenv_directory_skipped(path: Path) -> None:
+    """Warn that a configured dotenv path is a directory and was skipped.
+
+    Args:
+        path: The explicit ``dotenv_path`` that resolved to a directory on disk.
+    """
+    log_warn("config_directory_skipped", layer=DOTENV_LAYER, path=str(path))
 
 
 class DefaultDotEnvLoader:
@@ -96,6 +106,9 @@ class DefaultDotEnvLoader:
     def _load_explicit(self, path: Path) -> Mapping[str, object]:
         """Load a specific dotenv file without directory search."""
         self.last_loaded_path = None
+        if path.is_dir():
+            _warn_dotenv_directory_skipped(path)
+            return {}
         if not path.is_file():
             _log_dotenv_missing()
             return {}
@@ -118,8 +131,16 @@ def _iter_candidates(start_dir: str | None) -> Iterable[Path]:
 
 
 def _parse_dotenv(path: Path) -> Mapping[str, object]:
-    """Parse dotenv file into nested dict. Raises InvalidFormatError on malformed lines or bytes."""
+    """Parse dotenv file into nested dict.
+
+    Raises:
+        InvalidFormatError: On malformed lines or bytes, or when the file is larger than
+            :data:`~lib_layered_config.adapters.file_loaders.structured.MAX_CONFIG_FILE_BYTES`
+            (checked before the file is read, the same cap and refusal shape structured
+            configuration files use).
+    """
     result: dict[str, object] = {}
+    ensure_within_size_cap(str(path), path.stat().st_size)
     text = decode_utf8(path.read_bytes(), path=path)
     # StringIO with newline=None keeps the universal-newline line splitting the text-mode open() had.
     for line_number, raw_line in enumerate(io.StringIO(text, newline=None), start=1):

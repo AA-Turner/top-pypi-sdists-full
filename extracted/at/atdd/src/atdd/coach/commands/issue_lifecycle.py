@@ -1,0 +1,865 @@
+"""
+Unified issue lifecycle command for ATDD.
+
+Single orchestrator for the entire issue lifecycle:
+- `atdd issue <N>` — enter an existing issue (state-driven behavior)
+- `atdd issue <slug>` — create a new issue and enter at INIT
+- `atdd issue <N> --status <STATUS>` — transition status
+- `atdd issue <N> --close-wmbt <ID>` — close WMBT sub-issue
+
+State-driven behavior for `atdd issue <N>`:
+    INIT              → print context only (no branch)
+    PLANNED and above → create/verify worktree branch, run gate, print context
+    COMPLETE/OBSOLETE → print context, warn closed
+
+Convention: src/atdd/coach/conventions/issue.convention.yaml
+"""
+import logging
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from atdd.coach.utils import gh_failure
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
+
+logger = logging.getLogger(__name__)
+
+# Statuses where branch + gate are triggered
+_BRANCH_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED"}
+_TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE", "RESOLVED"}
+
+
+# Statuses from PLANNED onward require a template-compliant issue body.
+_COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
+
+
+@dataclass(frozen=True)
+class _NextAction:
+    """One phase's next-step hint: the prose, and the edge it advances across.
+
+    ``to_phase`` is the EDGE, not a command string. The command is composed at
+    print time by :meth:`IssueLifecycle._transition_command_lines`, which asks
+    the gate whether that edge needs an approval first. Storing the rendered
+    command here is what let the hint name a blocked command: the string could
+    not know what ``.atdd/config.yaml`` had gated (#1750).
+    """
+
+    lines: Tuple[str, ...]
+    to_phase: Optional[str] = None
+
+
+# The per-phase "Next:" hint, as DATA. `{number}` is the issue number.
+#
+# REFACTOR is the one advance an operator normally does NOT type:
+# .github/workflows/atdd-auto-phase.yml (#355) drives REFACTOR->COMPLETE from
+# `pull_request: closed` + merged == true, through `atdd coach transition` ->
+# IssueManager.update, so the store is written first and the atdd:<PHASE> label
+# is projected from it. Printing only the manual command reads as an instruction
+# and invites a hand-typed transition that races the workflow — the desync #1452
+# removed the raw label-write from post-merge-lifecycle.yml to stop. Name the
+# automatic path first, and keep the manual one for the cases that genuinely
+# need it (no PR, or auto-phase did not run — e.g. #1621).
+_NEXT_ACTION_HINTS = {
+    "INIT": _NextAction(
+        lines=("  Next: Fill issue scope, then transition:",),
+        to_phase="PLANNED",
+    ),
+    "PLANNED": _NextAction(
+        lines=("  Next: Write failing tests (RED phase), then transition:",),
+        to_phase="RED",
+    ),
+    "RED": _NextAction(
+        lines=("  Next: Implement to make tests pass (GREEN), then transition:",),
+        to_phase="GREEN",
+    ),
+    "GREEN": _NextAction(
+        lines=("  Next: Run tester SMOKE verification, then transition:",),
+        to_phase="SMOKE",
+    ),
+    "SMOKE": _NextAction(
+        lines=("  Next: Refactor to clean architecture, then transition:",),
+        to_phase="REFACTOR",
+    ),
+    "REFACTOR": _NextAction(
+        lines=(
+            "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
+            "         .github/workflows/atdd-auto-phase.yml advances the",
+            "         phase on merge and projects the label from the store.",
+            "  Manual (only if there is no PR, or auto-phase did not run):",
+        ),
+        to_phase="COMPLETE",
+    ),
+    "COMPLETE": _NextAction(
+        lines=("  This issue is COMPLETE. No further action needed.",)
+    ),
+    "OBSOLETE": _NextAction(
+        lines=("  This issue is OBSOLETE. No further action needed.",)
+    ),
+    "RESOLVED": _NextAction(
+        lines=("  This issue is RESOLVED: it answered its question. No merge is owed.",)
+    ),
+    "BLOCKED": _NextAction(
+        lines=("  This issue is BLOCKED. Resolve blockers, then transition back.",)
+    ),
+}
+
+
+
+class IssueLifecycle:
+    """Unified issue lifecycle orchestrator."""
+
+    def __init__(self, target_dir: Optional[Path] = None):
+        self.target_dir = target_dir or Path.cwd()
+        self.atdd_config_dir = self.target_dir / ".atdd"
+        self.config_file = self.atdd_config_dir / "config.yaml"
+
+    def _get_repo(self) -> Optional[str]:
+        """Read repo from .atdd/config.yaml."""
+        import yaml
+        if not self.config_file.exists():
+            return None
+        cfg = yaml.safe_load(self.config_file.read_text()) or {}
+        return cfg.get("github", {}).get("repo")
+
+    def _fetch_issue(self, issue_number: int) -> Optional[dict]:
+        """Fetch issue metadata via gh CLI.
+
+        Returns None when the issue could not be read, and records WHY on
+        ``self._last_fetch_verdict`` (#1895). `gh issue view` exits 1 both for an
+        issue that does not exist and for an API that declined to answer, and
+        collapsing those made a rate limit read as a missing issue — sending the
+        operator to look for an issue that was open and fine.
+
+        Only "no such issue" is an answer. The distinction does not change what
+        callers DO — an unestablished verdict still refuses, as
+        `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
+        they can truthfully say.
+
+        Each failure records its verdict through its own small handler rather than
+        inline: the four cases were four nested blocks in one method, which is both
+        hard to read and what `coder.refactor.complexity-nesting` was reporting. The
+        `logger.warning` calls stay in the handlers, where the silent-swallow rule
+        can see them.
+        """
+        import json
+
+        self._last_fetch_verdict = None
+        result = self._run_issue_view(issue_number)
+        if result is None:
+            return None
+        if result.returncode != 0:
+            return self._record_query_failure(issue_number, result)
+        try:
+            issue = json.loads(result.stdout)
+        except ValueError:
+            context = self._malformed_log(issue_number, result.stdout)
+            logger.warning("gh issue view returned unparseable output", extra=context)
+            return self._record_malformed(result.stdout)
+        # REST says "open", the GraphQL projection says "OPEN". One vocabulary.
+        if isinstance(issue, dict) and isinstance(issue.get("state"), str):
+            issue["state"] = issue["state"].upper()
+        return issue
+
+    def _run_issue_view(self, issue_number: int):
+        """Run `gh issue view`, or record why it could not run at all.
+
+        The `logger.warning` calls stay inside their handlers rather than moving
+        into `_record_unavailable` with the rest: `coder.logging.coach-silent-swallow`
+        reads the handler body, and a handler that only calls a helper reads as a
+        silent swallow however loudly the helper speaks.
+        """
+        try:
+            return subprocess.run(
+                self._issue_view_argv(issue_number),
+                capture_output=True, text=True, timeout=15,
+                cwd=self.target_dir,
+            )
+        except subprocess.TimeoutExpired:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh issue view timed out", extra=context)
+            return self._record_unavailable(
+                "the GitHub CLI did not respond within 15s, so it did not answer",
+                "Retry; if it persists, check network connectivity.",
+            )
+        except FileNotFoundError:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh CLI not found; nothing was asked", extra=context)
+            return self._record_unavailable(
+                "the `gh` CLI is not installed or not on PATH, so nothing was asked",
+                "Install the GitHub CLI: https://cli.github.com",
+            )
+
+    def _issue_view_argv(self, issue_number: int) -> list:
+        """REST when the repo slug is known, `gh issue view` otherwise.
+
+        `gh issue view --json` is GraphQL-backed, and the GraphQL bucket is the
+        one that runs out here: measured 2026-09-13, GraphQL was refusing every
+        call with "rate limit already exceeded" while REST reported 4644/5000
+        remaining. A lifecycle transition that cannot read its own issue is
+        refused, so the whole ladder stalls on the exhausted transport while the
+        healthy one sits idle. #1930/Y011 made this same swap for
+        `gh issue list`; `gh_failure.py` documents why.
+
+        REST returns `state` lowercase where the GraphQL projection returns it
+        upper, so the caller normalises. Falls back to the old argv when no repo
+        slug is configured — `gh issue view` infers the repo from cwd and
+        `gh api` cannot.
+        """
+        repo = self._get_repo()
+        if not repo:
+            return ["gh", "issue", "view", str(issue_number),
+                    "--json", "number,title,state,labels,body"]
+        return ["gh", "api", f"repos/{repo}/issues/{issue_number}",
+                "--jq", "{number,title,state,labels,body}"]
+
+    def _unavailable_log(self, issue_number: int) -> dict:
+        """Structured context for a fetch that produced no answer at all."""
+        return {"issue": issue_number, "kind": gh_failure.UNAVAILABLE}
+
+    def _malformed_log(self, issue_number: int, payload: str) -> dict:
+        """Structured context for output that did not parse."""
+        return {
+            "issue": issue_number,
+            "kind": gh_failure.MALFORMED,
+            "output": (payload or "").strip()[:200],
+        }
+
+    def _record_unavailable(self, detail: str, remedy: str) -> None:
+        """Record a failure that produced no answer at all, and return None."""
+        self._last_fetch_verdict = gh_failure.GhVerdict(
+            gh_failure.UNAVAILABLE, False, detail, remedy,
+        )
+        return None
+
+    def _record_query_failure(self, issue_number: int, result) -> None:
+        """Classify a non-zero `gh` exit and record it."""
+        raw = result.stderr or result.stdout
+        self._last_fetch_verdict = gh_failure.classify(raw, result.returncode)
+        logger.warning(
+            "gh issue view failed", extra=self._fetch_log(issue_number, raw),
+        )
+        return None
+
+    def _record_malformed(self, payload: str) -> None:
+        """`gh` exited 0 but its output did not parse."""
+        self._last_fetch_verdict = gh_failure.malformed(payload)
+        return None
+
+    def _fetch_log(self, issue_number: int, raw: str) -> dict:
+        """Structured context for a failed fetch.
+
+        Hoisted out of the `logger.warning` call: the literal sat inside a try,
+        inside an if, inside a call, and `coder.refactor.complexity-nesting`
+        measures raw indentation divided by four rather than block structure, so
+        a dict literal that deep reads as a nesting violation.
+        """
+        verdict = self._last_fetch_verdict
+        return {
+            "issue": issue_number,
+            "kind": verdict.kind if verdict else "unknown",
+            "established": verdict.established if verdict else False,
+            "error": (raw or "").strip()[:200],
+        }
+
+    def _explain_fetch_failure(self, issue_number: int, doing: str = "") -> str:
+        """Why the last fetch failed, phrased so it cannot assert absence."""
+
+        verdict = getattr(self, "_last_fetch_verdict", None)
+        if verdict is None:
+            verdict = gh_failure.classify("", 1)
+        return f"❌ {gh_failure.render(issue_number, verdict, doing)}"
+
+    def _resolve_wmbts(self, issue_number: int):
+        """Resolve this issue's WMBTs through its feature binding (#1635).
+
+        Replaces the provider-label lookup entirely. The previous implementation
+        shelled out to ``gh issue list --label atdd-wmbt`` and never read
+        ``plan/``; #1477 removed the command that minted those labels with no
+        replacement, so it reported nothing for every issue in the repo. It also
+        swallowed subprocess failure and returned ``[]``, which is
+        indistinguishable from a correct empty answer.
+
+        Returns a ``WmbtResolution`` — three distinct outcomes (unbound,
+        unresolved, resolved) rather than one possibly-empty list.
+        """
+        from atdd.coach.commands.issue_feature_binding import resolve_wmbts_for_issue
+
+        return resolve_wmbts_for_issue(issue_number, control_root=self.target_dir)
+
+    def _get_status_from_labels(self, labels: list) -> str:
+        """Extract ATDD status from issue labels."""
+        for label in labels:
+            name = label.get("name", "") if isinstance(label, dict) else str(label)
+            if name.startswith("atdd:") and name != "atdd-issue":
+                return name.split(":")[1].upper()
+        return "UNKNOWN"
+
+    def _get_branch_from_body(self, body: str) -> Optional[str]:
+        """Extract branch hint from issue body metadata table.
+
+        Looks for the fmt comment: <!-- fmt: feat/issue-lifecycle -->
+        Falls back to the Branch field value if not TBD.
+        """
+        import re
+        # Try fmt comment first: <!-- fmt: feat/my-slug -->
+        m = re.search(r'<!--\s*fmt:\s*(\S+)\s*-->', body)
+        if m:
+            return m.group(1)
+        # Fallback: Branch field value (if not TBD)
+        m = re.search(r'\|\s*Branch\s*\|\s*([^|]+)', body)
+        if m:
+            value = m.group(1).strip()
+            if value and value.upper() != "TBD" and "fmt:" not in value:
+                return value
+        return None
+
+    def _parse_branch(self, branch: str) -> tuple:
+        """Parse branch like 'feat/issue-lifecycle' into (prefix, slug)."""
+        if "/" in branch:
+            prefix, slug = branch.split("/", 1)
+            return prefix, slug
+        return "feat", branch
+
+    def _get_slug_and_prefix(self, issue: dict) -> tuple:
+        """Derive slug and prefix from issue body branch hint, falling back to title.
+
+        Returns:
+            (slug, prefix) tuple.
+        """
+        import re
+        body = issue.get("body", "") or ""
+        title = issue.get("title", "")
+
+        # Try branch hint from body
+        branch = self._get_branch_from_body(body)
+        if branch:
+            prefix, slug = self._parse_branch(branch)
+            return slug, prefix
+
+        # Fallback: derive from title
+        m = re.match(r'^(feat|fix|refactor|chore|docs|devops)\([^)]+\):\s*(.+)$', title)
+        if m:
+            prefix = m.group(1)
+            raw = m.group(2).strip()
+            slug = re.sub(r'[^a-zA-Z0-9]+', '-', raw).strip('-').lower()
+            return slug, prefix
+
+        # Last resort
+        return f"issue-{issue['number']}", "feat"
+
+    def _find_worktree_for_issue(self, slug: str, prefix: str) -> Optional[Path]:
+        """Check if a worktree already exists for this issue's branch."""
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
+        if worktree_path.exists():
+            return worktree_path
+        return None
+
+    def _is_in_worktree(self, slug: str, prefix: str) -> bool:
+        """Whether the caller is standing in THIS issue's worktree (#1708).
+
+        The identity of a worktree is its issue, not the prefix it happens to
+        carry. Comparing against a single derived ``{prefix}-{slug}`` made a
+        worktree created with ``--prefix fix`` invisible whenever the issue body
+        derived ``feat`` — so the caller standing inside it was told otherwise
+        and a duplicate was created beside it (the #1802 incident).
+
+        Any SANCTIONED prefix counts, and nothing else does: matching on the slug
+        alone would make an unrelated directory that merely ends in it answer yes.
+
+        Placement-agnostic by construction: the check is on the directory's
+        NAME, so it answers the same whether the worktree sits at the legacy
+        flat sibling or under a configured ``worktree_root`` (#1524). The name
+        itself still comes from the one resolver, so a future change to the
+        naming scheme cannot make this predicate disagree with the creation
+        paths.
+        """
+        from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES
+
+        name = self.target_dir.name
+        candidates = {resolve_worktree_dir_name(p, slug) for p in ALLOWED_BRANCH_PREFIXES}
+        candidates.add(resolve_worktree_dir_name(prefix, slug))
+        return name in candidates
+
+    def _report_absent_worktree(self, issue_number: int, slug: str, prefix: str) -> int:
+        """Say a worktree is missing without making one — the READ path (#1708).
+
+        Extracted rather than inlined in ``enter``: that method already sits at
+        the ``coder.refactor.complexity-length`` threshold, and adding the report
+        inline pushed the rule one over its ratchet baseline.
+        """
+        print()
+        print(f"ATDD: Issue #{issue_number} has no worktree here.")
+        print(f"  expected one for branch {prefix}/{slug}")
+        print(f"  create it with: atdd coach enter {issue_number}")
+        print()
+        return 0
+
+    def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
+        """Create worktree branch. Returns worktree path or None on failure."""
+        from atdd.coach.commands.branch import BranchManager
+        manager = BranchManager(self.target_dir)
+        entry = manager._find_issue(issue_number)
+        if entry:
+            rc = manager.branch(issue_number)
+            if rc == 0:
+                return resolve_worktree_path(self.target_dir, prefix, slug)
+            return None
+        # If not in manifest, create worktree directly
+        branch_name = f"{prefix}/{slug}"
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
+        if worktree_path.exists():
+            return worktree_path
+
+        # Fetch and check remote
+        subprocess.run(
+            ["git", "fetch", "origin"],
+            capture_output=True, text=True, timeout=30,
+            cwd=self.target_dir,
+        )
+        result = subprocess.run(
+            ["git", "branch", "-r", "--list", f"origin/{branch_name}"],
+            capture_output=True, text=True, timeout=10,
+            cwd=self.target_dir,
+        )
+        remote_exists = bool(result.stdout.strip())
+
+        # Creation + I-1/I-2/I-9 incident defenses are owned by the runtime
+        # layer (docs/coach-decomposition.md §13.5).
+        from atdd.runtime import worktree as runtime_worktree
+        if remote_exists:
+            print(f"Attaching to existing remote branch: {branch_name}")
+        else:
+            print(f"Creating new branch: {branch_name}")
+
+        try:
+            created = runtime_worktree.ensure_issue_worktree(
+                worktree_path, branch_name, self.target_dir,
+                issue_number=issue_number,
+            )
+        except runtime_worktree.ProtectedBranchError as exc:
+            logger.warning(
+                "refused worktree on protected branch",
+                extra={"issue": issue_number, "error": str(exc)},
+            )
+            print(f"Error: {exc}")
+            return None
+        if created is None:
+            print("Error: git worktree add failed")
+            return None
+
+        print(f"  Worktree: {worktree_path}")
+
+        # Branch lineage is recorded in the local manifest by ``atdd branch``
+        # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
+        # board write happens here.
+
+        return worktree_path
+
+    def _run_gate(self, worktree_path: Path) -> int:
+        """Run ``atdd gate`` in the worktree for DISPLAY only (advisory).
+
+        This prints the toolkit gate output when an agent enters a worktree; it
+        is intentionally advisory and its return code is informational — the
+        enter() caller does not act on it. Do NOT retrofit this into a blocker:
+        the full ``atdd gate`` advisory output gates nothing on purpose, because
+        hard-blocking on it would brick every in-flight transition (#1020 scope
+        E migration-safety).
+
+        The ENFORCING per-transition chokepoint is ``_transition_gate`` (called
+        from ``transition()``), which acts on a fail-closed verdict from the
+        pure ``atdd.coach.gate`` decision module against the per-transition check
+        registry. That is where "act on the return code, never swallow it" lives.
+        """
+        try:
+            result = subprocess.run(
+                ["atdd", "gate"],
+                capture_output=True, text=True, timeout=30,
+                cwd=worktree_path,
+            )
+            if result.stdout:
+                print(result.stdout.rstrip())
+            return result.returncode
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning("_run_gate: (subprocess.TimeoutExpired, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
+            print("Warning: Could not run atdd gate")
+            return 0
+
+    def _print_context(self, issue: dict, status: str, sub_issues: list,
+                       slug: Optional[str], prefix: str,
+                       worktree_path: Optional[Path]) -> None:
+        """Print structured issue context as mandatory tool output."""
+        number = issue["number"]
+        title = issue["title"]
+
+        print()
+        print("=" * 70)
+        print(f"ATDD Issue #{number}: {title}")
+        print("=" * 70)
+        print(f"  Status:  {status}")
+        print(f"  State:   {issue.get('state', 'UNKNOWN')}")
+        if slug and prefix:
+            print(f"  Branch:  {prefix}/{slug}")
+        if worktree_path:
+            print(f"  Worktree: {worktree_path}")
+
+        # WMBTs — resolved from plan/ through the issue's feature binding.
+        # `sub_issues` is a WmbtResolution (#1635), not a list of GitHub issues:
+        # an unbound issue and a broken binding now read differently from a
+        # genuinely undecomposed one instead of collapsing into "none found".
+        from atdd.coach.commands.issue_feature_binding import render_wmbt_section
+
+        print()
+        print(render_wmbt_section(sub_issues))
+
+        # Next action
+        print()
+        self._print_next_action(status, number)
+        print("=" * 70)
+        print()
+
+    def _transition_command_lines(
+        self, from_phase: str, to_phase: str, number: int
+    ) -> List[str]:
+        """The command(s) that actually cross ``from_phase -> to_phase``.
+
+        DERIVED from the gate that will judge the command, never restated
+        (#1750). ``atdd coach approve`` is named for exactly the edges
+        :func:`~atdd.coach.gate.registrations.approval_required_for` reports as
+        approval-gated — which is ``.atdd/config.yaml``'s ``gate.transitions``
+        intersected with the edges the approval check is registered for. This
+        repo gates ``PLANNED->RED`` and ``SMOKE->REFACTOR``; a repo that gates
+        neither, or gates a third edge, gets the right sentence with no code
+        change, because the sentence is not in the code.
+
+        Nothing here changes the POLICY — the same call the gate makes, asked one
+        step earlier so the operator is told about the refusal instead of
+        discovering it.
+        """
+        transition = f"         atdd coach transition {number} {to_phase}"
+        try:
+            from atdd.coach.gate.registrations import approval_required_for
+
+            gated = approval_required_for(self._load_config(), from_phase, to_phase)
+        except Exception as exc:
+            # A hint that cannot consult the gate must not take the command down,
+            # and must not silently claim the edge is ungated either — say which
+            # question went unanswered.
+            logger.warning(
+                "could not derive whether the next transition is gated",
+                extra={"issue": number, "edge": f"{from_phase}->{to_phase}",
+                       "error": str(exc)},
+            )
+            return [
+                transition,
+                f"  (could not check whether {from_phase}->{to_phase} is gated: "
+                f"{exc})",
+            ]
+
+        if not gated:
+            return [transition]
+        return [
+            f"  {from_phase}->{to_phase} is a gated edge — the transition alone is",
+            "  refused. Approve it first:",
+            f"         atdd coach approve {number} --transition '{from_phase}->{to_phase}'",
+            transition,
+        ]
+
+    def _print_next_action(self, status: str, number: int) -> None:
+        """Print the operator's next step for *status*.
+
+        Table-driven rather than an if/elif chain (#1626): the hints are DATA,
+        one entry per phase, so adding a phase is an entry here and the branch
+        count does not grow with the phase machine. The COMMAND is not part of
+        that data — it is composed against the gate (#1750).
+        """
+        hint = _NEXT_ACTION_HINTS.get(status)
+        if hint is None:
+            return
+        for line in hint.lines:
+            print(line.format(number=number))
+        if hint.to_phase is None:
+            return
+        for line in self._transition_command_lines(status, hint.to_phase, number):
+            print(line)
+
+    def check(self, issue_number: int) -> int:
+        """Run template compliance check against an issue body.
+
+        Returns 0 if compliant, 1 if missing sections or placeholders remain.
+
+        SPEC-COACH-ORCH-0010: structured section-by-section feedback.
+        """
+        from atdd.coach.commands.issue_template import check_issue_compliance
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(self._explain_fetch_failure(issue_number))
+            return 1
+        report = check_issue_compliance(
+            issue_number=issue_number,
+            body=issue.get("body") or "",
+        )
+        print(report.format())
+        return 0 if report.compliant else 1
+
+    def _compliance_gate(self, issue_number: int, target_status: str) -> int:
+        """Block transitions to PLANNED+ on non-compliant issue bodies.
+
+        SPEC-COACH-ORCH-0011: PLANNED and beyond require all template
+        sections + no leftover placeholders.
+        """
+        if target_status.upper() not in _COMPLIANCE_REQUIRED_STATUSES:
+            return 0
+        from atdd.coach.commands.issue_template import check_issue_compliance
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(self._explain_fetch_failure(issue_number, "for the compliance check"))
+            return 1
+        report = check_issue_compliance(
+            issue_number=issue_number,
+            body=issue.get("body") or "",
+        )
+        if report.compliant:
+            return 0
+        print(report.format())
+        print(
+            f"\nTransition to {target_status.upper()} blocked by template "
+            f"compliance gate. Re-run with --force to override."
+        )
+        return 1
+
+    def _load_config(self) -> dict:
+        """Read .atdd/config.yaml as a dict (empty dict when absent/unreadable)."""
+        import yaml
+        if not self.config_file.exists():
+            return {}
+        try:
+            return yaml.safe_load(self.config_file.read_text()) or {}
+        except Exception as exc:
+            logger.warning("_load_config: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
+            return {}
+
+    def _transition_gate(self, issue_number: int, target_status: str,
+                         force: bool = False) -> int:
+        """Enforcing per-transition gate — the keystone chokepoint (#1020).
+
+        Thin caller of the pure ``atdd.coach.gate`` decision module: resolves the
+        checks registered for the ``current_phase -> target_status`` transition
+        and BLOCKS (returns non-zero, so transition() never reaches
+        IssueManager.update()'s label/phase swap) when any check fails.
+        Fail-closed: an errored/timed-out check counts as a failure.
+
+        Migration-safe by construction: ``GATE_REGISTRY`` ships empty, so every
+        transition is a no-op here until #958/#1017 register real checks. ``force``
+        bypasses with a loud warning, mirroring the other transition gates.
+        """
+        from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
+        from atdd.coach.gate.registry import GATE_REGISTRY
+
+        # Fast path + migration safety: an empty registry can never block, so
+        # skip the gate (and its issue fetch) entirely until checks are
+        # registered (#958/#1017). This keeps the shipped behavior a true no-op.
+        if GATE_REGISTRY.is_empty():
+            return 0
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(self._explain_fetch_failure(issue_number, "for the transition gate"))
+            return 1
+        from_phase = self._get_status_from_labels(issue.get("labels", []))
+        ctx = GateContext(
+            issue_number=issue_number,
+            from_phase=from_phase,
+            to_phase=target_status.upper(),
+            worktree=self.target_dir,
+        )
+        outcome = evaluate_transition_gate(GATE_REGISTRY, self._load_config(), ctx)
+        if outcome.proceed:
+            return 0
+
+        # Count and iterate the FULL blocking set, not just `failures` (#1719).
+        # Two verdicts refuse, and the gate reports them apart: a check that
+        # could not perform its observation blocks without ever landing in
+        # `failures`. Rendering only that bucket tells the operator a transition
+        # is "blocked by 0 failing gate check(s)" and then lists nothing — a
+        # refusal that names no reason, which is the same defect class as the
+        # vacuous pass this verdict was added to remove.
+        if force:
+            print(
+                f"::warning::Transition gate bypassed (--force) for "
+                f"{from_phase} -> {target_status.upper()}; "
+                f"{len(outcome.blockers)} check(s) blocked "
+                f"({len(outcome.failures)} failed, "
+                f"{len(outcome.unobservable)} could not be checked)."
+            )
+            return 0
+
+        print(
+            f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
+            f"by {len(outcome.blockers)} gate check(s):"
+        )
+        for f in outcome.failures:
+            print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
+        # Marked distinctly because the remedy is different: a failure means fix
+        # the work, an unobservable check means make the check able to look.
+        for u in outcome.unobservable:
+            print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
+        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
+        return 1
+
+    def transition(self, issue_number: int, status: str, force: bool = False) -> int:
+        """Transition an issue to a new status, then re-enter to show updated state.
+
+        #1304: the orchestration was MOVED to
+        :func:`atdd.coach.commands.issue_transition.apply_transition` (the home
+        of ``atdd coach transition``); this method now delegates to it so the
+        deprecated ``atdd update``/``atdd archive`` shims and the #1020/#1017
+        gate tests keep running through the one implementation. The moved
+        orchestration still delegates to ``IssueManager.update()`` for
+        state-machine validation, train enforcement, COMPLETE gates, the github
+        label swap, the store-first write, and the manifest mirror; COMPLETE
+        also auto-archives.
+
+        NOTE: this path intentionally does NOT register the operator-approval
+        gate check — only the ``atdd coach transition`` verb (and the deprecated
+        ``atdd issue --status`` shim that delegates to it) does. That preserves
+        the historical behavior where ``atdd update``/``atdd archive`` never
+        enforced the operator token.
+
+        Args:
+            issue_number: GitHub issue number.
+            status: Target status (e.g., PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE).
+            force: Bypass gate/body checks (train still enforced).
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        from atdd.coach.commands.issue_transition import apply_transition
+
+        return apply_transition(
+            issue_number, status, force=force, target_dir=self.target_dir
+        )
+
+    def _reenter_display_only(self, issue_number: int) -> int:
+        """Print the current state of an issue without touching worktrees.
+
+        Used as the tail step of transition() so a successful GitHub update is
+        never masked by a misleading ``Repository layout is 'worktree', expected
+        'worktree-ready'`` error coming from the branch-creation path.
+        """
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"Error: Could not fetch issue #{issue_number}")
+            return 1
+
+        labels = issue.get("labels", [])
+        status = self._get_status_from_labels(labels)
+        slug, prefix = self._get_slug_and_prefix(issue)
+        sub_issues = self._resolve_wmbts(issue_number)
+
+        self._print_context(issue, status, sub_issues, slug, prefix, None)
+        return 0
+
+    def close_wmbt(self, issue_number: int, wmbt_id: str, force: bool = False) -> int:
+        """Close a WMBT sub-issue, then re-enter to show updated state.
+
+        Delegates to IssueManager.close_wmbt() for the actual close logic.
+
+        Args:
+            issue_number: GitHub issue number (parent).
+            wmbt_id: WMBT identifier (e.g., E001, D003).
+            force: Close even if ATDD cycle checkboxes are unchecked.
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        from atdd.coach.commands.issue import IssueManager
+
+        manager = IssueManager(self.target_dir)
+        issue_id = str(issue_number)
+
+        rc = manager.close_wmbt(
+            issue_id=issue_id,
+            wmbt_id=wmbt_id,
+            force=force,
+        )
+        if rc != 0:
+            return rc
+
+        # Re-enter to show updated state
+        return self.enter(issue_number)
+
+    def enter(self, issue_number: int, *, create: bool = True) -> int:
+        """Enter an existing issue with state-driven behavior.
+
+        Args:
+            issue_number: GitHub issue number.
+            create: may a missing worktree be created? The READ verb passes
+                ``False`` (#1708); ``atdd coach enter`` keeps the default.
+
+        Returns:
+            0 on success, 1 on error.
+        """
+        # Fetch issue
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"Error: Could not fetch issue #{issue_number}")
+            print("Check that `gh` is authenticated and the issue exists.")
+            return 1
+
+        # Extract metadata
+        labels = issue.get("labels", [])
+        status = self._get_status_from_labels(labels)
+        slug, prefix = self._get_slug_and_prefix(issue)
+
+        # Fetch sub-issues (WMBTs)
+        sub_issues = self._resolve_wmbts(issue_number)
+
+        worktree_path = None
+
+        if status in _TERMINAL_STATUSES:
+            # Closed issue — just print context
+            self._print_context(issue, status, sub_issues, slug, prefix, None)
+            return 0
+
+        if status == "INIT":
+            # Still scoping — no branch needed
+            self._print_context(issue, status, sub_issues, slug, prefix, None)
+            return 0
+
+        if status in _BRANCH_STATUSES:
+            # Check if already in correct worktree
+            if self._is_in_worktree(slug, prefix):
+                worktree_path = self.target_dir
+                self._run_gate(worktree_path)
+                self._print_context(issue, status, sub_issues, slug, prefix, worktree_path)
+                return 0
+
+            # Not in correct worktree — find or create, then hard handoff
+            existing = self._find_worktree_for_issue(slug, prefix)
+            if existing:
+                worktree_path = existing
+            elif not create:
+                return self._report_absent_worktree(issue_number, slug, prefix)
+            else:
+                worktree_path = self._create_branch(issue_number, slug, prefix)
+                if not worktree_path:
+                    print("Error: Failed to create worktree branch.")
+                    return 1
+
+            # Hard handoff — stop here, do not run gate or print full context
+            print()
+            print(f"ATDD: Issue #{issue_number} requires worktree: {prefix}/{slug}")
+            print(f"  cd {worktree_path}")
+            print(f"  atdd coach enter {issue_number}")
+            print()
+            return 0
+
+        # Print context (INIT, UNKNOWN, etc.)
+        self._print_context(issue, status, sub_issues, slug, prefix, worktree_path)
+        return 0

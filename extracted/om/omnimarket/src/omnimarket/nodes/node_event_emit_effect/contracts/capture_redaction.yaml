@@ -1,0 +1,697 @@
+---
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# CAPTURE REDACTION CONTRACT (OMN-17209, landed via the OMN-17399 residual).
+#
+# This file is the redaction posture. It is not documentation of one, and it is
+# not a mirror of one that lives in Python. `redaction.py` resolves THIS file;
+# it holds no field names, no topic names and no secret patterns of its own,
+# and `test_capture_redaction_contract.py` asserts that by scanning the module.
+#
+# WHY IT EXISTS. OMN-17209's framing: "widening the payload without landing
+# this contract first ships a credential pipeline." Three dated live incidents
+# are its RED corpus -- OMN-17154 (`valkey-cli config get requirepass` printed
+# a plaintext password), 2026-08-19 morning (`kubectl get secret -o json`
+# printed a `clientSecret`), 2026-08-19 evening (`env | grep POSTGRES` printed
+# a `postgresql://user:pw@host` URL). In all three the control was a regex
+# added AFTER the leak, so it was always one incident behind.
+#
+# WHAT IS ACTUALLY ON THE WIRE TODAY (live readback, .201 stability lane,
+# 2026-09-04T14:22Z, `rpk topic consume ... -o -2`):
+#
+#   tool-executed.v1   {duration_ms, hook_source, interrupted, session_id,
+#                       tool_name, working_directory} + enrichment
+#   prompt-submitted.v1{hook_source, prompt_length, session_id,
+#                       working_directory} + enrichment
+#
+# Both are already content-free: the hook scripts emit length-only and
+# name-only payloads. So this contract removes nothing from today's traffic --
+# and that is the point. It is the FAIL-CLOSED FLOOR that OMN-17206 (C10, tool
+# args) and OMN-17207 (C11, diff bodies) land on top of. Any field those
+# tickets add that is not named `capture_verbatim` here is hashed on arrival,
+# with no further action by their authors.
+#
+# HOW TO WIDEN CAPTURE. Add the field here, with a class and a reason. Adding
+# a pattern to a Python constant is not a substitute and is rejected by
+# `test_no_python_side_pattern_constants`.
+
+contract_version: {major: 1, minor: 0, patch: 0}
+ticket: OMN-17209
+
+# ---------------------------------------------------------------------------
+# Capture classes
+# ---------------------------------------------------------------------------
+# capture_verbatim   value crosses unchanged (the secret scrub below still runs
+#                    on top of it -- verbatim is not exempt from scrubbing)
+# capture_hashed     value replaced by sha256:<64 hex> over its canonical JSON
+#                    form. Deterministic and unsalted ON PURPOSE: a salt would
+#                    make the record unreplayable, which the deterministic
+#                    truth doctrine forbids. An unsalted hash of a LOW-entropy
+#                    value is brute-forceable, so hashing is the fail-closed
+#                    default for fields nobody has classified -- it is NOT the
+#                    protection for a field known to hold a secret. Use
+#                    never_capture for those.
+# capture_shape_only value replaced by {type, length} -- no content, no hash,
+#                    so not even a lookup handle for a short value
+# never_capture      field is dropped from the payload entirely
+# capture_scrubbed   (OMN-19550) value crosses, but every span that matches a
+#                    secret pattern below is replaced IN PLACE by scrub_marker,
+#                    and the record's state becomes `secret_detected`. The
+#                    full-content topic needs this: hashing a whole 60 KB tool
+#                    result because one line held a token would throw away the
+#                    content the operator ruled must be captured. Class still
+#                    beats field: an always-hashed output class forces a
+#                    scrubbed content field to capture_hashed, exactly as it
+#                    forces a verbatim one. A scrubbed field is also held to its
+#                    topic's content_policy size bound (see the topic entry).
+
+# FAIL-CLOSED DEFAULT. Any field on a governed topic that is not named below.
+# A new tool, or a field a future ticket adds, cannot leak by being forgotten.
+default_field_class: capture_hashed
+
+# ---------------------------------------------------------------------------
+# Always-hashed output classes (OMN-17209 scope 2)
+# ---------------------------------------------------------------------------
+# These hash BECAUSE OF WHAT THEY ARE, never because a pattern fired. DoD probe
+# 4 is the whole point: an SSM send-command result containing no secret-shaped
+# text at all is still hashed. A regex that has not been written yet cannot
+# save you; a class does not need to recognise the secret to refuse it.
+#
+# `content_fields` names the fields a matched record forces to capture_hashed,
+# overriding any per-field class. They are listed here BEFORE OMN-17206 /
+# OMN-17207 emit them, which is the sequencing this ticket exists to enforce.
+always_hashed_output_classes:
+  - name: ssm_send_command
+    reason: >
+      SSM send-command output is a class of output that should never be
+      captured verbatim regardless of whether a pattern matches it -- it
+      routinely carries whatever the remote command printed.
+    tool_names: ["Bash"]
+    command_pattern: '(?i)\baws\s+ssm\s+(send-command|get-command-invocation)\b'
+  - name: kubectl_secret_read
+    reason: >
+      2026-08-19 morning incident: `kubectl get secret -o json` printed a
+      `clientSecret`. The camelCase key pattern was added reactively after.
+    tool_names: ["Bash"]
+    command_pattern: '(?i)\bkubectl\s+(get|describe)\s+secret'
+  - name: redis_valkey_config_get
+    reason: >
+      OMN-17154: `valkey-cli config get requirepass` printed the plaintext
+      credential. The value has no key=value framing and no prefix, so the
+      pattern set does not reliably catch it -- the class does.
+    tool_names: ["Bash"]
+    command_pattern: '(?i)\b(valkey-cli|redis-cli)\b.*\bconfig\s+get\b'
+  - name: environment_dump
+    reason: >
+      2026-08-19 evening incident: `env | grep -i POSTGRES` printed a
+      `postgresql://user:pw@host` URL.
+    tool_names: ["Bash"]
+    command_pattern: '(?i)(^|[;&|]\s*)(env|printenv|set)\b'
+  - name: aws_credential_command
+    reason: >
+      `aws sts get-session-token` / `aws sso` output carries live session
+      credentials by construction.
+    tool_names: ["Bash"]
+    command_pattern: '(?i)\baws\s+(sts|sso|secretsmanager|ssm\s+get-parameter)\b'
+  - name: secret_path_read
+    reason: >
+      The tool INPUT (a path) is innocuous; the OUTPUT is not. Applies to any
+      tool that reads file content, not just Bash.
+    tool_names: ["Read", "Bash", "Grep"]
+    command_pattern: '(?i)(\.env(\.[A-Za-z0-9_.-]+)?$|\.env[/\s"'']|/\.aws/credentials|/\.ssh/id_[a-z0-9]+$|\.pem$|\.p12$|\.kubeconfig$|/secrets?/)'
+
+  # The field the class matcher reads to decide. Declared here rather than
+  # hardcoded so a producer that names its command field differently is a
+  # contract edit, not a code edit.
+command_fields: ["command", "tool_input_command", "tool_input"]
+tool_name_field: "tool_name"
+
+# Fields any matched class forces to capture_hashed. Not emitted by any hook
+# today (verified live 2026-09-04) -- listed so OMN-17206 / OMN-17207 land
+# inside the floor rather than beside it.
+content_fields:
+  - "command"
+  - "tool_input"
+  - "tool_input_command"
+  - "tool_response"
+  - "tool_output"
+  - "stdout"
+  - "stderr"
+  - "output"
+  - "result"
+  - "diff"
+  - "content"
+  - "new_string"
+  - "old_string"
+
+# ---------------------------------------------------------------------------
+# Secret-pattern scrub (OMN-17209 scope 3)
+# ---------------------------------------------------------------------------
+# Applied ON TOP of every class, including capture_verbatim. A field that was
+# going to cross verbatim and matches one of these is hashed instead, and the
+# record's redaction_state becomes `secret_detected`.
+#
+# This is the ONE shared pattern set. It is deliberately the weakest of the
+# three controls here, and is listed last for that reason: the incident record
+# says every one of these was written after the leak it would have caught.
+secret_patterns:
+  # ORDER IS LOAD-BEARING for the capture_scrubbed class (OMN-19550), which
+  # replaces each matched SPAN in list order: a whole PEM block is removed
+  # before any narrower pattern can match a fragment of its body, and a whole
+  # header line before the bearer pattern could leave its scheme behind. For
+  # the whole-field classes order does not matter: any hit is a hit.
+  - name: pem_private_key_block
+    # OMN-19550: widened from the BEGIN line alone to the whole block, so a
+    # span replacement removes the key body and not just its first line. A
+    # block cut off by truncation or a chunk edge has no END line, so the
+    # second alternative takes everything after BEGIN. Search behaviour for
+    # the whole-field classes is unchanged: the match still starts at BEGIN.
+    pattern: '-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----|[\s\S]*)'
+  - name: authorization_header
+    # OMN-19550: "never auth headers" (RULING 2026-09-25T11:23:30Z). Inline
+    # (curl -H "Authorization: ...") as well as at the start of a line; the
+    # value runs to the end of the line or a closing quote.
+    pattern: '(?i)\b(?:proxy-)?authorization\s*:\s*[^\r\n"'']+'
+  - name: credential_header
+    pattern: '(?i)\b(?:x-api-key|api-key|x-auth-token|x-amz-security-token|set-cookie|cookie)\s*:\s*[^\r\n"'']+'
+  - name: url_authority_credentials
+    # OMN-19550: the quantifiers are BOUNDED. The unbounded form
+    # ('[a-zA-Z][a-zA-Z0-9+.-]*://...') is quadratic on a long alphanumeric run
+    # with no '://' in it: 1.2 s on 40,000 characters, measured 2026-09-25, so
+    # about 50 minutes on one 2 MiB tool result. It was harmless while every
+    # governed field was a short name or id; full content made it a stall.
+    # A URI scheme is at most a few characters, and a userinfo field longer
+    # than 256 is not one this pattern needs to find.
+    pattern: '[a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^/\s:@]{1,256}:[^/\s@]{1,256}@'
+  - name: bearer_token
+    pattern: '(?i)\bbearer\s+[A-Za-z0-9._~+/-]{16,}'
+  - name: github_token
+    pattern: '\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})'
+  - name: provider_secret_key
+    # Anthropic (sk-ant-...), OpenAI (sk-proj-..., sk-...) and every other
+    # "sk-" secret key shape.
+    pattern: '\bsk-[A-Za-z0-9_-]{20,}'
+  - name: slack_token
+    pattern: '\bxox[abposr]-[A-Za-z0-9-]{10,}'
+  - name: linear_api_key
+    # OMN-19078: a bare Linear key was the one the PostToolUse guard missed.
+    pattern: '\blin_(?:api|oauth)_[A-Za-z0-9]{32,}'
+  - name: google_api_key
+    pattern: '\bAIza[0-9A-Za-z_-]{35}'
+  - name: stripe_key
+    pattern: '\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,}'
+  - name: jwt
+    pattern: '\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b'
+  - name: aws_access_key_id
+    pattern: '\b(AKIA|ASIA)[0-9A-Z]{16}\b'
+  - name: json_secret_key
+    # OMN-19550: a JSON object key NAMING a credential, with a string value.
+    # labelled_secret_assignment cannot see this shape, because the closing
+    # quote sits between the key word and the colon. Tool inputs cross the
+    # content topic as JSON, so this is the shape they arrive in.
+    # Bounded for the same reason as url_authority_credentials: a JSON key is
+    # not 64 characters long, and an unbounded run is a backtracking hazard.
+    pattern: '(?i)"[A-Za-z0-9_.-]{0,64}(?:pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?)[A-Za-z0-9_.-]{0,64}"\s*:\s*"[^"]*"'
+  - name: camel_case_secret_key
+    pattern: '"(?:[a-z]{1,64})?(?:Secret|Token|Password|ApiKey|AccessKey|PrivateKey)"\s*:\s*"[^"]+"'
+  - name: labelled_secret_assignment
+    pattern: '(?i)\b(pass(word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|requirepass|client[_-]?secret|auth)\b\s*[:=]\s*\S+'
+
+# The text a capture_scrubbed field carries in place of each matched span.
+# `{name}` is the pattern's name, so a reader can count what was removed and
+# by which rule without ever seeing the value. It must match no pattern above,
+# so scrubbing is idempotent: a second pass over scrubbed text changes nothing
+# (asserted by test, because the fan-out re-applies the contract per chunk).
+scrub_marker: "[REDACTED:{name}]"
+
+# ---------------------------------------------------------------------------
+# Governed topics
+# ---------------------------------------------------------------------------
+# A topic is governed when its fan_out rule in the event registry names the
+# `redact_capture` transform. A rule that names it and has no entry here is a
+# hard refusal (UngovernedTopicError) -- an empty policy would silently mean
+# "hash everything", which reads identical to a working one.
+#
+# Enrichment fields (correlation_id, causation_id, emitted_at, entity_id,
+# schema_version) are injected BEFORE the transform runs, so they must be
+# declared or they would be hashed. session_id in particular is the declared
+# partition_key_field for both topics and the key is derived POST-transform:
+# hashing it would silently repartition the topic.
+topics:
+  "onex.evt.omniclaude.session-started.v1":
+    ticket: OMN-16979
+    reason: >
+      Session lifecycle metadata. The session identifier and source are needed
+      for correlation; the working-directory label is reduced to its shape.
+    fields:
+      session_id: capture_verbatim
+      hook_source: capture_verbatim
+      working_directory: capture_shape_only
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      # OMN-18609 -- lane attribution and hook fire time. Declared here
+      # because this contract's default_field_class is capture_hashed, so a
+      # field the emitter adds and this file does not name arrives as a
+      # sha256 digest. That is the contract working, not failing: the first
+      # live readback of these fields returned `lane=sha256:f0a20dd8...`,
+      # which is unusable as a grouping key and would have shipped a reader
+      # that grouped by a digest.
+      #
+      # Each one is safe to capture verbatim by construction, not by
+      # judgement. `lane` is a slug constrained by the lane registry's own
+      # validator; `lane_source` is one of three constants
+      # (registry | unresolved | unavailable); `lane_ticket` is an OMN
+      # identifier; `workspace_path` is WORKSPACE-RELATIVE and can never be
+      # an absolute local path -- the emitter degrades a path outside the
+      # workspace to its basename precisely so this declaration is true;
+      # `hook_fired_at` is a timestamp. None carries a tool argument, a tool
+      # output, a prompt or a filesystem location outside the workspace.
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      hook_fired_at: capture_verbatim
+
+  "onex.evt.omniclaude.session-ended.v1":
+    ticket: OMN-16979
+    reason: >
+      Session lifecycle metadata. The reason is a closed hook-schema enum;
+      no transcript, prompt, or result content crosses this topic.
+    fields:
+      session_id: capture_verbatim
+      reason: capture_verbatim
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      # OMN-18609 -- lane attribution and hook fire time. Declared here
+      # because this contract's default_field_class is capture_hashed, so a
+      # field the emitter adds and this file does not name arrives as a
+      # sha256 digest. That is the contract working, not failing: the first
+      # live readback of these fields returned `lane=sha256:f0a20dd8...`,
+      # which is unusable as a grouping key and would have shipped a reader
+      # that grouped by a digest.
+      #
+      # Each one is safe to capture verbatim by construction, not by
+      # judgement. `lane` is a slug constrained by the lane registry's own
+      # validator; `lane_source` is one of three constants
+      # (registry | unresolved | unavailable); `lane_ticket` is an OMN
+      # identifier; `workspace_path` is WORKSPACE-RELATIVE and can never be
+      # an absolute local path -- the emitter degrades a path outside the
+      # workspace to its basename precisely so this declaration is true;
+      # `hook_fired_at` is a timestamp. None carries a tool argument, a tool
+      # output, a prompt or a filesystem location outside the workspace.
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      hook_fired_at: capture_verbatim
+
+  "onex.evt.omniclaude.tool-executed.v1":
+    ticket: OMN-16979
+    reason: >
+      Coarse tool-execution telemetry. Every field below is a name, a count or
+      an identifier -- no tool argument and no tool output. Verified against
+      the live payload on the .201 stability lane 2026-09-04T14:22Z.
+    fields:
+      session_id: capture_verbatim
+      tool_name: capture_verbatim
+      duration_ms: capture_verbatim
+      interrupted: capture_verbatim
+      hook_source: capture_verbatim
+      working_directory: capture_verbatim
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      # OMN-18609 -- lane attribution and hook fire time. Declared here
+      # because this contract's default_field_class is capture_hashed, so a
+      # field the emitter adds and this file does not name arrives as a
+      # sha256 digest. That is the contract working, not failing: the first
+      # live readback of these fields returned `lane=sha256:f0a20dd8...`,
+      # which is unusable as a grouping key and would have shipped a reader
+      # that grouped by a digest.
+      #
+      # Each one is safe to capture verbatim by construction, not by
+      # judgement. `lane` is a slug constrained by the lane registry's own
+      # validator; `lane_source` is one of three constants
+      # (registry | unresolved | unavailable); `lane_ticket` is an OMN
+      # identifier; `workspace_path` is WORKSPACE-RELATIVE and can never be
+      # an absolute local path -- the emitter degrades a path outside the
+      # workspace to its basename precisely so this declaration is true;
+      # `hook_fired_at` is a timestamp. None carries a tool argument, a tool
+      # output, a prompt or a filesystem location outside the workspace.
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      hook_fired_at: capture_verbatim
+      # OMN-19513 -- the tool call's harness identifiers, so a tool-executed
+      # row can be joined to its hook-event lineage and told apart from a
+      # subagent's. Both are opaque harness ids (toolu_... and a... hex): no
+      # tool argument, no output, no path.
+      tool_use_id: capture_verbatim
+      agent_id: capture_verbatim
+
+  "onex.evt.omniclaude.hook-event.v1":
+    ticket: OMN-19513
+    reason: >
+      All-hooks capture metadata: one event per Claude Code hook call, every
+      hook type, contract claude_hook_capture (omniclaude). Every declared
+      field is an identifier, enum, name, count, boolean, timestamp,
+      deterministic digest or content-record reference; content never rides
+      this topic, only a reference whose sha256 is computed over the value
+      AFTER the span scrub. The nested lineage and payload objects are
+      governed per subfield (dotted names below); an undeclared subfield is
+      hashed by default_field_class like any undeclared field, so a hook
+      field added upstream fails safe to a digest. Top-level names after the
+      contract's own are what the hook journal and the emit enrichment add.
+    fields:
+      event_id: capture_verbatim
+      schema_version: capture_verbatim
+      hook_event_name: capture_verbatim
+      emitted_at: capture_verbatim
+      actor: capture_verbatim
+      claude_code_version: capture_verbatim
+      lineage.session_id: capture_verbatim
+      lineage.agent_id: capture_verbatim
+      lineage.agent_type: capture_verbatim
+      lineage.is_subagent: capture_verbatim
+      lineage.parent_tool_use_id: capture_verbatim
+      lineage.workflow_run_id: capture_verbatim
+      lineage.spawn_depth: capture_verbatim
+      lineage.tool_use_id: capture_verbatim
+      lineage.prompt_id: capture_verbatim
+      lineage.turn_id: capture_verbatim
+      lineage.correlation_id: capture_verbatim
+      lineage.causation_id: capture_verbatim
+      # OMN-20010: sidecar model/description/phase; description is a scrubbed
+      # 200-char task label, never a prompt.
+      lineage.agent_model: capture_verbatim
+      lineage.agent_description: capture_verbatim
+      lineage.workflow_phase: capture_verbatim
+      payload.hook_event_name: capture_verbatim
+      payload.tool_name: capture_verbatim
+      payload.mcp_server: capture_verbatim
+      payload.tool_call_key: capture_verbatim
+      payload.tool_input_keys: capture_verbatim
+      # OMN-20031: goal ids, never content.
+      payload.goal_id: capture_verbatim
+      payload.parent_goal_id: capture_verbatim
+      payload.tool_use_ids: capture_verbatim
+      payload.tool_names: capture_verbatim
+      payload.duration_ms: capture_verbatim
+      payload.interrupted: capture_verbatim
+      payload.is_interrupt: capture_verbatim
+      payload.notification_type: capture_verbatim
+      payload.prompt_length: capture_verbatim
+      payload.source: capture_verbatim
+      payload.expansion_type: capture_verbatim
+      payload.command_name: capture_verbatim
+      payload.command_source: capture_verbatim
+      payload.model: capture_verbatim
+      payload.context_tokens: capture_verbatim
+      payload.seconds_since_last_response: capture_verbatim
+      payload.prompt_cache_likely_expired: capture_verbatim
+      payload.reason: capture_verbatim
+      payload.stop_hook_active: capture_verbatim
+      payload.background_task_count: capture_verbatim
+      payload.session_cron_count: capture_verbatim
+      payload.error: capture_verbatim
+      payload.agent_id: capture_verbatim
+      payload.agent_type: capture_verbatim
+      payload.trigger: capture_verbatim
+      payload.suggestion_count: capture_verbatim
+      payload.teammate_name: capture_verbatim
+      payload.team_name: capture_verbatim
+      payload.task_id: capture_verbatim
+      payload.mcp_server_name: capture_verbatim
+      payload.mode: capture_verbatim
+      payload.elicitation_id: capture_verbatim
+      payload.requested_schema_keys: capture_verbatim
+      payload.action: capture_verbatim
+      payload.memory_type: capture_verbatim
+      payload.load_reason: capture_verbatim
+      payload.glob_count: capture_verbatim
+      payload.event: capture_verbatim
+      payload.turn_id: capture_verbatim
+      payload.message_id: capture_verbatim
+      payload.index: capture_verbatim
+      payload.final: capture_verbatim
+      payload.delta_length: capture_verbatim
+      payload.tool_input_ref: capture_verbatim
+      payload.tool_response_ref: capture_verbatim
+      payload.error_ref: capture_verbatim
+      payload.title_ref: capture_verbatim
+      payload.message_ref: capture_verbatim
+      payload.prompt_ref: capture_verbatim
+      payload.session_title_ref: capture_verbatim
+      payload.command_args_ref: capture_verbatim
+      payload.last_assistant_message_ref: capture_verbatim
+      payload.error_details_ref: capture_verbatim
+      payload.agent_transcript_ref: capture_verbatim
+      payload.custom_instructions_ref: capture_verbatim
+      payload.compact_summary_ref: capture_verbatim
+      payload.reason_ref: capture_verbatim
+      payload.task_subject_ref: capture_verbatim
+      payload.task_description_ref: capture_verbatim
+      payload.content_ref: capture_verbatim
+      payload.file_path_ref: capture_verbatim
+      payload.name_ref: capture_verbatim
+      payload.worktree_path_ref: capture_verbatim
+      payload.old_cwd_ref: capture_verbatim
+      payload.new_cwd_ref: capture_verbatim
+      payload.directory_ref: capture_verbatim
+      payload.delta_ref: capture_verbatim
+      content_refs: capture_verbatim
+      # Added by the emit path, not the contract event: the partition key,
+      # the journal's turn id and lane attribution (same reasoning as the
+      # tool-executed block above), and the enrichment envelope.
+      session_id: capture_verbatim
+      turn_id: capture_verbatim
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      entity_id: capture_verbatim
+      # hook_fired_at is the drainer's stamp of when the hook fired (a
+      # timestamp), added to every journalled record; declared here as it is
+      # on the sibling hook topics, so it is not hashed by the default.
+      hook_fired_at: capture_verbatim
+
+  "onex.evt.omniclaude.prompt-submitted.v1":
+    ticket: OMN-16979
+    reason: >
+      Prompt telemetry. The prompt body never crosses: `prompt` and
+      `prompt_b64` are dropped outright rather than hashed, because a hash of
+      a short prompt is a lookup handle. `prompt_preview` -- which the legacy
+      `strip_prompt` transform truncates to 100 chars and which OMN-16019
+      identified as the disclosure surface -- is reduced to its shape.
+    fields:
+      session_id: capture_verbatim
+      prompt_length: capture_verbatim
+      hook_source: capture_verbatim
+      working_directory: capture_verbatim
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      # OMN-18609 -- lane attribution and hook fire time. Declared here
+      # because this contract's default_field_class is capture_hashed, so a
+      # field the emitter adds and this file does not name arrives as a
+      # sha256 digest. That is the contract working, not failing: the first
+      # live readback of these fields returned `lane=sha256:f0a20dd8...`,
+      # which is unusable as a grouping key and would have shipped a reader
+      # that grouped by a digest.
+      #
+      # Each one is safe to capture verbatim by construction, not by
+      # judgement. `lane` is a slug constrained by the lane registry's own
+      # validator; `lane_source` is one of three constants
+      # (registry | unresolved | unavailable); `lane_ticket` is an OMN
+      # identifier; `workspace_path` is WORKSPACE-RELATIVE and can never be
+      # an absolute local path -- the emitter degrades a path outside the
+      # workspace to its basename precisely so this declaration is true;
+      # `hook_fired_at` is a timestamp. None carries a tool argument, a tool
+      # output, a prompt or a filesystem location outside the workspace.
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      hook_fired_at: capture_verbatim
+      prompt: never_capture
+      prompt_b64: never_capture
+      prompt_preview: capture_shape_only
+    # The transform this rule replaces (`strip_prompt`) did not only drop
+    # `prompt` -- it derived `prompt_length` from it when the producer had not
+    # supplied one. Dropping a field is a redaction; silently dropping the
+    # SIGNAL that survived the redaction is a regression, so the derivation is
+    # declared here rather than lost. It runs only when the target is absent
+    # and the source is present, matching strip_prompt's own
+    # `if "prompt_length" not in result` guard, and it reads the source
+    # BEFORE that source is dropped.
+    derived_fields:
+      prompt_length:
+        from: prompt
+        derive: length
+
+  "onex.evt.omniclaude.skill-started.v1":
+    ticket: OMN-16979
+    reason: >
+      Start-boundary skill telemetry. It carries only the hook invocation key,
+      a skill name, and a correlation identifier; no arguments or skill body.
+    fields:
+      run_id: capture_verbatim
+      skill_name: capture_verbatim
+      repo_id: capture_verbatim
+      correlation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      causation_id: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      args: never_capture
+      arguments: never_capture
+      prompt: never_capture
+      content: never_capture
+
+  "onex.evt.omniclaude.skill-completed.v1":
+    ticket: OMN-16979
+    reason: >
+      Completion-bound skill telemetry. The terminal status shares the start
+      invocation key; results, output, and arbitrary tool response do not cross.
+    fields:
+      run_id: capture_verbatim
+      skill_name: capture_verbatim
+      repo_id: capture_verbatim
+      correlation_id: capture_verbatim
+      status: capture_verbatim
+      emitted_at: capture_verbatim
+      causation_id: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      result: never_capture
+      output: never_capture
+      tool_response: never_capture
+      content: never_capture
+
+  "onex.evt.omnimarket.tool-output-captured.v1":
+    ticket: OMN-16979
+    reason: >
+      Artifact-capture telemetry. It identifies an already content-addressed
+      artifact and the suppression decision, never the captured bytes.
+    fields:
+      tool_name: capture_verbatim
+      suppression_decision: capture_verbatim
+      correlation_id: capture_verbatim
+      artifact_ref: capture_verbatim
+      command_type: capture_verbatim
+      original_bytes: capture_verbatim
+      original_lines: capture_verbatim
+      session_id: capture_verbatim
+      tool_use_id: capture_verbatim
+      emitted_at: capture_verbatim
+      causation_id: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      tool_output: never_capture
+      tool_response: never_capture
+      stdout: never_capture
+      stderr: never_capture
+      output: never_capture
+      content: never_capture
+
+  "onex.cmd.omniintelligence.content-captured.v1":
+    ticket: OMN-19550
+    reason: >
+      Full-content capture, ruled by the operator on 2026-09-25 (RULING row
+      2026-09-25T11:23:30Z): the complete prompt, tool input, tool result and
+      assistant reply, so full context joins to deterministic outcomes as
+      labelled training and eval data. One record carries one content item,
+      or one chunk of it. The two content fields are capture_scrubbed:
+      credential-shaped spans are replaced in place and everything else
+      crosses. The identifiers are verbatim so the record joins to
+      work_events on session_id, turn_id and correlation_id. It is a cmd
+      topic on purpose: omniclaude's privacy split puts previews and metrics
+      on onex.evt.omniclaude.* (broad access) and full prompts and file
+      contents only on the restricted onex.cmd.omniintelligence.* family.
+      It is also LOCAL: the cloud relay forwards an explicit topic allowlist
+      (omnibase_infra node_bus_forwarder_effect/contract.yaml) that does not
+      name it, and the ruling puts prod and cloud clusters out of scope until
+      MSK capture is ruled.
+    fields:
+      session_id: capture_verbatim
+      turn_id: capture_verbatim
+      correlation_id: capture_verbatim
+      causation_id: capture_verbatim
+      emitted_at: capture_verbatim
+      entity_id: capture_verbatim
+      schema_version: capture_verbatim
+      hook_source: capture_verbatim
+      actor: capture_verbatim
+      # prompt | tool_input | tool_response | assistant_reply
+      content_kind: capture_verbatim
+      tool_name: capture_verbatim
+      tool_use_id: capture_verbatim
+      # The size policy's bookkeeping: which chunk this is, of how many, the
+      # sha256 of the chunks concatenated (so a reader can verify a
+      # reassembly), the full length before the cap, and whether the cap cut
+      # it. Counts and a digest -- no content.
+      chunk_index: capture_verbatim
+      chunk_count: capture_verbatim
+      content_sha256: capture_verbatim
+      original_chars: capture_verbatim
+      truncated: capture_verbatim
+      # {pattern name: count} from the producer's pass over the WHOLE content
+      # before it was chunked. Carried because the fan-out re-applies this
+      # contract per chunk and restamps the state, which would otherwise lose
+      # the fact that a producer-side span was removed. Names and counts only.
+      producer_redaction: capture_verbatim
+      lane: capture_verbatim
+      lane_source: capture_verbatim
+      lane_ticket: capture_verbatim
+      workspace_path: capture_verbatim
+      hook_fired_at: capture_verbatim
+      # The content. Both are also listed in content_fields above, so an
+      # always-hashed output class (a kubectl secret read, an SSM call, an
+      # environment dump, a .env read) still hashes them whole.
+      content: capture_scrubbed
+      # For a tool item, the command (Bash) or path (Read, Grep) the output
+      # classes match on. Scrubbed, because a command can carry a credential
+      # (curl -H "Authorization: ...").
+      command: capture_scrubbed
+      # Named so that a producer that ever attaches them cannot publish them,
+      # whatever their content (RULING: "never auth headers or tokens").
+      headers: never_capture
+      authorization: never_capture
+    content_policy:
+      # Per record, per capture_scrubbed field, enforced at the fan-out: a
+      # longer value is cut to this length and `truncated_field` is set true,
+      # so an oversize record cannot reach the broker (Redpanda's default
+      # message cap is 1 MiB, and 65,536 characters stay under it even at
+      # six bytes per JSON-escaped character).
+      chunk_chars: 65536
+      # Per content item, enforced by the producer before chunking: content
+      # beyond this is not published. The record says so (`truncated_field`
+      # true, `original_field` the full length), and the full text remains in
+      # the local session transcript, which the archive lanes keep
+      # (RULING rows 2026-09-25T11:20:55Z and 2026-09-25T11:28:54Z). 32 chunks.
+      max_content_chars: 2097152
+      truncated_field: truncated
+      original_field: original_chars
+
+# ---------------------------------------------------------------------------
+# Mandatory redaction state (OMN-17209 scope 4)
+# ---------------------------------------------------------------------------
+# Stamped on every governed record under this key. Values mirror
+# omnibase_core's EnumArtifactRedactionState (OMN-13152) exactly; parity is
+# asserted by test, and the enum is re-declared rather than imported so the
+# emit seam keeps its stdlib-only import cost (OMN-17224).
+redaction_state_field: "redaction_state"

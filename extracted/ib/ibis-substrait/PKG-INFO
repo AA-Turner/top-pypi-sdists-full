@@ -1,0 +1,87 @@
+Metadata-Version: 2.1
+Name: ibis-substrait
+Version: 4.0.1
+Summary: Subtrait compiler for ibis
+Home-page: https://github.com/ibis-project/ibis-substrait
+License: Apache-2.0
+Author: Ibis Contributors
+Maintainer: Ibis Contributors
+Requires-Python: >=3.9,<4
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: ibis-framework (>=9,<10)
+Requires-Dist: packaging (>=21.3)
+Requires-Dist: pyyaml (>=5)
+Requires-Dist: substrait (>=0.2.1)
+Project-URL: Repository, https://github.com/ibis-project/ibis-substrait
+Description-Content-Type: text/markdown
+
+# [Ibis](https://ibis-project.org) + [Substrait](https://substrait.io)
+
+This repo houses the Substrait compiler for ibis.
+
+We're just getting started here, so stay tuned!
+
+# Usage
+
+```python
+>>> import ibis
+
+>>> t = ibis.table(
+    [("a", "string"), ("b", "float"), ("c", "int32"), ("d", "int64"), ("e", "int64")],
+    "t",
+)
+
+>>> expr = t.group_by(["a", "b"]).aggregate([t.c.sum().name("sum")]).select("b", "sum")
+>>> expr
+r0 := UnboundTable: t
+  a string
+  b float64
+  c int32
+  d int64
+  e int64
+
+r1 := Aggregation[r0]
+  metrics:
+    sum: Sum(r0.c)
+  by:
+    a: r0.a
+    b: r0.b
+
+Selection[r1]
+  selections:
+    b:   r1.b
+    sum: r1.sum
+
+
+>>> ibis.show_sql(expr)
+SELECT
+  t0.b,
+  t0.sum
+FROM (
+  SELECT
+    t1.a AS a,
+    t1.b AS b,
+    SUM(t1.c) AS sum
+  FROM t AS t1
+  GROUP BY
+    t1.a,
+    t1.b
+) AS t0
+
+>>> from ibis_substrait.compiler.core import SubstraitCompiler
+
+>>> compiler = SubstraitCompiler()
+
+>>> proto = compiler.compile(expr)
+```
+

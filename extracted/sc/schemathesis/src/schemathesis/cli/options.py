@@ -136,7 +136,7 @@ CONTINUE_ON_FAILURE = OptionSpec(
     "continue_on_failure",
     help="Continue executing all test cases within a scenario, even after encountering failures",
     is_flag=True,
-    default=False,
+    default=None,
     metavar="",
 )
 
@@ -517,6 +517,13 @@ REPORT_NDJSON_PATH = OptionSpec(
 REPORT_JSON_PATH = OptionSpec(
     "--report-json-path",
     help="Custom path for the JSON run report",
+    type=click.File("w", encoding="utf-8"),
+    is_eager=True,
+)
+
+REPORT_WFC_PATH = OptionSpec(
+    "--report-wfc-path",
+    help="Custom path for the WFC Report JSON file",
     type=click.File("w", encoding="utf-8"),
     is_eager=True,
 )

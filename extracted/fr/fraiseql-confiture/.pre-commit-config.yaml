@@ -1,0 +1,28 @@
+# .pre-commit-config.yaml
+#
+# Ruff: Astral's official `ruff-pre-commit` repo. The `rev:` tag tracks
+#   the ruff version installed in the project venv (`uv run ruff
+#   --version`); bump both together when upgrading.
+# Ty: not yet shipped as an official pre-commit repo, so it runs as a
+#   local hook via `uv run`.  This means it cannot run in
+#   pre-commit.ci's minimal sandbox (no uv installed there); the
+#   authoritative type-check gate is the GH Actions Lint job, which
+#   runs the same `uv run ty check python/` against the real venv.
+ci:
+   skip: [ty]
+repos:
+   - repo: https://github.com/astral-sh/ruff-pre-commit
+     rev: v0.16.9
+     hooks:
+       - id: ruff
+         args: [--fix]
+       - id: ruff-format
+
+   - repo: local
+     hooks:
+       - id: ty
+         name: Ty type check (Astral)
+         language: system
+         entry: uv run ty check python/
+         pass_filenames: false
+         files: ^python/

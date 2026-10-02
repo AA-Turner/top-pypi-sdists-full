@@ -105,6 +105,9 @@ from anyscale.client.openapi_client.models.job_queue_sort_directive import (
     JobQueueSortDirective,
 )
 from anyscale.client.openapi_client.models.mini_build import MiniBuild
+from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
+    RollbackSchedulerConfigRequest,
+)
 from anyscale.client.openapi_client.models.scheduler_config_response import (
     SchedulerConfigResponse,
 )
@@ -254,18 +257,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             anonymous=True,
             is_default=True,
         )
-        self._compute_config_name_to_ids: DefaultDict[str, List[str]] = defaultdict(
-            list
-        )
+        self._compute_config_name_to_ids: DefaultDict[str, List[str]] = defaultdict(list)
         self._compute_config_id_to_cloud_id: Dict[str, str] = {}
         self._compute_configs: Dict[str, ClusterCompute] = {}
         self._archived_compute_configs: Dict[str, ClusterCompute] = {}
         self._workspace_cluster: Optional[Cluster] = None
         self._workspace_dependency_tracking_enabled: bool = False
         self._services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
-        self._versions: Dict[
-            str, Dict[str, ProductionServiceV2VersionModel]
-        ] = defaultdict(dict)
+        self._versions: Dict[str, Dict[str, ProductionServiceV2VersionModel]] = defaultdict(dict)
         self._archived_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
         self._deleted_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
         self._jobs: Dict[str, ProductionJob] = {}
@@ -282,9 +281,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._deleted_jobs: Dict[str, ProductionJob] = {}
         self._requirements_path: Optional[str] = None
         self._upload_uri_mapping: Dict[str, str] = {}
-        self._upload_bucket_path_mapping: Dict[
-            str, Tuple[List[Optional[str]], str]
-        ] = {}
+        self._upload_bucket_path_mapping: Dict[str, Tuple[List[Optional[str]], str]] = {}
         self._submitted_job: Optional[CreateInternalProductionJob] = None
         self._env_vars: Optional[Dict[str, str]] = None
         self._job_run_logs: Dict[str, str] = {}
@@ -368,9 +365,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         )
 
         # Key is (cloud_id, cloud_resource_id) where cloud_resource_id can be None
-        self._default_compute_configs: Dict[
-            Tuple[str, Optional[str]], ClusterCompute
-        ] = {
+        self._default_compute_configs: Dict[Tuple[str, Optional[str]], ClusterCompute] = {
             (self.DEFAULT_CLOUD_ID, None): compute_config,
             (self.WORKSPACE_CLOUD_ID, None): workspace_compute_config,
         }
@@ -421,9 +416,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if name:
             results = [w for w in results if w.name == name]
         if name_contains:
-            results = [
-                w for w in results if name_contains.lower() in (w.name or "").lower()
-            ]
+            results = [w for w in results if name_contains.lower() in (w.name or "").lower()]
 
         # Filter by project
         if project_id:
@@ -486,9 +479,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_service_ui_url(self, service_id: str) -> str:
         return f"{self.BASE_UI_URL}/services/{service_id}"
 
-    def get_compute_config_ui_url(
-        self, compute_config_id: str, *, cloud_id: str
-    ) -> str:
+    def get_compute_config_ui_url(self, compute_config_id: str, *, cloud_id: str) -> str:
         return f"{self.BASE_UI_URL}/v2/{cloud_id}/compute-configs/{compute_config_id}"
 
     def set_inside_workspace(
@@ -516,11 +507,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             self._workspace_cluster = None
 
     def get_current_workspace_id(self) -> Optional[str]:
-        return (
-            self.WORKSPACE_ID
-            if self.get_current_workspace_cluster() is not None
-            else None
-        )
+        return self.WORKSPACE_ID if self.get_current_workspace_cluster() is not None else None
 
     def inside_workspace(self) -> bool:
         return self.get_current_workspace_cluster() is not None
@@ -569,7 +556,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             )
 
     def _get_project_id_by_cloud_id(
-        self, *, parent_cloud_id: Optional[str] = None,
+        self,
+        *,
+        parent_cloud_id: Optional[str] = None,
     ) -> str:
         workspace_cluster = self.get_current_workspace_cluster()
         if workspace_cluster is not None:
@@ -598,9 +587,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         name: Optional[str] = None,  # noqa: ARG002
     ) -> str:
         if name is not None:
-            return self._get_project_id_by_name(
-                parent_cloud_id=parent_cloud_id, name=name
-            )
+            return self._get_project_id_by_name(parent_cloud_id=parent_cloud_id, name=name)
         else:
             return self._get_project_id_by_cloud_id(parent_cloud_id=parent_cloud_id)
 
@@ -699,9 +686,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if meta is not None:
             meta["last_modified_at"] = datetime.utcnow()
 
-    def _get_latest_build_for_env(
-        self, env_id: str
-    ) -> Optional[ClusterEnvironmentBuild]:
+    def _get_latest_build_for_env(self, env_id: str) -> Optional[ClusterEnvironmentBuild]:
         latest: Optional[ClusterEnvironmentBuild] = None
         for build in self._builds.values():
             if build.cluster_environment_id == env_id:
@@ -846,8 +831,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self, cloud_id: str, collaborators: List[CreateCloudCollaborator]
     ) -> None:
         existing_collaborators = [
-            collaborator.email
-            for collaborator in self._cloud_collaborators.get(cloud_id, [])
+            collaborator.email for collaborator in self._cloud_collaborators.get(cloud_id, [])
         ]
 
         for collaborator in collaborators:
@@ -861,9 +845,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             self._cloud_collaborators[cloud_id].extend(collaborators)
 
-    def terminate_system_cluster(
-        self, cloud_id: str
-    ) -> Optional[ClusteroperationResponse]:
+    def terminate_system_cluster(self, cloud_id: str) -> Optional[ClusteroperationResponse]:
         self._system_cluster_status[cloud_id] = ClusterState.TERMINATING
         return ClusteroperationResponse(
             result=ClusterOperation(
@@ -881,9 +863,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return self._system_cluster_status[cloud_id]
 
     def add_compute_config(self, compute_config: DecoratedComputeTemplate) -> int:
-        compute_config.version = (
-            len(self._compute_config_name_to_ids[compute_config.name]) + 1
-        )
+        compute_config.version = len(self._compute_config_name_to_ids[compute_config.name]) + 1
         self._compute_configs[compute_config.id] = compute_config
         self._compute_config_name_to_ids[compute_config.name].append(compute_config.id)
 
@@ -914,9 +894,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         )
         return f"{name}:{version}", compute_config_id
 
-    def get_compute_config(
-        self, compute_config_id: str
-    ) -> Optional[DecoratedComputeTemplate]:
+    def get_compute_config(self, compute_config_id: str) -> Optional[DecoratedComputeTemplate]:
         if compute_config_id in self._compute_configs:
             return self._compute_configs[compute_config_id]
 
@@ -941,10 +919,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 version = len(self._compute_config_name_to_ids[name])
 
             compute_config_id = self._compute_config_name_to_ids[name][version - 1]
-            if (
-                not include_archived
-                and compute_config_id in self._archived_compute_configs
-            ):
+            if not include_archived and compute_config_id in self._archived_compute_configs:
                 return None
 
             return compute_config_id
@@ -966,6 +941,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         Implements filtering, sorting, and pagination for testing purposes.
         """
+
         # Create a mock response object that matches the expected structure
         class MockSearchResponse:
             def __init__(self, results_list, next_token=None):
@@ -987,9 +963,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         if "cloud_id" in query:
             cloud_id = query["cloud_id"]
-            results = [
-                cc for cc in results if cc.config and cc.config.cloud_id == cloud_id
-            ]
+            results = [cc for cc in results if cc.config and cc.config.cloud_id == cloud_id]
 
         # Apply sorting
         if "sort_by_clauses" in query:
@@ -1016,9 +990,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 if sort_field == "NAME":
                     results.sort(key=lambda x: x.name or "", reverse=reverse)
                 elif sort_field == "CREATED_AT":
-                    results.sort(
-                        key=lambda x: x.created_at or datetime.min, reverse=reverse
-                    )
+                    results.sort(key=lambda x: x.created_at or datetime.min, reverse=reverse)
                 elif sort_field == "LAST_MODIFIED_AT":
                     results.sort(
                         key=lambda x: x.last_modified_at or datetime.min,
@@ -1068,7 +1040,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return self._default_compute_configs[(self.DEFAULT_CLOUD_ID, None)]
 
     def list_cluster_env_builds(
-        self, cluster_env_id: str,
+        self,
+        cluster_env_id: str,
     ) -> Generator[ClusterEnvironmentBuild, None, None]:
         for v in self._builds.values():
             if v.cluster_environment_id == cluster_env_id:
@@ -1094,9 +1067,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_cluster_env_build(self, build_id: str) -> Optional[ClusterEnvironmentBuild]:
         return self._builds.get(build_id, None)
 
-    def get_cluster_env_by_name(
-        self, name, cloud_id=None
-    ) -> Optional[ClusterEnvironment]:
+    def get_cluster_env_by_name(self, name, cloud_id=None) -> Optional[ClusterEnvironment]:
         self.last_get_cluster_env_by_name_cloud_id = cloud_id
         for v in self._images.values():
             if v.name == name:
@@ -1115,8 +1086,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if self.get_deployment_infra_provider() == "azure":
             if not cloud_id:
                 raise ValueError(
-                    "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "cloud_id is required for Azure Control Plane. Please provide a cloud_id."
                 )
         else:
             cloud_id = None
@@ -1136,11 +1106,15 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         self._ensure_application_template_metadata(
-            cluster_env_id, name=cluster_env_name, anonymous=anonymous,
+            cluster_env_id,
+            name=cluster_env_name,
+            anonymous=anonymous,
         )
         latest_build = None
         for build in self._builds.values():
-            if build.cluster_environment_id == cluster_env_id and (latest_build is None or build.revision > latest_build.revision):  # type: ignore
+            if build.cluster_environment_id == cluster_env_id and (
+                latest_build is None or build.revision > latest_build.revision
+            ):  # type: ignore
                 latest_build = build
         build_id = f"cluster-env-build-id-{uuid.uuid4()!s}"
         build = ClusterEnvironmentBuild(
@@ -1173,8 +1147,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if self.get_deployment_infra_provider() == "azure":
             if not cloud_id:
                 raise ValueError(
-                    "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "cloud_id is required for Azure Control Plane. Please provide a cloud_id."
                 )
         else:
             cloud_id = None
@@ -1183,11 +1156,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         for build in self._builds.values():
             build_image_uri = self.get_cluster_env_build_image_uri(build.id)
-            if (
-                build_image_uri.image_uri == image_uri.image_uri
-                if build_image_uri
-                else False
-            ):
+            if build_image_uri.image_uri == image_uri.image_uri if build_image_uri else False:
                 return build.id  # type: ignore
         cluster_env_id = f"cluster-env-id-{uuid.uuid4()!s}"
         cluster_env_name = name if name else image_uri.to_cluster_env_name()
@@ -1198,7 +1167,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         self._ensure_application_template_metadata(
-            cluster_env_id, name=cluster_env_name, anonymous=False,
+            cluster_env_id,
+            name=cluster_env_name,
+            anonymous=False,
         )
         build_id = f"cluster-env-build-id-{uuid.uuid4()!s}"
         build = ClusterEnvironmentBuild(
@@ -1254,8 +1225,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if self.get_deployment_infra_provider() == "azure":
             if not cloud_id:
                 raise ValueError(
-                    "cloud_id is required for Azure Control Plane. "
-                    "Please provide a cloud_id."
+                    "cloud_id is required for Azure Control Plane. Please provide a cloud_id."
                 )
         else:
             cloud_id = None
@@ -1284,9 +1254,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
             if image_name:
                 latest_build = template.latest_build
-                docker_name = (
-                    latest_build.docker_image_name if latest_build is not None else None
-                )
+                docker_name = latest_build.docker_image_name if latest_build is not None else None
                 if not docker_name or image_name not in docker_name:
                     continue
 
@@ -1296,11 +1264,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             templates.sort(
                 key=lambda tpl: (
                     0 if tpl.is_default else 1,
-                    -(
-                        tpl.created_at.timestamp()
-                        if tpl.created_at is not None
-                        else 0.0
-                    ),
+                    -(tpl.created_at.timestamp() if tpl.created_at is not None else 0.0),
                 )
             )
         else:
@@ -1319,11 +1283,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         page_count = count if count is not None else total
         page = templates[start_index : start_index + page_count]
-        next_token = (
-            str(start_index + page_count)
-            if (start_index + page_count) < total
-            else None
-        )
+        next_token = str(start_index + page_count) if (start_index + page_count) < total else None
 
         metadata = SDKListResponseMetadata(
             total=total,
@@ -1352,13 +1312,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     ) -> Optional[DecoratedProductionServiceV2APIModel]:
         cloud_id = self.get_cloud_id(cloud_name=cloud)
         cloud_project_dict = self._project_to_id.get(cloud_id, None)
-        project_id = (
-            cloud_project_dict.get(project, None) if cloud_project_dict else None
-        )
+        project_id = cloud_project_dict.get(project, None) if cloud_project_dict else None
         for service in self._services.values():
-            if service.name == name and (
-                project_id is None or service.project_id == project_id
-            ):
+            if service.name == name and (project_id is None or service.project_id == project_id):
                 return service
 
         if include_archived:
@@ -1399,7 +1355,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return project_id
 
     def get_project_by_id_or_name(
-        self, *, project_id: Optional[str] = None, project_name: Optional[str] = None,
+        self,
+        *,
+        project_id: Optional[str] = None,
+        project_name: Optional[str] = None,
     ) -> Optional[Project]:
         if project_id:
             return self._projects.get(project_id, None)
@@ -1414,7 +1373,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             for p_name, p_id in cloud_project_dict.items():
                 if p_id == project_id:
                     # return stub project
-                    return self.build_project_with_args(id=p_id, name=p_name,)
+                    return self.build_project_with_args(
+                        id=p_id,
+                        name=p_name,
+                    )
         return None
 
     def list_projects(
@@ -1439,9 +1401,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if not include_defaults:
             projects = [p for p in projects if not p.is_default]
         if sort_field and sort_order and sort_field == "NAME":
-            projects.sort(
-                key=lambda x: x.name if x.name else "", reverse=sort_order == "DESC"
-            )
+            projects.sort(key=lambda x: x.name if x.name else "", reverse=sort_order == "DESC")
         if count:
             projects = projects[:count]
         return ProjectListResponse(
@@ -1478,7 +1438,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         return ProjectBase(
-            id=project_id, local_vars_configuration=OPENAPI_NO_VALIDATION,
+            id=project_id,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
 
     def delete_project(self, project_id: str) -> None:
@@ -1501,10 +1462,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         ]
 
         for collaborator in collaborators:
-            if (
-                collaborator.value
-                and collaborator.value.email in existing_collaborators
-            ):
+            if collaborator.value and collaborator.value.email in existing_collaborators:
                 raise ValueError(
                     f"Collaborator with email '{collaborator.value.email}' already exists in project '{project_id}'."
                 )
@@ -1534,9 +1492,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             # Name-based lookup: respect archive filtering
             cloud_id = self.get_cloud_id(cloud_name=cloud)
             cloud_project_dict = self._project_to_id.get(cloud_id, None)
-            project_id = (
-                cloud_project_dict.get(project, None) if cloud_project_dict else None
-            )
+            project_id = cloud_project_dict.get(project, None) if cloud_project_dict else None
 
             # Build the list of jobs to search
             target_jobs = list(self._jobs.values())
@@ -1562,7 +1518,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         run_name: Optional[str] = None,
     ) -> List[APIJobRun]:
         return self.batch_get_job_runs(
-            [job_id], max_runs_per_job=max_runs_per_job, run_name=run_name,
+            [job_id],
+            max_runs_per_job=max_runs_per_job,
+            run_name=run_name,
         ).get(job_id, [])
 
     def batch_get_job_runs(
@@ -1571,9 +1529,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         max_runs_per_job: Optional[int] = DEFAULT_MAX_RUNS_PER_JOB,
         run_name: Optional[str] = None,
     ) -> Dict[str, List[APIJobRun]]:
-        limit = (
-            DEFAULT_MAX_RUNS_PER_JOB if max_runs_per_job is None else max_runs_per_job
-        )
+        limit = DEFAULT_MAX_RUNS_PER_JOB if max_runs_per_job is None else max_runs_per_job
         result: Dict[str, List[APIJobRun]] = {}
         for job_id in ha_job_ids:
             runs = self._job_runs.get(job_id, [])
@@ -1599,9 +1555,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         tags_filter: Optional[Dict[str, List[str]]] = None,  # noqa: ARG002
         count: Optional[int] = None,
         paging_token: Optional[str] = None,  # noqa: ARG002
-        _sorting_directives: Optional[
-            List[JobQueueSortDirective]
-        ] = None,  # noqa: ARG002
+        _sorting_directives: Optional[List[JobQueueSortDirective]] = None,  # noqa: ARG002
         include_archived: bool = False,  # noqa: ARG002
     ) -> DecoratedjobqueueListResponse:
         """Mock implementation of list_job_queues API for testing.
@@ -1687,9 +1641,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     @property
     def rolled_out_model(
         self,
-    ) -> Optional[
-        Union[ApplyProductionServiceV2Model, ApplyProductionServiceMultiVersionV2Model]
-    ]:
+    ) -> Optional[Union[ApplyProductionServiceV2Model, ApplyProductionServiceMultiVersionV2Model]]:
         return self._rolled_out_model
 
     def rollout_service(
@@ -1792,9 +1744,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def rolled_back_service(self) -> Optional[Tuple[str, Optional[int]]]:
         return self._rolled_back_service
 
-    def rollback_service(
-        self, service_id: str, *, max_surge_percent: Optional[int] = None
-    ):
+    def rollback_service(self, service_id: str, *, max_surge_percent: Optional[int] = None):
         self._rolled_back_service = (service_id, max_surge_percent)
 
     @property
@@ -1855,9 +1805,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         # to primary and clear the secondary slot.
         if auth_token is None or auth_token == current_auth_token:
             if current_secondary_auth_token is None:
-                raise ValueError(
-                    f"No secondary auth token is set for service {service_id}."
-                )
+                raise ValueError(f"No secondary auth token is set for service {service_id}.")
             service.auth_token = current_secondary_auth_token
             service.secondary_auth_token = None
         elif auth_token == current_secondary_auth_token:
@@ -1912,6 +1860,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def is_deleted_job(self, job_id: str) -> bool:
         return job_id in self._deleted_jobs
 
+    @property
+    def uploaded_dirs(self) -> List[str]:
+        """Local directories that have been uploaded to cloud storage."""
+        return list(self._upload_uri_mapping)
+
     def upload_local_dir_to_cloud_storage(
         self,
         local_dir: str,
@@ -1926,9 +1879,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if cloud_resource_name is not None:
             bucket += f"_{cloud_resource_name}"
         if local_dir not in self._upload_uri_mapping:
-            self._upload_uri_mapping[
-                local_dir
-            ] = f"{bucket}/fake_pkg_{uuid.uuid4()!s}.zip"
+            self._upload_uri_mapping[local_dir] = f"{bucket}/fake_pkg_{uuid.uuid4()!s}.zip"
 
         return self._upload_uri_mapping[local_dir]
 
@@ -1999,9 +1950,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             cloud_id = self.get_cloud_id(cloud_name=cloud)
             cloud_project_dict = self._project_to_id.get(cloud_id, None)
-            project_id = (
-                cloud_project_dict.get(project, None) if cloud_project_dict else None
-            )
+            project_id = cloud_project_dict.get(project, None) if cloud_project_dict else None
             result: DecoratedSchedule = None
             for schedule in self._schedules.values():
                 if (
@@ -2102,9 +2051,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             creator_email=self.DEFAULT_USER_EMAIL,
             organization_id=self.DEFAULT_ORGANIZATION_ID,
             cluster_id=self.DEFAULT_CLOUD_ID,
-            state=SessionState.RUNNING
-            if not model.skip_start
-            else SessionState.TERMINATED,
+            state=SessionState.RUNNING if not model.skip_start else SessionState.TERMINATED,
             priority=model.priority,
         )
         self._workspaces[workspace.id] = workspace
@@ -2123,9 +2070,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             cloud_id = self.get_cloud_id(cloud_name=cloud)
             cloud_project_dict = self._project_to_id.get(cloud_id, None)
-            project_id = (
-                cloud_project_dict.get(project, None) if cloud_project_dict else None
-            )
+            project_id = cloud_project_dict.get(project, None) if cloud_project_dict else None
             result: ExperimentalWorkspace = None
             for workspace in self._workspaces.values():
                 if (
@@ -2166,12 +2111,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         assert workspace_id is not None
         self._workspaces_env_vars[workspace_id] = env_vars
 
-    def get_workspace_cluster(
-        self, workspace_id: Optional[str]
-    ) -> Optional[DecoratedSession]:
-        workspace_model = (
-            self._workspaces.get(workspace_id, None) if workspace_id else None
-        )
+    def get_workspace_cluster(self, workspace_id: Optional[str]) -> Optional[DecoratedSession]:
+        workspace_model = self._workspaces.get(workspace_id, None) if workspace_id else None
         assert workspace_model is not None
         compute_config = self.get_compute_config(workspace_model.compute_config_id)
         assert compute_config is not None
@@ -2190,9 +2131,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         env_vars_dict = self._workspaces_env_vars.get(workspace_id, None)
         return WorkspaceDataplaneProxiedArtifacts(
             requirements=self._workspaces_dependencies.get(workspace_id, None),
-            environment_variables=[
-                f"{key}={value}" for key, value in env_vars_dict.items()
-            ]
+            environment_variables=[f"{key}={value}" for key, value in env_vars_dict.items()]
             if env_vars_dict
             else None,
         )
@@ -2281,7 +2220,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return filepath
 
     def create_api_key(
-        self, duration: float, user_id: Optional[str]  # noqa: ARG002
+        self,
+        duration: float,  # noqa: ARG002
+        user_id: Optional[str],  # noqa: ARG002
     ) -> ServerSessionToken:
         api_key = f"{uuid.uuid4()!s}"
         api_keys = self._api_keys.get(user_id or "usr_1", [])
@@ -2300,9 +2241,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         created_users = []
         for admin_create_user in admin_create_users:
             if admin_create_user.email in self._users:
-                raise ValueError(
-                    f"User with email '{admin_create_user.email}' already exists."
-                )
+                raise ValueError(f"User with email '{admin_create_user.email}' already exists.")
 
             user_id = f"user-id-{uuid.uuid4()!s}"
             created_user = AdminCreatedUser(
@@ -2319,9 +2258,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         return created_users
 
-    def create_organization_invitations(
-        self, emails: List[str]
-    ) -> Tuple[List[str], List[str]]:
+    def create_organization_invitations(self, emails: List[str]) -> Tuple[List[str], List[str]]:
         success_emails, error_messages = [], []
         for email in emails:
             if email in self._users:
@@ -2404,9 +2341,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 self._organization_collaborators.remove(organization_collaborator)
                 return
 
-        raise ValueError(
-            f"Organization collaborator with id '{identity_id}' not found."
-        )
+        raise ValueError(f"Organization collaborator with id '{identity_id}' not found.")
 
     def create_service_account(self, name) -> AnyscaleServiceAccount:
         for organization_collaborator in self._organization_collaborators:
@@ -2437,9 +2372,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             created_at=organization_collaborator.created_at,
         )
 
-    def create_resource_quota(
-        self, create_resource_quota: CreateResourceQuota
-    ) -> ResourceQuota:
+    def create_resource_quota(self, create_resource_quota: CreateResourceQuota) -> ResourceQuota:
         resource_quota_id = f"rq_{uuid.uuid4()!s}"
         resource_quota = ResourceQuota(
             id=resource_quota_id,
@@ -2495,18 +2428,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         self._resource_quotas.pop(resource_quota_id)
 
-    def set_resource_quota_status(
-        self, resource_quota_id: str, is_enabled: bool
-    ) -> None:
+    def set_resource_quota_status(self, resource_quota_id: str, is_enabled: bool) -> None:
         resource_quota = self._resource_quotas.get(resource_quota_id)
         if resource_quota is None:
             raise ValueError(f"Resource Quota with id '{resource_quota_id}' not found.")
 
         resource_quota.is_enabled = is_enabled
 
-    def get_service_by_id(
-        self, service_id: str
-    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+    def get_service_by_id(self, service_id: str) -> Optional[DecoratedProductionServiceV2APIModel]:
         if service_id in self._services:
             return self._services[service_id]
         if service_id in self._archived_services:
@@ -2536,9 +2465,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         target_cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
         target_project_id = (
-            self.get_project_id(parent_cloud_id=target_cloud_id, name=project)
-            if project
-            else None
+            self.get_project_id(parent_cloud_id=target_cloud_id, name=project) if project else None
         )
 
         filtered_results = []
@@ -2575,14 +2502,17 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return response
 
     def get_service_versions(
-        self, service_id: str, read_all_versions: bool = False  # noqa: ARG002
+        self,
+        service_id: str,
+        read_all_versions: bool = False,  # noqa: ARG002
     ) -> List[DecoratedProductionServiceV2VersionAPIModel]:
         return list(self._versions[service_id].values())
 
     # ---- Scheduler config ----
 
     def apply_scheduler_config(
-        self, request: ApplySchedulerConfigRequest,
+        self,
+        request: ApplySchedulerConfigRequest,
     ) -> ApplySchedulerConfigResponse:
         history = self._scheduler_configs
         for v in history:
@@ -2598,7 +2528,20 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         )
         history.insert(0, new_response)
         return ApplySchedulerConfigResponse(
-            version=next_version, local_vars_configuration=OPENAPI_NO_VALIDATION,
+            version=next_version,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def rollback_scheduler_config(
+        self,
+        request: RollbackSchedulerConfigRequest,
+    ) -> ApplySchedulerConfigResponse:
+        source = self.get_scheduler_config_version(request.version)
+        return self.apply_scheduler_config(
+            ApplySchedulerConfigRequest(
+                config=source.config,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
         )
 
     def get_active_scheduler_config(self) -> SchedulerConfigResponse:
@@ -2607,7 +2550,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 return v
         raise RuntimeError("No active scheduler config.")
 
-    def get_scheduler_config_version(self, version: int,) -> SchedulerConfigResponse:
+    def get_scheduler_config_version(
+        self,
+        version: int,
+    ) -> SchedulerConfigResponse:
         for v in self._scheduler_configs:
             if v.version == version:
                 return v
@@ -2647,7 +2593,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._resource_tags_store[key] = current
 
     def delete_resource_tags(
-        self, resource_type: ResourceTagResourceType, resource_id: str, keys: List[str],
+        self,
+        resource_type: ResourceTagResourceType,
+        resource_id: str,
+        keys: List[str],
     ) -> None:
         self.delete_resource_tags_calls.append((resource_type, resource_id, keys))
         key = (str(resource_type), resource_id)
@@ -2680,7 +2629,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return records
 
     def list_user_groups(
-        self, *, count: int = 50, paging_token: Optional[str] = None,  # noqa: ARG002
+        self,
+        *,
+        count: int = 50,
+        paging_token: Optional[str] = None,  # noqa: ARG002
     ) -> UsergroupListResponse:
         now = datetime.utcnow()
         fake_groups = [
@@ -2738,7 +2690,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                         "group_id": "ug_fake_001",
                         "group_name": "Engineering",
                         "members": [
-                            {"user_id": "usr_001", "user_email": "alice@example.com",},
+                            {
+                                "user_id": "usr_001",
+                                "user_email": "alice@example.com",
+                            },
                             {
                                 "user_id": "usr_002",
                                 "user_email": "charlie@example.com",
@@ -2749,7 +2704,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                         "group_id": "ug_fake_002",
                         "group_name": "Data Science",
                         "members": [
-                            {"user_id": "usr_003", "user_email": "bob@example.com",},
+                            {
+                                "user_id": "usr_003",
+                                "user_email": "bob@example.com",
+                            },
                         ],
                     },
                 ]
@@ -2765,7 +2723,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         pass
 
     def get_resource_policy(
-        self, resource_type: str, resource_id: str,  # noqa: ARG002
+        self,
+        resource_type: str,  # noqa: ARG002
+        resource_id: str,  # noqa: ARG002
     ) -> PolicyResponse:
         return PolicyResponse(
             bindings=[
@@ -2785,7 +2745,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         )
 
     def list_resource_policies(
-        self, resource_type: str,
+        self,
+        resource_type: str,
     ) -> ResourcepolicyitemListResponse:
         return ResourcepolicyitemListResponse(
             results=[
@@ -2932,9 +2893,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 ),
             ],
             bundle_url=(
-                "https://fake-s3.example.com/bundle.tar.gz"
-                if include_bundle_url
-                else None
+                "https://fake-s3.example.com/bundle.tar.gz" if include_bundle_url else None
             ),
             bundle_checksum="fake_checksum" if include_bundle_url else None,
             local_vars_configuration=OPENAPI_NO_VALIDATION,

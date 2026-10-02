@@ -317,15 +317,22 @@ class TextContent:
         item's ``raw``) — ``metadata["citations"]`` NEVER holds raw provider
         dicts past here.
         """
-        from matrx_ai.config.citations import normalize_anthropic_citation
+        from matrx_ai.config.citations import grounded_citations, normalize_anthropic_citation
 
         metadata = {}
         citations = content_block.get("citations", [])
         if citations:
-            metadata["citations"] = [
-                normalize_anthropic_citation(citation).model_dump(exclude_none=True)
-                for citation in citations
-            ]
+            # Only citations whose cited text holds this span's claim survive
+            # (config/citations.py § Grounding) — truthful or absent.
+            kept = grounded_citations(
+                content_block.get("text"),
+                [
+                    normalize_anthropic_citation(citation).model_dump(exclude_none=True)
+                    for citation in citations
+                ],
+            )
+            if kept:
+                metadata["citations"] = kept
         return cls(
             text=content_block["text"],
             metadata=metadata,

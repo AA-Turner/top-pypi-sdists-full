@@ -32,12 +32,12 @@ use tombi_json::StringNode;
 pub struct TableSchema {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
     pub properties: SchemaProperties,
     pub pattern_properties: Option<SchemaPatternProperties>,
     additional_properties: Option<bool>,
     pub additional_property_schema: Option<(
-        tombi_text::Range, // JSON Schema property name range (for GoToTypeDefinition)
+        tombi_text::Span, // JSON Schema property name span (for GoToTypeDefinition)
         SchemaItem,
     )>,
     pub unevaluated_properties: Option<bool>,
@@ -88,7 +88,7 @@ impl TableSchema {
                         SchemaAccessor::Key(key_node.value.to_string()),
                         PropertySchema {
                             property_schema,
-                            key_range: key_node.range,
+                            key_span: key_node.span,
                         },
                     );
                 }
@@ -128,7 +128,7 @@ impl TableSchema {
                 (
                     Some(true),
                     schema_view
-                        .map(|schema| (value.range(), Arc::new(tokio::sync::RwLock::new(schema)))),
+                        .map(|schema| (value.span(), Arc::new(tokio::sync::RwLock::new(schema)))),
                 )
             }
             _ => (None, None),
@@ -187,7 +187,7 @@ impl TableSchema {
             description: object_node
                 .get("description")
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
-            range: object_node.range,
+            span: object_node.span,
             properties: Arc::new(properties.into()),
             pattern_properties: pattern_properties.map(|props| {
                 Arc::new(
@@ -198,7 +198,7 @@ impl TableSchema {
                                 key.value,
                                 PropertySchema {
                                     property_schema,
-                                    key_range: key.range,
+                                    key_span: key.span,
                                 },
                             )
                         })
@@ -224,7 +224,7 @@ impl TableSchema {
                 .and_then(|v| v.as_object())
                 .map(|deps_obj| {
                     let mut deps = tombi_hashmap::IndexMap::new();
-                    for (key, value) in &deps_obj.properties {
+                    for (key, value) in deps_obj.properties.iter() {
                         match value {
                             tombi_json::ValueNode::Array(arr) => {
                                 let required_keys: Vec<String> = arr
@@ -257,7 +257,7 @@ impl TableSchema {
                 .and_then(|v| v.as_object())
                 .map(|obj| {
                     let mut map = tombi_hashmap::IndexMap::new();
-                    for (key, value) in &obj.properties {
+                    for (key, value) in obj.properties.iter() {
                         if let Some(arr) = value.as_array() {
                             let required_keys: Vec<String> = arr
                                 .items
@@ -274,7 +274,7 @@ impl TableSchema {
                 .and_then(|v| v.as_object())
                 .map(|obj| {
                     let mut map = tombi_hashmap::IndexMap::new();
-                    for (key, value) in &obj.properties {
+                    for (key, value) in obj.properties.iter() {
                         if let Some(schema) = schema_item_from_schema_value(
                             value,
                             string_formats,
@@ -667,7 +667,7 @@ impl XTombiTableKeysOrder {
             }
             tombi_json::ValueNode::Object(object_node) => {
                 let mut sort_orders = vec![];
-                for (group_name, order) in &object_node.properties {
+                for (group_name, order) in object_node.properties.iter() {
                     let Ok(target) = TableKeysOrderGroupKind::try_from(group_name.value.as_str())
                     else {
                         log::warn!("invalid {X_TOMBI_TABLE_KEYS_ORDER} group: {group_name}");

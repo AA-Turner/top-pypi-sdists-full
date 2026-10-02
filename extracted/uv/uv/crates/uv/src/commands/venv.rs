@@ -24,8 +24,8 @@ use uv_install_wheel::LinkMode;
 use uv_normalize::DefaultGroups;
 use uv_preview::Preview;
 use uv_python::{
-    ConfigDiscovery, EnvironmentPreference, PythonDownloads, PythonInstallation, PythonPreference,
-    PythonRequest,
+    ConfigDiscovery, EnvironmentPreference, PythonArchitecture, PythonDownloads,
+    PythonInstallation, PythonPreference, PythonRequest,
 };
 use uv_resolver::{ExcludeNewer, FlatIndex};
 use uv_settings::PythonInstallMirrors;
@@ -41,9 +41,9 @@ use crate::commands::ExitStatus;
 use crate::commands::pip::loggers::{DefaultInstallLogger, InstallLogger};
 use crate::commands::pip::operations::{Changelog, report_interpreter};
 use crate::commands::project::{
-    LinkErrorReporting, WorkspacePython, centralized_environment_root,
+    LinkErrorReporting, PythonRequirementSource, WorkspacePython, centralized_environment_root,
     centralized_environments_enabled, is_centralized_environment_reference,
-    lock_project_environment, update_project_environment_link, validate_project_requires_python,
+    lock_project_environment, update_project_environment_link, validate_python_requirement,
 };
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::printer::Printer;
@@ -67,6 +67,7 @@ pub(crate) async fn venv(
     python_request: Option<PythonRequest>,
     install_mirrors: PythonInstallMirrors,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads: PythonDownloads,
     link_mode: LinkMode,
     index_locations: &IndexLocations,
@@ -150,7 +151,7 @@ pub(crate) async fn venv(
     let WorkspacePython {
         source,
         python_request,
-        requires_python,
+        requirement,
     } = WorkspacePython::from_request(
         python_request,
         project.as_ref().map(VirtualProject::workspace),
@@ -166,6 +167,7 @@ pub(crate) async fn venv(
             python_request.as_ref(),
             EnvironmentPreference::OnlySystem,
             python_preference,
+            python_arch,
             python_downloads,
             client_builder,
             cache,
@@ -198,13 +200,15 @@ pub(crate) async fn venv(
     };
 
     // Check if the discovered Python version is incompatible with the current workspace
-    if let Some(requires_python) = requires_python {
-        match validate_project_requires_python(
+    if let Some(requirement) = requirement {
+        match validate_python_requirement(
             &interpreter,
-            project.as_ref().map(VirtualProject::workspace),
-            &groups,
-            &requires_python,
+            &requirement.requires_python,
             &source,
+            PythonRequirementSource::Workspace(
+                project.as_ref().map(VirtualProject::workspace),
+                &groups,
+            ),
         ) {
             Ok(()) => {}
             Err(err) => {

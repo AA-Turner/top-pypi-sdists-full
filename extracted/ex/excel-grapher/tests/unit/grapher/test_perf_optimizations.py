@@ -1,0 +1,221 @@
+"""Performance optimization tests for graph extraction.
+
+Covers:
+  - Per-BFS-session worksheet cache in create_dependency_graph
+    (avoids O(#sheets) fastpyxl.__getitem__ scans on every node visit)
+  - Provenance on IF/IFS/CHOOSE/SWITCH formulas, including identical absolute
+    copies that accumulate causes during extract (issue #716)
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import patch
+
+import fastpyxl
+import xlsxwriter
+
+from excel_grapher import create_dependency_graph
+from excel_grapher.grapher.dependency_provenance import DependencyCause
+
+# ---------------------------------------------------------------------------
+# Worksheet cache – __getitem__ call-count
+# ---------------------------------------------------------------------------
+
+
+def test_worksheet_cache_reduces_getitem_calls(tmp_path: Path) -> None:
+    """wb[sheet] must be called at most once per unique sheet in the BFS loop.
+
+    Before the cache: each of the N formula nodes causes a wb[sheet] call → N calls.
+    After the cache : all N nodes share the cached worksheet object → 1 call.
+    """
+    excel_path = tmp_path / "chain.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    # A1 leaf; A2..A6 formula chain, all on Sheet1 (6 nodes total)
+    ws.write_number(0, 0, 1)  # A1 = 1
+    ws.write_formula(1, 0, "=A1+1")  # A2
+    ws.write_formula(2, 0, "=A2+1")  # A3
+    ws.write_formula(3, 0, "=A3+1")  # A4
+    ws.write_formula(4, 0, "=A4+1")  # A5
+    ws.write_formula(5, 0, "=A5+1")  # A6
+    wb.close()
+
+    original_getitem = fastpyxl.Workbook.__getitem__
+    calls: list[str] = []
+
+    def spy_getitem(self: fastpyxl.Workbook, key: str):
+        calls.append(key)
+        return original_getitem(self, key)
+
+    with patch.object(fastpyxl.Workbook, "__getitem__", spy_getitem):
+        graph = create_dependency_graph(excel_path, ["Sheet1!A6"], load_values=False)
+
+    assert "Sheet1!A6" in graph  # correctness sanity-check
+
+    sheet1_calls = calls.count("Sheet1")
+    # parse_target calls sheetnames (not __getitem__), so BFS loop dominates.
+    # With cache: ≤ 1 call per unique sheet name regardless of chain length.
+    assert sheet1_calls <= 1, (
+        f"Expected wb['Sheet1'] to be called at most once (worksheet cache), "
+        f"but it was called {sheet1_calls} times"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Correctness: provenance on IF/IFS/CHOOSE/SWITCH with the optimized path
+# ---------------------------------------------------------------------------
+
+
+def test_if_formula_provenance_causes(tmp_path: Path) -> None:
+    """Provenance causes must be correct on direct-ref IF formulas."""
+    excel_path = tmp_path / "if_prov.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write_number(0, 0, 1)  # A1 leaf
+    ws.write_number(1, 0, 2)  # A2 leaf
+    ws.write_number(2, 0, 0)  # A3 condition leaf
+    ws.write_formula(3, 0, "=IF(Sheet1!A3,Sheet1!A1,Sheet1!A2)", None, 1)  # A4
+    wb.close()
+
+    graph = create_dependency_graph(
+        excel_path,
+        ["Sheet1!A4"],
+        load_values=False,
+        capture_dependency_provenance=True,
+    )
+
+    for dep in ("Sheet1!A1", "Sheet1!A2", "Sheet1!A3"):
+        prov = graph.get_edge_attrs("Sheet1!A4", dep).provenance
+        assert prov is not None, f"Missing provenance for edge A4→{dep}"
+        assert DependencyCause.direct_ref in prov.causes, (
+            f"Expected direct_ref in causes for A4→{dep}, got {prov.causes}"
+        )
+
+
+def test_choose_formula_provenance_causes(tmp_path: Path) -> None:
+    """Provenance causes must be correct on CHOOSE formula."""
+    excel_path = tmp_path / "choose_prov.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write_number(0, 0, 1)  # A1
+    ws.write_number(0, 1, 2)  # B1
+    ws.write_number(0, 2, 1)  # C1 index
+    ws.write_formula(0, 3, "=CHOOSE(Sheet1!C1,Sheet1!A1,Sheet1!B1)", None, 1)  # D1
+    wb.close()
+
+    graph = create_dependency_graph(
+        excel_path,
+        ["Sheet1!D1"],
+        load_values=False,
+        capture_dependency_provenance=True,
+    )
+
+    for dep in ("Sheet1!A1", "Sheet1!B1", "Sheet1!C1"):
+        prov = graph.get_edge_attrs("Sheet1!D1", dep).provenance
+        assert prov is not None, f"Missing provenance for D1→{dep}"
+        assert DependencyCause.direct_ref in prov.causes
+
+
+def test_ifs_formula_provenance_causes(tmp_path: Path) -> None:
+    """Provenance causes must be correct on IFS formula."""
+    excel_path = tmp_path / "ifs_prov.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write_number(0, 0, 5)  # A1 leaf (value branch)
+    ws.write_number(0, 1, 10)  # B1 leaf (value branch)
+    ws.write_number(0, 2, 3)  # C1 leaf (condition input)
+    # D1 = IFS(C1>5, A1, C1<=5, B1)
+    ws.write_formula(0, 3, "=IFS(Sheet1!C1>5,Sheet1!A1,Sheet1!C1<=5,Sheet1!B1)", None, 10)
+    wb.close()
+
+    graph = create_dependency_graph(
+        excel_path,
+        ["Sheet1!D1"],
+        load_values=False,
+        capture_dependency_provenance=True,
+    )
+
+    for dep in ("Sheet1!A1", "Sheet1!B1", "Sheet1!C1"):
+        prov = graph.get_edge_attrs("Sheet1!D1", dep).provenance
+        assert prov is not None, f"Missing provenance for D1→{dep}"
+        assert DependencyCause.direct_ref in prov.causes, (
+            f"Expected direct_ref in causes for D1→{dep}, got {prov.causes}"
+        )
+
+
+def test_switch_formula_provenance_causes(tmp_path: Path) -> None:
+    """Provenance causes must be correct on SWITCH formula."""
+    excel_path = tmp_path / "switch_prov.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write_number(0, 0, 10)  # A1 result for case 1
+    ws.write_number(0, 1, 20)  # B1 result for case 2
+    ws.write_number(0, 2, 30)  # C1 default
+    ws.write_number(0, 3, 1)  # D1 switch expression input
+    # E1 = SWITCH(D1, 1, A1, 2, B1, C1)
+    ws.write_formula(0, 4, "=SWITCH(Sheet1!D1,1,Sheet1!A1,2,Sheet1!B1,Sheet1!C1)", None, 10)
+    wb.close()
+
+    graph = create_dependency_graph(
+        excel_path,
+        ["Sheet1!E1"],
+        load_values=False,
+        capture_dependency_provenance=True,
+    )
+
+    for dep in ("Sheet1!A1", "Sheet1!B1", "Sheet1!C1", "Sheet1!D1"):
+        prov = graph.get_edge_attrs("Sheet1!E1", dep).provenance
+        assert prov is not None, f"Missing provenance for E1→{dep}"
+        assert DependencyCause.direct_ref in prov.causes, (
+            f"Expected direct_ref in causes for E1→{dep}, got {prov.causes}"
+        )
+
+
+def test_repeated_absolute_formula_reuses_provenance_walk(tmp_path: Path) -> None:
+    """Identical absolute IF formulas accumulate provenance during extract."""
+    import excel_grapher.grapher.builder as builder_mod
+
+    excel_path = tmp_path / "repeated_provenance.xlsx"
+    wb = xlsxwriter.Workbook(excel_path)
+    ws = wb.add_worksheet("Sheet1")
+    ws.write_number(0, 0, 1)
+    ws.write_number(0, 1, 2)
+    ws.write_number(0, 2, 3)
+    for row in range(20):
+        ws.write_formula(
+            row,
+            3,
+            "=IF(Sheet1!$A$1>0,Sheet1!$B$1,Sheet1!$C$1)",
+        )
+    wb.close()
+
+    original_collect = builder_mod.collect_provenance_for_formula
+    collect_calls = 0
+
+    def counting_collect(*args: object, **kwargs: object):
+        nonlocal collect_calls
+        collect_calls += 1
+        return original_collect(*args, **kwargs)
+
+    with patch.object(
+        builder_mod,
+        "collect_provenance_for_formula",
+        side_effect=counting_collect,
+    ):
+        graph = create_dependency_graph(
+            excel_path,
+            [f"Sheet1!D{row}" for row in range(1, 21)],
+            capture_dependency_provenance=True,
+        )
+
+    assert collect_calls < 20
+    for row in range(1, 21):
+        target = f"Sheet1!D{row}"
+        assert set(graph.get_dependencies(target)) == {
+            "Sheet1!A1",
+            "Sheet1!B1",
+            "Sheet1!C1",
+        }
+        for dependency in graph.get_dependencies(target):
+            assert graph.get_edge_attrs(target, dependency).provenance is not None

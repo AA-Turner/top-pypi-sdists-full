@@ -1,0 +1,176 @@
+"""Tool registry — the createIf factory table for builtin tools.
+
+The registration model is a
+``name -> factory`` table where each factory returns an :class:`AgentTool` or
+``None`` when the tool cannot exist in this session (the *createIf*
+convention — no separate capability table). ``create_tools`` walks the table
+in a stable order so the provider-visible tool list is deterministic, which
+matters for prompt-cache stability (the tools array rides in the same prefix
+as the system prompt).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+
+from local_operator.harness.intent import apply_intent_schema
+from local_operator.harness.types import AgentTool, ToolContext
+from local_operator.network.tool import build_network_tool
+from local_operator.tools import builtin
+from local_operator.tools.agent_tool import build_agent_tool
+from local_operator.tools.eval import build_eval_tool
+from local_operator.tools.lsp import build_lsp_tool
+from local_operator.tools.project_tool import (
+    build_project_delete_tool,
+    build_project_tool,
+)
+from local_operator.tools.secret_tool import build_secret_tool
+from local_operator.tools.team_tool import build_team_delete_tool, build_team_tool
+from local_operator.web_fetch.tool import build_web_fetch_tool
+from local_operator.web_search.read_tool import build_web_read_tool
+from local_operator.web_search.tool import build_web_search_tool
+
+#: Factory table: tool name -> builder (createIf convention). ``wake`` takes
+#: the context and returns ``None`` when no wake scheduler is attached, so a
+#: session without wakes never advertises a tool that can only error; the
+#: table order below is also the provider-visible tool order.
+TOOL_BUILDERS: dict[str, Callable[[ToolContext], AgentTool | None]] = {
+    "bash": lambda _context: builtin.build_bash_tool(),
+    "read": lambda _context: builtin.build_read_tool(),
+    "write": lambda _context: builtin.build_write_tool(),
+    "edit": lambda _context: builtin.build_edit_tool(),
+    "glob": lambda _context: builtin.build_glob_tool(),
+    "grep": lambda _context: builtin.build_grep_tool(),
+    "eval": lambda _context: build_eval_tool(),
+    "lsp": lambda _context: build_lsp_tool(),
+    "todo": lambda _context: builtin.build_todo_tool(),
+    "web_search": lambda context: build_web_search_tool(context),
+    "web_read": lambda context: build_web_read_tool(context),
+    "web_fetch": lambda context: build_web_fetch_tool(context),
+    "wake": lambda context: builtin.build_wake_tool(context),
+    # createIf: proactive-class sessions with a scheduler only (rung 3 — a
+    # reactive session pays no schema for a capability it cannot use).
+    "patience": lambda context: builtin.build_patience_tool(context),
+    "task": lambda context: builtin.build_task_tool(context),
+    "wait": lambda context: builtin.build_wait_tool(context),
+    "jobs": lambda context: builtin.build_jobs_tool(context),
+    "hub": lambda context: builtin.build_hub_tool(context),
+    # Unconditional createIf entry: peer messaging rides the registry + loopback
+    # substrate every session sits on, so the tool exists in every session even
+    # when no peer happens to be running right now (see build_send_tool).
+    "send": lambda context: builtin.build_send_tool(context),
+    "ask": lambda context: builtin.build_ask_tool(context),
+    # createIf: returns None where the encrypted secret store is unreachable,
+    # so a session that cannot use it pays no schema for it (design §5.2).
+    "secret": lambda context: build_secret_tool(context),
+    "list_variables": lambda _context: builtin.build_list_variables_tool(),
+    "read_variable": lambda _context: builtin.build_read_variable_tool(),
+    "browser": lambda _context: builtin.build_browser_tool(_context),
+    # createIf: returns None unless the desktop app publishes a console-capable
+    # host. One row, one predicate, and NO settings row for availability — the
+    # tool is absent, not hidden, where the app cannot serve it (design
+    # ui-console-tab §14.1/§14.2).
+    "console": lambda _context: builtin.build_console_tool(_context),
+    "agent": lambda context: build_agent_tool(context),
+    "team": lambda context: build_team_tool(context),
+    "team_delete": lambda context: build_team_delete_tool(context),
+    # Unconditional entry, appended rather than inserted so the array's prefix —
+    # which the prompt cache keys on — is unchanged for every existing session:
+    # `lop network init` is how a first network comes into existence, so a gate
+    # on "a relay is configured" would strip the tool from exactly the session
+    # that has to create one (see build_network_tool).
+    "network": lambda context: build_network_tool(context),
+    # createIf: projects need the store beside them; both tools are absent — not
+    # hidden — in a session without a registry (mirroring team/team_delete).
+    # Appended at the END of both tables on purpose: appending never shifts a
+    # provider-visible array prefix, which is what the prompt cache keys on.
+    "project": lambda context: build_project_tool(context),
+    "project_delete": lambda context: build_project_delete_tool(context),
+    # createIf: returns None without a monitor scheduler, so a session that
+    # cannot arm a monitor pays no schema for it (footprint rung 3, like
+    # `wake`). Appended at the end of both tables for the same cache-prefix
+    # reason the two rows above are (design monitor-tool.md §19.1).
+    "monitor": lambda context: builtin.build_monitor_tool(context),
+    # createIf: rung 3 — only a session that can hold the delegation surface
+    # builds it (`context.subagent_launcher is not None`), so a context that
+    # cannot delegate pays no schema for it. A built top-level session that
+    # cannot delegate still gets it and its `spawn` is refused per call by the
+    # CLI guard — the accepted cost of not inventing a second gating
+    # convention (design sessions-tool.md §3.3). Appended at the END of both
+    # tables on purpose: appending never shifts a provider-visible array
+    # prefix, which is what the prompt cache keys on.
+    "sessions": lambda context: builtin.build_sessions_tool(context),
+}
+
+#: Tool set used when the session does not restrict the names. Kept explicit
+#: (not ``list(TOOL_BUILDERS)``) so the default surface is a deliberate
+#: decision, and hidden/discoverable tools can join the table later without
+#: silently entering every session.
+DEFAULT_TOOL_NAMES: list[str] = [
+    "bash",
+    "read",
+    "write",
+    "edit",
+    "glob",
+    "grep",
+    "eval",
+    "lsp",
+    "todo",
+    "web_search",
+    "web_read",
+    "web_fetch",
+    "wake",
+    "patience",
+    "task",
+    "wait",
+    "jobs",
+    "hub",
+    "send",
+    "ask",
+    "secret",
+    "list_variables",
+    "read_variable",
+    "browser",
+    "console",
+    "agent",
+    "team",
+    "team_delete",
+    "network",
+    "project",
+    "project_delete",
+    "monitor",
+    "sessions",
+]
+
+
+def create_tools(context: ToolContext, enabled: Sequence[str] | None = None) -> list[AgentTool]:
+    """Build the tool list for one session.
+
+    ``enabled=None`` builds the default set; an explicit sequence selects from
+    the table in the given order, first occurrence winning — duplicate names
+    in host config must not produce duplicate provider tools. Names absent
+    from the table are skipped — unknown tool names in host config must not
+    crash session startup (availability resolves at creation time, never
+    at dispatch time).
+    """
+    if enabled is None:
+        names: list[str] = list(DEFAULT_TOOL_NAMES)
+    else:
+        names = list(dict.fromkeys(enabled))
+    tools: list[AgentTool] = []
+    for name in names:
+        builder = TOOL_BUILDERS.get(name)
+        if builder is None:
+            continue
+        tool = builder(context)
+        if tool is not None:
+            # The `i` intent property is added HERE, not in each params model:
+            # one choke point cannot grow holes as tools are added, and a
+            # working line that narrates intent for some calls and mechanics
+            # for the rest is worse than one that never tries. The transform
+            # only prepends a property inside `parameters`; the tool list this
+            # function returns keeps its order, which the prompt cache depends
+            # on (see the module docstring).
+            tool.parameters = apply_intent_schema(tool.parameters)
+            tools.append(tool)
+    return tools

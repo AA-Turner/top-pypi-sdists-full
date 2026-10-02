@@ -1,10 +1,18 @@
+"""The agents' ``picklist`` tool — a person's lists of choices, in the record store.
+
+Every list lives in the record store as a Table of choices. The tool lives in this package,
+which must never import matrx-records, so the store half is injected by the host
+(``matrx_ai.configure(picklist_store_arm=...)``; aidream wires
+``matrx_records.agent.picklist_arm.PicklistStoreArm``) and every read and write is answered
+there, in the person's own seat. A host without the arm gets a refusal that names the wiring.
+"""
+
 from __future__ import annotations
 
-import asyncio
+import logging
 import time
 from typing import Any
 
-from matrx_utils import vcprint
 from pydantic import ValidationError
 
 from matrx_ai.tools._dispatch_util import format_args_error
@@ -15,6 +23,47 @@ from matrx_ai.tools.organization_hold import (
     organization_required_result,
 )
 
+logger = logging.getLogger(__name__)
+
+#: The ``_ext`` key the host's record-store arm for lists is registered under.
+PICKLIST_STORE_ARM_EXT_KEY = "picklist_store_arm"
+
+#: What a host without the arm is told — the one wiring that serves every verb.
+UNWIRED_MESSAGE = (
+    "This server has no record store wired for the picklist tool, so nothing was read or "
+    "written. REMEDY: matrx_ai.configure(picklist_store_arm=PicklistStoreArm())."
+)
+
+
+class _NoArm(Exception):
+    """The host never wired the record-store arm for lists."""
+
+
+def _picklist_store_arm() -> Any:
+    """The host's record-store arm for lists; :class:`_NoArm` when it was never wired."""
+    from matrx_ai._ext import get_ext, has_ext
+
+    if has_ext(PICKLIST_STORE_ARM_EXT_KEY):
+        return get_ext(PICKLIST_STORE_ARM_EXT_KEY)
+    logger.error("matrx-ai has no '%s' configured: %s", PICKLIST_STORE_ARM_EXT_KEY, UNWIRED_MESSAGE)
+    raise _NoArm(UNWIRED_MESSAGE)
+
+
+def _failed(exc: Exception) -> ToolResult:
+    """A store refusal (or a missing arm) as the tool's own error, in the store's words."""
+    name = type(exc).__name__
+    if name == "_NoArm" or getattr(exc, "sqlstate", None) == "0A000":
+        error_type = "unavailable"
+    elif name == "StoreRefusal" and getattr(exc, "sqlstate", None) == "02000":
+        error_type = "not_found"
+    elif name == "StoreRefusal" and getattr(exc, "sqlstate", None) == "42501":
+        error_type = "no_access"
+    elif name == "ValueError":
+        error_type = "validation"
+    else:
+        error_type = "execution"
+    return ToolResult(success=False, error=ToolError(error_type=error_type, message=str(exc)))
+
 
 async def _picklist_item_is_read_only(item_id: str) -> bool:
     """Check both the item lock and its parent-list lock before a write."""
@@ -24,27 +73,11 @@ async def _picklist_item_is_read_only(item_id: str) -> bool:
         return True
     if not has_read_only_resources():
         return False
-
-    from matrx_ai.db._registry import get_model as get_db_model
-
-    item_model = get_db_model("UdtStructuredListItems")
     try:
-        item = await item_model.get_by_id(item_id, use_cache=False)
+        list_id = await _picklist_store_arm().list_of_choice(item_id)
     except Exception:  # noqa: BLE001 — a lock-parent lookup must fail closed
         return True
-    return is_resource_read_only(str(getattr(item, "list_id", "") or ""))
-
-
-# ---------------------------------------------------------------------------
-# May THIS PERSON open this list? — RLS answers, never this module
-# ---------------------------------------------------------------------------
-#
-# The list reads below (``picklists_get`` / ``picklists_get_items`` on the live views)
-# run on the privileged connection, so by themselves they would hand ANY list to anyone
-# who names its id. Before a list's contents are read, the person's own database session
-# is asked whether the list exists for them: ``workbench.udt_structured_lists`` under
-# the caller's RLS (``as_the_person``). No owner comparison, no has_access call here.
-
+    return list_id is None or is_resource_read_only(list_id)
 
 
 def _list_not_found(list_id: str) -> ToolResult:
@@ -55,61 +88,6 @@ def _list_not_found(list_id: str) -> ToolResult:
             message=f"List {list_id} was not found, or you do not have access to it.",
         ),
     )
-
-
-async def _update_choice_as_the_person(item_id: str, fields: dict[str, Any]) -> str:
-    """The shared service's choice write, in the caller's RLS session."""
-    from matrx_ai.db.content_types.picklist_access import update_choice_as_the_person
-
-    return await update_choice_as_the_person(str(item_id), fields)
-
-
-def _choice_refusal(item_id: str, answer: str) -> str:
-    if answer == "no_access":
-        return f"You can view choice {item_id} but you do not have permission to change it; nothing was changed."
-    if answer == "nothing":
-        return "Nothing to change: give at least one of label, description, help_text, group_name, is_public, public_read, icon_name."
-    return f"Choice {item_id} was not found, or you do not have access to it; nothing was changed."
-
-
-# ---------------------------------------------------------------------------
-# Where does this list live? — the record-store arm (lane LISTS-AFTER-SWITCH)
-# ---------------------------------------------------------------------------
-#
-# After an organization switches its Data tables to the new system its lists live in the
-# record store as Tables of choices (same ids). The READS below already answer from wherever
-# a list lives (user_data/picklists_queries.py reads the views workbench.pick_list_live /
-# pick_list_item_live). The WRITES go through the host-injected arm when the list (or the new
-# list's organization) is in the store, so a write never lands in an archived older list.
-
-#: The ``_ext`` key the host's record-store arm for lists is registered under.
-PICKLIST_STORE_ARM_EXT_KEY = "picklist_store_arm"
-
-_picklist_arm_announced: set[str] = set()
-
-
-def _picklist_store_arm() -> Any | None:
-    """The host's record-store arm for lists, or ``None`` on a host with no record store.
-
-    Unwired is ANNOUNCED once, by name: without it a switched organization's list writes are
-    refused by the database (never silently landed), and the tool says why.
-    """
-    from matrx_ai._ext import get_ext, has_ext
-
-    if has_ext(PICKLIST_STORE_ARM_EXT_KEY):
-        return get_ext(PICKLIST_STORE_ARM_EXT_KEY)
-    if "unwired" not in _picklist_arm_announced:
-        _picklist_arm_announced.add("unwired")
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "matrx-ai has no '%s' configured, so the picklist tool writes ONLY the older "
-            "lists; a list that lives in the record store (its organization switched its Data "
-            "tables) is refused by the database instead of written. REMEDY: "
-            "aidream/package_integration.py, matrx_ai.configure(picklist_store_arm=PicklistStoreArm()).",
-            PICKLIST_STORE_ARM_EXT_KEY,
-        )
-    return None
 
 
 def _held_result(exc: Exception) -> ToolResult:
@@ -130,29 +108,31 @@ def _held_result(exc: Exception) -> ToolResult:
     )
 
 
-async def _choice_lives_in_store(item_id: str) -> bool:
-    """Does this choice belong to a list that lives in the record store?"""
-    from matrx_orm.sql_executor import execute_standard_query
-
-    rows = await asyncio.to_thread(lambda: execute_standard_query("picklists_item_home", {"item_id": item_id}))
-    row = (rows or [None])[0] if isinstance(rows, list) else rows
-    return bool(row) and str((row or {}).get("lives_in")) == "record"
-
-
-async def _born_in_store() -> Any | None:
-    """The arm, when a NEW list of this organization is made in the store; else None."""
-    arm = _picklist_store_arm()
-    if arm is None:
-        return None
-    return arm if await arm.lists_are_born_in_store() else None
+async def _create(list_name: str, description: str, items: list[dict[str, Any]],
+                  ctx: ToolContext) -> ToolResult:
+    if not carried_organization_id(ctx):
+        return organization_required_result(what="create a list", tool_name="picklist", ctx=ctx)
+    try:
+        result = await _picklist_store_arm().create_list(
+            list_name=list_name, description=description, items=items
+        )
+    except Exception as exc:  # noqa: BLE001 — said in the store's words
+        return _failed(exc)
+    return ToolResult(
+        success=True,
+        output={
+            "list_id": str(result.get("list_id", "")),
+            "list_name": result.get("list_name", list_name),
+            "item_count": result.get("item_count", len(items)),
+            "already_existed": result.get("existing", False),
+            "message": f"List '{list_name}' created with {len(items)} items.",
+        },
+    )
 
 
 async def userlist_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-
     list_name = args.get("list_name", "")
-    description = args.get("description", "")
     items = args.get("items", [])
-
     if not list_name:
         return ToolResult(
             success=False,
@@ -161,11 +141,8 @@ async def userlist_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if not items:
         return ToolResult(
             success=False,
-            error=ToolError(
-                error_type="validation", message="items must be a non-empty list."
-            ),
+            error=ToolError(error_type="validation", message="items must be a non-empty list."),
         )
-
     for idx, item in enumerate(items):
         if not isinstance(item, dict) or not item.get("label"):
             return ToolResult(
@@ -175,50 +152,13 @@ async def userlist_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     message=f"Item at index {idx} must be an object with a 'label' field.",
                 ),
             )
-
-    try:
-        if not carried_organization_id(ctx):
-            return organization_required_result(
-                what="create a list", tool_name="picklist", ctx=ctx
-            )
-        arm = await _born_in_store()
-        if arm is not None:
-            # lane LISTS-AFTER-SWITCH: this organization's lists live in the record store.
-            result = await arm.create_list(list_name=list_name, description=description, items=items)
-        else:
-            from matrx_ai._ext import get_ext
-
-            PicklistCreator = get_ext("PicklistCreator")
-            creator = PicklistCreator(ctx.user_id, organization_id=ctx.organization_id)
-            result = await asyncio.to_thread(
-                lambda: creator.create_list_with_items(
-                    items=items, list_name=list_name, description=description
-                )
-            )
-        return ToolResult(
-            success=True,
-            output={
-                "list_id": str(result.get("list_id", "")),
-                "list_name": result.get("list_name", list_name),
-                "item_count": result.get("item_count", len(items)),
-                "already_existed": result.get("existing", False),
-                "message": f"List '{list_name}' created with {len(items)} items.",
-            },
-        )
-    except Exception as e:
-        vcprint(str(e), "userlist_create error", color="red")
-        return ToolResult(
-            success=False, error=ToolError(error_type="execution", message=str(e))
-        )
+    return await _create(list_name, args.get("description", ""), items, ctx)
 
 
 async def userlist_create_simple(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-
     list_name = args.get("list_name", "")
-    description = args.get("description", "")
     labels = args.get("labels", [])
     group_name = args.get("group_name")
-
     if not list_name:
         return ToolResult(
             success=False,
@@ -228,11 +168,9 @@ async def userlist_create_simple(args: dict[str, Any], ctx: ToolContext) -> Tool
         return ToolResult(
             success=False,
             error=ToolError(
-                error_type="validation",
-                message="labels must be a non-empty list of strings.",
+                error_type="validation", message="labels must be a non-empty list of strings."
             ),
         )
-
     for idx, label in enumerate(labels):
         if not isinstance(label, str) or not label.strip():
             return ToolResult(
@@ -242,48 +180,8 @@ async def userlist_create_simple(args: dict[str, Any], ctx: ToolContext) -> Tool
                     message=f"Label at index {idx} must be a non-empty string.",
                 ),
             )
-
-    try:
-        if not carried_organization_id(ctx):
-            return organization_required_result(
-                what="create a list", tool_name="picklist", ctx=ctx
-            )
-        arm = await _born_in_store()
-        if arm is not None:
-            # lane LISTS-AFTER-SWITCH: this organization's lists live in the record store.
-            result = await arm.create_list(
-                list_name=list_name,
-                description=description,
-                items=[{"label": label, "group_name": group_name} for label in labels],
-            )
-        else:
-            from matrx_ai._ext import get_ext
-
-            PicklistCreator = get_ext("PicklistCreator")
-            creator = PicklistCreator(ctx.user_id, organization_id=ctx.organization_id)
-            result = await asyncio.to_thread(
-                lambda: creator.create_simple_list(
-                    labels=labels,
-                    list_name=list_name,
-                    description=description,
-                    group_name=group_name,
-                )
-            )
-        return ToolResult(
-            success=True,
-            output={
-                "list_id": str(result.get("list_id", "")),
-                "list_name": result.get("list_name", list_name),
-                "item_count": result.get("item_count", len(labels)),
-                "already_existed": result.get("existing", False),
-                "message": f"Simple list '{list_name}' created with {len(labels)} items.",
-            },
-        )
-    except Exception as e:
-        vcprint(str(e), "userlist_create_simple error", color="red")
-        return ToolResult(
-            success=False, error=ToolError(error_type="execution", message=str(e))
-        )
+    items = [{"label": label, "group_name": group_name} for label in labels]
+    return await _create(list_name, args.get("description", ""), items, ctx)
 
 
 def _make_serializable(obj: Any) -> Any:
@@ -303,42 +201,58 @@ def _make_serializable(obj: Any) -> Any:
     return obj
 
 
-async def userlist_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    """The person's own lists, both homes, read AS THE PERSON through the shared service."""
-    from matrx_ai.db.content_types.picklist_access import lists_for_person
+def grouped_choices(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Choices grouped by ``group_name``."""
+    groups: dict[str | None, list[dict[str, Any]]] = {}
+    for item in items:
+        groups.setdefault(item.get("group_name"), []).append(
+            {k: item.get(k) for k in ("id", "label", "description", "help_text", "icon_name")}
+        )
+    return [
+        {"group_name": name, "items": sorted(members, key=lambda m: m.get("label") or "")}
+        for name, members in sorted(groups.items(), key=lambda kv: kv[0] or "")
+    ]
 
+
+async def userlist_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Every list the person may see, in every organization they belong to."""
     page = max(1, args.get("page", 1))
     page_size = min(100, max(1, args.get("page_size", 50)))
-    search_term = args.get("search_term")
-
+    search = (args.get("search_term") or "").lower()
     try:
-        result = await lists_for_person(
-            str(ctx.user_id), search=search_term, limit=page_size, offset=(page - 1) * page_size
-        )
-        lists = _make_serializable(result) if result else []
-        return ToolResult(
-            success=True,
-            output={
-                "lists": lists,
-                "page": page,
-                "page_size": page_size,
-                "count": len(lists) if isinstance(lists, list) else 0,
-            },
-        )
-    except Exception as e:
-        error_mesage = str(e)
-        vcprint(error_mesage, "error_mesage", color="red")
-        return ToolResult(
-            success=False, error=ToolError(error_type="execution", message=error_mesage)
-        )
+        index = await _picklist_store_arm().list_index()
+    except Exception as exc:  # noqa: BLE001 — said in the store's words
+        return _failed(exc)
+    lists = [
+        {
+            "id": str(r.get("id")),
+            "list_name": r.get("list_name"),
+            "description": r.get("description"),
+            "user_id": str(r["created_by"]) if r.get("created_by") else None,
+            "organization_id": str(r["organization_id"]) if r.get("organization_id") else None,
+            "organization_name": r.get("organization_name"),
+            "updated_at": r.get("updated_at"),
+            "item_count": int(r.get("item_count") or 0),
+        }
+        for r in index
+        if not search
+        or search in (r.get("list_name") or "").lower()
+        or search in (r.get("description") or "").lower()
+    ]
+    lists.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
+    chosen = _make_serializable(lists[(page - 1) * page_size : page * page_size])
+    return ToolResult(
+        success=True,
+        output={"lists": chosen, "page": page, "page_size": page_size, "count": len(chosen)},
+    )
+
+
+async def _read_list(list_id: str) -> dict[str, Any] | None:
+    return await _picklist_store_arm().read_list(str(list_id))
 
 
 async def userlist_get_details(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    """One list and its choices AS THE PERSON, wherever it lives (older tables or the record
-    store) — the shared service decides; nothing is read on the privileged connection."""
-    from matrx_ai.db.content_types.picklist_access import grouped_choices, read_list_as_the_person
-    from matrx_ai.tools.person_session import PersonSessionUnavailable
-
+    """One list and its choices, as the person sees them."""
     list_id = args.get("list_id")
     group_by = args.get("group_by", False)
     if not list_id:
@@ -347,9 +261,9 @@ async def userlist_get_details(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             error=ToolError(error_type="validation", message="list_id is required."),
         )
     try:
-        listing = await read_list_as_the_person(str(list_id))
-    except PersonSessionUnavailable as e:
-        return ToolResult(success=False, error=ToolError(error_type="unavailable", message=str(e)))
+        listing = await _read_list(str(list_id))
+    except Exception as exc:  # noqa: BLE001 — said in the store's words
+        return _failed(exc)
     if listing is None:
         return _list_not_found(str(list_id))
     items = listing.pop("items")
@@ -365,35 +279,28 @@ async def userlist_get_details(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     )
 
 
-async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+#: Choice words a person may set through the tool.
+_WRITABLE = ("label", "description", "help_text", "group_name", "icon_name")
 
+
+def _held(exc: Exception) -> bool:
+    return type(exc).__name__ == "ChangeWaits"
+
+
+async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     item_id = args.get("item_id")
     if not item_id:
         return ToolResult(
             success=False,
             error=ToolError(error_type="validation", message="item_id is required."),
         )
-
-    update_fields = {
-        k: args[k]
-        for k in (
-            "label",
-            "description",
-            "help_text",
-            "group_name",
-            "is_public",
-            "authenticated_read",
-            "public_read",
-            "icon_name",
-        )
-        if k in args
-    }
+    update_fields = {k: args[k] for k in _WRITABLE if k in args}
     if not update_fields:
         return ToolResult(
             success=False,
             error=ToolError(
                 error_type="validation",
-                message="At least one field to update is required.",
+                message="Give at least one of label, description, help_text, group_name, icon_name.",
             ),
         )
 
@@ -404,56 +311,22 @@ async def userlist_update_item(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             success=False,
             error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         )
-
     try:
-        if await _choice_lives_in_store(str(item_id)):
-            # lane LISTS-AFTER-SWITCH: the choice's list lives in the record store.
-            arm = _picklist_store_arm()
-            if arm is None:
-                return ToolResult(
-                    success=False,
-                    error=ToolError(
-                        error_type="execution",
-                        message="This choice's list moved to the new system and this server cannot write there yet; nothing was changed.",
-                    ),
-                )
-            try:
-                await arm.update_choice(str(item_id), update_fields)
-            except Exception as exc:  # noqa: BLE001 — a held change is not a failure
-                if type(exc).__name__ == "ChangeWaits":
-                    return _held_result(exc)
-                raise
-            return ToolResult(
-                success=True,
-                output_kind="picklist_item_update_result",
-                output={"item_id": item_id, "message": "Item updated successfully."},
-            )
-        answer = await _update_choice_as_the_person(str(item_id), {**update_fields})
-        if answer != "updated":
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="validation" if answer == "nothing" else answer,
-                    message=_choice_refusal(str(item_id), answer),
-                ),
-            )
-        return ToolResult(
-            success=True,
-            output={"item_id": item_id, "message": "Item updated successfully."},
-        )
-    except Exception as e:
-        error_mesage = str(e)
-        vcprint(error_mesage, "error_mesage", color="red")
-        return ToolResult(
-            success=False, error=ToolError(error_type="execution", message=str(e))
-        )
+        await _picklist_store_arm().update_choice(str(item_id), update_fields)
+    except Exception as exc:  # noqa: BLE001 — a held change is not a failure
+        if _held(exc):
+            return _held_result(exc)
+        return _failed(exc)
+    return ToolResult(
+        success=True,
+        output_kind="picklist_item_update_result",
+        output={"item_id": item_id, "message": "Item updated successfully."},
+    )
 
 
 async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-
     list_id = args.get("list_id")
     items = args.get("items", [])
-
     if not list_id:
         return ToolResult(
             success=False,
@@ -462,9 +335,7 @@ async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolR
     if not items:
         return ToolResult(
             success=False,
-            error=ToolError(
-                error_type="validation", message="items must be a non-empty list."
-            ),
+            error=ToolError(error_type="validation", message="items must be a non-empty list."),
         )
 
     from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resource_read_only
@@ -477,7 +348,6 @@ async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolR
 
     success_count = 0
     failed_items: list[dict[str, Any]] = []
-
     for item in items:
         item_id = item.get("id")
         if not item_id:
@@ -487,30 +357,18 @@ async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolR
             failed_items.append({"item_id": item_id, "error": READ_ONLY_TOOL_MESSAGE})
             continue
         try:
-            if await _choice_lives_in_store(str(item_id)):
-                # lane LISTS-AFTER-SWITCH: the choice's list lives in the record store.
-                arm = _picklist_store_arm()
-                if arm is None:
-                    failed_items.append({"item_id": item_id, "error": "This choice's list moved to the new system and this server cannot write there yet; nothing was changed."})
-                    continue
-                try:
-                    await arm.update_choice(str(item_id), {k: item.get(k) for k in ("label", "description", "help_text", "group_name", "icon_name")})
-                except Exception as exc:  # noqa: BLE001 — a held change is not a failure
-                    if type(exc).__name__ == "ChangeWaits":
-                        failed_items.append({"item_id": item_id, "error": "held for approval; nothing written yet"})
-                        continue
-                    raise
-                success_count += 1
-                continue
-            answer = await _update_choice_as_the_person(str(item_id), item)
-            if answer != "updated":
-                failed_items.append({"item_id": item_id, "error": _choice_refusal(str(item_id), answer)})
-                continue
-            success_count += 1
-        except Exception as e:
-            error_mesage = str(e)
-            vcprint(error_mesage, "error_mesage", color="red")
-            failed_items.append({"item_id": item_id, "error": error_mesage})
+            await _picklist_store_arm().update_choice(
+                str(item_id), {k: item.get(k) for k in _WRITABLE}
+            )
+        except Exception as exc:  # noqa: BLE001 — each choice answers for itself
+            failed_items.append(
+                {
+                    "item_id": item_id,
+                    "error": "held for approval; nothing written yet" if _held(exc) else str(exc),
+                }
+            )
+            continue
+        success_count += 1
 
     return ToolResult(
         success=True,
@@ -531,16 +389,14 @@ async def userlist_batch_update(args: dict[str, Any], ctx: ToolContext) -> ToolR
 # (arg_models/dispatcher_args.py) + tool_def.parameters."$variants" — the source of truth.
 
 
-#: What a choice receipt shows — the fields the live view carries for every home.
+#: What a choice receipt shows.
 _CHOICE_FIELDS = ("label", "description", "help_text", "group_name", "icon_name")
 
 
 async def _read_choices(list_id: str, item_ids: set[str]) -> dict[str, dict[str, Any]]:
-    """item id → its fields, for ``item_ids`` of ``list_id``, read AS THE PERSON through the
-    shared service (both homes). A list the person cannot open has no receipt."""
-    from matrx_ai.db.content_types.picklist_access import read_list_as_the_person
-
-    listing = await read_list_as_the_person(str(list_id))
+    """item id → its fields, for ``item_ids`` of ``list_id``, read as the person. A list the
+    person cannot open has no receipt."""
+    listing = await _read_list(str(list_id))
     if listing is None:
         raise LookupError(f"List {list_id} is not open to this person; no receipt is read.")
     return {
@@ -551,15 +407,10 @@ async def _read_choices(list_id: str, item_ids: set[str]) -> dict[str, dict[str,
 
 
 async def _choice_list_id(item_id: str) -> str:
-    from matrx_orm.sql_executor import execute_standard_query
-
-    rows = await asyncio.to_thread(
-        lambda: execute_standard_query("picklists_item_home", {"item_id": item_id})
-    )
-    row = (rows or [None])[0] if isinstance(rows, list) else rows
-    if not row or not row.get("list_id"):
+    list_id = await _picklist_store_arm().list_of_choice(item_id)
+    if not list_id:
         raise LookupError(f"choice {item_id} has no list")
-    return str(row["list_id"])
+    return list_id
 
 
 async def _choices_before(list_id: str | None, item_ids: set[str]) -> tuple[str | None, Any]:
@@ -656,6 +507,9 @@ async def _picklist_impl(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         parsed = PicklistArgs.model_validate(args).root
     except ValidationError as exc:
         return _picklist_validation_error(format_args_error(exc), started_at, ctx)
+    # Read the wire model's coerced values (e.g. a JSON-string list decoded), never the
+    # raw arguments they were coerced from (the 2026-10-01 dataset update_row class).
+    args = {**args, **parsed.model_dump(exclude_unset=True)}
     action = parsed.action
 
     if action == "list":
@@ -731,8 +585,7 @@ async def _picklist_impl(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
         passthrough = {
             k: args[k]
-            for k in ("label", "help_text", "group_name", "description",
-                      "is_public", "authenticated_read", "public_read", "icon_name")
+            for k in _WRITABLE
             if k in args
         }
         ids = {str(item_id)}

@@ -1,0 +1,784 @@
+"""
+Comprehensive performance test suite for You.com Python SDK.
+
+This module tests all supported endpoint combinations to measure SDK latency vs API latency:
+- Search: with various filters, livecrawl options, pagination
+- Contents: different formats, single vs multiple URLs
+
+Environment variables:
+- PERF_TEST_TARGET: mock|custom (default: mock)
+- PERF_TEST_SERVER_URL: server URL when using custom target (required for custom)
+- PERF_TEST_ITERATIONS: number of iterations per test (default: 5 for mock, 1 for custom)
+- PERF_TEST_API_KEY: API key for custom server tests
+- PERF_OUTPUT_FORMAT: console|csv|json (default: console)
+- PERF_DETAILED: show detailed metrics for each test (default: false)
+"""
+
+import os
+import time
+import uuid
+from typing import List
+
+import pytest
+
+from tests.metrics import (
+    PerformanceMetrics,
+    calculate_metrics,
+    export_metrics_csv,
+    print_detailed_metrics,
+    print_metrics_table,
+)
+from tests.test_client import register_test_client
+from tests.timing_client import SDKCallTiming, TimingHTTPClient
+from youdotcom import You
+from youdotcom.models import (
+    Country,
+    ContentsFormats,
+    Extraction,
+    ExtractionFormat,
+    ExtractionMode,
+    Freshness,
+    Language,
+    LiveCrawl,
+    LiveCrawlFormats,
+    SafeSearch,
+)
+
+
+# ============================================================================
+# Test Configuration
+# ============================================================================
+
+@pytest.fixture
+def test_target():
+    """Get test target from environment."""
+    return os.getenv("PERF_TEST_TARGET", "mock")
+
+
+@pytest.fixture
+def iterations(test_target):
+    """Get number of iterations from environment."""
+    # Default to 1 iteration for custom targets to avoid overwhelming external servers
+    # Default to 5 for mock server
+    default_iterations = "1" if test_target == "custom" else "5"
+    return int(os.getenv("PERF_TEST_ITERATIONS", default_iterations))
+
+
+@pytest.fixture
+def api_key():
+    """Get API key from environment."""
+    return os.getenv("PERF_TEST_API_KEY", "test-api-key")
+
+
+@pytest.fixture
+def server_url(test_target):
+    """Get server URL based on test target."""
+    if test_target == "custom":
+        url = os.getenv("PERF_TEST_SERVER_URL")
+        if not url:
+            raise ValueError("PERF_TEST_SERVER_URL must be set when using PERF_TEST_TARGET=custom")
+        return url
+    elif test_target == "mock":
+        return os.getenv("TEST_SERVER_URL", "http://localhost:18080")
+    else:
+        raise ValueError(f"Unknown test target: {test_target}. Use 'mock' or 'custom'.")
+
+
+@pytest.fixture
+def show_detailed():
+    """Whether to show detailed metrics."""
+    return os.getenv("PERF_DETAILED", "false").lower() == "true"
+
+
+# Store all metrics for final summary
+ALL_METRICS: List[PerformanceMetrics] = []
+
+
+def create_timing_client(test_name: str) -> TimingHTTPClient:
+    """Create a TimingHTTPClient with test headers.
+
+    Registered for teardown like the other test clients — see
+    ``tests/test_client.py``.
+    """
+    client = TimingHTTPClient(
+        follow_redirects=True,
+        headers={
+            "x-test-name": test_name,
+            "x-test-instance-id": str(uuid.uuid4()),
+        }
+    )
+    register_test_client(client)
+    return client
+
+
+def measure_sdk_call(func, timing_client: TimingHTTPClient, iterations: int, endpoint_name: str) -> PerformanceMetrics:
+    """
+    Measure SDK call performance over multiple iterations.
+    
+    Args:
+        func: Function to call (should make one SDK call)
+        timing_client: Timing HTTP client to track requests
+        iterations: Number of times to run the test
+        endpoint_name: Descriptive name for this endpoint/test
+    
+    Returns:
+        PerformanceMetrics with statistical analysis
+    """
+    timings: List[SDKCallTiming] = []
+    
+    for i in range(iterations):
+        # Clear previous timing
+        timing_client.clear_timings()
+        
+        # Measure SDK call
+        sdk_start = time.perf_counter()
+        try:
+            func()
+            sdk_end = time.perf_counter()
+            
+            # Get HTTP timing
+            request_timing = timing_client.get_last_timing()
+            if request_timing is None:
+                raise RuntimeError(f"No HTTP timing captured for {endpoint_name} iteration {i}")
+            
+            # Create combined timing
+            sdk_timing = SDKCallTiming(
+                endpoint=endpoint_name,
+                sdk_start=sdk_start,
+                sdk_end=sdk_end,
+                request_timing=request_timing,
+            )
+            timings.append(sdk_timing)
+            
+        except Exception as e:
+            print(f"Error in {endpoint_name} iteration {i}: {e}")
+            # Skip this iteration
+            continue
+    
+    if not timings:
+        raise RuntimeError(f"No successful timings for {endpoint_name}")
+    
+    return calculate_metrics(endpoint_name, timings)
+
+
+# ============================================================================
+# Search Endpoint Tests
+# ============================================================================
+
+class TestSearchPerformance:
+    """Performance tests for the Search API."""
+    
+    def test_search_basic(self, server_url, api_key, iterations, show_detailed):
+        """Basic search with query only."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="latest AI developments", server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: basic query")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_count(self, server_url, api_key, iterations, show_detailed):
+        """Search with result count limit."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="python programming", count=10, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: with count=10")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_freshness_day(self, server_url, api_key, iterations, show_detailed):
+        """Search with freshness filter (day)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="breaking news", freshness=Freshness.DAY, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: freshness=DAY")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_freshness_week(self, server_url, api_key, iterations, show_detailed):
+        """Search with freshness filter (week)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="renewable energy", freshness=Freshness.WEEK, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: freshness=WEEK")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_country_us(self, server_url, api_key, iterations, show_detailed):
+        """Search with country filter (US)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="local restaurants", country=Country.US, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: country=US")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_country_gb(self, server_url, api_key, iterations, show_detailed):
+        """Search with country filter (GB)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="football news", country=Country.GB, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: country=GB")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_language_en(self, server_url, api_key, iterations, show_detailed):
+        """Search with language filter (English)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="machine learning", language=Language.EN, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: language=EN")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_language_es(self, server_url, api_key, iterations, show_detailed):
+        """Search with language filter (Spanish)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="tecnología", language=Language.ES, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: language=ES")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_safesearch_off(self, server_url, api_key, iterations, show_detailed):
+        """Search with safesearch off."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="research", safesearch=SafeSearch.OFF, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: safesearch=OFF")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_safesearch_moderate(self, server_url, api_key, iterations, show_detailed):
+        """Search with safesearch moderate."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="family content", safesearch=SafeSearch.MODERATE, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: safesearch=MODERATE")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_safesearch_strict(self, server_url, api_key, iterations, show_detailed):
+        """Search with safesearch strict."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="kids learning", safesearch=SafeSearch.STRICT, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: safesearch=STRICT")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_pagination(self, server_url, api_key, iterations, show_detailed):
+        """Search with pagination (offset)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(query="python tutorials", count=5, offset=2, server_url=server_url)
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: with pagination (offset=2)")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_web(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl enabled for web results."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="machine learning tutorials",
+                    count=3,
+                    livecrawl=LiveCrawl.WEB,
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl=WEB")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_news(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl enabled for news results."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="tech news",
+                    count=3,
+                    livecrawl=LiveCrawl.NEWS,
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl=NEWS")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_all(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl enabled for all results."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="quantum computing",
+                    count=3,
+                    livecrawl=LiveCrawl.ALL,
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl=ALL")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_html(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl returning HTML format."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="AI research",
+                    count=3,
+                    livecrawl=LiveCrawl.WEB,
+                    livecrawl_formats=[LiveCrawlFormats.HTML],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl HTML format")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_markdown(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl returning Markdown format."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="documentation guides",
+                    count=3,
+                    livecrawl=LiveCrawl.WEB,
+                    livecrawl_formats=[LiveCrawlFormats.MARKDOWN],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl Markdown format")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_all_filters(self, server_url, api_key, iterations, show_detailed):
+        """Search with multiple filters combined."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="quantum computing research",
+                    count=10,
+                    freshness=Freshness.MONTH,
+                    country=Country.US,
+                    language=Language.EN,
+                    safesearch=SafeSearch.MODERATE,
+                    offset=0,
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: all filters combined")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_filters_and_livecrawl(self, server_url, api_key, iterations, show_detailed):
+        """Search with filters and livecrawl combined."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="AI developments",
+                    count=5,
+                    freshness=Freshness.WEEK,
+                    country=Country.GB,
+                    livecrawl=LiveCrawl.WEB,
+                    livecrawl_formats=[LiveCrawlFormats.MARKDOWN],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: filters + livecrawl")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_news_livecrawl(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl for news results (news now supports contents)."""
+        client = create_timing_client("post_/v1/search")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="technology news",
+                    count=5,
+                    livecrawl=LiveCrawl.NEWS,
+                    livecrawl_formats=[LiveCrawlFormats.MARKDOWN],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl=NEWS (with contents)")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_search_with_livecrawl_all_news_contents(self, server_url, api_key, iterations, show_detailed):
+        """Search with livecrawl=ALL for both web and news contents."""
+        client = create_timing_client("post_/v1/search")
+
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="breaking tech news",
+                    count=3,
+                    livecrawl=LiveCrawl.ALL,
+                    livecrawl_formats=[LiveCrawlFormats.HTML],
+                    server_url=server_url,
+                )
+
+            metrics = measure_sdk_call(call, client, iterations, "Search: livecrawl=ALL (web+news contents)")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+    # ----------------------------------------------------------------
+    # Extraction-mode performance cases parallel the livecrawl cases.
+    # DX-719 added these alongside the legacy livecrawl cases (the
+    # legacy cases remain because `livecrawl` is supported until 4.0.0).
+    # ----------------------------------------------------------------
+
+    def test_search_with_extraction_highlights(self, server_url, api_key, iterations, show_detailed):
+        """Search with extraction_mode="highlights" (a dict form the SDK normalizes)."""
+        client = create_timing_client("post_/v1/search")
+
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="machine learning tutorials",
+                    count=3,
+                    extraction={"extraction_mode": "highlights"},
+                    server_url=server_url,
+                )
+
+            metrics = measure_sdk_call(
+                call, client, iterations, "Search: extraction=highlights (dict)"
+            )
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+    def test_search_with_extraction_full_page_model(self, server_url, api_key, iterations, show_detailed):
+        """Search with extraction_mode="full_page" using the typed Extraction model instance."""
+        client = create_timing_client("post_/v1/search")
+
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="quantum computing",
+                    count=3,
+                    extraction=Extraction(
+                        extraction_mode=ExtractionMode.FULL_PAGE,
+                        full_page={"extraction_formats": [ExtractionFormat.MARKDOWN]},
+                    ),
+                    server_url=server_url,
+                )
+
+            metrics = measure_sdk_call(
+                call, client, iterations, "Search: extraction=full_page (model, markdown only)"
+            )
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+    def test_search_with_extraction_full_page_both_formats(self, server_url, api_key, iterations, show_detailed):
+        """Search with extraction_mode="full_page" returning both html and markdown."""
+        client = create_timing_client("post_/v1/search")
+
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="how does the internet work",
+                    count=3,
+                    extraction={
+                        "extraction_mode": "full_page",
+                        "full_page": {"extraction_formats": ["html", "markdown"]},
+                    },
+                    server_url=server_url,
+                )
+
+            metrics = measure_sdk_call(
+                call, client, iterations, "Search: extraction=full_page (dict, html+markdown)"
+            )
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+    # ----------------------------------------------------------------
+    # Knowledge case: `knowledge="core"` adds a licensed-data section to
+    # the response, which changes payload size and response latency.
+    # ----------------------------------------------------------------
+
+    def test_search_with_knowledge_core(self, server_url, api_key, iterations, show_detailed):
+        """Search with knowledge="core" (adds the results.knowledge section).
+
+        Under the default ``PERF_TEST_TARGET=mock`` the server returns one fixed
+        payload regardless of the request body, with no ``knowledge`` section, so
+        this measures the request side only. Point ``PERF_TEST_TARGET`` at a real
+        server to include knowledge response parsing and payload size. The
+        extraction cases above have the same caveat.
+        """
+        client = create_timing_client("post_/v1/search")
+
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.search(
+                    query="what is the capital of France",
+                    count=3,
+                    knowledge="core",
+                    server_url=server_url,
+                )
+
+            metrics = measure_sdk_call(
+                call, client, iterations, "Search: knowledge=core"
+            )
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+
+# ============================================================================
+# Contents Endpoint Tests
+# ============================================================================
+
+class TestContentsPerformance:
+    """Performance tests for the Contents API."""
+    
+    def test_contents_single_url_html(self, server_url, api_key, iterations, show_detailed):
+        """Fetch single URL in HTML format."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=["https://www.python.org"],
+                    formats=[ContentsFormats.HTML],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: single URL, HTML")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_single_url_markdown(self, server_url, api_key, iterations, show_detailed):
+        """Fetch single URL in Markdown format."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=["https://www.python.org"],
+                    formats=[ContentsFormats.MARKDOWN],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: single URL, Markdown")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_single_url_metadata(self, server_url, api_key, iterations, show_detailed):
+        """Fetch single URL with metadata format (json+ld, OpenGraph)."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=["https://www.python.org"],
+                    formats=[ContentsFormats.METADATA],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: single URL, Metadata")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_multiple_formats(self, server_url, api_key, iterations, show_detailed):
+        """Fetch single URL with multiple formats (HTML, Markdown, Metadata)."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=["https://www.python.org"],
+                    formats=[ContentsFormats.HTML, ContentsFormats.MARKDOWN, ContentsFormats.METADATA],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: single URL, all formats")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_with_crawl_timeout(self, server_url, api_key, iterations, show_detailed):
+        """Fetch URL with custom crawl timeout."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=["https://www.python.org"],
+                    formats=[ContentsFormats.HTML],
+                    crawl_timeout=30,
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: single URL, with crawl_timeout")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_multiple_urls_html(self, server_url, api_key, iterations, show_detailed):
+        """Fetch multiple URLs in HTML format."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=[
+                        "https://www.python.org",
+                        "https://www.github.com",
+                        "https://www.example.com",
+                    ],
+                    formats=[ContentsFormats.HTML],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: 3 URLs, HTML")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_multiple_urls_markdown(self, server_url, api_key, iterations, show_detailed):
+        """Fetch multiple URLs in Markdown format."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=[
+                        "https://www.python.org",
+                        "https://www.github.com",
+                        "https://www.example.com",
+                    ],
+                    formats=[ContentsFormats.MARKDOWN],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: 3 URLs, Markdown")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+    
+    def test_contents_many_urls_html(self, server_url, api_key, iterations, show_detailed):
+        """Fetch many URLs in HTML format."""
+        client = create_timing_client("post_/v1/contents")
+        
+        with You(server_url=server_url, client=client, api_key_auth=api_key, timeout_ms=90_000) as you:
+            def call():
+                you.contents(
+                    urls=[
+                        "https://www.python.org",
+                        "https://www.github.com",
+                        "https://www.example.com",
+                        "https://www.you.com",
+                        "https://www.wikipedia.org",
+                    ],
+                    formats=[ContentsFormats.HTML],
+                    server_url=server_url,
+                )
+            
+            metrics = measure_sdk_call(call, client, iterations, "Contents: 5 URLs, HTML")
+            ALL_METRICS.append(metrics)
+            if show_detailed:
+                print_detailed_metrics(metrics)
+
+
+# ============================================================================
+# Test Summary
+# ============================================================================
+
+@pytest.fixture(scope="session", autouse=True)
+def print_final_summary(request):
+    """Print final summary after all tests complete."""
+    def finalize():
+        if ALL_METRICS:
+            test_target = os.getenv("PERF_TEST_TARGET", "mock")
+            print_metrics_table(
+                ALL_METRICS,
+                title=f"Performance Test Results - Target: {test_target}"
+            )
+            
+            # Export to CSV if requested
+            output_format = os.getenv("PERF_OUTPUT_FORMAT", "console")
+            if output_format == "csv":
+                export_metrics_csv(ALL_METRICS, "performance_results.csv")
+    
+    request.addfinalizer(finalize)

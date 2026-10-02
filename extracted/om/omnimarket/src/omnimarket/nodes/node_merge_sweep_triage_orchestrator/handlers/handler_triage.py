@@ -1,0 +1,936 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Handler for node_merge_sweep_triage_orchestrator [OMN-8959, OMN-8988].
+
+ORCHESTRATOR node. Consumes ModelMergeSweepResult (classified PRs), fans out
+N typed command events across 6 effect topics per the 14-row
+classification-to-action decision table.
+
+Decision table (evaluated in order; first match wins):
+ 1. is_draft=True         → SKIP (any track)
+ 2. A_UPDATE, MERGEABLE, CLEAN, APPROVED, checks_pass → ModelAutoMergeArmCommand
+ 3. A_UPDATE, MERGEABLE, BEHIND, APPROVED, checks_pass → ModelRebaseCommand
+ 4. A_UPDATE, MERGEABLE, BEHIND, not APPROVED           → SKIP (needs human review)
+ 5. A_RESOLVE (any)       → ModelThreadReplyCommand [Phase 2]
+ 6. B_POLISH, MERGEABLE, BLOCKED, checks fail           → ModelCiRerunCommand
+ 7. B_POLISH, CONFLICTING, DIRTY                        → ModelConflictHunkCommand [Phase 2]
+ 8. B_POLISH, MERGEABLE, BEHIND, checks fail            → ModelRebaseCommand
+ 9. B_POLISH, MERGEABLE, DIRTY                          → ModelCiFixCommand [Phase 2]
+10. SKIP track                                          → SKIP
+11. UNKNOWN mergeable                                   → SKIP + WARN
+12. UNKNOWN merge_state_status                          → SKIP + WARN
+13. CHANGES_REQUESTED review decision                   → SKIP
+14. (fallthrough)                                       → SKIP + WARN
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+from datetime import UTC, datetime
+from typing import Any
+from uuid import uuid4
+
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+
+from omnimarket.config.env_flags import env_flag
+from omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep import (
+    EnumPRTrack,
+    ModelClassifiedPR,
+)
+from omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request import (
+    ModelAutoMergeArmCommand,
+    ModelCiFixCommand,
+    ModelCiRerunCommand,
+    ModelConflictHunkCommand,
+    ModelRebaseCommand,
+    ModelThreadReplyCommand,
+    ModelTriageRequest,
+)
+from omnimarket.nodes.node_pr_polish.models.model_pr_polish_start_command import (
+    ModelPrPolishStartCommand,
+)
+
+_log = logging.getLogger(__name__)
+
+# Topics from contract.yaml — never inline elsewhere
+TOPIC_AUTO_MERGE_ARM = "onex.cmd.omnimarket.pr-auto-merge-arm.v1"  # onex-topic-allow: pending contract auto-wiring
+TOPIC_REBASE = (
+    "onex.cmd.omnimarket.pr-rebase.v1"  # onex-topic-allow: pending contract auto-wiring
+)
+TOPIC_CI_RERUN = "onex.cmd.omnimarket.pr-ci-rerun.v1"  # onex-topic-allow: pending contract auto-wiring
+TOPIC_THREAD_REPLY = "onex.cmd.omnimarket.pr-thread-reply.v1"  # onex-topic-allow: pending contract auto-wiring
+TOPIC_CONFLICT_HUNK = "onex.cmd.omnimarket.pr-conflict-hunk.v1"  # onex-topic-allow: pending contract auto-wiring
+TOPIC_CI_FIX = (
+    "onex.cmd.omnimarket.pr-ci-fix.v1"  # onex-topic-allow: pending contract auto-wiring
+)
+
+# OMN-14151: legacy arm surface hard-gate. Safe default False — Rule 2 never
+# emits ModelAutoMergeArmCommand (the legacy unconditional arm-emit) unless an
+# operator explicitly opts this surface back in. This is one of the three
+# legacy arm surfaces superseded by the merge-queue governor's single gated
+# arm path (node_pr_arm_gate_compute + node_pr_lifecycle_merge_effect).
+_LEGACY_ARM_ENV_VAR = "OMNIMARKET_LEGACY_MERGE_ARM_ENABLED"
+
+_PROTECTED_BASES = {"main", "master", "develop"}
+
+FAILED_CHECK_CONCLUSIONS = {
+    "ACTION_REQUIRED",
+    "CANCELLED",
+    "FAILURE",
+    "FAILED",
+    "STARTUP_FAILURE",
+    "STALE",
+    "TIMED_OUT",
+}
+
+# Default routing policy for Phase 2 LLM commands. It must match
+# omnibase_compat.routing.model_routing_policy.ModelRoutingPolicy because effect
+# handlers fail-loud on malformed command routing.
+_DEFAULT_ROUTING_POLICY: dict[str, Any] = {
+    "primary": "deepseek-r1-14b",
+    "fallback": "qwen3-coder-30b",
+    "fallback_allowed_roles": ["ci_fixer", "thread_reply", "conflict_hunk"],
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "ci_override": {"primary": "deepseek-r1-14b"},
+}
+
+
+def _approval_gate_cleared(
+    review_decision: str | None,
+    required_approving_review_count: int | None,
+) -> bool:
+    """Pure predicate: may merge-sweep treat the approval gate as cleared? [OMN-9106].
+
+    True iff CHANGES_REQUESTED is absent AND one of:
+      - reviewDecision == APPROVED, or
+      - branch protection does not require approval
+        (required_approving_review_count in (0, None)).
+
+    Solo-dev OmniNode repos do not require approving reviews, so GitHub reports
+    reviewDecision="" for unreviewed PRs (inventory normalizes "" → None). Without
+    this predicate, strict-equality on "APPROVED" silently leaves CLEAN PRs
+    un-enqueued (repro: omniclaude#1344, omnibase_core#831/832).
+    """
+    if review_decision == "CHANGES_REQUESTED":
+        return False
+    if review_decision == "APPROVED":
+        return True
+    return required_approving_review_count in (0, None)
+
+
+def _has_terminal_check_failure(pr: ModelClassifiedPR) -> bool:
+    info = pr.pr
+    return info.required_checks_failed or (
+        not info.required_checks_pass and not info.required_checks_pending
+    )
+
+
+class HandlerTriageOrchestrator:
+    """ORCHESTRATOR — fans out N typed command events per 14-row decision table.
+
+    GraphQL node ID resolution happens inline via subprocess. If resolution fails,
+    the orchestrator skips the PR (logs failure, does NOT emit a command for it).
+    Resolution failures are tracked in run_metadata but do NOT count toward total_prs
+    (only actionable PRs count).
+    """
+
+    async def handle(self, request: ModelTriageRequest) -> ModelHandlerOutput:  # type: ignore[type-arg]
+        """Classify each PR and emit the appropriate command event."""
+        raw_cmds: list[Any] = []
+
+        # First pass: collect actionable commands with placeholder total_prs=0.
+        # Track B polish is emitted only when the decision table finds an
+        # actionable remediation. A PR that is merely waiting on queued checks
+        # must not fan out to live polish.
+        for classified_pr in request.classification.classified:
+            cmd = await self._classify_to_command(
+                classified_pr,
+                request.run_id,
+                request.correlation_id,
+                0,  # placeholder; replaced below
+            )
+            if cmd is not None:
+                if (
+                    request.emit_pr_polish_commands
+                    and classified_pr.track == EnumPRTrack.B_POLISH
+                ):
+                    raw_cmds.append(
+                        ModelPrPolishStartCommand(
+                            correlation_id=request.correlation_id,
+                            repo=classified_pr.pr.repo,
+                            pr_number=classified_pr.pr.number,
+                            no_push=request.dry_run,
+                            no_automerge=request.dry_run,
+                            dry_run=request.dry_run,
+                            requested_at=datetime.now(UTC),
+                        )
+                    )
+                raw_cmds.append(cmd)
+
+        # total_prs = actionable PR count only. A Track B PR may fan out to both
+        # polish and specialized remediation commands, but it is still one PR in
+        # the reducer terminal count.
+        total_prs = len({(cmd.repo, cmd.pr_number) for cmd in raw_cmds})
+        # Phase 2 models use run_id: str, not UUID — model_copy handles both
+        events: list[Any] = []
+        for cmd in raw_cmds:
+            if isinstance(
+                cmd,
+                ModelThreadReplyCommand
+                | ModelConflictHunkCommand
+                | ModelCiFixCommand
+                | ModelPrPolishStartCommand,
+            ):
+                # Phase 2 and pr_polish commands don't carry total_prs — emit as-is
+                events.append(cmd)
+            else:
+                events.append(cmd.model_copy(update={"total_prs": total_prs}))
+
+        return ModelHandlerOutput.for_orchestrator(
+            input_envelope_id=uuid4(),
+            correlation_id=request.correlation_id,
+            handler_id="node_merge_sweep_triage_orchestrator",
+            events=tuple(events),
+        )
+
+    async def _classify_to_command(
+        self,
+        classified: ModelClassifiedPR,
+        run_id: Any,
+        correlation_id: Any,
+        total_prs: int,
+    ) -> (
+        ModelAutoMergeArmCommand
+        | ModelRebaseCommand
+        | ModelCiRerunCommand
+        | ModelThreadReplyCommand
+        | ModelConflictHunkCommand
+        | ModelCiFixCommand
+        | None
+    ):
+        """Apply 14-row decision table. Returns command or None (SKIP)."""
+        pr = classified.pr
+        track = classified.track
+
+        # Rules 1, 11-13: universal skip gates
+        if pr.is_draft:
+            _log.debug("PR %s/%s: SKIP (is_draft)", pr.repo, pr.number)
+            return None
+        if pr.review_decision == "CHANGES_REQUESTED":
+            _log.debug("PR %s/%s: SKIP (CHANGES_REQUESTED)", pr.repo, pr.number)
+            return None
+        if pr.mergeable == "UNKNOWN":
+            _log.warning(
+                "PR %s/%s: SKIP (mergeable=UNKNOWN) — GitHub still computing",
+                pr.repo,
+                pr.number,
+            )
+            return None
+        if pr.merge_state_status == "UNKNOWN":
+            _log.warning(
+                "PR %s/%s: SKIP (merge_state_status=UNKNOWN) — GitHub still computing",
+                pr.repo,
+                pr.number,
+            )
+            return None
+
+        # Rule 5: A_RESOLVE
+        if track == EnumPRTrack.A_RESOLVE:
+            return await self._classify_a_resolve(classified, run_id, correlation_id)
+
+        # Rule 10: explicit SKIP track
+        if track == EnumPRTrack.SKIP:
+            _log.debug("PR %s/%s: SKIP (SKIP track)", pr.repo, pr.number)
+            return None
+
+        # Track A/A_UPDATE rules (Rules 2-4). Compute emits CLEAN merge-ready PRs
+        # as Track A; older orchestrator fixtures use A_UPDATE for the same path.
+        if track in {EnumPRTrack.A_MERGE, EnumPRTrack.A_UPDATE}:
+            return await self._classify_track_a(
+                classified, run_id, correlation_id, total_prs
+            )
+
+        # Track B_POLISH rules (Rules 6-9)
+        if track == EnumPRTrack.B_POLISH:
+            return await self._classify_track_b(
+                classified, run_id, correlation_id, total_prs
+            )
+
+        # Rule 14: fallthrough — unclassified combination
+        _log.warning(
+            "PR %s/%s track=%s: SKIP (fallthrough — unclassified combination)",
+            pr.repo,
+            pr.number,
+            track,
+        )
+        return None
+
+    async def _classify_a_resolve(
+        self,
+        classified: ModelClassifiedPR,
+        run_id: Any,
+        correlation_id: Any,
+    ) -> ModelThreadReplyCommand | None:
+        """Rule 5: A_RESOLVE — emit ModelThreadReplyCommand for open threads."""
+        pr = classified.pr
+        thread_ids = await self._resolve_open_thread_comment_ids(pr.repo, pr.number)
+        if not thread_ids:
+            _log.debug(
+                "PR %s/%s: SKIP A_RESOLVE — no open thread comment IDs resolved",
+                pr.repo,
+                pr.number,
+            )
+            return None
+        return ModelThreadReplyCommand(
+            pr_number=pr.number,
+            repo=pr.repo,
+            thread_comment_ids=thread_ids,
+            correlation_id=correlation_id,
+            run_id=str(run_id),
+            routing_policy=_DEFAULT_ROUTING_POLICY,
+        )
+
+    async def _classify_track_a(
+        self,
+        classified: ModelClassifiedPR,
+        run_id: Any,
+        correlation_id: Any,
+        total_prs: int,
+    ) -> ModelAutoMergeArmCommand | ModelRebaseCommand | None:
+        """Rules 2-4: Track A/A_UPDATE — auto-merge arm or rebase."""
+        pr = classified.pr
+        approval_cleared = _approval_gate_cleared(
+            pr.review_decision, pr.required_approving_review_count
+        )
+
+        # Rule 2: CLEAN + approval-cleared + checks passing → arm auto-merge.
+        # approval-cleared = APPROVED OR branch-protection doesn't require approval
+        # (OMN-9106: solo-dev repos have required_approving_review_count in {0, None}).
+        if (
+            pr.mergeable == "MERGEABLE"
+            and pr.merge_state_status == "CLEAN"
+            and approval_cleared
+            and pr.required_checks_pass
+        ):
+            if not env_flag(_LEGACY_ARM_ENV_VAR, safe_default=False):
+                _log.info(
+                    "PR %s/%s: SKIP Rule 2 auto-merge arm-emit — legacy arm "
+                    "surface disabled by default (OMN-14151); set %s=true to "
+                    "re-enable",
+                    pr.repo,
+                    pr.number,
+                    _LEGACY_ARM_ENV_VAR,
+                )
+                return None
+            pr_node_id, head_ref_name = await self._resolve_pr_graphql_id(
+                pr.repo, pr.number
+            )
+            if pr_node_id is None:
+                _log.error(
+                    "PR %s/%s: SKIP — failed to resolve GraphQL node ID",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            return ModelAutoMergeArmCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                pr_node_id=pr_node_id,
+                head_ref_name=head_ref_name or "",
+                correlation_id=correlation_id,
+                run_id=run_id,
+                total_prs=total_prs,
+            )
+
+        # Rule 3: BEHIND + approval-cleared + checks passing → rebase.
+        # Same approval-cleared semantic as Rule 2 (OMN-9106).
+        if (
+            pr.mergeable == "MERGEABLE"
+            and pr.merge_state_status == "BEHIND"
+            and approval_cleared
+            and pr.required_checks_pass
+        ):
+            refs = await self._resolve_pr_refs(pr.repo, pr.number)
+            if refs is None:
+                _log.error(
+                    "PR %s/%s: SKIP — failed to resolve PR refs for rebase",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            head_ref, base_ref, head_oid = refs
+            return ModelRebaseCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                head_ref_name=head_ref,
+                base_ref_name=base_ref,
+                head_ref_oid=head_oid,
+                correlation_id=correlation_id,
+                run_id=run_id,
+                total_prs=total_prs,
+            )
+
+        # Rule 4: BEHIND but not approval-cleared — needs human review
+        if pr.mergeable == "MERGEABLE" and pr.merge_state_status == "BEHIND":
+            _log.debug(
+                "PR %s/%s: SKIP A_UPDATE BEHIND — needs human review before mutation",
+                pr.repo,
+                pr.number,
+            )
+        return None
+
+    async def _classify_track_b(
+        self,
+        classified: ModelClassifiedPR,
+        run_id: Any,
+        correlation_id: Any,
+        total_prs: int,
+    ) -> (
+        ModelConflictHunkCommand
+        | ModelCiFixCommand
+        | ModelCiRerunCommand
+        | ModelRebaseCommand
+        | None
+    ):
+        """Rules 6-9: Track B_POLISH — conflict resolution, CI fix, rerun, or rebase."""
+        pr = classified.pr
+
+        # Rule 7: CONFLICTING + DIRTY → Phase 2: emit ModelConflictHunkCommand
+        if pr.mergeable == "CONFLICTING" and pr.merge_state_status == "DIRTY":
+            refs = await self._resolve_pr_refs(pr.repo, pr.number)
+            if refs is None:
+                _log.error(
+                    "PR %s/%s: SKIP B_POLISH CONFLICTING/DIRTY — failed to resolve PR refs",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            head_ref, base_ref, _ = refs
+            conflict_files = await self._resolve_conflict_files(pr.repo, pr.number)
+            return ModelConflictHunkCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                head_ref_name=head_ref,
+                base_ref_name=base_ref,
+                conflict_files=conflict_files,
+                correlation_id=correlation_id,
+                run_id=str(run_id),
+                routing_policy=_DEFAULT_ROUTING_POLICY,
+            )
+
+        # Rule 9: DIRTY (not CONFLICTING) → Phase 2: emit ModelCiFixCommand
+        if pr.merge_state_status == "DIRTY":
+            run_id_github = await self._resolve_failing_run_id(pr.repo, pr.number)
+            if run_id_github is None:
+                _log.warning(
+                    "PR %s/%s: SKIP B_POLISH DIRTY — no failing run ID resolved",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            failing_job = await self._resolve_failing_job_name(pr.repo, pr.number)
+            return ModelCiFixCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                run_id_github=run_id_github,
+                failing_job_name=failing_job or "unknown",
+                correlation_id=correlation_id,
+                run_id=str(run_id),
+                routing_policy=_DEFAULT_ROUTING_POLICY,
+            )
+
+        # Rule 6: MERGEABLE + BLOCKED + checks failing → CI rerun
+        if (
+            pr.mergeable == "MERGEABLE"
+            and pr.merge_state_status == "BLOCKED"
+            and _has_terminal_check_failure(classified)
+        ):
+            run_id_github = await self._resolve_failing_run_id(pr.repo, pr.number)
+            if run_id_github is None:
+                _log.warning(
+                    "PR %s/%s: SKIP B_POLISH BLOCKED — no failing run found",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            return ModelCiRerunCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                run_id_github=run_id_github,
+                correlation_id=correlation_id,
+                run_id=run_id,
+                total_prs=total_prs,
+            )
+
+        # Rule 6b (OMN-13416): MERGEABLE + BLOCKED + NO terminal check failure
+        # but a required workflow produced 0 runs on HEAD → CI event-delivery
+        # gap. There is no failing run to rerun; re-trigger via an empty commit
+        # so GitHub re-delivers the dropped workflow-dispatch events. Without
+        # this rule the PR falls through to a silent SKIP and stalls forever.
+        if (
+            pr.mergeable == "MERGEABLE"
+            and pr.merge_state_status == "BLOCKED"
+            and not _has_terminal_check_failure(classified)
+        ):
+            missing, head_branch, head_sha = await self._resolve_event_delivery_gap(
+                pr.repo, pr.number
+            )
+            if missing and head_branch:
+                _log.warning(
+                    "PR %s/%s: CI event-delivery gap — %s produced 0 runs on "
+                    "HEAD; re-triggering via empty commit",
+                    pr.repo,
+                    pr.number,
+                    ", ".join(missing),
+                )
+                return ModelCiRerunCommand(
+                    pr_number=pr.number,
+                    repo=pr.repo,
+                    run_id_github="",
+                    correlation_id=correlation_id,
+                    run_id=run_id,
+                    total_prs=total_prs,
+                    retrigger_mode="empty_commit",
+                    head_branch=head_branch,
+                    head_sha=head_sha,
+                    missing_required_contexts=tuple(missing),
+                )
+
+        # Rule 8: MERGEABLE + BEHIND + checks failing → rebase first
+        if (
+            pr.mergeable == "MERGEABLE"
+            and pr.merge_state_status == "BEHIND"
+            and _has_terminal_check_failure(classified)
+        ):
+            refs = await self._resolve_pr_refs(pr.repo, pr.number)
+            if refs is None:
+                _log.error(
+                    "PR %s/%s: SKIP B_POLISH BEHIND — failed to resolve PR refs",
+                    pr.repo,
+                    pr.number,
+                )
+                return None
+            head_ref, base_ref, head_oid = refs
+            return ModelRebaseCommand(
+                pr_number=pr.number,
+                repo=pr.repo,
+                head_ref_name=head_ref,
+                base_ref_name=base_ref,
+                head_ref_oid=head_oid,
+                correlation_id=correlation_id,
+                run_id=run_id,
+                total_prs=total_prs,
+            )
+
+        return None
+
+    async def _resolve_pr_graphql_id(
+        self, repo: str, pr_number: int
+    ) -> tuple[str | None, str | None]:
+        """Resolve the GitHub GraphQL node ID and headRefName for a PR.
+
+        Returns (node_id, head_ref_name) or (None, None) on failure.
+        Per plan: failure → no command emitted, failure logged.
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "id,headRefName",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error("gh pr view timed out for %s#%s", repo, pr_number)
+            return None, None
+        if proc.returncode != 0:
+            _log.error(
+                "gh pr view failed for %s#%s (rc=%s): %s",
+                repo,
+                pr_number,
+                proc.returncode,
+                stderr.decode(errors="replace"),
+            )
+            return None, None
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            return data.get("id"), data.get("headRefName")
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.error(
+                "Failed to parse gh pr view output for %s#%s: %s", repo, pr_number, exc
+            )
+            return None, None
+
+    async def _resolve_pr_refs(
+        self, repo: str, pr_number: int
+    ) -> tuple[str, str, str] | None:
+        """Resolve headRefName, baseRefName, headRefOid for rebase command.
+
+        Returns (head_ref, base_ref, head_oid) or None on failure.
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "headRefName,baseRefName,headRefOid",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error("gh pr view refs timed out for %s#%s", repo, pr_number)
+            return None
+        if proc.returncode != 0:
+            _log.error(
+                "gh pr view refs failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace"),
+            )
+            return None
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            head_ref = data.get("headRefName", "")
+            base_ref = data.get("baseRefName", "")
+            head_oid = data.get("headRefOid", "")
+            if not head_ref or not base_ref or not head_oid:
+                _log.error("Missing ref fields for %s#%s: %r", repo, pr_number, data)
+                return None
+            return head_ref, base_ref, head_oid
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.error(
+                "Failed to parse gh pr view refs for %s#%s: %s", repo, pr_number, exc
+            )
+            return None
+
+    async def _resolve_failing_run_id(self, repo: str, pr_number: int) -> str | None:
+        """Find the most recent failing GitHub Actions run ID for a PR.
+
+        Returns the run ID string or None if none found.
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "statusCheckRollup",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error(
+                "gh pr view statusCheckRollup timed out for %s#%s", repo, pr_number
+            )
+            return None
+        if proc.returncode != 0:
+            _log.error(
+                "gh pr view statusCheckRollup failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace"),
+            )
+            return None
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            checks = data.get("statusCheckRollup") or []
+            for check in checks:
+                conclusion = str(check.get("conclusion") or "").upper()
+                if conclusion in FAILED_CHECK_CONCLUSIONS:
+                    details_url: str = str(check.get("detailsUrl") or "")
+                    run_id = _run_id_from_details_url(details_url)
+                    if run_id:
+                        return run_id
+            return None
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.error(
+                "Failed to parse statusCheckRollup for %s#%s: %s", repo, pr_number, exc
+            )
+            return None
+
+    async def _resolve_event_delivery_gap(
+        self, repo: str, pr_number: int, base_branch: str | None = None
+    ) -> tuple[tuple[str, ...], str, str]:
+        """Detect a CI event-delivery gap for a BLOCKED PR (OMN-13416).
+
+        Compares the base branch's *required* status-check contexts against the
+        contexts actually present in the PR's ``statusCheckRollup`` on HEAD. Any
+        required context missing from the rollup produced ZERO runs on HEAD —
+        the workflow-dispatch event was dropped. Returns
+        ``(missing_required_contexts, head_branch, head_sha)``.
+
+        Fail-soft: any gh error or unknown required set returns
+        ``((), "", "")`` so the caller never re-triggers blindly.
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "statusCheckRollup,headRefName,headRefOid,baseRefName",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error("gh pr view gap-probe timed out for %s#%s", repo, pr_number)
+            return (), "", ""
+        if proc.returncode != 0:
+            _log.info(
+                "gh pr view gap-probe failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace")[:160],
+            )
+            return (), "", ""
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+        except json.JSONDecodeError:
+            return (), "", ""
+        if not isinstance(data, dict):
+            return (), "", ""
+
+        head_branch = str(data.get("headRefName") or "")
+        head_sha = str(data.get("headRefOid") or "")
+        resolved_base_branch = base_branch or str(data.get("baseRefName") or "")
+        if not resolved_base_branch:
+            return (), "", ""
+        required = await self._fetch_required_contexts(repo, resolved_base_branch)
+        if not required:
+            return (), "", ""
+
+        rollup = data.get("statusCheckRollup") or []
+        reported = {
+            str(entry.get("name") or entry.get("context"))
+            for entry in rollup
+            if isinstance(entry, dict) and (entry.get("name") or entry.get("context"))
+        }
+        missing = tuple(c for c in required if c not in reported)
+        return missing, head_branch, head_sha
+
+    async def _fetch_required_contexts(
+        self, repo: str, base_branch: str
+    ) -> tuple[str, ...]:
+        """Fetch required status-check contexts for the base branch.
+
+        Fail-soft: returns ``()`` on any gh error (a fabricated gap would
+        re-trigger blindly).
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "api",
+            f"repos/{repo}/branches/{base_branch}/protection/required_status_checks",
+            "--jq",
+            ".contexts",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            return ()
+        if proc.returncode != 0:
+            _log.info(
+                "could not read required contexts for %s@%s: %s",
+                repo,
+                base_branch,
+                stderr.decode(errors="replace")[:160],
+            )
+            return ()
+        try:
+            contexts = json.loads(stdout)
+        except json.JSONDecodeError:
+            return ()
+        if not isinstance(contexts, list):
+            return ()
+        return tuple(str(c) for c in contexts)
+
+    async def _resolve_failing_job_name(self, repo: str, pr_number: int) -> str | None:
+        """Find the name of the first failing CI job for a PR.
+
+        Returns the job name string or None if none found.
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "statusCheckRollup",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error(
+                "gh pr view statusCheckRollup (job name) timed out for %s#%s",
+                repo,
+                pr_number,
+            )
+            return None
+        if proc.returncode != 0:
+            _log.error(
+                "gh pr view statusCheckRollup (job name) failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace"),
+            )
+            return None
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            checks = data.get("statusCheckRollup") or []
+            for check in checks:
+                conclusion = str(check.get("conclusion") or "").upper()
+                if conclusion in FAILED_CHECK_CONCLUSIONS:
+                    name: str | None = check.get("name") or check.get("context")
+                    return name
+            return None
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.error(
+                "Failed to parse statusCheckRollup (job name) for %s#%s: %s",
+                repo,
+                pr_number,
+                exc,
+            )
+            return None
+
+    async def _resolve_open_thread_comment_ids(
+        self, repo: str, pr_number: int
+    ) -> list[str]:
+        """Resolve open review thread comment IDs for a PR.
+
+        Returns list of comment node IDs. Empty list means skip (no actionable threads).
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "reviewThreads",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.error("gh pr view reviewThreads timed out for %s#%s", repo, pr_number)
+            return []
+        if proc.returncode != 0:
+            _log.error(
+                "gh pr view reviewThreads failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace"),
+            )
+            return []
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            threads: list[dict[str, Any]] = data.get("reviewThreads") or []
+            ids: list[str] = []
+            for thread in threads:
+                if thread.get("isResolved"):
+                    continue
+                comments: list[dict[str, Any]] = thread.get("comments") or []
+                for comment in comments:
+                    node_id: str | None = comment.get("id")
+                    if node_id:
+                        ids.append(node_id)
+                        break  # one representative comment per thread is enough
+            return ids
+        except (json.JSONDecodeError, AttributeError) as exc:
+            _log.error(
+                "Failed to parse reviewThreads for %s#%s: %s", repo, pr_number, exc
+            )
+            return []
+
+    async def _resolve_conflict_files(self, repo: str, pr_number: int) -> list[str]:
+        """Resolve list of files with merge conflicts for a PR.
+
+        Returns list of file paths. Empty list is acceptable (conflict-hunk command still emitted).
+        """
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "files",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            _log.warning("gh pr view files timed out for %s#%s", repo, pr_number)
+            return []
+        if proc.returncode != 0:
+            _log.warning(
+                "gh pr view files failed for %s#%s: %s",
+                repo,
+                pr_number,
+                stderr.decode(errors="replace"),
+            )
+            return []
+        try:
+            data: dict[str, Any] = json.loads(stdout)
+            files: list[dict[str, Any]] = data.get("files") or []
+            return [f["path"] for f in files if f.get("path")]
+        except (json.JSONDecodeError, AttributeError, KeyError) as exc:
+            _log.warning("Failed to parse files for %s#%s: %s", repo, pr_number, exc)
+            return []
+
+
+def _run_id_from_details_url(details_url: str) -> str | None:
+    """Extract the workflow run id from a GitHub Actions check URL."""
+    if not details_url or "/actions/runs/" not in details_url:
+        return None
+    tail = details_url.split("/actions/runs/", 1)[1]
+    run_id = tail.split("/", 1)[0].split("?", 1)[0]
+    return run_id or None

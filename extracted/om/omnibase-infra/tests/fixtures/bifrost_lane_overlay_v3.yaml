@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Shared OMN-15807 parser parity fixture (OMN-17502: v3 adds `locale`).
+schema_version: "bifrost_lane_overlay.v3"
+lane: dev
+locale: lab
+backends:
+  - backend_id: local-coder
+    endpoint_url: "http://192.168.86.201:8000/v1/chat/completions"
+    served_model_id: "Qwen3.8-27B"
+    parameter_count: "27B"
+    context_window: 131072
+    max_tokens: 65536
+    timeout_ms: 300000
+  - backend_id: local-heavy-reasoning
+    endpoint_url: "http://192.168.86.201:8000/v1/chat/completions"
+    served_model_id: "Qwen3.8-27B"
+    parameter_count: "27B"
+    context_window: 131072
+    max_tokens: 65536
+    timeout_ms: 300000

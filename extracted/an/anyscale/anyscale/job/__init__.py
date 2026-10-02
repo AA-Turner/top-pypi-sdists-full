@@ -63,9 +63,13 @@ class JobSDK:
         self._private_sdk = PrivateJobSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_SUBMIT_EXAMPLE, arg_docstrings=_SUBMIT_ARG_DOCSTRINGS,
+        doc_py_example=_SUBMIT_EXAMPLE,
+        arg_docstrings=_SUBMIT_ARG_DOCSTRINGS,
     )
-    def submit(self, config: JobConfig,) -> str:  # noqa: F811
+    def submit(
+        self,
+        config: JobConfig,
+    ) -> str:  # noqa: F811
         """Submit a job.
 
         Returns the id of the submitted job.
@@ -73,7 +77,8 @@ class JobSDK:
         return self._private_sdk.submit(config=config)
 
     @sdk_docs(
-        doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS,
+        doc_py_example=_STATUS_EXAMPLE,
+        arg_docstrings=_STATUS_ARG_DOCSTRINGS,
     )
     def status(  # noqa: F811
         self,
@@ -96,7 +101,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
+        doc_py_example=_TERMINATE_EXAMPLE,
+        arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
     )
     def terminate(  # noqa: F811
         self,
@@ -124,7 +130,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+        doc_py_example=_ARCHIVE_EXAMPLE,
+        arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
     def archive(  # noqa: F811
         self,
@@ -152,7 +159,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_ARG_DOCSTRINGS,
     )
     def delete(  # noqa: F811
         self,
@@ -181,7 +189,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_WAIT_EXAMPLE, arg_docstrings=_WAIT_ARG_DOCSTRINGS,
+        doc_py_example=_WAIT_EXAMPLE,
+        arg_docstrings=_WAIT_ARG_DOCSTRINGS,
     )
     def wait(  # noqa: F811
         self,
@@ -195,7 +204,7 @@ class JobSDK:
         include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
-        """"Wait for a job to enter a specific state."""
+        """ "Wait for a job to enter a specific state."""
         id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
         return self._private_sdk.wait(
             name=name,
@@ -208,7 +217,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_GET_LOGS_EXAMPLE, arg_docstrings=_GET_LOGS_ARG_DOCSTRINGS,
+        doc_py_example=_GET_LOGS_EXAMPLE,
+        arg_docstrings=_GET_LOGS_ARG_DOCSTRINGS,
     )
     def get_logs(  # noqa: F811
         self,
@@ -223,7 +233,7 @@ class JobSDK:
         include_archived: bool = False,
         **_kwargs: Dict[str, Any],
     ) -> str:
-        """"Wait for a job to enter a specific state."""
+        """ "Wait for a job to enter a specific state."""
         id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
         return self._private_sdk.get_logs(
             job_id=id,
@@ -237,7 +247,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_ADD_TAGS_EXAMPLE, arg_docstrings=_ADD_TAGS_ARG_DOCSTRINGS,
+        doc_py_example=_ADD_TAGS_EXAMPLE,
+        arg_docstrings=_ADD_TAGS_ARG_DOCSTRINGS,
     )
     def add_tags(  # noqa: F811
         self,
@@ -260,7 +271,8 @@ class JobSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_REMOVE_TAGS_EXAMPLE, arg_docstrings=_REMOVE_TAGS_ARG_DOCSTRINGS,
+        doc_py_example=_REMOVE_TAGS_EXAMPLE,
+        arg_docstrings=_REMOVE_TAGS_ARG_DOCSTRINGS,
     )
     def remove_tags(  # noqa: F811
         self,
@@ -282,9 +294,7 @@ class JobSDK:
             include_archived=include_archived,
         )
 
-    @sdk_docs(
-        doc_py_example=_LIST_TAGS_EXAMPLE, arg_docstrings=_LIST_TAGS_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_LIST_TAGS_EXAMPLE, arg_docstrings=_LIST_TAGS_ARG_DOCSTRINGS)
     def list_tags(  # noqa: F811
         self,
         *,

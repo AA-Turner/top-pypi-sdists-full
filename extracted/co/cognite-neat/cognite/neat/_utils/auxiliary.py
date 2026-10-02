@@ -1,0 +1,49 @@
+import importlib
+import inspect
+from abc import ABC
+from types import ModuleType
+from typing import TypeVar
+
+from cognite.neat import _version
+from cognite.neat._exceptions import NeatImportError
+
+
+def get_current_neat_version() -> str:
+    return _version.__version__
+
+
+T_Cls = TypeVar("T_Cls")
+
+
+def get_concrete_subclasses(base_cls: type[T_Cls], exclude_direct_abc_inheritance: bool = True) -> list[type[T_Cls]]:
+    """
+    Returns a list of all concrete subclasses of the given base class.
+    Args:
+        base_cls (type[T_Cls]): The base class to find subclasses for.
+        exclude_direct_abc_inheritance (bool): If True, excludes classes that directly inherit from `abc.ABC`.
+            This is used as a marker to filter out intermediate base classes. Defaults to True.
+    Returns:
+        list[type[T_Cls]]: A list of concrete subclasses of the base class.
+    """
+    to_check = [base_cls]
+    subclasses: list[type[T_Cls]] = []
+    seen: set[type[T_Cls]] = {base_cls}
+    while to_check:
+        current_cls = to_check.pop()
+        for subclass in current_cls.__subclasses__():
+            if subclass in seen:
+                continue
+            if (not inspect.isabstract(subclass)) and (
+                not exclude_direct_abc_inheritance or ABC not in subclass.__bases__
+            ):
+                subclasses.append(subclass)
+            seen.add(subclass)
+            to_check.append(subclass)
+    return subclasses
+
+
+def local_import(module: str, extra: str) -> ModuleType:
+    try:
+        return importlib.import_module(module)
+    except ImportError as e:
+        raise NeatImportError(module.split(".")[0], extra) from e

@@ -1,0 +1,1924 @@
+"""Integration tests for the Python composer (doppler.wfm.compose).
+
+The strong test is **byte-parity against the C ``wfmgen`` CLI**: a
+single-segment
+``Composer`` written through ``Writer`` must produce the exact same file the
+one C CLI does for the same flags. The rest cover the JSON round-trip, the
+Writer↔Reader round-trip per sample type, segment timing, and the DSP helpers.
+"""
+
+import hashlib
+import json
+import random
+import shutil
+import struct
+import subprocess
+import time
+
+import numpy as np
+import pytest
+
+from doppler.tests._repo import build_dir, exe
+from doppler.wfm import cli, dsss_spread, mls_poly, rrc_taps, write_blue_header
+from doppler.wfm.compose import (
+    Composer,
+    Reader,
+    SampleClock,
+    Segment,
+    StreamSink,
+    Synth,
+    Timeline,
+    Writer,
+    draws,
+    noise,
+    prepare,
+    qpsk,
+    tone,
+)
+
+
+def _read_all(r):
+    """Drain a Reader into one array via blocked read() (the generated handle
+    exposes read(n); read_all was an old hand-class convenience)."""
+    chunks, blk = [], r.read(65536)
+    while len(blk):
+        chunks.append(blk)
+        blk = r.read(65536)
+    return np.concatenate(chunks) if chunks else np.empty(0, np.complex64)
+
+
+# The ONE locator, shared with cli.py and the five other test modules that
+# already call it. This module used to carry a sixth, private copy that fell
+# back to a `build*/**/wfmgen` glob and returned None, feeding a skipif.
+#
+# That private copy was not a harmless duplicate: `test_byte_parity_vs_wfmgen`
+# below is the ONLY evidence for the wfmgen design doc's second goal -- "the
+# same scene expressed through any of the four APIs renders byte-identically"
+# -- and a locator that returns None turns a missing binary into a SKIP, which
+# reads identically to a pass in a log. `cli._runnable()` raises
+# FileNotFoundError naming the path instead. CI runs `make build` (which
+# builds wfmgen) before `make test-python`, so failing closed costs nothing
+# there and is what validation.md asks for: a missing binary FAILS.
+def _wfmgen() -> str:
+    """Resolved per call, not at import.
+
+    Fail-closed and PRECISE: only the handful of tests that actually shell
+    out to the CLI fail when it is missing, rather than the whole module
+    erroring at collection and taking ~120 unrelated tests with it.
+    """
+    return cli._runnable()
+
+
+# StreamSink needs a live nats-server to actually move a frame. (It and
+# SampleClock build on every platform since #1575; the Windows skips they
+# used to carry are gone.)
+def _nats_available() -> bool:
+    import socket
+
+    try:
+        socket.create_connection(("127.0.0.1", 4222), timeout=0.3).close()
+        return True
+    except OSError:
+        return False
+
+
+_needs_stream_sink = pytest.mark.skipif(
+    not _nats_available(),
+    reason="no nats-server on 127.0.0.1:4222 (run `nats-server -js`)",
+)
+
+
+def _md5(path) -> str:
+    return hashlib.md5(open(path, "rb").read()).hexdigest()
+
+
+@pytest.mark.parametrize("wtype", ["tone", "noise", "pn", "bpsk", "qpsk"])
+@pytest.mark.parametrize("stype", ["cf32", "ci16", "ci8"])
+def test_byte_parity_vs_wfmgen(tmp_path, wtype, stype):
+    """Python Composer+Writer == the wfmgen CLI single-segment run, byte-for-
+    byte (same defaults). A 1-segment wfmgen run is the old single-shot
+    path."""
+    n = 1024
+    cli = tmp_path / "cli.iq"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            wtype,
+            "--fs",
+            "1e6",
+            "--freq",
+            "1e5",
+            "--count",
+            str(n),
+            "--snr",
+            "100",
+            "--sample-type",
+            stype,
+            "--endian",
+            "le",
+            "-o",
+            str(cli),
+        ],
+        check=True,
+    )
+    # Single-segment composer with the same parameters + the CLI defaults.
+    x = Composer(
+        type=wtype, fs=1e6, freq=1e5, num_samples=n, snr=100.0
+    ).compose()
+    py = tmp_path / "py.iq"
+    with Writer(
+        py, fs=1e6, file_type="raw", sample_type=stype, endian="le"
+    ) as w:
+        w.write(x)
+    assert _md5(py) == _md5(cli), f"{wtype}/{stype} diverged from wfmgen"
+
+
+_C_HARNESS = exe(
+    build_dir(__file__) / "native/validation/validate_wfmgen_certify"
+)
+
+
+@pytest.mark.parametrize("wtype", ["tone", "noise", "pn", "bpsk", "qpsk"])
+def test_c_api_byte_parity_vs_wfmgen(tmp_path, wtype):
+    """The C leg of the four-API byte-identity claim.
+
+    `docs/design/wfmgen.md` goal 2 promises "the same scene expressed through
+    any of the four renders byte-identically", and calls the C API the
+    PRIMARY one. Python-vs-CLI is pinned above and JSON-vs-CLI in
+    `test_cli_record_replays.py`; until this existed the C leg was pinned by
+    nothing. What stood in for it was `native/examples/wfmgen_demo.c` §5,
+    which composes one scene TWICE IN ONE PROCESS and memcmp's the buffers --
+    determinism, not cross-API agreement, and it would pass unchanged if the
+    C API and the CLI had diverged completely.
+
+    The harness builds its scene from a `wfm_source_t` STRUCT rather than
+    through `dp_wfm_compose_from_json`, deliberately: routing it through JSON
+    would put all three legs behind one parser, and a consistency test is
+    blind to any defect its paths share.
+
+    Fails, never skips, when the harness is missing -- the whole content of
+    this assertion comes from that binary, so a skip and a pass read the same.
+    """
+    assert _C_HARNESS.is_file(), (
+        f"{_C_HARNESS} not built — run `make build`. This test FAILS rather "
+        "than skipping: its entire content comes from that binary."
+    )
+    n = 1024
+    c_out = tmp_path / "c.iq"
+    subprocess.run(
+        [str(_C_HARNESS), "--render", wtype, str(c_out)], check=True
+    )
+
+    cli_out = tmp_path / "cli.iq"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            wtype,
+            "--fs",
+            "1e6",
+            "--freq",
+            "1e5",
+            "--count",
+            str(n),
+            "--snr",
+            "100",
+            "--sample-type",
+            "cf32",
+            "--endian",
+            "le",
+            "-o",
+            str(cli_out),
+        ],
+        check=True,
+    )
+
+    x = Composer(
+        type=wtype, fs=1e6, freq=1e5, num_samples=n, snr=100.0
+    ).compose()
+    py_out = tmp_path / "py.iq"
+    with Writer(
+        py_out, fs=1e6, file_type="raw", sample_type="cf32", endian="le"
+    ) as w:
+        w.write(x)
+
+    assert _md5(c_out) == _md5(cli_out), (
+        f"{wtype}: C API diverged from the CLI"
+    )
+    assert _md5(c_out) == _md5(py_out), f"{wtype}: C API diverged from Python"
+
+
+def test_chirp_byte_parity_vs_wfmgen(tmp_path):
+    """A chirp segment is byte-identical between the Composer and the CLI; the
+    sweep span = the segment's num_samples = --count."""
+    n = 4096
+    cli = tmp_path / "cli.iq"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            "chirp",
+            "--fs",
+            "1e6",
+            "--freq",
+            "1e5",
+            "--f-end",
+            "3e5",
+            "--count",
+            str(n),
+            "--sample-type",
+            "cf32",
+            "-o",
+            str(cli),
+        ],
+        check=True,
+    )
+    x = Composer(
+        Segment("chirp", fs=1e6, freq=1e5, f_end=3e5, num_samples=n)
+    ).compose()
+    py = tmp_path / "py.iq"
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
+        w.write(x)
+    assert _md5(py) == _md5(cli)
+
+
+def test_chirp_json_roundtrip():
+    """f_end survives the JSON spec round-trip (and only chirp carries it)."""
+    a = Composer([Segment("chirp", freq=1e5, f_end=4e5, num_samples=1000)])
+    js = a.to_json()
+    assert '"f_end"' in js
+    b = Composer.from_json(js)
+    assert np.array_equal(a.compose(), b.compose())
+    assert b.segments[0].f_end == 4e5
+    # a plain tone spec never grows an f_end key (back-compat / byte-stable)
+    assert '"f_end"' not in Composer([Segment("tone")]).to_json()
+
+
+def test_chirp_in_timeline_and_sum():
+    """A chirp composes both in time (.add) and summed (.sum) with other
+    srcs."""
+    from doppler.wfm import chirp, tone
+
+    tl = Segment("chirp", freq=1e5, f_end=2e5, num_samples=1000).add(
+        Segment("tone", freq=0, num_samples=500)
+    )
+    assert len(Composer(tl).compose()) == 1500
+    mix = Segment.sum(
+        chirp(f_start=1e5, f_end=2e5),
+        tone(freq=-2e5, level=-6),
+        num_samples=2048,
+    )
+    assert len(Composer(mix).compose()) == 2048
+
+
+def test_json_roundtrip():
+    """to_json() → from_json() reproduces the samples exactly."""
+    spec = [
+        Segment("pn", num_samples=127, pn_length=7),
+        Segment("tone", freq=2e5, num_samples=256, off_samples=64),
+        Segment("qpsk", num_samples=200, seed=42),
+    ]
+    a = Composer(spec, repeat=False)
+    b = Composer.from_json(a.to_json())
+    assert np.array_equal(a.compose(), b.compose())
+
+
+#: Keys a Field or a frame description replaced. The C reader refuses each
+#: with a sentence naming it (wfm_json.c); both JSON readers must raise that
+#: sentence, not "<fn> failed" (doppler#1614, just-makeit#1706).
+_RETIRED = [("sync_gen", "pn:63:6"), ("rs_depth", 1), ("pattern", "0101")]
+
+
+def _scene_with(key, value):
+    d = json.loads(Composer([Segment(type="tone")]).to_json())
+    d["segments"][0][key] = value
+    return json.dumps(d)
+
+
+@pytest.mark.parametrize("key,value", _RETIRED)
+def test_from_json_names_a_retired_key(key, value):
+    with pytest.raises(ValueError, match=f'"{key}" is retired'):
+        Composer.from_json(_scene_with(key, value))
+
+
+@pytest.mark.parametrize("key,value", _RETIRED)
+def test_from_file_names_a_retired_key(key, value, tmp_path):
+    path = tmp_path / "scene.json"
+    path.write_text(_scene_with(key, value), encoding="utf-8")
+    with pytest.raises(ValueError, match=f'"{key}" is retired'):
+        Composer.from_file(str(path))
+
+
+def test_from_file_an_unreadable_path_is_still_oserror(tmp_path):
+    """No reason to carry: the file never reached the parser."""
+    with pytest.raises(OSError):
+        Composer.from_file(str(tmp_path / "absent.json"))
+
+
+# Two distinct QPSK constellation streams for the symbols round-trip tests.
+_SYM1 = np.array([1 + 1j, -1 + 1j, 1 - 1j, -1 - 1j] * 100, np.complex64)
+_SYM2 = np.array([1 - 1j, 1 + 1j, -1 - 1j, -1 + 1j] * 100, np.complex64)
+
+
+@pytest.mark.parametrize(
+    "synths",
+    [
+        # single-source (inline serializer) and multi-source ("sum") paths
+        [Synth(type="symbols", symbols=_SYM1, sps=4)],
+        [
+            Synth(type="symbols", symbols=_SYM1, sps=4),
+            Synth(type="symbols", symbols=_SYM2, sps=4),
+        ],
+        # the exact gh #331 scene: anchor SNR + relative level + noise floor
+        [
+            Synth(type="symbols", symbols=_SYM1, snr=0.0, sps=4),
+            Synth(type="symbols", symbols=_SYM2, level=-3.0, sps=4),
+            noise(level=-20.0, fs=1e6),
+        ],
+        # symbols under RRC pulse shaping
+        [
+            Synth(type="symbols", symbols=_SYM1, sps=4, pulse="rrc"),
+            Synth(
+                type="symbols", symbols=_SYM2, level=-3.0, sps=4, pulse="rrc"
+            ),
+        ],
+    ],
+)
+def test_symbols_json_roundtrip(synths):
+    """A ``type="symbols"`` constellation must survive to_json → from_json, and
+    ``prepare()`` (which round-trips through JSON) must match ``compose()``
+    bit-for-bit — the gh #331 regression: the JSON serializer dropped the
+    ``symbols`` array (and mis-typed the source), so any round-tripped symbols
+    scene silently reverted to a bare tone."""
+    scene = Composer(Segment.sum(*synths, fs=1e6, num_samples=4000))
+    direct = scene.compose()
+    assert np.array_equal(
+        direct, Composer.from_json(scene.to_json()).compose()
+    )
+    assert np.array_equal(direct, prepare(scene).render())
+
+
+@pytest.mark.parametrize("stype", ["cf32", "cf64", "ci32", "ci16", "ci8"])
+def test_writer_readback_roundtrip(tmp_path, stype):
+    """Writer → Reader round-trips per sample type (cf* exact, ci* within
+    q-step)."""
+    x = Composer(type="tone", freq=1e5, num_samples=1000).compose()
+    p = tmp_path / f"cap.{stype}"
+    with Writer(p, fs=1e6, sample_type=stype) as w:
+        w.write(x)
+    y = _read_all(Reader(str(p), sample_type=stype))
+    assert len(y) == len(x)
+    tol = {"cf32": 1e-6, "cf64": 1e-9, "ci32": 1e-6, "ci16": 1e-3, "ci8": 1e-1}
+    assert np.max(np.abs(y - x)) < tol[stype]
+
+
+def test_segment_timing():
+    """Composed length = sum of on-time + trailing gaps. A noisy segment's
+    gap carries its noise floor by default (gh-409) — the AWGN keeps
+    running while the signal stops; ``gap_noise="off"`` restores hard
+    zeros, and a clean segment's gap was zeros all along."""
+    spec = [
+        Segment("noise", num_samples=100, off_samples=50),
+        Segment("tone", num_samples=200),
+    ]
+    x = Composer(spec).compose()
+    assert len(x) == 100 + 50 + 200
+    assert np.all(x[100:150] != 0)  # the gap keeps the noise floor
+    off = [
+        Segment("noise", num_samples=100, off_samples=50, gap_noise="off"),
+        Segment("tone", num_samples=200),
+    ]
+    y = Composer(off).compose()
+    assert np.all(y[100:150] == 0)  # escape hatch: hard zeros
+    clean = [
+        Segment("tone", num_samples=100, off_samples=50),
+        Segment("tone", num_samples=200),
+    ]
+    z = Composer(clean).compose()
+    assert np.all(z[100:150] == 0)  # clean scene: gaps unchanged
+
+
+def test_streaming_matches_compose():
+    """Block-wise execute() concatenates to the same array as compose()."""
+    spec = [Segment("bpsk", num_samples=512, seed=7)]
+    whole = Composer(spec).compose()
+    c = Composer(spec)
+    chunks, blk = [], c.execute(100)
+    while len(blk):
+        chunks.append(blk)
+        blk = c.execute(100)
+    assert np.array_equal(np.concatenate(chunks), whole)
+
+
+def test_continuous_raises_on_compose():
+    c = Composer(type="tone", continuous=True)
+    assert c.continuous is True
+    with pytest.raises(ValueError):
+        c.compose()
+    assert len(c.execute(256)) == 256  # but streams forever
+
+
+def test_mls_poly_table():
+    """A few known maximal-length polynomials (Galois right-shift
+    convention)."""
+    assert mls_poly(7) == 0x41
+    assert mls_poly(15) == 0x4001
+    assert mls_poly(31) == 0x40000004
+    assert mls_poly(64) == 0x800000000000000D
+    assert mls_poly(1) == 0  # out of range
+
+
+def test_rrc_taps():
+    t = rrc_taps(0.35, sps=4, span=6)
+    assert t.dtype == np.float32 and len(t) == 2 * 6 * 4 + 1
+    assert abs(float(t[len(t) // 2]) - float(t.max())) < 1e-6  # peak at centre
+
+
+def test_dsss_spread():
+    syms = np.array([1 + 0j, -1 + 0j], dtype=np.complex64)
+    code = np.array([0, 1, 0, 1], dtype=np.uint8)  # +1 -1 +1 -1
+    out = dsss_spread(syms, code, 4)
+    assert out.shape == (8,)
+    assert np.allclose(out[:4], [1, -1, 1, -1])
+    assert np.allclose(out[4:], [-1, 1, -1, 1])
+
+
+def test_dsss_spread_bad_inputs_do_not_crash():
+    """gh-178 review #2: the generated binding no longer validates sf /
+    len(code), so the C alias guards defensively (no raise) against the misuse
+    the retired hand binding rejected — a code shorter than sf (heap over-read)
+    and sf < 1 (unbounded write). The output is zeroed, never out-of-bounds."""
+    syms = np.array([1 + 0j, -1 + 0j], dtype=np.complex64)
+
+    # code shorter than sf: would over-read code[2..63]; now returns zeros.
+    short = np.zeros(2, dtype=np.uint8)
+    out = dsss_spread(syms, short, 64)
+    assert out.shape == (2 * 64,)
+    assert np.all(out == 0)
+
+    # sf == 0: empty output, no write.
+    assert dsss_spread(syms, short, 0).shape == (0,)
+
+
+def test_rrc_taps_bad_inputs_do_not_crash():
+    """gh-178 review #4: sps/span < 1 no longer divides by zero in the kernel
+    (inf/NaN taps); the alias returns a zeroed array of the binding length."""
+    t = rrc_taps(0.35, sps=0, span=0)
+    assert t.shape == (1,) and np.all(t == 0)
+    t = rrc_taps(0.35, sps=0, span=6)
+    assert np.all(np.isfinite(t)) and np.all(t == 0)
+
+
+def test_context_manager_and_idempotent_close():
+    with Composer(type="tone", num_samples=64) as c:
+        assert len(c.execute(64)) == 64
+    c.close()  # idempotent after __exit__
+
+
+@_needs_stream_sink
+def test_streamsink_loopback_to_subscriber():
+    """StreamSink publishes the wfmgen fs/fc framing that doppler.stream
+    decodes.
+
+    StreamSink frames with ``dp_pub_send_*`` (the shared wire format), so a
+    ``doppler.stream.Subscriber`` on the same endpoint must recover the samples
+    and the fs/fc tags. cf64 is used because it is StreamSink's own
+    default, not because of any decode limit -- every wire type the
+    sender can emit decodes on the Python side.
+    """
+    from doppler.stream import Subscriber
+
+    ep = (
+        f"nats://127.0.0.1:4222/streamsink-loopback-{random.randint(1, 10**9)}"
+    )
+    x = Composer(type="tone", freq=1e5, num_samples=512).compose()
+    with Subscriber(ep) as sub:
+        time.sleep(0.3)  # core NATS: sub must exist before publish
+        with StreamSink(ep, sample_type="cf64") as sink:
+            sink.send(x, 1e6, 2.4e9)
+            samples, hdr = sub.recv(timeout_ms=2000)
+    assert samples.dtype == np.complex128 and len(samples) == 512
+    assert np.allclose(samples, x.astype(np.complex128), atol=1e-6)
+    assert hdr["sample_rate"] == pytest.approx(1e6)
+    assert hdr["center_freq"] == pytest.approx(2.4e9)
+
+
+@_needs_stream_sink
+def test_streamsink_idempotent_close():
+    ep = f"nats://127.0.0.1:4222/streamsink-close-{random.randint(1, 10**9)}"
+    sink = StreamSink(ep)
+    sink.close()
+    sink.close()  # idempotent
+
+
+def test_write_blue_header_requires_fs(tmp_path):
+    """`xdelta = 1/fs` is most of what a BLUE header is, so the rate is not
+    something you can forget to mention. Same rule as `Writer`, and the same
+    escape: `fs=0.0` states "not known" and writes `xdelta = 0`."""
+    with pytest.raises(TypeError):
+        write_blue_header(tmp_path / "no-fs.hdr")
+
+    p = tmp_path / "unknown.hdr"
+    write_blue_header(p, fs=0.0, total=8)  # stated, and stated as unknown
+    assert struct.unpack_from("<d", p.read_bytes(), 264)[0] == 0.0
+
+
+def test_to_sigmf_states_the_rate_its_annotations_were_built_from(tmp_path):
+    """The document already knew the rate; now it says so.
+
+    A `Composer` carries `fs` per segment and the annotation edges are
+    `±fs/(2·sps)` computed from it -- so a `to_sigmf()` that omitted
+    `core:sample_rate` was withholding a rate it demonstrably had. It is
+    derived rather than required, because requiring it would only make the
+    caller restate what the scene holds (and let the two disagree).
+    """
+    comp = Composer([Segment("qpsk", sps=8, num_samples=4096, fs=6.138e6)])
+    doc = json.loads(comp.to_sigmf())
+    assert doc["global"]["core:sample_rate"] == 6.138e6
+    # ...and it agrees with the edges in the same document, which is the point
+    assert doc["annotations"][0]["core:freq_upper_edge"] == pytest.approx(
+        6.138e6 / (2 * 8)
+    )
+
+
+def test_to_sigmf_explicit_fs_wins(tmp_path):
+    """Rendering the scene at a resampled rate describes the FILE, and the
+    file is what the document annotates -- so a stated rate is never
+    second-guessed."""
+    comp = Composer([Segment("qpsk", sps=8, num_samples=4096, fs=6.138e6)])
+    doc = json.loads(comp.to_sigmf(fs=1e6))
+    assert doc["global"]["core:sample_rate"] == 1e6
+
+
+def test_to_sigmf_leaves_the_rate_unstated_when_segments_disagree(tmp_path):
+    """`fs` is per segment, and no single `core:sample_rate` is true of a
+    stream whose segments disagree -- so it says nothing rather than picking
+    one."""
+    comp = Composer(
+        [
+            Segment("qpsk", sps=8, num_samples=1024, fs=6.138e6),
+            Segment("tone", num_samples=1024, fs=2e6),
+        ]
+    )
+    assert "core:sample_rate" not in json.loads(comp.to_sigmf())["global"]
+
+
+def test_write_blue_header_detached_hcb(tmp_path):
+    """write_blue_header lays down a standard detached type-1000 HCB.
+
+    Parses the 512-byte header and checks the fixed fields the C writer emits:
+    magic, byte order (EEEI for little-endian), detached flag, data_size
+    (total * bytes-per-sample), the 1000 type tag, the complex format code, and
+    xdelta = 1/fs.
+    """
+    p = tmp_path / "cap.hdr"
+    write_blue_header(p, sample_type="cf32", fs=1e6, total=512, detached=True)
+    h = p.read_bytes()
+    assert len(h) == 512
+    assert h[0:4] == b"BLUE"
+    assert h[4:8] == b"EEEI" and h[8:12] == b"EEEI"  # little-endian
+    assert struct.unpack_from("<i", h, 12)[0] == 1  # detached
+    assert struct.unpack_from("<d", h, 32)[0] == 0.0  # data_start (detached)
+    assert struct.unpack_from("<d", h, 40)[0] == 512 * 8  # cf32 = 8 B/sample
+    assert struct.unpack_from("<i", h, 48)[0] == 1000  # type-1000
+    assert chr(h[52]) == "C" and chr(h[53]) == "F"  # complex float32
+    assert struct.unpack_from("<d", h, 264)[0] == pytest.approx(1e-6)  # xdelta
+
+
+def test_write_blue_header_big_endian(tmp_path):
+    """endian='be' flips the rep tags and byte order of the fields."""
+    p = tmp_path / "cap.hdr"
+    write_blue_header(
+        p, sample_type="ci16", endian="be", fs=2e6, total=100, detached=True
+    )
+    h = p.read_bytes()
+    assert h[4:8] == b"IEEE" and h[8:12] == b"IEEE"
+    assert struct.unpack_from(">d", h, 40)[0] == 100 * 4  # ci16 = 4 B/sample
+    assert struct.unpack_from(">i", h, 48)[0] == 1000
+    assert struct.unpack_from(">d", h, 264)[0] == pytest.approx(1 / 2e6)
+
+
+def test_stream_yields_blocks_matching_compose():
+    """stream() concatenates to the same array as compose()."""
+    spec = [Segment("qpsk", sps=8, num_samples=2000, seed=3)]
+    whole = Composer(spec).compose()
+    streamed = np.concatenate(list(Composer(spec).stream(256)))
+    assert np.array_equal(streamed, whole)
+
+
+def test_stream_block_sizes():
+    """Every block is `block` long except a possibly-short final one."""
+    c = Composer(type="tone", num_samples=1000)
+    blocks = list(c.stream(256))
+    assert [len(b) for b in blocks] == [256, 256, 256, 232]  # 3*256 + 232
+
+
+def test_stream_continuous_is_infinite():
+    """A continuous spec streams forever — take a few blocks and stop."""
+    import itertools
+
+    c = Composer(type="tone", continuous=True)
+    blocks = list(itertools.islice(c.stream(512), 5))
+    assert len(blocks) == 5 and all(len(b) == 512 for b in blocks)
+
+
+def _repeat_json(seg, n_periods, *, seed_advance="none"):
+    """Render `n_periods` of a one-segment repeating spec via from_json (the
+    path that honours the `seed_advance` spec field: none/noise/all)."""
+    import json
+
+    spec = {
+        "version": 1,
+        "repeat": True,
+        "seed_advance": seed_advance,
+        "segments": [seg],
+    }
+    return Composer.from_json(json.dumps(spec)).execute(
+        n_periods * seg["num_samples"]
+    )
+
+
+def _pn(snr, n=127, length=7):
+    return {
+        "type": "pn",
+        "fs": 1e6,
+        "freq": 0,
+        "snr": snr,
+        "snr_mode": "fs",
+        "seed": 1,
+        "sps": 1,
+        "pn_length": length,
+        "num_samples": n,
+        "off_samples": 0,
+    }
+
+
+def _bits(snr, n=64):
+    return {
+        "type": "bits",
+        "fs": 1e6,
+        "freq": 0,
+        "snr": snr,
+        "snr_mode": "fs",
+        "seed": 1,
+        "sps": 1,
+        "modulation": "bpsk",
+        "payload": "10110100",
+        "num_samples": n,
+        "off_samples": 0,
+    }
+
+
+def test_repeat_is_byte_identical_by_default():
+    """seed_advance="none" (the default) → repeats are byte-identical."""
+    n = 64
+    x = _repeat_json(_bits(6.0, n), 2)  # default none
+    assert np.array_equal(x[:n], x[n : 2 * n])
+
+
+def test_seed_advance_noise_varies_noise_only():
+    """seed_advance="noise" advances the NOISE seed each repeat (fresh
+    realization) while the signal stays fixed: a noisy source's loops differ, a
+    clean one's are identical, and a PN source's *code* is unchanged."""
+    n = 64
+    noisy = _repeat_json(_bits(6.0, n), 2, seed_advance="noise")
+    assert not np.array_equal(noisy[:n], noisy[n : 2 * n])  # noise differs
+
+    clean = _repeat_json(_bits(100.0, n), 2, seed_advance="noise")
+    assert np.array_equal(clean[:n], clean[n : 2 * n])  # signal fixed
+
+    # A clean PN source keeps its code bit-for-bit across repeats (only the
+    # noise would advance) — so a fixed preamble re-acquires every burst.
+    pn = _repeat_json(_pn(100.0), 2, seed_advance="noise")
+    assert np.array_equal(pn[:127], pn[127 : 2 * 127])
+
+
+def test_seed_advance_all_varies_signal():
+    """seed_advance="all" advances the whole seed → even a clean (noiseless) PN
+    source's *code* changes each repeat (a fully stochastic stream)."""
+    a = _repeat_json(_pn(100.0), 2, seed_advance="all")
+    assert not np.array_equal(a[:127], a[127 : 2 * 127])  # signal/code differs
+
+    # First pass is always the unmodified seed → matches a none run's pass.
+    base = _repeat_json(_pn(100.0), 2)  # default none
+    assert np.array_equal(a[:127], base[:127])
+
+
+def test_stream_realtime_paces():
+    """stream(block, realtime=fs) paces blocks in C at fs (~ N/fs total)."""
+    # 100 blocks of 1000 @ 1e5 = 1.0 s; paced at segments[0].fs.
+    c = Composer(type="tone", fs=1e5, num_samples=100_000)
+    t0 = time.perf_counter()
+    n = sum(len(b) for b in c.stream(1000, realtime=c.segments[0].fs))
+    elapsed = time.perf_counter() - t0
+    assert n == 100_000
+    assert 0.9 < elapsed < 1.4, (
+        f"paced stream took {elapsed:.3f}s, expected ~1.0"
+    )
+
+
+def test_stream_realtime_float_rate_overrides():
+    """A faster realtime rate drains quickly."""
+    c = Composer(type="tone", fs=1e5, num_samples=10_000)
+    t0 = time.perf_counter()
+    list(c.stream(1000, realtime=1e7))  # 10 MS/s → ~1 ms total
+    assert time.perf_counter() - t0 < 0.3
+
+
+def test_sampleclock_paces_to_rate():
+    """Pacing N samples at fs takes ~N/fs seconds, drift-free."""
+    clk = SampleClock(fs=1e5)  # 100 kS/s
+    t0 = time.perf_counter()
+    for _ in range(50):
+        clk.pace(2000)  # 50 * 2000 / 1e5 = 1.0 s
+    elapsed = time.perf_counter() - t0
+    assert 0.9 < elapsed < 1.4, f"paced run took {elapsed:.3f}s, expected ~1.0"
+    assert clk.samples == 100000
+    # NB: no `underruns == 0` assertion — on a loaded, non-realtime CI
+    # runner an idle pacer can legitimately fall behind once (that's what
+    # the counter is for); the drift-free schedule still lands elapsed
+    # near 1.0 s.
+
+
+def test_sampleclock_stamp_is_exact():
+    """stamp() advances by exactly count/fs nanoseconds (pure arithmetic)."""
+    clk = SampleClock(fs=1e6)  # 1 sample = 1000 ns
+    s0 = clk.stamp()
+    clk.pace(1000)
+    assert clk.stamp() - s0 == 1_000_000  # 1000 samples @ 1 MS/s = 1 ms
+    assert isinstance(clk.stamp(), int)
+
+
+def test_sampleclock_underrun_counted():
+    """An impossible rate makes every deadline past → counted underruns."""
+    clk = SampleClock(fs=1e12)  # 1 TS/s: nothing can keep up
+    for _ in range(5):
+        clk.pace(1000)
+    assert clk.underruns >= 1
+    assert clk.max_lateness > 0.0
+
+
+def test_sampleclock_resync_reanchors():
+    """resync=True keeps the clock near 'now' instead of piling up lateness."""
+    clk = SampleClock(fs=1e12, resync=True)
+    for _ in range(5):
+        clk.pace(1000)
+    # With resync the epoch advances, so lateness stays bounded per block
+    # rather than growing; just assert it ran and counted without raising.
+    assert clk.samples == 5000
+
+
+def test_sampleclock_reset():
+    clk = SampleClock(fs=1e12)
+    clk.pace(1000)
+    clk.reset()
+    assert clk.samples == 0
+    assert clk.underruns == 0
+
+
+def test_sampleclock_releases_gil():
+    """pace() must release the GIL: a paced worker can't stall the main thread.
+
+    A worker paces ~0.5 s in one block while the main thread keeps counting;
+    if the GIL were held, the main thread would make no progress during the
+    sleep. We assert it kept running.
+    """
+    import threading
+
+    done = threading.Event()
+
+    def worker():
+        SampleClock(fs=1000.0).pace(500)  # 500/1000 = 0.5 s in C, GIL released
+        done.set()
+
+    t = threading.Thread(target=worker)
+    t.start()
+    ticks = 0
+    while not done.is_set():
+        ticks += 1
+        time.sleep(0.005)
+    t.join()
+    assert ticks > 10, f"main thread only ran {ticks}x — GIL not released?"
+
+
+def test_sampleclock_nonpositive_fs_is_safe():
+    """gh-178 review #4: the generated binding no longer rejects fs <= 0 (the
+    retired hand binding raised "fs must be > 0"). A non-positive fs would make
+    n/fs infinite and casting that to uint64_t is UB — inf deadlines / garbage
+    stamps. The C offset_ns now treats fs <= 0 as a zero offset: stamp stays
+    finite at the epoch and pace returns immediately instead of sleeping."""
+    clk = SampleClock(fs=0.0)
+    s0 = clk.stamp()
+    assert isinstance(s0, int) and s0 >= 0  # finite, not an inf-cast
+    t0 = time.perf_counter()
+    clk.pace(1_000_000)  # would be "infinite" samples/0 Hz -> must not block
+    assert time.perf_counter() - t0 < 0.5
+    assert clk.stamp() == s0  # no time advances without a rate
+
+
+@pytest.mark.parametrize(
+    "file_type,ext,stype,tol",
+    [
+        ("raw", "cf32", "cf32", 1e-6),
+        ("raw", "cf64", "cf64", 1e-9),
+        ("raw", "ci16", "ci16", 1e-3),
+        ("csv", "csv", "cf32", 1e-6),
+        ("csv", "csv", "ci16", 1e-3),
+        ("blue", "blue", "cf32", 1e-6),
+        ("blue", "blue", "ci16", 1e-3),
+    ],
+)
+def test_reader_roundtrips_each_file_type(
+    tmp_path, file_type, ext, stype, tol
+):
+    """Writer → Reader round-trips per file type; auto-detection recovers
+    it."""
+    x = Composer(type="tone", freq=1e5, num_samples=1000).compose()
+    p = tmp_path / f"cap.{ext}"
+    with Writer(p, file_type=file_type, sample_type=stype, fs=1e6) as w:
+        w.write(x)
+    with Reader(p, sample_type=stype) as r:
+        assert r.file_type == file_type  # file type auto-detected
+        assert r.sample_type == stype
+        y = _read_all(r)
+    assert len(y) == len(x)
+    assert np.max(np.abs(y - x)) < tol
+
+
+@pytest.mark.parametrize(
+    "file_type,detached,out_name,read_name",
+    [
+        ("blue", False, "cap.blue", "cap.blue"),
+        ("blue", True, "cap_det", "cap_det.det"),  # entered from the DATA side
+        ("blue", True, "cap_det", "cap_det.hdr"),  # entered from the HEADER
+        ("sigmf", False, "cap", "cap.sigmf-data"),  # + .sigmf-meta sidecar
+    ],
+)
+def test_reader_reads_back_wfmgen_cli_file_type(
+    tmp_path, file_type, detached, out_name, read_name
+):
+    """The self-describing file types the *CLI* writes are readable, end to
+    end.
+
+    The other coverage is transitive: wfmgen_cli_test.cmake asserts only size
+    plus a magic/string grep ("BLUE", "ci16_le"), the round-trips above drive
+    the library Writer, and byte-parity links the two. Nothing directly proves
+    a wfmgen-written capture survives the reader, so a CLI-only metadata
+    regression -- a wrong BLUE xdelta, an unpatched data_size, a bad detached
+    .hdr/.det split, a malformed SigMF core:datatype/sample_rate -- would slip
+    every gate. Write with the real binary, read with the real reader, and
+    check both the recovered metadata and the samples: against the same tone
+    the library synthesises, which must be bit-exact.
+    """
+    fs, freq, n = 1e6, 1e5, 4096
+    cmd = [
+        _wfmgen(),
+        "--type",
+        "tone",
+        "--freq",
+        str(freq),
+        "--fs",
+        str(fs),
+        "--count",
+        str(n),
+        "--sample-type",
+        "cf32",
+        "--file-type",
+        file_type,
+        "-o",
+        str(tmp_path / out_name),
+    ]
+    if detached:
+        cmd.append("--detached")
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    with Reader(tmp_path / read_name) as r:
+        # file type auto-detected (BLUE magic / .sigmf-meta sidecar), and the
+        # sample type + rate recovered from its own metadata -- no hints.
+        assert r.file_type == file_type
+        assert r.sample_type == "cf32"
+        assert r.fs == pytest.approx(fs)
+        y = _read_all(r)
+
+    ref = Synth(type="tone", freq=freq, fs=fs, snr=100.0).steps(n)
+    assert len(y) == n
+    assert np.max(np.abs(y - ref)) == 0.0  # bit-exact through the file type
+
+
+@pytest.mark.parametrize("hdr_ext", [".hdr", ".prm", ".tmp"])
+def test_reader_detached_header_is_the_entry_point(tmp_path, hdr_ext):
+    """Opening a DETACHED BLUE capture by its header must read the payload.
+
+    Regression for a silent data-corruption bug: the reader used to decide
+    "detached" from the *.det extension* and never read the HCB's `detached`
+    field (offset 12). Handed a header file it parsed the HCB, then seeked to
+    data_start -- which is 0 for a detached capture -- and returned the
+    512-byte HCB *itself* as IQ: 64 cf32 "samples" whose first value is the
+    ASCII "BLUEEEEI" magic as two floats. No exception, correct-looking
+    file_type/fs; just wrong data, on the conventional entry point.
+
+    Per BLUE 3.1.1.4 the detached header is named <base>.tmp or <base>.prm
+    (doppler's writer emits <base>.hdr) and the payload is the collocated
+    <base>.det -- so the *extension is irrelevant*; `detached` decides. All
+    three header spellings must yield the identical, bit-exact capture.
+    """
+    fs, freq, n = 1e6, 1e5, 1024
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            "tone",
+            "--freq",
+            str(freq),
+            "--fs",
+            str(fs),
+            "--count",
+            str(n),
+            "--sample-type",
+            "cf32",
+            "--file-type",
+            "blue",
+            "--detached",
+            "-o",
+            str(tmp_path / "cap"),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    # wfmgen writes cap.hdr + cap.det; the spec's names are cap.prm / cap.tmp.
+    if hdr_ext != ".hdr":
+        shutil.copyfile(tmp_path / "cap.hdr", tmp_path / f"cap{hdr_ext}")
+
+    with Reader(tmp_path / f"cap{hdr_ext}") as r:
+        assert r.file_type == "blue"
+        assert r.sample_type == "cf32"
+        assert r.fs == pytest.approx(fs)
+        y = _read_all(r)
+
+    ref = Synth(type="tone", freq=freq, fs=fs, snr=100.0).steps(n)
+    # the whole capture, not the 512-byte header reinterpreted as 64 samples
+    assert len(y) == n
+    assert np.max(np.abs(y - ref)) == 0.0
+
+
+def _patch_blue_mode(path, mode, ncomp, n):
+    """Rewrite a complex BLUE capture in place as `mode`, keeping only the
+    first `ncomp` component(s) of each sample. doppler's writer only ever
+    emits 'C', so a foreign-producer file has to be forged: patch the HCB
+    format mode (byte 52) and data_size (byte 40), then rewrite the payload.
+    """
+    h = bytearray(path.read_bytes()[:512])
+    iq = np.frombuffer(path.read_bytes()[512:], dtype=np.float32)[: 2 * n]
+    h[52] = ord(mode)
+    h[40:48] = np.float64(n * ncomp * 4).tobytes()
+    body = iq.reshape(n, 2)[:, :ncomp].reshape(-1)
+    path.write_bytes(bytes(h) + body.tobytes())
+
+
+def test_reader_blue_scalar_mode(tmp_path):
+    """A SCALAR ('S') BLUE capture reads as a real signal, at full length.
+
+    The BLUE `format` field is [mode][type] (HCB bytes 52..53) and only the
+    type half used to be parsed, so a scalar file -- one component per sample
+    -- was walked at the *complex* stride: every second real sample became a
+    phantom Q, the capture came back at half its length, and `num_samples`
+    under-reported 2x. Silent, on a perfectly valid Midas file.
+    """
+    n = 1024
+    x = Synth(type="tone", freq=1e5, fs=1e6, snr=100.0).steps(n)
+    p = tmp_path / "cap.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=1e6) as w:
+        w.write(x)
+    _patch_blue_mode(p, "S", 1, n)
+
+    with Reader(p) as r:
+        assert r.mode == "scalar"
+        assert r.num_samples == n  # not n // 2
+        y = _read_all(r)
+    assert len(y) == n
+    assert np.array_equal(y.real, x.real)  # I survives bit-exact
+    assert np.all(y.imag == 0.0)  # no phantom Q from the next sample
+
+
+def test_reader_blue_complex_mode_reports_itself(tmp_path):
+    """The ordinary complex path is unchanged and names its own mode."""
+    n = 512
+    x = Synth(type="tone", freq=1e5, fs=1e6, snr=100.0).steps(n)
+    p = tmp_path / "cap.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=1e6) as w:
+        w.write(x)
+    with Reader(p) as r:
+        assert r.mode == "complex"
+        assert r.num_samples == n
+        assert np.array_equal(_read_all(r), x)
+
+
+@pytest.mark.parametrize("mode", ["V", "Q", "M", "T", "X", "1"])
+def test_reader_rejects_unsupported_blue_mode(tmp_path, mode):
+    """Modes doppler cannot decode are refused, never read at a wrong stride.
+
+    Midas defines further modes carrying three or more components per sample
+    (V, Q, M, T ...). Only S and C are supported here; anything else must fail
+    to open rather than hand back samples strided as if it were interleaved
+    I/Q.
+    """
+    n = 64
+    x = Synth(type="tone", freq=1e5, fs=1e6, snr=100.0).steps(n)
+    p = tmp_path / "cap.blue"
+    with Writer(p, file_type="blue", sample_type="cf32", fs=1e6) as w:
+        w.write(x)
+    _patch_blue_mode(p, mode, 2, n)
+    # ValueError, not RuntimeError: the object binding declares
+    # create_error/create_error_message (jm gh-514), so a failed open names the
+    # actual problem instead of an internal C symbol.
+    with pytest.raises(ValueError, match="unsupported BLUE format mode"):
+        Reader(p)
+
+
+def test_reader_blue_recovers_metadata(tmp_path):
+    """A BLUE capture self-describes: fs comes back from the HCB, no hint."""
+    x = Composer(type="qpsk", sps=8, num_samples=2048).compose()
+    p = tmp_path / "cap.blue"
+    with Writer(p, file_type="blue", sample_type="ci16", fs=2.4e6) as w:
+        w.write(x)
+    # Open with the *wrong* default hint — BLUE metadata must override it.
+    with Reader(p) as r:
+        assert r.file_type == "blue"
+        assert r.sample_type == "ci16"  # recovered, not the cf32 default
+        assert r.fs == pytest.approx(2.4e6)
+        assert r.num_samples == 2048
+        y = _read_all(r)
+    assert np.max(np.abs(y - x)) < 1e-3
+
+
+def test_reader_sigmf_pair(tmp_path):
+    """Reader auto-detects a SigMF .sigmf-data via its .sigmf-meta sidecar."""
+    spec = [Segment("tone", freq=1e5, num_samples=300)]
+    x = Composer(spec).compose()
+    data = tmp_path / "cap.sigmf-data"
+    with Writer(data, file_type="sigmf", sample_type="cf32", fs=1e6) as w:
+        w.write(x)
+    (tmp_path / "cap.sigmf-meta").write_text(
+        Composer(spec).to_sigmf(sample_type="cf32", fs=1e6)
+    )
+    with Reader(data) as r:
+        assert r.file_type == "sigmf"
+        assert r.fs == pytest.approx(1e6)
+        assert np.allclose(_read_all(r), x)
+
+
+def test_reader_blocked_read_matches_read_all(tmp_path):
+    """Block-wise read() concatenates to the same array as read_all()."""
+    x = Composer(type="bpsk", sps=4, num_samples=3000, seed=2).compose()
+    p = tmp_path / "cap.cf32"
+    with Writer(p, fs=1e6) as w:
+        w.write(x)
+    whole = _read_all(Reader(str(p)))
+    r = Reader(str(p))
+    chunks, blk = [], r.read(256)
+    while len(blk):
+        chunks.append(blk)
+        blk = r.read(256)
+    r.close()
+    assert np.array_equal(np.concatenate(chunks), whole)
+
+
+def test_reader_idempotent_close(tmp_path):
+    p = tmp_path / "cap.cf32"
+    with Writer(p, fs=1e6) as w:
+        w.write(Composer(type="tone", num_samples=64).compose())
+    r = Reader(str(p))
+    _read_all(r)
+    r.close()
+    r.close()  # idempotent
+
+
+def test_reader_missing_file_raises(tmp_path):
+    # A failed open raises the component's declared create_error (jm gh-514);
+    # OSError stays in the tuple for the paths that surface errno directly.
+    with pytest.raises((OSError, ValueError)):
+        Reader(str(tmp_path / "does-not-exist.cf32"))
+
+
+def test_sigmf_meta_and_data_pair(tmp_path):
+    """sigmf_meta() + Writer(file_type='sigmf') produce a valid SigMF pair.
+
+    The metadata records the global sample rate and one annotation per segment;
+    the companion .sigmf-data round-trips back through Reader.
+    """
+    import json
+
+    spec = [
+        Segment("tone", freq=1e5, num_samples=256),
+        Segment("qpsk", sps=8, num_samples=512, seed=3),
+    ]
+    x = Composer(spec).compose()
+    data = tmp_path / "cap.sigmf-data"
+    with Writer(data, file_type="sigmf", sample_type="cf32", fs=1e6) as w:
+        w.write(x)
+    meta_json = Composer(spec).to_sigmf(sample_type="cf32", fs=1e6)
+    meta = json.loads(meta_json)
+    assert meta["global"]["core:sample_rate"] == 1e6
+    assert meta["global"]["core:datatype"] == "cf32_le"
+    assert len(meta["annotations"]) == 2  # one per segment
+    # Write the .sigmf-meta sidecar so Reader resolves the SigMF pair and
+    # reads sample-type/fs from the metadata (not a headerless-raw hint).
+    (tmp_path / "cap.sigmf-meta").write_text(meta_json)
+    with Reader(str(data)) as r:
+        assert r.file_type == "sigmf"
+        assert np.allclose(_read_all(r), x)
+
+
+def test_writer_clip_detection(tmp_path):
+    """Writer tracks the peak (always) and the clipped fraction (opt-in).
+
+    The generated handle reads stats live from the open writer, so read them
+    before close(); after close() any property access raises (handle freed).
+    """
+    # peak magnitude 2.0 (clips in ci16); 2 of 4 components exceed full-scale.
+    x = np.array([1.5 + 0.5j, -0.5 - 2.0j], dtype=np.complex64)
+    w = Writer(tmp_path / "clip.ci16", fs=1e6, sample_type="ci16")
+    w.track_clipping(True)
+    w.write(x)
+    assert w.clipped
+    assert abs(w.peak_dbfs - 20.0 * np.log10(2.0)) < 1e-4
+    assert abs(w.clip_fraction - 0.5) < 1e-6
+    w.close()
+    with pytest.raises(RuntimeError):
+        _ = w.clipped  # the handle is freed; live stats are no longer readable
+
+    # Clean at full scale -- but "full scale" is one code below +1.0.
+    #
+    # The wire's full scale is 2^(N-1) (dp_format_full_scale, and every cvt
+    # converter's default), so +1.0 maps to 2^15 = 32768, which is one past
+    # INT16_MAX by construction and saturates to 32767. A signal that
+    # touches +1.0 therefore DOES clip, and the writer says so -- that is the
+    # mapping working, not failing. The largest input that does not clip is
+    # one code below it, and -1.0 is exact because -32768 is representable.
+    clean = np.float32(
+        np.iinfo("<i2").max / (float(np.iinfo("<i2").max) + 1.0)
+    )
+    c = Writer(tmp_path / "clean.ci16", fs=1e6, sample_type="ci16")
+    c.write(np.array([clean + clean * 1j, -1.0 - 1.0j], dtype=np.complex64))
+    assert not c.clipped
+    assert abs(c.peak_dbfs) < 1e-3  # peak is |-1.0| = 1.0 -> 0 dBFS
+    c.close()
+
+    # And the boundary itself: +1.0 saturates, -1.0 does not.
+    b = Writer(tmp_path / "bound.ci16", fs=1e6, sample_type="ci16")
+    b.write(np.array([1.0 + 0.0j], dtype=np.complex64))
+    assert b.clipped, "+1.0 maps to 32768 and must report the saturation"
+    b.close()
+
+    # float never clips, even past full scale.
+    f = Writer(tmp_path / "x.cf32", fs=1e6, sample_type="cf32")
+    f.write(x)
+    assert not f.clipped
+    f.close()
+
+
+def test_writer_headroom(tmp_path):
+    """``headroom`` backs the signal off by a common gain: 0 dB is a bit-exact
+    no-op, 6.02 dB halves it, and enough headroom clears clipping."""
+    x = np.array([1.0 + 0j, 0.6 - 0.8j], dtype=np.complex64)
+
+    # 6.0206 dB → gain 0.5
+    with Writer(
+        tmp_path / "hr.cf32", fs=1e6, sample_type="cf32", headroom=6.0206
+    ) as w:
+        w.write(x)
+    assert np.allclose(
+        _read_all(Reader(str(tmp_path / "hr.cf32"), sample_type="cf32")),
+        x * 0.5,
+    )
+
+    # 0 dB (default) is verbatim
+    with Writer(tmp_path / "h0.cf32", fs=1e6, sample_type="cf32") as w:
+        w.write(x)
+    assert np.allclose(
+        _read_all(Reader(str(tmp_path / "h0.cf32"), sample_type="cf32")), x
+    )
+
+    # enough headroom clears a clip that would saturate at unity gain
+    with Writer(
+        tmp_path / "c.ci16", fs=1e6, sample_type="ci16", headroom=12.0
+    ) as w:
+        w.track_clipping(True)
+        w.write(np.array([1.5 + 0j, -2.0 + 0.3j], dtype=np.complex64))
+        assert not w.clipped
+
+
+def test_segment_level():
+    """Per-segment ``level`` (dBFS) scales the segment by 10^(level/20):
+    -6.02 dB halves it, 0 dB is a no-op, it's SNR-invariant, JSON carries
+    it."""
+    base = Composer([Segment("tone", num_samples=256)]).compose()
+    half = Composer(
+        [Segment("tone", num_samples=256, level=-6.020599913)]
+    ).compose()
+    assert np.allclose(half, base * 0.5)
+
+    # level=0 is identical to omitting it
+    a = Composer([Segment("qpsk", num_samples=512, seed=5)]).compose()
+    b = Composer(
+        [Segment("qpsk", num_samples=512, seed=5, level=0.0)]
+    ).compose()
+    assert np.array_equal(a, b)
+
+    # SNR-invariant: noise power scales with level**2, the ratio is preserved
+    n0 = Composer([Segment("noise", num_samples=50000, seed=2)]).compose()
+    n6 = Composer(
+        [Segment("noise", num_samples=50000, seed=2, level=-6.0206)]
+    ).compose()
+    assert np.isclose(np.var(n6) / np.var(n0), 0.25, rtol=2e-2)
+
+    # JSON round-trip carries level (and omits it at 0)
+    spec = [Segment("qpsk", num_samples=256, level=-10.0)]
+    js = Composer(spec).to_json()
+    assert '"level"' in js
+    assert np.array_equal(
+        Composer.from_json(js).compose(), Composer(spec).compose()
+    )
+
+
+# ── Phase 4b: .sum() multi-source segments + noise resolution ────────────────
+# (_wfmgen() is defined at the top of the module.)
+
+
+def test_sum_compose_basic():
+    """Segment.sum mixes sources over one span; the C resolver adds the
+    floor."""
+    seg = Segment.sum(
+        qpsk(snr=15, snr_mode="esno"),
+        tone(freq=2e5, level=-12),
+        num_samples=4096,
+    )
+    assert len(seg.sources) == 2
+    x = Composer([seg]).compose()
+    assert x.dtype == np.complex64 and len(x) == 4096
+
+
+def test_sum_json_roundtrip():
+    """A summed segment serialises as a "sum" array and round-trips exactly."""
+    import json
+
+    seg = Segment.sum(
+        qpsk(snr=12, snr_mode="esno", seed=3),
+        tone(freq=1.5e5, level=-10),
+        num_samples=8192,
+    )
+    js = Composer([seg]).to_json()
+    s0 = json.loads(js)["segments"][0]
+    assert "sum" in s0 and "type" not in s0  # nested, not inline
+    # resolver made the floor explicit: qpsk (cleaned) + tone + noise
+    assert [src["type"] for src in s0["sum"]] == ["qpsk", "tone", "noise"]
+    assert np.array_equal(
+        Composer.from_json(js).compose(), Composer([seg]).compose()
+    )
+
+
+def test_sum_one_source_equals_bare():
+    """A 1-source sum is the bundled single-source path, bit-for-bit.
+
+    The resolver is a no-op at one source, so Segment.sum(qpsk(snr=15)) must be
+    byte-identical to the plain Composer(qpsk, snr=15) — the bundled AWGN that
+    cannot be split is preserved through the nested-tuple path.
+    """
+    a = Composer(
+        [Segment.sum(qpsk(snr=15, seed=9), num_samples=4096)]
+    ).compose()
+    b = Composer(type="qpsk", snr=15.0, seed=9, num_samples=4096).compose()
+    assert np.array_equal(a, b)
+
+
+def test_sum_floor_power():
+    """The resolved noise floor reproduces the anchor's snr → measured SNR.
+
+    A DC tone (freq 0) is a constant signal, so |mean|**2 is the signal power
+    and var() is the noise power; their ratio is the SNR the anchor asked for.
+    """
+    seg = Segment.sum(
+        tone(freq=0.0, snr=15.0, snr_mode="fs"),  # anchor → floor at -15 dBFS
+        tone(freq=3e5, level=-120),  # negligible 2nd source (forces a sum)
+        num_samples=200_000,
+    )
+    x = Composer([seg]).compose().astype(np.complex128)
+    snr_db = 10 * np.log10(abs(x.mean()) ** 2 / x.var())
+    assert abs(snr_db - 15.0) < 0.5
+
+
+def test_sum_explicit_noise_floor():
+    """noise(level=N) sets the floor directly at N dBFS (no anchor needed)."""
+    seg = Segment.sum(
+        tone(freq=0.0, level=-120),  # negligible signal
+        noise(level=-13.0),  # explicit floor
+        num_samples=200_000,
+    )
+    x = Composer([seg]).compose().astype(np.complex128)
+    assert np.isclose(x.var(), 10 ** (-13.0 / 10), rtol=5e-2)
+
+
+def test_sum_cli_parity(tmp_path):
+    """wfmgen --from-file == the Python composer for a summed spec,
+    byte-exact."""
+    seg = Segment.sum(
+        qpsk(snr=12, snr_mode="esno", seed=3),
+        tone(freq=1.5e5, level=-10),
+        num_samples=8192,
+    )
+    spec = tmp_path / "sum.json"
+    spec.write_text(Composer([seg]).to_json())
+    cli = tmp_path / "cli.cf32"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--from-file",
+            str(spec),
+            "--sample-type",
+            "cf32",
+            "--output",
+            str(cli),
+        ],
+        check=True,
+    )
+    cli_iq = np.fromfile(cli, dtype=np.complex64)
+    assert np.array_equal(cli_iq, Composer([seg]).compose())
+
+
+def test_sum_reject_overspecified():
+    """A non-anchor source giving both snr and level is a spec error."""
+    seg = Segment.sum(
+        qpsk(snr=10),  # anchor
+        tone(snr=5, level=-3),  # over-specified: snr AND level
+        num_samples=4096,
+    )
+    with pytest.raises(ValueError):
+        Composer([seg]).compose()
+
+
+def test_sum_needs_a_source():
+    """Segment.sum with no sources is rejected up front."""
+    with pytest.raises(ValueError):
+        Segment.sum(num_samples=1024)
+
+
+# ── Phase 5: .add() timeline ergonomics ──────────────────────────────────────
+
+
+def test_add_builds_timeline_equal_to_list():
+    """seg.add(other) composes identically to the explicit segment list."""
+    a = Segment("tone", freq=1e5, num_samples=1000, off_samples=500)
+    b = Segment.sum(qpsk(snr=15), tone(level=-12), num_samples=4096)
+    tl = a.add(b)
+    assert isinstance(tl, Timeline) and len(tl) == 2
+    assert np.array_equal(Composer(tl).compose(), Composer([a, b]).compose())
+
+
+def test_timeline_add_chains():
+    """Timeline.add appends and is chainable; order is preserved."""
+    a = Segment("tone", freq=1e5, num_samples=500)
+    b = Segment("pn", num_samples=127, pn_length=7)
+    c = Segment("qpsk", num_samples=200, seed=4)
+    tl = a.add(b).add(c)
+    assert list(tl) == [a, b, c] and tl[1] is b
+    assert np.array_equal(
+        Composer(tl).compose(), Composer([a, b, c]).compose()
+    )
+
+
+def test_composer_accepts_lone_segment_and_timeline():
+    """Composer takes a bare Segment or a Timeline, not just a list."""
+    seg = Segment("tone", freq=1e5, num_samples=256)
+    assert np.array_equal(Composer(seg).compose(), Composer([seg]).compose())
+    tl = Timeline([seg])
+    assert np.array_equal(Composer(tl).compose(), Composer([seg]).compose())
+
+
+def test_timeline_json_roundtrip():
+    """A timeline round-trips through JSON like any segment list."""
+    tl = Segment("tone", freq=1e5, num_samples=300).add(
+        Segment.sum(qpsk(snr=12), tone(level=-9), num_samples=512)
+    )
+    js = Composer(tl).to_json()
+    assert np.array_equal(
+        Composer.from_json(js).compose(), Composer(tl).compose()
+    )
+
+
+def test_bits_byte_parity_vs_wfmgen(tmp_path):
+    """A bits segment is byte-identical between the Composer and the CLI."""
+
+    n = 64
+    cli = tmp_path / "cli.cf32"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            "bits",
+            "--bits",
+            "10110100",
+            "--modulation",
+            "qpsk",
+            "--sps",
+            "4",
+            "--fs",
+            "1e6",
+            "--count",
+            str(n),
+            "--sample-type",
+            "cf32",
+            "-o",
+            str(cli),
+        ],
+        check=True,
+    )
+    x = Composer(
+        Segment(
+            "bits",
+            pattern="10110100",
+            modulation="qpsk",
+            sps=4,
+            fs=1e6,
+            num_samples=n,
+        )
+    ).compose()
+    py = tmp_path / "py.cf32"
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
+        w.write(x)
+    assert _md5(py) == _md5(cli)
+
+
+def test_bits_json_roundtrip():
+    """pattern + modulation survive the JSON spec round-trip; non-bits don't
+    grow the keys (byte-stable)."""
+
+    a = Composer(
+        [
+            Segment(
+                "bits",
+                pattern="110100",
+                modulation="bpsk",
+                sps=2,
+                num_samples=12,
+            )
+        ]
+    )
+    js = a.to_json()
+    assert '"payload"' in js and '"modulation"' in js
+    b = Composer.from_json(js)
+    assert np.array_equal(a.compose(), b.compose())
+    assert '"payload"' not in Composer([Segment("tone")]).to_json()
+
+
+def test_bits_in_sum_scene():
+    """A bits source mixes in a .sum() scene with another waveform."""
+    from doppler.wfm import bits, tone
+
+    mix = Segment.sum(
+        bits(pattern="10110101", modulation="bpsk", sps=4),
+        tone(freq=2e5, level=-6),
+        num_samples=128,
+    )
+    assert len(Composer(mix).compose()) == 128
+
+
+def test_rrc_byte_parity_vs_wfmgen(tmp_path):
+    """An RRC-shaped segment is byte-identical between the Composer and CLI."""
+    from doppler.wfm import qpsk  # noqa: F401
+
+    n = 4096
+    cli = tmp_path / "cli.cf32"
+    subprocess.run(
+        [
+            _wfmgen(),
+            "--type",
+            "qpsk",
+            "--sps",
+            "8",
+            "--snr",
+            "100",
+            "--seed",
+            "3",
+            "--pulse",
+            "rrc",
+            "--rrc-beta",
+            "0.22",
+            "--rrc-span",
+            "8",
+            "--fs",
+            "1e6",
+            "--count",
+            str(n),
+            "--sample-type",
+            "cf32",
+            "-o",
+            str(cli),
+        ],
+        check=True,
+    )
+    x = Composer(
+        Segment(
+            "qpsk",
+            sps=8,
+            snr=100,
+            seed=3,
+            pulse="rrc",
+            rrc_beta=0.22,
+            rrc_span=8,
+            fs=1e6,
+            num_samples=n,
+        )
+    ).compose()
+    py = tmp_path / "py.cf32"
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
+        w.write(x)
+    assert _md5(py) == _md5(cli)
+
+
+def test_rrc_json_roundtrip():
+    """pulse/rrc_beta/rrc_span survive JSON; a rect spec never grows the
+    keys."""
+    a = Composer(
+        [
+            Segment(
+                "qpsk",
+                sps=8,
+                seed=3,
+                pulse="rrc",
+                rrc_beta=0.3,
+                rrc_span=6,
+                num_samples=2048,
+            )
+        ]
+    )
+    js = a.to_json()
+    assert '"pulse"' in js and '"rrc_beta"' in js
+    b = Composer.from_json(js)
+    assert np.array_equal(a.compose(), b.compose())
+    assert b.segments[0].pulse == "rrc"
+    assert (
+        '"pulse"' not in Composer([Segment("qpsk", num_samples=64)]).to_json()
+    )
+
+
+# ── type=symbols: complex constellation via the composer (jm 0.23.0
+#    complex field). These drive the composer-C attach/deep-copy + the
+#    standalone bridge symbols paths (only via Synth(symbols=), not the CLI).
+
+
+def _symbols_ref(iq, sps=4):
+    """Reference stream from the low-level engine."""
+    from doppler.wfm import _SynthEngine
+
+    e = _SynthEngine(type="symbols", fs=1.0, freq=0.0, snr=100.0, sps=sps)
+    e.set_symbols(np.asarray(iq, np.complex64))
+    return e.steps(64)
+
+
+def test_symbols_synth_steps_matches_engine():
+    """Synth(type='symbols').steps() (the standalone bridge face) == engine."""
+    iq = (np.array([1 + 1j, -1 + 1j, -1 - 1j, 1 - 1j]) / np.sqrt(2)).astype(
+        np.complex64
+    )
+    y = Synth(type="symbols", symbols=iq, sps=4).steps(64)
+    assert np.allclose(y, _symbols_ref(iq), atol=1e-5)
+
+
+def test_symbols_composer_execute_matches_engine():
+    """Composer.execute() over a symbols Synth (the composer-C attach +
+    deep-copy face) == engine, byte-for-byte."""
+    iq = (np.array([1 + 1j, -1 + 1j, -1 - 1j, 1 - 1j]) / np.sqrt(2)).astype(
+        np.complex64
+    )
+    seg = Segment.sum(
+        Synth(type="symbols", symbols=iq, sps=4), fs=1.0, num_samples=64
+    )
+    y = Composer(seg).execute(64)
+    assert np.allclose(y, _symbols_ref(iq), atol=1e-5)
+
+
+def test_symbols_getset_roundtrips():
+    iq = np.array([1 + 1j, 1j, -1, 0.5 - 0.5j], np.complex64)
+    s = Synth(type="symbols", symbols=iq, sps=2)
+    assert np.allclose(np.asarray(s.symbols), iq, atol=1e-5)
+    # complex128 is force-cast to complex64
+    s2 = Synth(type="symbols", symbols=iq.astype(np.complex128), sps=2)
+    assert np.asarray(s2.symbols).dtype == np.complex64
+
+
+def test_symbols_pi4_qpsk_via_composer():
+    """pi/4-QPSK via the composer: rotate every other QPSK symbol by pi/4."""
+    base = np.array([1, 1j, -1, -1j, 1, 1j, -1, -1j], np.complex64)
+    base[1::2] *= np.exp(1j * np.pi / 4)
+    iq = base.astype(np.complex64)
+    y = Composer(
+        Segment.sum(
+            Synth(type="symbols", symbols=iq, sps=4), fs=1.0, num_samples=64
+        )
+    ).execute(64)
+    assert np.allclose(y[::4], iq[np.arange(16) % 8], atol=1e-5)
+
+
+def test_symbols_none_clears():
+    assert Synth(type="symbols", symbols=None, sps=4).symbols is None
+
+
+def test_symbols_no_stream_cannot_generate():
+    """A symbols Synth with no stream can't generate — the bridge rejects it
+    (lazily, at first steps()), matching a pattern-less bits Synth."""
+    with pytest.raises(RuntimeError):
+        Synth(type="symbols").steps(4)
+
+
+def test_sigmf_annotations_per_instance():
+    """The SigMF sidecar emits one annotation per rendered instance at the
+    exact drawn position — repeats and ranged delay/gap draws replayed via
+    dp_wfm_compose_spans — with real type labels (the writer's stale private
+    name table used to drop symbols/dsss and mis-place ranged scenes)."""
+    seg = Segment(
+        "bpsk",
+        sps=4,
+        seed=9,
+        snr=8.0,
+        num_samples=300,
+        off_samples=(50, 150),
+        delay_samples=(20, 80),
+        repeats=3,
+        gap_noise="off",
+    )
+    comp = Composer([seg])
+    meta = json.loads(comp.to_sigmf(sample_type="cf32", fs=1e6))
+    anns = meta["annotations"]
+    assert len(anns) == 3
+    assert all(a["core:label"] == "bpsk" for a in anns)
+    x = comp.compose()
+    nz = np.flatnonzero(x != 0)
+    edges = np.where(np.diff(nz) > 1)[0]
+    starts = [int(nz[0])] + [int(nz[e + 1]) for e in edges]
+    assert [int(a["core:sample_start"]) for a in anns] == starts
+    assert all(int(a["core:sample_count"]) == 300 for a in anns)
+
+    sym = np.exp(1j * np.linspace(0, np.pi, 8)).astype(np.complex64)
+    m2 = json.loads(
+        Composer(
+            [Segment("symbols", symbols=sym, sps=4, num_samples=64)]
+        ).to_sigmf(sample_type="cf32", fs=1e6)
+    )
+    assert m2["annotations"][0]["core:label"] == "symbols"
+
+
+def test_sigmf_annotation_values_are_the_drawn_ones():
+    """The sidecar is the Python face's ground truth, so it must describe
+    the capture rather than the spec.
+
+    Timing came from a replay of the draws and the spectral keys came off
+    the source struct -- which for a ranged field holds `lo` -- so every
+    annotation of a ranged scene reported the same wrong frequency and SNR
+    beside a sample-accurate start (doppler#1086). Both halves come from one
+    `dp_wfm_compose_draws()` row now, so they cannot disagree.
+
+    `segments` still reports the (lo, hi) RANGE: that is what makes a run
+    replay byte-for-byte, and it is a different question from what this run
+    drew.
+    """
+    lo, hi = 11200.0, 12800.0
+    seg = Segment(
+        "tone",
+        fs=1e6,
+        freq=(lo, hi),
+        snr=(8.0, 14.0),
+        level=(-20.0, -5.0),
+        num_samples=4096,
+        repeats=3,
+    )
+    comp = Composer([seg])
+    anns = json.loads(comp.to_sigmf(sample_type="cf32", fs=1e6))["annotations"]
+    assert len(anns) == 3
+
+    freqs = [a["core:freq_lower_edge"] for a in anns]
+    snrs = [a["wfmgen:snr"] for a in anns]
+    levels = [a["wfmgen:level_db"] for a in anns]
+
+    # Every value inside its declared range...
+    assert all(lo <= f <= hi for f in freqs), freqs
+    assert all(8.0 <= v <= 14.0 for v in snrs), snrs
+    assert all(-20.0 <= v <= -5.0 for v in levels), levels
+    # ...and DISTINCT per instance. Reading the range's lo gives three
+    # identical rows sitting on the bound, which is what this catches.
+    assert len(set(freqs)) == 3, f"freq draws did not vary: {freqs}"
+    assert len(set(snrs)) == 3, f"snr draws did not vary: {snrs}"
+    assert len(set(levels)) == 3, f"level draws did not vary: {levels}"
+    assert min(freqs) > lo, f"an annotation sat on the range's lo: {freqs}"
+
+    # The spec still answers the other question.
+    assert comp.segments[0].freq == (lo, hi)
+
+
+# ---------------------------------------------------------------------------
+# Clock Doppler on a source (gh-942) — the Python and JSON faces
+# ---------------------------------------------------------------------------
+
+_DOP_KW = {"fs": 1e6, "sps": 4, "num_samples": 4096, "seed": 3}
+
+
+def _dop(**extra):
+    return np.asarray(
+        Composer([Segment("bpsk", **_DOP_KW, **extra)]).compose()
+    )
+
+
+def test_doppler_kwarg_reaches_the_render() -> None:
+    # The kwarg exists on Segment and it CHANGES the waveform. Without this
+    # every assertion below could pass on an inert field.
+    assert not np.array_equal(_dop(), _dop(doppler=50.0, carrier_hz=2.2e9))
+    assert not np.array_equal(
+        _dop(), _dop(doppler_rate=500.0, carrier_hz=2.2e9)
+    )
+
+
+def test_carrier_hz_alone_builds_no_channel() -> None:
+    # Zero doppler AND zero doppler_rate means no channel at all, so a
+    # declared carrier is inert on its own -- and a scene that asks for no
+    # Doppler renders through exactly the code it always did.
+    np.testing.assert_array_equal(_dop(), _dop(carrier_hz=2.2e9))
+
+
+def test_ranged_doppler_is_a_tuple_on_the_python_face() -> None:
+    # The library-wide spelling: a ranged field is a (lo, hi) tuple in
+    # Python and a [lo, hi] array in JSON. `doppler_hi` is not a kwarg.
+    seg = Segment(
+        "bpsk", **_DOP_KW, doppler=(2.0, 9.0), doppler_rate=(0.1, 0.5)
+    )
+    assert seg.doppler == (2.0, 9.0)
+    assert seg.doppler_rate == (0.1, 0.5)
+    with pytest.raises(TypeError):
+        Segment("bpsk", **_DOP_KW, doppler_hi=9.0)
+
+
+def test_doppler_lifetime_is_a_string_enum() -> None:
+    seg = Segment("bpsk", **_DOP_KW, doppler=5.0, doppler_lifetime="persist")
+    assert seg.doppler_lifetime == "persist"
+    assert Segment("bpsk", **_DOP_KW).doppler_lifetime == "per_instance"
+    with pytest.raises(ValueError):
+        Segment("bpsk", **_DOP_KW, doppler_lifetime="forever")
+
+
+def test_doppler_survives_a_json_round_trip() -> None:
+    # What a face is FOR: a scene written through it renders the same. A key
+    # emitted but not read, or read into the wrong field, lands here.
+    scene = Composer(
+        [
+            Segment(
+                "bpsk",
+                **_DOP_KW,
+                doppler=(2.0, 9.0),
+                doppler_rate=0.4,
+                carrier_hz=2.2e9,
+                doppler_lifetime="persist",
+            )
+        ]
+    )
+    spec = scene.to_json()
+    seg = json.loads(spec)["segments"][0]
+    assert seg["doppler"] == [2.0, 9.0]  # the SPAN, not one instance's draw
+    assert seg["doppler_rate"] == 0.4
+    assert seg["carrier_hz"] == 2.2e9
+    assert seg["doppler_lifetime"] == "persist"
+    np.testing.assert_array_equal(
+        Composer.from_json(spec).compose(), scene.compose()
+    )
+
+
+def test_a_scene_without_doppler_emits_no_doppler_keys() -> None:
+    # Omitted at the default, exactly as level and background are: every
+    # recorded spec in the world would otherwise churn for a field it does
+    # not use.
+    seg = json.loads(Composer([Segment("bpsk", **_DOP_KW)]).to_json())[
+        "segments"
+    ][0]
+    assert not [k for k in seg if "doppler" in k or k == "carrier_hz"]
+
+
+def test_sigmf_annotations_carry_the_drawn_doppler() -> None:
+    # The sidecar's whole point is that what is rendered and what is
+    # reported cannot disagree (doppler#1086). Doppler is drawn like
+    # freq/snr/level, so it is reported like them: per instance, not the
+    # spec's lo on every row.
+    seg = Segment(
+        "bpsk",
+        fs=1e6,
+        sps=4,
+        num_samples=4096,
+        repeats=3,
+        seed=5,
+        doppler=(2.0, 9.0),
+        doppler_rate=(0.1, 0.5),
+        carrier_hz=1.5e9,
+    )
+    comp = Composer([seg])
+    anns = json.loads(comp.to_sigmf(sample_type="cf32", fs=1e6))["annotations"]
+    assert len(anns) == 3
+
+    ppm = [a["wfmgen:doppler_ppm"] for a in anns]
+    rate = [a["wfmgen:doppler_rate_ppm_s"] for a in anns]
+    assert all(2.0 <= v <= 9.0 for v in ppm), ppm
+    assert all(0.1 <= v <= 0.5 for v in rate), rate
+    assert len(set(ppm)) == 3, f"doppler draws did not vary: {ppm}"
+    assert len(set(rate)) == 3, f"doppler_rate draws did not vary: {rate}"
+    assert min(ppm) > 2.0, f"an annotation sat on the range's lo: {ppm}"
+    assert all(a["wfmgen:carrier_hz"] == 1.5e9 for a in anns)
+    assert all(a["wfmgen:doppler_lifetime"] == "per_instance" for a in anns)
+
+    # The spec still answers the other question.
+    assert comp.segments[0].doppler == (2.0, 9.0)
+
+
+def test_sigmf_omits_doppler_keys_without_a_channel() -> None:
+    anns = json.loads(
+        Composer([Segment("bpsk", **_DOP_KW)]).to_sigmf(
+            sample_type="cf32", fs=1e6
+        )
+    )["annotations"]
+    assert not [k for k in anns[0] if "doppler" in k or "carrier_hz" in k]
+
+
+# ---------------------------------------------------------------------------
+# draws() — the ground truth of a ranged scene (gh-1112)
+# ---------------------------------------------------------------------------
+
+
+def _ranged_scene():
+    return Composer(
+        [
+            Segment(
+                "bpsk",
+                fs=1e6,
+                sps=4,
+                num_samples=4096,
+                repeats=4,
+                seed=5,
+                freq=(9000.0, 14000.0),
+                snr=(8.0, 14.0),
+                level=(-20.0, -5.0),
+            )
+        ]
+    )
+
+
+def test_draws_returns_a_row_per_source_per_instance() -> None:
+    rows = draws(_ranged_scene())
+    assert len(rows) == 4
+    assert [r["instance"] for r in rows] == [0, 1, 2, 3]
+    # Sample-accurate placement, not just an ordering.
+    assert [r["start"] for r in rows] == [0, 4096, 8192, 12288]
+    assert all(r["on"] == 4096 for r in rows)
+
+
+def test_draws_reports_the_drawn_value_not_the_span() -> None:
+    # The whole point: a ranged field's row must carry what that instance
+    # flew. Reporting the span's `lo` on every row is inside the declared
+    # range too, so only the variation catches it -- that was doppler#1086.
+    rows = draws(_ranged_scene())
+    for r in rows:
+        assert 9000.0 <= r["freq"] <= 14000.0
+        assert 8.0 <= r["snr"] <= 14.0
+        assert -20.0 <= r["level"] <= -5.0
+    assert len({r["freq"] for r in rows}) == 4
+    assert len({r["snr"] for r in rows}) == 4
+    assert min(r["freq"] for r in rows) > 9000.0
+
+
+def test_draws_agrees_with_the_sigmf_metadata() -> None:
+    """Both faces read the same rows, so they cannot disagree.
+
+    This is the identity the surface exists for: a capture's metadata and an
+    in-process render must describe the same waveform. If a future change
+    gives either side its own draw path, this goes red.
+    """
+    scene = _ranged_scene()
+    rows = draws(scene)
+    fc = 1.2e6
+    anns = json.loads(scene.to_sigmf(sample_type="cf32", fs=1e6, fc=fc))[
+        "annotations"
+    ]
+    assert len(anns) == len(rows)
+    for r, a in zip(rows, anns):
+        assert a["core:sample_start"] == r["start"] + r["delay"]
+        assert a["core:sample_count"] == r["on"]
+        assert a["wfmgen:snr"] == pytest.approx(r["snr"])
+        assert a["wfmgen:level_db"] == pytest.approx(r["level"])
+        # The annotation carries a band; its centre is fc + the drawn freq.
+        centre = (a["core:freq_lower_edge"] + a["core:freq_upper_edge"]) / 2.0
+        assert centre - fc == pytest.approx(r["freq"])
+
+
+def test_draws_describes_a_fixed_scene_too() -> None:
+    # A scene with no ranged field still gets a row per instance, carrying
+    # the scalar -- so a caller never has to ask whether it was ranged.
+    scene = Composer(
+        [Segment("tone", fs=1e6, num_samples=256, repeats=2, freq=1e5)]
+    )
+    rows = draws(scene)
+    assert len(rows) == 2
+    assert all(r["freq"] == 1e5 for r in rows)

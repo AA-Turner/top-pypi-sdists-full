@@ -12756,11 +12756,6 @@ class Messages(System.Object):
             """
             ...
 
-        @staticmethod
-        def unsupported_update_quantity_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
-            """Returns a message indicating that the specified order type cannot be updated quantity using the given brokerage model."""
-            ...
-
     class AlpacaBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.AlpacaBrokerageModel class and its consumers or related classes"""
 

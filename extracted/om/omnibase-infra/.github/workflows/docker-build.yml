@@ -1,0 +1,562 @@
+# Docker Build and Test Workflow for ONEX Infrastructure
+# Dedicated workflow for Docker builds and integration tests
+#
+# This workflow runs Docker-specific tests separately from the main test suite
+# to ensure proper Docker/BuildKit setup and avoid pytest-xdist worker crashes.
+
+name: Docker Build
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docker/**'
+      - 'Dockerfile*'
+      - '.github/workflows/docker-build.yml'
+      - 'tests/integration/docker/**'
+      - 'src/omnibase_infra/runtime/**'
+  pull_request:
+    branches: [main, dev, develop]
+    paths:
+      - 'docker/**'
+      - 'Dockerfile*'
+      - '.github/workflows/docker-build.yml'
+      - 'tests/integration/docker/**'
+      - 'src/omnibase_infra/runtime/**'
+  workflow_dispatch:
+    inputs:
+      run_full_tests:
+        description: 'Run full Docker integration test suite'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  UV_VERSION: "0.6.14"
+  PYTHON_VERSION: "3.12"
+  DOCKER_COMPOSE_VERSION: "v2.40.3"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: omnibase-infra-runtime
+
+jobs:
+  # Validate Dockerfile plugin pin ranges before building.
+  # Catches exact-pin-without-no-deps issues and stale range upper bounds early,
+  # without waiting for the full Docker build (which can take 3-5 minutes).
+  # See: scripts/check_dockerfile_pins.py
+  dockerfile-pin-check:
+    name: Validate Dockerfile Plugin Pins
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          skip-install: "true"
+          cache-enabled: "false"
+          shared-env-enabled: "true"
+
+      - name: Validate Dockerfile plugin pin ranges
+        run: python scripts/check_dockerfile_pins.py --dockerfile docker/Dockerfile.runtime
+
+  # OMN-15421: prove the tenant/internal/catalog operation split from a rebuilt
+  # source image against PostgreSQL 16. This is deliberately independent from
+  # the large runtime image build so a narrow adapter regression gets a narrow,
+  # actionable verdict.
+  domain-adapter-proof:
+    name: Projection Domain Adapter Proof (OMN-15421)
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify Docker socket access
+        run: docker info
+
+      - name: Run rebuilt-image PostgreSQL 16 proof
+        env:
+          COMPOSE_PROJECT_NAME: omn15421-${{ github.run_id }}-${{ github.run_attempt }}
+        run: >-
+          docker compose
+          -f docker/domain-adapter-proof/compose.yml
+          up --build --abort-on-container-exit --exit-code-from proof
+
+      - name: Remove proof containers and volumes
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: omn15421-${{ github.run_id }}-${{ github.run_attempt }}
+        run: >-
+          docker compose
+          -f docker/domain-adapter-proof/compose.yml
+          down --volumes --remove-orphans --rmi local
+
+  # Build and validate Docker image
+  docker-build:
+    name: Build Runtime Image
+    needs: [dockerfile-pin-check]
+    # OMNI_RUNNER_SELECTOR_V1 — trusted Docker jobs default to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    permissions:
+      contents: read
+      packages: write
+    # Timeout breakdown (main branch worst case):
+    #   Docker build (cold cache): ~14 min
+    #   GHCR push (main only):     ~5 min
+    #   Total on main:             ~19 min
+    # Self-hosted runners use local Docker cache (no GHA cache export overhead).
+    # 45 min gives a comfortable buffer for cold-cache builds.
+    timeout-minutes: 45
+
+    outputs:
+      image_id: ${{ steps.build.outputs.imageid }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Pre-flight: verify Docker daemon is accessible (catches socket permission issues early)
+      - name: Verify Docker socket access
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker daemon is not accessible. On self-hosted runners, ensure the runner user is in the docker group and /var/run/docker.sock is bind-mounted."
+            ls -la /var/run/docker.sock 2>/dev/null || echo "Socket not found"
+            echo "Current user: $(whoami) (uid=$(id -u), groups=$(id -Gn))"
+            exit 1
+          fi
+          echo "Docker daemon accessible"
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      # OMN-13950 (SAT2 fleet-load): use the docker-container driver so build
+      # layers can be shared across the whole self-hosted runner fleet via a GHCR
+      # registry cache. The native `docker` driver only keeps a cache LOCAL to one
+      # runner, so a build landing on a cold runner re-ran the full (~40-89 min)
+      # torch + uv-sync install; the previous ~8 min figure only held when the
+      # same runner had a warm local cache. A shared registry cache lets any cold
+      # runner import unchanged layers instead of rebuilding them.
+      #
+      # OMN-16406 (Layer 0b): pin a fixed builder `name` instead of letting
+      # setup-buildx-action generate a random one on every run. Without a
+      # pinned name, EVERY job on this self-hosted (non-ephemeral) fleet spun
+      # up its own `buildx_buildkit_<random>` container + `..._state` volume
+      # that was never torn down and never registered under a name any future
+      # job would reuse — invisible to `docker buildx ls` from that point on,
+      # and therefore unreachable by `docker builder prune`/`docker buildx
+      # prune`, which only reclaim cache belonging to a currently-registered
+      # builder. Pinning the name makes setup-buildx-action detect the
+      # existing instance and reuse it (idempotent `buildx use`) instead of
+      # creating a new one, so the fleet converges on ONE persistent,
+      # always-registered builder per driver instead of leaking one per job.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker-container
+          name: onex-shared-buildkit
+
+      - name: Verify Buildx driver
+        run: |
+          DRIVER=$(docker buildx inspect --bootstrap 2>/dev/null | grep -oP 'Driver:\s+\K\S+' || echo "unknown")
+          echo "Buildx driver: ${DRIVER}"
+          if [[ "${DRIVER}" != "docker-container" ]]; then
+            echo "::warning::Expected Buildx driver 'docker-container', got '${DRIVER}'"
+          fi
+
+      # Authenticate for registry access (pulls and pushes)
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Generate build timestamp for accurate BUILD_DATE
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Build runtime image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.runtime
+          platforms: linux/amd64
+          # Conditional push/load behavior:
+          # - On main branch: push=true pushes image to GHCR for deployment
+          # - On PRs/other branches: load=true loads image locally for testing
+          # Note: push and load are mutually exclusive - only one can be true
+          push: ${{ github.ref == 'refs/heads/main' }}
+          load: ${{ github.ref != 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # OMN-13950 (SAT2 fleet-load): shared GHCR registry layer cache.
+          #   cache-from (always): a cold runner imports unchanged layers instead
+          #     of re-running the ~40-89 min torch + uv-sync install. A missing
+          #     :buildcache ref on the first run is a tolerated cache miss, not an
+          #     error.
+          #   cache-to (main only): the post-merge main build writes the shared
+          #     cache with mode=max (all intermediate layers). PRs never write, so
+          #     fork/PR builds cannot poison the cache and PR wall-clock is not
+          #     charged the export cost.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=registry,ref={0}/{1}/{2}:buildcache,mode=max', env.REGISTRY, steps.repo.outputs.owner, env.IMAGE_NAME) || '' }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
+          build-args: |
+            RUNTIME_VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ steps.timestamp.outputs.build_date }}
+            VCS_REF=${{ github.sha }}
+            # OMN-9139: stamp full commit SHA so containers carry provenance
+            RUNTIME_SOURCE_HASH=${{ github.sha }}
+            UV_VERSION=${{ env.UV_VERSION }}
+
+      # Validate built image with quick import test
+      - name: Test image import
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Testing runtime image imports..."
+          docker run --rm \
+            -e ONEX_LOG_LEVEL=DEBUG \
+            ${{ steps.build.outputs.imageid }} \
+            python -c "from omnibase_infra.runtime.kernel import bootstrap, main, load_runtime_config; print('Import successful')"
+
+      # OMN-12658: delegation-path import smoke. The Dockerfile RUN step already
+      # fails the build on a skewed wheel; this step re-asserts the same import
+      # on the loaded image so the failure mode is a clearly labeled required
+      # status check on the PR (foundation packages + canonical delegation node).
+      - name: Delegation import smoke (OMN-12658)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Asserting foundation + delegation node imports on the built image..."
+          docker run --rm ${{ steps.build.outputs.imageid }} \
+            python -c "import omnibase_compat; import omnibase_core; from omnimarket.nodes.node_llm_delegation_call_effect import HandlerLlmDelegationCall; print(f'delegation import smoke OK: omnibase_compat={omnibase_compat.__version__}, omnibase_core={omnibase_core.__version__}, {HandlerLlmDelegationCall.__name__}')"
+
+      - name: Verify torch is CPU-only
+        if: github.ref != 'refs/heads/main'
+        run: |
+          docker run --rm "${{ steps.build.outputs.imageid }}" \
+            python -c "import torch; assert torch.version.cuda is None, f'Expected CPU-only torch but got CUDA {torch.version.cuda}'; print(f'torch {torch.__version__} CPU-only: OK')"
+
+      - name: Generate build summary
+        if: always()
+        run: |
+          {
+            echo "# Docker Build Results"
+            echo ""
+            echo "## Build Info:"
+            echo "- Image: \`${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/${{ env.IMAGE_NAME }}\`"
+            echo "- Tags: ${{ steps.meta.outputs.tags }}"
+            echo "- Platform: linux/amd64"
+            echo "- SHA: ${{ github.sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Run Docker integration tests
+  docker-integration-tests:
+    name: Docker Integration Tests
+    # OMNI_RUNNER_SELECTOR_V1 — trusted Docker jobs default to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    needs: [docker-build]
+    timeout-minutes: 30
+    # OMN-13950 (SAT2 fleet-load): this job is informational (continue-on-error)
+    # and never gates merge, yet it held a self-hosted runner for up to 30 min on
+    # EVERY docker-touching PR (rebuilding images inside pytest). Restrict it to
+    # post-merge push events (main/develop) + manual dispatch so PRs stop paying
+    # the fleet cost for a non-blocking signal. Merge safety is unchanged — the
+    # required gate is the docker-build job, which still runs on PRs.
+    if: >-
+      (github.event_name != 'pull_request') &&
+      (github.event.inputs.run_full_tests != 'false')
+    continue-on-error: true  # Docker infra tests are informational — Postgres/Docker availability varies by runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify Docker socket access
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker daemon is not accessible. On self-hosted runners, ensure the runner user is in the docker group and /var/run/docker.sock is bind-mounted."
+            ls -la /var/run/docker.sock 2>/dev/null || echo "Socket not found"
+            echo "Current user: $(whoami) (uid=$(id -u), groups=$(id -Gn))"
+            exit 1
+          fi
+          echo "Docker daemon accessible"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker
+
+      - name: Verify Buildx driver
+        run: |
+          DRIVER=$(docker buildx inspect --bootstrap 2>/dev/null | grep -oP 'Driver:\s+\K\S+' || echo "unknown")
+          echo "Buildx driver: ${DRIVER}"
+          if [[ "${DRIVER}" != "docker" ]]; then
+            echo "::warning::Expected Buildx driver 'docker', got '${DRIVER}'"
+          fi
+
+      - name: Install Docker Compose plugin
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            docker compose version
+            exit 0
+          fi
+
+          plugin_dir="${HOME}/.docker/cli-plugins"
+          mkdir -p "${plugin_dir}"
+          curl -fsSL \
+            "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o "${plugin_dir}/docker-compose"
+          chmod +x "${plugin_dir}/docker-compose"
+          docker compose version
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          uv-version: ${{ env.UV_VERSION }}
+          cache-version: docker
+          cache-enabled: "false"
+          shared-env-enabled: "true"
+          cache-key-prefix: uv-docker
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Run Docker integration tests WITHOUT pytest-xdist (no -n auto)
+      # This prevents worker crashes during Docker builds
+      - name: Run Docker integration tests
+        env:
+          DOCKER_BUILDKIT: "1"
+          ONEX_EVENT_BUS_TYPE: inmemory
+          OMNI_DOCKER_BUILD_TIMEOUT_SECONDS: "1200"
+        run: |
+          uv run pytest tests/integration/docker/ \
+            --timeout="${OMNI_DOCKER_BUILD_TIMEOUT_SECONDS}" \
+            --timeout-method=signal \
+            --tb=short \
+            --junitxml=docker-tests.xml \
+            -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-test-results
+          path: docker-tests.xml
+          retention-days: 7
+
+  # Security scanning
+  security-scan:
+    name: Security Scan (Trivy)
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pin to specific version for reproducible builds (avoid @master for stability)
+      # See: https://github.com/aquasecurity/trivy-action/releases
+      # Use the 'latest' tag — this job only runs on main, where docker-build
+      # pushes with type=raw,value=latest. The previous ${{ github.sha }} tag
+      # was never generated by the metadata-action (it uses type=sha which
+      # produces 'sha-<short>' format), causing consistent "manifest unknown".
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.34.2 (pinned 2026-03-04)
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/${{ env.IMAGE_NAME }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Pin to major version for stability while receiving security updates
+      # See: https://github.com/github/codeql-action/releases
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-runtime'
+
+  # Image size analysis
+  # Monitors runtime image size to prevent bloat and ensure efficient deployments.
+  # Size threshold rationale: 7000MB (7GB) after CPU-only torch pre-install.
+  # The uncompressed image no longer includes CUDA dependencies (~2.5GB savings).
+  # The compressed/pushed image is much smaller (~2-3GB).
+  # Target: <8GB uncompressed after further layer optimization.
+  # Warning-only for initial rollout — does not block builds.
+  image-analysis:
+    name: Image Size Analysis
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+
+    steps:
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Image size threshold: 7000MB (7GB) — warning-only, see job comment for rationale
+      # Use 'latest' tag — this job only runs on main where docker-build pushes
+      # with type=raw,value=latest. Previous ${{ github.sha }} was never a valid tag.
+      - name: Analyze image size
+        run: |
+          image="${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/${{ env.IMAGE_NAME }}:latest"
+          docker pull "$image"
+          SIZE=$(docker image inspect "$image" --format='{{.Size}}')
+          SIZE_MB=$((SIZE / 1024 / 1024))
+          echo "IMAGE_SIZE_MB=$SIZE_MB" >> "$GITHUB_ENV"
+
+          {
+            echo "# Image Size Analysis"
+            echo ""
+            echo "- Runtime Image: ${SIZE_MB}MB"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Threshold: 7000MB - temporary ceiling while adaptive-classifier ships CUDA torch.
+          # Expected ~5-6GB after CPU-only torch pre-install. Revisit when classifier externalized.
+          if [ "${SIZE_MB}" -gt 7000 ]; then
+            echo "::warning::Image size ${SIZE_MB}MB exceeds 7000MB threshold — investigate optimization"
+            echo "- **Warning**: Image size ${SIZE_MB}MB exceeds 7000MB threshold" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Image size ${SIZE_MB}MB is within 7000MB threshold" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- Target: <8GB uncompressed after further layer optimization" >> "$GITHUB_STEP_SUMMARY"
+
+  # OMN-9139: Verify RUNTIME_SOURCE_HASH is valid and matches HEAD.
+  # This is a REQUIRED status check — no bypass, no skip tokens.
+  attest-source-hash:
+    name: Attest Source Hash (OMN-9139)
+    needs: [docker-build]
+    uses: ./.github/workflows/attest-source-hash.yml
+    with:
+      runtime_source_hash: ${{ github.sha }}
+      expected_commit_sha: ${{ github.sha }}
+
+  # Build summary
+  build-summary:
+    timeout-minutes: 30
+    name: Build Summary
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    needs: [docker-build, docker-integration-tests, attest-source-hash]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          {
+            echo "# Docker Workflow Summary"
+            echo ""
+            echo "## Results:"
+            echo "- Build: ${{ needs.docker-build.result }}"
+            echo "- Integration Tests: ${{ needs.docker-integration-tests.result }}"
+            echo "- Source Hash Attestation: ${{ needs.attest-source-hash.result }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check overall status
+        run: |
+          if [ "${{ needs.docker-build.result }}" != "success" ] && \
+             [ "${{ needs.docker-build.result }}" != "skipped" ]; then
+            echo "Docker build failed"
+            exit 1
+          fi
+          if [ "${{ needs.attest-source-hash.result }}" != "success" ] && \
+             [ "${{ needs.attest-source-hash.result }}" != "skipped" ]; then
+            echo "Source hash attestation failed"
+            exit 1
+          fi
+          if [ "${{ needs.docker-integration-tests.result }}" != "success" ] && \
+             [ "${{ needs.docker-integration-tests.result }}" != "skipped" ]; then
+            echo "Docker integration tests failed"
+            exit 1
+          fi
+          echo "All Docker workflow steps completed successfully"

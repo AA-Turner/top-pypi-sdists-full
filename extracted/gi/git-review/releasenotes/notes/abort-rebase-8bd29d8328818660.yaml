@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    By default, ``git rebase --abort`` is run automatically following a failed
+    test rebase, letting the user rebase again on their own if that's the state
+    they want to be in. A ``-K``/``--keep-rebase`` option is added to get the
+    old behavior.

@@ -42,6 +42,7 @@ from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncP
 from plato.git_ops.repo import rev_parse
 from plato.transports.git import GitPushConflict, GitTransport
 from plato.utils.subprocess import run_ssh
+from plato.workflows.stagger import DEFAULT_PREFIX_STAGGER_S, PrefixStagger, StaggerRole
 from plato.workflows.structured import (
     build_result_protocol_block,
     build_schema_continuation_instruction,
@@ -88,6 +89,23 @@ def derive_call_key(prompt: str, opts: AgentCallOpts) -> str:
     keyed_opts = opts.model_dump(include=_KEYED_OPT_FIELDS)
     digest = hashlib.sha256((prompt + "\x00" + canonical_json(keyed_opts)).encode("utf-8"))
     return digest.hexdigest()[:16]
+
+
+def prefix_stagger_key(opts: AgentCallOpts) -> str:
+    """Calls with equal keys build the same system-prompt + tools prefix.
+
+    The prompt itself and the result-protocol footer go in the user turn, so
+    they never split a prefix; the resolved profile and the call's cwd do.
+    """
+    return canonical_json(
+        {
+            "agent": opts.agent,
+            "model": opts.model,
+            "effort": opts.effort,
+            "workspace": opts.workspace,
+            "data": opts.data,
+        }
+    )
 
 
 class AgentCallOpts(BaseModel):
@@ -291,6 +309,7 @@ class WorldAgentBackend:
         results_dir: Path,
         max_concurrent_envs: int,
         schema_retries: int,
+        prefix_stagger_s: float = DEFAULT_PREFIX_STAGGER_S,
     ) -> None:
         self._world = world
         self._agent_profiles = agent_profiles
@@ -301,6 +320,7 @@ class WorldAgentBackend:
         self._results_dir = results_dir
         self._max_parallel = max_concurrent_envs
         self._schema_retries = schema_retries
+        self.prefix_stagger = PrefixStagger(prefix_stagger_s)
         self._tracer = trace.get_tracer("plato.workflows.backend")
         # call_id -> salvage ref captured while that call unwound under
         # cancellation (cancellation returns no outcome to carry it).
@@ -473,6 +493,31 @@ class WorldAgentBackend:
 
             runner.on_prepare(_setup_hook)
 
+        if self.prefix_stagger.enabled:
+            # Registered after setup= so the hold only delays the agent launch:
+            # VM acquire, mounts and provisioning all ran in parallel already.
+            stagger_key = prefix_stagger_key(opts)
+
+            async def _stagger_hook(_info: RuntimeInfo) -> None:
+                started = time.monotonic()
+                try:
+                    decision = await self.prefix_stagger.gate(stagger_key, request.call_id)
+                finally:
+                    # Also when a timeout cancels the hold mid-wait.
+                    setup_state["stagger_held_s"] = time.monotonic() - started
+                if decision.role is StaggerRole.FOLLOWER:
+                    logger.info(
+                        "Workflow call %s held %.1fs for prompt-cache warm-up (leader %s)",
+                        request.call_id,
+                        decision.held_s,
+                        decision.leader_call_id,
+                    )
+                span = trace.get_current_span()
+                span.set_attribute("plato.workflow.prefix_stagger.role", decision.role)
+                span.set_attribute("plato.workflow.prefix_stagger.held_s", round(decision.held_s, 3))
+
+            runner.on_prepare(_stagger_hook)
+
         full_instruction = (
             request.prompt
             + "\n\n"
@@ -509,6 +554,8 @@ class WorldAgentBackend:
                 # timeout_s budgets the WHOLE call — say how much provisioning
                 # ate so a slow setup is never misread as a slow agent.
                 timeout_detail += f" (setup consumed {setup_state['elapsed_s']:.0f}s of the budget)"
+            if setup_state.get("stagger_held_s"):
+                timeout_detail += f" (prompt-cache stagger held the launch {setup_state['stagger_held_s']:.0f}s)"
             logger.warning("Workflow call %s: %s", request.call_id, timeout_detail)
             return AgentCallOutcome(
                 status="timeout",
@@ -587,6 +634,8 @@ class WorldAgentBackend:
         if opts.model is not None:
             config_dict["model_name"] = opts.model
         if opts.effort is not None:
+            # ``effort`` is the canonical key; each harness maps it onto its
+            # own setting (e.g. codex's ``reasoning_effort``).
             config_dict["effort"] = opts.effort
         return base.model_copy(
             update={"config": config_dict, "max_parallel": self._max_parallel},

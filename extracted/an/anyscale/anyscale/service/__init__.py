@@ -71,7 +71,8 @@ class ServiceSDK:
         self._private_sdk = PrivateServiceSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_DEPLOY_EXAMPLE, arg_docstrings=_DEPLOY_ARG_DOCSTRINGS,
+        doc_py_example=_DEPLOY_EXAMPLE,
+        arg_docstrings=_DEPLOY_ARG_DOCSTRINGS,
     )
     def deploy(  # noqa: F811
         self,
@@ -105,7 +106,8 @@ class ServiceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_ROLLBACK_EXAMPLE, arg_docstrings=_ROLLBACK_ARG_DOCSTRINGS,
+        doc_py_example=_ROLLBACK_EXAMPLE,
+        arg_docstrings=_ROLLBACK_ARG_DOCSTRINGS,
     )
     def rollback(  # noqa: F811
         self,
@@ -129,7 +131,8 @@ class ServiceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
+        doc_py_example=_TERMINATE_EXAMPLE,
+        arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
     )
     def terminate(  # noqa: F811
         self,
@@ -145,12 +148,11 @@ class ServiceSDK:
 
         Returns the id of the terminated service.
         """
-        return self._private_sdk.terminate(
-            id=id, name=name, cloud=cloud, project=project
-        )
+        return self._private_sdk.terminate(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+        doc_py_example=_ARCHIVE_EXAMPLE,
+        arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
     def archive(  # noqa: F811
         self,
@@ -169,7 +171,8 @@ class ServiceSDK:
         return self._private_sdk.archive(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_ARG_DOCSTRINGS,
     )
     def delete(  # noqa: F811
         self,
@@ -186,7 +189,8 @@ class ServiceSDK:
         return self._private_sdk.delete(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(  # noqa: A001, F811, PLR0913
         self,
@@ -233,7 +237,8 @@ class ServiceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS,
+        doc_py_example=_STATUS_EXAMPLE,
+        arg_docstrings=_STATUS_ARG_DOCSTRINGS,
     )
     def status(  # noqa: F811
         self, name: str, *, cloud: Optional[str] = None, project: Optional[str] = None
@@ -242,7 +247,8 @@ class ServiceSDK:
         return self._private_sdk.status(name=name, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_WAIT_EXAMPLE, arg_docstrings=_WAIT_ARG_DOCSTRINGS,
+        doc_py_example=_WAIT_EXAMPLE,
+        arg_docstrings=_WAIT_ARG_DOCSTRINGS,
     )
     def wait(  # noqa: F811
         self,
@@ -303,9 +309,7 @@ class ServiceSDK:
             id=id, name=name, cloud=cloud, project=project, tags=tags
         )
 
-    @sdk_docs(
-        doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS)
     def remove_tags(  # noqa: F811
         self,
         *,
@@ -320,9 +324,7 @@ class ServiceSDK:
             id=id, name=name, cloud=cloud, project=project, keys=keys
         )
 
-    @sdk_docs(
-        doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS)
     def list_tags(  # noqa: F811
         self,
         *,
@@ -332,12 +334,11 @@ class ServiceSDK:
         project: Optional[str] = None,
     ) -> Dict[str, str]:
         """List tags for a service."""
-        return self._private_sdk.list_tags(
-            id=id, name=name, cloud=cloud, project=project
-        )
+        return self._private_sdk.list_tags(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_TOKEN_ADD_EXAMPLE, arg_docstrings=_TOKEN_ADD_ARG_DOCSTRINGS,
+        doc_py_example=_TOKEN_ADD_EXAMPLE,
+        arg_docstrings=_TOKEN_ADD_ARG_DOCSTRINGS,
     )
     def token_add(  # noqa: F811
         self,

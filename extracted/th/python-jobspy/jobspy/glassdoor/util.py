@@ -1,4 +1,4 @@
-from jobspy.model import Compensation, CompensationInterval, Location, JobType
+from jobspy.model import Compensation, CompensationInterval, Location
 
 
 def parse_compensation(data: dict) -> Compensation | None:
@@ -13,20 +13,14 @@ def parse_compensation(data: dict) -> Compensation | None:
         interval = CompensationInterval.YEARLY
     elif pay_period:
         interval = CompensationInterval.get_interval(pay_period)
-    min_amount = int(adjusted_pay.get("p10") // 1)
-    max_amount = int(adjusted_pay.get("p90") // 1)
+    min_amount = round(adjusted_pay.get("p10"), 2)
+    max_amount = round(adjusted_pay.get("p90"), 2)
     return Compensation(
         interval=interval,
         min_amount=min_amount,
         max_amount=max_amount,
         currency=currency,
     )
-
-
-def get_job_type_enum(job_type_str: str) -> list[JobType] | None:
-    for job_type in JobType:
-        if job_type_str in job_type.value:
-            return [job_type]
 
 
 def parse_location(location_name: str) -> Location | None:

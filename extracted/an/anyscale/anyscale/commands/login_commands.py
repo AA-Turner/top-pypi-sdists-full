@@ -1,5 +1,4 @@
 import contextlib
-import os
 import time
 import webbrowser
 
@@ -17,7 +16,9 @@ from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.auth_controller import AuthController
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
+from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
+from anyscale.utils.ssl_ca_cert_util import get_ssl_ca_cert_from_env
 
 
 log = BlockLogger()
@@ -25,7 +26,8 @@ log = BlockLogger()
 
 def get_unauthenticated_openapi_client():
     conf = openapi_client.Configuration(host=ANYSCALE_HOST)
-    conf.proxy = os.environ.get("https_proxy")
+    conf.proxy, conf.proxy_headers = get_proxy_config(conf.host)
+    conf.ssl_ca_cert = get_ssl_ca_cert_from_env()
     conf.connection_pool_maxsize = 100
     conf.retries = build_rate_limit_retry()
     return openapi_client.DefaultApi(ApiClientWrapperInternal(conf))
@@ -36,7 +38,10 @@ def get_unauthenticated_openapi_client():
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
     examples=[
-        CommandExample(description="Log in to Anyscale.", command="anyscale login",),
+        CommandExample(
+            description="Log in to Anyscale.",
+            command="anyscale login",
+        ),
     ],
 )
 @click.command(
@@ -46,7 +51,10 @@ def get_unauthenticated_openapi_client():
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--no-expire", is_flag=True, default=False, help="Do not expire the token.",
+    "--no-expire",
+    is_flag=True,
+    default=False,
+    help="Do not expire the token.",
 )
 @click.option(
     "--expire-in-days",
@@ -55,7 +63,10 @@ def get_unauthenticated_openapi_client():
     help="Expire the token after this many days.",
 )
 @click.option(
-    "--no-browser", is_flag=True, default=False, help="Do not open the browser.",
+    "--no-browser",
+    is_flag=True,
+    default=False,
+    help="Do not open the browser.",
 )
 def anyscale_login(no_expire: bool, expire_in_days: int, no_browser: bool) -> None:
     """Log in to Anyscale using a URL
@@ -122,7 +133,8 @@ def anyscale_login(no_expire: bool, expire_in_days: int, no_browser: bool) -> No
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Log out from Anyscale.", command="anyscale logout",
+            description="Log out from Anyscale.",
+            command="anyscale logout",
         ),
     ],
 )

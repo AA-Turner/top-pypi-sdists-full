@@ -50,7 +50,9 @@ class DecoratedCloudResource(object):
         'created_at': 'datetime',
         'is_default': 'bool',
         'operator_status': 'OperatorStatus',
-        'operator_status_details': 'OperatorStatusDetails'
+        'operator_status_details': 'OperatorStatusDetails',
+        'connector_status': 'ConnectorStatus',
+        'connector_status_details': 'ConnectorStatusDetails'
     }
 
     attribute_map = {
@@ -71,10 +73,12 @@ class DecoratedCloudResource(object):
         'created_at': 'created_at',
         'is_default': 'is_default',
         'operator_status': 'operator_status',
-        'operator_status_details': 'operator_status_details'
+        'operator_status_details': 'operator_status_details',
+        'connector_status': 'connector_status',
+        'connector_status_details': 'connector_status_details'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, connector_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, connector_config=None, created_at=None, is_default=False, operator_status=None, operator_status_details=None, connector_status=None, connector_status_details=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedCloudResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -98,6 +102,8 @@ class DecoratedCloudResource(object):
         self._is_default = None
         self._operator_status = None
         self._operator_status_details = None
+        self._connector_status = None
+        self._connector_status_details = None
         self.discriminator = None
 
         if cloud_resource_id is not None:
@@ -126,6 +132,8 @@ class DecoratedCloudResource(object):
             self.is_default = is_default
         self.operator_status = operator_status
         self.operator_status_details = operator_status_details
+        self.connector_status = connector_status
+        self.connector_status_details = connector_status_details
 
     @property
     def cloud_resource_id(self):
@@ -542,6 +550,52 @@ class DecoratedCloudResource(object):
         """
 
         self._operator_status_details = operator_status_details
+
+    @property
+    def connector_status(self):
+        """Gets the connector_status of this DecoratedCloudResource.  # noqa: E501
+
+        Status of the KubeRay connector (only for KubeRay resources).  # noqa: E501
+
+        :return: The connector_status of this DecoratedCloudResource.  # noqa: E501
+        :rtype: ConnectorStatus
+        """
+        return self._connector_status
+
+    @connector_status.setter
+    def connector_status(self, connector_status):
+        """Sets the connector_status of this DecoratedCloudResource.
+
+        Status of the KubeRay connector (only for KubeRay resources).  # noqa: E501
+
+        :param connector_status: The connector_status of this DecoratedCloudResource.  # noqa: E501
+        :type: ConnectorStatus
+        """
+
+        self._connector_status = connector_status
+
+    @property
+    def connector_status_details(self):
+        """Gets the connector_status_details of this DecoratedCloudResource.  # noqa: E501
+
+        The details of the connector status.  # noqa: E501
+
+        :return: The connector_status_details of this DecoratedCloudResource.  # noqa: E501
+        :rtype: ConnectorStatusDetails
+        """
+        return self._connector_status_details
+
+    @connector_status_details.setter
+    def connector_status_details(self, connector_status_details):
+        """Sets the connector_status_details of this DecoratedCloudResource.
+
+        The details of the connector status.  # noqa: E501
+
+        :param connector_status_details: The connector_status_details of this DecoratedCloudResource.  # noqa: E501
+        :type: ConnectorStatusDetails
+        """
+
+        self._connector_status_details = connector_status_details
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -60,6 +60,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
     OpenApiParameterSet,
     build_constants_overlay_strategy,
 )
+from schemathesis.specs.openapi.coverage._schema import ANNOTATION_KEYWORDS
 from schemathesis.specs.openapi.formats import (
     DEFAULT_HEADER_EXCLUDE_CHARACTERS,
     HEADER_FORMAT,
@@ -72,7 +73,7 @@ from schemathesis.specs.openapi.formats import (
     header_alphabet,
     header_values,
 )
-from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS, get_header_format_strategies
+from schemathesis.specs.openapi.headers import PLAIN_HEADER_FORMATS, get_header_format_strategies
 from schemathesis.specs.openapi.negative import (
     negative_schema,
     wrap_filter_hook_for_generated_value,
@@ -91,7 +92,6 @@ if TYPE_CHECKING:
 SLASH = "/"
 # Probability of generating valid headers in negative mode
 VALID_HEADER_PROBABILITY = 0.95
-_PLAIN_HEADER_FORMATS = {HEADER_FORMAT} | set(KNOWN_HEADER_FORMATS.values())
 # Strategies that take no varying input are deterministic and reusable; allocating
 # them once at import avoids ~300–600ns of fresh `LazyStrategy` construction per call.
 _NONE_STRATEGY: st.SearchStrategy = st.none()
@@ -165,6 +165,24 @@ def openapi_cases(
     # Don't mix in schema examples during EXAMPLES phase - they're handled separately there
     mix_examples = phase != TestPhase.EXAMPLES
 
+    negated = _draw_negated_locations(
+        draw,
+        operation,
+        generation_mode,
+        explicit={
+            ParameterLocation.PATH: path_parameters,
+            ParameterLocation.HEADER: headers,
+            ParameterLocation.COOKIE: cookies,
+            ParameterLocation.QUERY: query,
+        },
+        body_is_generated=body is NOT_SET,
+    )
+
+    def mode_for(location: ParameterLocation) -> GenerationMode:
+        if negated is None or location in negated:
+            return generation_mode
+        return GenerationMode.POSITIVE
+
     path_parameters_ = generate_parameter(
         ParameterLocation.PATH,
         path_parameters,
@@ -172,7 +190,7 @@ def openapi_cases(
         draw,
         ctx,
         hooks,
-        generation_mode,
+        mode_for(ParameterLocation.PATH),
         generation_config,
         extra_data_source=extra_data_source,
         error_feedback=error_feedback,
@@ -186,7 +204,7 @@ def openapi_cases(
         draw,
         ctx,
         hooks,
-        generation_mode,
+        mode_for(ParameterLocation.HEADER),
         generation_config,
         extra_data_source=extra_data_source,
         error_feedback=error_feedback,
@@ -200,7 +218,7 @@ def openapi_cases(
         draw,
         ctx,
         hooks,
-        generation_mode,
+        mode_for(ParameterLocation.COOKIE),
         generation_config,
         extra_data_source=extra_data_source,
         error_feedback=error_feedback,
@@ -214,7 +232,7 @@ def openapi_cases(
         draw,
         ctx,
         hooks,
-        generation_mode,
+        mode_for(ParameterLocation.QUERY),
         generation_config,
         extra_data_source=extra_data_source,
         error_feedback=error_feedback,
@@ -224,8 +242,8 @@ def openapi_cases(
 
     if body is NOT_SET:
         if operation.body:
-            body_generator = generation_mode
-            if generation_mode.is_negative:
+            body_generator = mode_for(ParameterLocation.BODY)
+            if body_generator.is_negative:
                 # Consider only schemas that are possible to negate
                 candidates = [item for item in operation.body.items if item.is_negatable]
                 # Not possible to negate body, fallback to positive data generation
@@ -337,7 +355,8 @@ def openapi_cases(
     if generation_mode.is_negative and not any_negated_values([query_, cookies_, headers_, path_parameters_, body_]):
         if generation_config.modes == [GenerationMode.NEGATIVE]:
             raise SkipTest("Impossible to generate negative test cases")
-        else:
+        # Rejecting a stateful step discards the whole scenario, so the step is sent as a positive one instead.
+        if phase != TestPhase.STATEFUL:
             reject()
 
     # A schema-invalid dictionary draw carries negative content even when no mutator
@@ -494,10 +513,14 @@ def openapi_cases(
         for container in (query_, path_parameters_, headers_, cookies_, body_)
         for draw in container.constants_draws
     )
+    header_values = headers_.value
+    # A positive `Content-Type` header must describe the body it is sent with; a negated one stays a fuzz target.
+    if media_type is not None and header_values and headers_.generator != GenerationMode.NEGATIVE:
+        header_values = _pin_content_type_header(operation, header_values, headers, media_type)
     instance = operation.Case(
         media_type=media_type,
         path_parameters=path_parameters_.value or {},
-        headers=headers_.value or CaseInsensitiveDict(),
+        headers=header_values or CaseInsensitiveDict(),
         cookies=cookies_.value or {},
         query=query_.value or {},
         body=body_value,
@@ -846,8 +869,9 @@ def get_parameters_value(
         dictionary_draws = ()
         constants_draws = ()
     if new is not None:
+        # Explicit values win over anything hooks put into the generated part
         copied = dict(value)
-        copied.update(new)
+        copied.update((key, item) for key, item in new.items() if key not in value)
         return GeneratedValue(
             value=copied,
             meta=meta,
@@ -883,6 +907,24 @@ class ValueContainer:
     def is_generated(self) -> bool:
         """If value was generated."""
         return self.generator is not None and (self.location == "body" or self.value is not None)
+
+
+def _pin_content_type_header(
+    operation: APIOperation, headers: dict[str, Any], explicit: dict[str, Any] | None, media_type: str
+) -> dict[str, Any]:
+    """Point a generated `Content-Type` header parameter at the body media type when its schema admits it."""
+    explicit_names = {name.lower() for name in explicit or ()}
+    validator_cls = operation.schema.adapter.jsonschema_validator_cls
+    for parameter in operation.headers:
+        name = parameter.name
+        if (
+            name.lower() == "content-type"
+            and name in headers
+            and "content-type" not in explicit_names
+            and parameter.admits(media_type, validator_cls)
+        ):
+            return {**headers, name: media_type}
+    return headers
 
 
 def any_negated_values(values: list[ValueContainer]) -> bool:
@@ -965,6 +1007,43 @@ def generate_parameter(
     )
 
 
+def _draw_negated_locations(
+    draw: st.DrawFn,
+    operation: APIOperation,
+    generation_mode: GenerationMode,
+    *,
+    explicit: dict[ParameterLocation, dict[str, Any] | None],
+    body_is_generated: bool,
+) -> set[ParameterLocation] | None:
+    """Pick which negatable locations a negative case breaks; `None` leaves every location negative."""
+    if not generation_mode.is_negative:
+        return None
+    candidates = []
+    for location in (
+        ParameterLocation.PATH,
+        ParameterLocation.HEADER,
+        ParameterLocation.COOKIE,
+        ParameterLocation.QUERY,
+    ):
+        properties = cast(OpenApiParameterSet, operation.get_parameter_set(location)).schema["properties"]
+        # Explicit values are sent as given, so a location they fully cover has nothing left to negate.
+        given = {name.lower() for name in explicit[location] or ()}
+        if not properties or {name.lower() for name in properties} <= given:
+            continue
+        if location == ParameterLocation.PATH and not can_negate_path_parameters(operation):
+            continue
+        if location.is_in_header and not can_negate_headers(operation, location):
+            continue
+        candidates.append(location)
+    if body_is_generated and operation.body and any(item.is_negatable for item in operation.body.items):
+        candidates.append(ParameterLocation.BODY)
+    if not candidates:
+        return None
+    # Breaking every location at once lets the first check a server runs hide how it handles the others.
+    negated = {location for location in candidates if draw(st.booleans())}
+    return negated or {draw(st.sampled_from(candidates))}
+
+
 def can_negate_path_parameters(operation: APIOperation) -> bool:
     """Check if any path parameter can be negated."""
     # No path parameters to negate
@@ -985,13 +1064,37 @@ def can_negate_path_parameters(operation: APIOperation) -> bool:
 
 def can_negate_headers(operation: APIOperation, location: ParameterLocation) -> bool:
     """Check if any header can be negated."""
-    container = getattr(operation, location.container_name)
+    container = cast(OpenApiParameterSet, operation.get_parameter_set(location))
     # No headers to negate
     headers = container.schema["properties"]
     if not headers:
         return True
-    plain = ({"type": "string"}, *({"type": "string", "format": f} for f in _PLAIN_HEADER_FORMATS))
-    return any(header not in plain for header in headers.values())
+    required = container.schema.get("required", ())
+    # Omitting a required header always violates it; an optional one is negatable only through a constraint
+    # on its value, and any string passes a plain string schema.
+    return any(name in required or not _is_plain_header(header) for name, header in headers.items())
+
+
+_PLAIN_HEADERS = ({"type": "string"}, *({"type": "string", "format": f} for f in PLAIN_HEADER_FORMATS))
+_NULL_SCHEMA = {"type": "null"}
+
+
+def _is_plain_header(schema: JsonSchema) -> bool:
+    """Whether the header accepts any string, ignoring annotations and a `null` alternative."""
+    if not isinstance(schema, dict):
+        return False
+    keywords = {
+        key: value
+        for key, value in schema.items()
+        if key not in ANNOTATION_KEYWORDS and key not in ("default", "nullable") and not key.startswith("x-")
+    }
+    if len(keywords) == 1:
+        branches = keywords.get("anyOf", keywords.get("oneOf"))
+        if isinstance(branches, list):
+            return all(branch == _NULL_SCHEMA or _is_plain_header(branch) for branch in branches)
+    if isinstance(keywords.get("type"), list) and sorted(keywords["type"]) == ["null", "string"]:
+        keywords["type"] = "string"
+    return keywords in _PLAIN_HEADERS
 
 
 def get_parameters_strategy(
@@ -1006,7 +1109,7 @@ def get_parameters_strategy(
     constants_value_source: ConstantsPool | None = None,
 ) -> st.SearchStrategy:
     """Create a new strategy for the case's component from the API operation parameters."""
-    container = getattr(operation, location.container_name)
+    container = cast(OpenApiParameterSet, operation.get_parameter_set(location))
     # Direct list bool check skips ParameterSet.__len__ method dispatch.
     if container.items:
         return container.get_strategy(
@@ -1278,7 +1381,7 @@ def _can_skip_header_filter(schema: dict[str, Any]) -> bool:
     # All headers should have a known format key in order to avoid the header filter.
     # A header written as a boolean names no format, and claims either every value or none.
     return all(
-        isinstance(sub_schema, dict) and sub_schema.get("format") in _PLAIN_HEADER_FORMATS
+        isinstance(sub_schema, dict) and sub_schema.get("format") in PLAIN_HEADER_FORMATS
         for sub_schema in schema.get("properties", {}).values()
     )
 

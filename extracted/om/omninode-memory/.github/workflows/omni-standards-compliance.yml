@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+name: Omni* Ecosystem Standards Compliance
+
+on:
+  push:
+    branches: [main, develop, 'hotfix/**']
+  pull_request:
+    branches: [main, dev, develop]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+  REPO_NAME: "omnimemory"
+
+# ci-health-ok: blocking mypy --strict already enforced in test.yml lint job
+
+jobs:
+  type-union-check:
+    name: PEP 604 Type Union Check (UP007)
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras
+
+      - name: Check for Optional/Union usage (PEP 604)
+        run: uv run --with 'ruff>=0.8.0,<1.0.0' ruff check src/ --select UP007,UP006
+
+  ci-naming-convention:
+    name: CI Naming Convention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Verify CI workflow naming convention
+        run: |
+          if [ ! -f .github/workflows/ci.yml ]; then
+            echo "::error::Missing .github/workflows/ci.yml"
+            exit 1
+          fi
+          CI_NAME=$(grep -m1 "^name:" .github/workflows/ci.yml | sed "s/name: *//")
+          if [ "$CI_NAME" != "CI" ]; then
+            echo "::error::ci.yml has name '$CI_NAME' — must be 'CI'"
+            exit 1
+          fi
+          for legacy in test.yml ci.yaml; do
+            if [ -f ".github/workflows/$legacy" ]; then
+              echo "::error::Legacy workflow .github/workflows/$legacy exists"
+              exit 1
+            fi
+          done
+          echo "CI naming convention: PASS"

@@ -66,7 +66,7 @@ class WorkloadMetricsDashboard(object):
     def dashboard_url(self):
         """Gets the dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
 
-        Authenticated Grafana URL for the workload's core dashboard, scoped to the workload by var-ClusterId. Null when the workload has no CR yet or its cloud exposes no monitoring host.  # noqa: E501
+        Grafana URL for the workload's core dashboard, scoped to the workload by var-ClusterId. Carries no token: the caller loads it in an iframe whose own sub-requests would not carry one, so the interstitial establishes the cookie instead. Null when the workload has no CR yet or its cloud exposes no monitoring host.  # noqa: E501
 
         :return: The dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :rtype: str
@@ -77,7 +77,7 @@ class WorkloadMetricsDashboard(object):
     def dashboard_url(self, dashboard_url):
         """Sets the dashboard_url of this WorkloadMetricsDashboard.
 
-        Authenticated Grafana URL for the workload's core dashboard, scoped to the workload by var-ClusterId. Null when the workload has no CR yet or its cloud exposes no monitoring host.  # noqa: E501
+        Grafana URL for the workload's core dashboard, scoped to the workload by var-ClusterId. Carries no token: the caller loads it in an iframe whose own sub-requests would not carry one, so the interstitial establishes the cookie instead. Null when the workload has no CR yet or its cloud exposes no monitoring host.  # noqa: E501
 
         :param dashboard_url: The dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :type: str
@@ -89,7 +89,7 @@ class WorkloadMetricsDashboard(object):
     def data_dashboard_url(self):
         """Gets the data_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
 
-        Authenticated Grafana URL for the workload's Ray Data dashboard. Its panels stay empty unless the workload runs Ray Data.  # noqa: E501
+        Grafana URL for the workload's Ray Data dashboard. Its panels stay empty unless the workload runs Ray Data.  # noqa: E501
 
         :return: The data_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :rtype: str
@@ -100,7 +100,7 @@ class WorkloadMetricsDashboard(object):
     def data_dashboard_url(self, data_dashboard_url):
         """Sets the data_dashboard_url of this WorkloadMetricsDashboard.
 
-        Authenticated Grafana URL for the workload's Ray Data dashboard. Its panels stay empty unless the workload runs Ray Data.  # noqa: E501
+        Grafana URL for the workload's Ray Data dashboard. Its panels stay empty unless the workload runs Ray Data.  # noqa: E501
 
         :param data_dashboard_url: The data_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :type: str
@@ -112,7 +112,7 @@ class WorkloadMetricsDashboard(object):
     def train_dashboard_url(self):
         """Gets the train_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
 
-        Authenticated Grafana URL for the workload's Ray Train dashboard. Its panels stay empty unless the workload runs Ray Train.  # noqa: E501
+        Grafana URL for the workload's Ray Train dashboard. Its panels stay empty unless the workload runs Ray Train.  # noqa: E501
 
         :return: The train_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :rtype: str
@@ -123,7 +123,7 @@ class WorkloadMetricsDashboard(object):
     def train_dashboard_url(self, train_dashboard_url):
         """Sets the train_dashboard_url of this WorkloadMetricsDashboard.
 
-        Authenticated Grafana URL for the workload's Ray Train dashboard. Its panels stay empty unless the workload runs Ray Train.  # noqa: E501
+        Grafana URL for the workload's Ray Train dashboard. Its panels stay empty unless the workload runs Ray Train.  # noqa: E501
 
         :param train_dashboard_url: The train_dashboard_url of this WorkloadMetricsDashboard.  # noqa: E501
         :type: str

@@ -1,0 +1,241 @@
+"""CLI handlers for the four admission commands (WMBTs L001/C002/C003/E001/C004).
+
+`atdd search` · `atdd add` · `atdd remove` · `atdd list --substrate`. These are thin
+bridges over registry/resolver/admission/installer; they never import or execute
+an extension implementation module.
+"""
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+import yaml
+
+_log = logging.getLogger(__name__)
+
+from atdd.planner.commands.author_manifest import AuthorInputError
+from atdd.planner.commands.compose import CompositionError
+from atdd.substrate import admission, installer, registry, resolver, staleness
+from atdd.substrate.schemas import SubstrateSchemaError
+
+SUBSTRATE_FILE = "substrate.yaml"
+
+# The expected ways admission cleanly REFUSES a package — caught at the CLI
+# boundary and reported, not crashed on. Anything else is a real bug and propagates.
+_ADMISSION_REFUSALS = (
+    admission.AdmissionError,
+    AuthorInputError,
+    CompositionError,
+    SubstrateSchemaError,
+    # A self-referential --path is an operator mistake, not a crash: it belongs on
+    # the refusal path so it prints "error: refused — ..." and exits 1, rather than
+    # surfacing copytree's FileNotFoundError as a traceback (#1840).
+    installer.SelfReferentialInstall,
+)
+
+
+def _load_registry_entries(project_root: str | Path) -> list[registry.RegistryEntry]:
+    """Load entries from every locally-resolvable registry in `.atdd/substrate.yaml`."""
+    root = Path(project_root)
+    intent_path = root / ".atdd" / SUBSTRATE_FILE
+    if not intent_path.exists():
+        return []
+    intent = yaml.safe_load(intent_path.read_text(encoding="utf-8")) or {}
+    entries: list[registry.RegistryEntry] = []
+    for reg in intent.get("registries", []):
+        index = _registry_index_path(root, reg)
+        if index is not None and index.exists():
+            entries.extend(registry.load_registry_index(index))
+    return entries
+
+
+def load_registry_entries_or_none(project_root: str | Path):
+    """Registry entries, or ``None`` when a CONFIGURED registry could not be read.
+
+    :func:`_load_registry_entries` returns ``[]`` for three different situations —
+    no substrate file, no registries configured, and a configured registry whose
+    index could not be resolved. Staleness must not treat the third as the first:
+    "nothing publishes this" and "I could not look" are different facts, and
+    collapsing them is how a could-not-check becomes a silent pass (#1878).
+
+    Returns ``(entries, unreadable)`` where ``entries is None`` iff at least one
+    configured registry was unreadable.
+    """
+    root = Path(project_root)
+    intent_path = root / ".atdd" / SUBSTRATE_FILE
+    if not intent_path.exists():
+        return [], []
+    intent = yaml.safe_load(intent_path.read_text(encoding="utf-8")) or {}
+    configured = intent.get("registries", []) or []
+    entries: list[registry.RegistryEntry] = []
+    unreadable: list[str] = []
+    for reg in configured:
+        name = str(reg.get("name") or reg.get("source") or "<unnamed>")
+        index = _registry_index_path(root, reg)
+        if index is None or not index.exists():
+            # Configured but not locally resolvable — core does not fetch remote
+            # indexes. Reported, never skipped.
+            unreadable.append(f"{name}: no locally-resolvable index")
+            continue
+        try:
+            entries.extend(registry.load_registry_index(index))
+        except Exception as exc:  # an unreadable index is a fact to report, not a crash
+            unreadable.append(f"{name}: {type(exc).__name__}")
+    if unreadable:
+        return None, unreadable
+    return entries, []
+
+
+def _registry_index_path(root: Path, reg: dict):
+    """Locate a registry's index file for locally-resolvable registries (path type)."""
+    source = reg.get("source")
+    if not source:
+        return None
+    base = Path(source)
+    if not base.is_absolute():
+        base = root / base
+    return base / reg["path"] if reg.get("path") else base
+
+
+def run_search(query: str, *, kind: str | None = None, project_root: str | Path = ".") -> int:
+    entries = _load_registry_entries(project_root)
+    results = registry.search(entries, query, kind=kind)
+    if not results:
+        print(f"no artifacts match {query!r}")
+        return 0
+    for e in results:
+        print(f"{e.id}  [{e.kind}]  {e.latest_version}  {e.trust or '-'}  aliases={','.join(e.aliases) or '-'}")
+    return 0
+
+
+def run_add(
+    *,
+    ref: str | None = None,
+    path: str | None = None,
+    project_root: str | Path = ".",
+    dry_run: bool = False,
+) -> int:
+    if path:
+        package_dir = Path(path)
+    else:
+        entries = _load_registry_entries(project_root)
+        try:
+            entry = resolver.resolve(ref, entries)
+        except resolver.AmbiguousAliasError as exc:
+            _log.warning("ambiguous alias refused", extra={"ref": ref, "candidates": exc.candidates})
+            print(f"error: {exc}")
+            for cid in exc.candidates:
+                print(f"  candidate: {cid}")
+            return 1
+        except resolver.ResolutionError as exc:
+            _log.warning("ref did not resolve", extra={"ref": ref, "error": str(exc)})
+            print(f"error: {exc}")
+            return 1
+        package_dir = Path(entry.source)
+        if not package_dir.is_absolute():
+            package_dir = Path(project_root) / package_dir
+
+    try:
+        if dry_run:
+            result = admission.validate_and_compose(package_dir)
+            print(f"would admit {result.package_id} [{result.kind}] (dry-run; not installed)")
+            return 0
+        result = admission.admit(package_dir, project_root=project_root)
+    except _ADMISSION_REFUSALS as exc:
+        _log.warning("admission refused", extra={"package": str(package_dir), "error": str(exc)})
+        print(f"error: refused — {exc}")
+        return 1
+    print(f"admitted {result.package_id} [{result.kind}] -> {result.installed_path}  {result.digest}")
+    return 0
+
+
+def run_remove(
+    ref: str, *, project_root: str | Path = ".", force: bool = False, prune: bool = False
+) -> int:
+    """Withdraw an artifact — and report only what actually happened (#1488).
+
+    The old handler printed `removed <ref>` whenever the lock edit succeeded, while
+    the package was still on disk with its rules still bound. Every exit below is
+    now tied to what is true afterwards: a removal that cannot be completed
+    coherently says so and exits non-zero, and a removal of something absent says
+    nothing was removed rather than claiming a success it did not achieve.
+    """
+    from atdd.substrate import coherence
+    from atdd.substrate.binding import BindingError
+
+    try:
+        out = admission.remove(ref, project_root=project_root, force=force, prune=prune)
+    except admission.AdmissionError as exc:
+        _log.warning("remove refused", extra={"ref": ref, "error": str(exc)})
+        print(f"error: {exc}")
+        return 1
+    except coherence.IncoherentSubstrateError as exc:
+        _log.error("remove left the substrate incoherent", extra={"ref": ref, "error": str(exc)})
+        print(f"error: {ref} was NOT fully removed — {exc}")
+        print("       the substrate is incoherent; re-run `atdd substrate bind` to recompose it")
+        return 1
+    except BindingError as exc:
+        _log.error("remove could not unbind", extra={"ref": ref, "error": str(exc)})
+        print(f"error: {ref} left substrate.lock.yaml but its rules could not be unbound — {exc}")
+        print("       the substrate is incoherent; re-run `atdd substrate bind` once that is fixed")
+        return 1
+
+    if out["removed"] is None:
+        print(f"{ref} is not in the installed substrate (nothing to remove)")
+        return 0
+
+    msg = f"removed {out['removed']}"
+    if out["pruned"]:
+        msg += f" (pruned {', '.join(out['pruned'])})"
+    print(msg)
+    for path in out["uninstalled"]:
+        print(f"  uninstalled  {path}")
+    if out["unbound"]:
+        print(f"  unbound      {len(out['unbound'])} rule(s) from binding.lock.yaml")
+    return 0
+
+
+def run_list(*, project_root: str | Path = ".") -> int:
+    """List the admitted substrate, and say which packages a registry has moved past.
+
+    Staleness lives here rather than in `atdd doctor` (#1878): doctor diagnoses the
+    local Python ENVIRONMENT — interpreter, import paths, git-hook python — and is
+    the wrong reader for what the substrate contains. This command already reads the
+    lock, and `load_registry_entries_or_none` already reads registries, so both
+    halves of the comparison were here.
+
+    Core does not fetch remote indexes, so a configured registry that is not locally
+    resolvable reports COULD_NOT_CHECK rather than being skipped in silence.
+    """
+    arts = installer.list_substrate(project_root)
+    if not arts:
+        print("substrate is empty (no admitted artifacts)")
+        return 0
+    entries, unreadable = load_registry_entries_or_none(project_root)
+    results = staleness.evaluate(arts, entries)
+    marks = {r.package_id: r for r in results}
+    for a in arts:
+        r = marks.get(a["id"])
+        if r is None or r.verdict == staleness.NOT_APPLICABLE:
+            mark = ""
+        elif r.verdict == staleness.COULD_NOT_CHECK:
+            mark = "  [COULD_NOT_CHECK]"
+        elif r.is_stale:
+            mark = f"  [stale -> {r.latest_version}]"
+        else:
+            mark = ""
+        print(f"{a['id']}  [{a['kind']}]  {a['version']}  {a['digest']}  {a['installed_path']}{mark}")
+    for reason in unreadable:
+        print(f"  registry unreadable — {reason}")
+    stale = [r for r in results if r.is_stale]
+    if staleness.blocks(results):
+        print(
+            "staleness: COULD_NOT_CHECK — a configured registry could not be read, so "
+            "currency was NOT established. This is not 'up to date'."
+        )
+    elif stale:
+        print(
+            f"staleness: {len(stale)} package(s) behind their registry. "
+            f"Applying is deliberate: atdd substrate add <id>"
+        )
+    return 0

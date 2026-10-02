@@ -1,0 +1,133 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include <manifold/manifold.h>
+
+namespace oscadeval {
+
+// What is wrong with a triangle mesh, as four independent conditions. They
+// are separate because they fail separately and a mesh can satisfy any
+// subset: two boxes fused along a face are watertight but have edges with
+// four faces; two cones joined tip-to-tip have every edge shared by exactly
+// two faces and still pinch at the apex.
+struct MeshDiagnosis {
+    // Edges used by exactly one face: a hole.
+    size_t boundaryEdges = 0;
+    // Edges used by three or more faces: surfaces meeting along a seam.
+    size_t nonManifoldEdges = 0;
+    // Vertices whose incident faces form more than one fan -- the surface
+    // pinches to a point there. Passes the edge test, so it needs its own.
+    size_t pinchedVertices = 0;
+    // Edges whose two faces traverse them the same way round rather than in
+    // opposite directions: the winding disagrees across that edge.
+    size_t inconsistentEdges = 0;
+    // Zero-area triangles, and faces naming the same vertex twice.
+    size_t degenerateFaces = 0;
+    // Faces with the same three vertices as another face.
+    size_t duplicateFaces = 0;
+    // Distinct indices at the same position. These split what should be one
+    // edge into two boundary edges, which is the usual reason a mesh that
+    // looks closed is not.
+    size_t unweldedVertices = 0;
+
+    bool watertight() const { return boundaryEdges == 0; }
+    // Topology only. Zero-area faces are deliberately not part of this: a
+    // mesh full of slivers can be a perfectly good closed manifold, and CSG
+    // routinely emits them -- a level-4 Menger sponge has 14. They are worth
+    // reporting, because some slicers drop them and are then left with real
+    // holes, but calling such a mesh "not manifold" is simply wrong.
+    bool manifold() const {
+        return boundaryEdges == 0 && nonManifoldEdges == 0 && pinchedVertices == 0;
+    }
+    bool orientable() const { return inconsistentEdges == 0; }
+    bool ok() const { return manifold() && orientable(); }
+
+    // "4 boundary edges, 1 pinched vertex" -- empty when nothing is wrong.
+    std::string summary() const;
+};
+
+// Diagnose `mesh` against all four conditions. Read-only; nothing is
+// modified and no exception is thrown for a broken mesh.
+// Templated on the mesh type so callers can hand over MeshGL64 and keep
+// their coordinates. This is not cosmetic: the welding below keys on a
+// fixed 1e-6 grid, and float32's step exceeds that beyond coordinate
+// magnitude ~17 -- so on any real model a float mesh is coarser than the
+// tolerance these functions claim to work at, and genuinely distinct
+// vertices collapse onto one key. Instantiated for MeshGL and MeshGL64.
+template <typename M>
+MeshDiagnosis checkMesh(const M& mesh);
+extern template MeshDiagnosis checkMesh<manifold::MeshGL>(const manifold::MeshGL&);
+extern template MeshDiagnosis checkMesh<manifold::MeshGL64>(const manifold::MeshGL64&);
+
+// What repairMesh did, for reporting. Not a diagnosis: these are actions.
+struct MeshRepairReport {
+    size_t weldedVertices = 0;
+    size_t droppedDegenerate = 0;
+    size_t droppedDuplicate = 0;
+    size_t reversedFaces = 0;
+    size_t filledHoles = 0;
+    size_t filledTriangles = 0;
+    size_t splitVertices = 0;
+    size_t unfilledHoles = 0;      // boundary loops it could not close
+    size_t strippedSlivers = 0;    // zero-area faces removed and restitched
+
+    bool didAnything() const {
+        return weldedVertices || droppedDegenerate || droppedDuplicate || reversedFaces
+               || filledHoles || splitVertices || strippedSlivers;
+    }
+    // "welded 12 vertices, filled 1 hole (4 triangles)" -- empty if nothing.
+    std::string summary() const;
+};
+
+//: Default welding tolerance: OpenSCAD's own GRID_FINE, 2^-20. Theirs is
+//: the constant their Grid.h uses to decide two points are one, so a mesh
+//: that welds there welds here. Exact in binary, so the multiply-and-round
+//: in weldMap() adds no error of its own. Deliberately tight: welding
+//: DISCARDS vertices, and a default that quietly merged real detail would
+//: be worse than one that leaves a mesh open -- hole filling closes what
+//: welding declines to. See issue #190.
+constexpr double kDefaultWeldTolerance = 0.00000095367431640625;
+
+// Best-effort repair, in the only order that works: welding first (it
+// changes which edges are shared, so every later test depends on it), then
+// degenerate and duplicate removal, then orientation, then hole filling
+// last -- filling before orienting would add faces wound against their
+// neighbours.
+//
+// Returns the repaired mesh. A mesh it cannot close is still returned,
+// improved as far as it got, with the remainder reported in `report`.
+template <typename M>
+M repairMesh(const M& mesh, MeshRepairReport& report,
+             double tolerance = kDefaultWeldTolerance);
+extern template manifold::MeshGL repairMesh<manifold::MeshGL>(const manifold::MeshGL&, MeshRepairReport&, double);
+extern template manifold::MeshGL64 repairMesh<manifold::MeshGL64>(const manifold::MeshGL64&, MeshRepairReport&, double);
+
+struct SliverStripReport {
+    size_t removed = 0;        // zero-area faces taken out
+    size_t restitched = 0;     // neighbours split to close the gap they left
+    // Faces with two corners at one position. These need no restitching:
+    // their two long edges run between the same two points, so the faces on
+    // either side already meet once the needle is gone.
+    size_t needles = 0;
+    size_t leftBehind = 0;     // slivers whose neighbour could not be found
+    size_t passes = 0;         // removing one can expose another
+};
+
+// Remove zero-area faces and repair the T-joints their removal exposes.
+//
+// A sliver's three vertices are collinear, so one lies between the other
+// two. Dropping the face leaves that middle vertex sitting on the interior
+// of the neighbour's edge -- a T-joint -- and the two sides no longer share
+// an edge, which reads as a hole. Splitting the neighbour at the middle
+// vertex restores the match without moving any geometry.
+//
+// The mesh is returned unchanged if it has no slivers.
+template <typename M>
+M stripSlivers(const M& mesh, SliverStripReport& report);
+extern template manifold::MeshGL stripSlivers<manifold::MeshGL>(const manifold::MeshGL&, SliverStripReport&);
+extern template manifold::MeshGL64 stripSlivers<manifold::MeshGL64>(const manifold::MeshGL64&, SliverStripReport&);
+
+}  // namespace oscadeval

@@ -1,0 +1,198 @@
+// Copyright (c) 2023 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! [`Metadata`] contains all information like type, credentials, size, access times about every
+//! structure which has a file handle representation. Every struct which implements the
+//! [`crate::file_descriptor::FileDescriptorManagement`] trait can emit a [`Metadata`].
+//! One struct is for instance [`crate::file::File`].
+
+use crate::clock::{ClockType, Time, TimeBuilder};
+use crate::file_type::FileType;
+use crate::group::Gid;
+use crate::permission::{Permission, PermissionExt};
+use crate::user::Uid;
+use alloc::format;
+use iceoryx2_bb_elementary::enum_gen;
+use iceoryx2_bb_system_types::path::{Path, SemanticString};
+use iceoryx2_log::fail;
+use iceoryx2_pal_posix::posix::{Errno, MemZeroedStruct};
+use iceoryx2_pal_posix::*;
+
+enum_gen! { MetadataFromPathError
+  entry:
+    InsufficientPermissions,
+    IOerror,
+    DoesNotExist,
+    PathPrefixIsNotADirectory,
+    DataOverflowInStatStruct,
+    LoopInSymbolicLinks,
+    MaxSupportedPathLengthExceeded,
+    UnknownError(i32)
+}
+
+/// Contains all information like type, credentials, size, access times about every
+/// structure which has a file handle representation. Every struct which implements the
+/// [`crate::file_descriptor::FileDescriptorManagement`] trait can emit a [`Metadata`].
+/// One struct is for instance [`crate::file::File`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Metadata {
+    file_type: FileType,
+    uid: Uid,
+    gid: Gid,
+    size: u64,
+    block_size: u64,
+    permission: Permission,
+    access_time: Time,
+    modification_time: Time,
+    creation_time: Time,
+    device_id: u64,
+    number_of_links: u64,
+}
+
+impl Metadata {
+    pub fn from_path(path: &Path) -> Result<Metadata, MetadataFromPathError> {
+        let origin = "Metadata::from_path()";
+        let msg = format!("Failed to acquire the metadata of the path \"{path}\"");
+        let mut buffer = posix::stat_t::new_zeroed();
+
+        if unsafe { posix::stat(path.as_c_str(), &mut buffer) } == -1 {
+            handle_errno!(MetadataFromPathError, from origin,
+                Errno::EACCES => (InsufficientPermissions, "{} due to insufficient permissions to open path.", msg),
+                Errno::EIO => (IOerror, "{} due to an io error while reading directory stats.", msg),
+                Errno::ELOOP => (LoopInSymbolicLinks, "{} due to a symbolic link loop in the path.", msg),
+                Errno::ENOENT => (DoesNotExist, "{} since the path does not exist.", msg),
+                Errno::ENOTDIR => (PathPrefixIsNotADirectory, "{} since the path prefix is not a directory.", msg),
+                Errno::EOVERFLOW => (DataOverflowInStatStruct, "{} since certain properties like size would cause an overflow in the underlying stat struct.", msg),
+                Errno::ENAMETOOLONG => (MaxSupportedPathLengthExceeded, "{} since the path length is longer than the maximum path name length.", msg),
+                v => (UnknownError(v as i32), "{} since an unknown error occurred ({}).", msg, v)
+            );
+        }
+
+        Ok(Metadata::create(&buffer))
+    }
+
+    pub(crate) fn does_exist(
+        path: &Path,
+        origin: &str,
+        msg: &str,
+        file_type: FileType,
+    ) -> Result<bool, MetadataFromPathError> {
+        if unsafe { posix::access(path.as_c_str(), posix::F_OK) } == -1 {
+            match Errno::get() {
+                Errno::ENOENT => return Ok(false),
+                Errno::EACCES => {
+                    fail!(from origin, with MetadataFromPathError::InsufficientPermissions,
+                        "{msg} due to insufficient permissions.");
+                }
+                Errno::ELOOP => {
+                    fail!(from origin, with MetadataFromPathError::LoopInSymbolicLinks,
+                        "{msg} since there is a loop in the symbolic links.");
+                }
+                Errno::ENAMETOOLONG => {
+                    fail!(from origin, with MetadataFromPathError::MaxSupportedPathLengthExceeded,
+                        "{msg} since the path length is longer than the maximum supported path name length.");
+                }
+                Errno::ENOTDIR => {
+                    fail!(from origin, with MetadataFromPathError::PathPrefixIsNotADirectory,
+                        "{msg} since components of the path are not a directory.");
+                }
+                e => {
+                    fail!(from origin, with MetadataFromPathError::UnknownError(e as i32),
+                        "{msg} due to an unknown error. [{e:?}]");
+                }
+            }
+        }
+
+        match Metadata::from_path(path) {
+            Ok(v) => Ok(v.file_type() == file_type),
+            Err(MetadataFromPathError::DoesNotExist) => Ok(false),
+            Err(e) => {
+                fail!(from origin, with e,
+                    "{msg} since the metadata could not be acquired. [{e:?}]");
+            }
+        }
+    }
+
+    pub fn number_of_links(&self) -> u64 {
+        self.number_of_links
+    }
+
+    pub fn access_time(&self) -> Time {
+        self.access_time
+    }
+
+    pub fn creation_time(&self) -> Time {
+        self.creation_time
+    }
+
+    /// returns the size of the file
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
+    /// returns the block size of the file. the size which the file occupies on the file system.
+    pub fn block_size(&self) -> u64 {
+        self.block_size
+    }
+
+    pub fn device_id(&self) -> u64 {
+        self.device_id
+    }
+
+    pub fn modification_time(&self) -> Time {
+        self.modification_time
+    }
+
+    /// the access permissions of the file for owner, group and other
+    pub fn permission(&self) -> Permission {
+        self.permission
+    }
+
+    pub fn file_type(&self) -> FileType {
+        self.file_type
+    }
+
+    /// returns the user id (uid) of the files owner
+    pub fn uid(&self) -> Uid {
+        self.uid
+    }
+
+    /// returns the group id (gid) of the files owner
+    pub fn gid(&self) -> Gid {
+        self.gid
+    }
+
+    pub(crate) fn create(attr: &posix::stat_t) -> Metadata {
+        Self {
+            access_time: TimeBuilder::new()
+                .clock_type(ClockType::Realtime)
+                .seconds(attr.st_atime as u64)
+                .create(),
+            creation_time: TimeBuilder::new()
+                .clock_type(ClockType::Realtime)
+                .seconds(attr.st_ctime as u64)
+                .create(),
+            size: attr.st_size as u64,
+            block_size: attr.st_size as u64,
+            device_id: attr.st_rdev as _,
+            modification_time: TimeBuilder::new()
+                .clock_type(ClockType::Realtime)
+                .seconds(attr.st_mtime as u64)
+                .create(),
+            permission: attr.st_mode.as_permission(),
+            file_type: FileType::from_mode_t(attr.st_mode),
+            uid: Uid::new_from_native(attr.st_uid),
+            gid: Gid::new_from_native(attr.st_gid),
+            number_of_links: attr.st_nlink as _,
+        }
+    }
+}

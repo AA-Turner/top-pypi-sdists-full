@@ -94,7 +94,7 @@ class GenericOpenAIChat:
     def client(self) -> AsyncOpenAI:
         if self._client_pinned:
             return self._client  # type: ignore[return-value]
-        from matrx_ai.providers.keys import resolve_api_key
+        from matrx_ai.providers.keys import NO_SDK_RETRIES, resolve_api_key
 
         resolved = (
             self._explicit_api_key
@@ -105,6 +105,7 @@ class GenericOpenAIChat:
             # HuggingFace TGI / llama.cpp expects the Bearer token as the API key
             self._client = AsyncOpenAI(
                 api_key=resolved,
+                max_retries=NO_SDK_RETRIES,
                 base_url=self._base_url,
                 http_client=make_capture_http_client(sdk=openai_sdk),
             )

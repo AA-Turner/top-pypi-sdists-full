@@ -1,0 +1,235 @@
+# Build wheels + sdist, upload sdist to PyPI, upload wheels to GitHub Release.
+#
+# Runs on version tag push or manual trigger.
+#
+# PyPI rejects wheel filenames with "+" local version segments
+# (e.g. +cu128torch2.10), so wheels are distributed via GitHub Releases
+# and installed via explicit wheel URL (or pinned local version with
+# --find-links).
+#
+# Separate build and upload jobs let you re-run only the upload if it fails,
+# without rebuilding wheels or the sdist.
+
+name: Publish Release Artifacts
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  verify_release_version:
+    name: Verify release tag matches project version
+    runs-on: ubuntu-latest
+    outputs:
+      gpu_matrix: ${{ steps.matrix.outputs.gpu }}
+      linux_cpu_matrix: ${{ steps.matrix.outputs.linux_cpu }}
+      macos_matrix: ${{ steps.matrix.outputs.macos }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Ensure tag and pyproject version are aligned
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          ref_type = os.environ.get("GITHUB_REF_TYPE", "")
+          ref_name = os.environ.get("GITHUB_REF_NAME", "")
+          if ref_type != "tag":
+              print(
+                  "This workflow must run on a tag ref (e.g. v0.1.15). "
+                  f"Got ref_type={ref_type!r}, ref_name={ref_name!r}."
+              )
+              sys.exit(1)
+
+          if not ref_name.startswith("v"):
+              print(f"Release tag must start with 'v'. Got: {ref_name!r}.")
+              sys.exit(1)
+
+          tag_version = ref_name[1:]
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          project_version = pyproject.get("project", {}).get("version")
+          if not project_version:
+              print("Could not parse [project].version from pyproject.toml.")
+              sys.exit(1)
+          if tag_version != project_version:
+              print(
+                  "Tag/version mismatch detected:\\n"
+                  f"  tag: v{tag_version}\\n"
+                  f"  pyproject.toml version: {project_version}\\n"
+                  "Update pyproject version or retag before publishing."
+              )
+              sys.exit(1)
+
+          print(f"Release version check passed: v{tag_version}")
+          PY
+
+      - name: Generate wheel matrices
+        id: matrix
+        run: |
+          echo "gpu=$(python scripts/release_matrix.py gpu)" >> "$GITHUB_OUTPUT"
+          echo "linux_cpu=$(python scripts/release_matrix.py linux-cpu)" >> "$GITHUB_OUTPUT"
+          echo "macos=$(python scripts/release_matrix.py macos)" >> "$GITHUB_OUTPUT"
+
+  # ── GPU wheels ───────────────────────────────────────────────────────
+  build_wheels:
+    name: "${{ matrix.label }}"
+    needs: verify_release_version
+    strategy:
+      fail-fast: false
+      # Large bursts of full-architecture CUDA builds repeatedly lost hosted
+      # runners. Seven-way fan-out completed the same hosted lanes reliably.
+      max-parallel: 7
+      matrix: ${{ fromJSON(needs.verify_release_version.outputs.gpu_matrix) }}
+    uses: ./.github/workflows/_build_wheel.yml
+    with:
+      runs-on: ${{ matrix.runs-on }}
+      container-image: ${{ matrix.container-image }}
+      torch-version: ${{ matrix.torch-version }}
+      torch-package-version: ${{ matrix.torch-package-version }}
+      python-version: ${{ matrix.python-version }}
+      label: ${{ matrix.label }}
+      pip-torch-cuda-url: ${{ matrix.torch-index-url }}
+      enable-cuda: ${{ matrix.enable-cuda }}
+      cuda-archs: ${{ matrix.cuda-archs || '' }}
+      use-manylinux-build: true
+      target-arch: ${{ matrix.arch }}
+
+  # ── CPU-only wheel ─────────────────────────────────────────────────
+  build_cpu_wheel:
+    name: ${{ matrix.label }}
+    needs: verify_release_version
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.verify_release_version.outputs.linux_cpu_matrix) }}
+    uses: ./.github/workflows/_build_wheel.yml
+    with:
+      runs-on: ${{ matrix.runs-on }}
+      container-image: ${{ matrix.container-image }}
+      torch-version: ${{ matrix.torch-version }}
+      torch-package-version: ${{ matrix.torch-package-version }}
+      python-version: ${{ matrix.python-version }}
+      label: ${{ matrix.label }}
+      pip-torch-cuda-url: ${{ matrix.torch-index-url }}
+      enable-cuda: ${{ matrix.enable-cuda }}
+      use-manylinux-build: true
+      target-arch: ${{ matrix.arch }}
+
+  # ── Apple Silicon CPU-only wheel ───────────────────────────────────
+  build_macos_cpu_wheel:
+    name: ${{ matrix.label }}
+    needs: verify_release_version
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.verify_release_version.outputs.macos_matrix) }}
+    uses: ./.github/workflows/_build_macos_wheel.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      torch-package-version: ${{ matrix.torch-package-version }}
+      label: ${{ matrix.label }}
+
+  # ── sdist ──────────────────────────────────────────────────────────
+  build_sdist:
+    name: Build sdist
+    needs: verify_release_version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install "cmake>=3.24,<4" "scikit-build-core>=0.10" ninja "packaging>=24.2" "pybind11>=2.12" build
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Build sdist
+        run: python -m build --sdist --no-isolation --outdir dist
+
+      - name: Log sdist
+        run: ls -lh dist/
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # ── Upload ─────────────────────────────────────────────────────────
+  #
+  # sdist -> PyPI  (no local version segment, PyPI accepts it)
+  # wheels -> GitHub Release  (local version +cu... is fine here)
+  #
+  # If this job fails you can RE-RUN just this job from the Actions UI.
+  upload:
+    name: Upload sdist to PyPI + wheels to GitHub Release
+    needs: [build_wheels, build_cpu_wheel, build_macos_cpu_wheel, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install twine
+        run: pip install twine
+
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: wheels/
+          pattern: wheel-*
+          merge-multiple: true
+
+      - name: List all packages
+        run: |
+          echo "=== sdist ==="
+          ls -lh dist/
+          echo "=== wheels ==="
+          ls -lh wheels/ || echo "(no wheels)"
+
+      - name: Validate release wheel manifest
+        run: python scripts/validate_release_manifest.py wheels
+
+      - name: Upload sdist to PyPI
+        env:
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: python -m twine upload --skip-existing --repository-url https://upload.pypi.org/legacy/ dist/*
+
+      - name: Determine version from sdist filename
+        id: version
+        run: |
+          SDIST=$(ls dist/*.tar.gz | head -1 | xargs basename)
+          VERSION=$(echo "$SDIST" | sed 's/^tmol-//;s/\.tar\.gz$//')
+          PRERELEASE=$(python -c \
+            'from packaging.version import Version; import sys; print(str(Version(sys.argv[1]).is_prerelease).lower())' \
+            "$VERSION")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Create or get GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "v${{ steps.version.outputs.version }}"
+          draft: false
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          generate_release_notes: false
+          files: wheels/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

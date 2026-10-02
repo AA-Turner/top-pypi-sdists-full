@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import copy
+import importlib
+import io
+import json
+from collections.abc import Callable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Iterable,
+    Mapping,
+    Optional,
+    ParamSpec,
+    Sequence,
+    TypeVar,
+    Union,
+)
+
+from zarr.abc.codec import ArrayBytesCodec
+from zarr.core.metadata import ArrayV2Metadata, ArrayV3Metadata
+from zarr.dtype import data_type_registry
+
+from virtualizarr.codecs import get_codec_config, zarr_codec_config_to_v2
+from virtualizarr.types.kerchunk import KerchunkStoreRefs
+
+# taken from zarr.core.common
+JSON = str | int | float | Mapping[str, "JSON"] | Sequence["JSON"] | None
+
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
+_U = TypeVar("_U")
+
+if TYPE_CHECKING:
+    import fsspec.core
+    import fsspec.spec
+
+    # See pangeo_forge_recipes.storage
+    OpenFileType = Union[
+        fsspec.core.OpenFile, fsspec.spec.AbstractBufferedFile, io.IOBase
+    ]
+
+
+def check_for_collisions(
+    drop_variables: Iterable[str] | None,
+    loadable_variables: Iterable[str] | None,
+) -> tuple[list[str], list[str]]:
+    if drop_variables is None:
+        drop_variables = []
+    elif isinstance(drop_variables, str):
+        drop_variables = [drop_variables]
+    else:
+        drop_variables = list(drop_variables)
+
+    if loadable_variables is None:
+        loadable_variables = []
+    elif isinstance(loadable_variables, str):
+        loadable_variables = [loadable_variables]
+    else:
+        loadable_variables = list(loadable_variables)
+
+    common = set(drop_variables).intersection(set(loadable_variables))
+    if common:
+        raise ValueError(f"Cannot both load and drop variables {common}")
+
+    return drop_variables, loadable_variables
+
+
+def soft_import(name: str, reason: str, strict: Optional[bool] = True):
+    try:
+        return importlib.import_module(name)
+    except (ImportError, ModuleNotFoundError):
+        if strict:
+            raise ImportError(
+                f"for {reason}, the {name} package is required. "
+                f"Please install it via pip or conda."
+            )
+        else:
+            return None
+
+
+def ceildiv(a: int, b: int) -> int:
+    """
+    Ceiling division operator for integers.
+
+    See https://stackoverflow.com/questions/14822184/is-there-a-ceiling-equivalent-of-operator-in-python
+    """
+    return -(a // -b)
+
+
+def determine_chunk_grid_shape(
+    shape: tuple[int, ...], chunks: tuple[int, ...]
+) -> tuple[int, ...]:
+    """Calculate the shape of the chunk grid based on array shape and chunk size."""
+    return tuple(ceildiv(length, chunksize) for length, chunksize in zip(shape, chunks))
+
+
+def _codec_endian(codec: ArrayBytesCodec) -> str | None:
+    """The bytes codec's endianness as a plain string, or None if it has none.
+
+    ``BytesCodec.endian`` was a ``zarr.codecs.bytes.Endian`` enum through zarr 3.2.x and became a
+    plain ``str`` on zarr's ``main`` branch, following zarr's enum-to-string-literal deprecation
+    (zarr-developers/zarr-python#3968, #3457). Normalize both so the endianness check works across
+    zarr versions without touching the deprecated ``Endian`` enum.
+    """
+    endian = getattr(codec, "endian", None)
+    if endian is None:
+        return None
+    return endian if isinstance(endian, str) else endian.value
+
+
+def convert_v3_to_v2_metadata(
+    v3_metadata: ArrayV3Metadata, fill_value: Any = None
+) -> ArrayV2Metadata:
+    """
+    Convert ArrayV3Metadata to ArrayV2Metadata.
+
+    Parameters
+    ----------
+    v3_metadata
+        The metadata object in v3 format.
+    fill_value
+        Override the fill value from v3 metadata.
+
+    Returns
+    -------
+    ArrayV2Metadata
+        The metadata object in v2 format.
+    """
+
+    # TODO: Check that all ArrayBytesCodecs should in fact be excluded for V2 metadata storage.
+    v2_codecs = [
+        zarr_codec_config_to_v2(get_codec_config(codec))
+        for codec in v3_metadata.codecs
+        if not isinstance(codec, ArrayBytesCodec)
+    ]
+    # TODO: Remove convert_v3_to_v2_metadata and always encode V3 metadata.
+    # This logic is based on the (default) Bytes codec's endian property,
+    # but other codec pipelines could store endianness elsewhere.
+    big_endian = any(
+        _codec_endian(codec) == "big"
+        for codec in v3_metadata.codecs
+        if isinstance(codec, ArrayBytesCodec)
+    )
+    if big_endian:
+        na_dtype = v3_metadata.data_type.to_native_dtype().newbyteorder(">")
+        dtype = data_type_registry.match_dtype(dtype=na_dtype)
+    else:
+        dtype = v3_metadata.data_type
+    v2_metadata = ArrayV2Metadata(
+        shape=v3_metadata.shape,
+        dtype=dtype,
+        chunks=v3_metadata.chunks,
+        fill_value=fill_value or v3_metadata.fill_value,
+        filters=v2_codecs
+        if v2_codecs
+        else None,  # Do not pass an empty list to ArrayV2Metadata
+        compressor=None,
+        order="C",
+        attributes=v3_metadata.attributes,
+        dimension_separator=".",  # Assuming '.' as default dimension separator
+    )
+    return v2_metadata
+
+
+def kerchunk_refs_as_json(refs: KerchunkStoreRefs) -> JSON:
+    """
+    Normalizes all Kerchunk references into true JSON all the way down.
+
+    See https://github.com/zarr-developers/VirtualiZarr/issues/679 for context as to why this is needed.
+    """
+
+    normalized_result: dict[str, JSON] = copy.deepcopy(refs)
+    v0_refs: dict[str, JSON] = refs["refs"]
+
+    for k, v in v0_refs.items():
+        # check for strings because the value could be for a chunk, in which case it is already a list like ["/test.nc", 6144, 48]
+        # this is a rather fragile way to discover if we're looking at a chunk key or not, but it should work...
+        if isinstance(v, str):
+            normalized_result["refs"][k] = json.loads(v)  # type: ignore[index]
+
+    return normalized_result
+
+
+class compose(Generic[_P, _T, _U]):
+    """Callable that is the functional composition of 2 other callables.
+
+    Adheres to the mathematical notion of function composition where
+    ``(f . g)(x) == f(g(x))`` and ``.`` represents the composition operator.
+    Alternatively, this can be written as ``compose(f, g)(x) == f(g(x))``, or,
+    if ``h = compose(f, g)``, then ``h(x) == f(g(x))``.  In other words,
+    function applications occur in right-to-left order.
+
+    If both callables can be pickled, their composition can also be pickled.
+
+    Attributes
+    ----------
+    f
+        Callable to apply to the result of applying `g`.
+    g
+        Callable to apply to argument(s) supplied when invoking this callable.
+
+    Examples
+    --------
+    >>> from operator import add
+    >>> abs(add(-40, -2))
+    42
+    >>> compose(abs, add)(-40, -2)
+    42
+    """
+
+    def __init__(self, f: Callable[[_T], _U], g: Callable[_P, _T]) -> None:
+        self._f = f
+        self._g = g
+
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _U:
+        return self._f(self._g(*args, **kwargs))

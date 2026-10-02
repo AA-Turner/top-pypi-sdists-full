@@ -1,0 +1,9 @@
+# There is no build here. See bithuman_platform_guard.py.
+#
+# requires = [] and backend-path = ["."] are both load-bearing: with no build
+# dependency to install, the refusal below cannot be pre-empted by a network
+# error fetching setuptools, and the message is the FIRST thing the user sees.
+[build-system]
+requires = []
+build-backend = "bithuman_platform_guard"
+backend-path = ["."]

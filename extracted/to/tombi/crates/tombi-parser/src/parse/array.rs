@@ -8,7 +8,7 @@ use crate::{
     token_set::TS_ARRAY_END,
 };
 
-impl Parse for tombi_ast_syntax::Array {
+impl Parse for tombi_ast_syntax::Array<'_> {
     fn parse(p: &mut Parser<'_>) {
         let m = p.start();
 
@@ -34,7 +34,7 @@ impl Parse for tombi_ast_syntax::Array {
         }
 
         if !p.eat(T![']']) {
-            p.error(crate::Error::new(ExpectedBracketEnd, p.current_range()));
+            p.error(crate::Error::new(ExpectedBracketEnd, p.current_span()));
         }
 
         trailing_comment(p);

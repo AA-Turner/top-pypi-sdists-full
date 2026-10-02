@@ -310,3 +310,123 @@ class TestExplicitDefault:
         }
         errors = validate_rules_against_settings(rules, settings)
         assert any("BOTH to_default and value_map" in e for e in errors)
+
+
+class TestOutputCeilingConvertsToTheModelMaximum:
+    """A ceiling authored for one model must convert, never 400, on another.
+
+    Live 2026-10-02 (/agents/battle): an agent saved with max_output_tokens=32000
+    ran on Groq qwen/qwen3.8-27b (ai.model_definition.max_tokens=16384) and Groq
+    rejected every call — "max_completion_tokens must be less than or equal to
+    16384". No ai.offering row on any api declared a clamp, so the number went
+    out as authored. The model's own maximum is now part of the compiled controls.
+    """
+
+    @staticmethod
+    def _groq_style() -> CompiledControlsMap:
+        return CompiledControlsMap(
+            rules={
+                "max_output_tokens": ControlRule.model_validate(
+                    {"provider_key": "max_completion_tokens"}
+                )
+            }
+        ).with_output_maximum(16384)
+
+    def test_a_ceiling_above_the_model_maximum_is_clamped(self):
+        out, adj = self._groq_style().outbound({"max_output_tokens": 32000})
+        assert out == {"max_completion_tokens": 16384}
+        assert [(a.key, a.action, a.sent_value) for a in adj] == [
+            ("max_output_tokens", "clamped", 16384)
+        ]
+        # A conversion is the system working — never an unexpected drop.
+        assert all(a.expected for a in adj)
+
+    def test_a_ceiling_within_the_maximum_is_untouched(self):
+        out, adj = self._groq_style().outbound({"max_output_tokens": 4000})
+        assert out == {"max_completion_tokens": 4000}
+        assert adj == []
+
+    def test_an_absent_ceiling_is_never_invented(self):
+        out, _ = self._groq_style().outbound({"temperature": 0.5})
+        assert "max_completion_tokens" not in out
+
+    def test_no_declared_maximum_changes_nothing(self):
+        compiled = CompiledControlsMap(
+            rules={"max_output_tokens": ControlRule.model_validate({"provider_key": "max_tokens"})}
+        ).with_output_maximum(None)
+        out, _ = compiled.outbound({"max_output_tokens": 500000})
+        assert out == {"max_tokens": 500000}
+
+    def test_a_processor_consuming_the_ceiling_reads_the_clamped_value(self):
+        # Anthropic: max_output_tokens is consumed by the thinking processor,
+        # which writes params["max_tokens"] itself — pass 0 runs before it.
+        compiled = CompiledControlsMap(
+            rules={
+                "thinking_budget": ControlRule.model_validate(
+                    {
+                        "processor": "anthropic_thinking",
+                        "processor_config": {
+                            "consumes": ["max_output_tokens", "reasoning_effort",
+                                         "include_thoughts", "thinking_level",
+                                         "reasoning_summary"],
+                            "default_max_tokens": 8192,
+                        },
+                    }
+                )
+            }
+        ).with_output_maximum(8192)
+        out, adj = compiled.outbound({"max_output_tokens": 128000})
+        assert out["max_tokens"] == 8192
+        assert any(a.action == "clamped" and a.key == "max_output_tokens" for a in adj)
+
+
+class TestThinkingAndDefaultsStayUnderTheModelMaximum:
+    """Gaps the first fix missed (independent review, 2026-10-02)."""
+
+    def test_anthropic_budget_yields_instead_of_raising_max_tokens_past_the_model(self):
+        compiled = CompiledControlsMap(
+            rules={
+                "reasoning_effort": ControlRule.model_validate(
+                    {
+                        "processor": "anthropic_thinking",
+                        "processor_config": {
+                            "mode": "budget",
+                            "consumes": ["thinking_budget", "max_output_tokens",
+                                         "include_thoughts", "thinking_level",
+                                         "reasoning_summary"],
+                        },
+                    }
+                )
+            }
+        ).with_output_maximum(64000)
+        out, _ = compiled.outbound({"thinking_budget": 64000})
+        assert out["max_tokens"] == 64000
+        assert 1024 <= out["thinking"]["budget_tokens"] < out["max_tokens"]
+
+    def test_a_ceiling_default_authored_for_a_bigger_model_is_capped(self):
+        compiled = CompiledControlsMap(
+            rules={
+                "max_output_tokens": ControlRule.model_validate(
+                    {"provider_key": "max_completion_tokens", "default": 32000}
+                )
+            }
+        ).with_output_maximum(16384)
+        out, _ = compiled.outbound({})
+        assert out == {"max_completion_tokens": 16384}
+
+    def test_google_legacy_budget_never_exceeds_the_field_or_the_output_maximum(self):
+        compiled = CompiledControlsMap(
+            rules={
+                "reasoning_effort": ControlRule.model_validate(
+                    {
+                        "processor": "google_thinking",
+                        "processor_config": {
+                            "mode": "legacy",
+                            "consumes": ["thinking_budget", "thinking_level", "include_thoughts"],
+                        },
+                    }
+                )
+            }
+        ).with_output_maximum(50000)
+        out, _ = compiled.outbound({"thinking_budget": 9_999_999})
+        assert out["thinking_config"]["thinking_budget"] == 50000

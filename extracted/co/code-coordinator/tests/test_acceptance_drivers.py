@@ -74,9 +74,11 @@ from coord.acceptance_drivers import (
     DriverError,
     EPHEMERAL_RG_PATTERN,
     FIXTURE_SERVER_DEPENDENT_KINDS,
+    LANE_CAPABILITY_EXTRAS,
     SUPPORTED_KINDS,
     VALIDATE_ONLY_KINDS,
     assert_ephemeral_rg,
+    lane_extras_for_machine,
     parse_conftest_json,
     parse_playwright_json_report,
     parse_pytest_junit_xml,
@@ -84,6 +86,7 @@ from coord.acceptance_drivers import (
     parse_test_output,
     parse_tflint_json,
     render_run_command,
+    repos_requiring_tui_pty,
     run_driver,
 )
 
@@ -1589,6 +1592,24 @@ class TestRunDriverWinNative:
         assert result.exit_code != 0
         assert result.ok is False
 
+    def test_unavailable_session_is_not_a_clean_exit(self, tmp_path, monkeypatch) -> None:
+        # #3510 review: an `unavailable` entry (locked/absent session) must
+        # flip the exit code just like `fail` does — it is a THIRD status,
+        # not a synonym for `pass`, and a gate must be able to fail on it
+        # rather than read a locked desktop as a silent green run.
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        def fake_run_native_spec(spec_text, *, launch_command, cwd, timeout=None):
+            return [{"id": "session", "status": "unavailable", "message": "session locked"}]
+
+        import coord.win_native_driver as win_native_driver
+        monkeypatch.setattr(win_native_driver, "run_native_spec", fake_run_native_spec)
+
+        result = run_driver("win-native", "./vimcode.exe", cwd=str(tmp_path), entrypoint="native.yaml")
+        assert result.exit_code != 0
+        assert result.ok is False
+
     def test_entrypoint_is_resolved_relative_to_cwd(self, tmp_path, monkeypatch) -> None:
         nested = tmp_path / "native"
         nested.mkdir()
@@ -1608,6 +1629,75 @@ class TestRunDriverWinNative:
             "win-native", "./vimcode.exe", cwd=str(tmp_path), entrypoint="native/smoke.yaml",
         )
         assert seen_cwd["cwd"] == str(tmp_path)
+
+
+class TestRunDriverWinNativeWslBridge:
+    """#3515 (review iteration 1, Change item #4): a WSL-hosted agent must
+    route through :mod:`coord.win_native_bridge` instead of the in-process
+    :func:`coord.win_native_driver.run_native_spec` — `ctypes.windll`/
+    `comtypes` have no meaning in that (Linux) process no matter what's
+    pip-installed into it. :class:`TestRunDriverWinNative` above already
+    covers the non-WSL (native Windows / every other test in this suite)
+    path; these tests force :func:`coord.win_native_bridge.is_wsl_host` True
+    to cover the other branch."""
+
+    def test_wsl_host_routes_through_the_bridge(self, tmp_path, monkeypatch) -> None:
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        import coord.win_native_bridge as win_native_bridge
+
+        monkeypatch.setattr(win_native_bridge, "is_wsl_host", lambda: True)
+
+        seen = {}
+
+        def fake_bridge(spec_text, *, run_command, cwd, timeout):
+            seen["run_command"] = run_command
+            seen["cwd"] = cwd
+            return [{"id": "000 launch", "status": "pass", "message": ""}]
+
+        monkeypatch.setattr(win_native_bridge, "run_native_spec_via_bridge", fake_bridge)
+
+        result = run_driver(
+            "win-native", "./vimcode.exe --smoke", cwd=str(tmp_path), entrypoint="native.yaml",
+        )
+        assert seen["run_command"] == "./vimcode.exe --smoke"
+        assert seen["cwd"] == str(tmp_path)
+        assert result.tests == [{"id": "000 launch", "status": "pass", "message": ""}]
+        assert result.exit_code == 0
+
+    def test_bridge_error_is_wrapped_in_driver_error(self, tmp_path, monkeypatch) -> None:
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        import coord.win_native_bridge as win_native_bridge
+
+        monkeypatch.setattr(win_native_bridge, "is_wsl_host", lambda: True)
+
+        def fake_bridge(spec_text, *, run_command, cwd, timeout):
+            raise win_native_bridge.WinNativeBridgeError("no Windows-side Python found")
+
+        monkeypatch.setattr(win_native_bridge, "run_native_spec_via_bridge", fake_bridge)
+
+        with pytest.raises(DriverError, match="WSL bridge"):
+            run_driver("win-native", "./vimcode.exe", cwd=str(tmp_path), entrypoint="native.yaml")
+
+    def test_non_wsl_host_never_touches_the_bridge(self, tmp_path, monkeypatch) -> None:
+        """The default (every other test in this class): `is_wsl_host()`
+        false means the in-process `run_native_spec` path runs, and the
+        bridge module's `run_native_spec_via_bridge` is never even called."""
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        import coord.win_native_driver as win_native_driver
+
+        def fake_run_native_spec(spec_text, *, launch_command, cwd, timeout=None):
+            return [{"id": "000 launch", "status": "pass", "message": ""}]
+
+        monkeypatch.setattr(win_native_driver, "run_native_spec", fake_run_native_spec)
+
+        result = run_driver("win-native", "./vimcode.exe", cwd=str(tmp_path), entrypoint="native.yaml")
+        assert result.exit_code == 0
 
 
 class TestRunDriverMacNative:
@@ -1689,6 +1779,22 @@ class TestRunDriverMacNative:
 
         def fake_run_native_spec(spec_text, *, launch_command, cwd, timeout=None):
             return []
+
+        import coord.mac_native_driver as mac_native_driver
+        monkeypatch.setattr(mac_native_driver, "run_native_spec", fake_run_native_spec)
+
+        result = run_driver("mac-native", "./vimcode.app", cwd=str(tmp_path), entrypoint="native.yaml")
+        assert result.exit_code != 0
+        assert result.ok is False
+
+    def test_unavailable_session_is_not_a_clean_exit(self, tmp_path, monkeypatch) -> None:
+        # #3510 review: an `unavailable` entry (locked/absent session) must
+        # flip the exit code just like `fail` does.
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        def fake_run_native_spec(spec_text, *, launch_command, cwd, timeout=None):
+            return [{"id": "session", "status": "unavailable", "message": "screen locked"}]
 
         import coord.mac_native_driver as mac_native_driver
         monkeypatch.setattr(mac_native_driver, "run_native_spec", fake_run_native_spec)
@@ -1805,6 +1911,22 @@ class TestRunDriverGtkNative:
         assert result.exit_code != 0
         assert result.ok is False
 
+    def test_unavailable_session_is_not_a_clean_exit(self, tmp_path, monkeypatch) -> None:
+        # #3510 review: an `unavailable` entry (missing $DISPLAY) must
+        # flip the exit code just like `fail` does.
+        spec = tmp_path / "native.yaml"
+        spec.write_text("steps:\n  - type: launch\n")
+
+        def fake_run_native_spec(spec_text, *, launch_command, cwd, timeout=None):
+            return [{"id": "session", "status": "unavailable", "message": "no $DISPLAY"}]
+
+        import coord.gtk_native_driver as gtk_native_driver
+        monkeypatch.setattr(gtk_native_driver, "run_native_spec", fake_run_native_spec)
+
+        result = run_driver("gtk-native", "./vimcode --gtk", cwd=str(tmp_path), entrypoint="native.yaml")
+        assert result.exit_code != 0
+        assert result.ok is False
+
     def test_entrypoint_is_resolved_relative_to_cwd(self, tmp_path, monkeypatch) -> None:
         nested = tmp_path / "native"
         nested.mkdir()
@@ -1824,3 +1946,97 @@ class TestRunDriverGtkNative:
             "gtk-native", "./vimcode --gtk", cwd=str(tmp_path), entrypoint="native/smoke.yaml",
         )
         assert seen_cwd["cwd"] == str(tmp_path)
+
+
+# ── #3515: capability -> lane-extra mapping ─────────────────────────────────
+
+
+class _FakeDriver:
+    """Duck-typed stand-in for `coord.config.AcceptanceDriverConfig` — only
+    the two attributes `repos_requiring_tui_pty` actually reads."""
+
+    def __init__(self, kind: str = "", routes: list["_FakeDriver"] | None = None) -> None:
+        self.kind = kind
+        self.routes = routes or []
+
+
+class TestLaneExtrasForMachine:
+    """#3515: the one place a machine's `coordinator.yml` `capabilities`
+    resolve to the `pyproject.toml` extras its Tier-2 lane driver needs."""
+
+    def test_mapping_covers_every_native_lane(self) -> None:
+        assert LANE_CAPABILITY_EXTRAS == {
+            "windows": "win-native",
+            "macos": "mac-native",
+            "gtk": "gtk-native",
+        }
+
+    def test_no_capabilities_yields_no_extras(self) -> None:
+        assert lane_extras_for_machine([]) == []
+
+    def test_gtk_capability_yields_gtk_native(self) -> None:
+        # No `tui_pty_repos` given -> the conservative "a native lane also
+        # needs tui-pty" fallback fires (nothing else in hand to resolve
+        # the exact set from).
+        assert lane_extras_for_machine(["gtk"]) == ["gtk-native", "tui-pty"]
+
+    def test_windows_capability_yields_win_native(self) -> None:
+        assert lane_extras_for_machine(["windows"]) == ["win-native", "tui-pty"]
+
+    def test_macos_capability_yields_mac_native(self) -> None:
+        assert lane_extras_for_machine(["macos"]) == ["mac-native", "tui-pty"]
+
+    def test_multiple_native_capabilities_yield_multiple_extras(self) -> None:
+        extras = lane_extras_for_machine(["gtk", "windows"])
+        assert set(extras) == {"gtk-native", "win-native", "tui-pty"}
+        assert extras.count("tui-pty") == 1
+
+    def test_non_native_capability_ignored(self) -> None:
+        assert lane_extras_for_machine(["rust", "python"]) == []
+
+    def test_explicit_empty_tui_pty_repos_opts_out_of_native_fallback(self) -> None:
+        """A caller (`coord.release_propagate`) that HAS the fleet-wide
+        picture and found no `tui-pty`-kind repo at all passes `frozenset()`
+        explicitly — that must NOT trip the "unknown, assume yes" fallback
+        `None` is reserved for."""
+        extras = lane_extras_for_machine(
+            ["gtk"], repos=["coord-tui"], tui_pty_repos=frozenset(),
+        )
+        assert extras == ["gtk-native"]
+
+    def test_explicit_tui_pty_repos_matching_a_served_repo_adds_tui_pty(self) -> None:
+        extras = lane_extras_for_machine(
+            [], repos=["vimcode", "other-repo"], tui_pty_repos=frozenset({"vimcode"}),
+        )
+        assert extras == ["tui-pty"]
+
+    def test_explicit_tui_pty_repos_not_served_by_this_host_adds_nothing(self) -> None:
+        extras = lane_extras_for_machine(
+            [], repos=["other-repo"], tui_pty_repos=frozenset({"vimcode"}),
+        )
+        assert extras == []
+
+
+class TestReposRequiringTuiPty:
+    def test_flat_driver_with_tui_pty_kind_is_included(self) -> None:
+        drivers = {"vimcode": _FakeDriver(kind="tui-pty")}
+        assert repos_requiring_tui_pty(drivers) == frozenset({"vimcode"})
+
+    def test_flat_driver_with_other_kind_is_excluded(self) -> None:
+        drivers = {"coord-tui": _FakeDriver(kind="tui-tuidriver")}
+        assert repos_requiring_tui_pty(drivers) == frozenset()
+
+    def test_routed_driver_with_a_tui_pty_route_is_included(self) -> None:
+        drivers = {
+            "claude-coordinator": _FakeDriver(
+                kind="",
+                routes=[
+                    _FakeDriver(kind="cli-pytest"),
+                    _FakeDriver(kind="tui-pty"),
+                ],
+            ),
+        }
+        assert repos_requiring_tui_pty(drivers) == frozenset({"claude-coordinator"})
+
+    def test_empty_drivers_map_yields_empty_set(self) -> None:
+        assert repos_requiring_tui_pty({}) == frozenset()
