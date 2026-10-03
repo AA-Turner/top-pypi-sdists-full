@@ -53,7 +53,7 @@ def test_the_tap_copy_matches() -> None:
 
 
 def test_the_pi_copy_matches() -> None:
-    source = (_PLUGINS / "probe-research-pi" / "src" / "wizardHint.ts").read_text(encoding="utf-8")
+    source = (_PLUGINS / "probe-research-pi" / "src" / "core" / "wizardHint.ts").read_text(encoding="utf-8")
     match = re.search(r'^export const WIZARD_HINT = "([^"\\]*)";$', source, re.MULTILINE)
     assert match, "src/wizardHint.ts must export WIZARD_HINT as one plain string literal"
     assert match.group(1) == WIZARD_HINT

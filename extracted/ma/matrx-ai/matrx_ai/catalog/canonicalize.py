@@ -13,19 +13,6 @@ from __future__ import annotations
 from typing import Any
 
 
-def _effort_from_budget(tokens: int) -> str:
-    # The unified budget->effort tiers (OpenAI thresholds; frozen by the golden).
-    if tokens < 1:
-        return "none"
-    if tokens < 2000:
-        return "low"
-    if tokens < 10000:
-        return "medium"
-    if tokens < 20000:
-        return "high"
-    return "xhigh"
-
-
 def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     out: dict[str, Any] = {}
 
@@ -50,7 +37,11 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     #   disable_reasoning=True            -> "none" (overrides everything)
     #   explicit reasoning_effort         -> as given ("auto" normalized to unset above)
     #   disable_reasoning=False, no effort -> "medium" ("reasoning ON, pick sensible level")
-    #   thinking_budget, no effort        -> budget-derived tier
+    #   thinking_budget, no effort        -> NO effort here. The number -> scale
+    #       conversion is TARGET-AWARE (settings-translation C5): this pass only
+    #       records the request ``_convert = {"reasoning_effort": "thinking_budget"}``
+    #       and ``CompiledControlsMap.bridge_numbers`` converts it through the
+    #       target rule's ``from_number`` (declared default = the old tiers).
     if disable_reasoning is True:
         out["reasoning_effort"] = "none"
     elif reasoning_effort is not None:
@@ -58,12 +49,8 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     elif disable_reasoning is False:
         out["reasoning_effort"] = "medium"
     elif thinking_budget is not None:
-        out["reasoning_effort"] = _effort_from_budget(int(thinking_budget))
-        # Metadata, never sent (outbound skips "_" keys): the effort tier above
-        # uses the OpenAI thresholds. Processors that mirror a provider's OWN
-        # budget arithmetic (anthropic/google) must treat it as unset and read
-        # the raw thinking_budget ride-along instead.
-        out["_reasoning_effort_derived"] = True
+        # Metadata, never sent (outbound skips "_" keys).
+        out["_convert"] = {"reasoning_effort": "thinking_budget"}
 
     reasoning_summary = getattr(config, "reasoning_summary", None)
     if reasoning_summary is not None:

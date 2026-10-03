@@ -42,6 +42,7 @@ from matrx_graph.contract_kinds import (
     ContractFamily,
     contract_definition,
 )
+from matrx_graph.kind_control_keys import applies_to, with_control_keys
 from matrx_graph.kinds import get_kind
 
 from matrx_ai.config.response_format import (
@@ -100,20 +101,52 @@ def is_bindable_kind(slug: str | None) -> bool:
     return bool(slug) and slug not in GENERIC_KINDS
 
 
-async def response_format_for_kind(slug: str) -> ResponseFormatJsonSchema | None:
-    """Build a json_schema response_format from a registered kind, or None."""
+async def response_format_for_kind(
+    slug: str,
+    *,
+    control_keys: bool = False,
+    many: bool = False,
+    allow_edit: bool = False,
+) -> ResponseFormatJsonSchema | None:
+    """Build a json_schema response_format from a registered kind, or None.
+
+    By default every kind is bound EXACTLY as registered.
+
+    ``control_keys=True`` — only a chain-aware run (KINDS-GLUE wave 2's router) — binds a
+    ``record`` kind in its AUTHORED form (``with_control_keys``, wave 2 §1.4): the model may say
+    ``_replaces`` / ``_new`` always, ``_record_id`` only when ``allow_edit``, and answers a batch
+    ``{__kind, _records: [...]}`` only when ``many``.
+
+    WHY OFF BY DEFAULT. Strict providers list every property in ``required`` and widen the
+    optional ones to nullable only within a budget; past it a field is FORCED non-null. Measured
+    over the 24 live record kinds (2026-10-02): on Anthropic the two extra root keys pushed
+    ``flashcard_set``, ``quiz_set``, ``q_and_a_set``, ``diagram_spec`` and ``decision_tree`` over
+    that budget — the model had to invent a ``_replaces`` uuid and a ``_new`` value on every call,
+    or real Fields lost their nullability instead. A run that cannot act on the keys must never
+    pay for them. Guard: ``tests/test_record_kind_binding_adds_no_control_keys.py``.
+    """
+    if (many or allow_edit) and not control_keys:
+        raise ValueError(
+            "response_format_for_kind: many/allow_edit shape the control keys and need "
+            "control_keys=True"
+        )
     entry = await get_kind(slug)
     if entry is None or entry.json_schema is None:
         # get_kind already logged the platform defect (unregistered / no schema).
         # NOTE: {} is a REGISTERED schema ("any value") — it falls through to
         # the portable gate below and declines there, loudly.
         return None
+    kind_schema = (
+        with_control_keys(entry.json_schema, mode="authored", many=many, allow_edit=allow_edit)
+        if control_keys and applies_to(entry.disposition)
+        else entry.json_schema
+    )
     # The envelope carries the KIND's own schema — the author's contract, which
     # the answer is checked against and pruned back to. Each provider translator
     # derives its wire copy from it (``schema.lint.make_portable``); the lint
     # report only decides whether the kind can be bound at all.
-    report = lint_output_schema(entry.json_schema)
-    schema = entry.json_schema if (report.portable_schema is not None or report.ok) else None
+    report = lint_output_schema(kind_schema)
+    schema = kind_schema if (report.portable_schema is not None or report.ok) else None
     if schema is None:
         logger.error(
             "response_format_for_kind: kind '%s' emitted_json_schema cannot be "

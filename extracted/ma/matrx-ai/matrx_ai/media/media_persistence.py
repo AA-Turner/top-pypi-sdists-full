@@ -524,8 +524,11 @@ class AIMediaHandler:
             # through to a direct fetch below.
 
         import httpx
+        from matrx_utils.outbound_guard import public_only_client
 
-        async with httpx.AsyncClient(
+        # The URL came from a provider or a model: every hop must be a public
+        # address, connected to the exact IP that was checked.
+        async with public_only_client(
             timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
             follow_redirects=True,
         ) as client:
@@ -571,11 +574,17 @@ class AIMediaHandler:
                     f"{resolver_error or 'no base64_data'}"
                 )
 
-        import requests
+        import httpx
+        from matrx_utils.outbound_guard import public_only_sync_client
 
-        resp = requests.get(url, timeout=(30.0, 300.0), allow_redirects=True)
-        resp.raise_for_status()
-        return resp.content
+        # Same rule as the async path: no address inside our network, every hop.
+        with public_only_sync_client(
+            timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
+            follow_redirects=True,
+        ) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            return resp.content
 
     @staticmethod
     def _decode_data_url(s: str) -> bytes:

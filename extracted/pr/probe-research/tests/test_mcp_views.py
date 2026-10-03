@@ -40,6 +40,17 @@ _SESSION_ID = "11111111-1111-1111-1111-111111111111"
 #: let `_view_trial_trajectory` pass while never finding its own root.
 _TRIAL_ID = "span-0"
 
+#: The sandbox-state attempt `_populated` seeds a filesystem diff for. A run's
+#: `diff` view needs one named (view_options.trial), so the loops below pass it.
+_DIFF_TRIAL = "astropy-12907__attempt-1"
+
+#: The titled sub-note `_populated` seeds (on the shared artifact, whose card
+#: shows only an excerpt of notes, so no other view's payload changes).
+_SUB_NOTE_ID = "22222222-2222-2222-2222-222222222222"
+
+#: Views that need an option to answer at all, and the option that answers.
+_REQUIRED_OPTIONS = {("run", "diff"): {"trial": _DIFF_TRIAL}}
+
 
 def _populated(client, app, *, spans: int = 3):
     """A run with EVERYTHING a view could want: spans, series, metric points,
@@ -187,6 +198,47 @@ def _populated(client, app, *, spans: int = 3):
         },
     ]
     client.create_artifact_version(shared_id, uri="r2://bucket/v1")
+    # Who made the run and the file -- the captured sessions each `sessions`
+    # view reads (the run's off its bundle, the file's off its own route).
+    session_row = {
+        "session_id": _SESSION_ID,
+        "agent": "claude_code",
+        "owner_name": "Dev",
+        "name": "eval smoke",
+        "first_seen_at": "2026-07-16T00:00:00Z",
+        "last_seen_at": "2026-07-16T00:05:00Z",
+    }
+    app.run_sessions[rid] = [session_row]
+    app.artifact_sessions[shared_id] = [session_row]
+    # One trial's filesystem diff, so the run's `diff` view has rows to serve.
+    app.sandbox_diffs[(rid, _DIFF_TRIAL)] = {
+        "entries": [{"path": "src/units.py", "status": "modified", "type": "f"}],
+        "counts": {
+            "added": 0,
+            "modified": 1,
+            "deleted": 0,
+            "unchanged": 40,
+            "begin_files": 41,
+            "end_files": 41,
+        },
+    }
+    app.project_readmes[project["id"]] = {
+        "state": "snapshot",
+        "repo": "acme/folding",
+        "path": "README.md",
+        "commit_sha": "c" * 40,
+        "markdown": "# Folding\n\nDockQ evaluation harness.\n",
+    }
+    app.sub_notes[_SUB_NOTE_ID] = {
+        "id": _SUB_NOTE_ID,
+        "parent_kind": "artifact",
+        "parent_id": shared_id,
+        "title": "Scorer caveat",
+        "body": "Relative paths only: absolute ones score zero.",
+        "notes_version": 1,
+        "created_at": "2026-07-16T00:00:00Z",
+        "updated_at": "2026-07-16T00:00:00Z",
+    }
     # The TEAM NOTE, non-empty deliberately: an empty document would let its
     # card pass by having nothing to report.
     app.team_note = {
@@ -442,11 +494,17 @@ def test_no_view_reports_missing_unconditionally(client, app):
         "team-note": "team-note",
         "session": f"session:{_SESSION_ID}",
         "trial": f"trial:{_TRIAL_ID}",
+        "sub_note": f"sub_note:{_SUB_NOTE_ID}",
     }
     service = _service(client)
 
     for kind, view in sorted(_VIEWS):
-        result = service.get_entity(refs[kind], view=view, token_budget=100_000)
+        result = service.get_entity(
+            refs[kind],
+            view=view,
+            token_budget=100_000,
+            filters=_REQUIRED_OPTIONS.get((kind, view)),
+        )
         assert "completeness" not in result, (
             f"view={view!r} on a {kind} reports missing "
             f"{result['completeness']['missing']} against a fully-populated entity"
@@ -876,9 +934,15 @@ def test_card_advertises_exactly_the_views_that_kind_supports(client, app):
         card = service.get_entity(ref, view="card")
         advertised = card["data"]["available_views"]
         assert advertised == _supported_views(kind)
-        # Everything advertised actually answers.
+        # Everything advertised actually answers -- given the option a view
+        # cannot answer without (a run's `diff` needs its trial named).
         for view in advertised:
-            service.get_entity(ref, view=view, token_budget=100_000)
+            service.get_entity(
+                ref,
+                view=view,
+                token_budget=100_000,
+                filters=_REQUIRED_OPTIONS.get((kind, view)),
+            )
 
 
 def test_artifacts_view_surfaces_undelivered_async_uploads(client, app):

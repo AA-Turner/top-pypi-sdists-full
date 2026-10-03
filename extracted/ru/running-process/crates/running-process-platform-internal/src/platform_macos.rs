@@ -47,12 +47,28 @@ pub use autostart::{
 pub(crate) mod process_inspect;
 pub use process_inspect::{
     process_executable_path, process_force_kill, process_same_executable_path,
-    process_signal_terminate, ProcessLiveness,
+    process_fault_code_name, process_signal_terminate, ProcessLiveness,
+};
+
+#[path = "platform_macos/loaded_images.rs"]
+mod loaded_images;
+pub use loaded_images::{
+    loaded_images as process_loaded_images,
+    open_loaded_image_file as process_open_loaded_image_file,
 };
 
 #[path = "platform_macos/raw_write.rs"]
 pub(crate) mod raw_write;
 pub use raw_write::write_all_to_descriptor as fs_write_all_to_descriptor;
+
+/// Whether a handle another process holds open keeps a file from being removed.
+///
+/// macOS unlinks a name while descriptors on it stay open, so
+/// callers use the answer to decide whether releasing handles before a
+/// recursive delete means anything here.
+pub const fn fs_open_handles_block_removal() -> bool {
+    false
+}
 
 #[path = "platform_macos/shutdown_request.rs"]
 pub(crate) mod shutdown_request;
@@ -77,12 +93,18 @@ pub use host::{
 };
 pub use host::login_environment_block as host_login_environment_block;
 
+/// macOS has no control groups.
+pub fn host_process_cgroup() -> Option<io::Result<String>> {
+    None
+}
+
 #[cfg(feature = "fs")]
 #[path = "platform_macos/fs.rs"]
 pub(crate) mod fs;
 #[cfg(feature = "fs")]
 pub use fs::{
     create_private_file as fs_create_private_file,
+    is_link_handle as fs_is_link_handle, open_read_no_follow as fs_open_read_no_follow,
     decode_path_bytes as fs_decode_path_bytes,
     replace_file as fs_replace_file, sync_directory as fs_sync_directory,
     user_config_dir as fs_user_config_dir,
@@ -91,8 +113,24 @@ pub use fs::{
     open_lock_file as fs_open_lock_file, path_identity as fs_path_identity,
     try_lock_exclusive as fs_try_lock_exclusive, unlock as fs_unlock,
     user_run_data_root as fs_user_run_data_root, user_runtime_dir as fs_user_runtime_dir,
-    user_state_dir as fs_user_state_dir, FileIdentity as FsFileIdentity,
+    user_state_dir as fs_user_state_dir,
+    user_state_dir_from_environment as fs_user_state_dir_from_environment,
+    state_home_from_environment as fs_state_home_from_environment,
+    FileIdentity as FsFileIdentity,
 };
+
+#[path = "platform_macos/ape.rs"]
+pub(crate) mod ape;
+pub use ape::{
+    default_loader_dirs as ape_default_loader_dirs, is_exec_format_error as ape_is_exec_format_error,
+    is_executable as ape_is_executable, mark_executable as ape_mark_executable,
+    anonymous_executable as ape_anonymous_executable,
+    private_exec_dir as ape_private_exec_dir,
+    route_through_execvp as ape_route_through_execvp, APE_LOADER_HOST,
+    APE_EXECVP_SHELL_FALLBACK, APE_NEEDS_LOADER, APE_SHELL, APE_SYSTEM_LOADERS,
+};
+#[cfg(feature = "async-process")]
+pub use ape::route_tokio_through_execvp as ape_route_tokio_through_execvp;
 
 #[path = "platform_macos/executable.rs"]
 pub(crate) mod executable;
@@ -112,6 +150,7 @@ mod ipc_private_dir;
 pub use ipc::{
     current_user_id as ipc_current_user_id, Endpoint as IpcEndpoint,
     endpoint_is_filesystem_backed as ipc_endpoint_is_filesystem_backed,
+    handoff_transport_available as ipc_handoff_transport_available,
     nonblocking_zero_read_is_pending as ipc_nonblocking_zero_read_is_pending,
     select_endpoint_address as ipc_select_endpoint_address,
     InheritedListener as IpcInheritedListener, Listener as IpcListener,
@@ -152,11 +191,61 @@ pub fn ipc_broker_endpoint_name(bare_name: &str, path_scoped: bool) -> std::io::
         for byte in hash.finalize().as_bytes().iter().take(16) { let _ = write!(leaf, "{byte:02x}"); }
         return Ok(PathBuf::from("/tmp").join(format!(".rp-path-{leaf}.sock")).to_string_lossy().into_owned());
     }
+    Ok(ipc_component_endpoint_path("broker-v2", bare_name))
+}
+
+/// Concrete socket path for `bare_name` in the per-user runtime directory of
+/// `component` (`broker-v2`, `probe`, ...). Pure: performs no filesystem write.
+///
+/// `sun_path` is only 104 bytes here, so the leaf is a 16-hex hash of the bare
+/// name rather than the name itself.
+#[cfg(feature = "ipc")]
+pub fn ipc_component_endpoint_path(component: &str, bare_name: &str) -> String {
+    // SAFETY: `getuid` reads a process property and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    component_endpoint_path_in(crate::env_vars::TMPDIR.os(), uid, component, bare_name)
+}
+
+#[cfg(feature = "ipc")]
+fn component_endpoint_path_in(
+    tmpdir: Option<std::ffi::OsString>,
+    uid: u32,
+    component: &str,
+    bare_name: &str,
+) -> String {
+    use std::fmt::Write as _;
+
+    let mut hash = blake3::Hasher::new();
     hash.update(bare_name.as_bytes());
     let mut leaf = String::with_capacity(16);
-    for byte in hash.finalize().as_bytes().iter().take(8) { let _ = write!(leaf, "{byte:02x}"); }
-    let root = std::env::var_os("TMPDIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp"));
-    Ok(root.join(format!(".rp-{}-broker-v2", unsafe { libc::getuid() })).join(format!("{leaf}.sock")).to_string_lossy().into_owned())
+    for byte in hash.finalize().as_bytes().iter().take(8) {
+        let _ = write!(leaf, "{byte:02x}");
+    }
+    component_runtime_dir_in(tmpdir, uid, component)
+        .join(format!("{leaf}.sock"))
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Per-user runtime directory of `component`: the directory that holds its
+/// sockets and any runtime files published beside them. Pure.
+#[cfg(feature = "ipc")]
+pub fn ipc_component_runtime_dir(component: &str) -> std::path::PathBuf {
+    // SAFETY: `getuid` reads a process property and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    component_runtime_dir_in(crate::env_vars::TMPDIR.os(), uid, component)
+}
+
+#[cfg(feature = "ipc")]
+fn component_runtime_dir_in(
+    tmpdir: Option<std::ffi::OsString>,
+    uid: u32,
+    component: &str,
+) -> std::path::PathBuf {
+    use std::path::PathBuf;
+
+    let root = tmpdir.map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp"));
+    root.join(format!(".rp-{uid}-{component}"))
 }
 
 /// macOS `sun_path` is 104 bytes including the NUL terminator.
@@ -184,7 +273,7 @@ pub fn ipc_endpoint_name_limit() -> crate::platform::ipc::EndpointNameLimit {
 fn broker_v1_socket_dir() -> std::path::PathBuf {
     use std::path::PathBuf;
 
-    let root = std::env::var_os("TMPDIR")
+    let root = crate::env_vars::TMPDIR.os()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp"));
     root.join(format!(".rp-{}", unsafe { libc::getuid() }))
@@ -231,7 +320,7 @@ pub fn ipc_broker_v2_runtime_dir() -> std::path::PathBuf {
     // macOS hands each user a private `TMPDIR` (`/var/folders/...`), so it is
     // already per-user. The short leaf matters here: the broker's sockets
     // share this root and `sun_path` is only 104 bytes.
-    match std::env::var_os("TMPDIR") {
+    match crate::env_vars::TMPDIR.os() {
         Some(tmp) => std::path::PathBuf::from(tmp).join("rp-broker-v2"),
         None => crate::platform::ipc::per_user_runtime_fallback(),
     }
@@ -316,6 +405,16 @@ use crate::SpawnSpec;
 #[path = "platform_macos_descendants.rs"]
 mod descendants;
 pub use descendants::start_descendant_monitor;
+
+/// Attach to an already-running root (#1015). On this host the descendant
+/// monitor never depended on the spawn, so attaching is the same monitor.
+pub fn start_attached_descendant_monitor(
+    root_pid: u32,
+    stop: std::sync::Arc<crate::platform::process::DescendantMonitorStop>,
+    emit: Box<dyn Fn(crate::platform::process::DescendantEvent) + Send>,
+) -> std::io::Result<()> {
+    start_descendant_monitor(root_pid, stop, emit)
+}
 
 pub fn exact_trace_capability() -> crate::platform::process::ExactTraceCapability {
     crate::platform::process::ExactTraceCapability {
@@ -470,6 +569,12 @@ pub fn kill_tree(pid: u32, timeout: std::time::Duration) -> io::Result<u32> {
 pub fn exit_code(status: std::process::ExitStatus) -> i32 {
     use std::os::unix::process::ExitStatusExt;
     status.code().unwrap_or_else(|| -status.signal().unwrap_or(1))
+}
+
+/// The signal that terminated `status`'s process, if it died from one.
+pub fn exit_signal(status: &std::process::ExitStatus) -> Option<i32> {
+    use std::os::unix::process::ExitStatusExt;
+    status.signal()
 }
 
 pub fn set_process_name(name: &str) {
@@ -739,6 +844,23 @@ pub(crate) fn observe_owned_child_exit(pid: i32) -> io::Result<Option<i32>> {
     Ok(Some(if info.si_code == libc::CLD_EXITED { status } else { 128 + status }))
 }
 
+/// Apply a process priority expressed as a Unix nice value.
+pub fn apply_process_priority(pid: u32, nice: i32) -> io::Result<()> {
+    unix_set_priority(pid, nice)
+}
+
+/// Deliver the host's interactive-interrupt request to `pid`.
+///
+/// Unix sends SIGINT to the process, or to its group when the child leads one.
+/// `creationflags` only matters on Windows and is ignored here.
+pub fn send_interrupt(pid: u32, _creationflags: Option<u32>, create_process_group: bool) -> io::Result<()> {
+    use crate::platform::process::UnixSignalKind;
+    if create_process_group {
+        unix_signal_process_group(pid as i32, UnixSignalKind::Interrupt)
+    } else {
+        unix_signal_process(pid, UnixSignalKind::Interrupt)
+    }
+}
 pub fn unix_signal_process_group(pid: i32, signal: crate::platform::process::UnixSignalKind) -> io::Result<()> {
     if unsafe { libc::killpg(pid, unix_signal_raw(signal)) } == -1 { Err(io::Error::last_os_error()) } else { Ok(()) }
 }
@@ -763,6 +885,24 @@ pub fn after_compat_tokio_spawn(
     _kill_when_owner_dies: bool,
 ) -> io::Result<()> {
     Ok(())
+}
+
+/// Configure a caller-built command for [`crate::SpawnSpec::from_std_command`].
+///
+/// This is the `NativeProcess` launch mapping (`ProcessCommandConfig`), not
+/// the declarative `SpawnSpec` one, so a command handed over by the sync
+/// engine is configured exactly once and by the same code it uses today.
+#[cfg(feature = "async-process")]
+pub(crate) fn configure_override_command(
+    command: &mut std::process::Command,
+    config: crate::platform::process::ProcessCommandConfig,
+    kill_when_owner_dies: bool,
+) -> io::Result<()> {
+    if kill_when_owner_dies {
+        configure_process_command_for_bounded_owner_death(command, config)
+    } else {
+        configure_process_command(command, config)
+    }
 }
 
 #[cfg(feature = "async-process")]
@@ -814,7 +954,11 @@ fn configure_command_for_owner(
 }
 
 #[cfg(feature = "async-process")]
-pub(crate) fn after_spawn(_child: &Child, _kill_when_owner_dies: bool) -> io::Result<()> {
+pub(crate) fn after_spawn(
+    _child: &Child,
+    _kill_when_owner_dies: bool,
+    _nice: Option<i32>,
+) -> io::Result<()> {
     Ok(())
 }
 
@@ -1144,4 +1288,36 @@ pub(crate) async fn shutdown_output_reader<R>(reader: R, _pending: bool) -> std:
     // Tokio's Unix child pipes use readiness I/O, not detached blocking reads.
     drop(reader);
     Ok(())
+}
+
+/// Pins the per-host answers that facade callers branch on, so a change to
+/// either is a visible, reviewed edit rather than a silent behaviour change.
+#[cfg(test)]
+mod host_semantics_tests {
+    const ABSENT_PID: u32 = 0x7fff_fffe;
+
+    #[test]
+    fn priority_on_absent_pid_reports_the_os_error() {
+        assert!(super::apply_process_priority(ABSENT_PID, 0).is_err());
+    }
+
+    #[test]
+    fn interrupt_ignores_creation_flags_and_reports_absent_pid() {
+        // Unix has no CREATE_NEW_PROCESS_GROUP prerequisite: flags never
+        // short-circuit the signal, so the OS answers for a missing pid.
+        let error = super::send_interrupt(ABSENT_PID, None, false).unwrap_err();
+        assert_ne!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(super::send_interrupt(ABSENT_PID, Some(0), true).is_err());
+    }
+
+    #[test]
+    fn open_handles_block_removal_matches_this_host() {
+        assert!(!super::fs_open_handles_block_removal());
+    }
+
+    #[cfg(feature = "ipc")]
+    #[test]
+    fn handoff_transport_is_available() {
+        assert!(super::ipc_handoff_transport_available());
+    }
 }

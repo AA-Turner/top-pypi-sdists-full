@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepgram-sdk
-Version: 7.11.0
+Version: 7.12.0
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0
@@ -63,6 +63,7 @@ pip install deepgram-sdk
 ## Reference
 
 - **[API Reference](./reference.md)** - Complete reference for all SDK methods, parameters, and WebSocket connections
+- **[Flux TTS controls](./docs/FluxTtsControls.md)** - Pronunciation across Flux batch, Flux WebSocket, and Aura-2; Flux batch-only pause and speed behavior
 
 ## Usage
 

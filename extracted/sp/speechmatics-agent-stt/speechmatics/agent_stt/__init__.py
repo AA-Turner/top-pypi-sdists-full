@@ -11,7 +11,7 @@ This SDK runs no VAD and no turn detection of its own: either the service's VAD 
 or the application's does (Pipecat, LiveKit, ...) by calling `finalize()`.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from speechmatics.rt import AudioEncoding
 from speechmatics.rt import AudioError

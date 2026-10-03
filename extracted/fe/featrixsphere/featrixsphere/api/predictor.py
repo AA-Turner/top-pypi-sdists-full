@@ -724,37 +724,49 @@ class Predictor:
             current_epoch = None
             progress_fraction = None
             awaiting_start = False
-            for job_id, job in response_data.get('jobs', {}).items():
-                if job.get('job_type') == 'train_single_predictor':
-                    # The live job registry entry (this dict) does NOT carry
-                    # target_column/job_spec once a train_single_predictor job
-                    # is actually dispatched -- only the pre-dispatch
-                    # session.job_plan entries do (see
-                    # FoundationalModel._wait_for_predictor_id's job_plan
-                    # merge for the same gap). Requiring an exact match here
-                    # unconditionally meant this loop could NEVER find the
-                    # real, running job once it replaced any earlier
-                    # placeholder entry: status silently froze at whatever it
-                    # last was (often "ready"), the stall timer kept ticking
-                    # with no progress ever seen again, and the job would
-                    # then finish successfully server-side ~15 min later
-                    # while wait_for_training kept "waiting" for another 75+
-                    # minutes before finally raising TimeoutError (2026-09-14
-                    # incident, session e2e-pipeline-smoke-35ed737d...).
-                    # Treat a missing target_column as "can't disambiguate,
-                    # match on job_type alone" instead of "never matches" --
-                    # still disambiguates correctly on the rare job dict that
-                    # DOES carry target_column (e.g. multiple concurrent
-                    # targets on one session).
-                    job_target = job.get('target_column') or job.get('job_spec', {}).get('target_column')
-                    if not job_target or job_target == self.target_column:
-                        status = job.get('status', 'unknown')
-                        current_epoch = job.get('current_epoch') or job.get('epoch')
-                        progress_fraction = job.get('progress')
-                        awaiting_start = job_awaiting_start(job)
-                        if status in ('failed', 'error'):
-                            error_msg = job.get('error', 'Unknown error')
-                        break
+            # A retried predictor leaves its aborted first attempt in the
+            # session, earlier in dict-insertion order. Taking the first match
+            # read 'aborted' forever -- neither done nor failed -- so the
+            # caller sat out the full stall timeout and then failed a job
+            # that had finished under its retry (2026-10-02: QA --api workers
+            # stuck on synthetic_3label_big / diamonds / mushroom_24 whose
+            # SPs were aborted by a held-job vMotion and redone). Same
+            # most-recently-created rule as FoundationalModel's waiters.
+            sp_jobs = sorted(
+                (job for job in response_data.get('jobs', {}).values()
+                 if job.get('job_type') == 'train_single_predictor'),
+                key=lambda job: job.get('created_at') or '', reverse=True,
+            )
+            for job in sp_jobs:
+                # The live job registry entry (this dict) does NOT carry
+                # target_column/job_spec once a train_single_predictor job
+                # is actually dispatched -- only the pre-dispatch
+                # session.job_plan entries do (see
+                # FoundationalModel._wait_for_predictor_id's job_plan
+                # merge for the same gap). Requiring an exact match here
+                # unconditionally meant this loop could NEVER find the
+                # real, running job once it replaced any earlier
+                # placeholder entry: status silently froze at whatever it
+                # last was (often "ready"), the stall timer kept ticking
+                # with no progress ever seen again, and the job would
+                # then finish successfully server-side ~15 min later
+                # while wait_for_training kept "waiting" for another 75+
+                # minutes before finally raising TimeoutError (2026-09-14
+                # incident, session e2e-pipeline-smoke-35ed737d...).
+                # Treat a missing target_column as "can't disambiguate,
+                # match on job_type alone" instead of "never matches" --
+                # still disambiguates correctly on the rare job dict that
+                # DOES carry target_column (e.g. multiple concurrent
+                # targets on one session).
+                job_target = job.get('target_column') or job.get('job_spec', {}).get('target_column')
+                if not job_target or job_target == self.target_column:
+                    status = job.get('status', 'unknown')
+                    current_epoch = job.get('current_epoch') or job.get('epoch')
+                    progress_fraction = job.get('progress')
+                    awaiting_start = job_awaiting_start(job)
+                    if status in ('failed', 'error'):
+                        error_msg = job.get('error', 'Unknown error')
+                    break
 
             # Free the response dict immediately — don't hold across sleep()
             del response_data

@@ -112,6 +112,26 @@ class TestSetupLogger:
         mock_rich_handler.assert_called_once()
         mock_file_handler.assert_called_once_with("output.log")
 
+    def test_setup_logger_can_keep_logs_off_stdout(self, capsys):
+        logger = setup_logger(log_to_stderr=True)
+
+        logger.warning("registry lookup failed")
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "registry lookup failed" in captured.err
+        assert logger.console.stderr is False
+
+    def test_main_json_output_sends_logs_to_stderr(self):
+        with (
+            patch("sys.argv", ["cli.py", "test_path", "--json"]),
+            patch("skylos.cli.setup_logger", side_effect=RuntimeError("stop")) as setup,
+            pytest.raises(RuntimeError),
+        ):
+            main()
+
+        setup.assert_called_once_with(log_to_stderr=True)
+
     def test_remove_simple_import(self):
         """Test removing a simple import statement."""
         content = """import os
@@ -384,6 +404,30 @@ class TestMainFunction:
 
             mock_analyze.assert_called_once()
             mock_print.assert_called_once_with(json.dumps(mock_skylos_result))
+
+    @pytest.mark.parametrize("format_args", [["--json"], ["--format", "json"]])
+    def test_main_json_remains_parseable_when_analysis_logs(
+        self, mock_skylos_result, tmp_path, monkeypatch, capsys, format_args
+    ):
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["skylos", str(tmp_path), *format_args, "--no-provenance"],
+        )
+
+        def analyze_with_warning(*_args, **_kwargs):
+            logging.getLogger("skylos").warning("dependency inventory unavailable")
+            return json.dumps(mock_skylos_result)
+
+        with (
+            patch("skylos.cli.run_analyze", side_effect=analyze_with_warning),
+            patch("skylos.cli.load_config", return_value={}),
+        ):
+            main()
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == mock_skylos_result
+        assert "dependency inventory unavailable" in captured.err
 
     def test_main_config_file_is_loaded_and_forwarded(
         self, mock_skylos_result, tmp_path, monkeypatch
@@ -2261,6 +2305,121 @@ def test_main_upload_gate_failed_exits_when_not_forced(monkeypatch):
             cli.main()
 
         assert e.value.code == 1
+
+
+def test_explicit_rich_upload_shows_analysis_stages(monkeypatch):
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "unused_functions": [],
+        "unused_imports": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "unused_parameters": [],
+        "danger": [],
+        "quality": [],
+        "secrets": [],
+    }
+    monkeypatch.setattr(
+        cli.sys, "argv", ["skylos", ".", "--upload", "--no-provenance"]
+    )
+    fake_logger = Mock()
+    fake_logger.console = Mock()
+
+    with (
+        patch("skylos.cli.setup_logger", return_value=fake_logger),
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch("skylos.cli.load_config", return_value={}),
+        patch("skylos.cli.print_badge"),
+        patch("skylos.cli._print_upload_destination", return_value=(True, False)),
+        patch("skylos.api.get_project_token", return_value="test-token"),
+        patch("skylos.api.get_credit_balance", return_value=None),
+        patch(
+            "skylos.cli.upload_report",
+            return_value={"success": True, "scan_id": "scan123"},
+        ) as upload,
+    ):
+        cli.main()
+
+    messages = [
+        call.args[0]
+        for call in fake_logger.console.print.call_args_list
+        if call.args
+    ]
+    start = next(i for i, message in enumerate(messages) if "Analyzing locally" in str(message))
+    complete = next(
+        i for i, message in enumerate(messages) if "Source analysis complete" in str(message)
+    )
+    assert start < complete
+    upload.assert_called_once()
+
+
+def test_explicit_rich_upload_interrupted_during_analysis_reports_no_upload(
+    monkeypatch,
+):
+    monkeypatch.setattr(cli.sys, "argv", ["skylos", ".", "--upload"])
+    fake_logger = Mock()
+    fake_logger.console = Mock()
+
+    with (
+        patch("skylos.cli.setup_logger", return_value=fake_logger),
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", side_effect=KeyboardInterrupt),
+        patch("skylos.cli.load_config", return_value={}),
+        patch("skylos.cli.upload_report") as upload,
+    ):
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+
+    assert exc.value.code == 130
+    messages = [
+        call.args[0]
+        for call in fake_logger.console.print.call_args_list
+        if call.args
+    ]
+    assert any("Analyzing locally" in str(message) for message in messages)
+    assert any("no Cloud scan was created" in str(message) for message in messages)
+    assert not any("Source analysis complete" in str(message) for message in messages)
+    upload.assert_not_called()
+
+
+def test_explicit_rich_upload_reports_incomplete_scan_before_exit(monkeypatch):
+    result = {
+        "analysis_summary": {
+            "total_files": 1,
+            "sca_coverage": {"status": "unavailable"},
+        },
+        "analysis_errors": [],
+        "dependency_vulnerabilities": [],
+    }
+    monkeypatch.setattr(
+        cli.sys,
+        "argv",
+        ["skylos", ".", "-a", "--upload", "--no-provenance"],
+    )
+    fake_logger = Mock()
+    fake_logger.console = Mock()
+
+    with (
+        patch("skylos.cli.setup_logger", return_value=fake_logger),
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch("skylos.cli.load_config", return_value={}),
+        patch("skylos.cli.print_badge"),
+        patch("skylos.cli.upload_report") as upload,
+    ):
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+
+    assert exc.value.code == 2
+    messages = [
+        str(call.args[0])
+        for call in fake_logger.console.print.call_args_list
+        if call.args
+    ]
+    assert any("Cloud upload was not started" in message for message in messages)
+    assert any("Dependency vulnerability scan incomplete" in message for message in messages)
+    upload.assert_not_called()
 
 
 def test_main_json_upload_calls_upload_report_quiet(monkeypatch):

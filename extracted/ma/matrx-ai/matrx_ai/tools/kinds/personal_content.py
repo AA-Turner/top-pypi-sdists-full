@@ -23,6 +23,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "note_tool_result",
+    disposition="record",
     label="Note Tool Result",
     family="workbench",
     example={"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "label": "Ideas", "folder_name": "inbox", "content": "…", "tags": []},
@@ -59,6 +60,7 @@ class NoteToolResult(KindModel):
 
 @kind(
     "memory_tool_result",
+    disposition="record",
     label="Memory Tool Result",
     family="memory",
     example={"stored": True, "key": "favorite_color", "type": "preference"},
@@ -82,6 +84,7 @@ class MemoryToolResult(KindModel):
 
 @kind(
     "dataset_tool_result",
+    disposition="record",
     label="Dataset Tool Result",
     family="datasets",
     example={"tables": [{"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "table_name": "leads"}], "count": 1},

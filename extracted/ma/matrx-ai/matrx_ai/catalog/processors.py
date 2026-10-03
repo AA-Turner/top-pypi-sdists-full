@@ -10,12 +10,19 @@ The built-ins below are the exact (now sole) owners of the irreducible
 thinking arithmetic ported from the retired ThinkingConfig; the chat param
 golden (tests/fixtures/chat_param_golden) freezes their behaviour.
 
-Canonical-config note: ``canonicalize.canonical_settings_from_config`` emits
-``_reasoning_effort_derived=True`` when reasoning_effort was derived from a raw
-thinking_budget (no explicit effort). Processors that mirror ThinkingConfig's
-per-provider budget arithmetic must treat a derived effort as UNSET (via
-``_explicit_effort``) so the raw budget takes its legacy path — the derived
-tier uses OpenAI's thresholds, not this provider's.
+TRANSLATION TABLES ARE DATA (settings-translation C5, CONTRACTS.md K6). No
+table lives here: a processor reads its numbers/maps from ITS rule —
+``rule.from_number`` (number -> scale), ``rule.to_number`` (scale -> number),
+``rule.processor_config[...]`` (maps / thresholds) — and falls back to the
+declared defaults in ``catalog/translation_defaults.py`` (today's behaviour)
+when the rule carries none.
+
+Converted-sibling note: ``CompiledControlsMap.bridge_numbers`` (the
+target-aware outbound seam) converts a raw thinking_budget into a
+reasoning_effort when the caller set no effort, and records it in
+``canonical["_converted"]`` ({target_key: source_key}). A processor owning the
+raw number must treat a converted effort as UNSET (``_explicit_effort``) and
+translate the raw budget through its own numbers.
 """
 
 from __future__ import annotations
@@ -26,13 +33,14 @@ from typing import Any
 
 from matrx_utils import vcprint
 
-from matrx_ai.catalog.models import Adjustment
+from matrx_ai.catalog import translation_defaults as D
+from matrx_ai.catalog.models import Adjustment, ControlRule
 
 # The house enum values (ai_041): "auto" = leave the key unset (the provider
 # default applies), "none" = send nothing. They are POSTURES, not degrees —
 # see ProcessorContext.reconcile_supported for why that distinction is
 # load-bearing.
-_HOUSE_VALUES = frozenset({"auto", "none"})
+_HOUSE_VALUES = D.HOUSE_VALUES
 
 
 @dataclass
@@ -50,9 +58,48 @@ class ProcessorContext:
     # The model's real output maximum (CompiledControlsMap.output_maximum) — a
     # processor that WRITES the output ceiling must never write above it.
     output_maximum: int | None = None
+    # THE RULE this processor is attached to — the source of its translation
+    # tables (from_number / to_number / processor_config). None only for a
+    # context built by hand outside outbound; then the declared defaults apply.
+    rule: ControlRule | None = None
+    # K6 ``accepts`` — the capability list, when the rule declares one. Unlike
+    # ``supported_values`` (accepts, else ui_values — the Gemini-3 contract
+    # since 2026-08-17), this is EMPTY unless the rule declares ``accepts``,
+    # so processors that never enforced ui_values keep not enforcing them.
+    accepts: frozenset[str] = frozenset()
 
     def cap_output(self, value: int) -> int:
         return min(value, self.output_maximum) if self.output_maximum else value
+
+    # ── the rule's tables, else the declared defaults ────────────────────────
+    def from_number(self, number: float, default: list[dict[str, Any]]) -> Any:
+        """number -> scale through the rule's ``from_number`` (else ``default``)."""
+        steps = self.rule.from_number if self.rule is not None and self.rule.from_number else default
+        return D.step_lookup(steps, number)
+
+    def to_number_table(self, default: dict[str, int]) -> dict[str, int]:
+        """scale -> number table: the rule's ``to_number`` (else ``default``)."""
+        if self.rule is not None and self.rule.to_number:
+            return self.rule.to_number
+        return default
+
+    def table(self, name: str, default: Any) -> Any:
+        """A map/threshold from ``processor_config[name]`` (else ``default``)."""
+        value = self.config.get(name)
+        return default if value is None else value
+
+    def reconcile_accepted(self, value: str | None) -> str | None:
+        """K6 ``accepts`` on a processor's OUTPUT: like ``reconcile_supported``
+        but only when the rule declares ``accepts`` (seed semantics — a rule with
+        ui_values and no accepts behaves exactly as before)."""
+        if value is None or not self.accepts:
+            return value
+        saved = self.supported_values
+        self.supported_values = self.accepts
+        try:
+            return self.reconcile_supported(value)
+        finally:
+            self.supported_values = saved
 
     def reconcile_supported(self, value: str | None) -> str | None:
         """Force a processor's RESOLVED provider value into the offering's
@@ -95,6 +142,7 @@ class ProcessorContext:
                 canonical_value=value,
                 sent_value=nearest,
                 expected=nearest is not None,
+                provenance="computed",  # K9: the nearest metric decided
                 reason=(
                     f"'{self.key}' resolved to {value!r}, which this offering does not "
                     f"support (supported: {sorted(self.supported_values)}) — "
@@ -175,9 +223,10 @@ def get_processor(name: str) -> ProcessorFn:
 
 
 def _explicit_effort(canonical: dict[str, Any]) -> str | None:
-    # A budget-derived effort must NOT drive provider-specific effort maps —
-    # ThinkingConfig resolves the raw budget through per-provider thresholds.
-    if canonical.get("_reasoning_effort_derived"):
+    # An effort CONVERTED from the raw budget (bridge_numbers) must NOT drive
+    # provider-specific effort maps — the processor translates the raw budget
+    # through its own numbers (the rule's from_number / to_number).
+    if "reasoning_effort" in (canonical.get("_converted") or {}):
         return None
     effort = canonical.get("reasoning_effort")
     # HOUSE SEMANTICS (ai_041): "auto" == UNSET, everywhere. canonicalize.py
@@ -197,70 +246,33 @@ def _explicit_effort(canonical: dict[str, Any]) -> str | None:
 # processor_config:
 #   mode: "budget" (default) | "adaptive"
 #   default_max_tokens: int (default 32768 — the translator's permissive floor)
-#   effort_ceiling: str | None (adaptive only — ai_047; see _ADAPTIVE_EFFORT_ORDER)
+#   effort_ceiling: str | None (adaptive only — ai_047; order = translation_defaults)
 #   consumes / order: engine keys (see controls.py)
 #
-# Reads canonical: reasoning_effort (+_reasoning_effort_derived), thinking_budget,
+# Reads canonical: reasoning_effort (+_converted), thinking_budget,
 # thinking_level, include_thoughts, reasoning_summary, max_output_tokens.
 # Writes params: thinking, output_config.effort (adaptive), max_tokens.
 
-ANTHROPIC_MIN_BUDGET_TOKENS = 1024
-# Google's thinking_config.thinking_budget field range is [-1, 65535] (live 400 text).
-GOOGLE_THINKING_BUDGET_FIELD_MAX = 65535
+# Re-exported for importers of the historical names; the values live in
+# translation_defaults (declared defaults, overridable per rule).
+ANTHROPIC_MIN_BUDGET_TOKENS = D.ANTHROPIC_MIN_BUDGET_TOKENS
+GOOGLE_THINKING_BUDGET_FIELD_MAX = D.GOOGLE_THINKING_BUDGET_FIELD_MAX
 # LAST RESORT ONLY — the offering's own `default_max_tokens` is the answer, and
-# it must BE the model's real `ai.model_definition.max_tokens`.
-#
-# 🚨 This constant is a number from the era when 32,768 WAS the Anthropic
-# ceiling, and on 2026-09-11 all eleven Anthropic offerings still declared it
-# while Opus 5 and Sonnet 5 could do 128,000 — so every caller who declared
-# nothing was silently capped at a quarter of the model's room, and nothing
-# said so. Never raise this constant to chase a new model: put the model's real
-# maximum in its offering row, where the catalog can carry the truth per model.
-# The guard that notices the next drift:
-# `python scripts/check_output_ceiling_defaults.py` (`--self-test` to prove it
-# can fail).
-ANTHROPIC_DEFAULT_MAX_TOKENS = 32768
+# it must BE the model's real `ai.model_definition.max_tokens` (2026-09-11: all
+# eleven Anthropic offerings declared 32,768 while Opus 5 / Sonnet 5 could do
+# 128,000). Never raise it to chase a new model. Guard:
+# `python scripts/check_output_ceiling_defaults.py` (`--self-test`).
+ANTHROPIC_DEFAULT_MAX_TOKENS = D.ANTHROPIC_DEFAULT_MAX_TOKENS
 
-# ThinkingConfig.to_anthropic_thinking effort_to_budget, verbatim.
-_ANTHROPIC_EFFORT_TO_BUDGET: dict[str, int] = {
-    "none": 0,
-    "minimal": 1024,  # Anthropic's hard minimum (it rejects < 1024)
-    "low": 1024,
-    "medium": 4096,
-    "high": 8192,
-    "xhigh": 24576,
-}
-
-# ThinkingConfig.to_anthropic_adaptive_thinking effort_mapping — MINUS the
-# legacy "auto" -> "high" entry, retired by the house auto/none standard
-# (ai_041): "auto" == unset (no thinking key sent; the provider default
-# applies), never a concrete effort. "none" (explicit off) is handled before
-# this map is consulted. Deliberate divergence from the pre-migration golden.
-# ai_045: "xhigh" and "max" pass through natively — Anthropic's adaptive
-# output_config.effort accepts low/medium/high/xhigh/max on every adaptive
-# model (Opus 4.7+, Sonnet 5, Fable 5). The old "xhigh" -> "high" cap was a
-# port from before the provider grew the deeper tiers; product-level gating
-# of the expensive tiers lives in the offering rule's ui_values (the base
-# listings stop at "high"; the premium "-max" listings expose xhigh/max).
-_ANTHROPIC_ADAPTIVE_EFFORT: dict[str, str | None] = {
-    "none": None,
-    "minimal": "low",
-    "low": "low",
-    "medium": "medium",
-    "high": "high",
-    "xhigh": "xhigh",
-    "max": "max",
-}
-
-# ai_047: the second, ENGINE-side gate on the expensive adaptive tiers. The
-# offering's ui_values is a UI cap only — a raw API caller can send
-# reasoning_effort="xhigh"/"max" straight at a BASE listing and (since ai_045's
-# native pass-through) reach the provider at full depth. processor_config
-# "effort_ceiling" clamps any resolved effort ABOVE the ceiling down to it,
-# with a loud Adjustment so the deviation is visible in response metadata.
-# Values at/below the ceiling pass through; auto/none semantics are untouched
-# (they exit before this runs). The premium "-max" offerings set NO ceiling.
-_ADAPTIVE_EFFORT_ORDER: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
+# Tables (each overridable by the rule — see translation_defaults):
+#   budget mode   effort -> budget_tokens        rule.to_number
+#   adaptive mode effort -> output_config.effort processor_config["effort_map"]
+#                 budget -> effort               rule.from_number
+#                 thinking_level -> effort       processor_config["thinking_level_map"]
+# ai_045: "xhigh"/"max" pass through natively on adaptive; product gating of the
+# expensive tiers is the offering's ui_values + ``effort_ceiling`` (ai_047).
+# "auto" never reaches a table (house auto == unset, ai_041); "none" (explicit
+# off) is handled before any table is consulted.
 
 
 def _apply_effort_ceiling(
@@ -269,21 +281,22 @@ def _apply_effort_ceiling(
     ceiling = ctx.config.get("effort_ceiling")
     if ceiling is None:
         return effort_level
-    if ceiling not in _ADAPTIVE_EFFORT_ORDER:
+    order: tuple[str, ...] = tuple(ctx.table("effort_order", D.ANTHROPIC_ADAPTIVE_EFFORT_ORDER))
+    if ceiling not in order:
         vcprint(
             f"anthropic_thinking processor_config.effort_ceiling={ceiling!r} is not a "
-            f"valid adaptive effort tier {_ADAPTIVE_EFFORT_ORDER}.\n"
+            f"valid adaptive effort tier {order}.\n"
             f"  Fix the ai.offering override / ai.api.rules row for key '{ctx.key}'.",
             title="🚨 AI CATALOG INVALID EFFORT CEILING",
             color="red",
         )
         raise ValueError(
             f"anthropic_thinking: invalid processor_config effort_ceiling {ceiling!r} "
-            f"(expected one of {_ADAPTIVE_EFFORT_ORDER})"
+            f"(expected one of {order})"
         )
-    if effort_level not in _ADAPTIVE_EFFORT_ORDER:
+    if effort_level not in order:
         return effort_level
-    if _ADAPTIVE_EFFORT_ORDER.index(effort_level) <= _ADAPTIVE_EFFORT_ORDER.index(ceiling):
+    if order.index(effort_level) <= order.index(ceiling):
         return effort_level
     ctx.adjustments.append(
         Adjustment(
@@ -326,6 +339,8 @@ def _anthropic_budget_thinking(
 ) -> dict[str, Any]:
     default_max = ctx.config.get("default_max_tokens", ANTHROPIC_DEFAULT_MAX_TOKENS)
     current_max = _current_max_tokens(canonical, params)
+    min_budget = int(ctx.table("min_budget_tokens", D.ANTHROPIC_MIN_BUDGET_TOKENS))
+    headroom = int(ctx.table("max_tokens_headroom", D.ANTHROPIC_MAX_TOKENS_HEADROOM))
 
     # Budget resolution — thinking_budget WINS over effort (legacy contract).
     thinking_budget: int | None = None
@@ -334,33 +349,33 @@ def _anthropic_budget_thinking(
     else:
         effort = _explicit_effort(canonical)
         if effort:
-            thinking_budget = _ANTHROPIC_EFFORT_TO_BUDGET.get(effort)
+            thinking_budget = ctx.to_number_table(D.ANTHROPIC_EFFORT_TO_BUDGET).get(effort)
 
     if not thinking_budget:  # None or 0 — no thinking; translator max_tokens fallback
         params["max_tokens"] = ctx.cap_output(current_max if current_max is not None else default_max)
         return params
 
-    if thinking_budget < ANTHROPIC_MIN_BUDGET_TOKENS:
+    if thinking_budget < min_budget:
         # Anthropic hard-rejects budget_tokens < 1024 — raise to the floor, never drop.
         ctx.adjustments.append(
             Adjustment(
                 key="thinking_budget",
                 action="clamped",
                 canonical_value=thinking_budget,
-                sent_value=ANTHROPIC_MIN_BUDGET_TOKENS,
+                sent_value=min_budget,
                 reason=(
-                    f"Anthropic requires thinking.budget_tokens >= {ANTHROPIC_MIN_BUDGET_TOKENS}; "
+                    f"Anthropic requires thinking.budget_tokens >= {min_budget}; "
                     f"raised {thinking_budget} to the minimum"
                 ),
             )
         )
-        thinking_budget = ANTHROPIC_MIN_BUDGET_TOKENS
+        thinking_budget = min_budget
 
     # Anthropic requires max_tokens > thinking.budget_tokens.
     if current_max is None:
-        validated_max = max(thinking_budget + 2048, default_max)
+        validated_max = max(thinking_budget + headroom, default_max)
     elif current_max <= thinking_budget:
-        validated_max = thinking_budget + 2048
+        validated_max = thinking_budget + headroom
         ctx.adjustments.append(
             Adjustment(
                 key="max_output_tokens",
@@ -383,13 +398,14 @@ def _anthropic_budget_thinking(
     if capped_max != validated_max:
         validated_max = capped_max
         if thinking_budget >= validated_max:
-            fitted = max(ANTHROPIC_MIN_BUDGET_TOKENS, validated_max - 2048)
+            fitted = max(min_budget, validated_max - headroom)
             ctx.adjustments.append(
                 Adjustment(
                     key="thinking_budget",
                     action="clamped",
                     canonical_value=thinking_budget,
                     sent_value=fitted,
+                    provenance="computed",  # K9: fitted to the model's maximum
                     reason=(
                         f"thinking.budget_tokens {thinking_budget} must stay below max_tokens, "
                         f"which this model caps at {validated_max}; budget fitted to {fitted}"
@@ -424,7 +440,9 @@ def _always_on_thinking_floor(
     to see it. This is a CONVERSION (``mapped``): logged on the server, silent to
     the client, like every other conversion.
     """
-    effort = _apply_effort_ceiling(effort_level or "low", ctx)
+    effort = _apply_effort_ceiling(
+        effort_level or ctx.table("always_on_floor_effort", D.ANTHROPIC_ALWAYS_ON_FLOOR_EFFORT), ctx
+    )
     ctx.adjustments.append(
         Adjustment(
             key=key,
@@ -473,23 +491,20 @@ def _anthropic_adaptive_thinking(
                     params, ctx, effort_level=None, key="reasoning_effort", requested="none"
                 )
             return params
-        effort_level = _ANTHROPIC_ADAPTIVE_EFFORT.get(explicit)
+        effort_level = ctx.table("effort_map", D.ANTHROPIC_ADAPTIVE_EFFORT).get(explicit)
 
-    # Priority 2: thinking_budget token ranges (adaptive tiers, NOT the budget map).
+    # Priority 2: thinking_budget token ranges (adaptive tiers via the rule's
+    # from_number, NOT the budget map). A budget <= 0 is OFF.
     if effort_level is None and canonical.get("thinking_budget") is not None:
         budget = int(canonical["thinking_budget"])
         if budget <= 0:
             thinking_off = True
-        elif budget <= 1024:
-            effort_level = "low"
-        elif budget <= 8192:
-            effort_level = "medium"
         else:
-            effort_level = "high"
+            effort_level = ctx.from_number(budget, D.ANTHROPIC_ADAPTIVE_FROM_NUMBER)
 
     # Priority 3: thinking_level named levels.
     if effort_level is None and not thinking_off and canonical.get("thinking_level") is not None:
-        effort_level = {"minimal": "low", "low": "low", "medium": "medium", "high": "high"}.get(
+        effort_level = ctx.table("thinking_level_map", D.ANTHROPIC_ADAPTIVE_THINKING_LEVEL).get(
             canonical["thinking_level"]
         )
 
@@ -515,6 +530,10 @@ def _anthropic_adaptive_thinking(
 
     # ai_047: engine-side ceiling — the second gate behind ui_values.
     effort_level = _apply_effort_ceiling(effort_level, ctx)
+    # K6 accepts on the processor's output (only when the rule declares it).
+    effort_level = ctx.reconcile_accepted(effort_level)
+    if effort_level is None:
+        return params
 
     # Always send display explicitly so the whole adaptive class streams
     # thinking unless the caller opted out with reasoning_summary="never".
@@ -585,8 +604,10 @@ def anthropic_temp_topp_exclusion(
     if "thinking" not in params:
         return _prune_empty_container(params, container)
 
+    required_temp = ctx.table("thinking_temperature", D.ANTHROPIC_THINKING_TEMPERATURE)
+    min_top_p = ctx.table("thinking_min_top_p", D.ANTHROPIC_THINKING_MIN_TOP_P)
     sent_temp = wire.get("temperature")
-    if sent_temp is not None and sent_temp != 1:
+    if sent_temp is not None and sent_temp != required_temp:
         wire.pop("temperature")
         ctx.adjustments.append(
             Adjustment(
@@ -594,7 +615,7 @@ def anthropic_temp_topp_exclusion(
                 action="dropped",
                 canonical_value=sent_temp,
                 sent_value=None,
-                reason="Anthropic extended thinking requires temperature=1 — dropped",
+                reason=f"Anthropic extended thinking requires temperature={required_temp} — dropped",
             )
         )
     if "top_k" in wire:
@@ -609,7 +630,7 @@ def anthropic_temp_topp_exclusion(
             )
         )
     sent_top_p = wire.get("top_p")
-    if sent_top_p is not None and sent_top_p < 0.95:
+    if sent_top_p is not None and sent_top_p < min_top_p:
         wire.pop("top_p")
         ctx.adjustments.append(
             Adjustment(
@@ -617,7 +638,7 @@ def anthropic_temp_topp_exclusion(
                 action="dropped",
                 canonical_value=sent_top_p,
                 sent_value=None,
-                reason="Anthropic extended thinking only accepts top_p in [0.95, 1] — dropped",
+                reason=f"Anthropic extended thinking only accepts top_p in [{min_top_p}, 1] — dropped",
             )
         )
     return _prune_empty_container(params, container)
@@ -642,49 +663,17 @@ def _prune_empty_container(params: dict[str, Any], container: str | None) -> dic
 #           translator's `"flash" in model_name` probe, per-offering data now)
 #   target: provider key for the fragment (default "thinking_config")
 
-# to_google_thinking_legacy effort_to_budget, verbatim (unknown -> 1024 via
-# .get(effort, 1024)). "auto" never reaches this map (house auto == unset,
-# normalized in canonicalize + _explicit_effort — ai_041): the fragment stays
-# empty and the provider default applies (legacy sent budget 1024 for auto —
-# deliberate divergence). "none" -> 0 -> the fragment omits thinking_budget
-# entirely (send nothing), already standard-compliant.
-_GOOGLE_LEGACY_EFFORT_TO_BUDGET: dict[str, int] = {
-    "none": 0,
-    "minimal": 512,
-    "low": 1024,
-    "medium": 4096,
-    "high": 8192,
-    "xhigh": 24576,
-}
-
-# to_google_thinking_3 maps — MINUS the legacy "auto"/"none" entries, retired
-# by the house auto/none standard (ai_041): "auto" == unset (no thinking_level;
-# the provider default applies) and "none" == send nothing (the legacy maps
-# collapsed none to a concrete level — "minimal" on flash, "low" on pro — which
-# is exactly the violation the standard outlaws). Deliberate divergences from
-# the pre-migration golden. Non-native tiers (pro medium -> low, xhigh -> high)
-# remain as TRANSLATION compat; the UI never offers them (ui_values).
-_GOOGLE_3_EFFORT_TO_LEVEL_FLASH: dict[str, str | None] = {
-    "minimal": "minimal",
-    "low": "low",
-    "medium": "medium",
-    "high": "high",
-    "xhigh": "high",
-}
-_GOOGLE_3_EFFORT_TO_LEVEL_PRO: dict[str, str | None] = {
-    "minimal": "low",
-    "low": "low",
-    "medium": "low",
-    "high": "high",
-    "xhigh": "high",
-}
-_GOOGLE_3_SUMMARY_TO_INCLUDE: dict[str, bool | None] = {
-    "concise": True,
-    "always": True,
-    "detailed": True,
-    "never": False,
-    "auto": None,
-}
+# Tables (each overridable by the rule — see translation_defaults):
+#   legacy   effort -> thinking_budget        rule.to_number (unknown effort ->
+#                                             processor_config["unknown_effort_budget"])
+#   gemini_3 effort -> thinking_level         processor_config["level_map"] (else
+#                                             the family's default table)
+#            thinking_budget -> level         rule.from_number
+#            reasoning_summary -> include     processor_config["summary_to_include"]
+# House values (ai_041): "auto" never reaches a table (fragment stays empty, the
+# provider default applies); "none" sends nothing (no level, no budget).
+# Non-native gemini_3 tiers (pro medium -> low, xhigh -> high) are TRANSLATION
+# compat; the UI never offers them (ui_values).
 
 
 @register_processor("google_thinking")
@@ -694,14 +683,14 @@ def google_thinking(
     mode = ctx.config.get("mode")
     target = ctx.config.get("target", "thinking_config")
     if mode == "legacy":
-        fragment = _google_thinking_legacy_fragment(canonical)
+        fragment = _google_thinking_legacy_fragment(canonical, ctx)
         # A budget authored for a bigger model converts instead of 400ing.
         # Google's field accepts [-1, 65535] on every legacy model (probed live
         # 2026-10-02: 65,535 accepted, 9,999,999 rejected), and on 2.5 thinking
         # counts against output, so the model's output maximum bounds it too.
         # processor_config.max_thinking_budget may declare a tighter one.
         ceiling = ctx.cap_output(
-            int(ctx.config.get("max_thinking_budget") or GOOGLE_THINKING_BUDGET_FIELD_MAX)
+            int(ctx.config.get("max_thinking_budget") or D.GOOGLE_THINKING_BUDGET_FIELD_MAX)
         )
         budget = fragment.get("thinking_budget")
         if isinstance(budget, int) and budget > ceiling:
@@ -719,7 +708,7 @@ def google_thinking(
         return params
     if mode == "gemini_3":
         params[target] = _google_thinking_3_fragment(
-            canonical, ctx.config.get("family", "pro"), ctx
+            canonical, ctx.config.get("family", D.GOOGLE_3_DEFAULT_FAMILY), ctx
         )
         return params
     raise ValueError(
@@ -727,12 +716,16 @@ def google_thinking(
     )
 
 
-def _google_thinking_legacy_fragment(canonical: dict[str, Any]) -> dict[str, Any]:
+def _google_thinking_legacy_fragment(
+    canonical: dict[str, Any], ctx: ProcessorContext
+) -> dict[str, Any]:
     fragment: dict[str, Any] = {}
     include_thoughts = canonical.get("include_thoughts")
     if include_thoughts is False:
         fragment["include_thoughts"] = False
-        fragment["thinking_budget"] = -1
+        fragment["thinking_budget"] = ctx.table(
+            "hidden_thoughts_budget", D.GOOGLE_LEGACY_HIDDEN_THOUGHTS_BUDGET
+        )
         return fragment
 
     if include_thoughts is not None:
@@ -744,7 +737,9 @@ def _google_thinking_legacy_fragment(canonical: dict[str, Any]) -> dict[str, Any
     else:
         effort = _explicit_effort(canonical)
         if effort:
-            thinking_budget = _GOOGLE_LEGACY_EFFORT_TO_BUDGET.get(effort, 1024)
+            thinking_budget = ctx.to_number_table(D.GOOGLE_LEGACY_EFFORT_TO_BUDGET).get(
+                effort, ctx.table("unknown_effort_budget", D.GOOGLE_LEGACY_UNKNOWN_EFFORT_BUDGET)
+            )
 
     if thinking_budget is not None and thinking_budget > 0:
         fragment["thinking_budget"] = thinking_budget
@@ -760,29 +755,21 @@ def _google_thinking_3_fragment(
 
     effort = _explicit_effort(canonical)
     if effort:
-        level_map = (
-            _GOOGLE_3_EFFORT_TO_LEVEL_FLASH if family == "flash" else _GOOGLE_3_EFFORT_TO_LEVEL_PRO
+        default_map = D.GOOGLE_3_EFFORT_TO_LEVEL.get(
+            family, D.GOOGLE_3_EFFORT_TO_LEVEL[D.GOOGLE_3_DEFAULT_FAMILY]
         )
-        thinking_level = level_map.get(effort)
+        thinking_level = ctx.table("level_map", default_map).get(effort)
 
     reasoning_summary = canonical.get("reasoning_summary")
     if reasoning_summary:
-        include_thoughts = _GOOGLE_3_SUMMARY_TO_INCLUDE.get(reasoning_summary)
+        include_thoughts = ctx.table(
+            "summary_to_include", D.GOOGLE_3_SUMMARY_TO_INCLUDE
+        ).get(reasoning_summary)
 
     # House "none" (ai_041): send nothing — no thinking_level, and the raw
     # thinking_budget fallback must not resurrect one.
     if effort != "none" and thinking_level is None and canonical.get("thinking_budget") is not None:
-        budget = int(canonical["thinking_budget"])
-        if budget <= 0:
-            thinking_level = None
-        elif budget <= 512:
-            thinking_level = "minimal"
-        elif budget <= 1024:
-            thinking_level = "low"
-        elif budget <= 4096:
-            thinking_level = "medium"
-        else:
-            thinking_level = "high"
+        thinking_level = ctx.from_number(int(canonical["thinking_budget"]), D.GOOGLE_3_FROM_NUMBER)
 
     if canonical.get("include_thoughts") is not None:
         include_thoughts = canonical["include_thoughts"]
@@ -808,7 +795,7 @@ def _google_thinking_3_fragment(
 # a DIFFERENT provider key, which is why this is a processor and not a scalar
 # value_map rule (a value_map can only land values on ONE provider_key).
 #
-# Reads canonical: reasoning_effort (+_reasoning_effort_derived; a budget-derived
+# Reads canonical: reasoning_effort (+_converted; a budget-converted
 # tier is treated as unset, mirroring from_settings which never derives effort
 # from thinking_budget). Writes params: reasoning_effort OR reasoning.enabled.
 
@@ -825,7 +812,12 @@ def together_reasoning(
         params["reasoning"] = {"enabled": False}
         return params
     # Anything short of an explicit deep ask is "high" (OUR default, incl. unset).
-    params["reasoning_effort"] = "max" if effort in ("xhigh", "max") else "high"
+    sent = ctx.table("effort_map", D.TOGETHER_EFFORT_MAP).get(
+        effort, ctx.table("default_effort", D.TOGETHER_DEFAULT_EFFORT)
+    )
+    sent = ctx.reconcile_accepted(sent)  # K6 accepts (only when declared)
+    if sent is not None:
+        params["reasoning_effort"] = sent
     return params
 
 
@@ -842,53 +834,59 @@ def together_reasoning(
 #                     safety_tolerance caps at 2 when editing)
 # ═════════════════════════════════════════════════════════════════════════════
 
-# Verbatim port of providers/_media_dims.py::_ASPECT_TO_DEFAULT_WH.
-_MEDIA_ASPECT_TO_WH: dict[str, tuple[int, int]] = {
-    "1:1": (1024, 1024),
-    "16:9": (1536, 1024),
-    "9:16": (1024, 1536),
-    "4:3": (1408, 1024),
-    "3:4": (1024, 1408),
-    "21:9": (1920, 832),
-    "9:21": (832, 1920),
-    "3:2": (1536, 1024),
-    "2:3": (1024, 1536),
-}
+# The aspect -> (w, h) table, anchor edge and rounding multiple are declared
+# defaults (translation_defaults.MEDIA_*); processor_config["aspect_table"] /
+# ["anchor_edge"] / ["dimension_multiple"] override them per rule.
 
 
-def _derive_wh_table(canonical: dict[str, Any]) -> tuple[int | None, int | None]:
+def _anchored_wh(a: int, b: int, ctx: ProcessorContext | None) -> tuple[int, int]:
+    edge = int(ctx.table("anchor_edge", D.MEDIA_ANCHOR_SHORT_EDGE)) if ctx else D.MEDIA_ANCHOR_SHORT_EDGE
+    multiple = (
+        int(ctx.table("dimension_multiple", D.MEDIA_DIMENSION_MULTIPLE))
+        if ctx
+        else D.MEDIA_DIMENSION_MULTIPLE
+    )
+    if a >= b:
+        return (round(edge * a / b / multiple) * multiple, edge)
+    return (edge, round(edge * b / a / multiple) * multiple)
+
+
+def _derive_wh_table(
+    canonical: dict[str, Any], ctx: ProcessorContext | None = None
+) -> tuple[int | None, int | None]:
     """Port of _media_dims.derive_wh: explicit width+height wins, else the
-    aspect table, else parse "A:B" anchored on a 1024 short edge (16-multiples),
-    else (None, None)."""
+    aspect table, else parse "A:B" anchored on the short edge (rounded to the
+    multiple), else (None, None)."""
     width, height = canonical.get("width"), canonical.get("height")
     if width and height:
         return int(width), int(height)
     aspect = canonical.get("aspect_ratio")
     if aspect:
-        wh = _MEDIA_ASPECT_TO_WH.get(aspect)
+        table = ctx.table("aspect_table", D.MEDIA_ASPECT_TO_WH) if ctx else D.MEDIA_ASPECT_TO_WH
+        wh = table.get(aspect)
         if wh:
-            return wh
+            return (int(wh[0]), int(wh[1]))
         try:
             a, b = (int(x) for x in str(aspect).split(":", 1))
-            if a >= b:
-                return (round(1024 * a / b / 16) * 16, 1024)
-            return (1024, round(1024 * b / a / 16) * 16)
+            return _anchored_wh(a, b, ctx)
         except (ValueError, TypeError):
             return (None, None)
     return (None, None)
 
 
-def _derive_wh_anchor1024(canonical: dict[str, Any]) -> tuple[int, int]:
+def _derive_wh_anchor1024(
+    canonical: dict[str, Any], ctx: ProcessorContext | None = None
+) -> tuple[int, int]:
     """Port of TogetherImageGeneration._derive_wh: NO table — every ratio is
-    computed off a 1024 short edge; unparseable/missing ratios fall back 1:1."""
-    aspect = canonical.get("aspect_ratio") or "1:1"
+    computed off the anchor short edge; unparseable/missing ratios fall back to
+    the declared fallback ratio (1:1)."""
+    fa, fb = D.MEDIA_ANCHOR_FALLBACK_RATIO
+    aspect = canonical.get("aspect_ratio") or f"{fa}:{fb}"
     try:
         a, b = (int(x) for x in str(aspect).split(":", 1))
     except (ValueError, TypeError):
-        a, b = 1, 1
-    if a >= b:
-        return (round(1024 * a / b / 16) * 16, 1024)
-    return (1024, round(1024 * b / a / 16) * 16)
+        a, b = fa, fb
+    return _anchored_wh(a, b, ctx)
 
 
 def _derive_aspect_ratio(canonical: dict[str, Any]) -> str | None:
@@ -932,7 +930,7 @@ def media_dims(
     mode = ctx.config.get("mode")
     if mode == "size":
         target = ctx.config.get("target", "size")
-        width, height = _derive_wh_table(canonical)
+        width, height = _derive_wh_table(canonical, ctx)
         if width and height:
             params[target] = f"{width}x{height}"
             return params
@@ -949,9 +947,9 @@ def media_dims(
         if width and height:
             width, height = int(width), int(height)
         elif ctx.config.get("arithmetic", "table") == "anchor1024":
-            width, height = _derive_wh_anchor1024(canonical)
+            width, height = _derive_wh_anchor1024(canonical, ctx)
         else:
-            width, height = _derive_wh_table(canonical)
+            width, height = _derive_wh_table(canonical, ctx)
         if width and height:
             params["width"] = width
             params["height"] = height
@@ -1004,19 +1002,17 @@ def media_dims(
 
     if mode == "sora_size":
         target = ctx.config.get("target", "size")
-        width, height = _derive_wh_table(canonical)
+        width, height = _derive_wh_table(canonical, ctx)
         if width and height:
             params[target] = f"{width}x{height}"
             return params
-        aspect = canonical.get("aspect_ratio") or "16:9"
-        resolution = (canonical.get("resolution") or "720p").lower()
-        landscape = aspect in ("16:9", "21:9", "3:2", "4:3", "1:1")
-        if resolution == "1080p":
-            params[target] = "1920x1080" if landscape else "1080x1920"
-        elif resolution == "1024p":
-            params[target] = "1792x1024" if landscape else "1024x1792"
-        else:
-            params[target] = "1280x720" if landscape else "720x1280"
+        default_resolution = ctx.table("default_resolution", D.SORA_DEFAULT_RESOLUTION)
+        aspect = canonical.get("aspect_ratio") or ctx.table("default_aspect", D.SORA_DEFAULT_ASPECT)
+        resolution = (canonical.get("resolution") or default_resolution).lower()
+        landscape = aspect in ctx.table("landscape_aspects", D.SORA_LANDSCAPE_ASPECTS)
+        sizes = ctx.table("sizes", D.SORA_SIZES)
+        pair = sizes.get(resolution) or sizes[default_resolution]
+        params[target] = pair[0] if landscape else pair[1]
         return params
 
     raise ValueError(f"media_dims: unknown processor_config mode {mode!r}")
@@ -1100,7 +1096,9 @@ def openai_image_gen_only(
     """
     if (ctx.extra or {}).get("operation", "generate") != "generate":
         return params
-    params["moderation"] = canonical.get("moderation") or ctx.config.get("default", "low")
+    params["moderation"] = canonical.get("moderation") or ctx.config.get(
+        "default", D.OPENAI_IMAGE_DEFAULT_MODERATION
+    )
     background = canonical.get("background")
     if background is not None:
         if background == "transparent" and ctx.config.get("background_transparent_drop"):
@@ -1138,7 +1136,11 @@ def flux_safety_tolerance(
     """Replicate FLUX.2: always push safety_tolerance to the most permissive
     value (5), except the BFL backend caps it at 2 whenever an input/reference
     image is present (400s above). Port of model_descriptors._flux_2_input."""
-    params["safety_tolerance"] = 2 if (ctx.extra or {}).get("has_image_input") else 5
+    params["safety_tolerance"] = (
+        ctx.table("with_image_input", D.FLUX_SAFETY_TOLERANCE_WITH_IMAGE_INPUT)
+        if (ctx.extra or {}).get("has_image_input")
+        else ctx.table("tolerance", D.FLUX_SAFETY_TOLERANCE)
+    )
     return params
 
 
@@ -1149,14 +1151,14 @@ def xai_image_resolution(
     """xai-sdk resolution: "1k"/"2k" pass; else width>=2048 -> "2k", any other
     width -> "1k", nothing -> omitted. Port of xai_image_api._build_kwargs."""
     resolution = canonical.get("resolution")
-    if resolution in ("1k", "2k"):
+    if resolution in ctx.table("native_resolutions", D.XAI_NATIVE_RESOLUTIONS):
         params["resolution"] = resolution
         return params
     width = canonical.get("width")
-    if width and int(width) >= 2048:
-        params["resolution"] = "2k"
+    if width and int(width) >= int(ctx.table("width_threshold", D.XAI_WIDTH_THRESHOLD)):
+        params["resolution"] = ctx.table("high_resolution", D.XAI_HIGH_RESOLUTION)
     elif width:
-        params["resolution"] = "1k"
+        params["resolution"] = ctx.table("low_resolution", D.XAI_LOW_RESOLUTION)
     return params
 
 
@@ -1169,21 +1171,18 @@ def google_imagen_size(
     (canonical resolution is already lowercase)."""
     resolution = canonical.get("resolution")
     if resolution:
-        mapped = {
-            "1k": "1K",
-            "2k": "2K",
-            "720p": "1K",
-            "1080p": "1K",
-            "4k": "2K",
-            "1080": "1K",
-        }.get(resolution)
+        mapped = ctx.table("resolution_map", D.IMAGEN_RESOLUTION_TO_SIZE).get(resolution)
         if mapped:
             params["image_size"] = mapped
             return params
     width = canonical.get("width")
     if width:
         try:
-            params["image_size"] = "2K" if int(width) >= 2048 else "1K"
+            params["image_size"] = (
+                ctx.table("high_size", D.IMAGEN_HIGH_SIZE)
+                if int(width) >= int(ctx.table("width_threshold", D.IMAGEN_WIDTH_THRESHOLD))
+                else ctx.table("low_size", D.IMAGEN_LOW_SIZE)
+            )
         except (ValueError, TypeError):
             pass
     return params

@@ -5,7 +5,8 @@ import getpass
 import itertools
 import json
 import os
-from typing import Any, Callable, Dict, Tuple
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 import httpx
 import multidict
@@ -37,7 +38,16 @@ class Client:
 
     Send a query, which returns Results objects:
 
-    >>> res = client.query('temperature in Washington, DC on October 3, 2012')
+    >>> res = client.query(
+    ...     'temperature in Washington, DC on October 3, 2012',
+    ...     location='earth',
+    ...     units='metric',
+    ... )
+
+    Wolfram|Alpha tailors results (units, how places are named) to the
+    caller's location, inferred from their IP address unless supplied.
+    Passing ``location`` (or ``latlong`` or ``ip``) and ``units`` makes
+    results independent of where the query originates.
 
     Result objects have `pods` (a Pod is an answer group from Wolfram Alpha):
 
@@ -50,16 +60,16 @@ class Client:
     >>> for pod in res.pods:
     ...     for sub in pod.subpods:
     ...         print(sub.plaintext)
-    temperature | Washington, District of Columbia
+    temperature | Washington, United States
     Wednesday, October 3, 2012
-    (70 to 81) °F (average: 75 °F)
+    (21 to 27) °C (average: 24 °C)
     ...
 
     To query simply for the pods that have 'Result' titles or are
     marked as 'primary' using ``Result.results``:
 
     >>> print(next(res.results).text)
-    (70 to 81) °F (average: 75 °F)
+    (21 to 27) °C (average: 24 °C)
     (Wednesday, October 3, 2012)
 
     All objects returned are dictionary subclasses, so to find out which attributes
@@ -71,8 +81,17 @@ class Client:
 
     url = 'https://api.wolframalpha.com/v2/query'
 
-    def __init__(self, app_id):
+    timeout: float = 30.0
+    """
+    Seconds to wait for the API to respond. Wolfram|Alpha's own
+    ``totaltimeout`` defaults to about 20 seconds, so allow somewhat more
+    than that (rather than httpx's default of 5 seconds).
+    Pass ``timeout=`` to the constructor to override.
+    """
+
+    def __init__(self, app_id, **kwargs):
         self.app_id = app_id
+        vars(self).update(kwargs)
 
     @classmethod
     def from_env(cls):
@@ -119,15 +138,18 @@ class Client:
         return asyncio.run(self.aquery(input, params, **kwargs))
 
     async def aquery(self, input, params=(), **kwargs):
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
                 self.url,
                 params=multidict.MultiDict(
                     params, appid=self.app_id, input=input, **kwargs
                 ),
             )
-        assert resp.headers['Content-Type'] == 'text/xml;charset=utf-8'
+        assert resp.headers['Content-Type'] == 'text/xml; charset=utf-8'
         doc = xmltodict.parse(resp.content, postprocessor=Document.make)
+        if 'error' in doc:
+            error = doc['error']
+            raise ValueError(f"Error {error['@status']}: {error['@message']}")
         return doc['queryresult']
 
 
@@ -148,7 +170,7 @@ def identity(x):
 
 
 class Document(dict):
-    _attr_types: Dict[str, Callable[[str], Any]] = collections.defaultdict(
+    _attr_types: ClassVar[dict[str, Callable[[str], Any]]] = collections.defaultdict(
         lambda: identity,
         height=int,
         width=int,
@@ -157,7 +179,7 @@ class Document(dict):
         primary=xml_bool,
         success=xml_bool,
     )
-    children: Tuple[str, ...] = ()
+    children: tuple[str, ...] = ()
 
     @classmethod
     def _find_cls(cls, key):

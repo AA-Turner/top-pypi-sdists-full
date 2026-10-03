@@ -900,9 +900,7 @@ async def test_streamed_parallel_tool_call_with_cancelled_sibling_reaches_final_
         {"call_id": "call_ok", "output": "ok", "type": "function_call_output"},
         {
             "call_id": "call_cancel",
-            "output": (
-                "An error occurred while running the tool. Please try again. Error: tool-cancelled"
-            ),
+            "output": ("An error occurred while running the tool. Please try again."),
             "type": "function_call_output",
         },
     ]
@@ -940,9 +938,7 @@ async def test_streamed_single_tool_call_with_cancelled_tool_reaches_final_outpu
     assert tool_outputs == [
         {
             "call_id": "call_cancel",
-            "output": (
-                "An error occurred while running the tool. Please try again. Error: tool-cancelled"
-            ),
+            "output": ("An error occurred while running the tool. Please try again."),
             "type": "function_call_output",
         },
     ]
@@ -1584,7 +1580,7 @@ async def test_streamed_finalizer_failure_follows_both_data_policies(
 
     error = RuntimeError("SECRET_STREAM_FINALIZER_ERROR")
 
-    async def fail_finalizer(_result: Any) -> bool:
+    async def fail_finalizer(_result: Any, *, ignore_cancelled: bool = False) -> bool:
         raise error
 
     monkeypatch.setattr(

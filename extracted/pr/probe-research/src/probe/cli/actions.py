@@ -199,46 +199,68 @@ def manual_steps(
     drifted from the commands beside it, and a printed script cannot drift from
     the code that prints it.
     """
+    from probe.cli import pi_config, plugin_cli
+    from probe.harness import FAMILY_EXTENSION, FAMILY_HOOK_PLUGIN, get_registry
+
+    registry = get_registry()
     requested = (agent_source,) if isinstance(agent_source, str) else tuple(agent_source)
-    sources = tuple(source for source in ("claude_code", "codex") if source in requested)
-    if not sources:
-        sources = ("claude_code",)
+    harnesses = [h for h in registry.installable() if any(registry.find(r) is h for r in requested)]
+    if not harnesses:
+        harnesses = [registry.get(registry.default)]
 
     marketplace_commands: list[str] = []
     install_commands: list[str] = []
-    for source in sources:
-        codex_source = source == "codex"
-        binary = "codex" if codex_source else "claude"
-        label = "Codex" if codex_source else "Claude Code"
-        refresh = "upgrade" if codex_source else "update"
-        install = "add" if codex_source else "install"
-        if len(sources) > 1:
-            marketplace_commands.append(f"# {label}")
-            install_commands.append(f"# {label}")
-        marketplace_commands.extend(
-            (
-                f"{binary} plugin marketplace add {MARKETPLACE_REPO}",
-                f"{binary} plugin marketplace {refresh} research-os-agent",
+    login_commands: list[str] = []
+    marketplace_harnesses = [h for h in harnesses if h.family == FAMILY_HOOK_PLUGIN]
+    for harness in harnesses:
+        heading = [f"# {harness.label}"] if len(harnesses) > 1 else []
+        if harness.family == FAMILY_HOOK_PLUGIN:
+            if len(marketplace_harnesses) > 1:
+                marketplace_commands.append(f"# {harness.label}")
+            marketplace_commands.extend(
+                (
+                    f"{harness.binary} plugin marketplace add {MARKETPLACE_REPO}",
+                    f"{harness.binary} plugin marketplace {plugin_cli.refresh_verb(harness.id)} research-os-agent",
+                )
             )
-        )
-        install_commands.extend(
-            (
-                f"{binary} plugin {install} {PLUGIN_ID}          # research tracking + MCP",
-                f"{binary} plugin {install} {TAP_PLUGIN_ID}      # session capture",
+            verb = plugin_cli.install_verb(harness.id)
+            install_commands.extend(
+                (
+                    *heading,
+                    f"{harness.binary} plugin {verb} {PLUGIN_ID}          # research tracking + MCP",
+                    f"{harness.binary} plugin {verb} {TAP_PLUGIN_ID}      # session capture",
+                )
             )
-        )
+        elif harness.family == FAMILY_EXTENSION:
+            # pi has no marketplace: one package (tracking, capture, MCP bridge),
+            # installed from the public mirror the wizard writes into settings.json.
+            install_commands.extend(
+                (*heading, f"{harness.binary} install {pi_config.MIRROR_GIT_SOURCE}   # tracking + capture + MCP")
+            )
+        if harness.mcp == "config-toml":
+            login_commands.append(f"{harness.binary} mcp login probe-research")
 
-    codex = "codex" in sources
     mcp_login = (
         (
             "",
-            "# 5. Complete Codex's host-owned OAuth for the read-only MCP.",
-            "codex mcp login probe-research",
+            "# 5. Complete the host-owned OAuth for the read-only MCP.",
+            *login_commands,
         )
-        if codex
+        if login_commands
         else ()
     )
-    confirm_step = 6 if codex else 5
+    marketplace_step = (
+        (
+            "# 2. Add the plugin marketplace and refresh it.",
+            "#    `add` alone does NOT refresh an already-added marketplace, which is",
+            "#    how a freshly published plugin appears to be missing.",
+            *marketplace_commands,
+            "",
+        )
+        if marketplace_commands
+        else ("# 2. (No plugin marketplace for these agents.)", "")
+    )
+    confirm_step = 6 if login_commands else 5
     return "\n".join(
         (
             "# Everything the Probe Research setup wizard does, as individual commands.",
@@ -247,11 +269,7 @@ def manual_steps(
             "# 1. Install the CLI (skip if you already have `probe`)",
             f"uv tool install --force '{AGENT_INSTALL}[all]'",
             "",
-            "# 2. Add the plugin marketplace and refresh it.",
-            "#    `add` alone does NOT refresh an already-added marketplace, which is",
-            "#    how a freshly published plugin appears to be missing.",
-            *marketplace_commands,
-            "",
+            *marketplace_step,
             "# 3. Install only what you want.",
             *install_commands,
             "",

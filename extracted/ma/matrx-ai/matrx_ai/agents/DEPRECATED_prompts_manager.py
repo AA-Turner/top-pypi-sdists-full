@@ -1,7 +1,7 @@
 """Legacy prompt-table access — retired.
 
 The ``prompts`` / ``prompt_builtins`` / ``prompt_apps`` tables were moved to
-the DB graveyard. This module keeps the old import surface so callers that still
+the DB's ``deprecated`` schema. This module keeps the old import surface so callers that still
 reference ``pm`` / ``PromptManagers`` fail loudly instead of pulling missing
 ORM models at import time.
 """

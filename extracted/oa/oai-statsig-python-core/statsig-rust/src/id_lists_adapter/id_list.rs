@@ -26,16 +26,20 @@ impl IdList {
     }
 
     pub fn apply_update(&mut self, update: IdListUpdate) {
+        let changeset_data = unwrap_or_noop!(&update.raw_changeset);
         let updated_meta = update.new_metadata;
         let current_meta = &self.metadata;
 
-        if updated_meta.file_id != current_meta.file_id
-            && updated_meta.creation_time >= current_meta.creation_time
+        // The HTTP adapter downloads from byte zero when creationTime advances,
+        // even if the file ID is unchanged. Apply that body as a full replay so
+        // the consumed cursor and timestamp match the next manifest poll.
+        if updated_meta.creation_time > current_meta.creation_time
+            || (updated_meta.file_id != current_meta.file_id
+                && updated_meta.creation_time >= current_meta.creation_time)
         {
             self.update_metadata(updated_meta);
         }
 
-        let changeset_data = unwrap_or_noop!(&update.raw_changeset);
         let ids = Arc::make_mut(&mut self.ids);
 
         for change in changeset_data.lines() {

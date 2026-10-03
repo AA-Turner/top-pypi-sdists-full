@@ -533,6 +533,7 @@ def test_initialize_seeds_the_folder_default_once(isolated, tmp_path, capsys):
         # hence "off" rather than "tracked, not capturing session transcript".
         "capture": {"running": False, "pid": None, "reason": "not installed"},
         "effective": "off",
+        "profile": "agent",
     }
     assert session_marker.tracking_signal(SESSION_ID) == "off"
 
@@ -561,6 +562,7 @@ def test_initialize_seeds_the_folder_default_once(isolated, tmp_path, capsys):
         "source": "session",
         "capture": {"running": False, "pid": None, "reason": "not installed"},
         "effective": "off",
+        "profile": "agent",
     }
 
 

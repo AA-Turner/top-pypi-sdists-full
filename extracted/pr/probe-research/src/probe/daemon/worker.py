@@ -1581,7 +1581,6 @@ def _compaction_available() -> bool:
 #: the same way, so the daemon says the cause. `companion_credential_required`
 #: (the saved key is not the daemon's) is the one a new key fixes, so it is not here.
 _REFUSAL_REASONS = {
-    "companion_paid_plan_required": "daemon recording is on paid plans, and this team's plan does not include it",
     "companion_disabled": "daemon recording is turned off for this team",
 }
 

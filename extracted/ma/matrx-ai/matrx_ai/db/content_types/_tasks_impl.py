@@ -70,7 +70,7 @@ def render_task_snapshot_xml(data: dict[str, Any], template: str = DEFAULT_XML_T
 # ---------------------------------------------------------------------------
 # Fields the LLM must never touch.
 # ---------------------------------------------------------------------------
-# workspace.tasks is a canonical entity: the owner is ``created_by``; the web lane is
+# projects.tasks is a canonical entity: the owner is ``created_by``; the web lane is
 # ``published_to_web`` and the list filter is ``shown_to``. ``user_id`` / ``is_public`` are
 # the retired spellings — writing them makes the ORM refuse the whole call
 # ("Unknown field(s) on Tasks"), which is how the `task` tool died on every action.
@@ -406,7 +406,7 @@ class TasksManager(TasksBase):
         Create a new task.  Explicit parameters only — immutable fields
         like id and created_at are never accepted.
 
-        ``organization_id`` is required — workspace.tasks.organization_id is
+        ``organization_id`` is required — projects.tasks.organization_id is
         NOT NULL. Callers carry it from the verified request context
         (``ToolContext.organization_id``); never defaulted here.
 
@@ -501,7 +501,7 @@ class TasksManager(TasksBase):
 
     async def delete_task(self, task_id: str) -> dict[str, Any]:
         """
-        Soft-delete a task: stamp ``deleted_at`` (workspace.tasks is a
+        Soft-delete a task: stamp ``deleted_at`` (projects.tasks is a
         soft-delete entity — the tasks screen archives the same way and every
         list here reads live rows only). The row stays recoverable.
         """

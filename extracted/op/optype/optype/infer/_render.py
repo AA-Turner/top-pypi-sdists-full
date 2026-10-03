@@ -1,0 +1,722 @@
+"""Render the recorded spy traces as a PEP 695 signature."""
+
+# pyright: reportUnknownArgumentType=false
+
+import sys
+import types
+from collections import Counter
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from inspect import Parameter, _ParameterKind
+from typing import Any, NamedTuple, final
+
+# `from . import _ir` would re-enter this package
+import optype.infer._ir as _ir
+from ._analyze import reflect, spy_runs
+from ._naming import TYVAR_TUPLE_NAME, Naming, build as _build_naming
+from ._protocols import Op, Proto, resolve
+from ._recursion import collapse_recursive
+from ._spy import (
+    Marker,
+    SpyBytes,
+    SpyObject,
+    SpyStr,
+    TraceItem,
+    Traces,
+    as_spy,
+    class_spy,
+    despy_class,
+    isinstance_not_spy,
+)
+from ._values import (
+    COROUTINE,
+    Exploration,
+    FnResult,
+    Gen,
+    Rec,
+    RecRef,
+    as_mapping,
+    fn_spies,
+)
+from optype.inspect import _get_alias, is_generic_alias, is_union_type
+
+_PARAM_PREFIX: dict[_ParameterKind, str] = {
+    Parameter.VAR_POSITIONAL: "*",
+    Parameter.VAR_KEYWORD: "**",
+}
+
+_TUPLE_LIMIT = 16
+_LITERAL_LIMIT = 8
+
+# `object`-typed so the `is` check isn't flagged (`Callable` is a special form)
+_CALLABLE_ORIGIN: object = Callable
+
+type Names = Sequence[str]
+type Defaults = Mapping[str, object]
+
+
+def _or_object(node: _ir.Node | None) -> _ir.Node:
+    """The node itself, or `object` for an unconstrained (`None`) one."""
+    return _ir.OBJECT if node is None else node
+
+
+def _covariant(ret: _ir.Node) -> _ir.Node:
+    """The read result `ret` in covariant position. A method varies in what it
+    returns, so the marker goes on its return type; an unconstrained `object` is
+    left bare."""
+    if isinstance(ret, _ir.Fn):
+        return _ir.Fn(ret.params, _covariant(ret.ret))
+    return ret if ret == _ir.OBJECT else _ir.Covariant(ret)
+
+
+def _boxed_default(defaults: Defaults, name: str) -> tuple[object] | None:
+    """The boxed default value of `name`, or `None` if it has none."""
+    return (defaults[name],) if name in defaults else None
+
+
+_CLEAN_EXIT = _ir.App("CanExit", (_ir.NONE,) * 3)
+_CLEAN_AEXIT = _ir.App(
+    "CanAExit",
+    (*(_ir.NONE,) * 3, _ir.App("CanAwait", (_ir.OBJECT,))),
+)
+_LEN = _ir.App("CanLen", ())
+
+
+def _merge_combined(parts: list[_ir.Node]) -> list[_ir.Node]:
+    """Merge an intersection pair into the combined protocol that optype ships.
+
+    A `with` statement requires `__enter__` and a clean-exit `__exit__` together,
+    which combine as `CanWith`; the unused `__exit__` result is unconstrained.
+    `CanAsyncWith` is alike, but its declared parameters are the awaited results, so
+    the `CanAwait` wrappers unwrap. `CanGetitem & CanLen` combines as `CanSequence`.
+    """
+    for app in [*parts]:  # iterate a snapshot; `parts` shrinks as pairs merge
+        match app:
+            case _ir.App("CanEnter", (entered,)):
+                partner = _CLEAN_EXIT
+                merged = _ir.App("CanWith", (entered, _ir.OBJECT))
+            case _ir.App("CanAEnter", (_ir.App("CanAwait", (entered,)),)):
+                partner = _CLEAN_AEXIT
+                merged = _ir.App("CanAsyncWith", (entered, _ir.OBJECT))
+            case _ir.App("CanGetitem", (key, value)):
+                partner = _LEN
+                merged = _ir.App("CanSequence", (key, value))
+            case _:
+                continue
+        if partner in parts:
+            parts = [merged if p is app else p for p in parts if p != partner]
+    return parts
+
+
+class _OpShape(NamedTuple):
+    """An op modulo its operands; same-shape ops merge into one protocol."""
+
+    proto: Proto
+    attr: str | None
+    classvar: bool
+    arity: int
+    kwnames: tuple[str, ...]
+
+
+def _distinct[T](values: Iterable[T]) -> Collection[T]:
+    """Deduplicate by identity; holding the values keeps their ids from reuse."""
+    return {id(value): value for value in values}.values()
+
+
+@dataclass(frozen=True, slots=True)
+class _Binding:
+    """What one render reads: the exploration, the traces, and the naming."""
+
+    exploration: Exploration
+    params: Mapping[str, Parameter]
+    traces: Traces  # the raw exploration traces, or the reflected ones
+    var_pos: SpyObject | None
+    naming: Naming  # which spies get a type parameter, and under what name
+
+
+@final
+class _Renderer:
+    """Render an inferred `def` signature from the recorded spy traces.
+
+    The binding is fixed for the renderer's lifetime; `_renderer_of` picks it.
+    """
+
+    _binding: _Binding
+    _bound_nodes: dict[int, _ir.Node | None]  # rendered bound per representative
+    _ret_node: _ir.Node  # rendered return union
+    _typer: "_ResultTyper"  # renders explored result values into type nodes
+
+    def __init__(self, binding: _Binding) -> None:
+        self._binding = binding
+        self._typer = _ResultTyper(binding, self.slot)
+        self._ret_node = self._typer.type_union(binding.exploration.results)
+
+        naming = binding.naming
+        self._bound_nodes = {
+            rep: self.traces(items) for rep, items in naming.group_traces.items()
+        }
+
+    @property
+    def naming(self) -> Naming:
+        return self._binding.naming
+
+    def single_use(self) -> tuple[dict[str, int], set[str]]:
+        """The declared typevar pool, and the bounded names in it rendered once.
+
+        Such a typevar says no more than its bound, so it inlines into its one use.
+        """
+        naming, bounds = self.naming, self._bound_nodes
+        rendered = [
+            *(self.slot(spy) for spy in naming.param_spies),
+            *(node for node in bounds.values() if node is not None),
+            self._ret_node,
+        ]
+        counts = Counter(name for node in rendered for name in _ir.names(node))
+
+        pool = naming.pool(
+            id(self._binding.var_pos) if naming.tyvar_tuple else None,
+        )
+        inline = {
+            tyvar
+            for tyvar, rep in pool.items()
+            if counts[tyvar] == 1 and bounds[rep] is not None
+        }
+        return pool, inline
+
+    def returns(self, members: Iterable[Op]) -> _ir.Node | None:
+        named: list[str] = []
+        items: list[TraceItem] = []
+        # a repeated op returns one spy; collect it once
+        rets = _distinct(r for m in members if isinstance(r := m.ret, SpyObject))
+        for ret in rets:
+            if (tyvar := self.naming.tyvars.get(id(ret))) is not None:
+                named.append(tyvar)
+            else:
+                items.extend(self._binding.traces[id(ret)])
+        parts: list[_ir.Node] = [_ir.Name(tyvar) for tyvar in dict.fromkeys(named)]
+        if items and (node := self.traces(items)) is not None:
+            parts.append(node)
+        if (out := _ir.intersection(parts)) is None and rets:
+            # an unused result is unconstrained, but omitting it would leave the
+            # last argument in the return slot, e.g. the `R` of `(T) -> R`
+            out = _ir.OBJECT
+        return out
+
+    def _collapse_var_pos(
+        self,
+        members: Sequence[Op],
+        pos: list[_ir.Node],
+    ) -> list[_ir.Node]:
+        # the variadic spreads `count` copies of one spy: the placeholder (`f(*args)`)
+        # or its iterated element (`map`); collapse the trailing run to `*tuple[T, ...]`
+        var_pos = self._binding.var_pos
+        call_args = members[0].args
+        if var_pos is None or not call_args:
+            return pos
+
+        tail = call_args[-1]
+        if not isinstance(tail, SpyObject) or (
+            tail is not var_pos and tail is not var_pos.__optype_element__
+        ):
+            return pos
+
+        # require every call to star-unpack the same trailing run, else order decides
+        count = self._binding.exploration.var_count
+        if not all(
+            m.args[-1] is tail and spy_runs(m.args, tail)[-1] == count for m in members
+        ):
+            return pos
+
+        inner = _ir.tuple_node_variadic(self._typer.return_type(tail))
+        return [*pos[: len(pos) - count], _ir.Unpack(inner)]
+
+    def group(self, proto: Proto, members: Sequence[Op]) -> _ir.Node:
+        if isinstance(proto, tuple):  # coercion protocols, which record no args
+            return _ir.Union(tuple(map(_ir.Name, proto)))
+
+        pos = [
+            arg
+            for i in range(len(members[0].args))
+            if (arg := self._typer.value_union(m.args[i] for m in members)) is not None
+        ]
+        args = (
+            *pos,
+            *(
+                _ir.Arg(key, kw)
+                for key in members[0].kwargs
+                if (kw := self._typer.value_union(m.kwargs[key] for m in members))
+                is not None
+            ),
+        )
+        ret = self.returns(members)
+
+        if proto == "CanCall":
+            call_pos = self._collapse_var_pos(members, pos)
+            return _ir.Fn((*call_pos, *args[len(pos) :]), _or_object(ret))
+
+        if (attr := members[0].attr) is not None:
+            # a read is covariant (a property suffices) and a write contravariant
+            # (the attribute only has to accept the value); existence renders bare
+            attr_args: tuple[_ir.Node, ...] = tuple(_ir.Contravariant(a) for a in pos)
+            if ret is not None and ret != _ir.OBJECT:
+                attr_args = *attr_args, _covariant(ret)
+            if members[0].classvar:
+                attr_args = (_ir.App("ClassVar", attr_args),)
+            return _ir.Has(attr, attr_args)
+
+        if ret is not None:
+            args = *args, ret
+
+        return _ir.App(proto, args)
+
+    def traces(self, items: Iterable[TraceItem]) -> _ir.Node | None:
+        # dedup the re-collected return-chain items so they can't blow up
+        items = _distinct(items)
+        # an absence marker means the op was optional; an attribute probe keys on its
+        # name, so it spares the other reads
+        optional = {item.args for item in items if item.attr == Marker.ABSENT}
+        groups: dict[_OpShape, list[Op]] = {}
+        for item in items:
+            if item.attr == Marker.ABSENT:
+                continue
+            probed = (
+                ("__getattr__", item.args[0])
+                if item.attr == "__getattr__" and item.args
+                else (item.attr,)
+            )
+            if probed in optional:
+                continue
+            op = resolve(item)
+            key = _OpShape(
+                op.proto,
+                op.attr,
+                op.classvar,
+                len(op.args),
+                tuple(sorted(op.kwargs)),
+            )
+            groups.setdefault(key, []).append(op)
+        parts = [self.group(key.proto, group) for key, group in groups.items()]
+        return _ir.intersection(_merge_combined(parts))
+
+    def spy(self, spy: SpyObject) -> _ir.Node | None:
+        return self.traces(self._binding.traces[id(spy)])
+
+    def slot(self, spy: SpyObject) -> _ir.Node:
+        if self.naming.tyvar_tuple and spy is self._binding.var_pos:
+            return _ir.Unpack(_ir.Name(TYVAR_TUPLE_NAME))
+        if (tyvar := self.naming.tyvars.get(id(spy))) is not None:
+            return _ir.Name(tyvar)
+        return _or_object(self.spy(spy))
+
+    def typar(
+        self,
+        spy: SpyObject,
+        defaulted: Mapping[int, _ir.Node],
+        *,
+        negate: bool = False,
+    ) -> _ir.TypeParam:
+        tyvar = self.naming.tyvars[id(spy)]
+        if self.naming.tyvar_tuple and spy is self._binding.var_pos:
+            # this TypeVarTuple is unbounded; the compat lowerer adds any default
+            return _ir.TypeParam(tyvar, unpack=True)
+        rep = self.naming.reps.get(id(spy), id(spy))
+        node = self._bound_nodes[rep]
+        default = defaulted.get(id(spy))
+        if negate and default is not None:
+            node = _ir.exclude(node, default)
+        return _ir.TypeParam(tyvar, bound=node, default=None if negate else default)
+
+    def signature(
+        self,
+        selected: Names,
+        defaults: Defaults | None = None,
+        *,
+        negate: bool = False,
+        ret: _ir.Node | None = None,
+    ) -> _ir.Signature:
+        defaults = defaults or {}
+        spies = self._binding.exploration.spies
+        defaulted = {
+            spy_id: node
+            for name, value in defaults.items()
+            if (spy := spies.get(name)) is not None
+            if (spy_id := id(spy)) in self.naming.tyvars
+            if (node := self._typer.value_union((value,))) is not None
+        }
+        spies = [*self.naming.declared_spies, *self.naming.result_spies]
+        typars = [self.typar(spy, defaulted, negate=negate) for spy in spies]
+        recursive = [
+            _ir.TypeParam(
+                name,
+                bound=self._typer.return_type(self.naming.rec_body[var]),
+            )
+            for var, name in self.naming.rec_tyvars.items()
+        ]
+        # PEP 696: defaulted type parameters last; recursive typevars have no default
+        plain = [typar for typar in typars if typar.default is None]
+        tail = [typar for typar in typars if typar.default is not None]
+
+        params = [
+            param
+            for name in selected
+            if (param := self._param(name, defaults, negate=negate)) is not None
+        ]
+        sig = _ir.Signature(
+            (*plain, *recursive, *tail),
+            tuple(params),
+            self._ret_node if ret is None else ret,
+            self._binding.exploration.deprecated,
+        )
+        return collapse_recursive(sig)
+
+    def _param(
+        self,
+        name: str,
+        defaults: Defaults,
+        *,
+        negate: bool,
+    ) -> _ir.Param | None:
+        exploration = self._binding.exploration
+        param = self._binding.params[name]
+        # a positional-only parameter cannot be passed by keyword, so no name shows
+        pos_only = param.kind is Parameter.POSITIONAL_ONLY
+        kw_only = param.kind is Parameter.KEYWORD_ONLY
+        prefix = _PARAM_PREFIX.get(param.kind, "")
+        optional = param.default is not Parameter.empty or param.kind in _PARAM_PREFIX
+        if name in exploration.fixed and not optional:
+            # a fixed parameter without a default is a method descriptor's `self`
+            node = _ir.Type(despy_class(type(exploration.fixed[name])))
+            return _ir.Param(name, node, prefix, pos_only, kw_only=kw_only)
+        if (spy := exploration.spies.get(name)) is None:
+            # an omitted parameter binds its default, so passing it behaves the same
+            node = self._typer.value_type(defaults[name])
+            return _ir.Param(
+                name,
+                node,
+                prefix,
+                pos_only,
+                _boxed_default(defaults, name),
+                kw_only=kw_only,
+            )
+        node = self.slot(spy)
+        if negate and name in defaults:
+            if id(spy) not in self.naming.tyvars and (
+                mark := self._typer.value_union((defaults[name],))
+            ):
+                node = _ir.exclude(self.spy(spy), mark)
+            return _ir.Param(name, node, prefix, pos_only, kw_only=kw_only)
+        if name in exploration.tuple_params and id(spy) not in self.naming.tyvars:
+            # a typevar keeps its binding, so only an inlined bound widens to the union
+            node = _ir.union([node, _ir.tuple_node_variadic(node)]) or node
+        if node == _ir.OBJECT and optional:
+            return None
+        return _ir.Param(
+            name,
+            node,
+            prefix,
+            pos_only,
+            _boxed_default(defaults, name),
+            kw_only=kw_only,
+        )
+
+
+@final
+class _ResultTyper:
+    """Render an explored runtime value as a type node, under a fixed binding.
+
+    A returned function's parameter spy renders through `slot`, so typer and renderer
+    stay mutually recursive, but neither mutates what the other reads.
+    """
+
+    _binding: _Binding
+    _slot: Callable[[SpyObject], _ir.Node]
+
+    def __init__(
+        self,
+        binding: _Binding,
+        slot: Callable[[SpyObject], _ir.Node],
+    ) -> None:
+        self._binding = binding
+        self._slot = slot
+
+    def value_union(
+        self,
+        values: Iterable[object],
+        *,
+        tuples: bool = False,
+    ) -> _ir.Node | None:
+        """The union of `values` as literals; `type_union` widens them to types."""
+        literals: list[object] = []
+        others: list[object] = []
+        for value in values:
+            if isinstance_not_spy(value, (int, str, bytes)):
+                literals.append(value)
+            else:
+                others.append(value)
+        parts = [self.return_type(value) for value in _distinct(others)]
+
+        nodes: list[_ir.Node] = []
+        if len(literals) > _LITERAL_LIMIT:
+            # an enumerated run (e.g. randbelow's 256 bytes) is noise; widen to types
+            nodes.extend(_ir.Type(type(v)) for v in literals)
+        elif literals:
+            nodes.append(_ir.Lit(tuple(literals)))
+        nodes.extend(parts)
+        return _ir.union(nodes, tuples=tuples)
+
+    def return_type(self, result: object) -> _ir.Node:
+        match result:
+            case RecRef() | Rec():
+                node = _ir.Name(self._binding.naming.rec_tyvars[result.var])
+            case SpyObject() if (spy := as_spy(result)) is not None:
+                tyvar = self._binding.naming.tyvars.get(id(spy))
+                node = _ir.Name(tyvar) if tyvar is not None else _ir.OBJECT
+            case SpyStr():
+                node = _ir.Type(str)
+            case SpyBytes():
+                node = _ir.Type(bytes)
+            case Gen():
+                node = self._generator_type(result)
+            case slice():
+                node = _ir.App(
+                    _ir.type_name(slice),
+                    (
+                        self.value_type(result.start),
+                        self.value_type(result.stop),
+                        self.value_type(result.step),
+                    ),
+                )
+            case FnResult():
+                node = self._function(result)
+            case _ if result is None or _ir.is_sentinel(result):
+                node = _ir.Name(repr(result))
+            case _:
+                node = self._container(result)
+        return node
+
+    def _generator_type(self, result: Gen) -> _ir.Node:
+        if result.kind == COROUTINE:
+            # an awaitable yields objects and is sent `None`, as `CanAwait`
+            out = self.type_union(result.yielded)
+            return _ir.App(COROUTINE, (_ir.OBJECT, _ir.NONE, out))
+        if not result.yielded and result.bare_when_empty:
+            return _ir.Name(result.kind)
+        return _ir.App(result.kind, (self.type_union(result.yielded),))
+
+    def type_union(self, values: Iterable[object]) -> _ir.Node:
+        """The deduplicated union of the types of `values`, or `Never` if empty."""
+        parts = map(self.return_type, _distinct(values))
+        return _ir.union(parts, tuples=True) or _ir.NEVER
+
+    def value_type(self, value: object) -> _ir.Node:
+        """The type of a single `value`, or `Never` if unconstrained."""
+        return self.value_union((value,)) or _ir.NEVER
+
+    def _function(self, fn: FnResult) -> _ir.Node:
+        """The signature-syntax type of an explored function result."""
+        params = tuple(
+            _ir.Arg(
+                None if p.kind is Parameter.POSITIONAL_ONLY else name,
+                self._fn_param(fn, name),
+                None if p.default is Parameter.empty else (p.default,),
+                kw_only=p.kind is Parameter.KEYWORD_ONLY,
+            )
+            for name, p in fn.params.items()
+        )
+        return _ir.Fn(params, self.type_union(fn.results))
+
+    def _fn_param(self, fn: FnResult, name: str) -> _ir.Node:
+        if (spy := fn.spies.get(name)) is not None:
+            return self._slot(spy)
+
+        value = fn.fixed[name]
+        if fn.params[name].default is not Parameter.empty:
+            # a pinned default renders as its value, like the outer parameters do
+            return self.value_type(value)
+
+        return _ir.Type(despy_class(type(value)))  # a method descriptor's pinned `self`
+
+    def _class_of(self, cls: type[Any]) -> _ir.Node | None:
+        """The type of `cls`'s instances, if it is expressible."""
+        if (spy := class_spy(cls)) is not None:
+            return self.return_type(spy)
+        if issubclass(cls, SpyStr):
+            return _ir.Type(str)
+        if issubclass(cls, SpyBytes):
+            return _ir.Type(bytes)
+        if cls is type(None):
+            return _ir.NONE
+        if getattr(sys.modules.get(cls.__module__), cls.__name__, None) is cls:
+            return _ir.Type(cls)
+        return None  # a local class has no nameable type, so it stays a bare `type`
+
+    def _type_expr(self, value: object) -> _ir.Node | None:
+        """The type a value *is*, not the type *of* it: `list[int]` -> `list[int]`."""
+        value = _get_alias(value)
+        if isinstance(value, type):
+            return self._class_of(value)
+        if is_union_type(value):  # `int | str` and `typing.Union[int, str]` alike
+            parts = self._type_args(value.__args__)
+            return None if parts is None else _ir.union(parts)
+        if is_generic_alias(value):  # builtin `list[int]` and user `Foo[int]` alike
+            if value.__origin__ is _CALLABLE_ORIGIN:
+                # `Callable`'s `__args__` is a flat `(*params, ret)`, not a type row
+                return self._callable_type(value.__args__)
+            origin = self._type_expr(value.__origin__)
+            args = self._type_args(value.__args__)
+            if isinstance(origin, _ir.Type) and args is not None:
+                return _ir.App(_ir.type_name(origin.cls), tuple(args))
+        return None
+
+    def _callable_type(self, args: tuple[object, ...]) -> _ir.Node | None:
+        """A `Callable[...]` value as the `(params) -> ret` form rendered elsewhere."""
+        *params, ret = args  # `_type_args` renders a `Callable[..., R]`'s `...` too
+        ret_node = self._type_expr(ret)
+        param_nodes = self._type_args(params)
+        if ret_node is None or param_nodes is None:
+            return None
+        return _ir.Fn(tuple(param_nodes), ret_node)
+
+    def _type_args(self, values: Sequence[object]) -> list[_ir.Node] | None:
+        """Every type argument as an annotation node, or `None` if any is unnameable."""
+        args: list[_ir.Node] = []
+        for value in values:
+            node = _ir.Dots() if value is ... else self._type_expr(value)
+            if node is None:
+                return None
+            args.append(node)
+        return args
+
+    def _container(self, result: object) -> _ir.Node:
+        result = _get_alias(result)
+        if (inner := self._type_expr(result)) is not None:
+            # `type[...]` for a class, `TypeForm[...]` for a union or `Callable`
+            class_form = isinstance(result, type) or (
+                is_generic_alias(result) and result.__origin__ is not _CALLABLE_ORIGIN
+            )
+            return _ir.App("type" if class_form else "TypeForm", (inner,))
+
+        if is_generic_alias(result):
+            # an unnameable origin or argument keeps the honest, if unhelpful, alias
+            return _ir.Type(types.GenericAlias)
+
+        cls = type(result)
+        match result:
+            case _ if (mapping := as_mapping(result)) is not None:
+                origin, pairs = _ir.type_name(mapping.cls), mapping.pairs
+                key = self.value_union((k for k, _ in pairs), tuples=True) or _ir.NEVER
+                args: tuple[_ir.Node, ...]
+                if issubclass(mapping.cls, Counter):
+                    args = (key,)
+                else:
+                    value = self.value_union((v for _, v in pairs), tuples=True)
+                    args = (key, value or _ir.NEVER)
+                return _ir.App(origin, args)
+            case list() | set() | frozenset():
+                inner = self.value_union(result, tuples=True)
+                return _ir.App(_ir.type_name(cls), (inner or _ir.NEVER,))
+            case tuple() if cls is tuple:
+                return self._tuple(result) if result else _ir.App("tuple", ())
+            case _:
+                return _ir.Type(cls)
+
+    def _tuple(self, items: tuple[object, ...]) -> _ir.Node:
+        spy = self._binding.var_pos
+        if spy is not None:
+            if any(item is spy for item in items) and self._binding.naming.tyvar_tuple:
+                # every use is packed, so the placeholders unpack into a single `*Ts`
+                start = next(i for i, item in enumerate(items) if item is spy)
+                parts = [self.value_type(item) for item in items if item is not spy]
+                parts.insert(start, _ir.Unpack(_ir.Name(TYVAR_TUPLE_NAME)))
+                return _ir.tuple_node(parts)
+
+            # a uniform spread is `tuple[T, ...]`: the placeholder (`(*args,)`) at any
+            # length, or its zipped element (`zip(*args)`) only at the full count
+            if all(item is spy for item in items):
+                return _ir.tuple_node_variadic(self.return_type(spy))
+            element = spy.__optype_element__
+            if (
+                element is not None
+                and len(items) == self._binding.exploration.var_count
+                and all(item is element for item in items)
+            ):
+                return _ir.tuple_node_variadic(self.return_type(element))
+
+        if len(items) > _TUPLE_LIMIT:  # e.g. `random.getstate`
+            return _ir.tuple_node_variadic(self.type_union(items))
+
+        return _ir.tuple_node(self.value_type(item) for item in items)
+
+
+def _renderer_of(
+    exploration: Exploration,
+    params: Mapping[str, Parameter],
+    traces: Traces,
+) -> _Renderer:
+    """A renderer under the final naming; a trial render decides what inlines."""
+    var_pos = next(
+        (
+            exploration.spies[name]
+            for name, p in params.items()
+            if p.kind is Parameter.VAR_POSITIONAL
+        ),
+        None,
+    )
+    naming = _build_naming(
+        exploration.results,
+        exploration.spies,
+        traces,
+        var_pos,
+        exploration.var_count,
+    )
+    binding = _Binding(exploration, params, traces, var_pos, naming)
+    trial = _Renderer(binding)
+    pool, inline = trial.single_use()
+    if not inline:
+        return trial
+    naming = naming.inlined(pool, inline, traces)
+    return _Renderer(replace(binding, naming=naming))
+
+
+def renderers_of(
+    exploration: Exploration,
+    params: Mapping[str, Parameter],
+) -> list[_Renderer]:
+    traces, results = exploration.traces, exploration.results
+    reflected = reflect([*exploration.spies.values(), *fn_spies(results)], traces)
+    if reflected is traces:
+        # nothing reflected, so a second renderer would repeat the first verbatim
+        return [_renderer_of(exploration, params, traces)]
+    return [_renderer_of(exploration, params, t) for t in (traces, reflected)]
+
+
+def signatures(
+    exploration: Exploration,
+    params: Mapping[str, Parameter],
+    selected: Names,
+    defaults: Defaults | None = None,
+    *,
+    negate: bool = False,
+) -> list[_ir.Signature]:
+    return [
+        r.signature(selected, defaults, negate=negate)
+        for r in renderers_of(exploration, params)
+    ]
+
+
+def widened_signatures(
+    exploration: Exploration,
+    params: Mapping[str, Parameter],
+    selected: Names,
+) -> list[_ir.Signature]:
+    """The fallback overloads for a value dispatch: the parameter as the absent branch
+    leaves it, the return widened to `object` (the only sound supertype of an arbitrary
+    present return).
+
+    Empty if a signature still declares a type parameter: a pinned return cannot bind
+    one, so a parameter-only typevar would dangle.
+    """
+    sigs = [
+        r.signature(selected, ret=_ir.OBJECT) for r in renderers_of(exploration, params)
+    ]
+    return [] if any(sig.type_params for sig in sigs) else sigs

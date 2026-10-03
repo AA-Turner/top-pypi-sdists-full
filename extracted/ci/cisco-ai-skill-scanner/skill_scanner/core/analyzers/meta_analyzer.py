@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ...config.constants import DEFAULT_LLM_MODEL
 from ...llm_reasoning import build_litellm_reasoning_params, resolve_llm_reasoning_effort
 from ...llm_token_options import resolve_llm_max_tokens
 from ...threats.threats import ThreatMapping
@@ -713,6 +714,10 @@ class MetaAnalysisTruncatedError(LLMResponseTruncatedError):
     """Raised when the provider reports an output-token truncation."""
 
 
+class MetaAnalysisContextWindowError(Exception):
+    """The on-device model cannot fit this meta-analysis prompt."""
+
+
 class MetaAnalysisParseError(ValueError):
     """Raised when a meta-analysis response cannot be parsed as valid JSON."""
 
@@ -735,7 +740,7 @@ class MetaAnalyzer(BaseAnalyzer):
     The meta-analyzer runs AFTER all other analyzers complete.
 
     Example:
-        >>> meta = MetaAnalyzer(model="claude-3-5-sonnet-20241022", api_key=api_key)
+        >>> meta = MetaAnalyzer(model="claude-sonnet-5-5", api_key=api_key)
         >>> result = await meta.analyze_with_findings(skill, all_findings, analyzers_used)
         >>> validated = result.get_validated_findings(skill)
     """
@@ -764,7 +769,7 @@ class MetaAnalyzer(BaseAnalyzer):
         """Initialize the Meta Analyzer.
 
         Args:
-            model: Model identifier (defaults to claude-3-5-sonnet-20241022)
+            model: Model identifier (defaults to claude-sonnet-5-5)
             api_key: API key (if None, reads from environment)
             max_tokens: Maximum tokens for response. When omitted, resolves
                 from ``SKILL_SCANNER_META_LLM_MAX_TOKENS``, then
@@ -816,8 +821,10 @@ class MetaAnalyzer(BaseAnalyzer):
             or os.getenv("SKILL_SCANNER_LLM_API_KEY")  # Scanner-wide
         )
         configured_model = model or os.getenv("SKILL_SCANNER_META_LLM_MODEL") or os.getenv("SKILL_SCANNER_LLM_MODEL")
+        if not configured_model and self.provider == "apple-fm":
+            configured_model = "apple-fm/system"
         self.model: str = configured_model or (
-            "orcarouter/anthropic/claude-sonnet-5" if self.provider == "orcarouter" else "claude-3-5-sonnet-20241022"
+            "orcarouter/anthropic/claude-sonnet-5" if self.provider == "orcarouter" else DEFAULT_LLM_MODEL
         )
         self.base_url = (
             base_url
@@ -841,7 +848,15 @@ class MetaAnalyzer(BaseAnalyzer):
         # analyzer's normalization and request-parameter handling so the meta
         # analyzer receives the same key and default endpoint.
         self.provider_config: ProviderConfig | None = None
-        if self.provider == "orcarouter" or self.model.lower().startswith("orcarouter/"):
+        _openai_compatible = self.provider in {"openai", "openai-compatible", "custom-openai"}
+        _wants_provider_config = (
+            self.provider == "orcarouter"
+            or self.model.lower().startswith("orcarouter/")
+            or self.provider == "bedrock-mantle"
+            or self.model.lower().startswith("bedrock-mantle/")
+            or (not _openai_compatible and (self.provider == "apple-fm" or self.model.lower().startswith("apple-fm/")))
+        )
+        if _wants_provider_config:
             self.provider_config = ProviderConfig(
                 model=self.model,
                 api_key=self.api_key,
@@ -858,12 +873,37 @@ class MetaAnalyzer(BaseAnalyzer):
             self.provider = self.provider_config.provider
 
         self.is_bedrock = bool(self.model and "bedrock/" in self.model)
+        # The mantle route is OpenAI-compatible but authenticates with SigV4, so it
+        # has no API key. "bedrock/" is not a substring of "bedrock-mantle/", so
+        # without this it would be treated as a keyed provider and rejected.
+        self.is_bedrock_mantle = bool(
+            getattr(self.provider_config, "use_bedrock_mantle", False) is True
+            or (self.model and self.model.lower().startswith("bedrock-mantle/"))
+        )
         self.is_ollama = bool(self.model and self.model.lower().startswith("ollama/"))
         if self.is_ollama:
             self.base_url = resolve_ollama_base_url(self.base_url)
+        self.is_apple_fm = bool(
+            getattr(self.provider_config, "is_apple_fm", False) is True
+            or (
+                self.provider not in {"openai", "openai-compatible", "custom-openai"}
+                and (self.provider == "apple-fm" or (self.model and self.model.lower().startswith("apple-fm/")))
+            )
+        )
+
+        if self.is_apple_fm:
+            from .apple_fm import require_apple_fm_sdk
+
+            require_apple_fm_sdk()
 
         # Validate configuration
-        if not self.api_key and not self.is_bedrock and not self.is_ollama:
+        if (
+            not self.api_key
+            and not self.is_bedrock
+            and not self.is_bedrock_mantle
+            and not self.is_ollama
+            and not self.is_apple_fm
+        ):
             raise ValueError(
                 "Meta-Analyzer LLM API key not configured. "
                 "Set SKILL_SCANNER_META_LLM_API_KEY or SKILL_SCANNER_LLM_API_KEY environment variable."
@@ -885,18 +925,20 @@ class MetaAnalyzer(BaseAnalyzer):
         self.max_tokens = resolve_llm_max_tokens(max_tokens, meta=True)
         # Resolve temperature: explicit arg > meta-specific env > scanner-wide
         # env > default.  ``None`` here means "omit ``temperature`` from the
-        # outgoing request" (Claude 4.x on Bedrock, OpenAI o1-series).
+        # outgoing request"; it is also the default for models that reject it.
         if temperature is _TEMPERATURE_UNSET and "SKILL_SCANNER_META_LLM_TEMPERATURE" in os.environ:
             self.temperature = _resolve_temperature(
                 _TEMPERATURE_UNSET,
                 "SKILL_SCANNER_META_LLM_TEMPERATURE",
                 default=0.1,
+                model=self.model,
             )
         else:
             self.temperature = _resolve_temperature(
                 temperature,
                 "SKILL_SCANNER_LLM_TEMPERATURE",
                 default=0.1,
+                model=self.model,
             )
         self.max_retries = max_retries
         self.timeout = timeout
@@ -1303,27 +1345,16 @@ Respond with JSON containing your analysis following the required schema."""
             response = await self._make_llm_request(self.system_prompt, user_prompt)
         except MetaAnalysisTruncatedError:
             if len(indices) > 1:
-                midpoint = len(indices) // 2
-                logger.warning(
-                    "Meta-analysis response truncated for findings %d-%d; retrying as %d and %d findings",
-                    indices[0],
-                    indices[-1],
-                    midpoint,
-                    len(indices) - midpoint,
+                return await self._bisect_batch(
+                    skill=skill,
+                    findings=findings,
+                    indices=indices,
+                    skill_context=skill_context,
+                    analyzers_used=analyzers_used,
+                    start_tag=start_tag,
+                    end_tag=end_tag,
+                    reason="response truncated",
                 )
-                narrowed = MetaAnalysisResult()
-                for narrowed_indices in (indices[:midpoint], indices[midpoint:]):
-                    narrowed_result = await self._analyze_batch(
-                        skill=skill,
-                        findings=findings,
-                        indices=narrowed_indices,
-                        skill_context=skill_context,
-                        analyzers_used=analyzers_used,
-                        start_tag=start_tag,
-                        end_tag=end_tag,
-                    )
-                    self._merge_batch_result(narrowed, narrowed_result)
-                return narrowed
             return self._degraded_batch_result(
                 findings,
                 indices,
@@ -1332,6 +1363,34 @@ Respond with JSON containing your analysis following the required schema."""
                 failure_diagnostic={
                     "outer_error_code": "META_BATCH_TRUNCATED",
                     "inner_error_code": "META_RESPONSE_TRUNCATED",
+                    "request_sha256": request_sha256,
+                    "repair_attempted": 0,
+                    "repair_succeeded": 0,
+                },
+            )
+        except MetaAnalysisContextWindowError:
+            if len(indices) > 1:
+                return await self._bisect_batch(
+                    skill=skill,
+                    findings=findings,
+                    indices=indices,
+                    skill_context=skill_context,
+                    analyzers_used=analyzers_used,
+                    start_tag=start_tag,
+                    end_tag=end_tag,
+                    reason="prompt exceeded the on-device context window",
+                )
+            return self._degraded_batch_result(
+                findings,
+                indices,
+                code="META_BATCH_CONTEXT_WINDOW",
+                message=(
+                    "The on-device Apple Foundation Model context window cannot fit "
+                    "this finding together with the skill context; the finding was retained unchanged."
+                ),
+                failure_diagnostic={
+                    "outer_error_code": "META_BATCH_CONTEXT_WINDOW",
+                    "inner_error_code": "APPLE_FM_CONTEXT_WINDOW",
                     "request_sha256": request_sha256,
                     "repair_attempted": 0,
                     "repair_succeeded": 0,
@@ -1388,6 +1447,42 @@ Respond with JSON containing your analysis following the required schema."""
             )
 
         return self._normalize_batch_result(batch_result, findings, indices)
+
+    async def _bisect_batch(
+        self,
+        skill: Skill,
+        findings: list[Finding],
+        indices: list[int],
+        skill_context: str,
+        analyzers_used: list[str],
+        start_tag: str,
+        end_tag: str,
+        *,
+        reason: str,
+    ) -> MetaAnalysisResult:
+        """Retry one batch as two smaller batches. A single finding is not split."""
+        midpoint = len(indices) // 2
+        logger.warning(
+            "Meta-analysis %s for findings %d-%d; retrying as %d and %d findings",
+            reason,
+            indices[0],
+            indices[-1],
+            midpoint,
+            len(indices) - midpoint,
+        )
+        narrowed = MetaAnalysisResult()
+        for narrowed_indices in (indices[:midpoint], indices[midpoint:]):
+            narrowed_result = await self._analyze_batch(
+                skill=skill,
+                findings=findings,
+                indices=narrowed_indices,
+                skill_context=skill_context,
+                analyzers_used=analyzers_used,
+                start_tag=start_tag,
+                end_tag=end_tag,
+            )
+            self._merge_batch_result(narrowed, narrowed_result)
+        return narrowed
 
     def _normalize_batch_result(
         self,
@@ -1455,11 +1550,32 @@ Respond with JSON containing your analysis following the required schema."""
         # values, and false-positive indices. Append any validated omissions in
         # global order so downstream ranking is total and deterministic.
         priority_order: list[int] = []
+        ranked: set[int] = set()
+        unusable_ranks = 0
         for index in result.priority_order:
-            if type(index) is int and index in validated and index not in priority_order:
+            if type(index) is not int or index not in expected or index in ranked:
+                unusable_ranks += 1
+                continue
+            ranked.add(index)
+            if index in validated:
                 priority_order.append(index)
-        priority_order.extend(index for index in sorted(validated) if index not in priority_order)
+        unranked = [index for index in sorted(validated) if index not in ranked]
+        priority_order.extend(unranked)
         result.priority_order = priority_order
+        # Ranking is not security-bearing, so a repair here is logged rather than
+        # recorded as an analysis warning: any warning forces the skill-level
+        # risk_level and verdict to UNKNOWN, which a cosmetic field must not do.
+        # Dropping false-positive indices is expected and not counted here.
+        if unusable_ranks or unranked:
+            logger.warning(
+                "Meta-analysis batch %d-%d supplied an unusable priority ranking "
+                "(%d invalid or duplicate entries, %d validated findings left unranked); "
+                "the ranking was normalized and the classifications were kept.",
+                expected_indices[0],
+                expected_indices[-1],
+                unusable_ranks,
+                len(unranked),
+            )
         return result
 
     def _degraded_batch_result(
@@ -1850,6 +1966,31 @@ Each recommendation, if any, must contain exactly `priority` (integer 1–3), `t
             {"role": "user", "content": user_prompt},
         ]
 
+        if self.is_apple_fm:
+            from .apple_fm import AppleFMContextWindowError
+
+            config = self.provider_config
+            if config is None or getattr(config, "is_apple_fm", False) is not True:
+                config = ProviderConfig(model=self.model, api_key=None, provider="apple-fm")
+            handler = LLMRequestHandler(
+                config,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                max_retries=self.max_retries,
+                timeout=self.timeout,
+                reasoning_effort=self.reasoning_effort,
+            )
+            # Meta validates its own JSON contract. The on-device model has no
+            # json_schema response format, so leave the prompt unconstrained.
+            handler.response_schema = None
+            try:
+                content = await handler.make_request(messages, context="meta-analysis")
+            except AppleFMContextWindowError as exc:
+                _add_token_usage(self._llm_usage, handler.last_usage)
+                raise MetaAnalysisContextWindowError(str(exc)) from exc
+            _add_token_usage(self._llm_usage, handler.last_usage)
+            return content
+
         api_params: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -1892,6 +2033,56 @@ Each recommendation, if any, must contain exactly `priority` (integer 1–3), `t
             api_params["aws_session_token"] = self.aws_session_token
         if self.aws_profile:
             api_params["aws_profile_name"] = self.aws_profile
+
+        if self.is_bedrock_mantle and self.provider_config is not None:
+            # LiteLLM cannot sign a body it builds itself, so the mantle route goes
+            # through the request handler that owns that client rather than through
+            # acompletion.
+            handler = LLMRequestHandler(
+                self.provider_config,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                max_retries=self.max_retries,
+                timeout=self.timeout,
+                reasoning_effort=self.reasoning_effort,
+            )
+            # The handler loads the *analyzer's* response schema by default. Left as
+            # that, meta-analysis requests are constrained to the analyzer's shape and
+            # the model returns findings/verdict instead of the meta delta, so every
+            # batch fails the contract and is silently retained unchanged -- meta
+            # becomes a no-op that still reports having run.
+            #
+            # Meta's own schema cannot be used on this route either: the mantle
+            # validator rejects it, and not only for `uniqueItems`. Stripping
+            # `uniqueItems`, `pattern`, `minItems` and `maxItems` still returns
+            # `validation_error: the task request was rejected by the target`, so the
+            # schema is beyond what the route accepts rather than tripping one keyword.
+            #
+            # Requesting unconstrained JSON is therefore the only working option here.
+            # It is safe because the strict contract validation downstream is what
+            # actually protects the caller: schema enforcement was belt-and-braces, and
+            # an unparsable response is still rejected rather than accepted.
+            handler.response_schema = None
+            try:
+                mantle_content = await handler.make_request(messages, context="meta-analysis")
+            except LLMResponseTruncatedError as error:
+                # _analyze_batch catches only MetaAnalysisTruncatedError. Left as the
+                # handler's own type, a truncated mantle response would escape that
+                # handling and surface as a generic failure, losing the retry-with-fewer
+                # -findings path that exists precisely for truncation.
+                _add_token_usage(self._llm_usage, handler.last_usage)
+                # Carry the original diagnostics across rather than inventing values:
+                # the retry path reports finish_reason, model and the token cap, and a
+                # placeholder there would misdescribe why the batch was cut short.
+                raise MetaAnalysisTruncatedError(
+                    str(error),
+                    finish_reason=error.finish_reason,
+                    model=error.model,
+                    max_tokens=error.max_tokens,
+                    context=error.context,
+                ) from error
+            _add_token_usage(self._llm_usage, handler.last_usage)
+            return mantle_content
 
         # Retry logic with exponential backoff
         last_exception = None
@@ -2192,13 +2383,13 @@ Each recommendation, if any, must contain exactly `priority` (integer 1–3), `t
                 self._validate_meta_evidence_ids(entry.get("evidence_ids"))
         if classified != expected_indices:
             raise ValueError("Ollama Meta did not classify every expected index exactly once")
-        priority_order = value["priority_order"]
-        if (
-            any(type(index) is not int or index not in expected_indices for index in priority_order)
-            or len(priority_order) != len(set(priority_order))
-            or set(priority_order) != expected_indices
-        ):
-            raise ValueError("Ollama Meta priority_order contains invalid or duplicate indices")
+        # `priority_order` is deliberately not validated here. It is a
+        # presentation-layer ranking, and every index has already been accounted
+        # for exactly once by the classification checks above. A model that
+        # duplicates, omits, or invents an entry in the ranking is repaired
+        # deterministically by `_normalize_batch_result`; rejecting the response
+        # instead would degrade the whole batch and retain every finding in it,
+        # including the ones the model classified as false positives.
 
         for correlation in value["correlations"]:
             if not isinstance(correlation, dict):

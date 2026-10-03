@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fixture_origins import allow_fixture_origins
 import pytest
 
 import matrx_scraper.scraper as scraper_module
@@ -58,6 +59,7 @@ CHALLENGE_HTML = (
 async def test_cloudflare_challenge_outranks_bad_status_at_any_status(
     monkeypatch: pytest.MonkeyPatch, status: int
 ) -> None:
+    allow_fixture_origins(monkeypatch, "https://x.test")  # stand-in hosts; the engine is stubbed
     monkeypatch.setattr(scraper_module, "CURL_CFFI_AVAILABLE", True)
     monkeypatch.setattr(
         scraper_module,

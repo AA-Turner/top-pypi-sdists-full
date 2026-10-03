@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydocket
-Version: 0.25.2
+Version: 0.26.0
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -135,7 +135,7 @@ introduced in Redis 5.0.0). Docket is tested with:
 
 - Redis 6.2, 7.4, and 8.6 (standalone and cluster modes)
 - [Valkey](https://valkey.io/) 8.1
-- In-memory backend via [burner-redis](https://github.com/PrefectHQ/burner-redis) for testing
+- In-memory backend via [burner-redis](https://github.com/prefectlabs/burner-redis) for testing
 
 For testing without Redis, use the in-memory backend:
 

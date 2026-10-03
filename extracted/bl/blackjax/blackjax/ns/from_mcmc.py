@@ -105,7 +105,13 @@ def update_with_mcmc_take_last(
             return final_state, infos
 
         sample_keys = random.split(sample_key, num_delete)
-        return jax.vmap(mcmc_kernel)(sample_keys, start_state)
+        new_particles, infos = jax.vmap(mcmc_kernel)(sample_keys, start_state)
+        new_particles = new_particles._replace(
+            loglikelihood_birth=jnp.full_like(
+                new_particles.loglikelihood_birth, loglikelihood_0
+            )
+        )
+        return new_particles, infos
 
     return update_function
 
@@ -169,6 +175,7 @@ def build_kernel(
     update_inner_kernel_params_fn: Callable,
     num_delete: int = 1,
     delete_fn: Callable = default_delete_fn,
+    update_strategy: Callable = update_with_mcmc_take_last,
 ) -> Callable:
     """Build a Nested Sampling kernel from a constrained inner step.
 
@@ -191,14 +198,34 @@ def build_kernel(
         Number of particles replaced per NS iteration.
     delete_fn
         Selects which particles to delete (default: the lowest-likelihood ones).
+    update_strategy
+        Inner-kernel factory ``(constrained_step_fn, num_inner_steps,
+        num_delete) -> update_fn`` (default:
+        :func:`update_with_mcmc_take_last`). The returned ``update_fn`` is
+        called once per NS iteration as::
+
+            update_fn(rng_key, state, loglikelihood_0, **step_parameters)
+                -> (new_particles, update_info)
+
+        where ``loglikelihood_0`` is the likelihood contour being replaced and
+        ``step_parameters`` is the current ``state.inner_kernel_params``. It
+        must return exactly ``num_delete`` particle states whose pytree
+        structure and dtypes match ``state.particles``, since they are written
+        back by index, and each must satisfy ``loglikelihood >
+        loglikelihood_0`` with ``loglikelihood_birth`` set to
+        ``loglikelihood_0``. The constrained step preserves the likelihood
+        constraint on rejection when its start point is a strict survivor;
+        the fallback when no strict survivor exists does not guarantee this.
+        :func:`update_with_mcmc_take_last` sets ``loglikelihood_birth`` to
+        ``loglikelihood_0`` on its output, including rejected chains. Custom
+        update strategies must also set the output birth contour. ``update_info`` is passed
+        through to ``NSInfo.update_info`` unchanged and may be any pytree.
 
     Returns
     -------
     A Nested Sampling kernel ``kernel(rng_key, state) -> (new_state, info)``.
     """
-    inner_kernel = update_with_mcmc_take_last(
-        constrained_step_fn, num_inner_steps, num_delete
-    )
+    inner_kernel = update_strategy(constrained_step_fn, num_inner_steps, num_delete)
     delete_fn = partial(delete_fn, num_delete=num_delete)
     return build_adaptive_kernel(
         delete_fn,

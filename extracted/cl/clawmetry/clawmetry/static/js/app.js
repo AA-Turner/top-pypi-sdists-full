@@ -40,8 +40,8 @@
   window.cmStoreUnreachableHtml = function (extraStyle) {
     var msg = (typeof t === 'function')
       ? t('common.store_unreachable_panel', null,
-           "Can't reach the collector on this machine, so this list can't be read right now. Nothing has been lost \u2014 it reappears as soon as the connection is back.")
-      : "Can't reach the collector on this machine, so this list can't be read right now. Nothing has been lost \u2014 it reappears as soon as the connection is back.";
+           "ClawMetry cannot reach the collector on this machine. This list will be available when the connection returns.")
+      : "ClawMetry cannot reach the collector on this machine. This list will be available when the connection returns.";
     var esc = (typeof escHtml === 'function') ? escHtml : function (x) { return String(x); };
     return '<div style="padding:16px;color:#fbbf24;' + (extraStyle || '') + '">' + esc(msg)
       + ' <button type="button" onclick="cmRetryStoreRead()" style="background:transparent;color:#fbbf24;border:1px solid #fbbf24;border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer;margin-left:6px;">'
@@ -575,7 +575,7 @@
             return;
           }
           statusEl.className = 'cm-hbo-status ok';
-          statusEl.textContent = 'License installed — reloading…';
+          statusEl.textContent = 'The license was installed. The page will reload.';
           return refreshAndMaybeUnblock(true);
         })
         .catch(function (err) {
@@ -958,7 +958,7 @@ async function loadAlertRules() {
     // Issue #1257: replace silent "Failed to load" text with an actionable
     // Failed-to-load + Retry pattern. Mirror loadCrons / loadAutonomy / loadSystemHealth.
     var el = document.getElementById('alert-rules-list');
-    if (el) el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">Failed to load: ' + escHtml(String(e)) + ' &nbsp;<button onclick="loadAlertRules()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button></div>';
+    if (el) el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">' + escHtml(t('app.failed_to_load_2', null, 'Failed to load: ')) + escHtml(String(e)) + ' &nbsp;<button onclick="loadAlertRules()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button></div>';
   }
 }
 
@@ -1001,9 +1001,9 @@ async function saveWebhookConfig() {
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)
     });
-    if (!r.ok) throw new Error('Save failed');
+    if (!r.ok) throw new Error(t('app.save_failed', null, 'Save failed'));
     status.style.color = 'var(--text-success)';
-    status.textContent = 'Saved';
+    status.textContent = t('common.saved', null, 'Saved');
   } catch(e) {
     status.style.color = 'var(--text-error)';
     status.textContent = t("app.save_failed", null, "Save failed");
@@ -1056,18 +1056,18 @@ async function loadAlertHistory() {
   } catch(e) {
     // Issue #1257: Failed-to-load + Retry button pattern (mirror #1314/#1316).
     var el = document.getElementById('alert-history-list');
-    if (el) el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">Failed to load: ' + escHtml(String(e)) + ' &nbsp;<button onclick="loadAlertHistory()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button></div>';
+    if (el) el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">' + escHtml(t('app.failed_to_load_2', null, 'Failed to load: ')) + escHtml(String(e)) + ' &nbsp;<button onclick="loadAlertHistory()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button></div>';
   }
 }
 
 // QW5 — plain-words duration for the "data feed stopped" banner.
 function _cmHumanizeMinutes(mins) {
   mins = Math.max(1, Math.round(mins));
-  if (mins < 60) return mins === 1 ? t('app.one_minute', null, '1 minute') : t('app.n_minutes', { n: mins }, mins + ' minutes');
+  if (mins < 60) return mins === 1 ? t('app.one_minute', null, '1 minute') : t('app.n_minutes', { n: mins }, "{n} minutes");
   var hours = Math.round(mins / 60);
-  if (hours < 48) return hours === 1 ? t('app.one_hour', null, '1 hour') : t('app.n_hours', { n: hours }, hours + ' hours');
+  if (hours < 48) return hours === 1 ? t('app.one_hour', null, '1 hour') : t('app.n_hours', { n: hours }, "{n} hours");
   var days = Math.round(mins / 1440);
-  return days === 1 ? t('app.one_day', null, '1 day') : t('app.n_days', { n: days }, days + ' days');
+  return days === 1 ? t('app.one_day', null, '1 day') : t('app.n_days', { n: days }, "{n} days");
 }
 
 // QW5 — rewrite the server's agent_down message into plain words. The server
@@ -1078,10 +1078,10 @@ function _cmAgentDownBannerCopy(orig) {
     var m = /(\d+)\s*minute/.exec(orig || '');
     if (m) {
       var dur = _cmHumanizeMinutes(parseInt(m[1], 10));
-      return t('alerts.feed_stopped', { duration: dur }, 'One of our data feeds from your agent stopped about ' + dur + ' ago. You’re still seeing live activity, but some charts may lag.');
+      return t('alerts.feed_stopped', { duration: dur }, "One data feed from your agent stopped approximately {duration} ago. Live activity is still available. Some charts may be delayed.");
     }
   } catch (e) {}
-  return t('alerts.feed_stopped_unknown', null, 'One of our data feeds from your agent stopped. You’re still seeing live activity, but some charts may lag.');
+  return t('alerts.feed_stopped_unknown', null, 'One data feed from your agent stopped. Live activity is still available. Some charts may be delayed.');
 }
 
 // Where an alert sends you. Returns {label, go} or null when the alert
@@ -1413,7 +1413,7 @@ function _ensureAnomalyPanel() {
   var panel = document.createElement('div');
   panel.id = 'anomaly-panel';
   panel.style.cssText = 'background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:12px;padding:16px;margin-top:14px;box-shadow:var(--card-shadow);';
-  panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><div style="font-size:14px;font-weight:700;color:var(--text-primary);">' + t("app.128269_anomaly_detection", null, "&#128269; Anomaly Detection") + '</div><span id="anomaly-panel-badge" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;display:none;"></span></div><div id="anomaly-baselines" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:11px;"></div><div id="anomaly-list" style="max-height:300px;overflow-y:auto;"></div>';
+  panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><div style="font-size:14px;font-weight:700;color:var(--text-primary);">' + t("app.128269_anomaly_detection", null, "🔍 Anomaly Detection") + '</div><span id="anomaly-panel-badge" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;display:none;"></span></div><div id="anomaly-baselines" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:11px;"></div><div id="anomaly-list" style="max-height:300px;overflow-y:auto;"></div>';
   shPanel.parentNode.insertBefore(panel, shPanel.nextSibling);
   return panel;
 }
@@ -1559,8 +1559,8 @@ async function checkHeartbeatStatus() {
       var gapStr = gap >= 3600 ? Math.floor(gap/3600) + 'h ' + Math.floor((gap%3600)/60) + 'm' : Math.floor(gap/60) + ' minutes';
       var intervalMin = Math.floor(data.interval_seconds / 60);
       var msg = data.status === 'silent'
-        ? 'Agent heartbeat SILENT for ' + gapStr + ' (expected every ' + intervalMin + 'm). Check if agent is running.'
-        : 'Heartbeat delayed: last seen ' + gapStr + ' ago (expected every ' + intervalMin + 'm)';
+        ? t('overview.hb_banner_silent', { gap: gapStr, interval: intervalMin }, "No agent heartbeat for {gap}. The expected interval is {interval} minutes. Make sure that the agent is active.")
+        : t('overview.hb_banner_delayed', { gap: gapStr, interval: intervalMin }, "The last heartbeat arrived {gap} ago. The expected interval is {interval} minutes.");
       document.getElementById('heartbeat-banner-msg').textContent = msg;
       banner.style.background = data.status === 'silent' ? '#7f1d1d' : '#451a03';
       banner.style.color = data.status === 'silent' ? '#fca5a5' : '#fbbf24';
@@ -1877,7 +1877,7 @@ async function loadContextCoverage() {
   if (!rows.length) { el.innerHTML = ''; return; }
 
   var SIGNALS = [
-    { key: 'utilization', label: 'Window %' },
+    { key: 'utilization', label: 'Window readings' },
     { key: 'compaction',  label: 'Compaction' },
     { key: 'overflow',    label: 'Overflow' }
   ];
@@ -1909,8 +1909,8 @@ async function loadContextCoverage() {
   el.innerHTML = '<div style="border:1px solid var(--border-primary);border-radius:10px;padding:14px;">'
     + '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">What we can see, per runtime</div>'
     + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;max-width:720px;">'
-    + 'A zero only means "ran clean" when we could have seen otherwise. Where a signal is '
-    + '<span style="color:#d97706;">not visible</span>, the runtime does not record it and ClawMetry is blind to it.</div>'
+    + 'Recorded signal counts across all runtimes. A zero means no matching signal was recorded. Where a signal is '
+    + '<span style="color:#d97706;">not visible</span>, ClawMetry cannot measure it.</div>'
     + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
     + '<thead><tr style="color:var(--text-muted);text-align:left;">'
     + '<th style="padding:6px 10px;font-weight:600;">Runtime</th>'
@@ -1961,12 +1961,17 @@ async function loadContextEconomics() {
   // Recompute the summary from the scoped lists so the chips always agree
   // with the gauge and compaction log below them, local and cloud alike.
   var _ovCount = comps.filter(function(c){ return c.trigger === 'overflow'; }).length;
+  var _knownReclaimed = comps.filter(function(c) {
+    return c.measurement_status === 'observed' && c.reclaimed != null
+      && Number.isFinite(Number(c.reclaimed));
+  });
   var s = {
     compaction_count: comps.length,
     overflow_count: _ovCount,
     proactive_count: comps.length - _ovCount,
-    total_reclaimed: comps.reduce(function(t2, c){ return t2 + Number(c.reclaimed || 0); }, 0),
-    peak_pct: Math.round(util.reduce(function(m, u){ return Math.max(m, Number(u.pct || 0)); }, 0) * 10) / 10,
+    total_reclaimed: _knownReclaimed.reduce(function(t2, c){ return t2 + Number(c.reclaimed); }, 0),
+    reclaimed_data_available: _knownReclaimed.length > 0,
+    peak_pct: util.length ? Math.round(util.reduce(function(m, u){ return Math.max(m, Number(u.pct || 0)); }, 0) * 10) / 10 : null,
     overflow_sessions: overflow.length
   };
   _ceCompactionsCache = comps;
@@ -1981,11 +1986,11 @@ async function loadContextEconomics() {
     var peakColor = (s.peak_pct || 0) >= 90 ? '#ef4444' : ((s.peak_pct || 0) >= 70 ? '#d97706' : 'var(--text-primary)');
     sumEl.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
       + chip('Turns', util.length)
-      + chip('Peak window', (s.peak_pct || 0) + '%', peakColor)
+      + chip('Peak window', s.peak_pct === null ? 'Not measured' : s.peak_pct + '%', s.peak_pct === null ? 'var(--text-muted)' : peakColor)
       + chip('Compactions', s.compaction_count || 0)
       + chip('Overflow', s.overflow_count || 0, (s.overflow_count || 0) > 0 ? '#ef4444' : 'var(--text-muted)')
       + chip('Proactive', s.proactive_count || 0, '#16a34a')
-      + chip('Tokens reclaimed', _ceFmtTokens(s.total_reclaimed || 0), '#16a34a')
+      + chip('Tokens reclaimed', s.reclaimed_data_available ? _ceFmtTokens(s.total_reclaimed || 0) : 'Not measured', s.reclaimed_data_available ? '#16a34a' : 'var(--text-muted)')
       + chip('Overflow sessions', s.overflow_sessions || 0, (s.overflow_sessions || 0) > 0 ? '#ef4444' : 'var(--text-muted)')
       + '</div>';
   }
@@ -2073,21 +2078,22 @@ async function loadContextEconomics() {
         var isOverflow = cp.trigger === 'overflow';
         var trigColor = isOverflow ? '#ef4444' : '#16a34a';
         var trigBg = isOverflow ? 'rgba(239,68,68,.12)' : 'rgba(22,163,74,.12)';
-        var reclaimed = Number(cp.reclaimed || 0);
+        var measured = cp.measurement_status === 'observed';
+        var reclaimed = measured ? Number(cp.reclaimed || 0) : null;
         c += '<div onclick="_ceToggleCompaction(' + idx + ')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border-secondary);font-size:12px;">';
         c += '<span style="font-size:10px;font-weight:700;color:' + trigColor + ';background:' + trigBg + ';border-radius:4px;padding:1px 7px;text-transform:uppercase;">' + escHtml(cp.trigger || 'proactive') + '</span>';
         c += '<span style="color:var(--text-faint);background:var(--bg-secondary);border-radius:4px;padding:1px 6px;font-size:10px;" title="' + escHtml(cp.session_id || '') + '">' + escHtml(_ceShortSid(cp.session_id)) + '</span>';
         c += '<span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(String(cp.ts || '')) + '</span>';
-        c += '<span style="color:var(--text-primary);white-space:nowrap;">' + _ceFmtTokens(cp.tokens_before) + ' &#8594; ' + _ceFmtTokens(cp.tokens_after) + '</span>';
-        if (reclaimed > 0) c += '<span style="color:#16a34a;font-weight:600;white-space:nowrap;">&#8722;' + _ceFmtTokens(reclaimed) + '</span>';
+        c += '<span style="color:var(--text-primary);white-space:nowrap;">' + (measured ? (_ceFmtTokens(cp.tokens_before) + ' &#8594; ' + _ceFmtTokens(cp.tokens_after)) : 'Not measured') + '</span>';
+        if (measured && reclaimed > 0) c += '<span style="color:#16a34a;font-weight:600;white-space:nowrap;">&#8722;' + _ceFmtTokens(reclaimed) + '</span>';
         c += '<span style="color:var(--text-faint);">&#9662;</span>';
         c += '</div>';
         // Expandable detail.
         c += '<div id="ce-comp-detail-' + idx + '" style="display:none;padding:12px 16px;background:var(--bg-secondary);border-bottom:1px solid var(--border-secondary);font-size:12px;">';
         c += '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px;">';
-        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Tokens before</div><div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + Number(cp.tokens_before || 0).toLocaleString() + '</div></div>';
-        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Tokens after</div><div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + Number(cp.tokens_after || 0).toLocaleString() + '</div></div>';
-        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Reclaimed</div><div style="font-size:15px;font-weight:700;color:#16a34a;">' + reclaimed.toLocaleString() + '</div></div>';
+        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Tokens before</div><div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + (measured ? Number(cp.tokens_before).toLocaleString() : 'Not measured') + '</div></div>';
+        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Tokens after</div><div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + (measured ? Number(cp.tokens_after).toLocaleString() : 'Not measured') + '</div></div>';
+        c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Reclaimed</div><div style="font-size:15px;font-weight:700;color:' + (measured ? '#16a34a' : 'var(--text-muted)') + ';">' + (measured ? reclaimed.toLocaleString() : 'Not measured') + '</div></div>';
         c += '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Trigger</div><div style="font-size:13px;font-weight:600;color:' + trigColor + ';">' + escHtml(cp.trigger || 'proactive') + (cp.from_hook ? ' (auto-hook)' : '') + '</div></div>';
         c += '</div>';
         if (cp.summary) {
@@ -2131,7 +2137,9 @@ function switchTab(name) {
   if (name === 'context') name = 'context-economics';
   // Track the active tab so tab-scoped pollers (Overview loadAll, etc.) only
   // run on their own screen instead of on every tab.
+  if (name !== 'assistant' && typeof assistantLeave === 'function') assistantLeave();
   _cmCurrentTab = name;
+  document.body.classList.toggle('cm-assistant-active', name === 'assistant');
   // Phase 3: kill any pending SSE-open dwell from the tab we're leaving.
   cancelAllPendingSSEDwell();
   // ...and CLOSE pane-scoped streams that don't belong to the tab we're
@@ -2162,6 +2170,15 @@ function switchTab(name) {
   document.querySelectorAll('.left-nav-item').forEach(function(t) { t.classList.remove('active'); });
   var page = document.getElementById('page-' + name);
   if (page) page.classList.add('active');
+  // Keep the visible screen bookmarkable. Preserve session-detail links when
+  // opening their own screen, but do not leave #assistant behind on Home.
+  if (page) {
+    var detailLink = (name === 'trail' && /^#trail=/.test(window.location.hash)) ||
+      (name === 'transcripts' && /[#&]session=/.test(window.location.hash));
+    if (!detailLink && window.location.hash !== '#' + name) {
+      try { window.history.replaceState(null, '', window.location.pathname + window.location.search + '#' + name); } catch (e) {}
+    }
+  }
   // Tell the user, on every tab, whether the selected runtime actually scopes
   // this view (aggregate/node-wide tabs get an honest note; filterable tabs
   // filter themselves below).
@@ -2201,7 +2218,12 @@ function switchTab(name) {
   // Stop cron auto-refresh when leaving crons tab
   if (name !== 'crons' && _cronAutoRefreshTimer) { clearInterval(_cronAutoRefreshTimer); _cronAutoRefreshTimer = null; }
   if (name === 'inventory') { if (typeof renderInventory === 'function') renderInventory(); }
+  if (name === 'setup') { if (typeof loadSetup === 'function') loadSetup(); }
+  if (name === 'improve') { if (typeof loadImprove === 'function') loadImprove(); }
   if (name === 'overview') loadAll();
+  if (name === 'overview' && typeof loadCustomDashboardPanels === 'function') loadCustomDashboardPanels();
+  if (name === 'dives' && typeof loadDivesPage === 'function') loadDivesPage();
+  if (name === 'assistant' && typeof loadAssistantPage === 'function') loadAssistantPage();
   // #5935: boot no longer opens the log and health streams on a screen that
   // does not show them, so the screens that DO show them open them on entry.
   // Both starters guard on their own handle, so this is idempotent.
@@ -2429,7 +2451,7 @@ function _friendlyBytes(n) {
 // THREE states, and telling them apart is the whole point:
 //   waiting  -> one row per blocked agent, with its confidence
 //   quiet    -> "Nothing needs you right now" + how many are working
-//   unknown  -> "Can't tell right now" when the daemon has gone silent
+//   unknown  -> "Status is unavailable." when the daemon has gone silent
 //
 // The third is why this is not a one-liner. An empty list from a wedged
 // detector must never render as all-clear: a calm reassurance that turns out
@@ -2511,7 +2533,7 @@ function cmRenderNeedsYou(d) {
     box.innerHTML =
       '<div class="cm-needs-head">' +
         '<span class="cm-needs-title">' +
-          t('needs.unknown_title', null, "Can't tell right now") + '</span>' +
+          t('needs.unknown_title', null, "Status is unavailable.") + '</span>' +
         '<span class="cm-needs-sub">' + sub + '</span>' +
       '</div>';
     box.style.display = '';
@@ -2532,12 +2554,12 @@ function cmRenderNeedsYou(d) {
     if (working === 1) {
       sub = t('needs.one_working', null, '1 agent working');
     } else if (working > 0) {
-      sub = t('needs.n_working', { n: working }, working + ' agents working');
+      sub = t('needs.n_working', { n: working }, "{n} agents working");
     } else if (quiet === 1) {
       sub = t('needs.one_quiet', null, '1 agent is open but has gone quiet');
     } else if (quiet > 0) {
       sub = t('needs.n_quiet', { n: quiet },
-              quiet + ' agents are open but have gone quiet');
+              "{n} agents are open but have gone quiet");
     } else {
       sub = t('needs.none_running', null, 'No agents running');
     }
@@ -2551,7 +2573,7 @@ function cmRenderNeedsYou(d) {
       var rtName = (typeof _cmRuntimeLabel === 'function')
         ? _cmRuntimeLabel(rtNow) : rtNow;
       sub = t('needs.never_asks', { runtime: rtName },
-              rtName + " never asks for permission, so nothing here waits on you.");
+              "{runtime} never asks for permission, so nothing here waits on you.");
     }
     box.innerHTML =
       '<div class="cm-needs-head">' +
@@ -2567,14 +2589,14 @@ function cmRenderNeedsYou(d) {
   box.classList.add('is-waiting');
   var title = items.length === 1
     ? t('needs.one_waiting', null, '1 agent needs you')
-    : t('needs.n_waiting', { n: items.length }, items.length + ' agents need you');
+    : t('needs.n_waiting', { n: items.length }, "{n} agents need you");
 
   var rows = items.slice(0, 6).map(function (it) {
     var hook = _cmAttnConfirmed(it.signal);
     var where = [it.project, it.git_branch].filter(Boolean).join(' · ');
     var confidence = hook
       ? t('needs.confident', null, 'Waiting for you')
-      : t('needs.inferred', null, "Looks like it's waiting");
+      : t('needs.inferred', null, "The agent appears to need your input.");
     return '' +
       '<button type="button" class="cm-needs-row" ' +
         'onclick="cmOpenNeedsSession(' + JSON.stringify(it.session_id || '').replace(/"/g, '&quot;') + ')" ' +
@@ -2598,7 +2620,7 @@ function cmRenderNeedsYou(d) {
 
   var extra = items.length > 6
     ? '<div class="cm-needs-note">' +
-        t('needs.more', { n: items.length - 6 }, '+' + (items.length - 6) + ' more') +
+        t('needs.more', { n: items.length - 6 }, "+{n} more") +
       '</div>'
     : '';
 
@@ -2658,6 +2680,9 @@ async function loadNeedsYou() {
 async function loadActivityToday() {
   var strip = document.getElementById('activity-today-strip');
   if (!strip) return;
+  // A failed read replaces the counters with Retry. Keep the trusted template
+  // so the next successful read can restore the elements it updates.
+  if (strip._cmActivityMarkup === undefined) strip._cmActivityMarkup = strip.innerHTML;
   var _rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
   var _q = (_rt && _rt !== 'all') ? ('?runtime=' + encodeURIComponent(_rt)) : '';
   var d = {};
@@ -2681,6 +2706,7 @@ async function loadActivityToday() {
       brow = d.browser_actions_today || 0, msgs = d.messages_today || 0,
       uniq = d.unique_tools_today || 0;
   if (!(tool || exec || brow || msgs || uniq)) { strip.style.display = 'none'; return; }
+  if (!document.getElementById('at-tool-calls')) strip.innerHTML = strip._cmActivityMarkup;
   var set = function(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; };
   set('at-tool-calls', tool); set('at-exec-calls', exec); set('at-browser-actions', brow);
   set('at-messages', msgs); set('at-unique-tools', uniq);
@@ -2717,7 +2743,7 @@ async function loadOutcomeTile() {
     // for a read that has already failed — an unending spinner reads as a
     // broken product. A sentence, and a way to ask again.
     summaryEl.innerHTML = escapeHtml(t("app.task_outcomes_unavailable_right_now", null,
-        "Task outcomes could not be read right now."))
+        "Task outcomes could not be read. Select Retry."))
       + ' <button onclick="loadOutcomeTile()" style="background:transparent;border:1px solid var(--border-primary);'
       + 'color:var(--text-secondary);border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;">'
       + escapeHtml(t('common.retry', null, 'Retry')) + '</button>';
@@ -2850,7 +2876,7 @@ async function loadAutonomy() {
     if (d.score == null) {
       labelEl.textContent = t("app.just_getting_started", null, "Just getting started");
       labelEl.style.color = 'var(--text-muted)';
-      if (gapEl) gapEl.textContent = t("app.use_your_agent_a_bit", null, "Use your agent a bit and we\u2019ll show how independent it\u2019s becoming.");
+      if (gapEl) gapEl.textContent = t("app.use_your_agent_a_bit", null, "Use your agent to collect activity data. ClawMetry will show how often it needs your help.");
       if (badgeEl) { badgeEl.textContent = ''; badgeEl.style.background = ''; badgeEl.style.border = ''; }
       if (trendEl) trendEl.textContent = '';
       if (sampEl) sampEl.textContent = '';
@@ -2932,11 +2958,11 @@ async function loadAutonomy() {
     // Issue #1257 part 2 — replace silent failure with explicit
     // Failed-to-load + Retry. Mirrors Brain pattern (PR #1239).
     if (gapEl) {
-      gapEl.innerHTML = '<span style="color:var(--text-error);">Failed to load: '
+      gapEl.innerHTML = '<span style="color:var(--text-error);">' + escHtml(t('app.failed_to_load_2', null, 'Failed to load: '))
         + escHtml(String(e && e.message || e)) + '</span> '
         + '<button onclick="loadAutonomy()" title="Server slow \u2014 usually clears within 30 s" '
         + 'style="margin-left:6px;background:transparent;border:1px solid var(--border-primary);'
-        + 'color:var(--text-secondary);border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;">Retry</button>';
+        + 'color:var(--text-secondary);border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button>';
     }
   }
 }
@@ -2962,10 +2988,10 @@ async function loadHeartbeat() {
 
     var status = d.status || 'never';
     var labels = {
-      healthy:  { status: 'Alive and well',   pulse: 'checking in',    badge: 'Healthy' },
-      drifting: { status: 'Running a bit late', pulse: 'slow',         badge: 'Late' },
-      missed:   { status: 'Something\u2019s wrong', pulse: 'missed',   badge: 'Missed' },
-      never:    { status: 'No check-ins yet', pulse: 'waiting...',     badge: 'Waiting' }
+      healthy:  { status: t('overview.hb_alive_and_well', null, 'Heartbeat received'), pulse: t('overview.hb_checking_in', null, 'checking in'), badge: t('overview.status_healthy', null, 'Healthy') },
+      drifting: { status: t('overview.hb_running_late', null, 'Running a bit late'), pulse: t('overview.hb_slow', null, 'slow'), badge: t('overview.hb_late', null, 'Late') },
+      missed:   { status: t('overview.hb_something_wrong', null, 'Heartbeat problem'), pulse: t('overview.hb_missed', null, 'missed'), badge: t('overview.hb_missed_badge', null, 'Missed') },
+      never:    { status: t('overview.hb_no_checkins_yet', null, 'No check-ins yet'), pulse: t('app.waiting', null, 'waiting...'), badge: t('overview.hb_waiting_badge', null, 'Waiting') }
     };
     var colors = { healthy: '#22c55e', drifting: '#f59e0b', missed: '#ef4444', never: '#6b7280' };
     var anims = {
@@ -3181,7 +3207,7 @@ async function loadSelfConfig() {
       selfconfigOpenFile(_selfconfigCurrentFile, _selfconfigSelectedTs);
     }
   } catch(e) {
-    inner.innerHTML = '<span style="color:var(--text-muted);font-size:12px;padding:6px;">' + t("app.couldnt_load_right_now", null, "Couldn\u2019t load right now.") + '</span>';
+    inner.innerHTML = '<span style="color:var(--text-muted);font-size:12px;padding:6px;">' + t("app.couldnt_load_right_now", null, "Could not load the data now. Try again.") + '</span>';
   }
 }
 
@@ -3261,7 +3287,7 @@ async function _selfconfigRenderTimeline(filename) {
       : fetch('/api/selfconfig/' + encodeURIComponent(filename)).then(function(r){return r.json();}));
     _selfconfigRevisions = d.revisions || [];
     if (!_selfconfigRevisions.length) {
-      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 6px;">' + t("app.no_changes_yet", null, "No changes yet. When your agent updates this, it\u2019ll show up here.") + '</div>';
+      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 6px;">' + t("app.no_changes_yet", null, "No changes are recorded yet. Changes appear here when your agent updates this item.") + '</div>';
       return;
     }
     // Pre-fetch summaries for each adjacent pair in the background (non-blocking).
@@ -3280,7 +3306,7 @@ async function _selfconfigRenderTimeline(filename) {
     });
     _renderTimelineRows(filename);
   } catch(e) {
-    list.innerHTML = '<span style="color:var(--text-muted);font-size:12px;padding:6px;">' + t("app.couldnt_load", null, "Couldn\u2019t load.") + '</span>';
+    list.innerHTML = '<span style="color:var(--text-muted);font-size:12px;padding:6px;">' + t("app.couldnt_load", null, "Could not load the data. Try again.") + '</span>';
   }
 }
 
@@ -3403,7 +3429,7 @@ async function _selfconfigRenderReader(filename, ts) {
     }
     _selfconfigUpdateStatusBar(filename, ts, d);
   } catch(e) {
-    if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:0;">' + t("app.couldnt_load_this_version", null, "Couldn\u2019t load this version.") + '</div>';
+    if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:0;">' + t("app.couldnt_load_this_version", null, "Could not load this version. Try again.") + '</div>';
   }
 }
 
@@ -3510,7 +3536,7 @@ async function selfconfigSave() {
   var btn = document.getElementById('selfconfig-save-btn');
   if (!textarea || !_selfconfigCurrentFile) return;
   var newContent = textarea.value;
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; btn.style.opacity = '0.6'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('common.saving', null, 'Saving\u2026'); btn.style.opacity = '0.6'; }
   var tracked = _isTrackedFile(_selfconfigCurrentFile);
   try {
     var r;
@@ -3538,9 +3564,9 @@ async function selfconfigSave() {
     loadSelfConfig();
     selfconfigSetMode('preview');
   } catch(e) {
-    alert('Save failed: ' + (e.message || e));
+    alert(t('app.save_failed_2', null, 'Save failed: ') + (e.message || e));
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save'; btn.style.opacity = '1'; }
+    if (btn) { btn.disabled = false; btn.textContent = t('common.save', null, 'Save'); btn.style.opacity = '1'; }
   }
 }
 
@@ -3557,12 +3583,12 @@ async function selfconfigRestoreVersion() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: content })
     });
-    if (!r.ok) throw new Error('Save failed');
+    if (!r.ok) throw new Error(t('app.save_failed', null, 'Save failed'));
     // Return to "now" with the restored content.
     await selfconfigOpenFile(_selfconfigCurrentFile, null);
     loadSelfConfig();
   } catch(e) {
-    alert('Couldn\u2019t restore: ' + (e.message || e));
+    alert(t('app.selfconfig_restore_failed', {error: (e.message || e)}, 'Could not restore: {error}'));
   }
 }
 
@@ -3623,7 +3649,7 @@ async function loadSkills() {
     if (dead === 0 && stuck === 0 && installed > 0) {
       verdictCard = unusedCount > 0
         ? card(t('skills.never_used_title', null, 'Never used yet'), unusedCount, '#94a3b8',
-               t('skills.never_used_verdict', { n: unusedCount }, unusedCount + ' skill(s) installed, never used yet.'))
+               t('skills.never_used_verdict', { n: unusedCount }, "{n} skill(s) installed, never used yet."))
         : card(t('skills.all_good', null, 'All good'), '\u2713', '#22c55e',
                t('skills.all_good_sub', null, 'every skill is being used'));
     }
@@ -3646,7 +3672,7 @@ async function loadSkills() {
       workshopCard;
 
     if (skills.length === 0) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">' + t("app.nothing_installed_yet_skills", null, "Nothing installed yet. Skills let your agent handle specific tasks \u2014 add some to get started.") + '</div>';
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">' + t("app.nothing_installed_yet_skills", null, "No skills are installed yet. Skills help your agent perform specific tasks. Add a skill to start.") + '</div>';
       return;
     }
 
@@ -3696,7 +3722,7 @@ async function loadSkills() {
     html += '</tbody></table>';
     listEl.innerHTML = html;
   } catch (e) {
-    if (listEl) listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">' + t("app.couldnt_load_right_now", null, "Couldn\u2019t load right now.") + '</div>';
+    if (listEl) listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">' + t("app.couldnt_load_right_now", null, "Could not load the data now. Try again.") + '</div>';
   }
 }
 
@@ -3741,7 +3767,7 @@ async function openSkillBrowser(skillName) {
     // Auto-load SKILL.md
     loadSkillFile(skillName, 'SKILL.md');
   } catch(e) {
-    treeEl.innerHTML = '<div style="padding:12px;color:var(--text-error);">Error: ' + escHtml(String(e)) + '</div>';
+    treeEl.innerHTML = '<div style="padding:12px;color:var(--text-error);">' + escHtml(t('app.error', null, 'Error: ')) + escHtml(String(e)) + '</div>';
   }
 }
 
@@ -3767,7 +3793,7 @@ async function loadSkillFile(skillName, filePath) {
     });
     _cmRtFitHeight();
   } catch(e) {
-    cmFileViewerPlaceholder('skills-browser-content', 'Error: ' + String(e), true);
+    cmFileViewerPlaceholder('skills-browser-content', t('app.error', null, 'Error: ') + String(e), true);
   }
 }
 
@@ -3983,7 +4009,7 @@ function renderBillingCoverageBanner(cov, usageData) {
   if (cov.all_covered) {
     color = { bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.45)', fg: '#16a34a' };
     icon = '✅';
-    title = t('usage.cov_included_title', { plan: plan }, 'Usage included in ' + plan);
+    title = t('usage.cov_included_title', { plan: plan }, 'Usage included in {plan}');
     body = 'The figures below are <strong>usage value at published rates</strong>: what these tokens would cost at the provider\'s list price. '
          + escHtml(plan) + ' includes this usage, so this value is <strong>not an extra bill</strong>. '
          + 'This month: ' + fig(monthCost, 'monthCost', 'Usage value this month') + ' of usage value included in your plan. '
@@ -3997,7 +4023,7 @@ function renderBillingCoverageBanner(cov, usageData) {
       : t('usage.cov_rest_unknown', null, 'Usage whose billing route was not detected');
     color = { bg: 'rgba(59,130,246,0.10)', bd: 'rgba(59,130,246,0.45)', fg: '#2563eb' };
     icon = '🧾';
-    title = t('usage.cov_partly_title', { plan: plan }, 'Part of this usage is included in ' + plan);
+    title = t('usage.cov_partly_title', { plan: plan }, 'Part of this usage is included in {plan}');
     body = escHtml(restLabel) + ': about <strong>' + fig(monthRest, 'out_of_pocket_usd', restLabel) + '</strong> this month at published rates. '
          + 'Included in ' + escHtml(plan) + ': about <strong>' + fig(monthCovered, 'covered_usd', 'Included in your plan') + '</strong> of usage value this month, not an extra bill. '
          + escHtml(unseen);
@@ -4181,7 +4207,7 @@ async function submitCompare() {
   var resp;
   try {
     resp = await fetch('/api/run-compare?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b));
-  } catch (e) { body.innerHTML = '<div style="color:var(--err);font-size:12px;">' + t("app.network_error", null, "Network error") + ': ' + escapeHtmlSafe(e.message) + '</div>'; return; }
+  } catch (e) { body.innerHTML = '<div style="color:var(--err);font-size:12px;">' + t("app.network_error", null, "Network error: ") + escapeHtmlSafe(e.message) + '</div>'; return; }
   if (!resp.ok) {
     var msg = 'Request failed (' + resp.status + ')';
     try { var err = await resp.json(); if (err && err.error) msg = err.error; } catch (e) {}
@@ -4194,7 +4220,7 @@ async function submitCompare() {
 
 function renderCompareResult(data) {
   var body = document.getElementById('compare-runs-body');
-  if (!data || !data.a || !data.b) { body.innerHTML = '<div style="color:var(--text-muted);">' + t("app.no_data", null, "No data.") + '</div>'; return; }
+  if (!data || !data.a || !data.b) { body.innerHTML = '<div style="color:var(--text-muted);">' + t("app.no_data", null, "No data") + '</div>'; return; }
   var rows = [
     ['cost_usd', 'Cost'],
     ['total_tokens', 'Tokens'],
@@ -4327,7 +4353,7 @@ async function loadCohortSuggested() {
     host.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">'
       + escapeHtmlSafe(window.CLOUD_MODE
           ? t('overview.compare_cloud_wait', null, 'Suggested comparisons arrive with the next snapshot from your node.')
-          : t('overview.compare_unreachable', null, 'Could not reach the local store.')) + '</div>';
+          : t('overview.compare_unreachable', null, 'ClawMetry cannot reach the local data store. Try again.')) + '</div>';
     return;
   }
   _cohortSuggested = data;
@@ -4335,8 +4361,8 @@ async function loadCohortSuggested() {
   if (!list.length) {
     host.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">'
       + escapeHtmlSafe(data && data.store_available === false
-          ? t('overview.compare_unreachable', null, 'Could not reach the local store.')
-          : t('overview.compare_none', null, 'Nothing changed recently. Suggestions appear when a new model or runtime version shows up, or after a week of sessions.'))
+          ? t('overview.compare_unreachable', null, 'ClawMetry cannot reach the local data store. Try again.')
+          : t('overview.compare_none', null, 'No recent changes are available for comparison. Suggestions appear after a new model, a new runtime version, or a week of sessions.'))
       + '</div>';
     return;
   }
@@ -4368,7 +4394,7 @@ function showCohortSuggestion(idx) {
 
 function _cohortSessionList(side, sessions) {
   if (!sessions || !sessions.length) {
-    return '<div style="font-size:11px;color:var(--text-muted);">' + escapeHtmlSafe(t('app.no_data', null, 'No data.')) + '</div>';
+    return '<div style="font-size:11px;color:var(--text-muted);">' + escapeHtmlSafe(t('app.no_data', null, "No data")) + '</div>';
   }
   return sessions.map(function (r) {
     var label = r.title || r.session_id;
@@ -4390,7 +4416,7 @@ function renderCohortResult(res, title, why) {
   if (!host) return;
   if (!res || !res.a || !res.b) {
     host.style.display = '';
-    host.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">' + escapeHtmlSafe(t('app.no_data', null, 'No data.')) + '</div>';
+    host.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">' + escapeHtmlSafe(t('app.no_data', null, "No data")) + '</div>';
     return;
   }
   var v = res.verdict || {};
@@ -4403,7 +4429,7 @@ function renderCohortResult(res, title, why) {
     + '</div>';
   if (v.reason) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + escapeHtmlSafe(v.reason) + '</div>';
   if (v.mixed) {
-    html += '<div style="font-size:11px;color:var(--warn, #eab308);margin-top:4px;">' + escapeHtmlSafe(t('overview.compare_mixed', null, 'Mixed: some numbers moved the other way.'))
+    html += '<div style="font-size:11px;color:var(--warn, #eab308);margin-top:4px;">' + escapeHtmlSafe(t('overview.compare_mixed', null, 'Mixed: some measurements improved and others became worse.'))
       + ' ' + escapeHtmlSafe((v.against || []).map(function (k) { return k.replace(/_/g, ' '); }).join(', ')) + '</div>';
   }
   var comp = res.comparability || {};
@@ -4466,7 +4492,7 @@ async function runCohortCompare(a, b, title) {
     }
     renderCohortResult(await resp.json(), title);
   } catch (e) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--err);">' + escapeHtmlSafe(t('app.network_error', null, 'Network error')) + '</div>';
+    host.innerHTML = '<div style="font-size:12px;color:var(--err);">' + escapeHtmlSafe(t('common.network_request_failed', null, 'A network error prevented this request. Try again.')) + '</div>';
   }
 }
 
@@ -4490,7 +4516,7 @@ async function loadSimilarRuns(sessionId) {
     if (!resp.ok) throw new Error('http ' + resp.status);
     data = await resp.json();
   } catch (e) {
-    body.innerHTML = escapeHtmlSafe(t('overview.compare_unreachable', null, 'Could not reach the local store.'));
+    body.innerHTML = escapeHtmlSafe(t('overview.compare_unreachable', null, 'ClawMetry cannot reach the local data store. Try again.'));
     return;
   }
   var rows = (data && data.neighbours) || [];
@@ -4575,7 +4601,29 @@ async function unresolveError(eid) {
 // fan-out, producing the "3× /api/overview in 1 second" burst.
 var _loadAllInFlight = null;
 var _loadAllLastFinishedMs = 0;
+var _loadAllLastSucceededMs = 0;
 var _LOADALL_COALESCE_MS = 2000;
+// These node-wide summaries are repainted by both activity and task updates.
+// Share the request and keep the result for one minute instead of fetching
+// twice on every ten-second tick. Failures are retried, never cached as data.
+var _cmHomeSummaryCache = {};
+function _cmFetchHomeSummary(url) {
+  var entry = _cmHomeSummaryCache[url];
+  if (entry && entry.pending) return entry.pending;
+  if (entry && Date.now() - entry.at < 60000) return Promise.resolve(entry.data);
+  entry = {};
+  _cmHomeSummaryCache[url] = entry;
+  entry.pending = fetchJsonWithTimeout(url, 12000).then(function (data) {
+    entry.data = data;
+    entry.at = Date.now();
+    entry.pending = null;
+    return data;
+  }, function (error) {
+    delete _cmHomeSummaryCache[url];
+    throw error;
+  });
+  return entry.pending;
+}
 // Human-first Overview hero (FLYWHEEL vision). Answers, in plain words a
 // first-timer gets in ~5s: is my agent alive, what did it just do, is it
 // healthy, what did it cost. Reads only already-fetched state (no new request):
@@ -4588,18 +4636,18 @@ function _renderWasteSummary() {
   // Overview "recoverable spend" card — the fleet roll-up of the per-session
   // cost-intel waste signals (the productivity-gains framework as a live number).
   var page = document.getElementById('page-overview');
-  if (!page) return;
-  fetch('/api/waste-summary').then(function(r){ return r.json(); }).then(function(w){
+  if (!page || !_cmIsOverviewTab()) return;
+  _cmFetchHomeSummary('/api/waste-summary').then(function(w){
     var ex = document.getElementById('cm-waste-summary');
     if (!w || typeof w !== 'object') { if (ex) ex.remove(); return; }
     var rows = [];
-    if (Number(w.reasoning_cost_usd) > 0) rows.push(['🧠', '$' + Number(w.reasoning_cost_usd).toFixed(2) + ' on reasoning', '(' + (w.reasoning_pct_of_cost || 0) + '% of spend — billed, no deliverable)']);
-    if (Number(w.low_cache_sessions) > 0) rows.push(['⚡', w.low_cache_sessions + ' session' + (w.low_cache_sessions == 1 ? '' : 's'), 'with low cache hit (context re-sent at full price)']);
-    if (Number(w.reread_tax_usd) > 0) rows.push(['⏱', '$' + Number(w.reread_tax_usd).toFixed(2) + ' re-read tax', 'rebuilding the prompt cache after its 5-min TTL expired (' + w.reread_tax_sessions + ' session' + (w.reread_tax_sessions == 1 ? '' : 's') + ')']);
-    if (!Number(w.reread_tax_usd) && Number(w.cache_expiry_sessions) > 0) rows.push(['⏱', w.cache_expiry_count + ' cache ' + (w.cache_expiry_count == 1 ? 'expiry' : 'expiries'), 'idle gaps crossed the 5-min cache TTL in ' + w.cache_expiry_sessions + ' session' + (w.cache_expiry_sessions == 1 ? '' : 's') + ' (context re-derived)']);
-    if (Number(w.compressible_sessions) > 0) rows.push(['🗜', (Number(w.compressible_usd) > 0 ? '$' + Number(w.compressible_usd).toFixed(2) + ' recoverable' : '~' + Math.round(Number(w.compressible_tokens)/1000) + 'k tokens'), 'compressible tool output (JSON / logs / diffs) in ' + w.compressible_sessions + ' session' + (w.compressible_sessions == 1 ? '' : 's')]);
-    if (Number(w.tool_failing_sessions) > 0) rows.push(['⚠', w.tool_failing_sessions + ' session' + (w.tool_failing_sessions == 1 ? '' : 's'), 'with a tool failing (tokens burned on retries)']);
-    if (Number(w.compaction_heavy_sessions) > 0) rows.push(['♻', w.compaction_heavy_sessions + ' session' + (w.compaction_heavy_sessions == 1 ? '' : 's'), 'thrashing context (re-summarised repeatedly)']);
+    if (Number(w.reasoning_cost_usd) > 0) rows.push(['🧠', '$' + Number(w.reasoning_cost_usd).toFixed(2) + ' on reasoning', '(' + (w.reasoning_pct_of_cost || 0) + '% of recorded usage value)']);
+    if (Number(w.low_cache_sessions) > 0) rows.push(['⚡', w.low_cache_sessions + ' session' + (w.low_cache_sessions == 1 ? '' : 's'), 'with low recorded cache reuse']);
+    if (Number(w.reread_tax_usd) > 0) rows.push(['⏱', '$' + Number(w.reread_tax_usd).toFixed(2) + ' estimated cache refresh cost', 'after idle gaps in ' + w.reread_tax_sessions + ' session' + (w.reread_tax_sessions == 1 ? '' : 's')]);
+    if (!Number(w.reread_tax_usd) && Number(w.cache_expiry_sessions) > 0) rows.push(['⏱', w.cache_expiry_count + ' possible cache refreshes', 'after idle gaps in ' + w.cache_expiry_sessions + ' session' + (w.cache_expiry_sessions == 1 ? '' : 's')]);
+    if (Number(w.compressible_sessions) > 0) rows.push(['🗜', (Number(w.compressible_usd) > 0 ? '$' + Number(w.compressible_usd).toFixed(2) + ' estimated reduction' : '~' + Math.round(Number(w.compressible_tokens)/1000) + 'k tokens'), 'potentially compressible tool output in ' + w.compressible_sessions + ' session' + (w.compressible_sessions == 1 ? '' : 's')]);
+    if (Number(w.tool_failing_sessions) > 0) rows.push(['⚠', w.tool_failing_sessions + ' session' + (w.tool_failing_sessions == 1 ? '' : 's'), 'with tool failures to investigate']);
+    if (Number(w.compaction_heavy_sessions) > 0) rows.push(['♻', w.compaction_heavy_sessions + ' session' + (w.compaction_heavy_sessions == 1 ? '' : 's'), 'with repeated context compaction']);
     if (Number(w.model_fallback_sessions) > 0) rows.push(['🔀', w.model_fallback_sessions + ' session' + (w.model_fallback_sessions == 1 ? '' : 's'), 'on a silent model fallback']);
     if (!rows.length || !Number(w.flagged_session_count)) { if (ex) ex.remove(); return; }
     var inner = rows.map(function(r){
@@ -4611,22 +4659,23 @@ function _renderWasteSummary() {
     // (works the same in cloud + self-hosted; no backend needed).
     var _opps = [];
     if (Number(w.reasoning_cost_usd) > 0 && Number(w.total_cost_usd) > 0 && (w.reasoning_cost_usd / w.total_cost_usd) > 0.15)
-      _opps.push([w.reasoning_cost_usd * 2, 'Reasoning is $' + Number(w.reasoning_cost_usd).toFixed(2) + ' of your spend — lower the reasoning effort, or use a cheaper model for routine work.']);
+      _opps.push([w.reasoning_cost_usd * 2, 'Compare results at lower reasoning effort on representative tasks before changing models.']);
     if (Number(w.tool_failing_sessions) > 0)
-      _opps.push([Number(w.tool_failing_sessions) * 1.5, 'Fix the failing tool in ' + w.tool_failing_sessions + ' session' + (w.tool_failing_sessions == 1 ? '' : 's') + ' — you\'re paying tokens on the retries.']);
+      _opps.push([Number(w.tool_failing_sessions) * 1.5, 'Review the tool failures and check whether retries were necessary.']);
     if (Number(w.low_cache_sessions) > 0)
-      _opps.push([Number(w.low_cache_sessions), w.low_cache_sessions + ' session' + (w.low_cache_sessions == 1 ? '' : 's') + ' re-send context at full price — keep the prompt stable to warm the cache.']);
+      _opps.push([Number(w.low_cache_sessions), 'Review prompt stability and cache eligibility in the sessions with low cache reuse.']);
     if (Number(w.reread_tax_usd) > 0)
-      _opps.push([Number(w.reread_tax_usd) * 2, '$' + Number(w.reread_tax_usd).toFixed(2) + ' went to rebuilding the prompt cache after its 5-min TTL expired — keep sessions warm (a heartbeat or batched turns) so context is read at ~0.1x instead of re-written at full price.']);
+      _opps.push([Number(w.reread_tax_usd) * 2, 'Check your provider\'s cache policy and recorded cache writes before changing session timing.']);
     if (Number(w.compaction_heavy_sessions) > 0)
-      _opps.push([Number(w.compaction_heavy_sessions) * 0.8, w.compaction_heavy_sessions + ' session' + (w.compaction_heavy_sessions == 1 ? '' : 's') + ' thrash context with repeated compaction — work in a smaller window.']);
+      _opps.push([Number(w.compaction_heavy_sessions) * 0.8, 'Review repeated compactions and consider splitting long tasks at natural checkpoints.']);
     if (Number(w.compressible_sessions) > 0)
-      _opps.push([(Number(w.compressible_usd) || 0) * 3 + Number(w.compressible_sessions), (Number(w.compressible_usd) > 0 ? '$' + Number(w.compressible_usd).toFixed(2) + ' of tool output' : '~' + Math.round(Number(w.compressible_tokens)/1000) + 'k tokens of tool output') + ' is compressible without changing answers (bloated JSON / logs / diffs in ' + w.compressible_sessions + ' session' + (w.compressible_sessions == 1 ? '' : 's') + ') — trim or compress large tool results before they hit the model.']);
+      _opps.push([(Number(w.compressible_usd) || 0) * 3 + Number(w.compressible_sessions), 'Try reducing large tool results, then check that the agent still has the evidence needed to finish the task.']);
     _opps.sort(function(a, b){ return b[0] - a[0]; });
     var startHere = _opps.length ? ('<div style="font-size:12px;color:#22c55e;background:rgba(34,197,94,0.08);border-radius:6px;padding:7px 10px;margin-top:10px;"><strong>Start here:</strong> ' + escHtml(_opps[0][1]) + '</div>') : '';
     var html = '<div id="cm-waste-summary" style="background:var(--bg-secondary,#161b22);border:1px solid var(--border-primary,#30363d);border-left:3px solid #E5443A;border-radius:10px;padding:14px 18px;margin:0 0 16px;">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--text-primary,#e6edf3);margin-bottom:8px;">💡 Recoverable spend '
-      + '<span style="font-weight:500;color:var(--text-muted,#6b7280);">— ' + w.flagged_session_count + ' of ' + w.session_count + ' recent sessions show a waste signal</span></div>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--text-primary,#e6edf3);margin-bottom:8px;">💡 Cost review '
+      + '<span style="font-weight:500;color:var(--text-muted,#6b7280);">(' + Number(w.flagged_session_count) + ' of ' + Number(w.session_count) + ' recent sessions have review signals)</span></div>'
+      + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">All runtimes on this node. Dollar figures are estimates at published rates, not an invoice or proven savings. Reasoning can be useful; these signals do not measure the quality of the result.</div>'
       + inner
       + startHere
       + '<div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:8px;">Drill into each on the Cost tab. <a href="https://clawmetry.com/blog/estimating-productivity-gains" target="_blank" rel="noopener" style="color:#E5443A;">How to estimate what this is worth →</a></div>'
@@ -4644,8 +4693,8 @@ function _renderOutLoopSources() {
   // on any SDK (OpenAI Agents, LangChain, Vercel AI SDK, E2B, …). Self-removing
   // when no source is tagged, so it is invisible for users who don't use it.
   var page = document.getElementById('page-overview');
-  if (!page) return;
-  fetch('/api/local/external-calls?limit=2000').then(function(r){ return r.json(); }).then(function(d){
+  if (!page || !_cmIsOverviewTab()) return;
+  _cmFetchHomeSummary('/api/local/external-calls?limit=2000').then(function(d){
     var ex = document.getElementById('cm-outloop-sources');
     var rows = (d && Array.isArray(d.rows)) ? d.rows : (Array.isArray(d) ? d : []);
     var named = rows.filter(function(c){ return c && c.source; });
@@ -4861,11 +4910,11 @@ function _cmRtRecentlyActive() {
 // note appears only for a real non-zero figure on a detected subscription: a
 // plan includes usage, it does not make it free (REQ-OBS-CEA-025.4).
 function _cmHeroCostChip(value, entry, onPlan) {
-  var included = !!onPlan && Number(value) !== 0;
+  var subscriptionAuth = !!onPlan && Number(value) !== 0;
   return '<strong style="color:var(--text-primary);">'
     + window.cmCostFigure(value, entry, { noBadge: true, label: 'Cost today' }) + '</strong>'
     + (entry ? ' ' + window.cmProv.badge(entry, { label: 'Cost today' }) : '')
-    + (included ? ' <span style="color:#22c55e;">included in your plan, not an extra bill</span>' : '');
+    + (subscriptionAuth ? ' <span style="color:var(--text-muted);">Subscription authentication detected. Check your provider for actual charges.</span>' : '');
 }
 function _renderOverviewHero() {
   var hero = document.getElementById('overview-hero');
@@ -4901,13 +4950,15 @@ function _renderOverviewHero() {
   // available (cloud, or the daemon briefly unreachable).
   var _live = window._cmLive;
   var _liveRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  if (_liveRt && _liveRt !== 'all') busy = _cmRtRecentlyActive();
+  if (_live && _live.rt !== _liveRt) _live = null;
   if (!_live || _live.rt !== _liveRt || (Date.now() - _live.ts) >= _CM_LIVE_TTL_MS) {
     _cmLoadLiveSessions(function () { try { _renderOverviewHero(); } catch (e) {} });
   }
   var _working = (_live && _live.counts && _live.counts.working) || 0;
   var _waiting = (_live && _live.counts && _live.counts.waiting) || 0;
   var _liveKnown = !!(_live && _live.available);
-  if (_working > 0) busy = true;
+  if (_liveKnown) busy = _working > 0;
 
   // Headline. Say the number and let it carry the news; fall back to the old
   // single-boolean sentence only when the session list can't be read.
@@ -4941,6 +4992,8 @@ function _renderOverviewHero() {
   // model card over ov.model here, else the hero kept showing the node's
   // dominant model (e.g. "running claude-opus-4-8" while PicoClaw is selected).
   var _scope = window._cmRuntimeScope;
+  if (_scope && _scope.runtime !== _liveRt) _scope = null;
+  var _scoped = !!(_liveRt && _liveRt !== 'all');
   // The cost tile starts life as a literal '$0.00' placeholder and only
   // reaches its real value once loadMiniWidgets lands, ~15s into a load. So
   // '$0.00' means EITHER 'genuinely free' OR 'not loaded yet', and the hero
@@ -4949,26 +5002,28 @@ function _renderOverviewHero() {
   // $8.49 of spend (founder report 2026-08-15). Track knownness explicitly:
   // window._cmCostTodayRaw is the number loadMiniWidgets actually rendered.
   var _costRaw = window._cmCostTodayRaw;
-  var _costKnown = _scope ? true : (typeof _costRaw === 'number');
+  var _costKnown = _scope ? (typeof _scope.cost === 'number' && Number.isFinite(_scope.cost))
+                         : (!_scoped && window._cmCostTodayRuntime === 'all' && typeof _costRaw === 'number' && Number.isFinite(_costRaw));
   // The number itself, not the tile's text read back off the DOM: the text
   // is the formatter's output and cannot carry a basis.
-  var _costVal = _scope ? Number(_scope.cost || 0) : _costRaw;
-  var model = _scope ? (_txt('model-primary') || _scope.model || '—')
-                     : (ov.model || _txt('model-primary') || 'your model');
+  var _costVal = _scope ? _scope.cost : _costRaw;
+  var model = _scope ? (_scope.model || null)
+                     : (_scoped ? null : (ov.model || _txt('model-primary') || null));
   // Node-wide, the chip is labelled "today" below, so it must BE today:
   // ov.sessionCount is an all-time count with no date predicate and read 89
   // on a day that had 16. Fall back to the all-time number only on a daemon
   // too old to send sessionsToday, where the label is dropped instead.
   var _todayKnown = (typeof ov.sessionsToday === 'number');
   var sessions = _scope ? _scope.sessions
-                        : (_todayKnown ? ov.sessionsToday
-                           : ((typeof ov.sessionCount === 'number') ? ov.sessionCount : null));
+                        : (_scoped ? null : (_todayKnown ? ov.sessionsToday
+                           : ((typeof ov.sessionCount === 'number') ? ov.sessionCount : null)));
   // Never assert 'free' from a number we have not actually read.
   var _onPlan = /oauth/i.test((document.getElementById('cost-trend') || {}).textContent || '');
   // Never assert 'free' (or 'included') from a number we have not read, and
   // never from the tile's text: only from the value loadMiniWidgets rendered.
   var free = _costKnown && (_costVal === 0 || _onPlan);
   var say = window._cmLastAgentSay;
+  if (_scoped && say && say.rt !== _liveRt) say = null;
   var sayText = say && say.text ? String(say.text).replace(/\s+/g, ' ').trim() : '';
   if (sayText.length > 90) sayText = sayText.slice(0, 90) + '…';
 
@@ -5002,7 +5057,7 @@ function _renderOverviewHero() {
       _cmLoadEfficiency(function () { window._cmEffHeroWait = false; try { _renderOverviewHero(); } catch (e) {} });
     }
   } catch (_e) {}
-  stats.push('🧠 running <strong style="color:var(--text-primary);">' + escHtml(model) + '</strong>');
+  if (model && model !== '—') stats.push('🧠 Model <strong style="color:var(--text-primary);">' + escHtml(model) + '</strong>');
   // Live throughput (⚡ tok/s) from the today-token delta between renders —
   // matches `clawmetry status --live`. Shown only while the agent is producing.
   try {
@@ -5136,9 +5191,14 @@ async function loadAll() {
     }
 
     // Usage may be slow on first run; keep trying in background with timeout.
+    var usageRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
     try {
-      var usage = await fetchJsonWithTimeout('/api/usage', 5000);
+      var usageUrl = '/api/usage' + (!window.CLOUD_MODE && usageRt !== 'all'
+        ? '?runtime=' + encodeURIComponent(usageRt) : '');
+      var usage = await fetchJsonWithTimeout(usageUrl, 5000);
+      if (_cmRuntimeFilter() !== usageRt) return false;
       window._cmLastUsage = usage;
+      window._cmLastUsageRuntime = usageRt;
       loadMiniWidgets(overview, usage);
     } catch (e) {
       // #5935: this used to draw $0.00 and 0 tokens -- figures nobody had
@@ -5147,7 +5207,8 @@ async function loadAll() {
       // one; otherwise render the rest of the widgets and put the cost and
       // token tiles back on their "still loading" placeholders. The 10 s
       // Overview refresh retries.
-      if (window._cmLastUsage) {
+      if (_cmRuntimeFilter() !== usageRt) return false;
+      if (window._cmLastUsage && window._cmLastUsageRuntime === usageRt) {
         loadMiniWidgets(overview, window._cmLastUsage);
       } else {
         Promise.resolve(loadMiniWidgets(overview, {}))
@@ -5161,6 +5222,7 @@ async function loadAll() {
     try { loadTriageList(); } catch (e) {}
     // Cohort compare suggestions (WO-60), fire-and-forget; honest empty states.
     try { loadCohortSuggested(); } catch (e) {}
+    _loadAllLastSucceededMs = Date.now();
     return true;
   } catch (e) {
     console.error('Initial load failed', e);
@@ -5179,9 +5241,8 @@ async function loadAll() {
 // earlier answer exists. Their template placeholders, never $0.00 or 0: a
 // figure nobody measured must not read as a measured zero.
 function _cmUsageTilesStillLoading() {
-  // A runtime is selected: loadMiniWidgets just drew that runtime's cost and
-  // tokens from /api/runtime-summary, which DID answer. Those figures are
-  // measured, so they stay; only the node-wide tiles wait for /api/usage.
+  // A selected runtime has its own measured or unavailable state. Preserve
+  // that state instead of replacing it with node-wide loading placeholders.
   if (window._cmRuntimeScope) return;
   // loadMiniWidgets(overview, {}) badged the tile "basis unknown" for a
   // payload that has no figures yet. No figure, no basis claim beside it.
@@ -5197,7 +5258,48 @@ function _cmUsageTilesStillLoading() {
   window._cmTodayTokensRaw = undefined;
 }
 
+function _cmScopedOverviewUsage(runtime, total, summary, periods) {
+  // The caller selects summary from runtimes[runtime]; that slice has no ID.
+  summary = summary || {};
+  var split = !!(periods && ['day', 'week', 'month'].every(function (period) {
+    return periods[period] && periods[period].runtime === runtime;
+  }));
+  function value(period, key) {
+    var raw = split ? periods[period][key] : null;
+    if (raw == null || raw === '') return null;
+    var n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+  var rawCount = total == null || total === '' ? summary.sessions : total;
+  var count = rawCount == null ? null : Number(rawCount);
+  if (count != null && (!Number.isFinite(count) || count < 0)) count = null;
+  return {
+    runtime: runtime, periodSplit: split,
+    sessions: count,
+    sessionsToday: value('day', 'sessions_count'),
+    tokensToday: value('day', 'total_tokens'), tokensMonth: value('month', 'total_tokens'),
+    cost: value('day', 'total_cost'), costWeek: value('week', 'total_cost'),
+    costMonth: value('month', 'total_cost'), model: summary.primary_model || null
+  };
+}
+
+function _cmLocalOverviewPeriods(runtime, usage) {
+  var coverage = usage && usage.coverage;
+  if (!usage || usage._source !== 'local_store' || !coverage || coverage.runtime !== runtime) return null;
+  var known = coverage.status === 'ok' || coverage.status === 'no_activity';
+  function period(tokenKey, costKey) {
+    var costKnown = known && !(window.cmProv && window.cmProv.isUnknown(window.cmProv.of(usage, costKey)));
+    return {runtime: runtime, total_tokens: known ? usage[tokenKey] : null,
+      total_cost: costKnown ? usage[costKey] : null};
+  }
+  return {day: period('today', 'todayCost'), week: period('week', 'weekCost'), month: period('month', 'monthCost')};
+}
+
 async function loadMiniWidgets(overview, usage) {
+  var widgetRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var widgetScoped = !!(widgetRt && widgetRt !== 'all');
+  var localPeriods = !window.CLOUD_MODE ? _cmLocalOverviewPeriods(widgetRt, usage) : null;
+  var baseMatches = !widgetScoped || !!localPeriods;
   // 💰 Cost Ticker. provenance.js loads before app.js (asserted by
   // tests/test_provenance.py), so every figure below goes through it.
   // How these three numbers were obtained, on the tile's label. One badge for
@@ -5205,17 +5307,18 @@ async function loadMiniWidgets(overview, usage) {
   // same rule, so they share a basis.
   var _costEntry = window.cmProv ? window.cmProv.of(usage, 'todayCost') : null;
   // The hero chip prints this same entry beside this same number.
-  window._cmCostTodayEntry = _costEntry;
+  window._cmCostTodayEntry = baseMatches ? _costEntry : null;
+  window._cmCostTodayRuntime = baseMatches ? widgetRt : null;
   var _costUnknown = window.cmProv ? window.cmProv.isUnknown(_costEntry) : false;
   var _basisEl = document.getElementById('cost-basis-badge');
   if (_basisEl && window.cmProv) {
-    _basisEl.innerHTML = window.cmProv.badge(_costEntry, { label: 'Cost' });
+    _basisEl.innerHTML = baseMatches ? window.cmProv.badge(_costEntry, { label: 'Cost' }) : '';
   }
   // Record the value we actually rendered so the hero can tell a real $0.00
   // from the placeholder it would otherwise read off the DOM. When the cost
   // is UNKNOWN there is no value to record: leaving a 0 here would have the
   // hero announce "$0.00, free on your plan" over a spend nobody could read.
-  if (_costUnknown || usage.todayCost == null) {
+  if (!baseMatches || _costUnknown || usage.todayCost == null) {
     window._cmCostTodayRaw = null;
   } else {
     window._cmCostTodayRaw = Number(usage.todayCost || 0);
@@ -5223,6 +5326,7 @@ async function loadMiniWidgets(overview, usage) {
   var _setCost = function (id, key, label) {
     var el = document.getElementById(id);
     if (!el) return;
+    if (!baseMatches) { el.textContent = 'Loading...'; return; }
     if (window.cmProv) {
       // Each window gets its OWN entry: they share a basis but not a period,
       // and a week figure whose tooltip says "over today" is a new small lie
@@ -5281,11 +5385,11 @@ async function loadMiniWidgets(overview, usage) {
   loadToolActivity();
   
   // 📊 Token Burn Rate
-  function fmtTokens(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); }
-  document.getElementById('token-rate').textContent = fmtTokens(usage.month || 0);
-  document.getElementById('tokens-today').textContent = fmtTokens(usage.today || 0);
+  function fmtTokens(n) { return n == null ? 'Not measured' : n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); }
+  document.getElementById('token-rate').textContent = fmtTokens(baseMatches ? usage.month : null);
+  document.getElementById('tokens-today').textContent = fmtTokens(baseMatches ? usage.today : null);
   // Raw today-token total (unformatted) so the hero can compute live tokens/sec.
-  window._cmTodayTokensRaw = Number(usage.today || 0);
+  window._cmTodayTokensRaw = baseMatches ? usage.today : null;
   
   // SESSIONS card — show "sessions today" (overview.sessionCount), the SAME
   // definition as the Overview hero. Previously this card showed the LENGTH of
@@ -5297,8 +5401,8 @@ async function loadMiniWidgets(overview, usage) {
   // Same honesty fix as the hero chip: the card is LABELLED "Sessions today",
   // so it must carry today's count, not the all-time sessionCount.
   document.getElementById('hot-sessions-count').textContent =
-    (typeof overview.sessionsToday === 'number' ? overview.sessionsToday
-                                                : overview.sessionCount) || 0;
+    widgetScoped ? 'Loading...' : ((typeof overview.sessionsToday === 'number' ? overview.sessionsToday
+                                                : overview.sessionCount) || 0);
 
   // 📈 Runtime scope — when a runtime is selected, the Overview stat cards
   // (sessions / tokens / cost / model) must show ONLY that runtime's data
@@ -5307,10 +5411,10 @@ async function loadMiniWidgets(overview, usage) {
   //
   // Source of truth: the public v1 API, which filters SERVER-SIDE by ?runtime=
   // (cloud mode). period=day -> the "today" cards, period=month -> token-rate.
-  // Local mode has no v1 API, so it falls back to the /api/runtime-summary slice
-  // (per-runtime totals; the model already used this). `_cmRuntimeScope` is the
+  // Local mode reuses the scoped /api/usage response for period values and
+  // /api/runtime-summary for the model and all-time session count. `_cmRuntimeScope` is the
   // override the hero reads; null = node-wide (unchanged path).
-  var _ovModel = overview.model || 'unknown';
+  var _ovModel = widgetScoped ? '—' : (overview.model || 'unknown');
   window._cmRuntimeScope = null;
   try {
     var _ovRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
@@ -5327,7 +5431,7 @@ async function loadMiniWidgets(overview, usage) {
       // runtime reads as "sessions gone" (founder report 2026-06-03: OpenClaw has
       // 2 sessions on record but the Overview showed 0). Use the switcher's
       // per-runtime total; fall back to the period count if it's not populated.
-      var _rtTotal = (window._cmGlobalRtCounts && window._cmGlobalRtCounts[_ovRt]) || 0;
+      var _rtTotal = window._cmGlobalRtCounts && window._cmGlobalRtCounts[_ovRt];
       var _scope = null;
       if (window.CLOUD_MODE) {
         // Server-side filtered, period-accurate (the founder's chosen contract).
@@ -5338,53 +5442,40 @@ async function loadMiniWidgets(overview, usage) {
             var _d = ((await _dR.json()) || {}).data || {}, _w = ((await _wR.json()) || {}).data || {}, _m = ((await _mR.json()) || {}).data || {};
             // Guard against an echo/stale mismatch (only trust a response that
             // confirms it filtered to the runtime we asked for).
-            if (String(_d.runtime || '') === _ovRt) {
-              _scope = { runtime: _ovRt, sessions: _rtTotal || (_m.sessions_count | 0) || (_d.sessions_count | 0),
-                         sessionsToday: _d.sessions_count | 0,
-                         tokensToday: _d.total_tokens | 0, tokensMonth: _m.total_tokens | 0,
-                         cost: +_m.total_cost || 0, costWeek: +_w.total_cost || 0,
-                         costMonth: +_m.total_cost || 0, model: _ovModel };
-            }
+            _scope = _cmScopedOverviewUsage(_ovRt, _rtTotal, _rs,
+              {day: _d, week: _w, month: _m});
           }
         } catch (e2) { /* fall through to slice */ }
       }
-      if (!_scope && _rs) {
-        // Local-mode fallback: the runtime-summary slice has per-runtime totals
-        // (not period-split, but scoped to the runtime — better than node-wide).
-        _scope = { runtime: _ovRt, sessions: _rtTotal || (_rs.sessions | 0),
-                   sessionsToday: _rs.sessions | 0,
-                   tokensToday: _rs.tokens | 0, tokensMonth: _rs.tokens | 0,
-                   cost: +_rs.cost_usd || 0, costWeek: +_rs.cost_usd || 0,
-                   costMonth: +_rs.cost_usd || 0, model: _ovModel };
-      }
+      // Lifetime totals do not establish today's or this month's usage.
+      if (!_scope) _scope = _cmScopedOverviewUsage(_ovRt, _rtTotal, _rs, localPeriods);
+      if (_cmRuntimeFilter() !== _ovRt) return;
       if (_scope) {
         window._cmRuntimeScope = _scope;
-        var _fmtT = function (n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : String(n); };
-        var _set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+        var _fmtT = function (n) { return n == null ? 'Not measured' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : String(n); };
+        var _set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v == null ? 'Not measured' : v; };
         _set('hot-sessions-count', _scope.sessions);
         _set('tokens-today', _fmtT(_scope.tokensToday));
         _set('token-rate', _fmtT(_scope.tokensMonth));
-        window._cmCostTodayRaw = Number(_scope.cost || 0);
-        // These three came from the runtime-scoped API, not the payload
-        // loadMiniWidgets badged, and the local-mode fallback above is NOT
-        // period-split: it repeats the runtime's all-time total in all three
-        // slots. One entry for the source actually used is shared by the
-        // tile, its badge and the hero chip, so they cannot disagree. This
+        window._cmCostTodayRaw = _scope.cost;
+        window._cmCostTodayRuntime = _ovRt;
+        // These windows come from confirmed runtime-scoped usage. Missing
+        // period data remains unknown; lifetime totals never substitute.
+        // The tile and hero share the same figure and financial basis. This
         // block used to call an fmtCost that does not exist in this scope:
         // the ReferenceError was swallowed below, the tile kept node-wide
         // figures and the hero printed the runtime's.
-        var _split = (_scope.costWeek !== _scope.costMonth);
+        var _split = _scope.periodSplit;
         var _scopeEntry = {
-          basis: _split ? 'derived' : 'estimated',
-          label: _split ? 'derived' : 'estimated',
+          basis: _split ? 'derived' : 'unknown',
+          label: _split ? 'derived' : 'Not measured',
           hint: _split
             ? 'Derived: computed from measured inputs by an exact rule.'
-            : 'Estimated: modelled, with an assumption that can be wrong.',
+            : 'Period-specific usage is not available from this source.',
           formula: _split
             ? ('measured token counts for runtime ' + (_scope.runtime || '')
                + ', priced against the provider\'s published rate card')
-            : ('this runtime\'s all-time total, standing in for all three '
-               + 'windows because the scoped source is not split by period'),
+            : 'Lifetime totals are not used as daily, weekly, or monthly measurements.',
           source: _split ? '/api/v1/usage?runtime=' + (_scope.runtime || '')
                          : '/api/runtime-summary',
           cost_basis: 'published_rate',
@@ -5392,23 +5483,42 @@ async function loadMiniWidgets(overview, usage) {
             + '(computed by the runtime from published rates), otherwise '
             + 'ClawMetry\'s published price table'
         };
+        if (!_split) _scopeEntry = null;
+        else if (localPeriods) _scopeEntry = _costEntry;
         window._cmCostTodayEntry = _scopeEntry;
         var _setScopedCost = function (id, v, label) {
           var e = document.getElementById(id);
-          if (e) e.innerHTML = window.cmProv.figure(v, _scopeEntry, { label: label, noBadge: true });
+          var entry = _scopeEntry;
+          if (localPeriods && window.cmProv) entry = window.cmProv.of(usage,
+            {'cost-today':'todayCost', 'cost-week':'weekCost', 'cost-month':'monthCost'}[id]);
+          if (e) e.innerHTML = v == null ? 'Not measured' : window.cmProv.figure(v, entry, { label: label, noBadge: true });
         };
         _setScopedCost('cost-today', _scope.cost, 'Cost today');
         // SPENDING wk/mo sub-figures scope too (were node-wide projections).
-        if (_scope.costWeek != null) _setScopedCost('cost-week', _scope.costWeek, 'Cost this week');
-        if (_scope.costMonth != null) _setScopedCost('cost-month', _scope.costMonth, 'Cost this month');
+        _setScopedCost('cost-week', _scope.costWeek, 'Cost this week');
+        _setScopedCost('cost-month', _scope.costMonth, 'Cost this month');
         try {
           var _sBadge = document.getElementById('cost-basis-badge');
-          if (_sBadge) _sBadge.innerHTML = window.cmProv.badge(_scopeEntry, { label: 'Cost' });
+          if (_sBadge) _sBadge.innerHTML = _scopeEntry ? window.cmProv.badge(_scopeEntry, { label: 'Cost' }) : 'Not measured';
         } catch (_eb) {}
         window._cmTodayTokensRaw = _scope.tokensToday;
       }
     }
-  } catch (e) { /* keep the node-dominant values */ }
+  } catch (e) {
+    if (widgetScoped && _cmRuntimeFilter() === widgetRt) {
+      // A failed summary cannot restore another runtime's model or leave
+      // permanent loading text. Retain only separately confirmed usage.
+      window._cmRuntimeScope = _cmScopedOverviewUsage(widgetRt,
+        window._cmGlobalRtCounts && window._cmGlobalRtCounts[widgetRt], null, localPeriods);
+      var countEl = document.getElementById('hot-sessions-count');
+      if (countEl) countEl.textContent = window._cmRuntimeScope.sessions == null
+        ? 'Not measured' : window._cmRuntimeScope.sessions;
+      if (!baseMatches) ['cost-today','cost-week','cost-month','cost-basis-badge','tokens-today','token-rate'].forEach(function (id) {
+        var unavailable = document.getElementById(id);
+        if (unavailable) unavailable.textContent = 'Not measured';
+      });
+    }
+  }
   document.getElementById('model-primary').textContent = _ovModel;
   // Relabel the SESSIONS tile: scoped shows the runtime's TOTAL (matches the
   // switcher) so "today" would be wrong; node-wide stays the live "today".
@@ -5643,7 +5753,7 @@ async function loadQualityTab() {
     var pe = document.getElementById('q-patterns');
     var re = document.getElementById('q-runs');
     var msg = t('quality.store_unavailable', null,
-                'Nothing to show from here — this view reads your local run history.');
+                'This view needs your local session history. No history is available here.');
     if (pe) pe.innerHTML = '<li class="q-empty" style="grid-column:1/-1;">' + escHtml(msg) + '</li>';
     if (re) re.innerHTML = '<li class="q-empty">' + escHtml(msg) + '</li>';
     var st = document.getElementById('q-status-line');
@@ -5785,8 +5895,7 @@ async function _qLoadOutcomeTrend() {
     // contradiction of the grade above it.
     var scope = t(
       'quality.oc_scope', null,
-      'Counted from every run that finished, including the ones with too ' +
-      'little activity to grade.'
+      "Counted from every run that finished, including the ones with too little activity to grade."
     );
     if (!data.comparable) {
       scope += ' ' + t(
@@ -5918,7 +6027,7 @@ async function qReview(btn, sessionId, status) {
     // Say what happened and leave the row usable, rather than a dead spinner.
     if (actions) actions.innerHTML =
       '<span class="q-spot-verdict wrong">' +
-      escHtml(t('quality.spot_save_failed', null, "Didn't save. Try again.")) +
+      escHtml(t('quality.spot_save_failed', null, "Could not save the change. Try again.")) +
       '</span>';
     return;
   }
@@ -6260,7 +6369,7 @@ function qOpenBuilder(bid, sid, story) {
   var name = _qGuessCheckName(story || '');
   el.innerHTML =
     '<p class="b-eyebrow">' + t('quality.builder_eyebrow', null, 'Watch for this pattern') + '</p>' +
-    '<p class="b-title">' + t('quality.builder_title', null, "Turn this rough run into a check we'll fail-fast next time.") + '</p>' +
+    '<p class="b-title">' + t('quality.builder_title', null, "Create a check for this session problem.") + '</p>' +
     '<div>' +
       '<label>' + t('quality.builder_when', null, 'Fail the run when…') + '</label>' +
       '<textarea id="' + bid + '-when">' + escHtml(pattern) + '</textarea>' +
@@ -6324,7 +6433,7 @@ async function qSaveCheck(bid, sid) {
     });
     var out = await r.json().catch(function() { return null; });
     var msg = (out && out.ok)
-      ? t('quality.check_saved', null, "Saved. We'll fail-fast this pattern next time.")
+      ? t('quality.check_saved', null, "The check was saved. Future checks can identify this pattern.")
       : (out && out.error) || t('quality.check_saved_deferred', null, "Saved locally. Live enforcement lands in the next release.");
     _qToast(msg);
   } catch (e) {
@@ -6375,14 +6484,14 @@ async function loadEvalsJudgeCard() {
     } catch (e) {}
     if (!snapJudge) {
       el.innerHTML = '<span style="color:var(--text-muted);">' +
-        t("evals.judge_unavailable", null, "Judge status is unavailable here. Scores are computed on the machine your agent runs on.") + '</span>';
+        t("evals.judge_unavailable", null, "Judge status is unavailable here. Open the dashboard on the agent machine to check its evaluation settings.") + '</span>';
       return;
     }
     var snapRejected = snapJudge.key_present && snapJudge.last_error === 'auth';
     var chtml = '';
     if (!snapJudge.enabled) {
       chtml += '<div style="color:#f59e0b;font-weight:600;margin-bottom:6px;">' +
-        t("evals.judge_disabled", null, "Scoring is switched off (CLAWMETRY_EVALS_ENABLED=0).") + '</div>';
+        t("evals.judge_disabled", null, "Session scoring is off.") + '</div>';
     } else if (snapRejected) {
       chtml += '<div style="color:#ef4444;font-weight:600;margin-bottom:6px;">● ' +
         t("evals.judge_key_rejected_node", null, "The judge key saved on your machine was rejected by the provider. Replace it there to resume scoring.") + '</div>';
@@ -6401,7 +6510,7 @@ async function loadEvalsJudgeCard() {
         : '<span style="color:#f59e0b;font-weight:600;">' + t("evals.key_missing", null, "not set") + '</span>') + '</span>';
     chtml += '</div>';
     chtml += '<div style="margin-top:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">' +
-      t("evals.key_on_node", null, "The judge API key stays on the machine your agent runs on and is never synced to the cloud. To add or change it, open the dashboard on that machine (Evals tab) or set ANTHROPIC_API_KEY / OPENAI_API_KEY in the daemon environment.") +
+      t("evals.key_on_node", null, "The judge API key stays on the agent machine. Cloud sync does not include it. Open the local dashboard to change the key. Select Quality. Change the judge settings. You can also set ANTHROPIC_API_KEY or OPENAI_API_KEY in the daemon environment.") +
       '</div>';
     el.innerHTML = chtml;
     return;
@@ -6410,7 +6519,7 @@ async function loadEvalsJudgeCard() {
   var judge = meta && meta.judge;
   if (!judge) {
     el.innerHTML = '<span style="color:var(--text-muted);">' +
-      t("evals.judge_unavailable", null, "Judge status is unavailable here. Scores are computed on the machine your agent runs on.") + '</span>';
+      t("evals.judge_unavailable", null, "Judge status is unavailable here. Open the dashboard on the agent machine to check its evaluation settings.") + '</span>';
     return;
   }
   var cfgResp = await fetch('/api/evals/key').catch(function(){return null;});
@@ -6420,7 +6529,7 @@ async function loadEvalsJudgeCard() {
   var html = '';
   if (!judge.enabled) {
     html += '<div style="color:#f59e0b;font-weight:600;margin-bottom:6px;">' +
-      t("evals.judge_disabled", null, "Scoring is switched off (CLAWMETRY_EVALS_ENABLED=0).") + '</div>';
+      t("evals.judge_disabled", null, "Session scoring is off.") + '</div>';
   } else if (keyRejected) {
     html += '<div style="color:#ef4444;font-weight:600;margin-bottom:6px;">● ' +
       t("evals.judge_key_rejected", null, "Your judge key was rejected by the provider. Re-add a valid key below.") + '</div>';
@@ -6429,10 +6538,10 @@ async function loadEvalsJudgeCard() {
       t("evals.judge_on", null, "Scoring is ON. Finished sessions are scored automatically in the background.") + '</div>';
   } else {
     html += '<div style="color:#f59e0b;font-weight:600;margin-bottom:6px;">● ' +
-      t("evals.judge_needs_key", null, "Add an API key below to turn scoring on. Any provider works, not just Claude.") + '</div>';
+      t("evals.judge_needs_key", null, "Select a judge provider below. If the provider requires a key, add its API key.") + '</div>';
   }
   html += '<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">' +
-    t("evals.judge_how", null, "How it works: after a session finishes, a small model reads a redacted copy of the transcript and scores it 0 to 5 against your rubric. It runs on your machine, with your own API key, capped at 100 scores per hour. Your transcripts never go to ClawMetry servers.") +
+    t("evals.judge_how", null, "After a session ends, ClawMetry sends a redacted transcript to the configured judge provider. The judge scores it from 0 to 5 against your rubric. The default limit is 100 session evaluations per hour.") +
     '</div>';
   var provLabel = '';
   if (cfg && cfg.providers && cfg.selection && cfg.providers[cfg.selection.provider]) {
@@ -6477,7 +6586,7 @@ function _evalsKeyFormHtml(cfg, hidden) {
   html += '</select>';
   var model = (cfg.selection && cfg.selection.provider === sel && cfg.selection.model) || cfg.providers[sel].default_model;
   html += '<input id="evals-key-model" type="text" value="' + escHtml(model) + '" title="' +
-    t("evals.model_title", null, "Judge model id — any model this provider serves") + '" style="width:190px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
+    t("evals.model_title", null, "Judge model identifier supported by this provider") + '" style="width:190px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
   html += '<input id="evals-key-input" type="password" autocomplete="off" placeholder="' + escHtml(cfg.providers[sel].key_hint) + '" style="flex:1;min-width:180px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
   html += '<input id="evals-key-baseurl" type="text" placeholder="http://localhost:11434/v1" style="' +
     (cfg.providers[sel].needs_base_url ? '' : 'display:none;') +
@@ -6486,7 +6595,7 @@ function _evalsKeyFormHtml(cfg, hidden) {
     t("evals.save_verify", null, "Save & verify") + '</button>';
   html += '</div>';
   html += '<div id="evals-key-status" style="font-size:11px;margin-top:8px;min-height:14px;color:var(--text-muted);">' +
-    t("evals.key_note", null, "Verified with one tiny test call before saving, then stored only on this machine (never synced).") + '</div>';
+    t("evals.key_note", null, "ClawMetry makes one test call before it saves the key on this machine. Cloud sync does not include the key.") + '</div>';
   html += '</div>';
   return html;
 }
@@ -6527,7 +6636,7 @@ async function evalsSaveJudgeKey() {
     if (r.ok && data.ok) {
       if (status) {
         status.style.color = '#22c55e';
-        status.textContent = t("evals.key_verified", null, "Key verified and saved. Scoring starts within a minute.");
+        status.textContent = t("evals.key_verified", null, "The key is verified and saved. Check the scoring status above.");
       }
       setTimeout(function(){ loadEvalsJudgeCard(); loadEvaluators(); }, 1200);
     } else {
@@ -6924,7 +7033,7 @@ async function loadEvalsSuites() {
     html += '</div>';
   } else {
     html += '<div style="margin-bottom:10px;">' +
-      t("evals.suites_empty", null, "No test suites yet. A suite is a small YAML file of test prompts plus what a good answer looks like; run it before each release to catch a prompt regression before your users do.") + '</div>';
+      t("evals.suites_empty", null, "No test suites are available. A suite is a YAML file with test prompts and expected answers. Run a suite before each release to check for changes in answer quality.") + '</div>';
   }
   html += '<div style="color:var(--text-muted);">' +
     t("evals.suites_cli", null, "Suites live in") + ' <code>~/.clawmetry/evals/</code> · ' +
@@ -6949,15 +7058,15 @@ async function loadEvalSummary() {
     // A server that ignores ?runtime answers for the whole node.
     if (!data || typeof data.scored !== 'number' || (_evQ && data.runtime !== _evRt)) {
       setTitleCheck(false);
-      avgEl.textContent = '--';
-      if (covEl) covEl.textContent = '';
+      avgEl.textContent = 'Not scored';
+      if (covEl) covEl.textContent = 'Judge data is unavailable for this window';
       return;
     }
     if (data.scored === 0) {
       setTitleCheck(false);
-      avgEl.textContent = '';
+      avgEl.textContent = 'Not scored';
       avgEl.style.color = 'var(--text-muted)';
-      if (covEl) covEl.textContent = t("overview.eval_empty", null, "No sessions judged yet today. The judge runs automatically after each session.");
+      if (covEl) covEl.textContent = t("overview.eval_empty", null, "No sessions judged yet. Configure a judge to score finished sessions.");
       return;
     }
     setTitleCheck(true);
@@ -6968,8 +7077,8 @@ async function loadEvalSummary() {
     if (covEl) covEl.textContent = data.scored + ' / ' + data.total + ' scored';
   } catch (e) {
     setTitleCheck(false);
-    avgEl.textContent = '--';
-    if (covEl) covEl.textContent = '';
+    avgEl.textContent = 'Not scored';
+    if (covEl) covEl.textContent = 'Judge data is unavailable for this window';
   }
 }
 
@@ -7026,7 +7135,7 @@ async function openEvalRubricModal() {
     if (keyRow && !keyRow.__cmGated) {
       keyRow.__cmGated = 1;
       keyRow.innerHTML = '<div style="font-size:11px;color:var(--text-muted);line-height:1.5;">' +
-        t("evals.key_on_node", null, "The judge API key stays on the machine your agent runs on and is never synced to the cloud. To add or change it, open the dashboard on that machine (Evals tab) or set ANTHROPIC_API_KEY / OPENAI_API_KEY in the daemon environment.") +
+        t("evals.key_on_node", null, "The judge API key stays on the agent machine. Cloud sync does not include it. Open the local dashboard to change the key. Select Quality. Change the judge settings. You can also set ANTHROPIC_API_KEY or OPENAI_API_KEY in the daemon environment.") +
         '</div>';
     }
     var keySt = document.getElementById('eval-key-status');
@@ -7110,11 +7219,11 @@ async function saveEvalKey() {
       inp.value = '';  // never keep the secret in the DOM after save
       loadEvalKeyStatus();
     } else if (el) {
-      el.textContent = (resp && resp.error) || 'Save failed';
+      el.textContent = (resp && resp.error) || t('app.save_failed', null, 'Save failed');
       el.style.color = '#ef4444';
     }
   } catch (e) {
-    if (el) { el.textContent = 'Save failed: ' + e.message; el.style.color = '#ef4444'; }
+    if (el) { el.textContent = t('app.save_failed_2', null, 'Save failed: ') + e.message; el.style.color = '#ef4444'; }
   }
 }
 
@@ -7192,23 +7301,41 @@ async function loadToolActivity() {
 }
 
 async function loadActivityStream() {
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var apiRt = (typeof _cmClientFilterRt === 'function') ? _cmClientFilterRt(rt) : rt;
+  var requestId = (window._cmActivityRequest || 0) + 1;
+  window._cmActivityRequest = requestId;
+  window._cmLastAgentSay = null;
+  function current() {
+    return window._cmActivityRequest === requestId &&
+      ((typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all') === rt;
+  }
   try {
-    var transcripts = await fetchJsonWithTimeout('/api/transcripts', 4000);
+    var transcripts = await fetchJsonWithTimeout('/api/transcripts' +
+      (apiRt && apiRt !== 'all' ? '?runtime=' + encodeURIComponent(apiRt) : ''), 4000);
+    if (!current()) return;
     var activities = [];
+    var rows = Array.isArray(transcripts.transcripts) ? transcripts.transcripts : [];
+    if (apiRt && apiRt !== 'all') rows = rows.filter(function (row) {
+      return typeof _cmRuntimeOf === 'function' && _cmRuntimeOf(row) === apiRt;
+    });
     
     // Get the most recent transcript to parse for activity
-    if (transcripts.transcripts && transcripts.transcripts.length > 0) {
-      var recent = transcripts.transcripts[0];
+    if (rows.length > 0) {
+      var recent = rows[0];
       try {
-        var transcript = await fetchJsonWithTimeout('/api/transcript/' + recent.id, 4000);
-        var recentMessages = transcript.messages.slice(-10); // Last 10 messages
+        var transcript = await fetchJsonWithTimeout('/api/transcript/' + encodeURIComponent(recent.id), 4000);
+        if (!current()) return;
+        var messages = Array.isArray(transcript.messages) ? transcript.messages : [];
+        var recentMessages = messages.slice(-10); // Last 10 messages
         // Stash the latest assistant reply for the Overview hero ("Last thing
         // it did: …") — reuses this already-fetched transcript, no new request.
         try {
-          for (var _mi = transcript.messages.length - 1; _mi >= 0; _mi--) {
-            var _m = transcript.messages[_mi];
-            if (_m && _m.role === 'assistant' && _m.content && String(_m.content).trim()) {
-              window._cmLastAgentSay = { text: String(_m.content).trim(), when: _m.timestamp || null };
+          for (var _mi = messages.length - 1; _mi >= 0; _mi--) {
+            var _m = messages[_mi];
+            if (_m && _m.role === 'assistant' && typeof _m.content === 'string' && _m.content.trim()) {
+              window._cmLastAgentSay = { text: String(_m.content).trim(), when: _m.timestamp || null,
+                rt: rt === 'all' && typeof _cmRuntimeOf === 'function' ? _cmRuntimeOf(recent) : rt };
               break;
             }
           }
@@ -7218,7 +7345,7 @@ async function loadActivityStream() {
         } catch (_e) {}
 
         recentMessages.forEach(function(msg) {
-          if (msg.role === 'assistant' && msg.content) {
+          if (msg && msg.role === 'assistant' && typeof msg.content === 'string' && msg.content) {
             var content = msg.content.toLowerCase();
             var activity = '';
             var time = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
@@ -7245,19 +7372,19 @@ async function loadActivityStream() {
     }
     
     if (activities.length === 0) {
-      activities = [
-        new Date().toLocaleTimeString() + ' 🤖 AI agent initialized',
-        new Date().toLocaleTimeString() + ' 📡 Monitoring for activity...'
-      ];
+      activities = ['No recent activity recorded for this view.'];
     }
     
     var html = activities.slice(-8).map(function(a) {
       return '<div style="padding:4px 0; border-bottom:1px solid #1a1a30; color:#ccc;">' + escHtml(a) + '</div>';
     }).join('');
     
-    document.getElementById('activity-stream').innerHTML = html;
+    var stream = document.getElementById('activity-stream');
+    if (stream && current()) stream.innerHTML = html;
+    try { if (typeof _renderOverviewHero === 'function') _renderOverviewHero(); } catch (_e_empty) {}
   } catch(e) {
-    document.getElementById('activity-stream').innerHTML = '<div style="color:#666;">' + t("app.error_loading_activity_stream", null, "Error loading activity stream") + '</div>';
+    var errorStream = document.getElementById('activity-stream');
+    if (errorStream && current()) errorStream.innerHTML = '<div style="color:#666;">' + t("app.error_loading_activity_stream", null, "Error loading activity stream") + '</div>';
   }
 }
 
@@ -8731,7 +8858,7 @@ function _brainSeqLabel(ev) {
     var tail = parts[parts.length - 1];
     var kindLbl = tail.indexOf('agent-') === 0
       ? (parts.length >= 3 || parts[1].indexOf('wf_') === 0
-          ? t('brain.wf_agent', null, 'wf agent') : t('brain.subagent', null, 'subagent'))
+          ? t('brain.wf_agent', null, 'wf agent') : t('brain.subagent', null, "sub-agent"))
       : (tail.indexOf('wf_') === 0 ? t('brain.workflow', null, 'workflow') : 'child');
     return label + ' \u00b7 ' + parts[0].slice(0, 8) + ' \u21b3 ' + kindLbl + ' ' +
       tail.replace(/^agent-/, '').replace(/^wf_/, '').slice(0, 8);
@@ -8752,14 +8879,14 @@ function _brainOrchBadgeHtml(sid) {
   var wf = sum.workflows || {}, ag = sum.agents || {}, sa = sum.subagents || {};
   var bits = [];
   if (wf.total) {
-    bits.push('\u26a1 ' + wf.total + ' ' + t(wf.total === 1 ? 'brain.workflow' : 'brain.workflows', null, wf.total === 1 ? 'workflow' : 'workflows')
+    bits.push('\u26a1 ' + wf.total + ' ' + (wf.total === 1 ? t('brain.workflow', null, 'workflow') : t('brain.workflows', null, 'workflows'))
       + (wf.running ? ' (' + wf.running + ' ' + t('brain.running', null, 'running') + ')' : ''));
   }
   if (ag.total) {
     bits.push('\ud83e\udd16 ' + ((ag.completed || 0) + (ag.failed || 0)) + '/' + ag.total + ' ' + t('brain.agents_done', null, 'agents done')
       + (ag.failed ? ' \u00b7 \u26a0 ' + ag.failed : ''));
   }
-  if (sa.total) bits.push('\ud83e\udd16 ' + sa.total + ' ' + t(sa.total === 1 ? 'brain.subagent' : 'brain.subagents', null, sa.total === 1 ? 'subagent' : 'subagents'));
+  if (sa.total) bits.push('\ud83e\udd16 ' + sa.total + ' ' + (sa.total === 1 ? t('brain.subagent', null, 'sub-agent') : t('brain.subagents', null, 'sub-agents')));
   var now = (sum.running_now || [])[0];
   if (now && now.nowTool) bits.push('\u25b6 ' + escHtml(now.nowTool));
   if (!bits.length) return '';
@@ -10419,7 +10546,7 @@ window.selfevolveRun = async function () {
   var status = document.getElementById('selfevolve-status');
   var origText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = t("app.analyzing", null, "Analyzing…"); btn.style.opacity = '0.6'; }
-  if (status) status.textContent = t("app.reviewing_recent_activity_this_takes_15_seconds", null, "Reviewing recent activity — this takes ~15 seconds…");
+  if (status) status.textContent = t("app.reviewing_recent_activity_this_takes_15_seconds", null, "Review of recent activity takes approximately 15 seconds.");
   try {
     var resp = await fetch('/api/selfevolve/analyze', { method: 'POST' });
     var d = await resp.json();
@@ -10496,14 +10623,14 @@ async function loadBrainPage(silent) {
       var _bhTry = _brainRangeRetries++;
       if (stEl) stEl.textContent = _bhTry < 12
         ? t('brain.window_fetching', null, 'Fetching this window from your node…')
-        : t('brain.window_fetching_busy', null, 'Your node is busy syncing — still fetching this window…');
+        : t('brain.window_fetching_busy', null, 'This machine is syncing data. The selected time range is not ready yet.');
       if (_bhTry < 36) {
         setTimeout(function() {
           if (_bhRange === _brainRange) loadBrainPage(true);
         }, _bhTry < 12 ? Math.max(2000, (data.eta_sec || 3) * 1000) : 10000);
       } else {
         var sEl2 = document.getElementById('brain-stream');
-        if (sEl2) sEl2.innerHTML = '<div style="color:var(--text-muted);padding:20px;font-size:13px;">' + t('brain.window_node_offline', null, 'Could not fetch this window from your node. The node may be offline, or was mid-sync when the request was made — if it is online, retry in a moment.') + '</div>';
+        if (sEl2) sEl2.innerHTML = '<div style="color:var(--text-muted);padding:20px;font-size:13px;">' + t('brain.window_node_offline', null, "Could not reach your node for this window. Check that the machine is online, then retry.") + '</div>';
         if (stEl) stEl.textContent = '';
       }
       return;
@@ -10576,7 +10703,7 @@ async function loadBrainPage(silent) {
     if (el) {
       var stillLoading = /Loading/i.test(el.innerText || '');
       if (!silent || stillLoading) {
-        el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">Failed to load: ' + escHtml(String(e)) + ' &nbsp;<button onclick="loadBrainPage()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button></div>';
+        el.innerHTML = '<div style="color:var(--text-error);padding:20px;font-size:13px;">' + escHtml(t('app.failed_to_load_2', null, 'Failed to load: ')) + escHtml(String(e)) + ' &nbsp;<button onclick="loadBrainPage()" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button></div>';
       }
       // Boot-time main-thread jank can abort this fetch at its 20 s cap
       // while the server answers in <50 ms once the thread clears (founder
@@ -11179,7 +11306,7 @@ async function loadNemoClaw() {
       // Issue #1127: previously said "pip install nemoclaw" but the package
       // is not yet publicly released (only a 0.0.0a1 placeholder exists on
       // PyPI). Replace with an honest "Coming soon" empty state.
-      page.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-muted);font-size:14px;">NemoClaw governance is not yet available on this host.<br><span style="font-size:12px;">' + t("app.coming_soon_mdash_nvidia_nemo_guardrails_integrati", null, "Coming soon &mdash; NVIDIA NeMo Guardrails integration is in private preview.") + '</span></div>';
+      page.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-muted);font-size:14px;">NemoClaw governance is not yet available on this host.<br><span style="font-size:12px;">' + t("app.coming_soon_mdash_nvidia_nemo_guardrails_integrati", null, "The NVIDIA NeMo Guardrails integration is in private preview.") + '</span></div>';
       return;
     }
 
@@ -11461,7 +11588,7 @@ async function ncApprove(sandbox, chunkId, btn) {
       setTimeout(loadNemoClawApprovals, 500);
     } else {
       if (btn) { btn.disabled = false; btn.textContent = t("app.approve", null, "✓ Approve"); }
-      alert('Approve failed: ' + (data.output || 'unknown error'));
+      alert(t('approvals.approve_failed', {error: (data.output || t('common.unknown_error', null, 'unknown error'))}, 'Approve failed: {error}'));
     }
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = t("app.approve", null, "✓ Approve"); }
@@ -11484,7 +11611,7 @@ async function ncReject(sandbox, chunkId, btn) {
       setTimeout(loadNemoClawApprovals, 500);
     } else {
       if (btn) { btn.disabled = false; btn.textContent = t("app.reject", null, "✗ Reject"); }
-      alert('Reject failed: ' + (data.output || 'unknown error'));
+      alert(t('approvals.reject_failed', {error: (data.output || t('common.unknown_error', null, 'unknown error'))}, 'Reject failed: {error}'));
     }
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = t("app.reject", null, "✗ Reject"); }
@@ -11502,10 +11629,10 @@ async function ncReject(sandbox, chunkId, btn) {
 // there was no cloud to relay the decision.
 async function approvalDecide(approvalId, decision, btn) {
   if (!approvalId) return;
-  var label = (decision === 'approve') ? 'Approve' : 'Deny';
+  var label = (decision === 'approve') ? t('app.approve_2', null, 'Approve') : t('app.deny', null, 'Deny');
   var reason = null;
   if (decision === 'deny') {
-    reason = window.prompt('Deny reason (optional):');
+    reason = window.prompt(t('security.approval_deny_reason_prompt', null, 'Reason for the denial (optional):'));
     if (reason === null) return; // cancelled
   }
   if (btn) { btn.disabled = true; btn.textContent = label + '...'; }
@@ -11521,7 +11648,10 @@ async function approvalDecide(approvalId, decision, btn) {
       if (typeof loadToolPolicy === 'function') setTimeout(loadToolPolicy, 300);
     } else {
       if (btn) { btn.disabled = false; btn.textContent = label; }
-      alert(label + ' failed: ' + (data.error || ('HTTP ' + resp.status)));
+      var _why = data.error || ('HTTP ' + resp.status);
+      alert(decision === 'approve'
+        ? t('security.approval_approve_failed', {error: _why}, 'Could not approve this request: {error}')
+        : t('security.approval_deny_failed', {error: _why}, 'Could not deny this request: {error}'));
     }
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = label; }
@@ -11609,7 +11739,7 @@ async function saveRetentionSetting(usePlanDefault) {
     days = parseInt(input && input.value, 10);
     if (!(days >= 1)) {
       if (status) {
-        status.textContent = 'Enter a whole number of days, 1 or more.';
+        status.textContent = t('security.retention_invalid_days', null, 'Enter a whole number of days, 1 or more.');
         status.style.color = 'var(--danger, #dc2626)';
       }
       return;
@@ -11625,13 +11755,11 @@ async function saveRetentionSetting(usePlanDefault) {
   // nag.
   var _cur = window._cmRetentionEffectiveDays;
   if (!usePlanDefault && typeof _cur === 'number' && days < _cur) {
-    var _msg = 'Keep event history for ' + days + ' day'
-      + (days === 1 ? '' : 's') + ' instead of ' + _cur + '?\n\n'
-      + 'Everything older than ' + days + ' day' + (days === 1 ? '' : 's')
-      + ' is deleted from this machine within the hour, and cannot be '
-      + 'recovered.';
+    var _msg = (days === 1)
+      ? t('security.retention_shorten_confirm_one', {current: _cur}, 'Keep event history for 1 day instead of {current}?\n\nEverything older than 1 day is deleted from this machine within the hour, and cannot be recovered.')
+      : t('security.retention_shorten_confirm_other', {days: days, current: _cur}, 'Keep event history for {days} days instead of {current}?\n\nEverything older than {days} days is deleted from this machine within the hour, and cannot be recovered.');
     if (!window.confirm(_msg)) {
-      if (status) { status.textContent = 'Left unchanged.'; status.style.color = ''; }
+      if (status) { status.textContent = t('security.retention_unchanged', null, 'Left unchanged.'); status.style.color = ''; }
       return;
     }
   }
@@ -11650,7 +11778,7 @@ async function saveRetentionSetting(usePlanDefault) {
     }
   } catch (e) {
     if (status) {
-      status.textContent = 'Could not save.';
+      status.textContent = t('security.retention_save_failed', null, 'Could not save.');
       status.style.color = 'var(--danger, #dc2626)';
     }
   }
@@ -11877,7 +12005,7 @@ async function createApiKey() {
     });
     data = await res.json();
   } catch (e) {
-    if (err) err.textContent = 'ClawMetry did not answer. Is the dashboard still running?';
+    if (err) err.textContent = t('app.apikey_no_answer', null, 'ClawMetry did not answer. Is the dashboard still running?');
     return;
   }
   if (!data || data.ok === false) {
@@ -11929,10 +12057,7 @@ function dismissApiKeyReveal() {
 
 async function revokeApiKey(id) {
   if (!id) return;
-  var ok = window.confirm(
-    'Revoke this key?\n\nAnything using it stops working on its next request. '
-    + 'This cannot be undone; you would have to create a new key.'
-  );
+  var ok = window.confirm(t('security.apikey_revoke_confirm', null, 'Revoke this key?\n\nAnything using it stops working on its next request. This cannot be undone. To restore access, create a new key.'));
   if (!ok) return;
   try {
     await fetch('/api/apikeys/' + encodeURIComponent(id), { method: 'DELETE' });
@@ -12154,7 +12279,7 @@ async function loadSecurityPage(silent) {
         badgeEl.style.background = '#dc2626';
         badgeEl.style.color = '#fff';
       } else {
-        badgeEl.textContent = 'Clean';
+        badgeEl.textContent = t('security.credential_scan_clean', null, 'Clean');
         badgeEl.style.background = 'rgba(34,197,94,0.15)';
         badgeEl.style.color = '#86efac';
       }
@@ -12237,7 +12362,7 @@ async function loadSecurityFindings() {
     counts = (d && d.counts) || null;
   } catch (e) {
     listEl.innerHTML = '<div style="color:var(--text-muted);padding:12px;font-size:12px;">'
-      + t('security.findings_unavailable', null, "Couldn't read the findings log. It lives on the machine your agent runs on — open the local dashboard to see it.")
+      + t('security.findings_unavailable', null, "ClawMetry could not read the findings log. Open the dashboard on the agent machine to check its recorded findings.")
       + '</div>';
     if (countEl) countEl.textContent = '';
     return null;
@@ -12320,20 +12445,18 @@ async function loadSecurityIntegrity() {
     var n = (d && d.chain_length) || 0;
     var nStr = n.toLocaleString();
     if (d && d.ok === true) {
-      paint(t('app.integrity_intact', null, 'Tamper-evident log: ' + nStr + ' events, intact. Every recorded event is chained, so silent edits would show up here.'),
+      paint(t('app.integrity_intact', { count: nStr }, 'The recorded log contains {count} linked events. Its integrity check passed.'),
             t('app.integrity_intact_badge', null, 'Intact'), '#22c55e', '&#128274;');
     } else if (d && d.ok === false) {
-      paint(t('app.integrity_broken', null, 'Tamper-evident log: a break was detected at event ' + (d.first_break != null ? d.first_break : '?') + '. The activity log may have been altered.'),
-            t('app.integrity_broken_badge', null, 'Tampered'), '#ef4444', '&#9888;');
+      paint(t('app.integrity_broken', { event: d.first_break != null ? d.first_break : '?' }, 'The integrity check found a break at event {event}. The recorded log may have changed.'),
+            t('app.integrity_broken_badge', null, 'Check failed'), '#ef4444', '&#9888;');
     } else if (d && d.status === 'degraded') {
       // Third state, and the common one on a node that ran an older build:
-      // every event still matches its own hash (nothing was altered or
-      // removed), but some could not be placed in a single ordered chain
-      // because the writer chained two flush batches off the same head.
-      // Calling that "Tampered" scared people about a bug of ours; calling it
-      // "Intact" would hide a real insertion. It gets its own honest wording.
+      // the recorded events match their own hashes, but some cannot be placed
+      // in one ordered chain. Matching individual hashes does not prove that
+      // no events were inserted or removed. Keep that uncertainty visible.
       var nUnlinked = (d.unlinked || 0).toLocaleString();
-      paint(t('app.integrity_degraded', null, 'Tamper-evident log: all ' + nStr + ' events match their recorded fingerprint, so nothing was altered or removed. ' + nUnlinked + ' could not be placed in a single ordered chain, a fault in how older versions recorded the order that is now fixed. New events chain normally.'),
+      paint(t('app.integrity_degraded', { count: nStr, unlinked: nUnlinked }, 'The recorded fingerprints match for {count} events. The log cannot place {unlinked} events in one ordered chain. The event order is incomplete.'),
             t('app.integrity_degraded_badge', null, 'Verified, order incomplete'), '#f59e0b', '&#128274;');
     } else if (window.CLOUD_MODE) {
       // Honest cloud state until the cm-cloud-security interceptor serves the
@@ -12444,7 +12567,7 @@ function openDetailView(type) {
     switchTab('brain');
   } else {
     // For thinking feed and models, stay on overview but could expand in future
-    alert('Detail view for ' + type + ' coming soon!');
+    alert(t('app.detail_view_not_available', {type: type}, 'The detail view for {type} is not available yet.'));
   }
 }
 
@@ -12954,7 +13077,7 @@ function _cmApplyRuntimeScopeNote(name) {
   if (name === 'overview') {
     if (rt === 'all') { if (existing) existing.parentNode.removeChild(existing); return; }
     var _ovl = _cmRuntimeLabel(rt);
-    var _ovmsg = 'Showing <strong>' + escHtml(_ovl) + '</strong>: today\'s tasks, activity, tokens and cost below are scoped to it. The autonomy score, reliability and activity heatmap stay <strong>node-wide</strong> (all runtimes).';
+    var _ovmsg = 'Showing <strong>' + escHtml(_ovl) + '</strong>: today\'s tasks, activity, tokens and cost below are scoped to it. The autonomy score and reliability stay <strong>node-wide</strong> (all runtimes).';
     var _ovhtml = '<div id="' + noteId + '" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:9px 13px;border-radius:8px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.35);font-size:12px;color:var(--text-secondary);line-height:1.4;"><span style="color:#3b82f6;font-size:13px;flex-shrink:0;">&#127760;</span><span>' + _ovmsg + '</span></div>';
     if (existing) existing.outerHTML = _ovhtml;
     else page.insertAdjacentHTML('afterbegin', _ovhtml);
@@ -13275,7 +13398,7 @@ function _cmApplyRuntimeSelection(val) {
   // Reload the current tab so any runtime-aware view re-filters in place.
   // loadAll coalesces calls 2 s apart; a switch must not be swallowed by that,
   // or the Overview keeps the previous runtime's cards until the next refresh.
-  try { _loadAllLastFinishedMs = 0; } catch (e) {}
+  try { _loadAllLastFinishedMs = 0; _loadAllLastSucceededMs = 0; } catch (e) {}
   if (typeof switchTab === 'function' && _cmCurrentTab) switchTab(_cmCurrentTab);
   // System Health refreshes on a 30s timer and is not part of loadAll, so
   // re-scope it now or the previous runtime's checks linger.
@@ -13320,7 +13443,7 @@ function _invHasCost(rt) {
 }
 function _invOwnerLabel(a) {
   var o = (a && a.owner != null) ? String(a.owner).trim() : '';
-  return o || (typeof t === 'function' ? t('inventory.owner_default', 'me') : 'me');
+  return o || (typeof t === 'function' ? t('inventory.owner_default', null, 'me') : 'me');
 }
 // "45s ago" / "6m ago" / "3h ago" / "2d ago". Mirrors _cmLiveAge's voice for
 // the first minute and keeps going for the quiet agents this tab also lists.
@@ -13453,15 +13576,14 @@ function _invRosterRow(a, rtFilter) {
   var work = (a.sessions || 0) + ((a.sessions === 1) ? ' session' : ' sessions');
   var model = a.primaryModel || '--';
   var highlight = (rtFilter !== 'all' && rt === rtFilter) ? ' inv-row-active' : '';
-  // Subscription coverage, mirroring the desk device's green "covered" / amber
-  // "metered" chip: a subscription runtime's usage adds $0 on top of the flat
-  // plan fee, so its cost columns are API-equivalent value, not extra spend.
+  // Authentication can identify a subscription, not its remaining allowance
+  // or overage invoice. Keep the usage estimate separate from actual charges.
   var covChip = '';
   if (a.billingMode === 'subscription') {
     covChip = ' <span class="inv-cov-chip inv-cov-sub" title="'
       + _e((a.billingLabel || 'Subscription'))
-      + ' includes this agent\'s usage. The cost columns show usage value at published rates, not an extra bill.">'
-      + t('inventory.covered_chip', null, 'covered') + '</span>';
+      + ' sign-in detected. Cost columns estimate usage at API rates; check your provider account for actual charges.">'
+      + t('inventory.subscription_signin_chip', null, 'subscription') + '</span>';
   } else if (a.billingMode === 'metered') {
     covChip = ' <span class="inv-cov-chip inv-cov-met" title="Billed per token at API rates.">'
       + t('inventory.metered_chip', null, 'metered') + '</span>';
@@ -13917,23 +14039,13 @@ async function renderInventory() {
   }
   setTxt('inv-tile-agents', String(agents.length));
   setSub('inv-tile-agents-sub', agents.filter(_invIsRecentlyActive).length + ' active in 24h');
-  // Subscription honesty (device parity): when the account plan is a
-  // subscription, today's marginal spend is the METERED agents' cost only -
-  // the plan is a flat fee already paid. Mirror the desk device's hero:
-  // "$0.00 extra / Claude Max 20x covers it - ~$X.XX at API rates".
-  var plan = inv.accountPlan || null;
-  var extra = Number(inv.extraCost24hUsd);
+  // This node-wide sum is an API-equivalent estimate. A detected account
+  // plan cannot establish what each runtime's provider actually charged.
   var todaySub = document.getElementById('inv-tile-today-sub');
-  if (plan && plan.mode === 'subscription') {
-    setTxt('inv-tile-today', _invFmtUsd(isFinite(extra) ? extra : 0) + ' extra');
-    if (todaySub) {
-      todaySub.textContent = (plan.label || 'Subscription') + ' covers it · ~'
-        + _invFmtUsd(totalCost24h) + ' at API rates';
-      todaySub.style.display = '';
-    }
-  } else {
-    setTxt('inv-tile-today', _invFmtUsd(totalCost24h));
-    if (todaySub) { todaySub.textContent = ''; todaySub.style.display = 'none'; }
+  setTxt('inv-tile-today', _invFmtUsd(totalCost24h));
+  if (todaySub) {
+    todaySub.textContent = 'API-equivalent estimate · Check your provider account for actual charges';
+    todaySub.style.display = '';
   }
   var health = _invHealth(agents);
   setTxt('inv-tile-health', health.txt);
@@ -14399,7 +14511,7 @@ async function loadSessions() {
       // Issue #1364 — legacy loop badge (proxy LoopDetector repeats).
       var _loopCount = loopSessions[sid] || 0;
       if (_loopCount > 0) {
-        html += '<span class="session-loop-warn" onclick="event.stopPropagation();switchTab(\'brain\')" title="Agent may be looping: ' + _loopCount + ' repeated request' + (_loopCount > 1 ? 's' : '') + ' detected. Click to open Brain tab."' +
+        html += '<span class="session-loop-warn" onclick="event.stopPropagation();switchTab(\'brain\')" title="' + escAttr(t('sessions.row_looping', {count: _loopCount}, 'Agent may be looping: {count} repeated requests detected. Click to open Brain tab.')) + '"' +
           ' style="margin-left:6px;color:#d97706;font-size:11px;font-weight:700;background:rgba(217,119,6,0.12);border:1px solid rgba(217,119,6,0.35);border-radius:8px;padding:1px 6px;cursor:pointer;">&#9888; Looping</span>';
       }
     }
@@ -14417,22 +14529,22 @@ async function loadSessions() {
       var _acts = _guard.control_actions || [];
       var _mk = function(action, glyph, label, bg) {
         var on = _acts.indexOf(action) !== -1;
-        var why = on ? (_guard.control_note || (label + ' this session'))
-                     : (_guard.control_reason || 'Not available for this session');
+        var why = on ? (_guard.control_note || t('sessions.row_' + action + '_title', null, label + ' this session'))
+                     : (_guard.control_reason || t('sessions.row_control_unavailable', null, 'Not available for this session'));
         if (on) {
           return '<button class="cm-guard-btn" data-action="' + action + '"' +
             ' data-sid="' + escAttr(sid) + '" data-rt="' + escAttr(_guard.runtime || '') + '"' +
             ' data-cwd="' + escAttr(_guard.cwd || '') + '" title="' + escAttr(why) + '"' +
-            ' style="background:' + bg + ';color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">' + glyph + ' ' + label + '</button>';
+            ' style="background:' + bg + ';color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">' + glyph + ' ' + escHtml(label) + '</button>';
         }
         return '<button disabled title="' + escAttr(why) + '"' +
           ' style="background:var(--bg-tertiary,#2a2a2a);color:var(--text-muted,#888);border:1px solid var(--border-secondary,#3a3a3a);border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:not-allowed;opacity:.6;">' + glyph + ' ' + label + '</button>';
       };
-      html += _mk('pause', '⏸', 'Pause', '#b45309');
-      html += _mk('resume', '▶', 'Resume', '#15803d');
-      html += _mk('stop', '⏹', 'Stop', '#b91c1c');
+      html += _mk('pause', '⏸', t('sessions.row_pause', null, 'Pause'), '#b45309');
+      html += _mk('resume', '▶', t('sessions.row_resume', null, 'Resume'), '#15803d');
+      html += _mk('stop', '⏹', t('sessions.row_stop', null, 'Stop'), '#b91c1c');
     } else {
-      html += '<button class="cm-stop-btn" data-sid="' + escAttr(sid) + '" style="background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">⏹ Emergency Stop</button>';
+      html += '<button class="cm-stop-btn" data-sid="' + escAttr(sid) + '" style="background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">⏹ ' + escHtml(t('sessions.row_emergency_stop', null, 'Emergency Stop')) + '</button>';
     }
     html += '</span>';
     html += '</div>';
@@ -14639,7 +14751,7 @@ document.addEventListener('click', function(ev) {
   var gb = ev.target.closest && ev.target.closest('.cm-guard-btn');
   if (gb) {
     ev.stopPropagation();
-    guardControl(gb.dataset.sid, gb.dataset.action, gb.dataset.rt, gb.dataset.cwd);
+    sessionRowControl(gb.dataset.sid, gb.dataset.action, gb.dataset.rt, gb.dataset.cwd);
     return;
   }
   var sb = ev.target.closest && ev.target.closest('.cm-stop-btn');
@@ -14654,11 +14766,16 @@ document.addEventListener('click', function(ev) {
 // action are identical to the agent process. Reports the REAL outcome —
 // including advisory_only, where a "pause" is only a proxy flag and no
 // enforcement proxy is running to honor it.
-async function guardControl(sessionId, action, runtime, cwd) {
+//
+// Named apart from the Guard tab's guardControl(sessionId, runtime, cwd,
+// action) further down. Both used to be called guardControl; in one script the
+// later declaration wins, so a row click reached the Guard tab's function with
+// its arguments in the wrong order and no control was ever sent.
+async function sessionRowControl(sessionId, action, runtime, cwd) {
   var sid = String(sessionId || '').trim();
   if (!sid || !action) return;
   if (action === 'stop' || action === 'kill') {
-    if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' session "' + sid + '"?')) return;
+    if (!confirm(t('sessions.row_' + action + '_confirm', {session: sid}, action.charAt(0).toUpperCase() + action.slice(1) + ' session "{session}"?'))) return;
   }
   try {
     var r = await fetch('/api/guard/control', {
@@ -14669,29 +14786,29 @@ async function guardControl(sessionId, action, runtime, cwd) {
     });
     var data = await r.json();
     if (!r.ok || !data.ok) {
-      var why = (data && (data.detail || data.error)) || 'request failed';
-      alert('Could not ' + action + ' this session: ' + why);
+      var why = (data && (data.detail || data.error)) || t('sessions.row_request_failed', null, 'request failed');
+      alert(t('sessions.row_' + action + '_failed', {error: why}, 'Could not ' + action + ' this session: {error}'));
     } else if (data.advisory_only) {
-      alert('Pause flag set, but no enforcement proxy is running to hold this session — it is advisory only. Start the proxy (clawmetry proxy start) to make pause bite.');
+      alert(t('sessions.pause_advisory_only', null, 'Pause flag set, but no enforcement proxy is running to hold this session. The pause is advisory only. Start the proxy (clawmetry proxy start) to make pause bite.'));
     }
     loadSessions();
   } catch (e) {
-    alert('Could not ' + action + ' this session: ' + e.message);
+    alert(t('sessions.row_' + action + '_failed', {error: e.message}, 'Could not ' + action + ' this session: {error}'));
   }
 }
 
 async function stopSession(sessionId) {
   var sid = String(sessionId || '').trim();
   if (!sid) return;
-  if (!confirm('Emergency stop session "' + sid + '"?')) return;
+  if (!confirm(t('sessions.emergency_stop_confirm', {session: sid}, 'Emergency stop session "{session}"?'))) return;
   try {
     var r = await fetch('/api/sessions/' + encodeURIComponent(sid) + '/stop', {method:'POST'});
     var data = await r.json();
     if (!r.ok || !data.ok) throw new Error((data && data.error) || 'Stop failed');
-    alert('Emergency stop signal sent for session: ' + sid);
+    alert(t('sessions.emergency_stop_sent', {session: sid}, 'Emergency stop signal sent for session: {session}'));
     loadSessions();
   } catch(e) {
-    alert('Emergency stop failed: ' + e.message);
+    alert(t('common.emergency_stop_failed', {error: e.message}, 'Emergency stop failed: {error}'));
   }
 }
 
@@ -15022,7 +15139,7 @@ async function loadCrons() {
                 : 'Scheduled jobs could not be loaded right now.')
             + ' <button onclick="loadCrons()" title="Server slow — usually clears within 30 s" '
             + 'style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);'
-            + 'color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button>'
+            + 'color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button>'
             + '</div>';
     if (listEl) listEl.innerHTML = msg;
     console.warn('loadCrons failed', e);
@@ -15132,10 +15249,10 @@ async function loadQueueLanes() {
     // Say it failed. Do not fall through to the empty state, which claims
     // there are no runs.
     panel.innerHTML = '<div class="card" style="padding:14px;font-size:13px;color:var(--text-error);">'
-      + 'Failed to load queue lanes: ' + escHtml(String((e && e.message) || e))
+      + escHtml(t('app.failed_to_load_queue_lanes', null, 'Failed to load queue lanes:')) + ' ' + escHtml(String((e && e.message) || e))
       + ' <button onclick="loadQueueLanes()" style="margin-left:8px;background:transparent;'
       + 'border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;'
-      + 'padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button></div>';
+      + 'padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button></div>';
     console.warn('loadQueueLanes failed', e);
   }
 }
@@ -15207,10 +15324,10 @@ async function cronKillAll() {
   if (!confirm(t("app.emergency_stop_disable_all_active_cron_jobs_this_c", null, "Emergency stop: disable ALL active cron jobs? This cannot be undone automatically."))) return;
   try {
     var r = await fetch('/api/cron/kill-all', {method:'POST'}).then(res => res.json());
-    alert('Disabled ' + (r.disabled||0) + ' cron job(s).' + (r.errors && r.errors.length ? ' Failed: '+r.errors.join(', ') : ''));
+    alert(t('crons.kill_all_done', {n: (r.disabled||0)}, 'Disabled {n} cron job(s).') + (r.errors && r.errors.length ? ' ' + t('crons.kill_all_failed_list', {jobs: r.errors.join(', ')}, 'Failed: {jobs}') : ''));
     loadCrons();
   } catch(e) {
-    alert('Emergency stop failed: ' + e.message);
+    alert(t('common.emergency_stop_failed', {error: e.message}, 'Emergency stop failed: {error}'));
   }
 }
 
@@ -15221,9 +15338,9 @@ async function cronPauseJob(jobId) {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({jobId: jobId, enabled: false})
     }).then(res => res.json());
-    if (r.ok !== false) { loadCrons(); } else { alert('Failed to pause job: ' + (r.error||'unknown error')); }
+    if (r.ok !== false) { loadCrons(); } else { alert(t('crons.pause_job_failed', {error: (r.error || t('common.unknown_error', null, 'unknown error'))}, 'Failed to pause job: {error}')); }
   } catch(e) {
-    alert('Pause failed: ' + e.message);
+    alert(t('crons.pause_failed', {error: e.message}, 'Pause failed: {error}'));
   }
 }
 
@@ -15752,7 +15869,7 @@ function _renderCronRunTimeline(jobId, runs, jobJobs) {
     var pillLabel = isOk ? (r.delivered_at ? 'OK ✓' : 'OK') : isErr ? 'FAIL' : escHtml(r.status || '?');
     var tipParts  = [r.status || '?'];
     if (r.delivered_at) tipParts.push('Delivered ' + new Date(r.delivered_at).toLocaleString());
-    if (r.error) tipParts.push('Error: ' + String(r.error).substring(0, 300));
+    if (r.error) tipParts.push(window.t('app.error', null, 'Error: ') + String(r.error).substring(0, 300));
     var pill = '<span title="' + escHtml(tipParts.join(' · ')) + '" style="display:inline-block;padding:2px 8px;border-radius:999px;background:' + pillBg + ';color:' + pillColor + ';font-size:10px;font-weight:700;white-space:nowrap;">' + pillLabel + '</span>';
     rows += '<tr>'
       + '<td style="padding:3px 8px;">' + pill + '</td>'
@@ -15886,21 +16003,21 @@ async function cronRunNow(jobId) {
     var data = await res.json();
     showCronToast(data.message || 'Job triggered');
     setTimeout(loadCrons, 2000);
-  } catch(e) { showCronToast('Error: ' + e.message); }
+  } catch(e) { showCronToast(t('app.error', null, 'Error: ') + e.message); }
 }
 
 async function cronToggle(jobId, enabled) {
   try {
     var res = await fetch('/api/cron/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({jobId: jobId, enabled: enabled})});
     var data = await res.json();
-    if (data.error) { showCronToast('Error: ' + data.error); return; }
+    if (data.error) { showCronToast(t('app.error', null, 'Error: ') + data.error); return; }
     showCronToast(data.message || (enabled ? 'Job enabled' : 'Job disabled'));
     // Update local state immediately for instant UI feedback
     var job = _cronJobs.find(function(j) { return j.id === jobId; });
     if (job) { job.enabled = enabled; renderCrons(); }
     // Then refresh from server after a short delay
     setTimeout(loadCrons, 1000);
-  } catch(e) { showCronToast('Error: ' + e.message); }
+  } catch(e) { showCronToast(t('app.error', null, 'Error: ') + e.message); }
 }
 
 function cronConfirmDelete(jobId, jobName) {
@@ -15918,7 +16035,7 @@ async function cronDelete(jobId) {
     showCronToast(data.message || 'Job deleted');
     delete _cronExpanded[jobId];
     loadCrons();
-  } catch(e) { showCronToast('Error: ' + e.message); }
+  } catch(e) { showCronToast(t('app.error', null, 'Error: ') + e.message); }
 }
 
 function cronEdit(jobId) {
@@ -15926,7 +16043,7 @@ function cronEdit(jobId) {
   if (!job) return;
   document.getElementById('cron-edit-mode').value = 'edit';
   document.getElementById('cron-modal-title').textContent = t("app.edit_cron_job", null, "Edit Cron Job");
-  document.getElementById('cron-save-btn').textContent = 'Save';
+  document.getElementById('cron-save-btn').textContent = t('common.save', null, 'Save');
   document.getElementById('cron-edit-id').value = job.id;
   document.getElementById('cron-edit-name').value = job.name || '';
   var sched = job.schedule || {};
@@ -15999,11 +16116,11 @@ async function saveCronEdit() {
     try {
       var res = await fetch('/api/cron/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       var data = await res.json();
-      if (data.error) { showCronToast('Error: ' + data.error); return; }
+      if (data.error) { showCronToast(t('app.error', null, 'Error: ') + data.error); return; }
       showCronToast(data.message || 'Job created');
       closeCronEditModal();
       loadCrons();
-    } catch(e) { showCronToast('Error: ' + e.message); }
+    } catch(e) { showCronToast(t('app.error', null, 'Error: ') + e.message); }
   } else {
     var patch = { enabled: enabled };
     if (name) patch.name = name;
@@ -16017,7 +16134,7 @@ async function saveCronEdit() {
       showCronToast(data.message || 'Job updated');
       closeCronEditModal();
       loadCrons();
-    } catch(e) { showCronToast('Error: ' + e.message); }
+    } catch(e) { showCronToast(t('app.error', null, 'Error: ') + e.message); }
   }
 }
 
@@ -16058,7 +16175,7 @@ async function submitCronFix(jobId) {
     var data = await res.json();
     showCronToast(data.message || 'Fix request sent to AI agent');
   } catch(e) {
-    showCronToast('Error: ' + e.message);
+    showCronToast(t('app.error', null, 'Error: ') + e.message);
   }
 }
 
@@ -16192,7 +16309,7 @@ async function loadMemoryAnalytics() {
   try {
     var d = await fetch('/api/memory-analytics').then(function(r){return r.json()});
     var statusColor = d.hasBloat ? '#ef4444' : (d.hasWarnings ? '#f59e0b' : '#22c55e');
-    var statusLabel = d.hasBloat ? '⚠ Bloat detected' : (d.hasWarnings ? '⚡ Growing' : '✓ Healthy');
+    var statusLabel = d.hasBloat ? '⚠ ' + t('memory.status_bloat', null, 'Bloat detected') : (d.hasWarnings ? '⚡ ' + t('memory.status_growing', null, 'Growing') : '✓ ' + t('overview.status_healthy', null, 'Healthy'));
     var html = '<div class="card" style="padding:16px;margin-bottom:0">';
     // Stats row
     html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px">';
@@ -16364,18 +16481,18 @@ var _TRACE_KIND_ICONS = {
 // Legend order for the trace header. `reasoning` is the model's thinking
 // (its own span kind); the execute_tool spans it drove nest under it.
 var _TRACE_LEGEND_KINDS = [
-  ['agent', 'tracing.legend_agent', 'Agent'],
-  ['prompt', 'tracing.legend_prompt', 'Prompt'],
-  ['llm', 'tracing.legend_llm', 'Model call'],
-  ['reasoning', 'tracing.legend_reasoning', 'Reasoning'],
-  ['tool', 'tracing.legend_tool', 'Tool']
+  ['agent', function () { return t('tracing.legend_agent', null, 'Agent'); }],
+  ['prompt', function () { return t('tracing.legend_prompt', null, 'Prompt'); }],
+  ['llm', function () { return t('tracing.legend_llm', null, 'Model call'); }],
+  ['reasoning', function () { return t('tracing.legend_reasoning', null, 'Reasoning'); }],
+  ['tool', function () { return t('tracing.legend_tool', null, 'Tool'); }]
 ];
 function _traceLegendHtml() {
   return '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--text-muted);">'
     + _TRACE_LEGEND_KINDS.map(function(k) {
         return '<span style="display:inline-flex;align-items:center;gap:5px;">'
           + '<span style="width:9px;height:9px;border-radius:2px;background:' + _TRACE_KIND_COLORS[k[0]] + ';"></span>'
-          + t(k[1], null, k[2]) + '</span>';
+          + k[1]() + '</span>';
       }).join('')
     + '</div>';
 }
@@ -16387,7 +16504,7 @@ function _traceReasoningNoteHtml(r) {
   var rt = escHtml(r.runtime || 'this runtime');
   var msg = '';
   if (r.coverage === 'none') msg = t('tracing.reasoning_not_exposed', {runtime: rt}, 'Reasoning is not exposed by {runtime}');
-  else if (r.coverage === 'partial' || r.coverage === 'full') msg = t('tracing.reasoning_none_recorded', {runtime: rt}, 'No reasoning was recorded for this session. {runtime} exposes it only under some settings.');
+  else if (r.coverage === 'partial' || r.coverage === 'full') msg = t('tracing.reasoning_none_recorded', {runtime: rt}, "No reasoning was recorded for this session. {runtime} exposes it only under some settings");
   else return '';
   var note = r.note ? '<span style="color:var(--text-muted);"> ' + escHtml(r.note) + '</span>' : '';
   return '<div style="margin-top:8px;font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">'
@@ -16450,7 +16567,7 @@ async function loadTurnAnatomy() {
   var el = document.getElementById('ta-list');
   if (!el) return;
   el.style.cssText = '';
-  el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_sessions_hellip", null, "Loading sessions&hellip;") + '</div>';
+  el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_sessions_hellip", null, "Loading sessions…") + '</div>';
   var data;
   try {
     // Scope server-side by the active runtime (#4782). A foreign OTLP app
@@ -16546,7 +16663,7 @@ async function viewTurnAnatomy(sessionId) {
   if (back) back.style.display = '';
   var meta = document.getElementById('ta-detail-meta');
   var turnsEl = document.getElementById('ta-turns');
-  if (meta) meta.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + t("app.loading_turns_hellip", null, "Loading turns&hellip;") + '</div>';
+  if (meta) meta.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">' + t("app.loading_turns_hellip", null, "Loading turns…") + '</div>';
   if (turnsEl) turnsEl.innerHTML = '';
   var data;
   try {
@@ -16624,7 +16741,7 @@ async function loadTracing() {
   tracingShowList();
   var el = document.getElementById('trace-list');
   if (!el) return;
-  el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_traces_hellip", null, "Loading traces&hellip;") + '</div>';
+  el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_traces_hellip", null, "Loading traces…") + '</div>';
   var data;
   try {
     // Scope server-side by the active runtime (#4782). A foreign OTLP app
@@ -16746,7 +16863,7 @@ async function viewTrace(traceId) {
   if (back) back.style.display = '';
   // Reset left-pane loading state + right-pane placeholder until spans land.
   var tg = document.getElementById('trace-treegantt');
-  if (tg) tg.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_trace_hellip", null, "Loading trace&hellip;") + '</div>';
+  if (tg) tg.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_trace_hellip", null, "Loading trace…") + '</div>';
   var pane = document.getElementById('trace-span-pane');
   if (pane) pane.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:32px 14px;">Select a span on the left to see its <b>' + t("app.chat", null, "Chat") + '</b>, <b>' + t("app.inputs", null, "Inputs") + '</b>, <b>' + t("app.outputs", null, "Outputs") + '</b>, <b>' + t("app.attributes", null, "Attributes") + '</b>, and <b>' + t("app.events", null, "Events") + '</b>.</div>';
   window._traceActiveSpanId = null;
@@ -17308,7 +17425,7 @@ async function _loadMemoryAllFiles() {
   if (!document.getElementById('mem-ide-css')) {
     var cs = document.createElement('style');
     cs.id = 'mem-ide-css';
-    cs.textContent = t("app.mem_file_hover_mem_file_active_background_var_bg_t", null, ".mem-file:hover,.mem-file.active{background:var(--bg-tertiary,#1e293b)!important}");
+    cs.textContent = ".mem-file:hover,.mem-file.active{background:var(--bg-tertiary,#1e293b)!important}";
     document.head.appendChild(cs);
   }
   // IDE layout: sidebar + content viewer
@@ -17741,7 +17858,7 @@ async function loadSystemHealth() {
       if (hbEl) {
         var hbStatus = hbData.status || 'unknown';
         var hbDot = hbStatus === 'ok' ? '🟢' : (hbStatus === 'warning' ? '🟡' : (hbStatus === 'silent' ? '🔴' : '⚪'));
-        var hbLabel = hbStatus === 'ok' ? 'Healthy' : (hbStatus === 'warning' ? 'Delayed' : (hbStatus === 'silent' ? 'SILENT' : 'No data yet'));
+        var hbLabel = hbStatus === 'ok' ? t('overview.status_healthy', null, 'Healthy') : (hbStatus === 'warning' ? t('overview.hb_status_delayed', null, 'Delayed') : (hbStatus === 'silent' ? t('overview.hb_status_silent', null, 'SILENT') : t('overview.no_data_yet', null, 'No data yet')));
         var hbGap = hbData.gap_seconds;
         var hbDetail = '';
         if (hbGap != null) {
@@ -17899,9 +18016,9 @@ async function loadSystemHealth() {
       var dmColor = dmStatus === 'healthy' ? 'var(--text-success,#22c55e)'
                   : dmStatus === 'degraded' ? '#f59e0b'
                   : 'var(--text-error,#dc2626)';
-      var dmLabel = dmStatus === 'healthy' ? 'Healthy'
-                  : dmStatus === 'degraded' ? 'Degraded'
-                  : 'BROKEN';
+      var dmLabel = dmStatus === 'healthy' ? t('overview.status_healthy', null, 'Healthy')
+                  : dmStatus === 'degraded' ? t('overview.status_degraded', null, 'Degraded')
+                  : t('overview.status_broken', null, 'BROKEN');
       var e5 = dm.errors_last_5min || 0;
       var e1h = dm.errors_last_1h || 0;
       var msg = dm.last_error_message || '';
@@ -17941,15 +18058,15 @@ async function loadSystemHealth() {
       var gwStatus = gw.status || 'not_running';
       var gwDot, gwLabel, gwColor;
       if (gwStatus === 'critical') {
-        gwDot = '🔴'; gwLabel = 'Critical'; gwColor = 'var(--text-error,#dc2626)';
+        gwDot = '🔴'; gwLabel = t('security.critical', null, 'Critical'); gwColor = 'var(--text-error,#dc2626)';
       } else if (gwStatus === 'warning') {
-        gwDot = '🟡'; gwLabel = 'Warning'; gwColor = '#f59e0b';
+        gwDot = '🟡'; gwLabel = t('overview.status_warning', null, 'Warning'); gwColor = '#f59e0b';
       } else if (gwStatus === 'healthy') {
-        gwDot = '🟢'; gwLabel = 'Healthy'; gwColor = 'var(--text-success,#22c55e)';
+        gwDot = '🟢'; gwLabel = t('overview.status_healthy', null, 'Healthy'); gwColor = 'var(--text-success,#22c55e)';
       } else if (gwStatus === 'externally_supervised') {
-        gwDot = '🟡'; gwLabel = 'Supervised pause'; gwColor = '#f59e0b';
+        gwDot = '🟡'; gwLabel = t('overview.status_supervised_pause', null, 'Supervised pause'); gwColor = '#f59e0b';
       } else {
-        gwDot = '⚫'; gwLabel = 'Not running'; gwColor = 'var(--text-muted)';
+        gwDot = '⚫'; gwLabel = t('overview.status_not_running', null, 'Not running'); gwColor = 'var(--text-muted)';
       }
       var rss = (typeof gw.rss_mb === 'number') ? gw.rss_mb : null;
       var thr = gw.memory_threshold_mb || 900;
@@ -18057,7 +18174,7 @@ async function loadSystemHealth() {
           : 'System health could not be loaded right now.')
       + ' <button onclick="loadSystemHealth()" title="Server slow \u2014 usually clears within 30 s" '
       + 'style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);'
-      + 'color:var(--text-secondary);border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;">Retry</button>'
+      + 'color:var(--text-secondary);border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button>'
       + '</div>';
     document.getElementById('sh-services').innerHTML = msg;
     document.getElementById('sh-disks').innerHTML = msg;
@@ -18141,7 +18258,7 @@ async function loadDiagnostics() {
   // URLs, which the browser logs as console errors on every System Health
   // refresh. Skip the call entirely and render a static "local-only" note.
   if (window.CLOUD_MODE) {
-    el.innerHTML = '<div style="color:var(--text-muted);">' + t("app.diagnostics_are_local_only_open_the_dashboard_on_t", null, "Diagnostics are local-only — open the dashboard on the host to inspect detected config.") + '</div>';
+    el.innerHTML = '<div style="color:var(--text-muted);">' + t("app.diagnostics_are_local_only_open_the_dashboard_on_t", null, "Diagnostics are available on the local dashboard. Open it on the agent machine to see the detected configuration.") + '</div>';
     return true;
   }
   try {
@@ -18405,7 +18522,7 @@ function _cmEffBadgeHtml(grade, px) {
 function _cmEffChipHtml(eff) {
   if (!_cmEffUsable(eff)) return '';
   var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
-  var tip = t('efficiency.tooltip', null, 'A to F score of how much of your spend does useful work: how often your agent reuses what it already read, how much history each reply carries, and whether saved work pays for itself.')
+  var tip = t('efficiency.tooltip', null, 'This A-to-F score estimates how much spending produces useful work. It considers reused input, conversation history, and saved work.')
     + ' ' + _cmEffScopeLine(rt);
   var save = Math.round(_cmEffTotalSavings(eff));
   return '<a href="#" title="' + escHtml(tip) + '" '
@@ -18421,16 +18538,39 @@ function _cmEffFmtTokens(n) {
   if (n >= 1000) return Math.round(n / 1000) + 'K';
   return String(Math.round(n));
 }
-// Maps a slice action id -> icon + i18n stem. Copy lives in en.json
-// (efficiency.idea_*); the backend ships numbers only, never copy.
+// Translate each action when rendered, with checked English fallbacks.
+// The backend ships numbers only, never copy.
 var _CM_EFF_IDEAS = {
-  model_downgrade: { icon: '🔁', stem: 'model', evidenceTab: 'models' },
-  context_trim: { icon: '✂️', stem: 'ctx', evidenceTab: 'context-economics' },
-  cache_warm: { icon: '♻️', stem: 'reread', evidenceTab: 'context-economics' },
-  // feat/spend-actions: derived from the measured spend flow (thinking share
-  // of output spend); evidence is the "Where the money goes" chart.
-  thinking_trim: { icon: '🧠', stem: 'think', evidenceTab: 'usage' },
+  model_downgrade: { icon: '🔁', evidenceTab: 'models', copy: function (vars) {
+    return {
+      title: t("efficiency.idea_model_title", null, "Switch small tasks to a smaller model"),
+      finding: t("efficiency.idea_model_finding", vars, "You used {model} for {n} short tasks this month. These look like tasks a smaller model usually handles well."),
+      how: t("efficiency.idea_model_how", vars, "In your agent settings, set the default model for quick tasks to {target}. ClawMetry cannot change this for you."),
+    };
+  } },
+  context_trim: { icon: '✂️', evidenceTab: 'context-economics', copy: function (vars) {
+    return {
+      title: t("efficiency.idea_ctx_title", null, "Trim long conversations"),
+      finding: t("efficiency.idea_ctx_finding", vars, "Long sessions are carrying old conversation your agent re-reads on every reply."),
+      how: t("efficiency.idea_ctx_how", vars, "Start a fresh session for new topics. If your agent supports it, /compact shrinks a long session in place."),
+    };
+  } },
+  cache_warm: { icon: '♻️', evidenceTab: 'context-economics', copy: function (vars) {
+    return {
+      title: t("efficiency.idea_reread_title", null, "Stop paying to re-read old work"),
+      finding: t("efficiency.idea_reread_finding", vars, "Starting a new session for a follow-up makes your agent re-read everything. Continuing the same session reuses it for less."),
+      how: t("efficiency.idea_reread_how", vars, "Reply to follow-ups in the same session soon after, instead of coming back later in a new session."),
+    };
+  } },
+  thinking_trim: { icon: '🧠', evidenceTab: 'usage', copy: function (vars) {
+    return {
+      title: t("efficiency.idea_think_title", null, "Trim thinking on routine work"),
+      finding: t("efficiency.idea_think_finding", vars, "Thinking made up {pct}% of what your agents spent on output this week."),
+      how: t("efficiency.idea_think_how", vars, "Complex tasks can benefit from more model reasoning. Routine tasks may need less. Try a lower reasoning setting for routine sessions. Keep a higher setting for complex tasks."),
+    };
+  } },
 };
+
 // A translated sentence with a figure inside it. The figure is HTML from the
 // shared component, so it is spliced in after the sentence is escaped.
 function _cmI18nFig(key, fallback, figHtml) {
@@ -18447,23 +18587,21 @@ function _cmEffIdeaRowHtml(a, saveEntry) {
     pct: (d.thinking_pct_of_output_cost != null ? d.thinking_pct_of_output_cost : ''),
   };
   var save = Math.max(1, Math.round(Number(a.savings_monthly_usd) || 0));
-  var title = t('efficiency.idea_' + m.stem + '_title', null, '');
-  var finding = t('efficiency.idea_' + m.stem + '_finding', vars, '');
-  var how = t('efficiency.idea_' + m.stem + '_how', vars, '');
+  var copy = m.copy(vars);
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border-primary,#1f2937);">'
     + '<span style="flex-shrink:0;font-size:15px;">' + m.icon + '</span>'
     + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + escHtml(title) + '</div>'
-      + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">' + escHtml(finding) + '</div>'
+      + '<div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + escHtml(copy.title) + '</div>'
+      + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">' + escHtml(copy.finding) + '</div>'
       + '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:12px;color:#3b82f6;">' + escHtml(t('efficiency.how', null, 'How')) + '</summary>'
-        + '<div style="font-size:12px;color:var(--text-secondary);padding:6px 0 0 2px;">' + escHtml(how)
+        + '<div style="font-size:12px;color:var(--text-secondary);padding:6px 0 0 2px;">' + escHtml(copy.how)
         + ' <a href="#" onclick="switchTab(\'' + m.evidenceTab + '\');return false;" style="color:#3b82f6;text-decoration:none;">' + escHtml(t('efficiency.evidence', null, 'See the evidence')) + ' →</a></div>'
       + '</details>'
     + '</div>'
     // An estimate at published rates (REQ-OBS-CEA-025.9): the card heading
     // carries the badge, the figure keeps the explanation on hover.
     + '<div style="flex-shrink:0;font-size:13px;font-weight:700;color:#22c55e;white-space:nowrap;">'
-      + _cmI18nFig('efficiency.save_mo', 'save about \u0000/mo',
+      + _cmI18nFig('efficiency.save_mo', "save about {amt}/mo",
           window.cmCostFigure(save, saveEntry, { noBadge: true, label: 'Estimated saving per month' })) + '</div>'
     + '</div>';
 }
@@ -18477,20 +18615,20 @@ function _cmEffIdeaRowHtml(a, saveEntry) {
 // + truncated tool output), so its copy says "estimated".
 // Palettes validated with the dataviz six-checks script (light + dark).
 var _CM_SF_IN = {
-  user_prompts:    { c: '#2563eb', k: 'usage.sf_user_prompts',    f: 'Your messages' },
-  prior_assistant: { c: '#9333ea', k: 'usage.sf_prior_assistant', f: 'Earlier replies (context)' },
-  tool_results:    { c: '#0d9488', k: 'usage.sf_tool_results',    f: 'Tool results' },
-  overhead:        { c: '#d97706', k: 'usage.sf_overhead',        f: 'System prompt and tool definitions' }
+  user_prompts:    { c: '#2563eb', label: function () { return t('usage.sf_user_prompts', null, 'Your messages'); } },
+  prior_assistant: { c: '#9333ea', label: function () { return t('usage.sf_prior_assistant', null, 'Earlier replies (context)'); } },
+  tool_results:    { c: '#0d9488', label: function () { return t('usage.sf_tool_results', null, 'Tool results'); } },
+  overhead:        { c: '#d97706', label: function () { return t('usage.sf_overhead', null, 'System prompt and tool definitions'); } }
 };
 var _CM_SF_OUT = {
-  thinking:           { c: '#7c3aed', k: 'usage.sf_thinking',  f: 'Thinking' },
-  assistant_text:     { c: '#059669', k: 'usage.sf_text',      f: 'Replies' },
-  builtin_tool_calls: { c: '#0284c7', k: 'usage.sf_builtin',   f: 'Tool calls' },
-  mcp_tool_calls:     { c: '#ea580c', k: 'usage.sf_mcp',       f: 'MCP tool calls' }
+  thinking:           { c: '#7c3aed', label: function () { return t('usage.sf_thinking', null, 'Thinking'); } },
+  assistant_text:     { c: '#059669', label: function () { return t('usage.sf_text', null, 'Replies'); } },
+  builtin_tool_calls: { c: '#0284c7', label: function () { return t('usage.sf_builtin', null, 'Tool calls'); } },
+  mcp_tool_calls:     { c: '#ea580c', label: function () { return t('usage.sf_mcp', null, 'MCP tool calls'); } }
 };
 function _sfLabel(meta, id) {
   var m = meta[id];
-  return m ? t(m.k, null, m.f) : id;
+  return m ? m.label() : id;
 }
 async function loadSpendFlow() {
   var title = document.getElementById('spend-flow-title');
@@ -18712,8 +18850,8 @@ function _renderEfficiencyCardInner(card, eff) {
   var hit = Math.round(Number(met.cache_hit_rate_pct) || 0);
   var ctx = _cmEffFmtTokens(met.avg_context_tokens);
   var sentence = t('efficiency.grade_sentence', { hit: hit, ctx: ctx },
-    'Your agent reuses ' + hit + '% of what it reads and carries about ' + ctx + ' tokens of history into each reply.');
-  var tip = t('efficiency.tooltip', null, 'A to F score of how much of your spend does useful work: how often your agent reuses what it already read, how much history each reply carries, and whether saved work pays for itself.');
+    "Your agent reuses {hit}% of what it reads and carries about {ctx} tokens of history into each reply.");
+  var tip = t('efficiency.tooltip', null, 'This A-to-F score estimates how much spending produces useful work. It considers reused input, conversation history, and saved work.');
   var saveEntry = window.cmProv.of(eff, 'actions[].savings_monthly_usd');
   var rows = (eff.actions || []).map(function (a) { return _cmEffIdeaRowHtml(a, saveEntry); }).filter(Boolean);
   var total = Math.round(_cmEffTotalSavings(eff));
@@ -18722,7 +18860,7 @@ function _renderEfficiencyCardInner(card, eff) {
   if (rows.length) {
     right = '<div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + escHtml(t('efficiency.savings_ideas', null, 'Savings ideas'))
         + (saveEntry ? ' ' + window.cmProv.badge(saveEntry, { label: 'Estimated savings' }) : '') + '</div>'
-      + '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 4px;">' + escHtml(t('efficiency.subtitle', null, 'Things you can do to spend less. ClawMetry only suggests; it never changes your agent.')) + '</div>'
+      + '<div style="font-size:12px;color:var(--text-muted);margin:2px 0 4px;">' + escHtml(t('efficiency.subtitle', null, 'Suggestions to reduce costs. These suggestions do not change your agent.')) + '</div>'
       + rows.join('')
       + (rows.length >= 2 && total >= 1
         ? '<div style="border-top:1px solid var(--border-primary,#1f2937);padding-top:8px;font-size:12px;color:var(--text-secondary);">'
@@ -18734,7 +18872,7 @@ function _renderEfficiencyCardInner(card, eff) {
   }
   if (saved >= 1) {
     right += '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">✨ '
-      + _cmI18nFig('efficiency.already_saved', 'Reusing work already saved you about \u0000/mo.',
+      + _cmI18nFig('efficiency.already_saved', "Reusing work already saved you about {amt}/mo.",
           window.cmCostFigure(saved, window.cmProv.of(eff, 'cache_saved_monthly_usd'), { label: 'Saved by reusing cached work, per month' })) + '</div>';
   }
   card.style.display = '';
@@ -18969,14 +19107,14 @@ async function loadUsage() {
           v.innerHTML = // codeql[js/xss] window.cmProv.figure/badge run all values through esc() which sanitises them
             (window.cmProv.isUnknown(costEntry) || cost == null)
             ? window.cmProv.figure(null, costEntry, { label: 'Usage value' })
-            : _e(t('usage.cost_about', { cost: costStr }, 'about ' + costStr))
+            : _e(t('usage.cost_about', { cost: costStr }, "about {cost}"))
               + window.cmProv.badge(costEntry, { label: 'Usage value' });
         } else {
-          v.textContent = t('usage.cost_about', { cost: costStr }, 'about ' + costStr);
+          v.textContent = t('usage.cost_about', { cost: costStr }, "about {cost}");
         }
       }
       if (!s) return;
-      var subText = t('usage.tokens_sub', { tokens: tokStr }, tokStr + ' tokens');
+      var subText = t('usage.tokens_sub', { tokens: tokStr }, "{tokens} tokens");
       var coverExtra = '';
       var period = periodKey && _cov[periodKey];
       var planName = _planLabel(_cov) || 'your subscription';
@@ -18984,14 +19122,14 @@ async function loadUsage() {
         return window.cmProv ? window.cmProv.text(val, window.cmProv.of(data, key)) : Number(val || 0).toFixed(2) + ' USD';
       };
       if (_cov.all_covered && (cost || 0) > 0) {
-        coverExtra = ' · ' + t('usage.card_included', { plan: planName }, 'included in ' + planName + ', not an extra bill');
+        coverExtra = ' · ' + t('usage.card_included', { plan: planName }, 'included in {plan}, not an extra bill');
       } else if (period && _cov.any_subscription && (period.covered_usd || 0) > 0.005) {
         coverExtra = ' · ' + t('usage.card_split', {
             covered: money(period.covered_usd, 'covered_usd'),
-            rest: money(period.out_of_pocket_usd, 'out_of_pocket_usd') },
-          money(period.covered_usd, 'covered_usd') + ' included in plan, '
-          + money(period.out_of_pocket_usd, 'out_of_pocket_usd')
-          + (_cov.any_metered ? ' metered' : ' route not detected'));
+            rest: money(period.out_of_pocket_usd, 'out_of_pocket_usd'),
+            kind: _cov.any_metered ? t('usage.card_rest_metered', null, 'metered')
+                                  : t('usage.card_rest_unknown', null, 'route not detected') },
+          '{covered} included in plan, {rest} {kind}');
       }
       s.textContent = subText + coverExtra;
       if (coverExtra) {
@@ -19472,7 +19610,7 @@ function renderProviderCostChart(providers) {
   var el = document.getElementById('provider-cost-chart');
   if (!el) return;
   if (!providers || providers.length === 0) {
-    el.innerHTML = '<span style="color:var(--text-muted);">' + t("app.no_provider_cost_data_yet_start_using_models_from_", null, "No provider cost data yet — start using models from multiple providers.") + '</span>';
+    el.innerHTML = '<span style="color:var(--text-muted);">' + t("app.no_provider_cost_data_yet_start_using_models_from_", null, "No provider cost data is available yet. Use models from multiple providers to compare their costs.") + '</span>';
     return;
   }
   var providerColors = {
@@ -19536,7 +19674,7 @@ function renderCostComparison(data) {
   var actualModel = actual.model || 'current model';
   var actualTokens = actual.tokens || 0;
   if (actualTokens === 0) {
-    el.innerHTML = '<span style="color:var(--text-muted)">' + t("app.no_token_data_for_the_last_30_days_usage_will_appe", null, "No token data for the last 30 days — usage will appear here once available.") + '</span>';
+    el.innerHTML = '<span style="color:var(--text-muted)">' + t("app.no_token_data_for_the_last_30_days_usage_will_appe", null, "No token data is available for the last 30 days. Usage will appear here when data is available.") + '</span>';
     return;
   }
   var providerColors = {
@@ -19609,7 +19747,7 @@ function renderSpendOptimization(data) {
   if (!el) return;
   var recs = data.recommendations || [];
   if (recs.length === 0) {
-    el.innerHTML = '<span style="color:var(--text-muted)">' + t("app.no_optimization_suggestions_yet_run_more_agents_wi", null, "No optimization suggestions yet — run more agents with span data enabled to see recommendations.") + '</span>';
+    el.innerHTML = '<span style="color:var(--text-muted)">' + t("app.no_optimization_suggestions_yet_run_more_agents_wi", null, "No suggestions are available yet. Run agents with span data enabled to obtain recommendations.") + '</span>';
     return;
   }
   // This is the loudest number on the card and it is a counterfactual: what
@@ -20142,6 +20280,8 @@ async function loadModelAttribution() {
       if (_maChart) _maChart.innerHTML = cmStoreUnreachableHtml();
       var _maTbl = document.getElementById('model-sessions-table');
       if (_maTbl) _maTbl.innerHTML = '';
+      var _maReview = document.getElementById('model-selection-review');
+      if (_maReview) { _maReview.style.display = 'none'; _maReview.innerHTML = ''; }
       return;
     }
     var models = data.models || [];
@@ -20210,9 +20350,62 @@ async function loadModelAttribution() {
       var swTbl = document.getElementById('model-switches-table');
       if (swTbl) swTbl.querySelector('tbody').innerHTML = swHtml;
     }
+    renderModelSelectionReview({
+      models: models,
+      primaryModel: primaryModel,
+      totalTurns: totalTurns,
+      primaryPct: Number(primaryPct),
+      fallbackRate: Number(fallbackRate),
+      fallbackCount: fallbackCount,
+    });
   } catch(e) {
     console.error('loadModelAttribution', e);
   }
+}
+
+// Attribution tells us where turns went. It does not tell us whether the
+// selected model was the right one for the work, so keep this review explicit
+// about what is observed and send the user to the outcome and savings views
+// for the evidence needed to make a routing change.
+function renderModelSelectionReview(info) {
+  var card = document.getElementById('model-selection-review');
+  if (!card) return;
+  var models = Array.isArray(info && info.models) ? info.models : [];
+  var turns = Number(info && info.totalTurns) || 0;
+  if (!models.length || turns <= 0) {
+    card.style.display = 'none';
+    card.innerHTML = '';
+    return;
+  }
+  var primary = String(info.primaryModel || models[0].model || 'the primary model');
+  var shortPrimary = primary.replace('anthropic/', '').replace('openai/', '');
+  var share = Number(info.primaryPct) || 0;
+  var fallbackRate = Number(info.fallbackRate) || 0;
+  var concentrated = share >= 70;
+  var headline = concentrated
+    ? escHtml(shortPrimary) + ' handled ' + share.toFixed(1) + '% of observed turns.'
+    : 'Routing is spread across ' + models.length + ' observed models.';
+  var interpretation = concentrated
+    ? 'That share shows which model was used most. It does not measure whether that model fit each task.'
+    : 'Attribution alone cannot tell us whether each model was appropriate for the task.';
+  card.style.display = '';
+  card.innerHTML = '<div style="padding:16px;">'
+    + '<div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">'
+    + '<div style="min-width:220px;flex:1;">'
+    + '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">Model selection review</div>'
+    + '<div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-top:5px;">' + headline + '</div>'
+    + '<div style="font-size:12px;color:var(--text-secondary);margin-top:5px;line-height:1.45;">' + interpretation + '</div>'
+    + '</div>'
+    + '<div style="min-width:170px;font-size:12px;color:var(--text-secondary);">'
+    + '<div><strong style="color:var(--text-primary);">' + Number(turns).toLocaleString() + '</strong> turns observed</div>'
+    + '<div><strong style="color:var(--text-primary);">' + fallbackRate.toFixed(1) + '%</strong> on other models</div>'
+    + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px;">'
+    + '<a href="#" onclick="switchTab(\'evals\');return false;" style="color:#60a5fa;text-decoration:none;">Review outcome evidence →</a>'
+    + '<a href="#" onclick="switchTab(\'usage\');return false;" style="color:#60a5fa;text-decoration:none;">Check measured routing savings →</a>'
+    + '</div>'
+    + '</div>';
 }
 
 // ===== Skill Attribution =====
@@ -20543,7 +20736,7 @@ async function loadTranscripts() {
       var raw = String(tx.id || '');
       var titleSrc = (tx.title && String(tx.title).trim()) || (tx.name && String(tx.name).trim()) || '';
       var looksLikeId = !titleSrc || titleSrc === raw || UUIDISH.test(titleSrc) || raw.indexOf(titleSrc) === 0;
-      var title = looksLikeId ? 'Untitled session' : titleSrc;
+      var title = looksLikeId ? t('trail.untitled', null, 'Untitled session') : titleSrc;
       var isPlumbing = _isPlumbingTranscript(titleSrc);
       if (isPlumbing) plumbingTotal++;
       // Self-Evolve runs are hidden by default; "Show plumbing" reveals them de-emphasized.
@@ -20606,7 +20799,7 @@ async function loadTranscripts() {
       // claim about the user's sessions we have no standing to make.
       ? cmStoreUnreachableHtml()
       : _txWinEmpty
-      ? '<div style="padding:16px;color:#666;">' + t('transcripts.window_empty', null, 'No sessions were active in this window. Try a wider window — or note that only recently synced sessions are listed here.') + '</div>'
+      ? '<div style="padding:16px;color:#666;">' + t('transcripts.window_empty', null, 'No sessions were active in this time range. Try a wider range. This list includes only recently synced sessions.') + '</div>'
       : _rtNoTx
       ? _cmRuntimeEmptyMsg(_rtFilter)
       : (plumbingTotal > 0 && !window._transcriptShowPlumbing)
@@ -21350,7 +21543,7 @@ function toggleTranscriptSort() {
   if (btn) {
     var isNewest = window._transcriptSort === 'newest';
     btn.textContent = isNewest ? '↑ Newest first' : '↓ Oldest first';
-    btn.title = isNewest ? 'Newest turn at top — click to flip back' : 'Oldest turn at top — click to flip to newest first';
+    btn.title = isNewest ? 'Newest turn first. Select to show the oldest turn first.' : 'Oldest turn first. Select to show the newest turn first.';
   }
   if (typeof _replayRenderCurrent === 'function') _replayRenderCurrent();
   // Jump to the top so the sort change is visible without a manual scroll.
@@ -21571,11 +21764,11 @@ function _updateLoadEarlierBtn() {
   host.style.display = '';
   if (p.loading) {
     host.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">⏳ '
-      + escHtml(t('transcript.loading_earlier', null, 'Loading earlier messages…')) + '</span>';
+      + escHtml(t('transcript.loading_earlier', null, "Loading earlier messages...")) + '</span>';
   } else if (p.error) {
     host.innerHTML = '<button class="refresh-btn" onclick="loadEarlierMessages()" '
       + 'style="color:#e0625a;">'
-      + escHtml(t('transcript.load_earlier_failed', null, 'Couldn\'t load older messages - tap to retry'))
+      + escHtml(t('transcript.load_earlier_failed', null, "Could not load older messages. Select this message to try again."))
       + '</button>';
   } else {
     host.innerHTML = '<button class="refresh-btn" onclick="loadEarlierMessages()">⬆ '
@@ -21593,15 +21786,15 @@ function _renderHistoryGap(ev) {
   var p = window._transcriptPaging || {};
   var n = (typeof ev.omitted === 'number') ? ev.omitted : null;
   var countLabel = n != null
-    ? t('transcript.history_gap_count', {count: n, n: n}, n + ' earlier messages not loaded')
+    ? t('transcript.history_gap_count', {count: n, n: n}, "{n} earlier messages not loaded")
     : t('transcript.history_gap', null, 'Earlier messages not loaded');
   var action;
   if (p.loading || p.draining) {
     action = '<span class="replay-history-gap-status">⏳ '
-      + escHtml(t('transcript.loading_earlier', null, 'Loading earlier messages…')) + '</span>';
+      + escHtml(t('transcript.loading_earlier', null, "Loading earlier messages...")) + '</span>';
   } else if (p.error) {
     action = '<button class="refresh-btn replay-history-gap-btn" style="color:#e0625a;" onclick="loadEarlierMessages()">'
-      + escHtml(t('transcript.load_earlier_failed', null, 'Couldn\'t load older messages - tap to retry'))
+      + escHtml(t('transcript.load_earlier_failed', null, "Could not load older messages. Select this message to try again."))
       + '</button>';
   } else if (p.hasMore) {
     action = '<button class="refresh-btn replay-history-gap-btn" onclick="loadEarlierMessages()">⬆ '
@@ -21965,9 +22158,9 @@ async function _loadOrchestrationPanel(sessionId) {
     if (!wfs.length && !subs.length) return;
     var sum = d.summary || {};
     var bits = [];
-    if ((sum.workflows || {}).total) bits.push((sum.workflows.total) + ' ' + t(sum.workflows.total === 1 ? 'brain.workflow' : 'brain.workflows', null, sum.workflows.total === 1 ? 'workflow' : 'workflows'));
+    if ((sum.workflows || {}).total) bits.push((sum.workflows.total) + ' ' + (sum.workflows.total === 1 ? t('brain.workflow', null, 'workflow') : t('brain.workflows', null, 'workflows')));
     if ((sum.agents || {}).total) bits.push(sum.agents.total + ' ' + t('transcripts.orch_agents', null, 'agents'));
-    if (subs.length) bits.push(subs.length + ' ' + t(subs.length === 1 ? 'brain.subagent' : 'brain.subagents', null, subs.length === 1 ? 'sub-agent' : 'sub-agents'));
+    if (subs.length) bits.push(subs.length + ' ' + (subs.length === 1 ? t('brain.subagent', null, 'sub-agent') : t('brain.subagents', null, 'sub-agents')));
     var runningTotal = ((sum.workflows || {}).running || 0) + ((sum.agents || {}).running || 0) + ((sum.subagents || {}).running || 0);
     if (runningTotal) bits.push('<span style="color:#f59e0b;">' + runningTotal + ' ' + t('brain.running', null, 'running') + '</span>');
     if (sum.cost_usd) bits.push('$' + Number(sum.cost_usd).toFixed(2));
@@ -22088,7 +22281,7 @@ function _ctxTextBlock(id, label, item, cloud) {
   var facts = [];
   if (item.size_bytes) facts.push(_ctxFmtBytes(item.size_bytes));
   if (item.sha256) facts.push('<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;" title="sha256 of the full text">' + escHtml(String(item.sha256).slice(0, 12)) + '</span>');
-  if (item.turns && item.turns > 1) facts.push(escHtml(t('inputs.seen_turns', {n: item.turns}, 'seen on ' + item.turns + ' turns')));
+  if (item.turns && item.turns > 1) facts.push(escHtml(t('inputs.seen_turns', {n: item.turns}, "seen on {n} turns")));
   if (item.content_truncated) facts.push('<span style="color:#d97706;">' + escHtml(t('inputs.truncated', null, 'stored copy cut at 64 KB')) + '</span>');
   var body;
   if (item.content) {
@@ -22104,7 +22297,7 @@ function _ctxTextBlock(id, label, item, cloud) {
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
     + '<span style="font-size:11px;font-weight:700;color:var(--text-primary);">' + escHtml(label) + '</span>'
     + '<span style="font-size:10px;color:var(--text-muted);">' + facts.join(' · ') + '</span>'
-    + (body ? '<button class="refresh-btn" style="margin-left:auto;font-size:10px;padding:2px 8px;" onclick="var b=document.getElementById(\'' + bid + '\');var o=b.style.display===\'none\';b.style.display=o?\'\':\'none\';this.textContent=o?' + JSON.stringify(t('inputs.hide', null, 'Hide')) + ':' + JSON.stringify(t('inputs.show', null, 'Show')) + ';">' + escHtml(t('inputs.show', null, 'Show')) + '</button>' : '')
+    + (body ? '<button class="refresh-btn" style="margin-left:auto;font-size:10px;padding:2px 8px;" onclick="var b=document.getElementById(\'' + bid + '\');var o=b.style.display===\'none\';b.style.display=o?\'\':\'none\';this.textContent=o?' + attrJsStr(t('inputs.hide', null, 'Hide')) + ':' + attrJsStr(t('inputs.show', null, 'Show')) + ';">' + escHtml(t('inputs.show', null, 'Show')) + '</button>' : '')
     + '</div>'
     + (body ? '<div id="' + bid + '" style="display:none;">' + body + '</div>' : '')
     + '</div>';
@@ -22118,14 +22311,14 @@ function _ctxNamesBlock(label, items) {
     turns = Math.max(turns, Number(it.turns || 0));
   });
   if (!names.length) return '';
-  var head = names.length === 1 ? t('inputs.tool_count_one', null, '1 tool') : t('inputs.tools_count', {n: names.length}, names.length + ' tools');
+  var head = names.length === 1 ? t('inputs.tool_count_one', null, '1 tool') : t('inputs.tools_count', {n: names.length}, "{n} tools");
   var pills = names.map(function(n) {
     return '<span style="display:inline-block;margin:2px 4px 2px 0;padding:1px 7px;border-radius:9px;background:var(--bg-primary);border:1px solid var(--border-secondary);font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-secondary);">' + escHtml(n) + '</span>';
   }).join('');
   return '<div style="border-top:1px solid var(--border-secondary);padding:7px 0;">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
     + '<span style="font-size:11px;font-weight:700;color:var(--text-primary);">' + escHtml(label) + '</span>'
-    + '<span style="font-size:10px;color:var(--text-muted);">' + escHtml(head) + (turns > 1 ? ' · ' + escHtml(t('inputs.seen_turns', {n: turns}, 'seen on ' + turns + ' turns')) : '') + '</span>'
+    + '<span style="font-size:10px;color:var(--text-muted);">' + escHtml(head) + (turns > 1 ? ' · ' + escHtml(t('inputs.seen_turns', {n: turns}, "seen on {n} turns")) : '') + '</span>'
     + '</div><div style="margin-top:4px;">' + pills + '</div></div>';
 }
 
@@ -22164,9 +22357,9 @@ function _renderInputsBody(d) {
   if (!items.length) {
     if (cov.inputs === 'none') {
       html = '<div style="padding:8px 0;font-size:11px;color:var(--text-muted);">'
-        + '<strong style="color:var(--text-secondary);">' + escHtml(t('inputs.not_exposed', {runtime: rt}, 'Not exposed by ' + rt)) + '</strong><br>'
+        + '<strong style="color:var(--text-secondary);">' + escHtml(t('inputs.not_exposed', {runtime: rt}, "Not exposed by {runtime}")) + '</strong><br>'
         + escHtml(cov.note || t('inputs.not_exposed_hint', null, 'This runtime does not write its instructions or tool list anywhere ClawMetry can read.')) + '</div>';
-      summaryBits.push(t('inputs.not_exposed', {runtime: rt}, 'Not exposed by ' + rt));
+      summaryBits.push(t('inputs.not_exposed', {runtime: rt}, "Not exposed by {runtime}"));
     } else if (cov.inputs === 'unknown') {
       html = '<div style="padding:8px 0;font-size:11px;color:var(--text-muted);">' + escHtml(t('inputs.adapter_missing', null, 'The adapter for this runtime is not loaded here, so ClawMetry cannot say what it exposes.')) + '</div>';
     } else {
@@ -22181,13 +22374,13 @@ function _renderInputsBody(d) {
   html += _ctxFilesBlock(t('inputs.context_files', null, 'Context files'), byKind.context_file || []);
   html += _ctxMetaBlock(t('inputs.setup', null, 'Setup'), byKind.runtime_meta || []);
   if (cov.inputs === 'partial') {
-    html += '<div style="padding-top:6px;font-size:10px;color:var(--text-muted);">' + escHtml(cov.note || t('inputs.partial_hint', null, 'This runtime shares part of its setup; the rest is not written to disk.')) + '</div>';
+    html += '<div style="padding-top:6px;font-size:10px;color:var(--text-muted);">' + escHtml(cov.note || t('inputs.partial_hint', null, 'This runtime records part of its setup. The remaining setup is not written to disk.')) + '</div>';
   }
   var sp = (byKind.system_prompt || [])[0];
   if (sp && sp.size_bytes) summaryBits.push(_ctxFmtBytes(sp.size_bytes) + ' ' + t('inputs.system_prompt', null, 'Instructions (system prompt)').toLowerCase().split(' (')[0]);
   var toolNames = [];
   (byKind.tools_available || []).forEach(function(it) { (it.names || []).forEach(function(n) { if (toolNames.indexOf(n) === -1) toolNames.push(n); }); });
-  if (toolNames.length) summaryBits.push(toolNames.length === 1 ? t('inputs.tool_count_one', null, '1 tool') : t('inputs.tools_count', {n: toolNames.length}, toolNames.length + ' tools'));
+  if (toolNames.length) summaryBits.push(toolNames.length === 1 ? t('inputs.tool_count_one', null, '1 tool') : t('inputs.tools_count', {n: toolNames.length}, "{n} tools"));
   var rm = (byKind.runtime_meta || [])[0];
   if (rm && rm.meta && rm.meta.model) summaryBits.push(String(rm.meta.model));
   summaryBits.push('<span title="Measured from the runtime\'s own context.compiled event, not estimated." style="color:#10b981;">' + escHtml(t('inputs.measured', null, 'measured')) + '</span>');
@@ -22558,7 +22751,7 @@ function _cmSyncRender(prog, health) {
     var msg = prog && prog.error
       ? String(prog.error)
       : 'Sync queued ' + (health && health.sync_dlq_depth || 0) + ' batches for retry — the daemon will keep trying.';
-    errBox.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">' + t("app.sync_needs_attention", null, "⚠️ Sync needs attention") + '</div>'
+    errBox.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">' + t("app.sync_needs_attention", null, "Sync needs attention") + '</div>'
       + '<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre-wrap;word-break:break-word;">' + escHtml(msg) + '</div>'
       + '<div style="margin-top:6px;font-size:11px;"><a href="https://github.com/vivekchand/clawmetry#troubleshooting" target="_blank" rel="noopener" style="color:#fca5a5;">Open troubleshooting docs →</a></div>';
     errBox.style.display = 'block';
@@ -22569,7 +22762,7 @@ function _cmSyncRender(prog, health) {
 
   // Hard fail-safe: if no progress for 90s after start, surface an error.
   if (!hasErr && elapsed > 90 && (!prog || !prog.phase)) {
-    errBox.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">' + t("app.sync_hasn_t_reported_progress_yet", null, "⚠️ Sync hasn’t reported progress yet") + '</div>'
+    errBox.innerHTML = '<div style="font-weight:600;margin-bottom:4px;">' + t("app.sync_hasn_t_reported_progress_yet", null, "The collector has not reported progress yet.") + '</div>'
       + '<div style="font-size:12px;">Check that the daemon is running. On macOS: <code>launchctl kickstart -k gui/$(id -u)/com.clawmetry.sync</code></div>';
     errBox.style.display = 'block';
   }
@@ -22578,7 +22771,7 @@ function _cmSyncRender(prog, health) {
   var verified = prog && prog.status === 'complete' &&
                  health && (health.event_count || 0) > 0;
   if (verified) {
-    title.textContent = t("app.verified_your_data_is_live", null, "✓ Verified — your data is live");
+    title.textContent = t("app.verified_your_data_is_live", null, "Verified: your data is live.");
     sub.textContent = (health.event_count || 0).toLocaleString() + ' events indexed';
     setTimeout(_cmSyncDismiss, 1500);
   }
@@ -22671,6 +22864,13 @@ function _tcSortTools(tools) {
   return arr;
 }
 
+// Keep the catalog renderer's UI state separate from the fetched payload.
+// These used to be implicit globals, which meant the first successful catalog
+// response reached renderToolCatalog() and then died on _tcExpanded.
+var _toolCatalogData = null;
+var _tcExpanded = {};
+var _tcCallsCache = {};
+
 async function loadToolCatalog() {
   var tableEl = document.getElementById('tc-table');
   var sumEl = document.getElementById('tc-summary');
@@ -22683,13 +22883,13 @@ async function loadToolCatalog() {
     _tcCallsCache = {};  // catalog refreshed → drop stale per-call caches
     // Provenance summary chips.
     if (sumEl) {
-      var g = data.groups || {}, t = data.totals || {};
+      var g = data.groups || {}, totals = data.totals || {};
       var chips = '';
       function chip(label, val, color) {
         return '<span style="font-size:12px;color:var(--text-muted);background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;padding:5px 11px;"><strong style="color:' + color + ';">' + val + '</strong> ' + label + '</span>';
       }
-      chips += chip('tools', t.tool_count || 0, 'var(--text-primary)');
-      chips += chip('calls', t.total_calls || 0, 'var(--text-primary)');
+      chips += chip('tools', totals.tool_count || 0, 'var(--text-primary)');
+      chips += chip('calls', totals.total_calls || 0, 'var(--text-primary)');
       chips += chip('builtin', g.builtin || 0, '#0ea5e9');
       chips += chip('MCP', g.mcp || 0, '#8b5cf6');
       chips += chip('plugin', g.plugin || 0, '#d97706');
@@ -22759,7 +22959,7 @@ function renderToolCatalog() {
   if (!tableEl || !_toolCatalogData) return;
   var tools = _tcSortTools(_toolCatalogData.tools || []);
   if (tools.length === 0) {
-    tableEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:24px;text-align:center;">' + t("app.no_tool_calls_recorded_yet_tools_appear_here_as_th", null, "No tool calls recorded yet. Tools appear here as the agent invokes them (derived from tool_call &rarr; tool_result event pairs).") + '</div>';
+    tableEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:24px;text-align:center;">' + t("app.no_tool_calls_recorded_yet_tools_appear_here_as_th", null, "No tool calls recorded yet. Tools appear here as the agent invokes them (derived from tool_call → tool_result event pairs).") + '</div>';
     return;
   }
   var html = '';
@@ -22999,19 +23199,19 @@ async function saveClaudeCoverageKey() {
   var msg = document.getElementById('claude-coverage-msg');
   if (!input) return;
   var key = String(input.value || '').trim();
-  if (!key) { if (msg) msg.textContent = 'Paste a key first.'; return; }
-  if (msg) msg.textContent = 'Connecting…';
+  if (!key) { if (msg) msg.textContent = t('app.coverage_key_paste_first', null, 'Paste a key first.'); return; }
+  if (msg) msg.textContent = t('app.coverage_key_connecting', null, 'Connecting…');
   try {
     var r = await fetch('/api/org-analytics/key', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: key })
     });
-    if (!r.ok) { if (msg) msg.textContent = 'Could not save that key.'; return; }
+    if (!r.ok) { if (msg) msg.textContent = t('app.coverage_key_save_failed', null, 'Could not save that key.'); return; }
     input.value = '';
     await loadClaudeCoverage();
   } catch (e) {
-    if (msg) msg.textContent = 'Could not save that key.';
+    if (msg) msg.textContent = t('app.coverage_key_save_failed', null, 'Could not save that key.');
   }
 }
 
@@ -23839,6 +24039,13 @@ function startOverviewRefresh() {
     // _cmCurrentTab is unset on first boot, where Overview is the default.
     if (!_cmIsOverviewTab()) return;
     if (_overviewRefreshRunning) return;
+    // Keep live-session status fresh at ten seconds, but refresh the broad
+    // analytics fan-out only once a minute. Failed initial loads still retry
+    // on the next tick, and explicit navigation/refresh calls loadAll directly.
+    if (_loadAllLastSucceededMs && Date.now() - _loadAllLastSucceededMs < 60000) {
+      try { _renderOverviewHero(); } catch (e) {}
+      return;
+    }
     _overviewRefreshRunning = true;
     try { await loadAll(); } finally { _overviewRefreshRunning = false; }
   }, 10000);
@@ -24519,7 +24726,7 @@ function loadFlowRuns() {
   var countEl = document.getElementById('flow-runs-count');
   if (!tbody) return;
   var lim = sel ? parseInt(sel.value, 10) || 30 : 30;
-  tbody.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px;">' + t("app.loading_flow_runs_hellip", null, "Loading flow runs&hellip;") + '</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px;">' + t("app.loading_flow_runs_hellip", null, "Loading flow runs…") + '</td></tr>';
   fetch('/api/flow/runs?limit=' + lim)
     .then(function(r) { return r.json(); })
     .then(function(d) {
@@ -24662,7 +24869,7 @@ function showFlowRunDetail(sid) {
   var body = document.getElementById('flow-runs-detail-body');
   if (!box || !body) return;
   if (title) title.textContent = t("app.run", null, "Run · ") + sid;
-  body.innerHTML = '<div style="color:var(--text-muted);">' + t("app.loading_transcript_hellip", null, "Loading transcript&hellip;") + '</div>';
+  body.innerHTML = '<div style="color:var(--text-muted);">' + t("app.loading_transcript_hellip", null, "Loading transcript…") + '</div>';
   box.style.display = 'block';
   // Re-fetch /api/flow/runs to find this row (cheap; ≤200 rows). Then
   // render a compact summary. The live Flow diagram is intentionally not
@@ -26332,7 +26539,7 @@ function openCompModal(nodeId) {
   document.getElementById('time-travel-bar').classList.remove('active');
 
   if (nodeId === 'node-tui') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading TUI messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'TUI' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadTuiMessages(false);
     window._tuiRefreshTimer = visibilitySetInterval(function() { loadTuiMessages(true); }, 10000);
@@ -26342,7 +26549,7 @@ function openCompModal(nodeId) {
   if (nodeId === 'node-telegram') {
     _tgOffset = 0;
     _tgAllMessages = [];
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_messages', null, 'Loading messages...')) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadTelegramMessages(false);
     _tgRefreshTimer = visibilitySetInterval(function() { loadTelegramMessages(true); }, 10000);
@@ -26358,7 +26565,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-whatsapp') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading WhatsApp messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'WhatsApp' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadWhatsAppMessages(false);
     _waRefreshTimer = visibilitySetInterval(function() { loadWhatsAppMessages(true); }, 10000);
@@ -26366,7 +26573,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-signal') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading Signal messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'Signal' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadSignalMessages(false);
     _sigRefreshTimer = visibilitySetInterval(function() { loadSignalMessages(true); }, 10000);
@@ -26374,7 +26581,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-discord') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading Discord messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'Discord' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadDiscordMessages(false);
     _discordRefreshTimer = visibilitySetInterval(function() { loadDiscordMessages(true); }, 10000);
@@ -26382,7 +26589,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-slack') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading Slack messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'Slack' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadSlackMessages(false);
     _slackRefreshTimer = visibilitySetInterval(function() { loadSlackMessages(true); }, 10000);
@@ -26390,7 +26597,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-googlechat') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading Google Chat messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'Google Chat' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadGoogleChatMessages(false);
     _gcRefreshTimer = visibilitySetInterval(function() { loadGoogleChatMessages(true); }, 10000);
@@ -26398,7 +26605,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-msteams') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading MS Teams messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'MS Teams' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadMSTeamsMessages(false);
     _mstRefreshTimer = visibilitySetInterval(function() { loadMSTeamsMessages(true); }, 10000);
@@ -26406,7 +26613,7 @@ function openCompModal(nodeId) {
   }
 
   if (nodeId === 'node-mattermost') {
-    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> Loading Mattermost messages...</div>';
+    document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:40px;"><div class="pulse"></div> ' + escapeHtml(t('app.loading_channel_messages', { channel: 'Mattermost' }, "Loading {channel} messages...")) + '</div>';
     document.getElementById('comp-modal-overlay').classList.add('open');
     loadMattermostMessages(false);
     _mmRefreshTimer = visibilitySetInterval(function() { loadMattermostMessages(true); }, 10000);
@@ -26592,7 +26799,7 @@ function openCompModal(nodeId) {
     return;
   }
 
-  document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">' + c.icon + '</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">' + c.name + '</div><div style="color:var(--text-muted);">Live view coming soon</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">' + c.type + '</div></div>';
+  document.getElementById('comp-modal-body').innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">' + c.icon + '</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">' + c.name + '</div><div style="color:var(--text-muted);">' + escHtml(t('app.live_view_coming_soon', null, 'Live view coming soon')) + '</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">' + c.type + '</div></div>';
   document.getElementById('comp-modal-footer').textContent = t("app.last_updated", null, "Last updated: ") + new Date().toLocaleTimeString();
   document.getElementById('comp-modal-overlay').classList.add('open');
 }
@@ -26607,7 +26814,7 @@ function _compModalError(retryFn, label, err) {
   var msg = err && err.message ? err.message : String(err || '');
   var call = retryFn ? (retryFn.indexOf('(') !== -1 ? retryFn : retryFn + '()') : '';
   var btn = call
-    ? ' <button onclick="' + call + '" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button>'
+    ? ' <button onclick="' + call + '" style="margin-left:8px;background:transparent;border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">' + escHtml(t('common.retry', null, 'Retry')) + '</button>'
     : '';
   var labelPart = label ? ' ' + escapeHtml(label) : '';
   var msgPart   = msg ? ': ' + escapeHtml(msg) : '';
@@ -27641,7 +27848,7 @@ function loadCostOptimizerData(isRefresh) {
       } else if (_coHosted) {
         html += '<div class="cost-opt-local-fit-hosted" style="color:var(--text-muted);font-size:13px;padding:10px 0;">'
           + escapeHtml(t('app.cost_opt_local_fit_on_device', null,
-              'Which local models fit this hardware is worked out on the computer itself, so that advice is only available in the dashboard running there.'))
+              "The agent machine checks which local models fit its hardware. Open the local dashboard on the computer itself to see that advice."))
           + '</div>';
       } else {
         html += '<div style="color:var(--text-muted);font-size:13px;padding:10px 0;">llmfit is not available, so no model fit could be computed. Install it with: <code>pip install llmfit</code></div>';
@@ -27820,13 +28027,13 @@ function loadAutomationAdvisorDataWithTime() {
   var timeContext = _currentTimeContext ? ' (' + _currentTimeContext.date + ')' : '';
   
   if (_currentTimeContext) {
-    body.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">🧠</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Automation Advisor' + timeContext + '</div><div style="color:var(--text-muted);">Historical pattern analysis coming soon</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">advisor</div></div>';
+    body.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">🧠</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Automation Advisor' + timeContext + '</div><div style="color:var(--text-muted);">' + escHtml(t('app.historical_pattern_analysis_coming_soon', null, 'Historical pattern analysis coming soon')) + '</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">advisor</div></div>';
     document.getElementById('comp-modal-footer').textContent = t("app.time_travel", null, "Time travel: ") + _currentTimeContext.date;
     return;
   }
   
   body.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:24px;margin-bottom:20px;">' + t("app.loading_automation_analysis", null, "🧠 Loading automation analysis...") + '</div></div>';
-  document.getElementById('comp-modal-footer').textContent = 'Live';
+  document.getElementById('comp-modal-footer').textContent = t('common.live', null, 'Live');
   
   fetch('/api/automation-analysis').then(function(r){return r.json();}).then(function(data) {
     var html = '<div style="padding:20px;">';
@@ -27913,7 +28120,7 @@ function loadComponentWithTimeContext(nodeId) {
     // Default component view
     var body = document.getElementById('comp-modal-body');
     var timeContext = _currentTimeContext ? ' (' + _currentTimeContext.date + ')' : '';
-    body.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">' + c.icon + '</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">' + c.name + timeContext + '</div><div style="color:var(--text-muted);">Historical view coming soon</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">' + c.type + '</div></div>';
+    body.innerHTML = '<div style="text-align:center;padding:20px;"><div style="font-size:48px;margin-bottom:16px;">' + c.icon + '</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">' + c.name + timeContext + '</div><div style="color:var(--text-muted);">' + escHtml(t('app.historical_view_coming_soon', null, 'Historical view coming soon')) + '</div><div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-transform:uppercase;">' + c.type + '</div></div>';
     document.getElementById('comp-modal-footer').textContent = t("app.time_travel", null, "Time travel: ") + (_currentTimeContext ? _currentTimeContext.date : 'Live');
   }
 }
@@ -28227,15 +28434,15 @@ function loadToolData(toolKey, comp, isRefresh) {
     } else if (toolKey === 'cron') {
       var jobs = data.cron_jobs || [];
       html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">';
-      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + jobs.length + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Cron Jobs</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + jobs.length + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">' + t('overview.cron_jobs', null, 'Cron Jobs') + '</div></div>';
       var cronOk = jobs.filter(function(j){return j.lastStatus!=='error';}).length;
       var cronErr = jobs.filter(function(j){return j.lastStatus==='error';}).length;
-      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:#22c55e;">' + cronOk + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Healthy</div></div>';
-      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:'+(cronErr>0?'#ef4444':'var(--text-primary)')+';">' + cronErr + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Errors</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:#22c55e;">' + cronOk + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">' + t('overview.status_healthy', null, 'Healthy') + '</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:700;color:'+(cronErr>0?'#ef4444':'var(--text-primary)')+';">' + cronErr + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">' + t('overview.cron_errors', null, 'Errors') + '</div></div>';
       html += '</div>';
 
       if (jobs.length > 0) {
-        html += '<div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scheduled Jobs</div>';
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">' + t('overview.scheduled_jobs', null, 'Scheduled Jobs') + '</div>';
         html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto;">';
         jobs.forEach(function(j) {
           var isErr = j.lastStatus === 'error';
@@ -29423,7 +29630,7 @@ async function bootDashboard() {
       var signedOutMarker = false;
       try { signedOutMarker = localStorage.getItem('cm-signed-out') === '1'; } catch (e) {}
       var recovered = false;
-      if (!signedOutMarker) try {
+      if (!signedOutMarker && !window.CLOUD_MODE) try {
         var dtRes = await _withTimeout(fetch('/api/auth/detected-token'), 3000, 'auth-bootstrap');
         if (dtRes && dtRes.ok) {
           var dt = await dtRes.json();
@@ -29551,9 +29758,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 //: The tab the dashboard opens on. One place, because the nav markup's
 //: `active` class and the e2e landing guards have to agree with it.
-var CM_LANDING_TAB = 'inventory';
+var CM_LANDING_TAB = 'assistant';
+
+function _cmTabFromHash() {
+  var match = /^#([a-z][a-z0-9-]*)$/.exec(window.location.hash || '');
+  return match && document.getElementById('page-' + match[1]) ? match[1] : null;
+}
 
 function _cmBootLanding() {
+  var tabLink = _cmTabFromHash();
+  if (tabLink) { switchTab(tabLink); return; }
   var trailSid = (typeof _trailSessionFromHash === 'function') ? _trailSessionFromHash(window.location.hash) : null;
   if (trailSid && typeof openTrail === 'function') { openTrail(trailSid); return; }
   // A #session= deep link is a request for the Sessions list, not the roster.
@@ -29561,13 +29775,15 @@ function _cmBootLanding() {
     if (typeof switchTab === 'function') switchTab('transcripts');
     return;
   }
-  if (typeof switchTab === 'function') switchTab(CM_LANDING_TAB);
+  if (typeof switchTab === 'function') switchTab(window.CLOUD_MODE ? 'inventory' : CM_LANDING_TAB);
 }
 
-// Hash router. Only `#trail=` is routed here: `#session=` is consumed by
+// Hash router. Tab links and `#trail=` route here; `#session=` is consumed by
 // loadTranscripts() and its setters already call switchTab('transcripts').
 window.addEventListener('hashchange', function () {
   try {
+    var tabLink = _cmTabFromHash();
+    if (tabLink) { switchTab(tabLink); return; }
     var sid = (typeof _trailSessionFromHash === 'function') ? _trailSessionFromHash(window.location.hash) : null;
     if (sid && typeof openTrail === 'function') openTrail(sid);
   } catch (e) { /* non-fatal */ }
@@ -29914,7 +30130,9 @@ async function updateFromBanner() {
     var s = await fetch('/api/update-check/status').then(function(r){return r.json();});
     target = (s && s.latest_check && s.latest_check.latest) || '';
   } catch(e) {}
-  if (!confirm('Update ClawMetry' + (target ? ' to v' + target : '') + ' now?\n\nThe dashboard and sync daemon will restart. In-flight requests may be interrupted.')) return;
+  if (!confirm(target
+    ? t('app.update_confirm_version', {version: target}, 'Update ClawMetry to v{version} now?\n\nThe dashboard and sync daemon will restart. Requests in progress may be interrupted.')
+    : t('app.update_confirm', null, 'Update ClawMetry now?\n\nThe dashboard and sync daemon will restart. Requests in progress may be interrupted.'))) return;
   btn.disabled = true;
   btn.textContent = t("app.updating", null, "Updating...");
   btn.style.cursor = 'wait';
@@ -30531,10 +30749,10 @@ function loadAgentGraph() {
   // deployment cannot answer.
   if (window.CLOUD_MODE) {
     statusEl.textContent = t('app.agent_graph_local_only', null,
-      'The agent graph is built from your local data store, so it is only available on the dashboard running on your machine (http://localhost:8900).');
+      'The agent graph is available only on the agent machine. Open its local dashboard at http://localhost:8900.');
     return;
   }
-  statusEl.textContent = 'Loading…';
+  statusEl.textContent = t('app.loading_2', null, 'Loading…');
 
   var win   = parseInt((document.getElementById('agent-graph-window') || {}).value || '86400', 10);
   var now   = Math.floor(Date.now() / 1000);
@@ -30559,14 +30777,14 @@ function loadAgentGraph() {
       if (data && data._cloud_disabled) {
         statusEl.style.display = 'block';
         statusEl.textContent = t('app.agent_graph_local_only', null,
-          'The agent graph is built from your local data store, so it is only available on the dashboard running on your machine (http://localhost:8900).');
+          'The agent graph is available only on the agent machine. Open its local dashboard at http://localhost:8900.');
         return;
       }
       statusEl.style.display = 'none';
       _renderAgentGraph(data.nodes || [], data.edges || []);
     })
     .catch(function() {
-      statusEl.textContent = 'Could not load agent graph. Is the daemon running?';
+      statusEl.textContent = t('tracing.agent_graph_load_failed', null, 'Could not load agent graph. Is the daemon running?');
     });
 }
 
@@ -30579,7 +30797,7 @@ function _renderAgentGraph(nodes, edges) {
   if (!nodes.length) {
     svgEl.style.display = 'none';
     var statusEl = document.getElementById('agent-graph-status');
-    if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'No agent span data in this time window.'; }
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = t('tracing.agent_graph_empty', null, 'No agent span data in this time window.'); }
     return;
   }
 
@@ -30657,23 +30875,31 @@ async function checkLicenseExpiry() {
     var days = (e && typeof e.days_until_expiry === 'number') ? e.days_until_expiry : null;
     var endingTrial = !!(e && !e.expired && e.tier === 'trial'
       && days !== null && days <= 3);
+    banner.dataset.endingTrial = endingTrial ? 'true' : 'false';
     if (!expiredTrial && !expiredPaid && !endingTrial) { banner.style.display = 'none'; return; }
     // A dismissed EXPIRED banner stays gone for 24h; a dismissed
     // countdown comes back after 4h — the clock is literally running.
     var dismissWindowMs = (expiredTrial || expiredPaid) ? 24 * 3600 * 1000 : 4 * 3600 * 1000;
     if (dismissedAt && (Date.now() - dismissedAt) < dismissWindowMs) { banner.style.display = 'none'; return; }
     var msg = document.getElementById('license-expired-msg');
-    var t = (typeof window.t === 'function') ? window.t : function (k, v, fb) { return fb; };
+    var t = (typeof window.t === 'function') ? window.t : function (k, v, fb) {
+      return v ? String(fb).replace(/\{(\w+)\}/g, function (m, name) {
+        return v[name] != null ? v[name] : m;
+      }) : fb;
+    };
     if (msg && expiredPaid) {
       msg.textContent = t('banners.license_expired_msg', null,
         'Your license has expired. Renew to keep every runtime.');
     } else if (msg && endingTrial) {
       if (days <= 0) {
         msg.textContent = t('banners.trial_ends_today_msg', null,
-          'Your trial ends today. Upgrade now to keep every runtime — after that, this node drops to the free tier.');
+          'Your trial ends today. Upgrade to keep access to every supported runtime. Otherwise, this node will use the free tier.');
+      } else if (days === 1) {
+        msg.textContent = t('banners.trial_ending_one_day_msg', null,
+          'Your trial ends in 1 day. Upgrade to keep every runtime.');
       } else {
         msg.textContent = t('banners.trial_ending_msg', { days: days },
-          'Your trial ends in ' + days + ' day' + (days === 1 ? '' : 's') + '. Upgrade to keep every runtime.');
+          'Your trial ends in {days} days. Upgrade to keep every runtime.');
       }
     }
     // Hide the paste-a-key link when the selfhost modal is not on this page.
@@ -30801,8 +31027,8 @@ function cmFileViewerRender(hostId) {
   tools += '<button class="cm-fv-btn" onclick="cmFvCopy(\'' + hid + '\',this)" '
     + 'title="Copy the whole file">⧉ Copy</button>';
   tools += '<button class="cm-fv-btn" onclick="cmFvToggleFullscreen(\'' + hid + '\')" title="'
-    + (s.fs ? 'Exit full screen (Esc)' : 'Full screen') + '">'
-    + (s.fs ? '✕ Exit full screen' : '⤡ Full screen') + '</button>';
+    + escHtml(s.fs ? t('memory.exit_full_screen_esc', null, 'Exit full screen (Esc)') : t('memory.full_screen', null, 'Full screen')) + '">'
+    + (s.fs ? '✕ ' + escHtml(t('memory.exit_full_screen', null, 'Exit full screen')) : '⤡ ' + escHtml(t('memory.full_screen', null, 'Full screen'))) + '</button>';
 
   var body;
   if (s.mode === 'preview') {
@@ -30919,7 +31145,7 @@ function cmPanelToggleFullscreen(panel, btn) {
   }
   if (btn) {
     var label = btn.querySelector('span');
-    if (label) label.textContent = on ? 'Exit full screen' : 'Full screen';
+    if (label) label.textContent = on ? t('memory.exit_full_screen', null, 'Exit full screen') : t('memory.full_screen', null, 'Full screen');
   }
 }
 
@@ -31193,7 +31419,7 @@ async function cmRuntimeMountBrowser(container, runtimeId, tab) {
     payload = await r.json();
     }
   } catch (e) {
-    container.innerHTML = '<div style="padding:16px;color:#ef4444;font-size:12px;">Failed to load: '
+    container.innerHTML = '<div style="padding:16px;color:#ef4444;font-size:12px;">' + escHtml(t('app.failed_to_load_2', null, 'Failed to load: '))
       + escHtml(String(e)) + '</div>';
     return;
   }
@@ -31366,7 +31592,7 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
       meta: [sizeStr, mstr, d.language || 'text']
     });
   } catch (e) {
-    cmFileViewerPlaceholder(hostId, 'Failed to load: '
+    cmFileViewerPlaceholder(hostId, t('app.failed_to_load_2', null, 'Failed to load: ')
       + String(e && e.message || e), true);
   }
 }
@@ -32973,7 +33199,7 @@ function guardSavePolicy() {
     min_severity: v('gp-severity') || 'info'
   };
   var steps = guardReadSteps();
-  if (!steps.length) { alert('Add at least one action.'); return; }
+  if (!steps.length) { alert(t('security.policy_add_action', null, 'Add at least one action.')); return; }
   // `action` stays the first rung so a node running an older daemon (which
   // ignores `steps`) still does something sane rather than nothing.
   body.action = steps[0].action;
@@ -32983,18 +33209,18 @@ function guardSavePolicy() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   }).then(function (r) { return r.json(); }).then(function (d) {
-    if (!d || !d.ok) { alert('Could not save policy: ' + ((d && d.error) || 'unknown')); return; }
+    if (!d || !d.ok) { alert(t('security.policy_save_failed_reason', {error: ((d && d.error) || t('common.unknown_error', null, 'unknown error'))}, 'Could not save policy: {error}')); return; }
     var f = document.getElementById('guard-policy-form');
     if (f) { f.style.display = 'none'; }
     loadGuardPolicies();
-  }).catch(function () { alert('Could not save policy.'); });
+  }).catch(function () { alert(t('security.policy_save_failed', null, 'Could not save policy.')); });
 }
 
 function guardDeletePolicy(pid) {
-  if (!confirm('Delete this policy?')) return;
+  if (!confirm(t('security.policy_delete_confirm', null, 'Delete this policy?'))) return;
   fetch('/api/guard/policies/' + encodeURIComponent(pid), { method: 'DELETE' })
     .then(function () { loadGuardPolicies(); })
-    .catch(function () { alert('Could not delete policy.'); });
+    .catch(function () { alert(t('security.policy_delete_failed', null, 'Could not delete policy.')); });
 }
 
 function loadGuardActions() {

@@ -51,6 +51,19 @@ operator's own work, not just this driver's child. See
 ``test_no_image_name_kill_path_exists_in_the_module`` — a source-level
 regression guard, not just a behavioral one.
 
+**UNC ``cwd`` (#3543).** A WSL-hosted agent's repo worktree translates
+(``coord.win_native_bridge.translate_to_windows_path``) to a UNC path
+(``\\wsl.localhost\\Ubuntu-24.04\\...``) — the normal case for dell64, this
+fleet's only WSL-hosted ``windows``-capability agent. ``cmd.exe`` (what
+``subprocess.Popen(..., shell=True)`` always launches on Windows)
+categorically refuses a UNC current directory at its own startup and
+silently falls back to ``%windir%`` instead, breaking every relative path
+in ``run_command``. :func:`_popen_command_and_cwd` folds cmd.exe's own
+``pushd`` UNC-to-drive-letter workaround into the launched command for a
+UNC ``cwd`` rather than ever handing cmd.exe one directly; see
+:class:`Win32Calls`'s :meth:`~Win32Calls.launch`/
+:meth:`~Win32Calls.launch_in_terminal`.
+
 **Spec steps** (:func:`parse_native_spec`, YAML — the ``win-native``
 sibling of ``tui-pty``'s smoke spec):
 
@@ -370,11 +383,18 @@ class WinCalls(Protocol):
     def launch_in_terminal(self, command: str, cwd: str, terminal_app: str) -> int: ...
 
     def find_top_window(self, pid: int, timeout_s: float) -> int:
-        """Poll for the launched process's real top-level window, returning
-        its handle once found. Raises :class:`WinNativeRuntimeError` if none
-        appears within *timeout_s* — this is the "launch" step's own
-        confirmation that the process didn't just start, but actually
-        produced a window (#2096)."""
+        """Poll for *pid*'s (or one of its descendant processes') real
+        top-level window, returning its handle once found. Raises
+        :class:`WinNativeRuntimeError` if none appears within *timeout_s* —
+        this is the "launch" step's own confirmation that the process
+        didn't just start, but actually produced a window (#2096).
+
+        *pid* is not always the real app's own pid: ``subprocess.Popen(...,
+        shell=True)`` on Windows spawns ``cmd.exe`` as the immediate child
+        and returns *its* pid, while the real app (e.g. ``vimcode.exe``) is
+        a grandchild with a different pid that ``cmd.exe`` itself never
+        owns a window for (#3542). Implementations must search *pid*'s
+        whole descendant-process tree, not just *pid* itself."""
         ...
 
     def move_window(self, hwnd: int, x: int, y: int, width: int, height: int) -> None: ...
@@ -755,6 +775,114 @@ def _vkey_for(key: str) -> tuple[int, bool]:
     raise WinNativeSpecError(f"unrecognized key {key!r}")
 
 
+def _is_unc_path(path: str) -> bool:
+    """True for a UNC path (``\\\\server\\share\\...``) — the shape
+    :func:`coord.win_native_bridge.translate_to_windows_path` returns for a
+    WSL-hosted repo (``\\\\wsl.localhost\\<distro>\\...``, #3543)."""
+    return path.startswith("\\\\")
+
+
+def _popen_command_and_cwd(command: str, cwd: str) -> tuple[str, str | None]:
+    """Resolve the ``command``/``cwd`` pair to actually hand
+    ``subprocess.Popen(..., shell=True)`` (#3543).
+
+    ``shell=True`` on Windows always runs *command* via ``cmd.exe /c`` —
+    and cmd.exe's own startup categorically refuses a UNC current
+    directory: confirmed directly (``cmd.exe /c "cd \\\\wsl.localhost\\...
+    && dir"`` prints "CMD does not support UNC paths as current
+    directories.") and **silently** falls back to ``%windir%``
+    (``C:\\Windows\\System32``) instead of raising — this is cmd.exe's own
+    initialization check, not a ``CreateProcess``/``lpCurrentDirectory``
+    limitation (that accepts a UNC path fine, which is exactly why the
+    failure is silent: nothing downstream of ``Popen`` ever sees an error,
+    every relative path in *command* just silently resolves against the
+    wrong directory instead).
+
+    For a UNC *cwd* this folds cmd.exe's own standard UNC workaround —
+    ``pushd`` (maps an unused drive letter to the UNC path, cds into it) —
+    into *command* itself, and returns ``cwd=None`` so ``Popen`` never
+    hands cmd.exe a UNC starting directory it cannot use in the first
+    place. A non-UNC (drive-letter) *cwd* is returned unchanged — the
+    common case, where ``Popen``'s own ``cwd=`` already works correctly.
+    """
+    if cwd and _is_unc_path(cwd):
+        return f'pushd "{cwd}" && {command}', None
+    return command, (cwd or None)
+
+
+#: #3544: every kwarg :meth:`Win32Calls.launch`/:meth:`~Win32Calls.launch_in_terminal`
+#: must pass to ``subprocess.Popen`` so the launched ``cmd.exe`` (and whatever
+#: GUI-subsystem grandchild it execs) never inherits this *process's own*
+#: stdin/stdout/stderr handles.
+#:
+#: Without this, a plain ``subprocess.Popen(command, shell=True, cwd=...)``
+#: (no ``stdin=``/``stdout=``/``stderr=``) hands the child Python's own
+#: standard handles unchanged — on Windows that's an inheritance, not a
+#: dup/close-on-exec situation. When this `Win32Calls` lives inside the
+#: `win-native` bridge runner (:data:`coord.win_native_bridge._BRIDGE_RUNNER_SRC`,
+#: a Windows-side ``python -c ...`` whose own stdout is a pipe the WSL-side
+#: ``subprocess.run(capture_output=True)`` is reading), that pipe write-end
+#: handle gets duplicated into the launched GUI exe. A GUI-subsystem process
+#: (``vimcode.exe``) never exits on its own — a human closes the window, or a
+#: spec step does — so it holds that handle open indefinitely. A pipe's
+#: read end only sees EOF once *every* write-end handle is closed; with the
+#: orphaned GUI exe still holding one, the WSL-side read blocks past the
+#: whole bridge script's own completion, for the full
+#: ``bridge_timeout``, even though the bridge runner itself finished and
+#: exited normally. ``Get-Process`` then shows the launched exe still
+#: running, orphaned, after the bridge has already timed out and raised.
+#:
+#: Redirecting all three standard streams to ``DEVNULL`` severs that
+#: inheritance: the child gets its own private, already-closed-on-the-
+#: parent-side handles, never a dup of this process's own pipe — nothing in
+#: this driver ever reads a launched app's stdout/stderr (the whole point
+#: of `win-native` is observing the real OS/window state, not console
+#: text), so there is no output to lose.
+#:
+#: **Mechanism caveat (review finding on #3544, unresolved).** CPython's
+#: own Windows ``subprocess._execute_child`` computes ``bInheritHandles``
+#: as ``int(not close_fds)``, and ``close_fds`` defaults to ``True``
+#: (Python 3.7+) and is never overridden anywhere in this module — so by
+#: that code path alone, a bare ``Popen(command, shell=True, cwd=...)``
+#: with no ``stdin=``/``stdout=``/``stderr=`` should *already* pass
+#: ``bInheritHandles=False`` to ``CreateProcess``, meaning CPython's own
+#: handle-inheritance bookkeeping is probably *not* the actual leak
+#: mechanism. The hang itself is real and reproduced (``Get-Process``
+#: showing the launched exe still running minutes after a timed-out bridge
+#: call — see #3544's repro), but the likelier remaining culprit is
+#: something outside CPython's control for this specific topology: the
+#: bridge runner is itself started from WSL via ``wsl.exe``/interop, not a
+#: plain native parent process, and WSL interop's own console/job-object
+#: handling for the Windows-side process tree it creates can share or
+#: re-parent handles differently than a same-OS parent/child pair would.
+#:
+#: This redirect is still the right thing to do regardless of which exact
+#: mechanism turns out to be responsible: explicit ``DEVNULL`` handles are
+#: a private pair nothing downstream can keep open, so it closes off every
+#: plausible inheritance path at once rather than betting on one theory of
+#: the leak being correct. Treat it as the best available fix, **not** a
+#: hardware-confirmed root-cause diagnosis — it has not been re-run against
+#: the issue's own two repro scripts on a real WSL<->Windows pairing
+#: (dell64). ``tests/test_win_native_driver.py``'s
+#: ``TestLaunchPipeInheritanceRealSubprocess`` is the closest reproduction
+#: available without that hardware: a real (unmocked) OS pipe + subprocess
+#: tree showing a long-lived grandchild can hold a parent's un-redirected
+#: stdout pipe open past the parent's own exit, and that the real
+#: ``Win32Calls.launch`` no longer does so once its grandchild's handles
+#: are redirected.
+#:
+#: ``launch_in_terminal`` already passes ``creationflags=CREATE_NEW_CONSOLE``
+#: for its spawned process, which per Windows' own docs already gives the
+#: child its own console instead of sharing/inheriting the parent's — so
+#: applying this redirect there too is defensive-in-depth, not evidence
+#: that call site was equally exposed to the leak this fix targets.
+_NO_HANDLE_INHERITANCE: dict = {
+    "stdin": subprocess.DEVNULL,
+    "stdout": subprocess.DEVNULL,
+    "stderr": subprocess.DEVNULL,
+}
+
+
 class Win32Calls:
     """The real :class:`WinCalls` implementation — ``ctypes`` for window
     management, input injection, menu/hit-test probing and ``PrintWindow``;
@@ -782,7 +910,10 @@ class Win32Calls:
     # -- process lifecycle --
 
     def launch(self, command: str, cwd: str) -> int:
-        proc = subprocess.Popen(command, shell=True, cwd=cwd or None)
+        full_command, popen_cwd = _popen_command_and_cwd(command, cwd)
+        proc = subprocess.Popen(
+            full_command, shell=True, cwd=popen_cwd, **_NO_HANDLE_INHERITANCE,
+        )
         return proc.pid
 
     def launch_in_terminal(self, command: str, cwd: str, terminal_app: str) -> int:
@@ -791,8 +922,10 @@ class Win32Calls:
             full_command = f"wt.exe {command}"
         else:
             full_command = command
+        full_command, popen_cwd = _popen_command_and_cwd(full_command, cwd)
         proc = subprocess.Popen(
-            full_command, shell=True, cwd=cwd or None, creationflags=create_new_console,
+            full_command, shell=True, cwd=popen_cwd, creationflags=create_new_console,
+            **_NO_HANDLE_INHERITANCE,
         )
         return proc.pid
 
@@ -814,7 +947,18 @@ class Win32Calls:
         desktop exists to open at all), ``WTSGetActiveConsoleSessionId``
         reports a real console session, and no ``LogonUI.exe`` is running
         in that session (the lock-screen host process). Any one of these
-        failing means the host's desktop is locked or absent."""
+        failing means the host's desktop is locked or absent.
+
+        Defensive by design: this gates every ``win-native`` run (#3510), so
+        a probe that raises (e.g. a lookup error on a function that doesn't
+        live where expected — #3521) must report "unavailable, here's why"
+        rather than take the whole lane down with an uncaught exception."""
+        try:
+            return self._session_available_unchecked()
+        except Exception as exc:  # noqa: BLE001 - must never crash the lane
+            return False, f"session_available probe failed: {exc}"
+
+    def _session_available_unchecked(self) -> tuple[bool, str]:
         ctypes = self._ctypes
         DESKTOP_READOBJECTS = 0x0001
         hdesk = self._user32.OpenInputDesktop(0, False, DESKTOP_READOBJECTS)
@@ -825,9 +969,12 @@ class Win32Calls:
             )
         self._user32.CloseDesktop(hdesk)
 
-        wtsapi32 = ctypes.windll.wtsapi32
+        # WTSGetActiveConsoleSessionId is exported by kernel32, not
+        # wtsapi32 (#3521) — it's the one WTS* function that lives there;
+        # the rest of the WTS family (WTSQuerySessionInformation etc.) is
+        # genuinely in wtsapi32, which is the likely source of the mix-up.
         INVALID_SESSION_ID = 0xFFFFFFFF
-        session_id = wtsapi32.WTSGetActiveConsoleSessionId()
+        session_id = self._kernel32.WTSGetActiveConsoleSessionId()
         if session_id == INVALID_SESSION_ID:
             return False, (
                 "WTSGetActiveConsoleSessionId reports no active console "
@@ -843,12 +990,28 @@ class Win32Calls:
 
     def _logonui_running_in_session(self, session_id: int) -> bool:
         """``True`` iff ``LogonUI.exe`` (the Windows lock-screen host
-        process) is running in *session_id* — walked via a
-        ``CreateToolhelp32Snapshot`` process snapshot, the same mechanism
-        Task Manager itself uses, rather than anything that could be
-        confused by a differently-named process (the module docstring's
-        "kill only the PID this driver itself launched" safety note applies
-        equally here: this is read-only enumeration, never a kill)."""
+        process) is running in *session_id* — walked via
+        :meth:`_snapshot_processes`, the same mechanism Task Manager itself
+        uses, rather than anything that could be confused by a differently-
+        named process (the module docstring's "kill only the PID this
+        driver itself launched" safety note applies equally here: this is
+        read-only enumeration, never a kill)."""
+        ctypes = self._ctypes
+        for pid, _ppid, name in self._snapshot_processes():
+            if name.lower() == "logonui.exe":
+                proc_session = ctypes.wintypes.DWORD()
+                self._kernel32.ProcessIdToSessionId(pid, ctypes.byref(proc_session))
+                if proc_session.value == session_id:
+                    return True
+        return False
+
+    def _snapshot_processes(self) -> list[tuple[int, int, str]]:
+        """Every currently running process as ``(pid, parent_pid,
+        exe_name)``, via a single ``CreateToolhelp32Snapshot`` walk — the
+        same mechanism Task Manager itself uses. Read-only enumeration,
+        shared by :meth:`_logonui_running_in_session` (#3510) and
+        :meth:`_descendant_pids` (#3542); never used to kill (see the
+        module docstring's safety note)."""
         ctypes = self._ctypes
         kernel32 = self._kernel32
         TH32CS_SNAPPROCESS = 0x00000002
@@ -866,48 +1029,81 @@ class Win32Calls:
 
         snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
         if not snapshot or snapshot == -1:
-            return False
+            return []
+        out: list[tuple[int, int, str]] = []
         try:
             entry = PROCESSENTRY32()
             entry.dwSize = ctypes.sizeof(PROCESSENTRY32)
             if not kernel32.Process32First(snapshot, ctypes.byref(entry)):
-                return False
+                return []
             while True:
                 name = entry.szExeFile.decode("mbcs", errors="ignore")
-                if name.lower() == "logonui.exe":
-                    proc_session = ctypes.wintypes.DWORD()
-                    kernel32.ProcessIdToSessionId(
-                        entry.th32ProcessID, ctypes.byref(proc_session),
-                    )
-                    if proc_session.value == session_id:
-                        return True
+                out.append((entry.th32ProcessID, entry.th32ParentProcessID, name))
                 if not kernel32.Process32Next(snapshot, ctypes.byref(entry)):
-                    return False
+                    break
         finally:
             kernel32.CloseHandle(snapshot)
+        return out
+
+    def _descendant_pids(self, root_pid: int) -> set[int]:
+        """*root_pid* plus every process it transitively spawned (child,
+        grandchild, ...) — a fresh :meth:`_snapshot_processes` walk each
+        call, since the real app may not have started yet the first time
+        this is polled.
+
+        #3542: ``launch``/``launch_in_terminal`` don't always return the
+        real app's own pid — ``subprocess.Popen(..., shell=True)`` returns
+        ``cmd.exe``'s pid, with the real app (``vimcode.exe``) a grandchild
+        that ``cmd.exe`` itself never owns a window for. Searching the
+        whole descendant tree finds the real app's window regardless of
+        how many shell/console hosts sit between the returned pid and it.
+        """
+        children: dict[int, list[int]] = {}
+        for pid, ppid, _name in self._snapshot_processes():
+            children.setdefault(ppid, []).append(pid)
+        result = {root_pid}
+        frontier = [root_pid]
+        while frontier:
+            current = frontier.pop()
+            for child in children.get(current, ()):
+                if child not in result:
+                    result.add(child)
+                    frontier.append(child)
+        return result
 
     def find_top_window(self, pid: int, timeout_s: float) -> int:
         ctypes = self._ctypes
         deadline = time.monotonic() + timeout_s
         found: list[int] = []
+        candidate_pids: set[int] = {pid}
+        # `WINFUNCTYPE` (stdcall) only exists in ctypes on real Windows —
+        # real runs always go through it (Win32Calls.__init__ guards
+        # off-Windows construction), but falling back to `CFUNCTYPE` off-
+        # Windows is what lets this method's descendant-walk logic be
+        # exercised by a scripted fake on Linux/macOS too (#3542), the same
+        # "unit-testable on any platform" seam the module docstring
+        # describes for the rest of this class.
+        win_functype = getattr(ctypes, "WINFUNCTYPE", ctypes.CFUNCTYPE)
 
-        @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        @win_functype(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
         def _enum_proc(hwnd, _lparam):
             owner_pid = ctypes.wintypes.DWORD()
             self._user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner_pid))
-            if owner_pid.value == pid and self._user32.IsWindowVisible(hwnd):
+            if owner_pid.value in candidate_pids and self._user32.IsWindowVisible(hwnd):
                 found.append(hwnd)
                 return False
             return True
 
         while time.monotonic() < deadline:
+            candidate_pids = self._descendant_pids(pid)
             found.clear()
             self._user32.EnumWindows(_enum_proc, 0)
             if found:
                 return found[0]
             time.sleep(0.1)
         raise WinNativeRuntimeError(
-            f"no visible top-level window appeared for pid={pid} within {timeout_s}s"
+            f"no visible top-level window appeared for pid={pid} or any of "
+            f"its child processes within {timeout_s}s"
         )
 
     def is_window_alive(self, hwnd: int) -> bool:

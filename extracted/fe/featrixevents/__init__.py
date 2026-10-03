@@ -86,7 +86,7 @@ _key_resolution.get_api_key() (env var -> ~/.featrix -> /etc/.featrix_key,
 the file present on compute nodes running as root).
 """
 
-__version__ = "2.0.13125"
+__version__ = "2.0.13148"
 __author__ = "Featrix"
 __email__ = "support@featrix.com"
 __license__ = "MIT"

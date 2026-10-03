@@ -1,26 +1,17 @@
+__lazy_modules__ = ["httpx2._types", "aiopenapi3.plugin", "aiopenapi3.request"]  # py3,16
+
 import logging
 import pathlib
 import warnings
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from hashlib import md5
 from timeit import default_timer
 from typing import TYPE_CHECKING, Any
 
 from aiopenapi3 import FileSystemLoader, OpenAPI
-from aiopenapi3._types import ResponseDataType, ResponseHeadersType
-from aiopenapi3.errors import (
-    HTTPClientError as base_HTTPClientError,
-    HTTPServerError as base_HTTPServerError,
-)
-from aiopenapi3.request import OperationIndex, RequestBase
-from httpx import (
-    AsyncClient, Client, HTTPStatusError, Limits, RequestError, Response,
-    Timeout,
-)
-from tenacity import (
-    AsyncRetrying, Retrying, retry_if_exception, stop_after_attempt,
-    wait_combine, wait_exponential,
-)
+from aiopenapi3.errors import HTTPClientError as base_HTTPClientError, HTTPServerError as base_HTTPServerError
+from httpx2 import AsyncClient, Client, HTTPStatusError, RequestError, Response
+from tenacity import AsyncRetrying, Retrying, retry_if_exception, stop_after_attempt, wait_combine, wait_exponential
 
 from django.conf import settings
 from django.core.cache import cache
@@ -29,101 +20,29 @@ from django.utils.text import slugify
 from esi import app_settings
 from esi.aiopenapi3.client import SpecCachingClient
 from esi.aiopenapi3.plugins import (
-    Add304ContentType, DjangoESIInit, MinifySpec, ModifyGetUniverseBloodlines,
-    PatchCompatibilityDatePlugin, Trim204ContentType,
+    Add304ContentType, DjangoESIInit, MinifySpec, ModifyGetUniverseBloodlines, PatchCompatibilityDatePlugin,
+    Trim204ContentType,
 )
-from esi.exceptions import (
-    ESIErrorLimitException, HTTPClientError, HTTPNotModified, HTTPServerError,
-)
-from esi.models import Token
-from esi.rate_limiting import (
-    ESIRateLimitBucket, ESIRateLimits, interval_to_seconds,
-)
+from esi.exceptions import ESIErrorLimitException, HTTPClientError, HTTPNotModified, HTTPServerError
+from esi.rate_limiting import ESIRateLimitBucket, ESIRateLimits, interval_to_seconds
 from esi.signals import esi_request_statistics
 from esi.stubs import ESIClientStub
 
-from . import __title__, __url__, __version__
-from .helpers import pascal_case_string
+from .http_utils import (
+    build_limits, build_timeout, build_user_agent as _build_user_agent, time_to_expiry as _time_to_expiry,
+    unpack_cache_control as _unpack_cache_control,
+)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # py3.14
+    from aiopenapi3._types import ResponseDataType, ResponseHeadersType
     from aiopenapi3.plugin import Plugin
+    from aiopenapi3.request import OperationIndex, RequestBase
+
+    from esi.models import Token
 
 logger = logging.getLogger(__name__)
 
 ETAG_EXPIRY = 60 * 60 * 24 * 7  # 7 days
-MAX_CACHE_TIME = 60 * 60 * 24  # 24h
-
-
-def _time_to_expiry(expires_header: str) -> int:
-    """Calculate cache TTL from Expires header
-    Args:
-        expires_header (str): The value of the Expires header '%a, %d %b %Y %H:%M:%S %Z'
-    Returns:
-        int: The cache TTL in seconds
-    """
-    try:
-        expires_dt = datetime.strptime(str(expires_header), '%a, %d %b %Y %H:%M:%S %Z')
-        if expires_dt.tzinfo is None:
-            expires_dt = expires_dt.replace(tzinfo=timezone.utc)
-        return max(int((expires_dt - datetime.now(timezone.utc)).total_seconds()), 0)
-    except ValueError:
-        return 0
-
-
-def _unpack_cache_control(headers: dict[str, Any]) -> int:
-    """Calculate cache TTL from Cache-Control header,
-    Falling back to Expires header if no max-age is set
-    https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching#expires_or_max-age
-
-    Args:
-        headers (dict): request headers to generate ttl for cache
-    Returns:
-        int: The cache TTL in seconds up to max cache time.
-
-        The value of the Cache-Control header, 'private, max-age=#####, immutable'
-        The value of the date header, '%a, %d %b %Y %H:%M:%S %Z'
-    """
-    _date = False
-    _expires = 0
-    if "date" in headers:
-        date_format = "%a, %d %b %Y %H:%M:%S %Z"
-        try:
-            _date = datetime.strptime(headers.get("date"), date_format)
-            _date = _date.replace(tzinfo=timezone.utc)
-        except ValueError as e:
-            logger.warning(f"Error converting date string: {e}")
-    if "cache-control" in headers:
-        try:
-            _header = headers.get("cache-control").split(",")
-            _sections = {}
-            _expires = 0
-            for sec in _header:
-                if "=" in sec:
-                    _cont = sec.strip().split("=")
-                    _sections[_cont[0]] = _cont[1]
-            if "max-age" in _sections:
-                _max_age = min(MAX_CACHE_TIME, int(_sections.get("max-age", 0)))
-                if _date:
-                    # Calculate expiry from date of request + max age
-                    _expire_date = _date + timedelta(seconds=_max_age)
-                    _expire_time: timedelta = _expire_date - datetime.now(timezone.utc)
-                    _expires = int(_expire_time.total_seconds())
-                else:
-                    # Date header failed nbd, so just use max-age as the ttl
-                    _expires = _max_age
-            elif "no-store" in _sections:
-                _expires = 0
-            # elif "no-cache": is intentionally missing here.
-                # no-cache is mostly delegated off to E-Tags that are handled elsewhere.
-                # no-cache endpoints **can have** short HTTP caches 60 seconds, so why not keep
-            else:
-                # Cache Control exists, but no max-age is defined, fall back to legacy Expires header
-                _expires = _time_to_expiry(str(headers.get('Expires')))
-        except ValueError as e:
-            logger.warning(f"Error converting date strings: {e}")
-            return 0
-        return max(_expires, 0)
-    return 0  # please only call this function if cache-control header exists
 
 
 def _httpx_exceptions(exc: BaseException) -> bool:
@@ -162,19 +81,25 @@ async def http_retry_async() -> AsyncRetrying:  # pragma: no cover
     )
 
 
-def _load_plugins(app_name: str, tags: list[str] = [], operations: list[str] = []) -> list["Plugin"]:
+def _load_plugins(app_name: str, tags: list[str] | None = None, operations: list[str] | None = None) -> list["Plugin"]:
     """Load the plugins to make ESI work with this lib.
 
     Args:
         app_name (str): app name to use for internal ETag
+        tags (list[str] | None, optional): List of tags to minify spec. Defaults to None.
+        operations (list[str] | None, optional): List of operations to minify spec. Defaults to None.
     """
+    if tags is None:
+        tags = []
+    if operations is None:
+        operations = []
     return [
         PatchCompatibilityDatePlugin(),
         Trim204ContentType(),
         Add304ContentType(),
         ModifyGetUniverseBloodlines(),
         DjangoESIInit(app_name),
-        MinifySpec(tags, operations),
+        MinifySpec(tags or [], operations or []),
     ]
 
 
@@ -185,9 +110,9 @@ def _load_aiopenapi_client_sync(
         user_agent: str,
         tenant: str,
         spec_file: str | None = None,
-        tags: list[str] = [],
-        operations: list[str] = [],
-        additional_spec_headers: dict = {}) -> OpenAPI:
+        tags: list[str] | None = None,
+        operations: list[str] | None = None,
+        additional_spec_headers: dict | None = None) -> OpenAPI:
     """Create an OpenAPI3 Client from Spec
 
     Args:
@@ -201,28 +126,21 @@ def _load_aiopenapi_client_sync(
     Returns:
         OpenAPI: aiopenapi3 Client Class
     """
+    if additional_spec_headers is None:
+        additional_spec_headers = {}
     headers = {
         "User-Agent": user_agent,
         "X-Tenant": tenant,
         "X-Compatibility-Date": compatibility_date,
-        **additional_spec_headers
+        **(additional_spec_headers or {})
     }
 
     def session_factory(**kwargs) -> Client:
         kwargs.pop("headers", None)
         return SpecCachingClient(
             headers=headers,
-            timeout=Timeout(
-                connect=app_settings.ESI_REQUESTS_CONNECT_TIMEOUT,
-                read=app_settings.ESI_REQUESTS_READ_TIMEOUT,
-                write=app_settings.ESI_REQUESTS_WRITE_TIMEOUT,
-                pool=app_settings.ESI_REQUESTS_POOL_TIMEOUT
-            ),
-            limits=Limits(
-                max_connections=app_settings.ESI_CONNECTION_POOL_MAX_CONNECTIONS,
-                max_keepalive_connections=app_settings.ESI_CONNECTION_POOL_MAX_KEEPALIVE,
-                keepalive_expiry=app_settings.ESI_CONNECTION_POOL_KEEPALIVE_EXPIRY
-            ),
+            timeout=build_timeout(),
+            limits=build_limits(),
             http2=True,
             **kwargs
         )
@@ -233,14 +151,14 @@ def _load_aiopenapi_client_sync(
             session_factory=session_factory,
             loader=FileSystemLoader(pathlib.Path(spec_file)),
             use_operation_tags=True,
-            plugins=_load_plugins(app_name, tags, operations)
+            plugins=_load_plugins(app_name, tags or [], operations or [])
         )
     else:
         return OpenAPI.load_sync(
             url=spec_url,
             session_factory=session_factory,
             use_operation_tags=True,
-            plugins=_load_plugins(app_name, tags, operations)
+            plugins=_load_plugins(app_name, tags or [], operations or [])
         )
 
 
@@ -273,17 +191,8 @@ async def _load_aiopenapi_client_async(
         kwargs.pop("headers", None)
         return AsyncClient(
             headers=headers,
-            timeout=Timeout(
-                connect=app_settings.ESI_REQUESTS_CONNECT_TIMEOUT,
-                read=app_settings.ESI_REQUESTS_READ_TIMEOUT,
-                write=app_settings.ESI_REQUESTS_WRITE_TIMEOUT,
-                pool=app_settings.ESI_REQUESTS_POOL_TIMEOUT
-            ),
-            limits=Limits(
-                max_connections=app_settings.ESI_CONNECTION_POOL_MAX_CONNECTIONS,
-                max_keepalive_connections=app_settings.ESI_CONNECTION_POOL_MAX_KEEPALIVE,
-                keepalive_expiry=app_settings.ESI_CONNECTION_POOL_KEEPALIVE_EXPIRY
-            ),
+            timeout=build_timeout(),
+            limits=build_limits(),
             http2=True,
             **kwargs
         )
@@ -305,29 +214,6 @@ async def _load_aiopenapi_client_async(
         )
 
 
-def _build_user_agent(ua_appname: str, ua_version: str, ua_url: str | None = None) -> str:
-    """
-    AppName/1.2.3 (foo@example.com; +https://gitlab.com/) Django-ESI/1.2.3 (+https://gitlab.com/allianceauth/django-esi)
-    Contact Email will be inserted from app_settings.
-    Args:
-        ua_appname (str): Application Name, PascalCase
-        ua_version (str): Application Version, SemVer
-        ua_url (str | None): Application URL (Optional)
-    Returns:
-        str: User-Agent string
-    """
-
-    # Enforce PascalCase for `ua_appname` and strip whitespace
-    sanitized_ua_appname = pascal_case_string(ua_appname)
-    sanitized_appname = pascal_case_string(__title__)
-
-    return (
-        f"{sanitized_ua_appname}/{ua_version} "
-        f"({app_settings.ESI_USER_CONTACT_EMAIL}{f'; +{ua_url})' if ua_url else ')'} "
-        f"{sanitized_appname}/{__version__} (+{__url__})"
-    )
-
-
 def _get_spec_url() -> str:
     return f"{app_settings.ESI_API_URL}meta/openapi.json"
 
@@ -337,9 +223,9 @@ def esi_client_factory_sync(
         ua_appname: str, ua_version: str, ua_url: str | None = None,
         spec_file: str | None = None,
         tenant: str = "tranquility",
-        tags: list[str] = [],
-        operations: list[str] = [],
-        additional_spec_headers: dict = {},
+        tags: list[str] | None = None,
+        operations: list[str] | None = None,
+        additional_spec_headers: dict | None = None,
         **kwargs) -> OpenAPI:
     """Generate a new OpenAPI ESI client.
     Args:
@@ -349,9 +235,12 @@ def esi_client_factory_sync(
         ua_url (str, optional): Application URL (Optional). Defaults to None.
         spec_file (str | None, optional): Specification file path (Optional). Defaults to None.
         tenant (str, optional): Tenant ID (Optional). Defaults to "tranquility".
+        additional_spec_headers (dict | None, optional): Additional headers for the spec request (Optional). Defaults to None.
     Returns:
         OpenAPI: OpenAPI ESI Client
     """
+    if additional_spec_headers is None:
+        additional_spec_headers = {}
     user_agent = _build_user_agent(ua_appname, ua_version, ua_url)
     spec_url = _get_spec_url()
     return _load_aiopenapi_client_sync(
@@ -361,9 +250,9 @@ def esi_client_factory_sync(
         user_agent,
         tenant,
         spec_file,
-        tags,
-        operations,
-        additional_spec_headers
+        tags or [],
+        operations or [],
+        additional_spec_headers or {}
     )
 
 
@@ -479,7 +368,7 @@ class BaseEsiOperation():
         str_hash = md5(data).hexdigest()  # nosec B303
         return f'esi_{str_hash}'
 
-    def _extract_body_param(self) -> Token | None:
+    def _extract_body_param(self) -> "Token | None":
         """Pop the request body from parameters to be able to check the param validity
         Returns:
             Any | None: the request body
@@ -489,7 +378,7 @@ class BaseEsiOperation():
             raise ValueError("Request Body provided on endpoint with no request body parameter.")
         return _body
 
-    def _extract_token_param(self) -> Token | None:
+    def _extract_token_param(self) -> "Token | None":
         """Pop token from parameters or use the Client wide token if set
         Returns:
             Token | None: The token to use for the request
@@ -517,7 +406,7 @@ class BaseEsiOperation():
         """
         return any(p.name == "before" or p.name == "after" for p in self.operation.parameters)
 
-    def _get_cache(self, cache_key: str, etag: str | None) -> tuple[ResponseHeadersType | None, Any, Response | None]:
+    def _get_cache(self, cache_key: str, etag: str | None) -> "tuple[ResponseHeadersType | None, Any, Response | None]":
         """Retrieve cached response and validate expiry
         Args:
             cache_key (str): The cache key to retrieve
@@ -609,7 +498,7 @@ class BaseEsiOperation():
         except Exception as e:
             logger.error(f"Failed to delete cache {e}", exc_info=True)
 
-    def _validate_token_scopes(self, token: Token) -> None:
+    def _validate_token_scopes(self, token: "Token") -> None:
         """Validate that the token provided has the required scopes for this ESI operation.
         """
         token_scopes = set(token.scopes.all().values_list("name", flat=True))
@@ -626,7 +515,7 @@ class BaseEsiOperation():
         if len(missing_scopes) > 0:
             raise ValueError(f"Token Missing Scopes - {missing_scopes}")
 
-    def parse_cached_request(self, cached_response) -> tuple[ResponseHeadersType, ResponseDataType]:
+    def parse_cached_request(self, cached_response) -> "tuple[ResponseHeadersType, ResponseDataType]":
         req = self.api.createRequest(
             f"{self.operation.tags[0]}.{self.operation.operationId}"
         )
@@ -645,20 +534,25 @@ class BaseEsiOperation():
                 interval_to_seconds(_rate_limit["window-size"])
             )
 
-    def _send_signal(self, status_code: int, headers: dict = {}, latency: float = 0) -> None:
+    def _send_signal(self, status_code: int, headers: dict | None = None, latency: float = 0) -> None:
         """
             Dispatch the esi request statistics signal
         """
+        if headers is None:
+            headers = {}
+
         esi_request_statistics.send(
             sender=self.__class__,
             operation=self.operation.operationId,
             status_code=status_code,
-            headers=headers,
+            headers=headers or {},
             latency=latency,
             bucket=self.bucket.slug if self.bucket else ""
         )
 
-    def _get_cache_expiry(self, headers: dict[str, Any] = {}) -> int:
+    def _get_cache_expiry(self, headers: dict[str, Any] | None = None) -> int:
+        if headers is None:
+            headers = {}
         if "cache-control" in headers:
             # If both Expires and Cache-Control: max-age are available,
             # max-age is defined to be preferred.
@@ -683,7 +577,7 @@ class EsiOperation(BaseEsiOperation):
             self,
             parameters: dict[str, Any],
             etag: str | None = None,
-            last_modified: datetime | None = None) -> RequestBase.Response:
+            last_modified: datetime | None = None) -> "RequestBase.Response":
 
         reset = cache.get("esi_error_limit_reset")
         if reset is not None:
@@ -948,9 +842,9 @@ class EsiOperation(BaseEsiOperation):
                     last_headers = e.headers
 
                 if (
-                    current_page > total_pages and
-                    count_pages_etag_hit != total_pages and
-                    count_pages_etag_hit > 0
+                    current_page > total_pages
+                    and count_pages_etag_hit != total_pages
+                    and count_pages_etag_hit > 0
                 ):
                     # Not all pages hit ETag, so refetch all
                     force_refetch = True
@@ -960,8 +854,8 @@ class EsiOperation(BaseEsiOperation):
                     last_response = None
 
                 elif (
-                    current_page > total_pages and
-                    count_pages_etag_hit == total_pages
+                    current_page > total_pages
+                    and count_pages_etag_hit == total_pages
                 ):
                     # All ETags hit raise 304
                     raise HTTPNotModified(
@@ -1056,7 +950,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
             parameters: dict[str, Any],
             etag: str | None = None,
             last_modified: datetime | None = None
-    ) -> RequestBase.Response:
+    ) -> "RequestBase.Response":
 
         reset = cache.get("esi_error_limit_reset")
         if reset is not None:
@@ -1269,7 +1163,7 @@ class ESIClient(ESIClientStub):
         self.api = api
         self._tags = set(api._operationindex._tags.keys())
 
-    def __getattr__(self, tag: str) -> ESITag | OperationIndex:
+    def __getattr__(self, tag: str) -> "ESITag | OperationIndex":
         # underscore returns the raw aiopenapi3 client
         if tag == "_":
             return self.api._operationindex
@@ -1320,7 +1214,7 @@ class ESIClientAsync(ESIClientStub):  # pragma: no cover
         self.api = api
         self._tags = set(api._operationindex._tags.keys())
 
-    def __getattr__(self, tag: str) -> ESITagAsync | OperationIndex:
+    def __getattr__(self, tag: str) -> "ESITagAsync | OperationIndex":
         # underscore returns the raw aiopenapi3 client
         if tag == "_":
             return self.api._operationindex
@@ -1367,11 +1261,13 @@ class ESIClientProvider:
         ua_url: str | None = None,
         spec_file: None | str = None,
         tenant: str = "tranquility",
-        operations: list[str] = [],
-        tags: list[str] = [],
-        additional_spec_headers: dict = {},
+        operations: list[str] | None = None,
+        tags: list[str] | None = None,
+        additional_spec_headers: dict | None = None,
         **kwargs
     ) -> None:
+        if additional_spec_headers is None:
+            additional_spec_headers = {}
         if type(compatibility_date) is date:
             self._compatibility_date: str = self._date_to_string(compatibility_date)
         else:
@@ -1382,9 +1278,9 @@ class ESIClientProvider:
         self._spec_file = spec_file
         self._tenant = tenant
         self._kwargs = kwargs
-        self._operations = operations
-        self._tags = tags
-        self._spec_headers = additional_spec_headers
+        self._operations = operations or []
+        self._tags = tags or []
+        self._spec_headers = additional_spec_headers or {}
 
     @property
     def client(self) -> ESIClient:

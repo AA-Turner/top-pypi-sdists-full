@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MetaRpcMT5
-Version: 1.0.356
+Version: 1.0.359
 Summary: MetaRPC MT5 gRPC Python client
 Author-email: MetaRPC <admin@mrpc.pro>
 Requires-Python: >=3.8

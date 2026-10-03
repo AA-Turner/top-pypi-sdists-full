@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 6.1.1
+Version: 7.0.1
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git
@@ -38,7 +38,7 @@ Requires-Dist: pytest-asyncio>=1.4.0; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
-Requires-Dist: ruff>=0.16.9; extra == 'dev'
+Requires-Dist: ruff>=0.16.10; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Provides-Extra: yaml
@@ -252,11 +252,11 @@ Use the optional defaults layer when you want one explicitly-provided file to se
 Important directories (overridable via environment variables):
 
 ### Linux
-- `/etc/xdg/<slug>/config.toml` (XDG system-wide, checked first)
+- `/etc/xdg/<slug>/config.toml` (XDG system-wide, read first)
 - `/etc/xdg/<slug>/config.d/*.{toml,json,yaml,yml}`
-- `/etc/<slug>/config.toml` (legacy fallback)
+- `/etc/<slug>/config.toml` (also read, after the XDG files; its values win)
 - `/etc/<slug>/config.d/*.{toml,json,yaml,yml}`
-- `/etc/xdg/<slug>/hosts/<hostname>.toml` or `/etc/<slug>/hosts/<hostname>.toml`
+- `/etc/xdg/<slug>/hosts/<hostname>.toml` and `/etc/<slug>/hosts/<hostname>.toml` (both read, in that order)
 - `/etc/xdg/<slug>/hosts/<hostname>.d/*.{toml,json,yaml,yml}` (host-specific split config)
 - `$XDG_CONFIG_HOME/<slug>/config.toml` (user; falls back to `~/.config/<slug>/config.toml`)
 - `$XDG_CONFIG_HOME/<slug>/config.d/*.{toml,json,yaml,yml}`

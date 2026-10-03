@@ -30,8 +30,11 @@ from .types.list_social_accounts_request_direction import ListSocialAccountsRequ
 from .types.list_social_accounts_request_order import ListSocialAccountsRequestOrder
 from .types.list_social_accounts_request_platform import ListSocialAccountsRequestPlatform
 from .types.list_social_accounts_request_scopes_item import ListSocialAccountsRequestScopesItem
+from .types.list_social_accounts_request_trust_level import ListSocialAccountsRequestTrustLevel
 from .types.list_social_accounts_response import ListSocialAccountsResponse
+from .types.partners_social_accounts_response import PartnersSocialAccountsResponse
 from .types.posts_social_accounts_response import PostsSocialAccountsResponse
+from .types.remove_partner_social_accounts_response import RemovePartnerSocialAccountsResponse
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -48,6 +51,7 @@ class RawSocialAccountsClient:
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         platform: typing.Optional[ListSocialAccountsRequestPlatform] = None,
+        trust_level: typing.Optional[ListSocialAccountsRequestTrustLevel] = None,
         verified: typing.Optional[bool] = None,
         scopes: typing.Optional[
             typing.Union[ListSocialAccountsRequestScopesItem, typing.Sequence[ListSocialAccountsRequestScopesItem]]
@@ -73,6 +77,9 @@ class RawSocialAccountsClient:
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
             Only return social accounts for the platform that is specified.
+
+        trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
+            Only return social accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
 
         verified : typing.Optional[bool]
             Only return social accounts that are verified on the platform.
@@ -114,6 +121,7 @@ class RawSocialAccountsClient:
                 "account_id": account_id,
                 "user_id": user_id,
                 "platform": platform,
+                "trust_level": trust_level,
                 "verified": verified,
                 "scopes": scopes,
                 "first": first,
@@ -144,6 +152,7 @@ class RawSocialAccountsClient:
                         account_id=account_id,
                         user_id=user_id,
                         platform=platform,
+                        trust_level=trust_level,
                         verified=verified,
                         scopes=scopes,
                         first=first,
@@ -288,21 +297,21 @@ class RawSocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConnectSocialAccountsResponse]:
         """
-        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn connects the authenticated user’s profile and must be completed in a browser signed in as that same Whop user.
+        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn supports personal profiles only, with scopes omitted. TikTok connects the authenticated user’s profile when scopes are omitted or company advertising assets with advertise. Meta Business and Snapchat support advertising connections only and require advertise. Personal profile connections must be completed in a browser signed in as the initiating Whop user.
 
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, or `linkedin` to connect the authenticated user’s LinkedIn profile.
+            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, or `youtube` to connect their YouTube channel.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Any `http` or `https` URL. If the connection fails, the user is redirected with a `social_account_error` query param.
 
         account_id : typing.Optional[str]
-            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for LinkedIn connections.
+            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
 
         scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            Capabilities to grant for the connected social account. `advertise` is required for `meta_business`, `tiktok`, and `snapchat` connections — it is not conditional on whether you intend to run ads, and omitting it fails the request. Omit scopes for LinkedIn connections.
+            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin` and `youtube`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -548,6 +557,336 @@ class RawSocialAccountsClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def partners(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[SocialAccount, PartnersSocialAccountsResponse]:
+        """
+        Lists the creators an Instagram account runs partnership ads with, and where each creator's permission stands.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[SocialAccount, PartnersSocialAccountsResponse]
+            partners listed
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners",
+            base_url=self._client_wrapper.get_environment().api,
+            method="GET",
+            params={
+                "account_id": account_id,
+                "first": first,
+                "after": after,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    PartnersSocialAccountsResponse,
+                    parse_obj_as(
+                        type_=PartnersSocialAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = False
+                _get_next = None
+                if _parsed_response.page_info is not None:
+                    _parsed_next = _parsed_response.page_info.end_cursor
+                    _has_next = _parsed_next is not None and _parsed_next != ""
+                    _get_next = lambda: self.partners(
+                        id,
+                        account_id=account_id,
+                        first=first,
+                        after=_parsed_next,
+                        request_options=request_options,
+                    )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def add_partner(
+        self,
+        id: str,
+        *,
+        username: str,
+        account_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[SocialAccount]:
+        """
+        Invites an Instagram creator to run partnership ads with an Instagram account. The creator approves the invitation in the Instagram app, and `partnership_status` stays `pending` until they do; [refresh](/api-reference/beta/social-accounts/refresh) the partner to pick up their answer.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        username : str
+            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[SocialAccount]
+            creator invited
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "account_id": account_id,
+                "username": username,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SocialAccount,
+                    parse_obj_as(
+                        type_=SocialAccount,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def remove_partner(
+        self,
+        id: str,
+        partner_id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[RemovePartnerSocialAccountsResponse]:
+        """
+        Revokes a creator's permission to run partnership ads with an Instagram account. Every account that advertises as the Instagram account loses the partner, since the permission belongs to the Instagram account.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partner runs partnership ads with.
+
+        partner_id : str
+            The partner creator's social account (a sacc_ identifier).
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[RemovePartnerSocialAccountsResponse]
+            partner removed
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners/{encode_path_param(partner_id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="DELETE",
+            params={
+                "account_id": account_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    RemovePartnerSocialAccountsResponse,
+                    parse_obj_as(
+                        type_=RemovePartnerSocialAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -828,6 +1167,7 @@ class AsyncRawSocialAccountsClient:
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         platform: typing.Optional[ListSocialAccountsRequestPlatform] = None,
+        trust_level: typing.Optional[ListSocialAccountsRequestTrustLevel] = None,
         verified: typing.Optional[bool] = None,
         scopes: typing.Optional[
             typing.Union[ListSocialAccountsRequestScopesItem, typing.Sequence[ListSocialAccountsRequestScopesItem]]
@@ -853,6 +1193,9 @@ class AsyncRawSocialAccountsClient:
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
             Only return social accounts for the platform that is specified.
+
+        trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
+            Only return social accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
 
         verified : typing.Optional[bool]
             Only return social accounts that are verified on the platform.
@@ -894,6 +1237,7 @@ class AsyncRawSocialAccountsClient:
                 "account_id": account_id,
                 "user_id": user_id,
                 "platform": platform,
+                "trust_level": trust_level,
                 "verified": verified,
                 "scopes": scopes,
                 "first": first,
@@ -926,6 +1270,7 @@ class AsyncRawSocialAccountsClient:
                             account_id=account_id,
                             user_id=user_id,
                             platform=platform,
+                            trust_level=trust_level,
                             verified=verified,
                             scopes=scopes,
                             first=first,
@@ -1071,21 +1416,21 @@ class AsyncRawSocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConnectSocialAccountsResponse]:
         """
-        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn connects the authenticated user’s profile and must be completed in a browser signed in as that same Whop user.
+        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn supports personal profiles only, with scopes omitted. TikTok connects the authenticated user’s profile when scopes are omitted or company advertising assets with advertise. Meta Business and Snapchat support advertising connections only and require advertise. Personal profile connections must be completed in a browser signed in as the initiating Whop user.
 
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, or `linkedin` to connect the authenticated user’s LinkedIn profile.
+            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, or `youtube` to connect their YouTube channel.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Any `http` or `https` URL. If the connection fails, the user is redirected with a `social_account_error` query param.
 
         account_id : typing.Optional[str]
-            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for LinkedIn connections.
+            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
 
         scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            Capabilities to grant for the connected social account. `advertise` is required for `meta_business`, `tiktok`, and `snapchat` connections — it is not conditional on whether you intend to run ads, and omitting it fails the request. Omit scopes for LinkedIn connections.
+            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin` and `youtube`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1331,6 +1676,339 @@ class AsyncRawSocialAccountsClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def partners(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[SocialAccount, PartnersSocialAccountsResponse]:
+        """
+        Lists the creators an Instagram account runs partnership ads with, and where each creator's permission stands.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[SocialAccount, PartnersSocialAccountsResponse]
+            partners listed
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners",
+            base_url=self._client_wrapper.get_environment().api,
+            method="GET",
+            params={
+                "account_id": account_id,
+                "first": first,
+                "after": after,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _parsed_response = typing.cast(
+                    PartnersSocialAccountsResponse,
+                    parse_obj_as(
+                        type_=PartnersSocialAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                _items = _parsed_response.data
+                _has_next = False
+                _get_next = None
+                if _parsed_response.page_info is not None:
+                    _parsed_next = _parsed_response.page_info.end_cursor
+                    _has_next = _parsed_next is not None and _parsed_next != ""
+
+                    async def _get_next():
+                        return await self.partners(
+                            id,
+                            account_id=account_id,
+                            first=first,
+                            after=_parsed_next,
+                            request_options=request_options,
+                        )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def add_partner(
+        self,
+        id: str,
+        *,
+        username: str,
+        account_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[SocialAccount]:
+        """
+        Invites an Instagram creator to run partnership ads with an Instagram account. The creator approves the invitation in the Instagram app, and `partnership_status` stays `pending` until they do; [refresh](/api-reference/beta/social-accounts/refresh) the partner to pick up their answer.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        username : str
+            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[SocialAccount]
+            creator invited
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "account_id": account_id,
+                "username": username,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SocialAccount,
+                    parse_obj_as(
+                        type_=SocialAccount,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def remove_partner(
+        self,
+        id: str,
+        partner_id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[RemovePartnerSocialAccountsResponse]:
+        """
+        Revokes a creator's permission to run partnership ads with an Instagram account. Every account that advertises as the Instagram account loses the partner, since the permission belongs to the Instagram account.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partner runs partnership ads with.
+
+        partner_id : str
+            The partner creator's social account (a sacc_ identifier).
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[RemovePartnerSocialAccountsResponse]
+            partner removed
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"social_accounts/{encode_path_param(id)}/partners/{encode_path_param(partner_id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="DELETE",
+            params={
+                "account_id": account_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    RemovePartnerSocialAccountsResponse,
+                    parse_obj_as(
+                        type_=RemovePartnerSocialAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

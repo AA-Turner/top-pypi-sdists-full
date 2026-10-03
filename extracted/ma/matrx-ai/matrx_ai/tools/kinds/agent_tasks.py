@@ -37,6 +37,7 @@ class AgentTask(KindSubModel):
 
 @kind(
     "agent_task_list",
+    disposition="record",
     label="Agent Task List",
     family="agent_tasks",
     example={

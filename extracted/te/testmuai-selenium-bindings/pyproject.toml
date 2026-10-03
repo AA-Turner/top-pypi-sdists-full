@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "testmuai-selenium-bindings"
-version = "0.1.6"
+version = "0.1.7"
 description = "Testmu binding for Selenium Python — thin test runtime for LambdaTest exports"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
@@ -29,6 +29,8 @@ dependencies = [
     "Pillow>=11.0.0",
     "python-dotenv>=1.0.0",
     "lambdatest-selenium-driver>=1.0.7",
+    "jsonschema>=4.18.0",
+    "python-jsonpath>=2.2.1",
 ]
 
 [project.optional-dependencies]

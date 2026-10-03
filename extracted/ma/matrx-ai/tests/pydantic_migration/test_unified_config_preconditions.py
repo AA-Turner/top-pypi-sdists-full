@@ -88,5 +88,8 @@ def test_the_declared_field_count_the_plan_rests_on():
 
     98 since 2026-09-26: speech (performance_direction, speech_speed,
     turn_pause_ms, language_code), video camera_control, and Deep Research
-    visualization — all twinned in UnifiedConfigModel."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 98
+    visualization — all twinned in UnifiedConfigModel.
+
+    99 since 2026-10-02: system_prompt_spans (where content blocks and <<MATRX>>
+    expansions sit inside the frozen prompt), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 99

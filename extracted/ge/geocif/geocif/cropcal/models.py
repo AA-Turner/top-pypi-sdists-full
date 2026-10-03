@@ -410,6 +410,24 @@ def _fit_one(model_name: str, X_train: pd.DataFrame, y_train: pd.Series, feature
     return model
 
 
+def _predict(model, X_test) -> np.ndarray:
+    """``model.predict`` with sklearn's global ``transform_output`` pinned.
+
+    In-context models (tabpfn, limix, kumo) do their real work at predict
+    time, and some fit sklearn encoders there. ``_fit_one`` already pins the
+    setting around fit; predict needs the same, because a caller may have set
+    "pandas" process-wide (importing ``geocif.experiments`` does).
+    """
+    import sklearn
+
+    previous = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="default")
+    try:
+        return np.asarray(model.predict(X_test), dtype=float).ravel()
+    finally:
+        sklearn.set_config(transform_output=previous)
+
+
 def predict_days_sincos(
     model_name: str,
     X_train: pd.DataFrame,
@@ -425,8 +443,8 @@ def predict_days_sincos(
     """
     sin_model = _fit_one(model_name, X_train, sin_train, feature_names)
     cos_model = _fit_one(model_name, X_train, cos_train, feature_names)
-    sin_pred = np.asarray(sin_model.predict(X_test), dtype=float).ravel()
-    cos_pred = np.asarray(cos_model.predict(X_test), dtype=float).ravel()
+    sin_pred = _predict(sin_model, X_test)
+    cos_pred = _predict(cos_model, X_test)
     days = np.array(
         [features.circle_to_day(s, c) for s, c in zip(sin_pred, cos_pred)], dtype=float
     )
@@ -443,7 +461,7 @@ def predict_days_anchored(
 ) -> np.ndarray:
     """Predict a day as landmark + regressed signed offset."""
     model = _fit_one(model_name, X_train, offset_train, feature_names)
-    offsets = np.asarray(model.predict(X_test), dtype=float).ravel()
+    offsets = _predict(model, X_test)
     return np.array(
         [features.anchored_to_day(a, o) for a, o in zip(anchor_test, offsets)], dtype=float
     )

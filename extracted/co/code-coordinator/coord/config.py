@@ -1951,6 +1951,67 @@ class PricingConfig:
         return self.models.get(canonical_model)
 
 
+#: Open-but-finite vocabulary for ``reporting.cost_basis`` (#3471) — see
+#: :class:`ReportingConfig` for what each value asserts.
+COST_BASIS_CHOICES = ("api_equivalent", "billed")
+
+
+@dataclass
+class PublicReportingConfig:
+    """``reporting.public:`` block (#3474) — the redaction policy for a
+    report export meant to leave the fleet (``coord report export
+    --public``, the dashboard's ``/reports`` "Share" button).
+
+    A public export is for an audience that must never see a private repo's
+    name, issue titles or numbers — someone evaluating the tool, or
+    marketing material quoting "cost per merged issue". ``allowlist_repos``
+    is the only field: the coord-local repo names (as declared under
+    ``coordinator.yml``'s ``repos:``) that MAY be named verbatim in a public
+    export. Every row about any other repo is redacted — aggregated into a
+    single ``"private repo"`` row with no issue number, no title, and no
+    repo name of its own (:func:`coord.reports.redact_report_for_public`).
+
+    Default is empty, i.e. **redact everything** — the safe default for a
+    config that predates this block, or one that simply never opted a repo
+    in.
+    """
+
+    allowlist_repos: tuple[str, ...] = ()
+
+
+@dataclass
+class ReportingConfig:
+    """``reporting:`` block (#3471) — what a cost-bearing report's dollar
+    figure actually represents.
+
+    Every cost-bearing report (``usage``, ``completed``, ``trend``,
+    ``issue-cost``) sums ``cost_usd`` as captured off ``claude -p`` (or a
+    token-count estimate priced by :class:`PricingConfig` when no
+    ``cost_usd`` was captured at all). That figure is **always** an
+    API-list-price equivalent — what the tokens would have cost if billed
+    per call — which is NOT necessarily money actually billed: most of this
+    fleet runs `claude -p` on a Max/Pro *subscription*, where no per-call
+    invoice exists at all. ``cost_basis`` names which of those two things
+    the number should be read as, and every cost-bearing report stamps it
+    onto its cost ``ColumnMeta.basis`` (:mod:`coord.reports`) so a chart
+    screenshotted out of context for external use still states its own
+    basis rather than silently implying real billed spend.
+
+    ``"api_equivalent"`` (the default) is the honest assumption for a
+    subscription fleet: the number is a cost-equivalent, not an invoice
+    line. ``"billed"`` asserts the fleet actually pays per-call API rates
+    and the figure is real money charged — set it only when that is
+    actually true; this config does no verification of its own; it only
+    labels, on every report, what the operator asserts here.
+
+    ``public`` (#3474) is the redaction policy for a report export that
+    leaves the fleet entirely — see :class:`PublicReportingConfig`.
+    """
+
+    cost_basis: str = "api_equivalent"
+    public: PublicReportingConfig = field(default_factory=PublicReportingConfig)
+
+
 @dataclass
 class ProviderDef:
     """Definition of a single named worker-command provider.
@@ -2656,6 +2717,9 @@ class Config:
         default_factory=ForgeAvailabilityConfig
     )
     pricing: PricingConfig = field(default_factory=PricingConfig)
+    # #3471 — absent block == cost_basis="api_equivalent" == today's honest
+    # default for a subscription fleet (see ReportingConfig).
+    reporting: ReportingConfig = field(default_factory=ReportingConfig)
     health: HealthConfig = field(default_factory=HealthConfig)
     # #1632 — absent block == disabled == today's behaviour (silence).
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
@@ -2925,6 +2989,7 @@ def parse_mapping(raw: Any, *, path: Path | None = None) -> Config:
     audit = _parse_audit(raw.get("audit"))
     forge_availability = _parse_forge_availability(raw.get("forge_availability"))
     pricing = _parse_pricing(raw.get("pricing"))
+    reporting = _parse_reporting(raw.get("reporting"))
     health = _parse_health(raw.get("health"))
     notifications = _parse_notifications(raw.get("notifications"))
     portal = _parse_portal(raw.get("portal"), {r.name for r in repos})
@@ -2952,6 +3017,7 @@ def parse_mapping(raw: Any, *, path: Path | None = None) -> Config:
         audit=audit,
         forge_availability=forge_availability,
         pricing=pricing,
+        reporting=reporting,
         health=health,
         notifications=notifications,
         portal=portal,
@@ -5027,6 +5093,45 @@ def _parse_pricing(raw: Any) -> PricingConfig:
         models[model_key] = rates
 
     return PricingConfig(models=models)
+
+
+def _parse_reporting(raw: Any) -> ReportingConfig:
+    """Parse the optional ``reporting:`` block from coordinator.yml (#3471).
+
+    An absent block returns ``ReportingConfig()`` — ``cost_basis:
+    "api_equivalent"``, the honest default for a subscription fleet.
+    """
+    if raw is None:
+        return ReportingConfig()
+    if not isinstance(raw, dict):
+        raise ConfigError("'reporting' must be a mapping")
+
+    cfg = ReportingConfig()
+    if "cost_basis" in raw:
+        value = raw["cost_basis"]
+        if not isinstance(value, str) or value not in COST_BASIS_CHOICES:
+            raise ConfigError(
+                "reporting.cost_basis must be one of: "
+                + ", ".join(COST_BASIS_CHOICES)
+            )
+        cfg.cost_basis = value
+    if "public" in raw:
+        public_raw = raw["public"]
+        if public_raw is None:
+            public_raw = {}
+        if not isinstance(public_raw, dict):
+            raise ConfigError("'reporting.public' must be a mapping")
+        allowlist = public_raw.get("allowlist_repos", [])
+        if allowlist is None:
+            allowlist = []
+        if not isinstance(allowlist, list) or not all(
+            isinstance(x, str) for x in allowlist
+        ):
+            raise ConfigError(
+                "reporting.public.allowlist_repos must be a list of repo names"
+            )
+        cfg.public = PublicReportingConfig(allowlist_repos=tuple(allowlist))
+    return cfg
 
 
 _ENV_VAR_RE = re.compile(r"\$\{([^}]+)\}")

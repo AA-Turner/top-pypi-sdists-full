@@ -6,6 +6,7 @@ import guard that fires when someone runs model='limix' in the production
 Python 3.11 env instead of the side env.
 """
 
+import pandas as pd
 import pytest
 
 from geocif.ml import limix as limix_mod
@@ -77,3 +78,33 @@ def test_regressor_defaults_point_at_side_env():
     assert "limix" in reg.cache_dir
     assert reg.device == "auto"
     assert reg._predictor is None
+
+
+def test_predict_runs_with_default_sklearn_output_even_if_pandas_is_global():
+    """LimiX fits encoders inside predict; global "pandas" output broke it."""
+    import numpy as np
+    import sklearn
+
+    from geocif.ml.mitra import _NumericEncoder
+
+    seen = {}
+
+    class _Predictor:
+        def predict(self, X_train, y_train, X_test, task_type):
+            seen["config"] = sklearn.get_config()["transform_output"]
+            return np.zeros(len(X_test))
+
+    reg = limix_mod.LimiXYieldRegressor()
+    reg.encoder_ = _NumericEncoder()
+    reg.encoder_.fit_transform(pd.DataFrame({"a": [1.0, 2.0, 3.0]}))
+    reg.X_train_, reg.y_train_ = np.ones((3, 1), dtype="float32"), np.arange(3, dtype="float32")
+    reg.n_features_in_ = 1
+    reg._predictor = _Predictor()
+    previous = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="pandas")
+    try:
+        reg.predict(pd.DataFrame({"a": [4.0, 5.0]}))
+        assert seen["config"] == "default"
+        assert sklearn.get_config()["transform_output"] == "pandas", "the caller's setting is restored"
+    finally:
+        sklearn.set_config(transform_output=previous)

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import re
 import time
 import uuid
 from typing import Any
 
 from ..sdk import errors, nonfinite
-from ..sdk.client import Anchor, Client
-from .contract import Capability, EntityType
+from ..sdk.client import SOURCE_READ_CONTRACT, Anchor, Client
+from .contract import Capability, EntityType, NoteCatalogKind
 from .delivery_context import current_delivery, document_hint, pin_document, source_changed
 
 #: A retired ref kind, kept ONLY so `get()` can tell a caller the surface is
@@ -49,6 +50,19 @@ _TRANSCRIPT_AGENTS = ("claude_code", "codex", "pi")
 # gate the write path already enforces, so a value that could never have been
 # stored never reaches the wire.
 _SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9._:-]{8,200}\Z")
+
+#: `kind_rank` per notes-catalog kind, exactly as the catalog's SQL arms number
+#: them (app/notes_catalog/service.py): the tiebreak inside one `created_at`,
+#: and the middle third of its cursor. The team note has none -- it is never in
+#: a keyset page.
+_NOTE_KIND_RANK: dict[str, int] = {
+    NoteCatalogKind.PROJECT: 6,
+    NoteCatalogKind.EXPERIMENT: 5,
+    NoteCatalogKind.RUN: 4,
+    NoteCatalogKind.SUB_NOTE: 3,
+    NoteCatalogKind.GROUP: 2,
+    NoteCatalogKind.ARTIFACT: 1,
+}
 
 # How long a cached `GET /v1/me` answer is reused. EVERY envelope carries the
 # caller's identity (service._envelope), and every read tool returns an
@@ -582,6 +596,12 @@ class ResearchOSSource:
             kind = ""
         if kind == EntityType.SESSION.value:
             return kind, self._session_entity(value)
+        if kind == EntityType.SUB_NOTE.value:
+            # Kept OUT of `getters` below on purpose: that table is also the
+            # bare-UUID sweep, and a sub-note is only ever reached by an id a
+            # notes row handed out under this prefix -- one more 404 on every
+            # bare-ref miss would buy nothing.
+            return kind, self._sub_note_entity(value)
         getters = {
             EntityType.RUN.value: self.client.get_run,
             EntityType.EXPERIMENT.value: self.client.get_experiment,
@@ -609,6 +629,7 @@ class ResearchOSSource:
                     *getters,
                     EntityType.ARTIFACT.value,
                     EntityType.SESSION.value,
+                    EntityType.SUB_NOTE.value,
                 ]
             )
             raise errors.ValidationError(
@@ -640,7 +661,11 @@ class ResearchOSSource:
         )
 
     def bundle(self, run_id: str) -> dict:
-        return self.client.run_bundle(run_id)
+        """The run bundle, read under the coverage contract. A source-backed run
+        (a W&B mirror) answers 422 without it -- which made every view built on
+        the bundle (`handoff`, `sessions`) fail on exactly the imported runs. The
+        MCP reads the catalog's coverage receipts rather than rendering them."""
+        return self.client.run_bundle(run_id, source_read_contract=SOURCE_READ_CONTRACT)
 
     def lineage(self, run_id: str) -> dict:
         return self.client.run_lineage(run_id)
@@ -710,6 +735,12 @@ class ResearchOSSource:
         has, because it is the only one that can carry the provider's coverage
         receipt. Used as the fallback when the raw-row route refuses."""
         return self.client.query_series(run_ids, **kw)
+
+    def latest_scalars(self, run_ids: list[str], *, keys: list[str]) -> dict:
+        """`POST /v1/series/latest`: each series' catalog summary -- its
+        `point_count` above all -- read off the derived catalog, never a point
+        scan. One call for every run of a series read."""
+        return self.client.latest_scalars(run_ids, keys=keys)
 
     def run_metrics(self, run_id: str, **filters: Any) -> list[dict]:
         # A tool response is strict JSON (the budget serializer refuses NaN), so
@@ -789,6 +820,178 @@ class ResearchOSSource:
 
     def run_events(self, run_id: str) -> list[dict]:
         return self.client.events.for_run(run_id)
+
+    def run_views(self, run_id: str) -> list[dict]:
+        """``GET /v1/runs/{ref}/views``: the metric views saved on the run."""
+        return self.client.list_views(run_id)
+
+    def run_sandbox_diff(
+        self,
+        run_id: str,
+        *,
+        trial: str,
+        path_prefix: str | None = None,
+        cursor: str | None = None,
+        limit: int,
+    ) -> dict:
+        """``GET /v1/runs/{ref}/sandbox-state/diff``: one keyset page of a
+        trial's begin/end filesystem diff, plus whole-scan `counts`.
+
+        Here and not on the SDK client: it is a read only this surface pages,
+        and `probe trial` reaches the same bundle through its own files."""
+        params: dict[str, Any] = {"trial": trial, "limit": limit}
+        if path_prefix:
+            params["path_prefix"] = path_prefix
+        if cursor:
+            params["cursor"] = cursor  # harness-literal-ok: the pagination cursor
+        return self.client.transport.get(
+            f"/v1/runs/{run_id}/sandbox-state/diff", params=params
+        )
+
+    def artifact_sessions(self, artifact_id: str, *, limit: int) -> dict:
+        """``GET /v1/artifacts/{id}/sessions``: `{sessions, session_total}`, the
+        captured sessions that registered or touched the file."""
+        return self.client.transport.get(
+            f"/v1/artifacts/{artifact_id}/sessions", params={"limit": limit}
+        )
+
+    def project_readme(self, project_id: str) -> dict:
+        """``GET /v1/projects/{ref}/readme``: the attached repository's README
+        as `{state, reason, repo, path, markdown, html_url, commit_sha}`.
+
+        Its image links point at dashboard preview routes, so they do not
+        resolve here; the TEXT is what an agent reads it for.
+
+        NOT A PURE READ, and accepted as such (review of #2216): when the stored
+        snapshot is missing or older than its max age, the route refreshes it --
+        a GitHub fetch, the README's images uploaded to R2 as system-attributed
+        artifacts, and the snapshot row rewritten -- exactly as a dashboard view
+        of the README panel does. It is a cache refresh of content the project
+        already shows, never a write an agent chose."""
+        return self.client.transport.get(f"/v1/projects/{project_id}/readme")
+
+    def _sub_note_entity(self, value: str) -> dict:
+        """``GET /v1/sub-notes/{id}``: one titled sub-note WITH its body."""
+        # The id lands in a URL path segment. The route types it a UUID, so a
+        # value that is not one can never resolve -- refuse it here rather than
+        # let a `/` or `..` re-steer the request.
+        try:
+            uuid.UUID(value)
+        except ValueError:
+            raise errors.ValidationError(
+                f"{value!r} is not a sub-note id: a sub-note is reached as "
+                f"sub_note:<uuid>, the id a notes view row or a notes-catalog "
+                f"row carries",
+                status=422,
+            ) from None
+        return dict(self.client.get_sub_note(value))
+
+    # -- flat listings (browse modes other than `tree`) ------------------------
+
+    def workspaces(self) -> list[dict]:
+        """``GET /v1/workspaces``: every workspace, whole and in server order
+        (creation is capped tenant-wide, so the route does not page)."""
+        return self.client.list_workspaces()
+
+    def run_list(
+        self,
+        *,
+        project_id: str | None = None,
+        experiment_id: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+        active: bool = False,
+        cursor: str | None = None,
+        limit: int,
+        exclude_origin_session: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST, and the
+        keyset cursor past it. ``active`` is the server's liveness filter
+        (status running AND a heartbeat inside the window), not a status."""
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+        if active:
+            params["active"] = "true"
+        if cursor:
+            params["cursor"] = cursor  # harness-literal-ok: the pagination cursor
+        if exclude_origin_session is not None:
+            params["exclude_origin_session"] = exclude_origin_session
+        page = self.client.list_runs(
+            project_id=project_id, experiment_id=experiment_id, tags=tags, **params
+        )
+        return list(page.items), page.next_cursor
+
+    @staticmethod
+    def run_cursor_after(row: dict) -> str | None:
+        """The `GET /v1/runs` cursor that resumes AFTER `row`: the list's own
+        keyset, base64 of `<created_at>|<id>` (app/core/pagination.py), which
+        the server reads as `(created_at, id) < (that row's)`.
+
+        Built from the row rather than taken from the response because the MCP
+        delivers a PREFIX of a page when its budget runs out, and has to resume
+        after the last row it actually sent -- the server only names the cursor
+        after the page's last row. Positional resumption (re-fetch, skip N) is
+        what this replaced: a run that stopped being active, or was deleted,
+        between two calls shifted every later row by one, so a row was skipped.
+
+        None when the row lacks either half, so a caller can refuse to page
+        rather than restart from the top."""
+        created_at, row_id = row.get("created_at"), row.get("id")
+        if not isinstance(created_at, str) or not created_at or not row_id:
+            return None
+        # `+00:00`, not `Z`: the server's `datetime.fromisoformat` reads both on
+        # 3.11+, and only the offset form on anything older.
+        if created_at.endswith("Z"):
+            created_at = created_at[:-1] + "+00:00"
+        return base64.urlsafe_b64encode(f"{created_at}|{row_id}".encode()).decode()
+
+    @staticmethod
+    def note_cursor_after(row: dict) -> str | None:
+        """The `GET /v1/notes` cursor that resumes AFTER `row`: the catalog's
+        own keyset, base64 of `<created_at>|<kind_rank>|<id>`
+        (app/notes_catalog/service.py `encode_cursor`), read by the server as
+        `(created_at, kind_rank, id) < (that row's)`.
+
+        Built from the row for the reason `run_cursor_after` is: a mid-page cut
+        must resume after the last row SENT. Finding that row again in a
+        re-read page failed whenever newer notes had pushed it off the page.
+
+        None for the team note (a first-page singleton with no keyset) and for
+        a kind with no rank here -- the caller falls back to finding the row."""
+        rank = _NOTE_KIND_RANK.get(row.get("kind"))
+        created_at, row_id = row.get("created_at"), row.get("id")
+        if rank is None or not isinstance(created_at, str) or not created_at or not row_id:
+            return None
+        if created_at.endswith("Z"):
+            created_at = created_at[:-1] + "+00:00"
+        return base64.urlsafe_b64encode(f"{created_at}|{rank}|{row_id}".encode()).decode()
+
+    def notes_catalog(
+        self, *, query: str | None = None, cursor: str | None = None, limit: int
+    ) -> dict:
+        """``GET /v1/notes``, the tenant-wide catalog: `{items, next_cursor}`.
+
+        Always with a `limit` (a bare call answers the dashboard's lazy ROOT
+        tree, see `Client.list_notes`) and with sub-notes included: they are
+        openable here now (`sub_note:<id>`), so hiding them would hide the one
+        row a search was most likely looking for."""
+        return self.client.list_notes(
+            query=query, cursor=cursor, limit=limit, include_sub_notes=True
+        )
+
+    def files(
+        self, *, workspace_id: str | None = None, prefix: str | None = None, limit: int
+    ) -> list[dict]:
+        """The team's Shared folder (``GET /v1/shared/files``) or one workspace's
+        files (``GET /v1/workspaces/{id}/files``), name-ordered. Neither route
+        takes a cursor; ``prefix`` is a FOLDER filter, not a name match."""
+        params: dict[str, Any] = {"limit": limit}
+        if prefix:
+            params["prefix"] = prefix
+        if workspace_id is not None:
+            return self.client.list_anchored(Anchor.WORKSPACE, workspace_id, **params) or []
+        return self.client.list_anchored(Anchor.SHARED, **params) or []
 
     def experiment_groups(self, experiment_id: str) -> list[dict]:
         return self.client.list_groups(experiment_id)

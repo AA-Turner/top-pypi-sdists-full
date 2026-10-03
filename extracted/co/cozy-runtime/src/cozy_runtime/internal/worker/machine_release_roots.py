@@ -13,9 +13,11 @@ import re
 import threading
 import time
 import uuid
-from collections.abc import Mapping
+from collections import deque
+from collections.abc import Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -101,16 +103,20 @@ class _Prepared:
     placement_set: bytes = b""  # a served root's prepared placement, as its set's exact bytes
     hub: str = ""  # the Hub the root's run came from, as `hub_key` spells it
     model_choices: tuple[pb.ModelChoice, ...] = ()
+    admission: dict[str, float] = field(default_factory=dict)  # ms per step, journaled
 
 
 @dataclass
 class _Job:
     request: bytes
+    began: float = field(default_factory=time.monotonic)
     version: int = 0
     progress: str = "preparing"
     moved: int = 0
     total: int = 0
     noted: float = 0.0  # when a byte count last woke the waiting submitter
+    #: stages the submitter has not been answered yet, oldest first: none is coalesced away
+    stages: deque[str] = field(default_factory=lambda: deque(maxlen=64))
     done: bool = False
     result: _Prepared | None = None
     error: BaseException | None = None
@@ -120,6 +126,16 @@ def _key(package: str, release: str) -> str:
     return f"{package}@{release}"
 
 
+@contextmanager
+def _timed(steps: dict[str, float], name: str) -> Iterator[None]:
+    """One admission step's wall time, journaled with the run as `admission_ms`."""
+    began = time.monotonic()
+    try:
+        yield
+    finally:
+        steps[name] = round((time.monotonic() - began) * 1000, 1)
+
+
 class ReleaseRoots:
     def __init__(self, worker: Worker) -> None:
         self.worker = worker
@@ -127,6 +143,9 @@ class ReleaseRoots:
         self.jobs: dict[tuple[str, str], _Job] = {}
         # Install facts by Hub and release, read at that catalog: immutable, read once.
         self.facts: dict[tuple[str, str], pb.DeferredInstallation] = {}
+        # Same-org index wheels, by Hub, that the Hub publishes no package for: dependencies
+        # a release carries, not callees. Read once per Runtime.
+        self.carried: set[tuple[str, str]] = set()
 
     def submit(
         self, owner: str, request: pb.MachineExecutionSubmit, context: ServicerContext
@@ -163,13 +182,17 @@ class ReleaseRoots:
                     daemon=True,
                 ).start()
             self._wait(job, context)
+            if job.stages:
+                stage = job.stages.popleft()
+                latest = stage == job.progress and not job.stages
+                raise Preparing(stage, *((job.moved, job.total) if latest else (0, 0)))
             if not job.done:
                 raise Preparing(job.progress, job.moved, job.total)
             del self.jobs[identity]
         if job.error is not None:
             raise job.error
         assert job.result is not None
-        return self._accept(owner, request, job.result)
+        return self._accept(owner, request, job.result, job.began)
 
     def _wait(self, job: _Job, context: ServicerContext) -> None:
         """Until the job finishes or reports news, or the caller goes away."""
@@ -183,7 +206,7 @@ class ReleaseRoots:
         if not context.add_callback(leave):
             leave()  # the RPC already ended: its callback will never run
         seen = job.version
-        while not job.done and job.version == seen and not gone.is_set():
+        while not job.done and not job.stages and job.version == seen and not gone.is_set():
             self.changed.wait()
 
     def _note(self, job: _Job, progress: str, moved: int = 0, total: int = 0) -> None:
@@ -194,6 +217,8 @@ class ReleaseRoots:
                 (moved, total) == (job.moved, job.total) or now - job.noted < 1
             ):
                 return
+            if progress != job.progress:
+                job.stages.append(progress)
             job.progress, job.moved, job.total, job.noted = progress, moved, total, now
             job.version += 1
             self.changed.notify_all()
@@ -315,37 +340,45 @@ class ReleaseRoots:
             lock = self._locked(key, hub, held, own)
             for locked in machine_release_catalog.callees(package, lock):
                 callee = self._served(locked, hub)
+                if callee is None:
+                    continue
                 edges.add((key, callee))
                 pending.append(callee)
         return installed, sorted(edges)
 
-    def _served(self, locked: str, hub: str) -> str:
+    def _served(self, locked: str, hub: str) -> str | None:
         """A callee release a caller's lock names is a floor, not a pin: the newest release
         its Hub's catalog publishes at or above it serves the call, read once per package
-        until the controller that publishes names it to `forget`."""
+        until the controller that publishes names it to `forget`. None for a wheel the Hub
+        publishes no package for."""
         package, _, release = locked.partition("@")
-        newest = self.worker.resolutions.newest
-        if (hub, package) not in newest:
-            try:
-                newest[(hub, package)] = machine_release_catalog.newest(
-                    machine_model_resolve.own(self.worker, hub=hub), package
-                )
-            except WorkspaceRefusal:
-                return locked
-        served = newest[(hub, package)]
+        if (hub, package) in self.carried:
+            return None
+        try:
+            served = self._newest(hub, package)
+        except machine_release_catalog.NotPublished:
+            self.carried.add((hub, package))
+            return None
+        except WorkspaceRefusal:
+            return locked
         return _key(package, served) if Version(served) > Version(release) else locked
+
+    def _newest(self, hub: str, package: str) -> str:
+        """A package's newest release at its Hub, read once until `forget` names it."""
+        held = self.worker.resolutions.of(package, hub)
+        if not held.newest:
+            newest = machine_release_catalog.newest(
+                machine_model_resolve.own(self.worker, hub=hub), package
+            )
+            held.keep(lambda kept: setattr(kept, "newest", newest))
+        return held.newest
 
     def describe(self, selection: pb.PackageSelection) -> pb.DescribedRelease:
         """A published release as this machine reads it: the newest when none is named, read
         once until the controller that publishes names the package to `forget`."""
         package, release = selection.package, selection.release
         hub = machine_model_resolve.hub_key(self.worker, selection.hub)
-        newest = self.worker.resolutions.newest
-        if not release:
-            release = newest.get((hub, package)) or machine_release_catalog.newest(
-                machine_model_resolve.own(self.worker, hub=hub), package
-            )
-            newest[(hub, package)] = release
+        release = release or self._newest(hub, package)
         key = _key(package, release)
         held = self._installed(key, hub)
         raw = (
@@ -386,10 +419,13 @@ class ReleaseRoots:
         assert worker.machine_calls is not None
         hub = machine_model_resolve.hub_key(worker, root.hub)
         key, captured = self._root(root)
-        installed, edges = self._closure(key, hub, captured)
+        steps: dict[str, float] = {}
+        with _timed(steps, "closure"):
+            installed, edges = self._closure(key, hub, captured)
         if key not in installed:
             self._note(job, f"installing {key}")
-            installed[key] = self._install(self._facts(key, hub))
+            with _timed(steps, "install"):
+                installed[key] = self._install(self._facts(key, hub))
         prepared = installed[key]
         body = package_interface.read_bytes(prepared.interface, "release root")
         section, kind = ("jobs", "job") if root.job else ("entrypoints", "inference entrypoint")
@@ -429,7 +465,8 @@ class ReleaseRoots:
             hub=hub,
             model_choices=tuple(root.models),
         )
-        _, _, _, choices = self._capture(scope)
+        with _timed(steps, "capture"):
+            _, _, _, choices = self._capture(scope)
         selected_root = pb.ReleaseRoot()
         selected_root.CopyFrom(root)
         selected_root.ClearField("models")
@@ -442,22 +479,24 @@ class ReleaseRoots:
             raise WorkspaceRefusal(
                 "model_adapters_require_serving: target a serving child's qualified model slot"
             )
-        models = self._resolve(
-            selected_root,
-            declaration,
-            machine_source_models.credentials(request.source_credentials),
-            lambda stage, done, total: self._note(job, stage, done, total),
-        )
+        with _timed(steps, "resolve"):
+            models = self._resolve(
+                selected_root,
+                declaration,
+                machine_source_models.credentials(request.source_credentials),
+                lambda stage, done, total: self._note(job, stage, done, total),
+            )
         if root.job:
             # A job reads its Models as inputs: land each catalog checkpoint here now.
-            machine_model_defaults.materialize(
-                worker,
-                models,
-                None,
-                progress=lambda done, total: self._note(
-                    job, "downloading model weights", done, total
-                ),
-            )
+            with _timed(steps, "prepare"):
+                machine_model_defaults.materialize(
+                    worker,
+                    models,
+                    cancellation=worker.transfers,
+                    progress=lambda done, total: self._note(
+                        job, "downloading model weights", done, total
+                    ),
+                )
             return _Prepared(
                 key,
                 target,
@@ -468,6 +507,7 @@ class ReleaseRoots:
                 edges,
                 hub=hub,
                 model_choices=scope.model_choices,
+                admission=steps,
             )
         serving = worker.machine_calls.serving
         call = Call(
@@ -486,15 +526,16 @@ class ReleaseRoots:
         )
         serving.observers[call.child_request] = lambda frame: self._progress(job, frame)
         try:
-            ready = serving._prepare(
-                owner,
-                call,
-                target,
-                pb.ChildCallRequest(),
-                model_arguments={},
-                defaults=models,
-                retention_prefix="preparation/",
-            )
+            with _timed(steps, "prepare"):
+                ready = serving._prepare(
+                    owner,
+                    call,
+                    target,
+                    pb.ChildCallRequest(),
+                    model_arguments={},
+                    defaults=models,
+                    retention_prefix="preparation/",
+                )
             ready.access.close()
         finally:
             serving.observers.pop(call.child_request, None)
@@ -514,6 +555,7 @@ class ReleaseRoots:
             placement_set,
             hub,
             scope.model_choices,
+            steps,
         )
 
     def _resolve(
@@ -544,12 +586,15 @@ class ReleaseRoots:
             for model, parameter in zip(slots, parameters, strict=True)
             if parameter not in sourced and not (parameter in pins and pins[parameter]["length"])
         ]
-        # Pinned and sourced slots read nothing; an open one reads the run's Hub.
-        catalog = (
-            machine_model_resolve.own(self.worker, root.package, root.hub)
-            if open_slots
-            else machine_model_resolve.Catalog("")
-        )
+        # Pinned and sourced slots read no catalog; an open one reads the run's Hub. A pinned
+        # checkpoint held without its repository's custody is still taken at that Hub.
+        if open_slots:
+            catalog = machine_model_resolve.own(self.worker, root.package, root.hub)
+        else:
+            here = machine_model_resolve.registration(
+                self.worker, machine_model_resolve.hub_key(self.worker, root.hub)
+            )
+            catalog = machine_model_resolve.Catalog("" if here is None else here.origin)
         fits = machine_model_defaults.catalog_fits(machine_model_defaults.fitter(self.worker))
         laddered = [
             model
@@ -599,6 +644,7 @@ class ReleaseRoots:
                 credentials=credentials,
                 note=note,
                 check=check,
+                cancellation=self.worker.transfers,
             )
             if parameter in given and given[parameter].adapters
             else row
@@ -643,6 +689,7 @@ class ReleaseRoots:
         )
         with worker.control_lock:
             worker.prepared_installations[stored.prepared_key] = stored
+        worker.keep_placement(stored, placement_set)
 
     def _capture(
         self, prepared: _Prepared
@@ -719,7 +766,7 @@ class ReleaseRoots:
         return raw, digest, {key: held for key, held in installed.items() if key in keys}, choices
 
     def _accept(
-        self, owner: str, request: pb.MachineExecutionSubmit, prepared: _Prepared
+        self, owner: str, request: pb.MachineExecutionSubmit, prepared: _Prepared, began: float
     ) -> pb.MachineExecutionReceipt:
         worker, root = self.worker, request.release_root
         executions = worker.executions
@@ -793,27 +840,32 @@ class ReleaseRoots:
             for held in installed.values()
         }
         assert worker.machine_calls is not None
+        steps = dict(prepared.admission)
+        with _timed(steps, "builtins"):
+            builtin = worker.machine_calls.builtins.capture()
         preparation = machine_capture.Preparation(
             installations=installations,
             state=base64.b64encode(desired.SerializeToString(deterministic=True)).decode(),
-            runtime_builtin=worker.machine_calls.builtins.capture(),
+            runtime_builtin=builtin,
             hub=prepared.hub,
             account=root.owner or request.account,
             entrypoint=root.entrypoint,
         )
         worker.machine_sources.hold(owner, offer.request_id, request.source_credentials)
-        receipt = worker.submit_execution(
-            request.claim,
-            request.submission_id,
-            capture_digest,
-            offer,
-            expected_execution_workspace_id=request.expected_execution_workspace_id,
-            capture_document=capture,
-            preparation=preparation.encode(),
-            publication_authorization_id=request.publication_authorization_id,
-            arguments=canonical_json.decode(payload) if root.job else None,
-            owner_memo=request.owner_memo,
-        )
+        with _timed(steps, "submit"):
+            receipt = worker.submit_execution(
+                request.claim,
+                request.submission_id,
+                capture_digest,
+                offer,
+                expected_execution_workspace_id=request.expected_execution_workspace_id,
+                capture_document=capture,
+                preparation=preparation.encode(),
+                publication_authorization_id=request.publication_authorization_id,
+                arguments=canonical_json.decode(payload) if root.job else None,
+                owner_memo=request.owner_memo,
+            )
+        steps["total"] = round((time.monotonic() - began) * 1000, 1)
         worker.machine_sources.declare(owner, offer.request_id)
         executions.record(
             owner,
@@ -826,6 +878,7 @@ class ReleaseRoots:
                 "models": [
                     {name: row[name] for name in RECORDED if name in row} for row in prepared.models
                 ],
+                "admission_ms": steps,
             },
         )
         return self._receipt(receipt)

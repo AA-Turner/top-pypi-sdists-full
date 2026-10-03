@@ -40,6 +40,7 @@ _FAMILY = "tool_components"
 
 @kind(
     "tool_component_tool_row",
+    disposition="record",
     label="Tool Listing Row",
     family=_FAMILY,
     example={
@@ -67,6 +68,7 @@ class ToolComponentToolRow(KindModel):
 
 @kind(
     "tool_component_tool_group",
+    disposition="record",
     label="Tool Listing Group",
     family=_FAMILY,
     example={"count": 1, "tools": []},
@@ -85,6 +87,7 @@ class ToolComponentToolGroup(KindModel):
 
 @kind(
     "tool_component_listing",
+    disposition="record",
     label="Tool Listing",
     family=_FAMILY,
     example={
@@ -135,6 +138,7 @@ class ToolComponentListing(KindModel):
 
 @kind(
     "tool_component_tool_def",
+    disposition="record",
     label="Tool Definition Facts",
     family=_FAMILY,
     example={
@@ -179,6 +183,7 @@ class ToolComponentToolDef(KindModel):
 
 @kind(
     "tool_component_summary",
+    disposition="record",
     label="Component Summary",
     family=_FAMILY,
     example={
@@ -235,6 +240,7 @@ class ToolComponentSummary(KindModel):
 
 @kind(
     "tool_component_sample_event",
+    disposition="record",
     label="Sample Timeline Event",
     family=_FAMILY,
     example={"event": "status_update", "status": "running", "message": "Working…"},
@@ -256,6 +262,7 @@ class ToolComponentSampleEvent(KindModel):
 
 @kind(
     "tool_component_sample",
+    disposition="record",
     label="Tool Test Sample",
     family=_FAMILY,
     example={
@@ -299,6 +306,7 @@ class ToolComponentSample(KindModel):
 
 @kind(
     "tool_component_incident_summary",
+    disposition="record",
     label="Component Incident Summary",
     family=_FAMILY,
     example={
@@ -337,6 +345,7 @@ class ToolComponentIncidentSummary(KindModel):
 
 @kind(
     "tool_component_context_summary",
+    disposition="record",
     label="Component Context Summary",
     family=_FAMILY,
     example={
@@ -369,6 +378,7 @@ class ToolComponentContextSummary(KindModel):
 
 @kind(
     "tool_component_context",
+    disposition="record",
     label="Component Context",
     family=_FAMILY,
     example={
@@ -400,6 +410,7 @@ class ToolComponentContext(KindModel):
 
 @kind(
     "tool_component_code",
+    disposition="record",
     label="Component Code",
     family=_FAMILY,
     example={
@@ -435,6 +446,7 @@ class ToolComponentCode(KindModel):
 
 @kind(
     "tool_component_incident_detail",
+    disposition="record",
     label="Component Incident Detail",
     family=_FAMILY,
     example={
@@ -477,6 +489,7 @@ class ToolComponentIncidentDetail(KindModel):
 
 @kind(
     "tool_component_update_result",
+    disposition="receipt",
     label="Component Updated",
     family=_FAMILY,
     example={
@@ -510,6 +523,7 @@ class ToolComponentUpdateResult(KindModel):
 
 @kind(
     "tool_component_patch_outcome",
+    disposition="receipt",
     label="Component Patch Outcome",
     family=_FAMILY,
     example={"index": 0, "description": "patch 1", "status": "applied", "match_round": "exact"},
@@ -527,6 +541,7 @@ class ToolComponentPatchOutcome(KindModel):
 
 @kind(
     "tool_component_patch_result",
+    disposition="receipt",
     label="Component Patched",
     family=_FAMILY,
     example={
@@ -564,6 +579,7 @@ class ToolComponentPatchResult(KindModel):
 
 @kind(
     "tool_component_incident_resolution",
+    disposition="record",
     label="Incident Resolved",
     family=_FAMILY,
     example={
@@ -585,6 +601,7 @@ class ToolComponentIncidentResolution(KindModel):
 
 @kind(
     "tool_component_create_result",
+    disposition="receipt",
     label="Component Created",
     family=_FAMILY,
     example={

@@ -14,6 +14,8 @@ when we can, scream clearly when we can't:
 * ``recover_action_type_alias`` — client-tool ``action`` discriminator copied
   to canonical ``type`` only when the published enum proves the mapping
 * ``format_args_error`` — flat agent-instructive line from a ValidationError
+* ``unwrap_args_envelope`` / ``expected_fields_sentence`` — a lean dispatcher's
+  ``args`` envelope lifted into the flat call, and the refusal that names the fields
 
 A rejected tool call still costs a full provider turn and returns nothing useful.
 Recovery is the default; rejection is the last resort with an actionable menu.
@@ -79,6 +81,93 @@ def recover_action_type_alias(
     recovered.pop("action", None)
     recovered["type"] = action
     return recovered
+
+
+def unwrap_args_envelope(
+    arguments: dict[str, Any], envelope: str | None
+) -> tuple[dict[str, Any], str | None]:
+    """Lift a lean dispatcher's envelope back into the flat call the contract validates.
+
+    ``{"action": "record_read", "args": {"table_id": "t"}}`` becomes
+    ``{"action": "record_read", "table_id": "t"}``. A call that already sends its
+    arguments flat is returned unchanged, so both spellings keep working. An envelope
+    sent as a JSON-encoded object string is decoded (models do that).
+
+    Returns ``(arguments, problem)``. ``problem`` is a plain sentence when the envelope
+    cannot be lifted honestly — it is not an object, or a field is given both inside it
+    and beside it with different values — and the arguments are then returned
+    UNCHANGED so nothing is silently chosen for the model.
+    """
+    if not envelope or not isinstance(arguments, dict) or envelope not in arguments:
+        return arguments, None
+    inner = arguments[envelope]
+    if inner is None:
+        return {k: v for k, v in arguments.items() if k != envelope}, None
+    if isinstance(inner, str):
+        try:
+            decoded = json.loads(inner)
+        except (TypeError, ValueError):
+            decoded = None
+        if isinstance(decoded, dict):
+            inner = decoded
+    if not isinstance(inner, dict):
+        return arguments, (
+            f"`{envelope}` must be an object holding this action's arguments, "
+            f'e.g. {{"{envelope}": {{"table_id": "..."}}}}; it was a {type(inner).__name__}.'
+        )
+    if envelope in inner:
+        return arguments, (
+            f"`{envelope}` holds another `{envelope}`; send this action's arguments once, "
+            f"directly inside one `{envelope}`."
+        )
+    merged = {k: v for k, v in arguments.items() if k != envelope}
+    clashes = sorted(k for k, v in inner.items() if k in merged and merged[k] != v)
+    if clashes:
+        return arguments, (
+            f"{', '.join(clashes)} given both inside `{envelope}` and beside it with "
+            f"different values; send each argument once, inside `{envelope}`."
+        )
+    merged.update(inner)
+    return merged, None
+
+
+def expected_fields_sentence(
+    arguments: dict[str, Any], args_model: type, *, envelope: str | None
+) -> str | None:
+    """One sentence naming the fields the called action takes — for a lean dispatcher.
+
+    A model shown only ``action`` + an envelope cannot read the per-action field names
+    from its schema, so a refusal must carry them: "`record_read` takes, inside `args`:
+    limit, record_id, table_id (required: none)." ``None`` when the call names no
+    known action (the discriminator menu covers that case).
+    """
+    from matrx_ai.tools.validation.schema import discriminated_union_members
+
+    found = discriminated_union_members(args_model)
+    if found is None or not isinstance(arguments, dict):
+        return None
+    disc, members = found
+    tag = arguments.get(disc)
+    member = members.get(tag) if isinstance(tag, str) else None
+    if member is None:
+        return None
+    fields = member.model_fields
+    names = sorted(n for n in fields if n != disc)
+    required = sorted(n for n in names if fields[n].is_required())
+    where = f", inside `{envelope}`" if envelope else ""
+    guide = ""
+    if envelope and "guide" in members and tag != "guide":
+        guide = f' {{"{disc}": "guide", "{envelope}": {{"topic": "{tag}"}}}} explains each.'
+    example = ""
+    extra = member.model_config.get("json_schema_extra")
+    examples = extra.get("examples") if isinstance(extra, dict) else None
+    if isinstance(examples, list) and examples:
+        shown = {disc: tag, envelope: examples[0]} if envelope else {disc: tag, **examples[0]}
+        example = f" e.g. {json.dumps(shown, ensure_ascii=False)}."
+    return (
+        f"`{tag}` takes{where}: {', '.join(names) or '(nothing)'} "
+        f"(required: {', '.join(required) or 'none'}).{example}{guide}"
+    )
 
 
 def _error_list(exc: Any) -> list[dict[str, Any]]:
@@ -262,6 +351,17 @@ def _variant_field_sets(
     return out
 
 
+def ignorable_extras(variant: type) -> frozenset[str]:
+    """The cross-variant fields a variant DECLARES it can ignore without changing its answer.
+
+    Opt-in, per variant, by a person who proved the field redundant for that action
+    (``__ignorable_extras__: ClassVar[frozenset[str]]``). Nothing else that carries a value
+    is ever stripped — see :func:`remove_flattened_variant_extras`.
+    """
+    declared = getattr(variant, "__ignorable_extras__", None)
+    return frozenset(declared) if declared else frozenset()
+
+
 def remove_flattened_variant_extras(
     arguments: dict[str, Any],
     args_model: type,
@@ -279,10 +379,24 @@ def remove_flattened_variant_extras(
     * the args model must be a discriminated union;
     * the discriminator must select a known variant;
     * every validation error must be ``extra_forbidden``;
-    * every removed field must be declared by at least one *other* variant.
+    * every removed field must be declared by at least one *other* variant;
+    * every removed field must be EMPTY (``None``, ``""``, ``[]``, ``{}``), unless the
+      selected variant DECLARES it provably redundant in ``__ignorable_extras__``
+      (``cms_page(action="publish", page_id=…, site=…)``: the page id already names
+      the page, so ``site`` adds nothing).
 
     A typo or an unknown field is never stripped. The caller must revalidate
     the returned candidate before dispatch and must log every recovery loudly.
+
+    WHY AN ARGUMENT WITH A VALUE IS NEVER STRIPPED (the $640 / $1,440 defect,
+    2026-10-01): a model asked ``records(action="record_aggregate",
+    match={"Status": "Completed"})``; ``match`` belonged to another action, so it
+    was removed here and the call ran — returning the WHOLE table's number as a
+    success. A notice beside a wrong number does not stop the number being
+    repeated as the answer. An argument with a value carries meaning the selected
+    action cannot honour, so the call is REFUSED, by name, before anything runs;
+    only an empty placeholder a flattened schema made the model fill in is
+    provably meaningless and may be dropped.
     """
     if not isinstance(arguments, dict):
         return None
@@ -323,6 +437,10 @@ def remove_flattened_variant_extras(
             or field in selected_fields
             or field not in other_fields
         ):
+            return None
+        value = arguments.get(field)
+        empty = value is None or value == "" or value == [] or value == {}
+        if not empty and field not in ignorable_extras(members[selected]):
             return None
         removable.add(field)
 

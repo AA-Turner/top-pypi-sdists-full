@@ -52,6 +52,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
     MAX_ITERATIONS_DESCRIPTION,
@@ -387,8 +388,13 @@ class AgentRunCommonInput(BaseModel):
         ),
     )
     memory_model: str | None = Field(
-        default=None, description="Optional model override for observational-memory processing."
+        default=None,
+        description="Optional model override for observational-memory processing.",
+        json_schema_extra=field_extras(
+            widget="model_picker", **model_class_extras("memory_offering_id")
+        ),
     )
+    memory_offering_id: str | None = offering_id_field(model_field="memory_model")
     memory_scope: str = Field(
         default="thread", description="Observational-memory scope, normally the current thread."
     )
@@ -922,12 +928,21 @@ def build_agent_request(
     # as the top of the ladder ("run-scope keys win"). It is where the twin's
     # own computed `config_overrides` sits: `_create_audio` builds the cast's
     # `tts_voice` per run and passes it at the call site, above the binding.
-    layered = {
-        **(resolved.config_overrides or {}),
-        **(request_payload.get("config_overrides") or {}),
-        **(inputs.runtime_config_overrides or {}),
-        **(top_config_overrides or {}),
-    }
+    #
+    # Layered with THE one merge (``merge_llm_overrides``), never a bare spread:
+    # a class pin (``offering_id``) belongs to one model, so a higher layer that
+    # moves to another model without naming its class drops the lower layer's
+    # pin instead of carrying it onto a model it does not belong to.
+    from matrx_ai.config.llm_params import merge_llm_overrides
+
+    layered: dict[str, Any] = {}
+    for layer in (
+        resolved.config_overrides,
+        request_payload.get("config_overrides"),
+        inputs.runtime_config_overrides,
+        top_config_overrides,
+    ):
+        layered = merge_llm_overrides(layered, dict(layer) if layer else None)
     if layered:
         request_payload["config_overrides"] = layered
     request_payload["is_version"] = resolved.is_version

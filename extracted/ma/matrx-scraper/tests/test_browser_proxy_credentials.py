@@ -14,7 +14,7 @@ async def test_pooled_fetch_preserves_proxy_credentials():
         goto=AsyncMock(return_value=response), content=AsyncMock(return_value="ok"),
         title=AsyncMock(return_value="Example"), close=AsyncMock(), url="https://example.com",
     )
-    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock())
+    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock(), route=AsyncMock())
     browser = Mock(new_context=AsyncMock(return_value=context))
     pool = PlaywrightBrowserPool.__new__(PlaywrightBrowserPool)
     pool.acquire = AsyncMock(return_value=browser)
@@ -63,7 +63,9 @@ class _RecordingBrowser:
             close=AsyncMock(),
             on=lambda *_args: None,
         )
-        return SimpleNamespace(new_page=AsyncMock(return_value=page), close=AsyncMock())
+        return SimpleNamespace(
+            new_page=AsyncMock(return_value=page), close=AsyncMock(), route=AsyncMock()
+        )
 
 
 async def _call_fetch(pool, proxy):
@@ -154,7 +156,7 @@ async def test_pooled_fetch_waits_for_normal_client_challenge_completion():
                 wait_for_function=AsyncMock(side_effect=RuntimeError("CSP forbids unsafe-eval")),
                 wait_for_load_state=AsyncMock(), close=AsyncMock(),
                 url='https://wiki.mozilla.org/api.php')
-    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock())
+    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock(), route=AsyncMock())
     browser = Mock(new_context=AsyncMock(return_value=context))
     pool = PlaywrightBrowserPool.__new__(PlaywrightBrowserPool)
     pool.acquire = AsyncMock(return_value=browser)
@@ -179,7 +181,7 @@ async def test_challenge_timeout_closes_context_without_returning_challenge_html
         wait_for_load_state=AsyncMock(), content=AsyncMock(), close=AsyncMock(),
         url="https://wiki.mozilla.org/api.php",
     )
-    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock())
+    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock(), route=AsyncMock())
     browser = Mock(new_context=AsyncMock(return_value=context))
     pool = PlaywrightBrowserPool.__new__(PlaywrightBrowserPool)
     pool.acquire = AsyncMock(return_value=browser)
@@ -202,7 +204,7 @@ async def test_false_readiness_never_returns_challenge_as_success():
         wait_for_selector=AsyncMock(), wait_for_load_state=AsyncMock(),
         content=AsyncMock(), close=AsyncMock(), url="https://wiki.mozilla.org/api.php",
     )
-    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock())
+    context = Mock(new_page=AsyncMock(return_value=page), close=AsyncMock(), route=AsyncMock())
     browser = Mock(new_context=AsyncMock(return_value=context))
     pool = PlaywrightBrowserPool.__new__(PlaywrightBrowserPool)
     pool.acquire = AsyncMock(return_value=browser)

@@ -38,16 +38,17 @@ class UnusedTestFactoryOption(Rule):
     code = "SARJ443"
     documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
         default_level=Severity.WARNING,
-        summary="A private test factory exposes an option that visible callers never vary.",
+        summary="A private test factory exposes an invariant literal or unexercised local callable option.",
         rationale="Unused customization obscures the values that actually distinguish test scenarios.",
-        remediation="Keep the value in the factory's construction instead of exposing an unused option; retain it if external callers need it.",
+        remediation="Consider keeping the invariant literal or stable local callable in the construction instead of exposing an unexercised option. Preserve intentional dependency contracts and callable default binding timing.",
         category=RuleCategory.TESTING,
         autofix=AutofixPolicy.NONE,
         limitations=(
-            "Only module-level private _make_ and _build_ helpers with straight-line local assignments ending in a construction return are considered; control flow and standalone side effects are excluded.",
-            "Literal defaults and stable earlier module-local function defaults are considered. Callable options are reported only when every direct caller omits them; explicit literal options require at least two calls with the same effective value.",
-            "Decorators, rebinding, shadowing, callable escapes, reflection, argument unpacking, and ambiguous provider mutation or patch targets exclude the affected helper or callable option.",
-            "Cross-module callers cannot be proven absent. Shared helpers require an exact suppression; this advisory never autofixes signatures or changes default evaluation timing.",
+            "Literal findings consider only private _make_ and _build_ helpers nested directly inside test functions, with at least two known direct callers and straight-line construction bodies.",
+            "Callable findings consider module-level private helpers with the same construction shape and an earlier undecorated local function default, only when at least two known direct callers all omit that option.",
+            "Conftest callable factories, explicit callable arguments, exports, decorators, escaping references, reflection, unpacking, rebinding, shadowing and ambiguous mutation or patch targets are excluded.",
+            "Same-name declarations elsewhere in the file conservatively exclude a helper. No autofix: this warning identifies unexercised customization, not an invalid callable contract.",
+            "Callable findings describe known callers in this file; cross-module and dynamic callers are not inferred. Retain intentional extension points with a reasoned exception, preserving definition-time default capture.",
         ),
         examples=(
             RuleExample(
@@ -57,11 +58,45 @@ class UnusedTestFactoryOption(Rule):
                 files=(
                     ExampleFile.python(
                         "tests/test_widget.py",
-                        "def _make_widget(*, size=3):\n    return Widget(size=size)\n\n_make_widget()\n_make_widget(size=3)\n",
+                        "def test_widgets():\n    def _make_widget(*, size=3):\n        return Widget(size=size)\n    _make_widget()\n    _make_widget(size=3)\n",
                     ),
                 ),
                 focus_path=PurePosixPath("tests/test_widget.py"),
                 expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="unused-local-callable-option",
+                scenario="callable-default",
+                title="Known callers do not replace a stable local dependency",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_widget.py",
+                        "def _read():\n    return 'ready'\n"
+                        "def _make_widget(*, read=_read):\n    return Widget(read=read)\n"
+                        "_make_widget()\n_make_widget()\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_widget.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="exercised-local-callable-option",
+                scenario="callable-default",
+                title="An explicit callback preserves the dependency contract",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_widget.py",
+                        "def _read():\n    return 'ready'\n"
+                        "def _make_widget(*, read=_read):\n    return Widget(read=read)\n"
+                        "_make_widget()\n_make_widget(read=_read)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_widget.py"),
+                expected_count=0,
                 public=True,
             ),
             RuleExample(
@@ -71,37 +106,7 @@ class UnusedTestFactoryOption(Rule):
                 files=(
                     ExampleFile.python(
                         "tests/test_widget.py",
-                        "def _make_widget(*, size=3):\n    return Widget(size=size)\n\ndef test_widget():\n    assert _make_widget(size=4)\n",
-                    ),
-                ),
-                focus_path=PurePosixPath("tests/test_widget.py"),
-                expected_count=0,
-                public=True,
-            ),
-            RuleExample(
-                example_id="unused-callable-option",
-                scenario="callable-default",
-                title="Use an unexercised local dependency directly",
-                outcome=ExampleOutcome.MATCH,
-                files=(
-                    ExampleFile.python(
-                        "tests/test_widget.py",
-                        "def _read():\n    return 'value'\n\ndef _make_widget(*, read=_read):\n    return Widget(read=read)\n\n_make_widget()\n",
-                    ),
-                ),
-                focus_path=PurePosixPath("tests/test_widget.py"),
-                expected_count=1,
-                public=True,
-            ),
-            RuleExample(
-                example_id="exercised-callable-option",
-                scenario="callable-default",
-                title="Keep a dependency that a caller replaces",
-                outcome=ExampleOutcome.NO_MATCH,
-                files=(
-                    ExampleFile.python(
-                        "tests/test_widget.py",
-                        "def _read():\n    return 'value'\n\ndef _make_widget(*, read=_read):\n    return Widget(read=read)\n\n_make_widget(read=other)\n",
+                        "def test_widgets():\n    def _make_widget(*, size=3):\n        return Widget(size=size)\n    _make_widget()\n    _make_widget(size=4)\n",
                     ),
                 ),
                 focus_path=PurePosixPath("tests/test_widget.py"),
@@ -126,10 +131,16 @@ class UnusedTestFactoryOption(Rule):
             return []
         lines = context.source_lines
         findings: list[Diagnostic] = []
-        for function in tree.body:
+        for function in context.nodes(ast.FunctionDef):
             if not _is_factory(function):
                 continue
-            findings.extend(_factory_findings(tree, function, path, lines, self.code, node_index=context.node_index))
+            owner = context.parents.get(function)
+            if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef) and owner.name.startswith("test_"):
+                findings.extend(
+                    _factory_findings(tree, function, path, lines, self.code, node_index=context.node_index)
+                )
+            elif owner is tree and path.name != "conftest.py":
+                findings.extend(_callable_factory_findings(context, function, self.code))
         return sorted(findings, key=lambda item: (item.line, item.col))
 
 
@@ -177,7 +188,7 @@ def _factory_findings(
 ) -> list[Diagnostic]:
     findings: list[Diagnostic] = []
     calls = _direct_calls(tree, function, node_index=node_index)
-    if not calls:
+    if len(calls) < _MIN_INVARIANT_CALLS:
         return []
     bound = _bound_calls(function, calls)
     if bound is None:
@@ -198,30 +209,9 @@ def _factory_findings(
                 severity=Severity.WARNING,
                 message=(
                     f"Direct callers in this file always use the same literal for `{function.name}.{argument.arg}`; "
-                    "consider keeping that value in the factory instead of repeating an invariant option. Retain it if external callers need it."
+                    "consider keeping that value in the factory instead of repeating an invariant option. Keep the option if it expresses an intentional test contract."
                     if explicitly_supplied
-                    else f"No direct caller in this file supplies `{function.name}.{argument.arg}`; keep its literal value in the factory instead of exposing an unused option. Retain it if external callers need it."
-                ),
-            )
-        )
-    for argument, default in _factory_options(function):
-        if (
-            argument.arg in supplied
-            or not isinstance(default, ast.Name)
-            or not _is_stable_local_callable(tree, function, default.id, node_index=node_index)
-            or is_suppressed(lines, argument.lineno, code)
-        ):
-            continue
-        findings.append(
-            Diagnostic(
-                path=path,
-                line=argument.lineno,
-                col=argument.col_offset + 1,
-                code=code,
-                severity=Severity.WARNING,
-                message=(
-                    f"No direct caller in this file supplies `{function.name}.{argument.arg}`; use the stable local "
-                    f"callable `{default.id}` in the factory instead of exposing an unused option. Retain it if external callers need it."
+                    else f"None of the test-local callers supplies `{function.name}.{argument.arg}`; keep its literal value in the factory instead of exposing an unused option. Keep the option if it expresses an intentional test contract."
                 ),
             )
         )
@@ -310,6 +300,15 @@ def _factory_argument_is_invariant(argument: ast.arg, default: ast.Constant, bou
     )
 
 
+def _literal_factory_options(function: ast.FunctionDef) -> list[tuple[ast.arg, ast.Constant]]:
+    return [
+        (argument, default)
+        for argument, default in _factory_options(function)
+        if isinstance(default, ast.Constant)
+        and (default.value is None or isinstance(default.value, (str, bytes, int, float)))
+    ]
+
+
 def _factory_options(function: ast.FunctionDef) -> list[tuple[ast.arg, ast.expr]]:
     positional = [*function.args.posonlyargs, *function.args.args]
     defaults = [
@@ -320,39 +319,77 @@ def _factory_options(function: ast.FunctionDef) -> list[tuple[ast.arg, ast.expr]
     return [(argument, default) for argument, default in defaults if argument.arg in used and default is not None]
 
 
-def _literal_factory_options(function: ast.FunctionDef) -> list[tuple[ast.arg, ast.Constant]]:
-    return [
-        (argument, default)
-        for argument, default in _factory_options(function)
-        if isinstance(default, ast.Constant)
-        and (default.value is None or isinstance(default.value, (str, bytes, int, float)))
-    ]
+def _callable_factory_findings(context: PythonFileContext, function: ast.FunctionDef, code: str) -> list[Diagnostic]:
+    tree = context.tree
+    if tree is None:
+        return []
+    options = [(argument, default) for argument, default in _factory_options(function) if isinstance(default, ast.Name)]
+    if not options:
+        return []
+    calls = _direct_calls(tree, function, node_index=context.node_index)
+    if len(calls) < _MIN_INVARIANT_CALLS:
+        return []
+    bound = _bound_calls(function, calls)
+    if bound is None:
+        return []
+    supplied = {name for arguments in bound for name in arguments}
+    rebound = {node.id for node in nodes(function, ast.Name) if not isinstance(node.ctx, ast.Load)}
+    findings: list[Diagnostic] = []
+    for argument, default in options:
+        if (
+            argument.arg in supplied | rebound
+            or not _is_stable_local_callable(context, function, default.id)
+            or is_suppressed(context.source_lines, argument.lineno, code)
+        ):
+            continue
+        findings.append(
+            Diagnostic(
+                path=context.path,
+                line=argument.lineno,
+                col=argument.col_offset + 1,
+                code=code,
+                severity=Severity.WARNING,
+                message=(
+                    f"No known direct caller in this file supplies `{function.name}.{argument.arg}`; consider "
+                    f"using the stable local callable `{default.id}` internally. Preserve default binding timing "
+                    "and retain the option if external callers or an intentional test contract need it."
+                ),
+            )
+        )
+    return findings
 
 
-def _is_stable_local_callable(
-    tree: ast.Module,
-    factory: ast.FunctionDef,
-    name: str,
-    *,
-    node_index: NodeIndex | None = None,
-) -> bool:
-    if not any(
-        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+def _is_stable_local_callable(context: PythonFileContext, factory: ast.FunctionDef, name: str) -> bool:
+    tree = context.tree
+    if tree is None or not any(
+        isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
         and node.name == name
         and node.lineno < factory.lineno
         and not node.decorator_list
         for node in tree.body
-    ) or not _has_unambiguous_factory_name(tree, name, node_index=node_index):
+    ):
+        return False
+    if not _has_unambiguous_factory_name(tree, name, node_index=context.node_index):
         return False
     return not (
-        any(node.id == name and not isinstance(node.ctx, ast.Load) for node in nodes(tree, ast.Name, index=node_index))
+        any(node.id == name and not isinstance(node.ctx, ast.Load) for node in context.nodes(ast.Name))
         or any(
             not isinstance(node.ctx, ast.Load) and any(child.id == name for child in nodes(node.value, ast.Name))
-            for node in nodes(tree, ast.Attribute, index=node_index)
+            for node in context.nodes(ast.Attribute, ast.Subscript)
         )
         or any(
-            isinstance(node.value, str)
-            and (node.value.rsplit(".", 1)[-1] == name or factory.name in node.value.split("."))
-            for node in nodes(tree, ast.Constant, index=node_index)
+            isinstance(node.value, str) and (name in node.value.split(".") or factory.name in node.value.split("."))
+            for node in context.nodes(ast.Constant)
         )
+        or _provider_escapes(context, name)
     )
+
+
+def _provider_escapes(context: PythonFileContext, name: str) -> bool:
+    for node in context.nodes(ast.Name):
+        if node.id != name or not isinstance(node.ctx, ast.Load):
+            continue
+        parent = context.parents.get(node)
+        if not (isinstance(parent, ast.arguments) or (isinstance(parent, ast.Call) and parent.func is node)):
+            return True
+    return False

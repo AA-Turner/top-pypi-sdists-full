@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry_options
-Version: 1.2.13
+Version: 1.2.14
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython

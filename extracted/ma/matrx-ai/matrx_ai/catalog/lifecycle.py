@@ -1,7 +1,7 @@
 """Model lifecycle — the ONE place "deprecated" and "retired" are interpreted at call time.
 
 Ruled by Arman 2026-09-09 (verbatim in
-common-docs/systems/agents/ai-models/DECISIONS.md) after deprecating Gemini 3.7
+common-docs/systems/ai/ai-models/DECISIONS.md) after deprecating Gemini 3.7
 Flash made it vanish platform-wide:
 
 - **deprecated** (`ai.model_definition.is_deprecated`) changes exactly three things:

@@ -9,6 +9,7 @@ from .ad_group_audiences import AdGroupAudiences
 from .ad_group_bid_type import AdGroupBidType
 from .ad_group_budget_type import AdGroupBudgetType
 from .ad_group_conversion_location import AdGroupConversionLocation
+from .ad_group_delivery_schedule import AdGroupDeliverySchedule
 from .ad_group_delivery_status import AdGroupDeliveryStatus
 from .ad_group_demographics import AdGroupDemographics
 from .ad_group_detailed_targeting import AdGroupDetailedTargeting
@@ -187,6 +188,11 @@ class AdGroup(UniversalBaseModel):
     Conversion value attributed to each custom event, keyed by event name like custom_event_counts. Sums the value passed to whop.track, normalized to USD; events fired without a value contribute 0.
     """
 
+    delivery_schedule: typing.Optional[AdGroupDeliverySchedule] = pydantic.Field(default=None)
+    """
+    Hours the ad group delivers in each week, keyed by day. Days it doesn't deliver are omitted. `null` when it delivers at every hour. Some platforms need a lifetime `budget_type` for a schedule, on the ad group or on its campaign when the campaign holds the budget.
+    """
+
     delivery_status: AdGroupDeliveryStatus = pydantic.Field()
     """
     Whether ads in this ad group are delivering right now, and if not, why. When several states apply at once, the highest-precedence one is returned.
@@ -229,7 +235,7 @@ class AdGroup(UniversalBaseModel):
 
     frequency_cap: typing.Optional[AdGroupFrequencyCap] = pydantic.Field(default=None)
     """
-    Cap on how often one person sees ads from this ad group. Only available on campaigns with the `awareness` objective; `null` when uncapped.
+    Cap on how often one person sees ads from this ad group, or from the whole campaign under a campaign budget, where every ad group shares it. Only available when the ad group optimizes for reach or ThruPlay; `null` when uncapped.
     """
 
     id: str = pydantic.Field()

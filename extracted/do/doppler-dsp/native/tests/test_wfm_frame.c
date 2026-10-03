@@ -389,6 +389,8 @@ static const field_ok_t FIELD_OK[] = {
   { "0x1ACFFC1D", WFM_SEQ_LITERAL, 32, 1, 0, 0, 0, 0, "0x1acffc1d" },
   { "0x1acffc1d", WFM_SEQ_LITERAL, 32, 1, 0, 0, 0, 0, "0x1acffc1d" },
   { "0101*3", WFM_SEQ_LITERAL, 4, 3, 0, 0, 0, 0, "0x5*3" },
+  { "data:1024", WFM_SEQ_DATA, 1024, 1, 0, 0, 0, 0, "data:1024" },
+  { "data:0x40*3", WFM_SEQ_DATA, 64, 3, 0, 0, 0, 0, "data:64*3" },
   { "pn:31:5", WFM_SEQ_PN, 31, 1, 5, 0, 0, 0, "pn:31:5" },
   { "pn:31:5*4", WFM_SEQ_PN, 31, 4, 5, 0, 0, 0, "pn:31:5*4" },
   { "pn:010:5", WFM_SEQ_PN, 10, 1, 5, 0, 0, 0, "pn:10:5" },
@@ -463,7 +465,9 @@ static const char *const FIELD_BAD[] = {
   "dotted",                   /* no LEN                                */
   "dotted:16:1",              /* dotted takes only LEN                 */
   "literal:0101",             /* a literal is its bits                 */
-  "data:1024",                /* not supported yet, and said so        */
+  "data",                     /* no LEN                                */
+  "data:0",                   /* a frame's data field carries bits     */
+  "data:8:1",                 /* data takes only LEN                   */
   "prbs:9",                   /* retired name                          */
   "2",                        /* not a bit                             */
   "abc",                      /* not a field                           */
@@ -587,11 +591,18 @@ test_field_text (void)
                     "field_bits refuses what parse refuses");
     }
   {
+    /* data:LEN parses -- it is a field of the frame -- but it has no bits
+       of its own: they come from the frame's data source. So the one door
+       from text to bits refuses it, sizing or rendering, and says why. */
     const char *why = NULL;
-    (void)dp_wfm_field_parse ("data:1024", &(wfm_field_t){ 0 },
-                              &(uint8_t *){ NULL }, &why);
-    DP_CHECK_MSG (why && strstr (why, "data source") != NULL,
-                  "data:LEN is refused by name, not as a typo");
+    uint8_t     b[8];
+    DP_CHECK_MSG (dp_wfm_field_bits ("data:8", NULL, 0, &why) == 0 && why
+                      && strstr (why, "data source") != NULL,
+                  "field_bits sizes a data field as no bits, by name");
+    why = NULL;
+    DP_CHECK_MSG (dp_wfm_field_bits ("data:8", b, sizeof b, &why) == 0 && why
+                      && strstr (why, "data source") != NULL,
+                  "and renders none");
   }
   {
     /* The bound is named, so a caller learns the number, not only "no". */
@@ -789,9 +800,13 @@ test_field_claims (void)
 
   /* Every text the grammar accepts renders, and writes exactly what the
      sizing call said: every accepted row, sized then rendered. (The
-     explore corpus holds the same over 250k texts.) */
+     explore corpus holds the same over 250k texts.) The one exception is
+     a data field, whose bits are its data source's: its refusal is pinned
+     above, by name. */
   for (size_t i = 0; i < sizeof FIELD_OK / sizeof *FIELD_OK; i++)
     {
+      if (FIELD_OK[i].kind == WFM_SEQ_DATA)
+        continue;
       const size_t n = dp_wfm_field_bits (FIELD_OK[i].spec, NULL, 0, NULL);
       uint8_t     *b = dp_xmalloc (n);
       DP_CHECK_MSG (
@@ -894,6 +909,85 @@ test_frame_fixed_claims (void)
   DP_REQUIRE (dp_wfm_frame_fixed (&d, NULL, 0, NULL, &data, -1) == 0);
   DP_CHECK_MSG (d.n_stages == 1 && d.stage[0].kind == WFM_STAGE_CRC16,
                 "any non-zero crc asks for the CRC");
+  return 0;
+}
+
+/* A frame with a data field: the description is complete without the
+   data. Its layout counts the field, a frame carries at most one, and the
+   bits themselves are the data source's to supply -- so a render of the
+   field, and an assemble of the frame, are refused rather than invented. */
+static int
+test_data_field (void)
+{
+  const wfm_seq_t  data = { .kind = WFM_SEQ_DATA, .len = 24 };
+  wfm_frame_desc_t d;
+  DP_REQUIRE (dp_wfm_frame_fixed (&d, NULL, 0, NULL, &data, 1) == 0);
+
+  wfm_frame_desc_layout_t l;
+  DP_CHECK_MSG (dp_wfm_frame_desc_layout (&d, &l) == 0,
+                "a frame with a data field lays out");
+  DP_CHECK_MSG (l.frame_bits == 24u + WFM_FRAME_CRC_BITS,
+                "the data field counts LEN, and the CRC covers it");
+
+  wfm_field_t f = { 0 };
+  f.seq         = data;
+  f.reps        = 2;
+  uint8_t out[64];
+  DP_CHECK_MSG (dp_wfm_field_render (&f, out, sizeof out) == 0,
+                "a data field renders no bits of its own");
+  DP_CHECK_MSG (dp_wfm_seq_bits (&data, out, sizeof out) == 0,
+                "nor does its sequence");
+  DP_CHECK_MSG (dp_wfm_frame_assemble (&d, NULL, out, sizeof out) == 0,
+                "a frame whose data has no source is not assembled");
+
+  /* Given the chunk, the same frame assembles: the data field is the
+     caller's bits at the field's offset, and a stage over it runs over
+     THAT chunk -- a CRC per frame over its own data. */
+  uint8_t chunk[24];
+  for (size_t i = 0; i < 24; i++)
+    chunk[i] = (uint8_t)((i * 7u + 3u) % 5u == 0);
+  DP_CHECK_MSG (dp_wfm_frame_assemble_data (&d, NULL, NULL, out, sizeof out)
+                    == 0,
+                "no chunk, no frame: the data field is still refused");
+  DP_REQUIRE_MSG (dp_wfm_frame_assemble_data (&d, NULL, chunk, out, sizeof out)
+                      == 24u + WFM_FRAME_CRC_BITS,
+                  "with its chunk, a data frame assembles");
+  DP_CHECK_MSG (memcmp (out, chunk, 24) == 0,
+                "the data field is the chunk, at its offset");
+  const uint16_t crc = dp_crc16_ccitt (chunk, 24);
+  for (size_t i = 0; i < 16; i++)
+    DP_CHECK_MSG (out[24 + i] == ((crc >> (15u - i)) & 1u),
+                  "and the CRC covers that chunk");
+
+  /* A frame with no data field ignores the chunk: it is the plain
+     assemble, bit for bit. */
+  const wfm_seq_t  lit = { .kind = WFM_SEQ_DOTTED, .len = 12 };
+  wfm_frame_desc_t nd;
+  DP_REQUIRE (dp_wfm_frame_fixed (&nd, NULL, 0, NULL, &lit, 1) == 0);
+  uint8_t      o1[64], o2[64];
+  const size_t n1 = dp_wfm_frame_assemble (&nd, NULL, o1, sizeof o1);
+  DP_CHECK_MSG (
+      n1 > 0
+          && dp_wfm_frame_assemble_data (&nd, NULL, chunk, o2, sizeof o2) == n1
+          && memcmp (o1, o2, n1) == 0,
+      "no data field: assemble_data is assemble");
+
+  /* A repeated data field is ONE draw of LEN bits sent REPS times in its
+     frame -- frame-description.md §F.1 ("a repeat is invariant ... it
+     never draws new data") and §F.5. So it lays out at LEN * REPS and is
+     still one data field, not REPS of them. */
+  wfm_frame_desc_t rep = { 0 };
+  DP_REQUIRE (dp_wfm_frame_add_field (&rep, "payload", &data, 3) == 0);
+  DP_CHECK_MSG (dp_wfm_frame_desc_layout (&rep, &l) == 0
+                    && l.field_bits[0] == 3u * 24u && l.frame_bits == 72u,
+                "data:24*3 lays out at 72 bits, as one data field");
+
+  wfm_frame_desc_t two = { 0 };
+  DP_REQUIRE (dp_wfm_frame_add_field (&two, "a", &data, 1) == 0);
+  DP_REQUIRE (dp_wfm_frame_add_field (&two, "b", &data, 1) == 1);
+  DP_CHECK_MSG (dp_wfm_frame_desc_layout (&two, &l) == -1,
+                "a frame draws from ONE data source: two data fields are "
+                "refused");
   return 0;
 }
 
@@ -2060,6 +2154,8 @@ main (void)
   if (test_dsss_nchips ())
     return 1;
   if (test_field_text ())
+    return 1;
+  if (test_data_field ())
     return 1;
   if (test_field_claims ())
     return 1;

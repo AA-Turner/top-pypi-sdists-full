@@ -71,7 +71,7 @@ import re
 import time
 import zipfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -145,6 +145,17 @@ __all__ = [
     "xlsx_filename",
     "EXPORT_FORMATS",
     "report_filename",
+    "PublicExportError",
+    "PUBLIC_PRIVATE_REPO_LABEL",
+    "redact_report_for_public",
+    "load_public_allowlist",
+    "has_cost_columns",
+    "has_basis_note",
+    "assert_public_export_allowed",
+    "run_public_export",
+    "result_to_public_html",
+    "public_html_filename",
+    "public_csv_filename",
 ]
 
 
@@ -289,6 +300,19 @@ class ColumnMeta:
     reasonable cell: ``kind`` says how to format it, ``align``/``weight``
     say how to lay out the column.  ``id`` matches the corresponding
     ``columns[]`` entry (and order matches too), so a client can zip them.
+
+    ``basis`` (#3471) is additive and empty (``""``) on every non-cost
+    column.  On a cost column (a ``kind="money"`` figure that sums
+    ``cost_usd`` — ``cost_captured``/``cost_est``/``cost_total`` in
+    ``usage``, ``cost_total`` in ``completed``/``issue-cost``,
+    ``cost_per_issue`` in ``trend``) it carries the fleet's configured
+    ``reporting.cost_basis`` (:class:`coord.config.ReportingConfig`) —
+    ``"api_equivalent"`` by default, or ``"billed"`` when the operator
+    asserts the fleet actually pays per-call API rates.  The point: a chart
+    screenshotted out of context for external use still states what its
+    dollar figure actually represents instead of silently implying real
+    billed spend.  A client that predates the field ignores the key and
+    renders the number exactly as before.
     """
 
     id: str
@@ -299,6 +323,7 @@ class ColumnMeta:
     kind: str
     align: str = "left"  # "left" | "right"
     weight: float = 1.0  # relative column width hint
+    basis: str = ""  # "" (not a cost column) | "api_equivalent" | "billed"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -307,7 +332,38 @@ class ColumnMeta:
             "kind": self.kind,
             "align": self.align,
             "weight": self.weight,
+            "basis": self.basis,
         }
+
+
+def _stamp_cost_basis(
+    column_meta: Sequence[ColumnMeta], cost_basis: str, cost_columns: frozenset[str]
+) -> list[ColumnMeta]:
+    """Return *column_meta* with ``basis`` set to ``cost_basis`` on every
+    entry whose ``id`` is in *cost_columns*, unchanged otherwise (#3471).
+
+    The module-level ``*_COLUMN_META`` constants (``COMPLETED_COLUMN_META``,
+    ``TREND_COLUMN_META``, ``ISSUE_COST_COLUMN_META``, the ``usage`` columns
+    built from ``_USAGE_COLUMN_META``) stay basis-free templates: the actual
+    value is config-driven (``reporting.cost_basis``) and not known until a
+    report actually runs, so stamping it here — once, at fold time — is the
+    ONE place that does it, rather than every fold duplicating the same
+    ``replace()`` call inline.
+    """
+    return [
+        replace(m, basis=cost_basis) if m.id in cost_columns else m
+        for m in column_meta
+    ]
+
+
+#: Default ``reporting.cost_basis`` (#3471) — mirrors
+#: :class:`coord.config.ReportingConfig`'s own default verbatim, kept here
+#: too so a bare ``fold_*`` call (this module's own unit tests, the common
+#: case) gets the same honest default the daemon's loaded config would,
+#: without importing :mod:`coord.config` at module scope (every other
+#: config read in this module is a deferred import for the same reason —
+#: see :func:`_load_pricing`).
+DEFAULT_COST_BASIS = "api_equivalent"
 
 
 # ── chart declaration (#2271) ──────────────────────────────────────────────
@@ -1052,8 +1108,14 @@ def run_issue_activity(
 # `(generated_at, generated_at)`.  `drive_queue` has no `completed_at` and
 # `coord/drive_queue.py` emits no audit events, so there is no data source
 # for a queue *history* report — see this issue's "Out of scope".
+#
+# #1909: the rows are ordered by LIFECYCLE BAND, not by raw `position` — see
+# `_drive_queue_lifecycle_sort_key` below. `band` is a derived display column
+# (not a `drive_queue` row field) naming which of the three bands a row fell
+# into, so a client never has to infer it from `state` alone.
 
 DRIVE_QUEUE_STATUS_COLUMNS = [
+    "band",
     "position",
     "repo",
     "issue",
@@ -1072,6 +1134,12 @@ DRIVE_QUEUE_STATUS_COLUMNS = [
 
 # One entry per DRIVE_QUEUE_STATUS_COLUMNS entry, same order (#1760).
 DRIVE_QUEUE_STATUS_COLUMN_META = [
+    # #1909: the band an entry's row was sorted into — "terminal" (done and
+    # the other states in `TERMINAL_QUEUE_STATES`), "running", or "pending"
+    # (everything still waiting to launch). Named distinctly from `state`
+    # because several raw states fold into one band (`done`/`merged-partial`/
+    # `blocked`/`failed` all read `terminal`).
+    ColumnMeta(id="band", label="Band", kind="enum"),
     ColumnMeta(id="position", label="Pos", kind="int", align="right"),
     ColumnMeta(id="repo", label="Repo", kind="text"),
     ColumnMeta(id="issue", label="Issue", kind="int", align="right"),
@@ -1095,6 +1163,70 @@ DRIVE_QUEUE_STATUS_COLUMN_META = [
 # attempt is the thing an operator most wants shouted at them.
 _RETRIED_ATTEMPTS_THRESHOLD = 1
 
+# #1909: the three lifecycle bands, in display order. "terminal" (done and
+# the rest of `TERMINAL_QUEUE_STATES`) sorts first, then "running", then
+# "pending" — literally the order the issue names them in, not "what the
+# operator probably cares about most" (that question belongs to #1866's
+# live Queue panel, not this report).
+_LIFECYCLE_BAND_RANK = {"terminal": 0, "running": 1, "pending": 2}
+
+
+def _drive_queue_lifecycle_band(
+    state: str, terminal_states: frozenset[str], running_state: str
+) -> str:
+    """The #1909 band label for one row's raw ``state``.
+
+    Always one of ``"terminal"``/``"running"``/``"pending"`` — never
+    anything else — so a client can switch on it exhaustively without a
+    fallback case. ``hold_state`` (a fired deploy gate) is deliberately NOT
+    consulted here: it is orthogonal to ``state`` (see `coord/drive_queue.py`
+    around `HOLD_FIRED`) — a held entry's `state` stays `waiting`, so it
+    already lands in `pending` without any extra check, which is exactly
+    the issue's "waiting (and any held)" wording.
+    """
+    if state == running_state:
+        return "running"
+    if state in terminal_states:
+        return "terminal"
+    return "pending"
+
+
+def _drive_queue_lifecycle_sort_key(row: Mapping[str, Any]) -> tuple[int, float, int]:
+    """#1909's row ordering: ``(band rank, recency/0, position)``.
+
+    * **terminal** — most-recently-finished first. The recency proxy is
+      whichever of ``reason_at`` / ``launched_at`` / ``enqueued_at`` is
+      present, in that priority. ``reason_at`` is stamped by
+      ``_update_drive_queue_entry_local`` on every ``last_reason`` write, and
+      every call site in ``coord/drive_queue.py`` that flips a row terminal
+      writes ``last_reason`` in the SAME update (e.g. every
+      ``_merge_landed_state`` caller) — so ``reason_at`` reads as "when this
+      row last changed", which for a terminal row IS when it finished.
+      Negated so the largest (most recent) timestamp sorts first; a row
+      with none of the three (predates the columns) falls back to ``0.0``,
+      the oldest possible reading, and ties within that are broken by
+      ``position`` descending (the more recently enqueued of two
+      equally-undated rows is still the newer one).
+    * **running** — no ordering requirement from the issue; broken by
+      ``position`` ascending for determinism (typically a single row).
+    * **pending** — ``position`` ascending, exactly the order
+      ``plan_tick``'s launch walk (`_resolve_prereqs` in
+      `coord/drive_queue.py`) will reach them. This is the band the issue
+      calls "the important one".
+    """
+    band = row["band"]
+    position = int(row["position"])
+    if band == "terminal":
+        recency = row.get("reason_at")
+        if recency is None:
+            recency = row.get("launched_at")
+        if recency is None:
+            recency = row.get("enqueued_at")
+        if recency is None:
+            recency = 0.0
+        return (_LIFECYCLE_BAND_RANK[band], -float(recency), -position)
+    return (_LIFECYCLE_BAND_RANK[band], 0.0, position)
+
 
 def fold_drive_queue_status(
     entries: Iterable[Mapping[str, Any]],
@@ -1111,21 +1243,42 @@ def fold_drive_queue_status(
     caller's clock reading, reused verbatim for both ends of ``window`` since
     a live snapshot has no meaningful range.
 
-    ``entries`` arrives pre-ordered (``list_drive_queue`` is
-    ``ORDER BY position, id``) — this fold does not re-sort.
+    ``entries`` arrives pre-ordered (``list_drive_queue`` is ``ORDER BY
+    position, id``), but **this fold DOES re-sort** (#1909) — deliberately
+    relaxing the "never re-sorts" contract this docstring used to state.
+    Raw `position` order interleaves finished work with what hasn't run
+    yet, which reads as noise (see the issue's own reproduction). Output
+    rows are grouped into three lifecycle bands instead — terminal (done
+    and the rest of `TERMINAL_QUEUE_STATES`, most-recently-finished first),
+    running, then pending (everything else, ascending `position` — the
+    exact order `plan_tick`'s launch walk, `_resolve_prereqs` in
+    `coord/drive_queue.py`, will reach them). See
+    :func:`_drive_queue_lifecycle_sort_key` for the exact key. Each row
+    also carries a derived ``band`` column naming which band it landed in.
     """
+    from coord.drive_queue import (  # noqa: PLC0415
+        STATE_BLOCKED,
+        STATE_DONE,
+        STATE_FAILED,
+        STATE_RUNNING,
+        STATE_WAITING,
+        TERMINAL_QUEUE_STATES,
+    )
+
     title_map = dict(titles or {})
     rows: list[dict[str, Any]] = []
     for entry in entries:
         repo = str(entry.get("repo_name") or "")
         issue = int(entry.get("issue_number") or 0)
+        state = entry.get("state") or ""
         rows.append(
             {
+                "band": _drive_queue_lifecycle_band(state, TERMINAL_QUEUE_STATES, STATE_RUNNING),
                 "position": int(entry.get("position") or 0),
                 "repo": repo,
                 "issue": issue,
                 "title": title_map.get((repo, issue)),
-                "state": entry.get("state") or "",
+                "state": state,
                 "machine": entry.get("machine") or "",
                 "attempts": int(entry.get("attempts") or 0),
                 "deferrals": int(entry.get("deferrals") or 0),
@@ -1151,19 +1304,16 @@ def fold_drive_queue_status(
             }
         )
 
+    # #1909: lifecycle-band order, not the raw `position`/`id` order
+    # `entries` arrived in — see `_drive_queue_lifecycle_sort_key`. `position`
+    # is unique per entry, so the key never actually ties; `sort`'s stability
+    # only matters if a future band grows a coarser key.
+    rows.sort(key=_drive_queue_lifecycle_sort_key)
+
     notes: list[str] = []
     if not rows:
         notes.append("The drive queue is empty.")
     else:
-        from coord.drive_queue import (  # noqa: PLC0415
-            STATE_BLOCKED,
-            STATE_DONE,
-            STATE_FAILED,
-            STATE_RUNNING,
-            STATE_WAITING,
-            TERMINAL_QUEUE_STATES,
-        )
-
         counts: dict[str, int] = {}
         for r in rows:
             counts[r["state"]] = counts.get(r["state"], 0) + 1
@@ -1953,6 +2103,11 @@ def _usage_stage_breakdown(
     return stages
 
 
+#: #3471 — the ``usage`` columns a ``basis`` belongs on: every dollar figure,
+#: none of the counts/tokens/durations around them.
+_USAGE_COST_COLUMNS = frozenset({"cost_captured", "cost_est", "cost_total"})
+
+
 def fold_usage(
     rows: Iterable[Mapping[str, Any]],
     window: Any,
@@ -1961,6 +2116,7 @@ def fold_usage(
     pricing: Any = None,
     generated_at: float | None = None,
     extra_notes: Sequence[str] = (),
+    cost_basis: str = DEFAULT_COST_BASIS,
 ) -> ReportResult:
     """Fold board assignment rows into a per-issue / per-repo cost rollup.
 
@@ -1974,6 +2130,10 @@ def fold_usage(
     *pricing* left at ``None`` falls through to ``usage_rollup``'s own
     built-in defaults, which is correct for a unit test and **not** what the
     runner does (see :func:`run_usage`, which loads ``coordinator.yml``).
+
+    *cost_basis* (#3471) is stamped onto every cost column's ``ColumnMeta``
+    and named in the standard coverage note appended to ``notes`` — see
+    :func:`_stamp_cost_basis` / :func:`_capture_coverage_note`.
     """
     from coord.usage_rollup import IssueKey, rollup  # noqa: PLC0415
 
@@ -2030,13 +2190,22 @@ def fold_usage(
             f"{totals['open_legs']} leg(s) in this window are still running — "
             "their duration counts as 0 and their cost is not final."
         )
+    # #3471: the standard coverage line, over every leg that fed `totals`
+    # (i.e. `result.total.leg_rows` — the window/group_by/repo-filtered set
+    # this report's own `rollup` call just aggregated), so the dollar share
+    # it quotes matches the dollars this report actually shows.
+    coverage_note = _capture_coverage_note(result.total.leg_rows, pricing, cost_basis)
+    if coverage_note:
+        notes.append(coverage_note)
 
     return ReportResult(
         report_id="usage",
         generated_at=end if generated_at is None else float(generated_at),
         window=(start, end),
         columns=columns,
-        column_meta=[_USAGE_COLUMN_META[c] for c in columns],
+        column_meta=_stamp_cost_basis(
+            [_USAGE_COLUMN_META[c] for c in columns], cost_basis, _USAGE_COST_COLUMNS
+        ),
         rows=out_rows,
         notes=notes,
         totals=totals,
@@ -2060,27 +2229,36 @@ def _default_usage_rows(repo: str | None) -> list[dict]:  # noqa: ARG001
     return SqliteStore().list_assignments()
 
 
-def _load_pricing() -> tuple[Any, list[str]]:
-    """The ``pricing:`` block from the loaded ``coordinator.yml``.
+def _load_pricing() -> tuple[Any, str, list[str]]:
+    """The ``pricing:`` and ``reporting.cost_basis`` settings from the loaded
+    ``coordinator.yml``.
 
-    Returns ``(PricingConfig, notes)``.  A config that cannot be loaded falls
-    back to the built-in defaults **and says so in ``notes``** — silently
-    falling back is exactly the failure mode #1763 exists to remove.
+    Returns ``(PricingConfig, cost_basis, notes)`` — both off the SAME loaded
+    :class:`~coord.config.Config` in one read (#3471), so a config that
+    cannot be loaded only reports ONE "could not be loaded" warning, not two
+    disagreeing ones, and the two values can never be evaluated against two
+    different configs. A config that cannot be loaded falls back to the
+    built-in pricing defaults and ``"api_equivalent"`` (:data:`DEFAULT_COST_
+    BASIS`) and **says so in ``notes``** — silently falling back is exactly
+    the failure mode #1763 exists to remove, and #3471 extends that rule to
+    the cost basis.
     """
     from coord.config import PricingConfig  # noqa: PLC0415
 
     try:
         from coord.config import load, resolve_config_path  # noqa: PLC0415
 
-        return load(resolve_config_path()).pricing, []
+        cfg = load(resolve_config_path())
+        return cfg.pricing, cfg.reporting.cost_basis, []
     except Exception as exc:  # noqa: BLE001 — surfaced as a note, not a crash
         return (
             PricingConfig(),
+            DEFAULT_COST_BASIS,
             [
                 "WARNING: coordinator.yml could not be loaded "
                 f"({type(exc).__name__}: {exc}) — `cost_est` uses the built-in "
                 "default rates, which may differ from this fleet's `pricing:` "
-                "block."
+                f"block, and the cost basis defaults to `{DEFAULT_COST_BASIS}`."
             ],
         )
 
@@ -2093,9 +2271,11 @@ def run_usage(
     now: float | None = None,
     fetch: Callable[[str | None], Sequence[Mapping[str, Any]]] | None = None,
     pricing: Any = None,
+    cost_basis: str | None = None,
 ) -> ReportResult:
-    """Fetch board rows and fold them.  ``now``/``fetch``/``pricing`` are test
-    seams; the report's own parameters are ``window``/``group_by``/``repo``."""
+    """Fetch board rows and fold them.  ``now``/``fetch``/``pricing``/
+    ``cost_basis`` are test seams; the report's own parameters are
+    ``window``/``group_by``/``repo``."""
     generated_at = time.time() if now is None else float(now)
     resolved = resolve_usage_window(window, generated_at)
 
@@ -2104,9 +2284,16 @@ def run_usage(
     if repo:
         rows = [r for r in rows if str(r.get("repo_name") or "") == repo]
 
+    # Same seam, same reason as `pricing` (#1763) — #3471 extends it to the
+    # cost basis stamped on every cost column. One `_load_pricing()` call
+    # covers whichever of the two the caller left unset.
     extra_notes: list[str] = []
-    if pricing is None:
-        pricing, extra_notes = _load_pricing()
+    if pricing is None or cost_basis is None:
+        loaded_pricing, loaded_basis, extra_notes = _load_pricing()
+        if pricing is None:
+            pricing = loaded_pricing
+        if cost_basis is None:
+            cost_basis = loaded_basis
 
     return fold_usage(
         rows,
@@ -2115,6 +2302,7 @@ def run_usage(
         pricing=pricing,
         generated_at=generated_at,
         extra_notes=extra_notes,
+        cost_basis=cost_basis,
     )
 
 
@@ -2793,8 +2981,9 @@ COMPLETED_COLUMN_META = [
 
 def _completed_spend(
     assignment_rows: Sequence[Mapping[str, Any]], pricing: Any
-) -> dict[tuple[str, int], dict[str, Any]]:
-    """Per-issue ``legs``/tokens/cost, keyed ``(repo_name, issue_number)``.
+) -> tuple[dict[tuple[str, int], dict[str, Any]], dict[tuple[str, int], list[dict]]]:
+    """``(spend, leg_rows)`` — per-issue ``legs``/tokens/cost, plus the raw
+    leg rows that produced them, both keyed ``(repo_name, issue_number)``.
 
     A thin adapter over :func:`coord.usage_rollup.rollup`, **not** a second
     cost calculator: the pricing rules, the captured-vs-estimated split and
@@ -2813,6 +3002,12 @@ def _completed_spend(
     ``usage`` reports for the same issue, so the cost columns must use
     ``usage``'s attribution rule.  The timestamps keep #2454's, which is a
     port of ``completed_rows``.
+
+    ``leg_rows`` (#3471) is the raw leg rows behind each issue's numbers —
+    not shipped on the wire itself, but what :func:`fold_completed` feeds
+    :func:`_capture_coverage_note` for its own standard coverage line, over
+    exactly the legs that fed the `cost_total` it shows, no more and no
+    less.
     """
     from coord.usage_rollup import IssueKey, TimeWindow, rollup  # noqa: PLC0415
 
@@ -2841,11 +3036,14 @@ def _completed_spend(
         pricing=pricing,
     )
     spend: dict[tuple[str, int], dict[str, Any]] = {}
+    leg_rows: dict[tuple[str, int], list[dict]] = {}
     for key, group in result.groups.items():
         if not isinstance(key, IssueKey) or not key.repo_name:
             continue
-        spend[(str(key.repo_name), int(key.issue_number))] = _usage_metrics(group)
-    return spend
+        ikey = (str(key.repo_name), int(key.issue_number))
+        spend[ikey] = _usage_metrics(group)
+        leg_rows[ikey] = group.leg_rows
+    return spend, leg_rows
 
 
 def _merged_at_by_issue(
@@ -2913,6 +3111,7 @@ def fold_completed(
     generated_at: float | None = None,
     pricing: Any = None,
     extra_notes: Sequence[str] = (),
+    cost_basis: str = DEFAULT_COST_BASIS,
 ) -> ReportResult:
     """Fold the board's own tables into one row per issue that *finished*
     inside ``window``.
@@ -2927,6 +3126,12 @@ def fold_completed(
     runner does — :func:`run_completed` loads ``coordinator.yml`` and passes
     the real ``pricing:`` block, the same seam :func:`fold_usage` uses and for
     the same #1763 reason.
+
+    *cost_basis* (#3471) is stamped onto ``cost_total``'s ``ColumnMeta`` and
+    named in the standard coverage note — see :func:`_stamp_cost_basis` /
+    :func:`_capture_coverage_note`. :func:`fold_trend` (#2826) folds THIS
+    function's own rows rather than re-deriving cost, so passing it through
+    here is also what gives ``trend`` the identical note, for free.
     """
     start, end = window
     generated_at = time.time() if generated_at is None else float(generated_at)
@@ -2970,7 +3175,7 @@ def fold_completed(
             if value is not None and value > last_finish.get(key, float("-inf")):
                 last_finish[key] = value
 
-    spend = _completed_spend(assignment_rows, pricing)
+    spend, spend_leg_rows = _completed_spend(assignment_rows, pricing)
 
     rows: list[dict] = []
     no_end_time = 0
@@ -3052,13 +3257,27 @@ def fold_completed(
             "coordinator.yml, or run the `usage` report for the per-issue "
             "breakdown."
         )
+    # #3471: the standard coverage line, over exactly the legs behind the
+    # shown rows' `cost_total` (every leg of every issue that made it into
+    # `rows` — not every assignment ever fetched, which would include
+    # issues this window dropped).
+    shown_legs = [
+        leg
+        for r in rows
+        for leg in spend_leg_rows.get((r["repo"], r["issue"]), ())
+    ]
+    coverage_note = _capture_coverage_note(shown_legs, pricing, cost_basis)
+    if coverage_note:
+        notes.append(coverage_note)
 
     return ReportResult(
         report_id="completed",
         generated_at=generated_at,
         window=(start, end),
         columns=list(COMPLETED_COLUMNS),
-        column_meta=list(COMPLETED_COLUMN_META),
+        column_meta=_stamp_cost_basis(
+            COMPLETED_COLUMN_META, cost_basis, frozenset({"cost_total"})
+        ),
         rows=rows,
         notes=notes,
     )
@@ -3092,15 +3311,18 @@ def _default_completed_source() -> tuple[list[dict], list[dict], list[dict]]:
         # counts, the captured `cost_usd`, the `model` its estimate is keyed
         # by, and `for_issue_number` for #1553's attribution. `type` is NOT
         # selected: it only feeds `usage`'s per-stage drill-down, which this
-        # report does not emit.
+        # report does not emit. `cost_capture_state` (#3471) IS selected —
+        # `_capture_coverage_note`'s classifier (`_leg_capture_bucket`) reads
+        # it as the authoritative #3158 tri-state before falling back to
+        # `leg_cost`, the same rule `issue-cost` already applies.
         assignments = [
             dict(r)
             for r in sql.execute(
                 conn,
                 "SELECT repo_name, issue_number, for_issue_number, "
                 "dispatched_at, finished_at, input_tokens, output_tokens, "
-                "cache_read_tokens, cache_creation_tokens, cost_usd, model "
-                "FROM assignments",
+                "cache_read_tokens, cache_creation_tokens, cost_usd, model, "
+                "cost_capture_state FROM assignments",
             ).fetchall()
         ]
         merge_queue = [
@@ -3126,11 +3348,13 @@ def run_completed(
         Sequence[Mapping[str, Any]],
     ]] | None = None,
     pricing: Any = None,
+    cost_basis: str | None = None,
 ) -> ReportResult:
-    """Read the board and fold it.  ``now``/``source``/``pricing`` are test
-    seams (mirrors :func:`run_issue_activity`); the report's own parameters are
-    ``since``/``until``/``repo`` — the same three, with the same vocabulary
-    and the same validators, that ``issue-activity`` uses."""
+    """Read the board and fold it.  ``now``/``source``/``pricing``/
+    ``cost_basis`` are test seams (mirrors :func:`run_issue_activity`); the
+    report's own parameters are ``since``/``until``/``repo`` — the same
+    three, with the same vocabulary and the same validators, that
+    ``issue-activity`` uses."""
     generated_at = time.time() if now is None else float(now)
     end = parse_timestamp(until) if until else generated_at
     start = end - parse_duration(since)
@@ -3140,10 +3364,14 @@ def run_completed(
     # Same seam, same reason as `run_usage`: the estimated half of `cost_total`
     # has to be priced off the fleet's OWN `pricing:` block, and a config that
     # could not be loaded says so in a note instead of silently falling back
-    # (#1763).
+    # (#1763). #3471 extends this to the cost basis stamped on `cost_total`.
     extra_notes: list[str] = []
-    if pricing is None:
-        pricing, extra_notes = _load_pricing()
+    if pricing is None or cost_basis is None:
+        loaded_pricing, loaded_basis, extra_notes = _load_pricing()
+        if pricing is None:
+            pricing = loaded_pricing
+        if cost_basis is None:
+            cost_basis = loaded_basis
 
     return fold_completed(
         issues,
@@ -3154,6 +3382,7 @@ def run_completed(
         generated_at=generated_at,
         pricing=pricing,
         extra_notes=extra_notes,
+        cost_basis=cost_basis,
     )
 
 
@@ -3270,6 +3499,7 @@ def fold_trend(
     generated_at: float | None = None,
     pricing: Any = None,
     extra_notes: Sequence[str] = (),
+    cost_basis: str = DEFAULT_COST_BASIS,
 ) -> ReportResult:
     """Bucket MERGED issues (see the #2826 section comment above for the
     exact definition) into fixed-width buckets ending at ``window_end``, one
@@ -3287,6 +3517,14 @@ def fold_trend(
     ``range``, but shadowing the builtin in a function that needs to call
     ``range()`` in the bucket loop below is a trap, not a style nit; see
     :func:`run_trend`, which owns the ``range`` name at the wire boundary.
+
+    *cost_basis* (#3471) is passed straight through to the ``fold_completed``
+    call below, so the SAME standard coverage note (over the exact
+    merged-issue legs this fold buckets, across the widened trailing window)
+    rides along in ``completed.notes`` and ends up in ``trend``'s own
+    ``notes`` with no separate computation — one question ("what did these
+    legs cost, and how completely do we know it"), one function answering
+    it, reused rather than re-derived (#2096).
     """
     bucket_seconds, point_count = resolve_trend_range(range_)
     window_end = float(window_end)
@@ -3306,6 +3544,7 @@ def fold_trend(
         repo=repo,
         generated_at=generated_at,
         pricing=pricing,
+        cost_basis=cost_basis,
     )
 
     bucket_starts = _period_bounds(window_start, window_end, bucket_seconds)
@@ -3381,7 +3620,9 @@ def fold_trend(
         generated_at=generated_at,
         window=(window_start, window_end),
         columns=list(TREND_COLUMNS),
-        column_meta=list(TREND_COLUMN_META),
+        column_meta=_stamp_cost_basis(
+            TREND_COLUMN_META, cost_basis, frozenset({"cost_per_issue"})
+        ),
         rows=rows,
         notes=notes,
     )
@@ -3399,10 +3640,11 @@ def run_trend(
         Sequence[Mapping[str, Any]],
     ]] | None = None,
     pricing: Any = None,
+    cost_basis: str | None = None,
 ) -> ReportResult:
-    """Read the board and fold it.  ``now``/``source``/``pricing`` are test
-    seams (mirrors :func:`run_completed`); the report's own parameters are
-    ``range``/``until``/``repo``."""
+    """Read the board and fold it.  ``now``/``source``/``pricing``/
+    ``cost_basis`` are test seams (mirrors :func:`run_completed`); the
+    report's own parameters are ``range``/``until``/``repo``."""
     generated_at = time.time() if now is None else float(now)
     window_end = parse_timestamp(until) if until else generated_at
     # Same source as `completed` — the merged-issue fold this report buckets
@@ -3413,10 +3655,15 @@ def run_trend(
     # Same seam, same reason as `run_completed`/`run_usage`: the estimated
     # half of `cost_per_issue` has to be priced off the fleet's OWN
     # `pricing:` block, and a config that could not be loaded says so in a
-    # note instead of silently falling back (#1763).
+    # note instead of silently falling back (#1763). #3471 extends this to
+    # the cost basis stamped on `cost_per_issue`.
     extra_notes: list[str] = []
-    if pricing is None:
-        pricing, extra_notes = _load_pricing()
+    if pricing is None or cost_basis is None:
+        loaded_pricing, loaded_basis, extra_notes = _load_pricing()
+        if pricing is None:
+            pricing = loaded_pricing
+        if cost_basis is None:
+            cost_basis = loaded_basis
 
     return fold_trend(
         issues,
@@ -3428,6 +3675,7 @@ def run_trend(
         generated_at=generated_at,
         pricing=pricing,
         extra_notes=extra_notes,
+        cost_basis=cost_basis,
     )
 
 
@@ -3522,10 +3770,16 @@ def _issue_cost_stage_for_leg(leg_type: str, *, is_fix_round: bool) -> str:
     return "other"
 
 
-def _issue_cost_capture_bucket(row: Mapping[str, Any], pricing: Any) -> str:
+def _leg_capture_bucket(row: Mapping[str, Any], pricing: Any) -> str:
     """Classify ONE leg's cost-capture coverage into ``captured`` /
-    ``estimated`` / ``unmeasured`` (#3158's tri-state; #3470's coverage
-    column).
+    ``estimated`` / ``unmeasured`` (#3158's tri-state; #3470's ``issue-cost``
+    coverage column; #3471's standard coverage note shared by all four
+    cost-bearing reports — ``usage``, ``completed``, ``trend``,
+    ``issue-cost``).  One classifier, called from everywhere a leg's
+    coverage is asked about, per this repo's own #2096 "one question, one
+    answer" rule — `issue-cost`'s per-row ``coverage_pct`` and every
+    report's #3471 note both resolve a leg's bucket here, never a second
+    reimplementation that could silently disagree with this one.
 
     ``cost_capture_state`` is authoritative when set — ``"captured"``
     (written alongside a real ``cost_usd`` by
@@ -3555,6 +3809,81 @@ def _issue_cost_capture_bucket(row: Mapping[str, Any], pricing: Any) -> str:
     return "unmeasured"
 
 
+def _capture_coverage_note(
+    leg_rows: Sequence[Mapping[str, Any]], pricing: Any, cost_basis: str
+) -> str | None:
+    """The standard #3471 coverage line every cost-bearing report appends to
+    its own ``notes``: how many of the legs behind its dollar figure are
+    ``captured`` / ``estimated`` / ``unmeasured`` (:func:`_leg_capture_bucket`
+    — the SAME classifier ``issue-cost``'s own ``coverage_pct`` column uses,
+    per #2096's "one question, one answer"), and the SHARE of the shown
+    dollar total each bucket represents — not just a leg count, since 3.8k
+    of 14.1k all-time legs having no captured cost (the number this issue
+    opens with) says little about whether that 27% is 27% of the MONEY too.
+
+    Returns ``None`` when *leg_rows* is empty — nothing to report coverage
+    over; callers already have their own "no usage/no issues" note for that
+    case and this would just be a second, redundant way of saying it.
+
+    *pricing* left at ``None`` resolves to the built-in
+    :class:`~coord.config.PricingConfig` defaults — same fallback
+    :func:`~coord.usage_rollup.rollup` itself applies, so a caller that
+    passes ``None`` through (a unit test that never loaded a config) gets
+    the identical rates its own `cost_total` was already priced with,
+    rather than a crash on ``None.rates_for``.
+    """
+    from coord.config import PricingConfig  # noqa: PLC0415
+    from coord.usage_rollup import leg_cost  # noqa: PLC0415
+
+    resolved_pricing = PricingConfig() if pricing is None else pricing
+
+    captured_legs = estimated_legs = unmeasured_legs = 0
+    captured_cost = 0.0
+    estimated_cost = 0.0
+    for row in leg_rows:
+        bucket = _leg_capture_bucket(row, resolved_pricing)
+        captured, est, _unknown = leg_cost(dict(row), resolved_pricing)
+        if bucket == "captured":
+            captured_legs += 1
+        elif bucket == "estimated":
+            estimated_legs += 1
+        else:
+            unmeasured_legs += 1
+        captured_cost += captured
+        estimated_cost += est
+
+    total_legs = captured_legs + estimated_legs + unmeasured_legs
+    if total_legs == 0:
+        return None
+
+    total_cost = captured_cost + estimated_cost
+    captured_share = (captured_cost / total_cost * 100.0) if total_cost else 0.0
+    estimated_share = (estimated_cost / total_cost * 100.0) if total_cost else 0.0
+    if cost_basis == "billed":
+        # #3471 review: the "billed" basis asserts `cost_usd` IS real money
+        # charged (ReportingConfig's own docstring) — the note must not then
+        # turn around and deny that in the same breath. Only the
+        # "api_equivalent" (default) basis gets the list-price-not-billed
+        # caveat; "billed" gets its own, non-contradictory sentence.
+        basis_sentence = (
+            f"Cost basis: `{cost_basis}` (see column_meta `basis`) — "
+            "`cost_usd` is asserted to be real money billed to the fleet."
+        )
+    else:
+        basis_sentence = (
+            f"Cost basis: `{cost_basis}` (see column_meta `basis`) — "
+            "`cost_usd` is what `claude -p` reports, an API-list-price "
+            "equivalent, not necessarily money billed."
+        )
+    return (
+        f"{basis_sentence} Coverage: "
+        f"{captured_legs} leg(s) captured ({captured_share:.1f}% of the $ "
+        f"shown), {estimated_legs} estimated ({estimated_share:.1f}%), "
+        f"{unmeasured_legs} unmeasured (contributes $0, 0% of the $ shown) "
+        f"of {total_legs} leg(s) total."
+    )
+
+
 #: What a row gets when nothing was ever dispatched against its issue — a
 #: real zero/`None`, not a missing key (same convention `_COMPLETED_NO_LEGS`
 #: uses).
@@ -3579,12 +3908,19 @@ def fold_issue_cost(
     generated_at: float | None = None,
     pricing: Any = None,
     extra_notes: Sequence[str] = (),
+    cost_basis: str = DEFAULT_COST_BASIS,
 ) -> ReportResult:
     """Fold full-history board rows into one row per issue's whole-life cost.
 
     Pure — same posture as :func:`fold_completed`: every input is a plain
     sequence of mappings, no DB, no clock beyond the explicit
     ``generated_at``/``now`` seam.
+
+    *cost_basis* (#3471) is stamped onto ``cost_total``'s ``ColumnMeta`` and
+    named in the standard coverage note, computed here from the SAME
+    per-leg ``captured_legs``/``estimated_legs``/``unmeasured_legs`` tally
+    this fold already accumulates for ``coverage_pct`` — see
+    :func:`_leg_capture_bucket` / :func:`_capture_coverage_note`.
 
     ``status`` (default ``"merged"``) narrows which issues get a row:
     ``"merged"`` only issues `_merged_at_by_issue` confirms landed,
@@ -3662,6 +3998,10 @@ def fold_issue_cost(
     keys |= set(merged_at)
 
     rows: list[dict[str, Any]] = []
+    # #3471: every leg behind a SHOWN row, flattened — fed to
+    # `_capture_coverage_note` below for the standard coverage line, over
+    # exactly the legs whose cost this report's rows actually display.
+    shown_legs: list[dict] = []
     no_end_time = 0
     for key in keys:
         name, number = key
@@ -3716,6 +4056,7 @@ def fold_issue_cost(
             if started_at is None or ended_at is None
             else max(0.0, ended_at - started_at)
         )
+        shown_legs.extend(leg_rows)
 
         legs_by_stage: dict[str, int] = {s: 0 for s in _ISSUE_COST_STAGES}
         cost_by_stage: dict[str, float] = {s: 0.0 for s in _ISSUE_COST_STAGES}
@@ -3740,7 +4081,7 @@ def fold_issue_cost(
             model_bucket["legs"] += 1
             model_bucket["cost_total"] += leg_total
 
-            capture_bucket = _issue_cost_capture_bucket(leg, resolved_pricing)
+            capture_bucket = _leg_capture_bucket(leg, resolved_pricing)
             if capture_bucket == "captured":
                 captured_legs += 1
             elif capture_bucket == "estimated":
@@ -3862,6 +4203,14 @@ def fold_issue_cost(
             "lower bound, not the whole story: some leg(s) contributed "
             "neither a captured nor an estimated cost."
         )
+    # #3471: the standard coverage line, shared verbatim with
+    # `usage`/`completed`/`trend` — over `shown_legs`, the exact legs behind
+    # the `cost_total` these rows display, so its dollar-share arithmetic is
+    # never asked to agree with `partial_coverage`'s per-issue leg counts
+    # above by coincidence; both read `_leg_capture_bucket`.
+    coverage_note = _capture_coverage_note(shown_legs, resolved_pricing, cost_basis)
+    if coverage_note:
+        notes.append(coverage_note)
 
     totals: dict[str, Any] | None = None
     if rows:
@@ -3888,7 +4237,9 @@ def fold_issue_cost(
         generated_at=generated_at,
         window=(start, end),
         columns=list(ISSUE_COST_COLUMNS),
-        column_meta=list(ISSUE_COST_COLUMN_META),
+        column_meta=_stamp_cost_basis(
+            ISSUE_COST_COLUMN_META, cost_basis, frozenset({"cost_total"})
+        ),
         rows=rows,
         notes=notes,
         totals=totals,
@@ -3979,11 +4330,12 @@ def run_issue_cost(
         Sequence[Mapping[str, Any]],
     ]] | None = None,
     pricing: Any = None,
+    cost_basis: str | None = None,
 ) -> ReportResult:
-    """Read the board and fold it.  ``now``/``source``/``pricing`` are test
-    seams (mirrors :func:`run_completed`); the report's own parameters are
-    ``since``/``until``/``repo``/``status``.  ``since="all"`` means no lower
-    bound at all — the whole history."""
+    """Read the board and fold it.  ``now``/``source``/``pricing``/
+    ``cost_basis`` are test seams (mirrors :func:`run_completed`); the
+    report's own parameters are ``since``/``until``/``repo``/``status``.
+    ``since="all"`` means no lower bound at all — the whole history."""
     generated_at = time.time() if now is None else float(now)
     end = parse_timestamp(until) if until else generated_at
     start = 0.0 if since == "all" else end - parse_duration(since)
@@ -3993,10 +4345,15 @@ def run_issue_cost(
     # Same seam, same reason as `run_completed`/`run_usage`: the estimated
     # half of `cost_total` has to be priced off the fleet's OWN `pricing:`
     # block, and a config that could not be loaded says so in a note instead
-    # of silently falling back (#1763).
+    # of silently falling back (#1763). #3471 extends this to the cost basis
+    # stamped on `cost_total`.
     extra_notes: list[str] = []
-    if pricing is None:
-        pricing, extra_notes = _load_pricing()
+    if pricing is None or cost_basis is None:
+        loaded_pricing, loaded_basis, extra_notes = _load_pricing()
+        if pricing is None:
+            pricing = loaded_pricing
+        if cost_basis is None:
+            cost_basis = loaded_basis
 
     return fold_issue_cost(
         issues,
@@ -4008,6 +4365,7 @@ def run_issue_cost(
         generated_at=generated_at,
         pricing=pricing,
         extra_notes=extra_notes,
+        cost_basis=cost_basis,
     )
 
 
@@ -4340,11 +4698,12 @@ DRIVE_QUEUE_STATUS = ReportDef(
     id="drive-queue-status",
     title="Drive Queue Status",
     description=(
-        "A live snapshot of the drive queue — one row per queued entry in "
-        "run order, with its state, machine pin, attempts/deferrals and the "
-        "tick's own last_reason. A snapshot, not a history: `drive_queue` "
-        "has no `completed_at`, so this shows what is queued now, not what "
-        "the queue has processed."
+        "A live snapshot of the drive queue — one row per queued entry, "
+        "grouped by lifecycle band (terminal, then running, then pending in "
+        "the order it will actually run), with its state, machine pin, "
+        "attempts/deferrals and the tick's own last_reason. A snapshot, not "
+        "a history: `drive_queue` has no `completed_at`, so this shows what "
+        "is queued now, not what the queue has processed."
     ),
     params=(
         ReportParam(
@@ -5165,6 +5524,555 @@ EXPORT_FORMATS: dict[str, ExportFormat] = {
         filename=xlsx_filename,
     ),
 }
+
+
+# ── public export (#3474) ──────────────────────────────────────────────────
+#
+# "Public" means OUTSIDE the fleet: someone evaluating the tool, or marketing
+# material quoting "cost per merged issue". That audience must never see a
+# private repo's name, an issue title, or an issue number — only the repos an
+# operator has explicitly named in `reporting.public.allowlist_repos`
+# (:class:`coord.config.PublicReportingConfig`) may appear verbatim; every
+# other repo's rows are redacted into one aggregate "private repo" row.
+#
+# Three pieces, same separation of concerns as the rest of this module:
+# `redact_report_for_public` is the **pure** fold (a `ReportResult` + an
+# allowlist in, a redacted `ReportResult` out — no config load, no I/O, unit
+# tests against a fixture result); `run_public_export` is the runner (loads
+# the allowlist off `coordinator.yml`, runs the report, redacts, and refuses
+# to produce a cost-bearing number with no stated basis); `result_to_public_
+# html` is the one new serialisation — a self-contained static HTML page,
+# sibling to `result_to_csv`/`result_to_xlsx` but never fed an
+# un-redacted result.
+
+#: The one row every non-allowlisted repo's rows collapse into.
+PUBLIC_PRIVATE_REPO_LABEL = "private repo"
+
+
+class PublicExportError(ReportError):
+    """A public export was refused — not a bad request against the report
+    engine itself (the report ran fine), but a redaction-policy refusal:
+    today, only "this report carries a cost figure but no basis/coverage
+    note survived redaction" (#3474: "a public number with no stated basis
+    is not produced"). The CLI and the daemon both turn this into a clean
+    error, never a traceback — same convention as :class:`ReportError`,
+    which this subclasses."""
+
+
+def _public_row_identity_columns(
+    report: ReportDef | None, columns: Sequence[str]
+) -> tuple[str | None, str | None, str | None]:
+    """Which of *columns* hold a row's repo / issue / title, for redaction.
+
+    Prefers the report's own declared :class:`RowIdentity` (#2454) — the
+    SAME per-row identity the coord-tui panel's "View on Board" navigation
+    reads, per #2096's "one question, one answer": this must not grow a
+    second, independently-drifting idea of which column is "the repo".
+    Falls back to the ``repo``/``issue``/``title`` names every report in
+    this module uses by convention, for a report that declares no
+    ``row_identity`` at all (``drive-queue-status``, ``decisions``, ...) or
+    when called with ``report=None`` (a bare ``ReportResult`` fixture).
+
+    This identifies only the row's OWN ``(repo, issue)`` — it says nothing
+    about ``"repo#issue"``-shaped cross-references a row may *embed* in a
+    ``list``/``text`` column (``queue-outcomes``' ``issues``, ``decisions``'
+    ``downstream``, ``drive-queue-status``'s ``after``). Those are scrubbed
+    separately by :func:`_redact_repo_issue_refs`, run over every row
+    regardless of whether this function found a repo column at all.
+    """
+    if report is not None and report.row_identity is not None:
+        repo_col: str | None = report.row_identity.repo_column
+        issue_col: str | None = report.row_identity.issue_column
+    else:
+        repo_col = "repo" if "repo" in columns else None
+        issue_col = "issue" if "issue" in columns else None
+    title_col = "title" if "title" in columns else None
+    return repo_col, issue_col, title_col
+
+
+def _redact_repo_issue_refs(value: Any, allowed: frozenset[str]) -> Any:
+    """Scrub ``"repo#issue"``-shaped strings naming a non-allowlisted repo
+    out of *value* (#3474 review).
+
+    Targets exactly the shape :func:`coord.drive_queue.entry_key` produces
+    and :func:`coord.drive_queue.parse_key` parses back — the cross-
+    reference strings ``queue-outcomes``' ``issues``, ``decisions``'
+    ``downstream`` and ``drive-queue-status``'s ``after`` columns embed for
+    OTHER rows/entries, which a row's own ``(repo, issue)`` redaction (see
+    :func:`_public_row_identity_columns`) never inspects. A list value has
+    each matching, non-allowlisted element replaced with
+    :data:`PUBLIC_PRIVATE_REPO_LABEL` (count preserved, identity dropped);
+    every non-matching element (a plain machine name, an option dict, ...)
+    passes through untouched so this never disturbs a column that merely
+    happens to also be ``kind: list``. Anything other than a list (a lone
+    string, ``None``, ...) passes through untouched — ``repo``/``issue``/
+    ``title`` are already handled by the row-identity path, and a free-text
+    column (``why``, ``last_reason``) can embed a private name in prose no
+    regex here safely disambiguates from an unrelated word.
+    """
+    if not isinstance(value, list):
+        return value
+    from coord.drive_queue import parse_key  # noqa: PLC0415
+
+    out: list[Any] = []
+    for item in value:
+        if isinstance(item, str):
+            parsed = parse_key(item)
+            if parsed is not None and parsed[0] not in allowed:
+                out.append(PUBLIC_PRIVATE_REPO_LABEL)
+                continue
+        out.append(item)
+    return out
+
+
+def _redact_row_repo_issue_refs(
+    row: Mapping[str, Any],
+    columns: Sequence[str],
+    column_meta: Mapping[str, Mapping[str, Any]],
+    allowed: frozenset[str],
+) -> dict[str, Any]:
+    """Apply :func:`_redact_repo_issue_refs` to every ``kind: list`` column
+    of *row*. Run over EVERY row — kept, dropped-into-the-private-bucket, or
+    (when the report has no row identity at all) the only pass a row gets —
+    so a cross-reference embedded in an otherwise-kept row can never survive
+    redaction unscrubbed (#3474 review)."""
+    out = dict(row)
+    for c in columns:
+        if (column_meta.get(c) or {}).get("kind") == "list":
+            out[c] = _redact_repo_issue_refs(out.get(c), allowed)
+    return out
+
+
+def _accumulate_private_row(
+    bucket: dict[str, Any],
+    row: Mapping[str, Any],
+    columns: Sequence[str],
+    column_meta: Mapping[str, Mapping[str, Any]],
+    skip: frozenset[str],
+) -> None:
+    """Fold one redacted row into the running "private repo" aggregate.
+
+    ``int``/``money`` columns sum (a count or a dollar figure is still
+    honest once aggregated); ``list`` columns union (so e.g. a redacted
+    ``machines`` column still names real machines, which are fleet
+    infrastructure, not private repo data); every other kind — ``title`` by
+    construction, plus any ``text``/``enum``/``timestamp`` column this
+    report happens to carry — blanks to ``None`` rather than guessing at a
+    sane aggregate, since "first value wins" would silently pick one
+    private repo's value to represent all of them.
+
+    *column_meta* is the wire ``to_dict()`` shape (plain ``dict`` per
+    column, keyed by ``id``), not :class:`ColumnMeta` instances — this fold
+    runs identically whether the result came from an in-process
+    :func:`run_report` or an already-JSON-decoded daemon response.
+    """
+    for c in columns:
+        if c in skip:
+            continue
+        meta = column_meta.get(c) or {}
+        kind = meta.get("kind")
+        value = row.get(c)
+        if kind in ("int", "money"):
+            try:
+                total = float(bucket.get(c) or 0.0) + float(value or 0.0)
+            except (TypeError, ValueError):
+                bucket.setdefault(c, None)
+                continue
+            bucket[c] = int(total) if kind == "int" else total
+        elif kind == "list":
+            existing = list(bucket.get(c) or [])
+            for v in value or ():
+                if v not in existing:
+                    existing.append(v)
+            bucket[c] = existing
+        else:
+            bucket.setdefault(c, None)
+
+
+def _redact_notes(notes: Sequence[str], private_names: frozenset[str]) -> list[str]:
+    """Drop any note that names one of *private_names* verbatim.
+
+    Free-text notes (:func:`_derive_notes`'s anomalies are keyed
+    ``f"{repo}#{issue}: ..."``) are the one place a redacted repo's name
+    could otherwise leak straight back into a "redacted" export. The #3471
+    cost-basis/coverage note names no repo at all, so it always survives
+    this filter untouched — which is exactly the "carries the cost basis +
+    coverage... verbatim" requirement.
+
+    Over-redacting (dropping a note whose text merely CONTAINS a private
+    repo's name, e.g. as a substring of an unrelated word) is the safe
+    failure mode for a PUBLIC export — unlike every other report note,
+    there is no second chance to catch a leak here.
+    """
+    if not private_names:
+        return list(notes)
+    return [
+        note
+        for note in notes
+        if not any(name and name in note for name in private_names)
+    ]
+
+
+def redact_report_for_public(
+    result: "ReportResult | Mapping[str, Any]",
+    *,
+    allowed_repos: Iterable[str],
+    report: ReportDef | None = None,
+) -> dict[str, Any]:
+    """Redact *result* for sharing outside the fleet (#3474).
+
+    **Pure** — no config load, no I/O; *allowed_repos* is the caller's
+    already-resolved allowlist (:func:`run_public_export` loads it off
+    ``coordinator.yml``). Accepts a :class:`ReportResult` OR its
+    ``to_dict()`` shape (same convention as ``result_to_csv`` et al) and
+    always returns the wire dict — this is what lets the SAME redaction run
+    in-process (:func:`run_public_export`) or client-side over an
+    already-fetched daemon response (``coord report export --public`` on a
+    thin client never needs a second, DB-backed redaction path).
+
+    Every row whose repo (per :func:`_public_row_identity_columns`) is not
+    in *allowed_repos* is dropped from the output and folded into a single
+    aggregate :data:`PUBLIC_PRIVATE_REPO_LABEL` row (see
+    :func:`_accumulate_private_row`); its issue/title columns, when the
+    report has them, are blanked to ``None``. Rows about an allowlisted
+    repo pass through **restricted to the result's own declared
+    ``columns``** — any extra per-row key (``first_event_at``, the raw
+    ``session_name``, ...) is dropped unconditionally, allowlisted or not,
+    so a field nobody has audited against this policy can never leak
+    through it even for a named repo. EVERY row — kept, folded into the
+    private bucket, or (no row identity) passed through as-is — also has
+    :func:`_redact_row_repo_issue_refs` applied first, so a ``"repo#issue"``
+    cross-reference embedded in a ``list`` column (``decisions``'
+    ``downstream``, ``drive-queue-status``'s ``after``, ``queue-outcomes``'
+    ``issues``) naming a different, non-allowlisted repo cannot ride along
+    inside an otherwise-kept row (#3474 review).
+
+    A report with no per-row repo identity at all (no declared
+    ``row_identity`` and no conventional ``repo`` column — ``queue-
+    outcomes``' period/bucket aggregates, or the release parity matrix,
+    keyed by a single ``repo`` *parameter* rather than a per-row repo) has
+    nothing a ROW-identity redaction can act on; its rows still get the
+    same "``columns``-only" trim PLUS the :func:`_redact_row_repo_issue_refs`
+    scrub below, and its notes are left untouched since nothing here can
+    tell whether free text names a private repo.
+    """
+    data = result.to_dict() if isinstance(result, ReportResult) else dict(result)
+    allowed = frozenset(allowed_repos)
+    columns = [str(c) for c in (data.get("columns") or [])]
+    column_meta = {
+        str(m.get("id")): m
+        for m in (data.get("column_meta") or [])
+        if isinstance(m, Mapping)
+    }
+    repo_col, issue_col, title_col = _public_row_identity_columns(report, columns)
+
+    if repo_col is None or repo_col not in columns:
+        rows = [
+            _redact_row_repo_issue_refs(
+                {c: (row or {}).get(c) for c in columns}, columns, column_meta, allowed
+            )
+            for row in (data.get("rows") or [])
+        ]
+        data["rows"] = rows
+        return data
+
+    skip = frozenset(c for c in (repo_col, issue_col, title_col) if c)
+    kept_rows: list[dict[str, Any]] = []
+    private_bucket: dict[str, Any] = {}
+    private_names: set[str] = set()
+    had_private = False
+    for row in data.get("rows") or []:
+        raw_row = {c: (row or {}).get(c) for c in columns}
+        raw_row = _redact_row_repo_issue_refs(raw_row, columns, column_meta, allowed)
+        repo_value = raw_row.get(repo_col)
+        if repo_value in allowed:
+            kept_rows.append(raw_row)
+            continue
+        had_private = True
+        if repo_value:
+            private_names.add(str(repo_value))
+        _accumulate_private_row(private_bucket, raw_row, columns, column_meta, skip)
+
+    if had_private:
+        private_bucket[repo_col] = PUBLIC_PRIVATE_REPO_LABEL
+        if issue_col:
+            private_bucket[issue_col] = None
+        if title_col:
+            private_bucket[title_col] = None
+        kept_rows.append(private_bucket)
+
+    data["rows"] = kept_rows
+    data["notes"] = _redact_notes(data.get("notes") or [], frozenset(private_names))
+    return data
+
+
+def load_public_allowlist() -> frozenset[str]:
+    """The fleet's ``reporting.public.allowlist_repos``, best-effort.
+
+    Inverse stance from :func:`_load_pricing`: THAT seam falls back to
+    built-in pricing defaults when ``coordinator.yml`` cannot be loaded,
+    because a wrong price estimate is recoverable. A public export has no
+    such safe non-empty fallback — a config that fails to load returns the
+    EMPTY allowlist, i.e. "redact everything", the only default a PUBLIC
+    export can fail closed on.
+    """
+    try:
+        from coord.config import load, resolve_config_path  # noqa: PLC0415
+
+        cfg = load(resolve_config_path())
+        return frozenset(cfg.reporting.public.allowlist_repos)
+    except Exception:  # noqa: BLE001 — fail CLOSED: unreadable config => redact everything
+        return frozenset()
+
+
+def has_cost_columns(column_meta: Iterable[Mapping[str, Any]]) -> bool:
+    """Does any entry of a wire ``column_meta`` list carry a non-empty
+    ``basis`` (#3471) — i.e. is this result's dollar figure a cost column
+    at all? Shared by :func:`run_public_export` and the CLI's client-side
+    redaction path so both apply the exact same "refuse an unstated public
+    cost number" rule (#2096: one question, one answer)."""
+    return any((m.get("basis") or "") for m in column_meta)
+
+
+def has_basis_note(notes: Iterable[str]) -> bool:
+    """Did the #3471 standard cost-basis/coverage note survive redaction?
+    Shared the same way as :func:`has_cost_columns`."""
+    return any(str(n).startswith("Cost basis:") for n in notes)
+
+
+def assert_public_export_allowed(redacted: Mapping[str, Any], report_id: str) -> None:
+    """Raise :class:`PublicExportError` when *redacted* carries a cost
+    column but no basis/coverage note survived redaction (#3474: "a public
+    number with no stated basis is not produced"). The ONE place this rule
+    is enforced — :func:`run_public_export` and ``coord report export
+    --public``'s client-side path both call this, rather than each
+    re-deriving the same check.
+    """
+    column_meta = redacted.get("column_meta") or []
+    notes = redacted.get("notes") or []
+    if has_cost_columns(column_meta) and not has_basis_note(notes):
+        raise PublicExportError(
+            f"report {report_id!r} carries a cost figure but no cost-basis/"
+            "coverage note survived redaction — refusing to produce a public "
+            "number with no stated basis (#3474)."
+        )
+
+
+def run_public_export(
+    report_id: str,
+    params: Mapping[str, Any] | None = None,
+    *,
+    allowed_repos: Iterable[str] | None = None,
+    **injected: Any,
+) -> dict[str, Any]:
+    """Run *report_id*, then redact it for public sharing (#3474).
+
+    ``allowed_repos`` is a test/caller seam; ``None`` (the normal case)
+    resolves it off the loaded ``coordinator.yml`` via
+    :func:`load_public_allowlist`. ``**injected`` passes straight through
+    to :func:`run_report` (mirrors every ``run_*``'s own test seams, e.g.
+    an injected ``fetch=``).
+
+    Raises :class:`PublicExportError` via :func:`assert_public_export_allowed`
+    when the report carries a cost column (``column_meta[].basis`` set,
+    #3471) but no basis/coverage note survived redaction.
+    """
+    report = REPORTS.get(report_id)
+    if report is None:
+        raise UnknownReportError(
+            f"unknown report {report_id!r} — known reports: "
+            f"{', '.join(sorted(REPORTS))}"
+        )
+    result = run_report(report_id, params, **injected)
+    allowed = load_public_allowlist() if allowed_repos is None else frozenset(allowed_repos)
+    redacted = redact_report_for_public(result, allowed_repos=allowed, report=report)
+    assert_public_export_allowed(redacted, report_id)
+    return redacted
+
+
+def _public_html_escape(value: Any) -> str:
+    import html as _html  # noqa: PLC0415 — only this function needs it
+
+    return _html.escape("" if value is None else str(value), quote=True)
+
+
+#: Minimal, dependency-free port of ``reports.html``'s own
+#: ``buildSeriesData``/``buildChartOption`` (#2271/#3473) — same two chart
+#: shapes (`group_by is None`: one point per row; `group_by` set: a pivot,
+#: cells summed, an empty cell is 0), kept in lockstep deliberately so a
+#: screenshot of this page and of the live dashboard for the same
+#: `ReportResult` never disagree. Reads the inlined `REPORT` blob this
+#: module writes below — no fetch, no build step, so the page still renders
+#: its chart offline once the (pinned, CDN) echarts script has loaded once.
+_PUBLIC_CHART_JS = """
+function buildSeriesData(chart, rows) {
+  if (!chart.group_by) {
+    const categories = rows.map((r) => r[chart.x]);
+    const series = chart.series.map((s) => ({
+      name: s.label,
+      type: chart.kind === 'sparkline' ? 'line' : chart.kind,
+      data: rows.map((r) => Number(r[s.column]) || 0),
+      showSymbol: chart.kind !== 'sparkline',
+    }));
+    return { categories, series };
+  }
+  const categories = [];
+  const seenX = new Set();
+  for (const r of rows) {
+    const x = r[chart.x];
+    if (!seenX.has(x)) { seenX.add(x); categories.push(x); }
+  }
+  const groups = [];
+  const seenG = new Set();
+  for (const r of rows) {
+    const g = r[chart.group_by];
+    if (!seenG.has(g)) { seenG.add(g); groups.push(g); }
+  }
+  const template = chart.series[0];
+  const series = groups.map((g) => {
+    const data = categories.map((x) => {
+      let sum = 0;
+      for (const r of rows) {
+        if (r[chart.group_by] === g && r[chart.x] === x) sum += Number(r[template.column]) || 0;
+      }
+      return sum;
+    });
+    return { name: String(g), type: chart.kind === 'sparkline' ? 'line' : chart.kind, data, showSymbol: chart.kind !== 'sparkline' };
+  });
+  return { categories, series };
+}
+(function () {
+  const chart = REPORT.chart;
+  const rows = REPORT.result.rows;
+  const { categories, series } = buildSeriesData(chart, rows);
+  const el = echarts.init(document.getElementById('chart'), null, { renderer: 'canvas' });
+  el.setOption({
+    backgroundColor: 'transparent',
+    textStyle: { color: '#c9d1d9' },
+    title: chart.title ? { text: chart.title, textStyle: { color: '#e6edf3', fontSize: 13 } } : undefined,
+    legend: series.length > 1 ? { textStyle: { color: '#8b949e' } } : undefined,
+    grid: { top: 36, bottom: 32, left: 48, right: 16 },
+    xAxis: { type: 'category', data: categories, axisLabel: { color: '#8b949e' }, axisLine: { lineStyle: { color: '#30363d' } } },
+    yAxis: { type: 'value', name: chart.y_label || undefined, axisLabel: { color: '#8b949e' }, axisLine: { lineStyle: { color: '#30363d' } }, splitLine: { lineStyle: { color: '#21262d' } } },
+    series,
+  });
+})();
+"""
+
+
+def result_to_public_html(result: "ReportResult | Mapping[str, Any]") -> str:
+    """Self-contained static HTML for a #3474 public export.
+
+    Takes an ALREADY-REDACTED result (:func:`run_public_export`'s return,
+    or a caller's own :func:`redact_report_for_public` call) — this
+    function does no redaction itself; it only renders. The report id,
+    window, table (``columns``/``column_meta``/``rows``/``totals``) and
+    EVERY ``notes`` entry — the basis/coverage note included, verbatim —
+    are inlined as plain HTML text, so the page is readable with no
+    JavaScript at all. A declared ``chart`` (#2271) adds one further,
+    OPTIONAL piece: a pinned-CDN ECharts ``<script>`` plus the minimal
+    renderer in :data:`_PUBLIC_CHART_JS`, reading the SAME inlined data —
+    never a second copy, and never required for the table/notes to render.
+    """
+    data = result.to_dict() if isinstance(result, ReportResult) else dict(result)
+    columns = [str(c) for c in (data.get("columns") or [])]
+    meta_by_id = {
+        str(m.get("id")): m
+        for m in (data.get("column_meta") or [])
+        if isinstance(m, Mapping)
+    }
+    labels = [str((meta_by_id.get(c) or {}).get("label") or c) for c in columns]
+    rows = list(data.get("rows") or [])
+    window = data.get("window") or [None, None]
+
+    header_html = "".join(f"<th>{_public_html_escape(l)}</th>" for l in labels)
+    body_rows_html = []
+    for row in rows:
+        row = row if isinstance(row, Mapping) else {}
+        cells = "".join(
+            f"<td>{_public_html_escape(_csv_cell(row.get(c)))}</td>" for c in columns
+        )
+        body_rows_html.append(f"<tr>{cells}</tr>")
+
+    totals = data.get("totals")
+    totals_html = ""
+    if isinstance(totals, Mapping):
+        cells = "".join(
+            f"<td>{_public_html_escape(_csv_cell(totals.get(c)))}</td>" for c in columns
+        )
+        totals_html = f"<tfoot><tr>{cells}</tr></tfoot>"
+
+    notes_html = "".join(
+        f"<li>{_public_html_escape(n)}</li>" for n in (data.get("notes") or [])
+    )
+
+    chart = data.get("chart")
+    chart_html = ""
+    if isinstance(chart, Mapping) and chart.get("kind") in CHART_KINDS:
+        payload = json.dumps(
+            {"result": {"rows": rows}, "chart": dict(chart)},
+            default=str,
+            sort_keys=False,
+        )
+        # #3474 review: `json.dumps` does not escape `/`, so a row value
+        # containing a literal `</script>` (an allowlisted repo's issue
+        # title is attacker-/contributor-controlled and rendered here raw)
+        # would otherwise break out of the inline `<script>` block below and
+        # inject arbitrary markup into a page whose whole purpose is to be
+        # handed to an audience OUTSIDE the trust boundary. Escaping every
+        # `<` as its JS unicode escape is valid inside both a JS string
+        # literal's source text and a bare numeric/object literal, and
+        # un-does the ONE character that can open a new HTML tag — so this
+        # also neutralises `<!--`/`<script`/`<style` breakouts, not just
+        # `</script>`.
+        payload = payload.replace("<", "\\u003c")
+        chart_html = (
+            '<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/'
+            'dist/echarts.min.js"></script>\n'
+            '<div id="chart" style="width:100%;height:360px"></div>\n'
+            f"<script>\nconst REPORT = {payload};\n{_PUBLIC_CHART_JS}\n</script>\n"
+        )
+
+    report_id = _public_html_escape(data.get("report_id"))
+    generated = _public_html_escape(_iso(data.get("generated_at")))
+    window_html = _public_html_escape(f"{_iso(window[0])} to {_iso(window[1])}")
+
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en"><head><meta charset="utf-8">'
+        f"<title>coord public report — {report_id}</title>"
+        "<style>"
+        "body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;"
+        "color:#c9d1d9;padding:16px;line-height:1.5}"
+        "table{border-collapse:collapse;width:100%;font-size:0.9em}"
+        "th,td{border-bottom:1px solid #30363d;padding:6px 8px;text-align:left}"
+        "tfoot td{font-weight:600;border-top:2px solid #30363d}"
+        "li{color:#d29922}"
+        "</style></head><body>"
+        f"<h1>coord public report — {report_id}</h1>"
+        f"<p>window: {window_html} &middot; generated: {generated}</p>"
+        + chart_html
+        + "<table><thead><tr>" + header_html + "</tr></thead><tbody>"
+        + "".join(body_rows_html) + "</tbody>" + totals_html + "</table>"
+        + "<h2>Notes</h2><ul>" + notes_html + "</ul>"
+        + "</body></html>\n"
+    )
+
+
+def public_html_filename(result: "ReportResult | Mapping[str, Any]") -> str:
+    """``issue-cost-20260804-1130.public.html`` — the suggested download
+    name, sharing :func:`report_filename`'s stamp logic with a ``.public``
+    marker so it can never be confused with an un-redacted export of the
+    same run."""
+    data = result.to_dict() if isinstance(result, ReportResult) else dict(result)
+    return report_filename(data, "public.html")
+
+
+def public_csv_filename(result: "ReportResult | Mapping[str, Any]") -> str:
+    """Same ``.public`` marker as :func:`public_html_filename`, for the CSV
+    half of the same export."""
+    data = result.to_dict() if isinstance(result, ReportResult) else dict(result)
+    return report_filename(data, "public.csv")
 
 
 # ── release parity matrix (#3488) ──────────────────────────────────────────

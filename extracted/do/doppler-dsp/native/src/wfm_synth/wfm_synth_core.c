@@ -241,7 +241,42 @@ dp_wfm_synth_set_bits (dp_wfm_synth_state_t *state, const uint8_t *bits,
   state->n_bits  = n;
   state->bit_idx = 0;
   state->bit_mod = modulation;
+  /* A new pattern is a new source: whatever refill fed the old one no
+     longer describes these bits. */
+  (void)dp_wfm_synth_set_refill (state, NULL, NULL, NULL);
   return 0;
+}
+
+int
+dp_wfm_synth_set_refill (dp_wfm_synth_state_t *state, wfm_synth_refill_fn fn,
+                         void *user, void (*free_user) (void *))
+{
+  /* A pattern the bit cursor plays: a bits frame, a dsss burst's chips
+     (each burst one frame of the source), or a continuous dsss stream's
+     payload, read a bit per data symbol. A continuous stream with no
+     payload (code-only, or its own PRBS) has nothing to refill. */
+  const int dsss = state->wtype == WFM_SYNTH_DSSS
+                   && (!(state->chips_per_symbol > 0.0)
+                       || state->data_mode == WFM_DSSS_DATA_BITS);
+  if (fn
+      && ((state->wtype != WFM_SYNTH_BITS && !dsss) || !state->bits
+          || !state->n_bits))
+    return -1;
+  if (state->refill_free)
+    state->refill_free (state->refill_user);
+  state->refill      = fn;
+  state->refill_user = user;
+  state->refill_free = fn ? free_user : NULL;
+  state->data_ended  = 0;
+  if (!fn && state->bit_idx >= state->n_bits)
+    state->bit_idx = 0; /* detached at a boundary: cycle from the top */
+  return 0;
+}
+
+int
+dp_wfm_synth_data_ended (const dp_wfm_synth_state_t *state)
+{
+  return state->data_ended != 0;
 }
 
 int
@@ -261,6 +296,8 @@ dp_wfm_synth_set_dsss_chips (dp_wfm_synth_state_t *state, const uint8_t *chips,
   state->n_bits  = n_chips;
   state->bit_idx = 0;
   state->bit_mod = 1; /* chips are always BPSK (0 → +1, 1 → −1) */
+  /* A new burst is a new source, as a new bits pattern is. */
+  (void)dp_wfm_synth_set_refill (state, NULL, NULL, NULL);
   return 0;
 }
 
@@ -308,9 +345,12 @@ dp_wfm_synth_set_dsss_cont (dp_wfm_synth_state_t *state, const uint8_t *code,
   state->bits             = data_copy; /* NULL unless WFM_DSSS_DATA_BITS */
   state->n_bits           = (data_mode == WFM_DSSS_DATA_BITS) ? n_data : 0;
   state->bit_mod          = 1; /* chips are always BPSK (0 -> +1, 1 -> -1) */
-  state->chip_n           = 0;
-  state->sym_idx          = 0;
-  state->cur_data         = 0;
+  state->bit_idx          = 0; /* the payload is read through the cursor */
+  /* A new payload is a new source, as a new bits pattern is. */
+  (void)dp_wfm_synth_set_refill (state, NULL, NULL, NULL);
+  state->chip_n   = 0;
+  state->sym_idx  = 0;
+  state->cur_data = 0;
   return 0;
 }
 
@@ -354,6 +394,8 @@ dp_wfm_synth_destroy (dp_wfm_synth_state_t *state)
     dp_fir_destroy (state->fir);
   if (state->shaper)
     dp_resamp_destroy (state->shaper);
+  if (state->refill_free)
+    state->refill_free (state->refill_user);
   free (state->bits);
   free (state->symbols);
   free (state->code);
@@ -387,8 +429,12 @@ dp_wfm_synth_reset (dp_wfm_synth_state_t *state)
       = (state->wtype == WFM_SYNTH_TONE || state->wtype == WFM_SYNTH_CHIRP)
             ? 1.0f
             : 0.0f;
-  state->cur_im       = 0.0f;
-  state->bit_idx      = 0;   /* rewind the bit pattern */
+  state->cur_im  = 0.0f;
+  state->bit_idx = 0; /* rewind the bit pattern */
+  /* A pattern with no refill is the whole of the data, so rewinding it
+     un-ends it; a pulled source cannot rewind what it has consumed. */
+  if (!state->refill)
+    state->data_ended = 0;
   state->sym_read_idx = 0;   /* rewind the complex-symbol stream */
   state->chirp_ph     = 0.0; /* rewind the sweep; span/slope stay locked */
   state->chirp_n      = 0;
@@ -428,6 +474,11 @@ dp_wfm_synth_reseed_noise (dp_wfm_synth_state_t *state, uint32_t seed)
 size_t
 dp_wfm_synth_state_bytes (const dp_wfm_synth_state_t *s)
 {
+  /* A pulled frame and its source's position are state this blob cannot
+     carry yet (doppler#1681): refused, rather than a blob that resumes the
+     wrong data. */
+  if (s->refill)
+    return 0;
   size_t b = sizeof (dp_state_hdr_t) + sizeof (uint32_t) /* sym_pos      */
              + 2 * sizeof (float)                        /* cur_re/im    */
              + sizeof (uint64_t)                         /* bit_idx      */
@@ -455,6 +506,8 @@ dp_wfm_synth_state_bytes (const dp_wfm_synth_state_t *s)
 void
 dp_wfm_synth_get_state (const dp_wfm_synth_state_t *s, void *blob)
 {
+  if (s->refill)
+    return; /* refused: state_bytes said 0 (doppler#1681) */
   DP_GET_OPEN (WFM_SYNTH_STATE_MAGIC, WFM_SYNTH_STATE_VERSION,
                dp_wfm_synth_state_bytes (s));
   dp_w_u32 (&_w, (uint32_t)s->sym_pos);
@@ -486,6 +539,8 @@ dp_wfm_synth_get_state (const dp_wfm_synth_state_t *s, void *blob)
 int
 dp_wfm_synth_set_state (dp_wfm_synth_state_t *s, const void *blob)
 {
+  if (s->refill)
+    return DP_ERR_INVALID; /* doppler#1681 */
   DP_SET_OPEN (WFM_SYNTH_STATE_MAGIC, WFM_SYNTH_STATE_VERSION,
                dp_wfm_synth_state_bytes (s));
   s->sym_pos = (int)dp_r_u32 (&_r);
@@ -498,6 +553,14 @@ dp_wfm_synth_set_state (dp_wfm_synth_state_t *s, const void *blob)
   s->chip_n       = dp_r_u64 (&_r);
   s->sym_idx      = dp_r_u64 (&_r);
   dp_r_bytes (&_r, &s->cur_data, 1);
+  /* Derived, so not in the blob: a pattern's end is its cursor's, and the
+     next read past it latches it again (a refill refuses serialization). */
+  s->data_ended = 0;
+  /* Derived, so not in the blob: the next symbol's edge, from the one
+     symbol clock (chip 0 recomputes it in the kernel). */
+  if (s->chips_per_symbol > 0.0 && s->chip_n)
+    s->next_edge
+        = dp_wfm_dsss_cont_edge (s->sym_idx + 1u, s->chips_per_symbol);
   dp_r_bytes (&_r, &s->primed, 1);
   uint8_t pres[5];
   dp_r_bytes (&_r, pres, 5);
@@ -619,7 +682,7 @@ dp_wfm_synth_steps (dp_wfm_synth_state_t *state, float _Complex *output,
 
       if (is_bits)
         {
-          /* User bit pattern: per-sample symbol latch from bits[], cycled,
+          /* User bit pattern: per-sample symbol latch from bits[], sent once,
            * with the *same* fused sym*carrier + noise as dp_wfm_synth_step()
            * so the two paths stay byte-identical. With an RRC FIR attached the
            * latched symbols become a symbol-rate impulse train shaped by the
@@ -635,8 +698,10 @@ dp_wfm_synth_steps (dp_wfm_synth_state_t *state, float _Complex *output,
                     {
                       if (is_cont)
                         {
-                          cre = wfm_synth_cont_dsss_chip (state);
-                          cim = 0.0f;
+                          /* a payload's cursor moves in the chip kernel */
+                          cre     = wfm_synth_cont_dsss_chip (state);
+                          bit_idx = state->bit_idx;
+                          cim     = 0.0f;
                         }
                       else if (bits && nb)
                         {
@@ -669,8 +734,10 @@ dp_wfm_synth_steps (dp_wfm_synth_state_t *state, float _Complex *output,
                   {
                     if (is_cont)
                       {
-                        cre = wfm_synth_cont_dsss_chip (state);
-                        cim = 0.0f;
+                        /* a payload's cursor moves in the chip kernel */
+                        cre     = wfm_synth_cont_dsss_chip (state);
+                        bit_idx = state->bit_idx;
+                        cim     = 0.0f;
                       }
                     else if (bits && nb)
                       {

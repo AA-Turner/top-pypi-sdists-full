@@ -59,6 +59,7 @@ class UnifiedConfigModel(BaseModel):
     messages: Any | list[Any] | list[dict[str, Any]]
     system_instruction: str | dict | Any | None = None
     system_prompt_frozen: bool = False
+    system_prompt_spans: list[dict[str, Any]] | None = None
     stream: bool = False
     matrx_model_name: str | None = None
     offering_id: str | None = None  # never populated in 6,485 stored configs

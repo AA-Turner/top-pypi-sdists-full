@@ -6,7 +6,7 @@ The break this catches: strict-CommonMark closing, where the first inner bare
 as prose, and the outer closing ``` opens a phantom code block that swallows
 the assistant's closing sentence. The rule is shared with the frontend's
 splitters (matrx-frontend components/markdown-core/fence-nesting.ts); the
-spec lives once in common-docs/systems/content-ir-system/NESTED-FENCES.md.
+spec lives once in common-docs/systems/architecture/content-ir/FEATURE.md.
 
 Use case: a recycling company's operations lead asks the assistant for a
 README for their pickup-scheduling repository; the answer is a ```markdown

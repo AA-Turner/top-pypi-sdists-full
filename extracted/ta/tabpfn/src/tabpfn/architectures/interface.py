@@ -116,6 +116,11 @@ class PerformanceOptions:
     cache before converting it to its storage dtype.
     """
 
+    kv_cache_follows_attention_grid: bool = False
+    """Store a KV-cache layer at the grid its attention backend left the keys and
+    values on (``kv_grid_dtype``), when there is one, instead of ``kv_cache_dtype``.
+    """
+
 
 class ArchitectureModule(Protocol):
     """Interface that modules containing model architectures should implement."""
@@ -143,24 +148,38 @@ class ArchitectureModule(Protocol):
         """
         ...
 
-    def get_architecture(
-        self,
-        config: ArchitectureConfig,
-        *,
-        cache_trainset_representation: bool,
-    ) -> Architecture:
+    def get_architecture(self, config: ArchitectureConfig) -> Architecture:
         """Construct a new instance of the model based on the given config.
 
         Args:
             config: The config returned by parse_config(). This method should use a
                 runtime isinstance() check to downcast the config to this architecture's
                 specific config class.
-            cache_trainset_representation: If True, the model should be configured to
-                cache the training data during inference to improve speed.
 
         Returns: the constructed architecture
         """
         ...
+
+
+@dataclasses.dataclass(frozen=True)
+class EstimatorBatchBudget:
+    """What one forward pass may carry summed over batched estimators.
+
+    Attributes:
+        rows: Train plus test rows, or test rows when predicting from a KV cache.
+        cells: Rows times prepared columns.
+    """
+
+    rows: int
+    cells: int
+
+
+#: The budget of the architectures that batch estimators, unless their config says
+#: otherwise: the rows keep the ICL activations of a batch bounded, the cells are
+#: the widest and tallest table a single estimator already supports.
+DEFAULT_ESTIMATOR_BATCH_BUDGET = EstimatorBatchBudget(
+    rows=32_768, cells=768 * 1_000_000
+)
 
 
 class Architecture(nn.Module, ABC):
@@ -269,6 +288,16 @@ class Architecture(nn.Module, ABC):
         e.g. ``"int8"``.
         """
         return ("auto",)
+
+    @property
+    def estimator_batch_budget(self) -> EstimatorBatchBudget:
+        """How much one forward may carry summed over batched estimators.
+
+        A zero budget means the architecture cannot run equal-shape estimators as
+        one batched forward pass; the ``TABPFN_MAX_BATCHED_*`` settings override
+        any other budget.
+        """
+        return EstimatorBatchBudget(rows=0, cells=0)
 
     @property
     @abstractmethod

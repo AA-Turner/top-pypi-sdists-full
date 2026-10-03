@@ -471,6 +471,20 @@ def _isinstance_opt(exception: Exception, cls: type | None) -> bool:
     return cls is not None and isinstance(exception, cls)
 
 
+def _with_structured_culprit(out: dict[str, object], error_obj: dict[str, Any]) -> dict[str, object]:
+    """Keep the provider's machine-readable culprit (``param`` / ``code``).
+
+    Dropping them hid WHICH setting a provider refused inside an unparsed string
+    (Settings Translation R1); the settings-rejection recognizer reads them first.
+    Added only when present, so the body keeps its ``{type, message}`` shape.
+    """
+    for key in ("param", "code"):
+        value = error_obj.get(key)
+        if value not in (None, "") and isinstance(value, str | int):
+            out[key] = value
+    return out
+
+
 def _extract_error_body(exception: Exception) -> dict[str, object]:
     """Pull the parsed JSON error body off an SDK exception when available."""
     try:
@@ -478,17 +492,25 @@ def _extract_error_body(exception: Exception) -> dict[str, object]:
         if isinstance(body, dict):
             error_obj = body.get("error", body)
             if isinstance(error_obj, dict):
-                return {
-                    "type": error_obj.get("type", ""),
-                    "message": error_obj.get("message", str(exception)),
-                }
+                return _with_structured_culprit(
+                    {
+                        "type": error_obj.get("type", ""),
+                        "message": error_obj.get("message", str(exception)),
+                    },
+                    error_obj,
+                )
             return {"type": "", "message": str(exception)}
         details = getattr(exception, "details", None)
         if isinstance(details, dict):
-            return {
-                "type": details.get("status", ""),
-                "message": details.get("message", str(exception)),
-            }
+            # Google nests {"error": {code, message, status}} — unwrap it.
+            inner = details.get("error") if isinstance(details.get("error"), dict) else details
+            return _with_structured_culprit(
+                {
+                    "type": inner.get("status", "") or details.get("status", ""),
+                    "message": inner.get("message", str(exception)),
+                },
+                inner,
+            )
     except Exception:
         pass
     return {"type": "", "message": str(exception)}
@@ -572,7 +594,55 @@ def _handle_permission_error(provider: str, message: str, status_code: int) -> R
 # -- Client / request errors (non-retryable, user must fix) ---------------
 
 
+def _setting_rejection_or_none(
+    provider: str, message: str, body: dict[str, object], status_code: int
+) -> RetryableError | None:
+    """A 400/422 the provider raised because of one of our SETTINGS → ``invalid_setting``.
+
+    Its own class (K10) so a settings mistake is never filed with credit
+    exhaustion, empty messages or schema problems under ``invalid_request``.
+    The person gets a short honest sentence; the provider's raw sentence, its
+    param/code and the parsed limit ride ``details["setting_rejection"]`` into
+    the record (failure_report). Recognizer table: providers/setting_rejection.py.
+    """
+    from matrx_ai.providers.setting_rejection import (
+        SETTING_REJECTION_ERROR_TYPE,
+        recognize,
+        user_message_for,
+    )
+
+    rejection = recognize(provider, message, body)  # type: ignore[arg-type]
+    if rejection is None:
+        return None
+    return RetryableError(
+        error_type=SETTING_REJECTION_ERROR_TYPE,
+        message=message,
+        status_code=status_code,
+        is_retryable=False,
+        user_message=user_message_for(_provider_display_name(provider), rejection),
+        details={
+            **body,
+            "provider": rejection.provider,
+            "setting_rejection": rejection.as_details(),
+        },
+    )
+
+
+def _rebrand_openai_compatible(result: RetryableError, display: str, key: str) -> RetryableError:
+    """A result the OpenAI classifier produced for an OpenAI-compatible provider."""
+    result.user_message = result.user_message.replace("OpenAI", display)
+    if result.error_type == "invalid_setting" and isinstance(result.details, dict):
+        result.details["provider"] = key
+        rejection = result.details.get("setting_rejection")
+        if isinstance(rejection, dict):
+            rejection["provider"] = key
+    return result
+
+
 def _handle_bad_request(provider: str, message: str, body: dict[str, object]) -> RetryableError:
+    setting = _setting_rejection_or_none(provider, message, body, 400)
+    if setting is not None:
+        return setting
     detail = body.get("message", message)
     return RetryableError(
         error_type="invalid_request",
@@ -752,6 +822,9 @@ def classify_billing_refusal(exception: BaseException, provider: str) -> Retryab
 
 
 def _handle_unprocessable(provider: str, message: str, body: dict[str, object]) -> RetryableError:
+    setting = _setting_rejection_or_none(provider, message, body, 422)
+    if setting is not None:
+        return setting
     detail = body.get("message", message)
     return RetryableError(
         error_type="unprocessable_request",
@@ -1841,9 +1914,7 @@ def classify_xai_error(exception: Exception) -> RetryableError:
         import openai
 
         if isinstance(exception, openai.OpenAIError):
-            result = classify_openai_error(exception)
-            result.user_message = result.user_message.replace("OpenAI", "xAI")
-            return result
+            return _rebrand_openai_compatible(classify_openai_error(exception), "xAI", "xai")
     except ImportError:
         pass
 
@@ -1867,9 +1938,9 @@ def classify_together_error(exception: Exception) -> RetryableError:
         import openai
 
         if isinstance(exception, openai.OpenAIError):
-            result = classify_openai_error(exception)
-            result.user_message = result.user_message.replace("OpenAI", "Together AI")
-            return result
+            return _rebrand_openai_compatible(
+                classify_openai_error(exception), "Together AI", "together"
+            )
     except ImportError:
         pass
 
@@ -1893,9 +1964,9 @@ def classify_cerebras_error(exception: Exception) -> RetryableError:
         import openai
 
         if isinstance(exception, openai.OpenAIError):
-            result = classify_openai_error(exception)
-            result.user_message = result.user_message.replace("OpenAI", "Cerebras")
-            return result
+            return _rebrand_openai_compatible(
+                classify_openai_error(exception), "Cerebras", "cerebras"
+            )
     except ImportError:
         pass
 
@@ -1919,9 +1990,9 @@ def classify_generic_openai_error(exception: Exception) -> RetryableError:
         import openai
 
         if isinstance(exception, openai.OpenAIError):
-            result = classify_openai_error(exception)
-            result.user_message = result.user_message.replace("OpenAI", "AI provider")
-            return result
+            return _rebrand_openai_compatible(
+                classify_openai_error(exception), "AI provider", "generic_openai"
+            )
     except ImportError:
         pass
 

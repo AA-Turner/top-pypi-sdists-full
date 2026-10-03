@@ -526,3 +526,34 @@ def add_ticket_tags(
             f"Zendesk ticket {ticket_id} tags response missing a `tags` list."
         )
     return [tag for tag in result_tags if isinstance(tag, str)]
+
+
+def set_ticket_email_ccs(
+    ticket_id: int | str,
+    email_ccs: list[dict[str, str]],
+    credentials: ZendeskCredentials | None = None,
+) -> dict[str, Any]:
+    """Set ticket email CCs in a separate update with no comment.
+
+    Zendesk does not update email CCs when an internal note is added in the
+    same ticket update, so this sends only `email_ccs`. Returns the updated
+    ticket object.
+
+    Raises:
+        ZendeskAPIError: If no CCs are supplied, the ticket is missing from the
+            response, credentials are missing, or the API call fails.
+    """
+    if not email_ccs:
+        raise ZendeskAPIError("At least one email CC is required.")
+    credentials = credentials or resolve_zendesk_credentials()
+    data = _put(
+        credentials,
+        f"/tickets/{ticket_id}.json",
+        {"ticket": {"email_ccs": email_ccs}},
+    )
+    updated_ticket = data.get("ticket")
+    if not isinstance(updated_ticket, dict):
+        raise ZendeskAPIError(
+            f"Zendesk ticket {ticket_id} CC update response missing a `ticket` object."
+        )
+    return updated_ticket

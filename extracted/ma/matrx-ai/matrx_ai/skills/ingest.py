@@ -51,6 +51,7 @@ from uuid import UUID
 
 from matrx_utils import vcprint
 from matrx_utils.row_access import is_published, publish_columns, reconcile_row_access
+from matrx_utils.text_case import humanize_identifier
 
 _YAML_FENCE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -329,7 +330,7 @@ def _parse_content(content: str, *, skill_id: str, source_path: str) -> ParsedSk
                 label = stripped.lstrip("#").strip()
                 break
     if not label:
-        label = skill_id.replace("-", " ").replace("_", " ").title()
+        label = humanize_identifier(skill_id)
 
     # A frontmatter key we do not own can carry anything. `type: Skill` — the
     # Claude/Cursor DOCUMENT-type marker on all 45 common-docs skills — is not a

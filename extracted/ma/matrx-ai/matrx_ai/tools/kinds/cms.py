@@ -41,6 +41,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "cms_asset_result",
+    disposition="envelope",
     label="CMS Asset Result",
     family="cms",
     example={
@@ -95,6 +96,7 @@ class CmsAssetResult(KindModel):
 
 @kind(
     "cms_collection_result",
+    disposition="envelope",
     label="CMS Collection Result",
     family="cms",
     example={"collection": {"id": "c-1", "slug": "contact-form"}},
@@ -140,6 +142,7 @@ class CmsCollectionResult(KindModel):
 
 @kind(
     "cms_component_result",
+    disposition="envelope",
     label="CMS Component Result",
     family="cms",
     example={"component": {"id": "cp-1", "name": "Header", "component_type": "header"}},
@@ -184,6 +187,7 @@ class CmsComponentResult(KindModel):
 
 @kind(
     "cms_data_result",
+    disposition="envelope",
     label="CMS Data Result",
     family="cms",
     example={
@@ -233,6 +237,7 @@ class CmsDataResult(KindModel):
 
 @kind(
     "cms_page_candidates",
+    disposition="record",
     label="CMS Page Candidates",
     family="cms",
     example={
@@ -250,6 +255,7 @@ class CmsPageCandidates(KindModel):
 
 @kind(
     "cms_inspect_report",
+    disposition="record",
     label="CMS Inspect Report",
     family="cms",
     example={"policy": {"default": {"profile": "default"}}, "conventions": {}},
@@ -269,6 +275,7 @@ class CmsInspectReport(KindModel):
 
 @kind(
     "cms_page_result",
+    disposition="envelope",
     label="CMS Page Result",
     family="cms",
     example={"page": {"id": "p-1", "slug": "pricing", "route": "/pricing"}},
@@ -336,6 +343,7 @@ class CmsPageResult(KindModel):
 
 @kind(
     "cms_site_result",
+    disposition="envelope",
     label="CMS Site Result",
     family="cms",
     example={"site": {"id": "s-1", "slug": "dev-website", "name": "Dev Website"}},
@@ -400,6 +408,7 @@ class CmsSiteResult(KindModel):
 
 @kind(
     "cms_html_page_result",
+    disposition="envelope",
     label="HTML Page Result",
     family="cms",
     example={"page": {"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "title": "Landing"}, "reused": False},

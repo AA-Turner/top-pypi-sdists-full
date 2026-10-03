@@ -255,10 +255,10 @@ DELETE_CENSUS: dict[str, DeletePath] = {
     ),
     # ── hard on a soft-deletable table; another lane owns the file ──────────────
     "task:delete": DeletePath(
-        "workspace.tasks", "soft",
+        "projects.tasks", "soft",
         "TasksManager.delete_task stamps deleted_at (fixed by the tasks lane 2026-09-26; lists read live rows only)",
         impl=("matrx_ai.db.content_types._tasks_impl:TasksManager.delete_task",),
-        model="db.models.workspace:Tasks",
+        model="db.models.projects:Tasks",
         soft_via="deleted_at",
     ),
     "dataset:delete_row": DeletePath(

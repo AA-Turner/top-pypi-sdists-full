@@ -33,6 +33,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "data_tool_result",
+    disposition="record",
     label="Data Tool Result",
     family="database",
     example={"resource_type": "note", "rows": [{"id": "n-1", "title": "Example"}], "count": 1},
@@ -62,6 +63,7 @@ class DataToolResult(KindModel):
 
 @kind(
     "data_action_result",
+    disposition="record",
     label="Data Action Result",
     family="database",
     example={"operation": "transcript_to_note", "result": {"note_id": "n-1"}},
@@ -80,6 +82,7 @@ class DataActionResult(KindModel):
 
 @kind(
     "db_scoped_result",
+    disposition="record",
     label="Scoped DB Result",
     family="database",
     example={"table": "workbench.notes", "rows": [{"id": "n-1"}], "count": 1},
@@ -109,6 +112,7 @@ class DbScopedResult(KindModel):
 
 @kind(
     "sql_tool_result",
+    disposition="record",
     label="SQL Tool Result",
     family="database",
     example={"rows": [{"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"}], "count": 1},

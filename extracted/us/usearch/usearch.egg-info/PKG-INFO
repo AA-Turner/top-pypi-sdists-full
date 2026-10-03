@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: usearch
-Version: 2.26.2
+Version: 2.26.3
 Summary: Smaller & Faster Single-File Vector Search Engine from Unum
 Home-page: https://github.com/unum-cloud/USearch
 Author: Ash Vardanian
@@ -593,7 +593,7 @@ doi = {10.5281/zenodo.7949415},
 author = {Vardanian, Ash},
 title = {{USearch by Unum Cloud}},
 url = {https://github.com/unum-cloud/USearch},
-version = {2.26.2},
+version = {2.26.3},
 year = {2026},
 }
 ```

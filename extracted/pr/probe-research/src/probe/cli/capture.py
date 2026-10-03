@@ -40,6 +40,11 @@ FOR THIS SOURCE is that no session of it can use the credential, and the
 killswitch this teardown already set is what guarantees that, independent of
 whether the file on disk still has a token in it.
 
+Since D3, only Claude Code reads that credential (`consumes_cli_capture_token`):
+pi and Codex resolve their own paired token or nothing. So Codex or pi turning
+off never sees it in their sources, and the "kept for" list only names agents
+that read it, which today is nobody but Claude Code itself.
+
 The wizard offers two shapes of off, mirroring a distinction the product already
 draws (the pairing modal separates `tap revoke`, which keeps the plugin, from
 `/plugin uninstall`). Both run the full teardown; UNINSTALL additionally removes
@@ -62,6 +67,7 @@ from probe.cli.capabilities import (
     agent_source,
     capture_plugin_name,
     capture_token_sources,
+    consumes_cli_capture_token,
     installed_plugins,
     probe_config_path,
     tap_plugin_dir,
@@ -157,6 +163,13 @@ class TurnOffResult:
                     f"Session capture is off for {_source_label(self.source)}. "
                     f"The shared capture credential remains for: {who}."
                 )
+            if self.source:
+                # Name the agent: another agent's own credential (Claude Code's
+                # shared token, say) may well still be there, and its capture on.
+                return (
+                    f"Session capture is off for {_source_label(self.source)}: "
+                    "none of its credentials resolves on this device."
+                )
             return "Session capture is off. No credential resolves on this device."
         blockers: list[str] = [
             source.value
@@ -251,6 +264,39 @@ def _set_killswitch() -> bool:
         directory = tap_plugin_dir()
         directory.mkdir(parents=True, exist_ok=True)
         (directory / ".disabled").write_text("disabled by the Probe Research wizard\n")
+    except OSError:
+        return False
+    return True
+
+
+#: What a sign-in writes into a capture source it minted a token for but whose
+#: install is not confirmed yet (`setup.authorize`): a consent barrier, so an
+#: installed hook never uploads with a token the person has not confirmed.
+AWAITING_CONFIRMATION = "Awaiting confirmation in the Probe install wizard.\n"
+
+
+def clear_stray_pi_killswitch() -> bool:
+    """Remove pi's leftover sign-in marker, and only that (decision D4, narrowed).
+
+    Before D3 every fresh Claude Code sign-in wrote `AWAITING_CONFIRMATION`
+    into pi's tap folder, pi installed or not, because pi could fall back to
+    Claude Code's token. Nothing ever removed it, so pi capture -- and with it
+    the Probe daemon, which only the tap starts -- was off from the day pi was
+    installed. The marker is a real consent barrier only while pi HOLDS a token
+    of its own that the person has not confirmed; with no pi token there is
+    nothing for it to protect. Every other agent's marker, and the deliberate
+    off (`_set_killswitch`'s text), is never touched.
+    """
+    marker = tap_plugin_dir("pi") / ".disabled"
+    try:
+        if marker.read_text(encoding="utf-8") != AWAITING_CONFIRMATION:
+            return False
+    except OSError:
+        return False
+    if capture_token_sources("pi"):
+        return False
+    try:
+        marker.unlink()
     except OSError:
         return False
     return True
@@ -407,7 +453,9 @@ def _stop_daemon() -> tuple[bool, list[str]]:
     import time
 
     survivors: list[int] = []
-    prefix = "prbe-codex-tap" if agent_source() == "codex" else "probe-research-tap"
+    from probe.cli.capture_state import watcher_prefix
+
+    prefix = watcher_prefix(agent_source())
     targets: list[tuple[int, str]] = []
     for pid_file in glob.glob(f"{glob.escape(_pid_dir())}/{prefix}-watcher-*.pid"):
         try:
@@ -528,7 +576,11 @@ def turn_off(mode: OffMode = OffMode.DISABLE) -> TurnOffResult:
         # Machine-wide, not source-scoped -- see the module docstring. Clear
         # it only if this is the last source still holding capture installed;
         # otherwise leave it for whoever else needs it and say so.
-        other_sources = _other_sources_with_capture_installed(result.source)
+        other_sources = [
+            source
+            for source in _other_sources_with_capture_installed(result.source)
+            if consumes_cli_capture_token(source)
+        ]
         if other_sources:
             result.preserved_for = [_source_label(source) for source in other_sources]
         elif _clear_probe_config_token():

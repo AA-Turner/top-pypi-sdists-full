@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.72"
+version = "0.0.73"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -22,6 +22,9 @@ traceloop-sdk = ">=0.46.0"
 # stays harmlessly redundant afterwards. Wide range on purpose so strict
 # resolvers (see the urllib3/protobuf notes above/below) don't fight us.
 httpx = ">=0.24,<1"
+rfc8785 = ">=0.1.4,<1"
+quickjs = {version = ">=1.19.4,<2", optional = true}
+pytest = {version = ">=7.4,<10", optional = true}
 opentelemetry-sdk = ">=1.36.0"
 # ``urllib3`` is pulled in transitively by ``requests`` (>=1.26,<3). We do
 # not import it directly anywhere in the SDK, so we deliberately do not
@@ -35,6 +38,7 @@ green = "^4.0.2"
 pytest = "^8.4.1"
 pytest-cov = "^6.2.1"
 openai = "^1.100.1"
+quickjs = "^1.19.4"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -46,6 +50,13 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
+
+[tool.poetry.extras]
+portable = ["quickjs"]
+pytest = ["pytest"]
+
+[tool.poetry.scripts]
+raindrop-evals = "raindrop.evals.cli:main"
 
 [build-system]
 requires = ["poetry-core"]

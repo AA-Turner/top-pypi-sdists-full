@@ -1,79 +1,24 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
 import typer
+from pydantic import JsonValue
 
 from lazycloud._terminal.cards import notice_card, result_card
+from lazycloud._terminal.formatting import timestamp
 from lazycloud._terminal.streams import console
-from lazycloud.cli.components.context import current_workspace
+from lazycloud.cli.app_export import app_export
 from lazycloud.cli.components.output import emit, json_output_enabled, print_payload, table
-from lazycloud.cli.control import resource_client
-from lazycloud.client_codegen import (
-    CLIENT_PACKAGE_ROOT,
-    ClientGenerationError,
-    write_client_package,
-)
-from lazycloud.clients.resource.control import ResourceControlClient
+from lazycloud.cli.control import api_session
+from lazycloud.clients.api import ApiClient
+from lazycloud.contracts.api import App, LiveAppState
 
 app_app = typer.Typer(help="Manage deployed applications.")
+app_app.command("export", help="Generate a typed Python package for an app.")(app_export)
 
-
-@app_app.command("export", help="Generate a typed Python package for an app.")
-def app_export(
-    ctx: typer.Context,
-    app: Annotated[str, typer.Argument(help="App slug to export.")],
-    workspace: Annotated[str | None, typer.Option("--workspace")] = None,
-    output: Annotated[Path, typer.Option("--output", "-o")] = CLIENT_PACKAGE_ROOT,
-    openapi: Annotated[
-        list[str] | None,
-        typer.Option("--openapi", help="ASGI resource=OpenAPI JSON file. Repeat per resource."),
-    ] = None,
-    openapi_path: Annotated[
-        list[str] | None,
-        typer.Option("--openapi-path", help="ASGI resource=/schema/path for schema discovery."),
-    ] = None,
-) -> None:
-    schemas: dict[str, Path] = {}
-    for entry in openapi or ():
-        name, separator, path = entry.partition("=")
-        if not separator or not name or not path or name in schemas:
-            raise typer.BadParameter("--openapi requires one resource=path per ASGI resource")
-        schemas[name] = Path(path)
-    paths: dict[str, str] = {}
-    for entry in openapi_path or ():
-        name, separator, path = entry.partition("=")
-        if not separator or not name or not path or name in paths:
-            raise typer.BadParameter("--openapi-path requires one resource=/path per ASGI resource")
-        paths[name] = path
-    try:
-        payload = write_client_package(
-            app=app,
-            workspace=current_workspace(workspace),
-            output=output,
-            openapi_files=schemas,
-            openapi_paths=paths,
-        )
-    except (ClientGenerationError, ValueError, OSError) as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    emit(
-        ctx,
-        payload=payload,
-        view=result_card(
-            {
-                "package": payload["package"],
-                "path": payload["path"],
-                "resources": ", ".join(
-                    f"{item['kind']}:{item['name']}" for item in payload["resources"]
-                ),
-                "ASGI without schema": ", ".join(payload["asgi_without_schema"]) or "none",
-            },
-            title="Typed package generated",
-            tone="success",
-        ),
-    )
+_APP_ARGUMENT = typer.Argument(help="App name or ID.")
 
 
 @app_app.command("list", help="List deployed applications.")
@@ -86,110 +31,91 @@ def app_list(
 ) -> None:
     if sum((active, inactive, all_apps)) > 1:
         raise typer.BadParameter("choose only one of --active, --inactive, or --all")
-    active_filter = True if active else False if inactive else None
-    response = resource_client(workspace=workspace).list_apps(active=active_filter)
+    state = LiveAppState.active if active else LiveAppState.paused if inactive else None
+    client, selected_workspace = api_session(workspace=workspace)
+    response = client.list_apps(selected_workspace, state=state)
     if json_output_enabled(ctx):
         print_payload(ctx, response.model_dump(mode="json"))
         return
     rows: list[list[object]] = [
-        [
-            item.name,
-            item.lifecycle_state.value,
-            item.version,
-            item.public,
-        ]
-        for item in response.data
+        [item.name, item.state.value, item.workloads, timestamp(item.created_at)]
+        for item in response.apps
     ]
-    console.print(table("Apps", ["name", "state", "version", "public"], rows))
-
-
-def resolve_app_id(value: str, *, client: ResourceControlClient) -> str:
-    """Resolve the app name shown by the CLI while still accepting an exact id."""
-    try:
-        UUID(value)
-    except ValueError:
-        pass
-    else:
-        return value
-    apps = client.list_apps()
-    match = next((item for item in apps.data if item.name == value), None)
-    if match is None:
-        raise typer.BadParameter(f"no app named {value!r} in this workspace")
-    return match.id
+    console.print(table("Apps", ["name", "state", "workloads", "created"], rows))
 
 
 @app_app.command("show", help="Show one deployed application.")
 def app_show(
     ctx: typer.Context,
-    app: Annotated[str, typer.Argument(help="App name or ID.")],
+    app: Annotated[str, _APP_ARGUMENT],
     workspace: Annotated[str | None, typer.Option("--workspace")] = None,
 ) -> None:
-    client = resource_client(workspace=workspace)
-    response = client.app(resolve_app_id(app, client=client))
-    emit(
-        ctx,
-        payload=response.model_dump(mode="json"),
-        view=result_card(
-            {
-                "name": response.name,
-                "state": response.lifecycle_state.value,
-                "version": response.version,
-                "public": response.public,
-            },
-        ),
-    )
+    client, selected_workspace = api_session(workspace=workspace)
+    response = client.get_app(selected_workspace, app)
+    emit(ctx, payload=response.model_dump(mode="json"), view=result_card(_app_summary(response)))
 
 
 @app_app.command("pause", help="Pause an application's workloads.")
 def app_pause(
     ctx: typer.Context,
-    app: Annotated[str, typer.Argument(help="App name or ID.")],
+    app: Annotated[str, _APP_ARGUMENT],
     workspace: Annotated[str | None, typer.Option("--workspace")] = None,
 ) -> None:
-    client = resource_client(workspace=workspace)
-    response = client.pause_app(resolve_app_id(app, client=client))
+    client, selected_workspace = api_session(workspace=workspace)
+    response = client.pause_app(selected_workspace, app)
     emit(
         ctx,
         payload=response.model_dump(mode="json"),
-        view=notice_card(
-            f"Paused {response.name}.",
-            tone="success",
-        ),
+        view=notice_card(f"Paused {response.name}.", tone="success"),
     )
 
 
 @app_app.command("resume", help="Resume a paused application.")
 def app_resume(
     ctx: typer.Context,
-    app: Annotated[str, typer.Argument(help="App name or ID.")],
+    app: Annotated[str, _APP_ARGUMENT],
     workspace: Annotated[str | None, typer.Option("--workspace")] = None,
 ) -> None:
-    client = resource_client(workspace=workspace)
-    response = client.resume_app(resolve_app_id(app, client=client))
+    client, selected_workspace = api_session(workspace=workspace)
+    response = client.resume_app(selected_workspace, app)
     emit(
         ctx,
         payload=response.model_dump(mode="json"),
-        view=notice_card(
-            f"Resumed {response.name}.",
-            tone="success",
-        ),
+        view=notice_card(f"Resumed {response.name}.", tone="success"),
     )
 
 
 @app_app.command("delete", help="Delete a deployed application.")
 def app_delete(
     ctx: typer.Context,
-    app: Annotated[str, typer.Argument(help="App name or ID.")],
+    app: Annotated[str, _APP_ARGUMENT],
     workspace: Annotated[str | None, typer.Option("--workspace")] = None,
 ) -> None:
-    client = resource_client(workspace=workspace)
-    app_id = resolve_app_id(app, client=client)
-    client.delete_app(app_id)
+    client, selected_workspace = api_session(workspace=workspace)
+    response = client.delete_app(selected_workspace, app)
     emit(
         ctx,
-        payload={"app_id": app_id, "deleted": True},
+        payload={"app_id": str(response.id), "deleted": True},
         view=notice_card(f"Deleted {app}.", tone="success"),
     )
 
 
-__all__ = ["app_app", "resolve_app_id"]
+def app_name(client: ApiClient, workspace: str, value: str) -> str:
+    """An app filter as the name the API lists by, accepting an id too."""
+    try:
+        UUID(value)
+    except ValueError:
+        return value
+    return client.get_app(workspace, value).name
+
+
+def _app_summary(app: App) -> dict[str, JsonValue]:
+    return {
+        "name": app.name,
+        "state": app.state.value,
+        "workloads": app.workloads,
+        "created": timestamp(app.created_at),
+    }
+
+
+__all__ = ["app_app", "app_name"]

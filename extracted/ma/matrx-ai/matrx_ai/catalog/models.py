@@ -83,6 +83,11 @@ rules ride in an ENVELOPE — ``{"params": {<canonical_key>: ControlRule>}, "con
                                                   # and NEVER shown to users.
     }
 
+K6 additions (settings-translation CONTRACTS.md; acting since item C5 — see
+controls.py): ``off`` ({send}|{floor}|{omit, why}),
+``from_number`` (ascending [{lte, to}]), ``to_number`` ({canonical: int}),
+``accepts`` (capability list) and the declared drop ``{"drop": true, "why"}``.
+
 Effective rule per key = deep-merge per FIELD:
     implicit passthrough  <-  api.rules["params"][key]  <-  offering.override["params"][key]
 (offering wins per field). ``extra="forbid"`` on every rule AND on the envelope —
@@ -117,6 +122,51 @@ class ClampSpec(BaseModel):
     max: float | None = None
 
 
+class OffSpec(BaseModel):
+    """K6 ``off`` — how an intensity setting's explicit OFF reaches the wire,
+    distinct from UNSET. Exactly one form: ``{"send": <provider value>}``,
+    ``{"floor": true}`` (the nearest-lowest value the model accepts) or
+    ``{"omit": true, "why": "..."}`` (the only form under which wire(off) may
+    equal wire(unset))."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    send: Any = None
+    floor: bool | None = None
+    omit: bool | None = None
+    why: str | None = None
+
+    @model_validator(mode="after")
+    def _one_form(self) -> OffSpec:
+        forms = [
+            name
+            for name, present in (
+                ("send", "send" in self.model_fields_set),
+                ("floor", bool(self.floor)),
+                ("omit", bool(self.omit)),
+            )
+            if present
+        ]
+        if len(forms) != 1:
+            raise ValueError(
+                f"off must declare exactly one of send / floor / omit (got {forms or 'none'})"
+            )
+        if self.omit and not (self.why or "").strip():
+            raise ValueError('off={"omit": true} requires a "why"')
+        return self
+
+
+class FromNumberStep(BaseModel):
+    """One K6 ``from_number`` cut-off: numbers ``<= lte`` become ``to``
+    (``lte: null`` = everything above the previous step; ``to: null`` = a
+    declared, silent drop)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    lte: float | None
+    to: Any = None
+
+
 class ControlRule(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -136,6 +186,24 @@ class ControlRule(BaseModel):
     processor_config: dict[str, Any] = {}
     # UI-only vocabulary (see module docstring). Never read by outbound/inbound.
     ui_values: list[Any] | None = None
+
+    # ── K6 rule-language additions (settings-translation CONTRACTS.md) ──────
+    # They ACT (item C5) — semantics in controls.py's module docstring; the
+    # tables a rule does not carry fall back to catalog/translation_defaults.py.
+    # Every default is None so ``model_dump(exclude_none=True)``
+    # (export_model_routing -> client hosts) and ``exclude_unset`` (the legacy
+    # merge) are byte-identical for rows that do not carry them.
+    off: OffSpec | None = None
+    from_number: list[FromNumberStep] | None = None
+    to_number: dict[str, int] | None = None
+    # Capability: what the model ACCEPTS — enforced on every scalar and
+    # processor rule (nearest accepted, provenance computed). ``ui_values``
+    # stays what the UI offers and is NOT newly enforced (seed semantics).
+    accepts: list[Any] | None = None
+    # The declared-drop form ``{"drop": true, "why": ...}`` — the replacement
+    # for "supported:false means drop" once C6 redefines supported:false.
+    drop: bool | None = None
+    why: str | None = None
 
     @model_validator(mode="after")
     def _validate_field_combos(self) -> ControlRule:
@@ -167,6 +235,23 @@ class ControlRule(BaseModel):
             raise ValueError(
                 "const is exclusive with value_map/clamp — const ignores the incoming value"
             )
+        if self.drop and not (self.why or "").strip():
+            raise ValueError('a declared drop {"drop": true} requires a "why"')
+        if self.drop and self.supported:
+            # A declared drop is never native here. Every reader that asks
+            # ``rule.supported`` (translators deciding reasoning includes, the
+            # speech compiler's speaker cap / direction) must see the same
+            # answer as the engine's ``carries`` — so ``drop`` implies
+            # ``supported=False`` in ONE place instead of at every reader
+            # (C3c: a drop cell otherwise read as "supported" there).
+            object.__setattr__(self, "supported", False)
+        if self.from_number:
+            bounds = [step.lte for step in self.from_number]
+            if any(b is None for b in bounds[:-1]):
+                raise ValueError('from_number: only the LAST step may have "lte": null')
+            finite = [b for b in bounds if b is not None]
+            if finite != sorted(finite) or len(set(finite)) != len(finite):
+                raise ValueError("from_number: lte cut-offs must be strictly ascending")
         return self
 
 
@@ -192,6 +277,29 @@ AdjustmentAction = Literal[
 ]
 
 
+# K9 — WHO decided an Adjustment. ``declared``: a rule wrote it down (value_map,
+# clamp, to_default, const, supported:false, on_unmapped="drop", a processor's
+# own table). ``computed``: no declaration covered it and the engine decided —
+# the nearest-equivalent metric, the model's output maximum, the foreign-key
+# gate, an SDK-drift or validation fallback.
+AdjustmentProvenance = Literal["declared", "computed"]
+CellLayer = Literal["api", "profile", "offering"]
+CellState = Literal["approved", "agent", "proposed", "inherited"]
+
+
+class CellRef(BaseModel):
+    """The translation cell (K3) that decided a key, as read from the compiled
+    view (K5). Absent (None) while rules still come from ai.api.rules /
+    ai.offering.override (copy mode)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    cell_id: str
+    layer: CellLayer
+    state: CellState
+    version: int | None = None
+
+
 class Adjustment(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -210,6 +318,19 @@ class Adjustment(BaseModel):
     # (common-docs/systems/platform/configuration-equivalence/FEATURE.md). Conversions
     # are never reported to the client — they are the system working.
     expected: bool = True
+    # K9 provenance — see AdjustmentProvenance. Defaults to "declared" so a
+    # site that predates K9 claims nothing it was not; every engine fallback
+    # sets "computed" explicitly.
+    provenance: AdjustmentProvenance = "declared"
+    # The cell that decided this key (K3/K5); None until cells exist. Stamped
+    # by CompiledControlsMap.outbound from its ``cells`` map.
+    cell_id: str | None = None
+    layer: CellLayer | None = None
+    cell_state: CellState | None = None
+    # K7 family conversion: the canonical key the caller actually set, when this
+    # Adjustment records its conversion INTO ``key`` (``canonical_value`` is the
+    # caller's value, ``sent_value`` the value ``key`` carried into its rule).
+    converted_from: str | None = None
 
 
 class ControlsMap(RootModel[dict[str, ControlRule]]):
@@ -239,6 +360,12 @@ class CatalogSetting(BaseModel):
     default_value: Any = None
     ui: dict[str, Any] = {}
     description: str | None = None
+    # K7 (settings-translation C6): the setting family slug (platform.categories
+    # dimension ``ai_setting_family``) and, for an ordinal setting, each
+    # canonical value's position 0..1. ``None`` until ai.setting carries them —
+    # then family conversion stays off and foreign keys drop as before.
+    family: str | None = None
+    value_positions: dict[str, float] | None = None
 
 
 class CatalogEndpoint(BaseModel):
@@ -391,8 +518,14 @@ __all__ = [
     "ApiTransport",
     "Adjustment",
     "AdjustmentAction",
+    "AdjustmentProvenance",
+    "CellLayer",
+    "CellRef",
+    "CellState",
     "ClampSpec",
     "ControlRule",
+    "FromNumberStep",
+    "OffSpec",
     "PASSTHROUGH_RULE",
     "ControlsMap",
     "RulesEnvelope",

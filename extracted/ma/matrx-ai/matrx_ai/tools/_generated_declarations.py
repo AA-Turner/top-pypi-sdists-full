@@ -23,12 +23,23 @@ from matrx_ai.tools.arg_models import (
     ContextArgs,
     ContextPatchArgs,
     DatasetArgs,
+    DesktopAppsArgs,
+    DesktopClipboardArgs,
+    DesktopInputArgs,
+    DesktopPowerArgs,
+    DesktopProcessArgs,
+    DesktopResourcesArgs,
+    DesktopScreenArgs,
+    DesktopSystemArgs,
+    DesktopTranscribeArgs,
+    DesktopWindowArgs,
     DictionaryArgs,
     FsEditArgs,
     FsListArgs,
     FsMkdirArgs,
     FsReadArgs,
     FsSearchArgs,
+    FsWatchArgs,
     FsWriteArgs,
     MemoryArgs,
     NoteArgs,
@@ -36,6 +47,7 @@ from matrx_ai.tools.arg_models import (
     RagSearchArgs,
     SeoArgs,
     ShellExecuteArgs,
+    ShellJobArgs,
     ShellPythonArgs,
     SkillArgs,
     SqlArgs,
@@ -381,6 +393,32 @@ class KindCreateArgs(ToolArgs):
             "Matrx System organization with visibility='public' (no manual "
             "promotion). Refused for non-admin callers. Omit for normal "
             "user kinds (caller org, internal)."
+        ),
+    )
+    # KINDS-GLUE wave 1b: what the kind's output IS, stated by the caller — never defaulted.
+    # Optional in the CONTRACT only so an omitted value reaches kind_create's plain-sentence
+    # refusal (disposition_refusal, matrx_graph.content_ir.sdk) instead of a pydantic error;
+    # the implementation refuses every create without one. The five literals ARE
+    # matrx_graph.content_ir.sdk.KIND_DISPOSITIONS, spelled out because a type form cannot be
+    # computed; packages/matrx-ai/tests/test_kind_authoring_tools.py pins them equal. ORDER: land this code -> deploy -> THEN declare both args in
+    # tool.definition.parameters (see the 🚨 note on loading_component above).
+    disposition: Literal["record", "envelope", "receipt", "proposal", "prose"] | None = Field(
+        default=None,
+        description=(
+            "REQUIRED. What this kind's output is: record (structured fields a person "
+            "filters by), prose (one text body), proposal (an offer awaiting review), "
+            "receipt (says what a write saved or sent), envelope (a run wrapper whose "
+            "keys differ every call). A create without it is refused."
+        ),
+    )
+    child_dispositions: (
+        dict[str, Literal["record", "envelope", "receipt", "proposal", "prose"]] | None
+    ) = Field(
+        default=None,
+        description=(
+            "REQUIRED when the sample marks nested kinds this call will CREATE: "
+            "{child_slug: disposition} for every new child kind. Existing children are "
+            "reused untouched. A create missing one is refused before anything is written."
         ),
     )
 
@@ -753,6 +791,9 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.seo": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.seo"
     ),
+    "matrx_ai.tools.implementations.desktop": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.desktop"
+    ),
     "matrx_ai.tools.implementations.shell": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.shell"
     ),
@@ -783,7 +824,7 @@ _MODULE_LOADERS = {
 }
 
 
-def _reg(name, source_kind, executor, args, module, func):
+def _reg(name, source_kind, executor, args, module, func, *, validate=True):
     loader = _MODULE_LOADERS.get(module)
     if loader is None:
         # A declaration that names a module with no literal loader entry is a
@@ -800,7 +841,7 @@ def _reg(name, source_kind, executor, args, module, func):
     except Exception as exc:  # noqa: BLE001 - surfaced by the boot drift gate
         IMPORT_FAILURES.append(f"{name}: {module}.{func}: {exc!r}")
         return
-    tool(name=name, source_kind=source_kind, executor=executor, args=args)(fn)
+    tool(name=name, source_kind=source_kind, executor=executor, args=args, validate=validate)(fn)
 
 
 _reg(
@@ -1099,6 +1140,117 @@ _reg(
     ShellExecuteArgs,
     "matrx_ai.tools.implementations.shell",
     "shell_execute",
+)
+# Matrx 2 desktop tools (one protocol op each; matrx-desktop design/local-tools.md). validate=False
+# until its tool.definition row lands on the live database (db/migrations/desktop_001_*.sql, an
+# attended step); the copy carries the row, and test_desktop_tools.py holds row == model.
+_reg(
+    "desktop_transcribe",
+    "native",
+    "matrx-ai-core",
+    DesktopTranscribeArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_transcribe",
+    validate=False,
+)
+_reg(
+    "desktop_process",
+    "native",
+    "matrx-ai-core",
+    DesktopProcessArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_process",
+    validate=False,
+)
+_reg(
+    "desktop_clipboard",
+    "native",
+    "matrx-ai-core",
+    DesktopClipboardArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_clipboard",
+    validate=False,
+)
+_reg(
+    "shell_job",
+    "native",
+    "matrx-ai-core",
+    ShellJobArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "shell_job",
+    validate=False,
+)
+_reg(
+    "desktop_apps",
+    "native",
+    "matrx-ai-core",
+    DesktopAppsArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_apps",
+    validate=False,
+)
+_reg(
+    "desktop_system",
+    "native",
+    "matrx-ai-core",
+    DesktopSystemArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_system",
+    validate=False,
+)
+_reg(
+    "desktop_screen",
+    "native",
+    "matrx-ai-core",
+    DesktopScreenArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_screen",
+    validate=False,
+)
+_reg(
+    "desktop_window",
+    "native",
+    "matrx-ai-core",
+    DesktopWindowArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_window",
+    validate=False,
+)
+_reg(
+    "desktop_input",
+    "native",
+    "matrx-ai-core",
+    DesktopInputArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_input",
+    validate=False,
+)
+_reg(
+    "desktop_power",
+    "native",
+    "matrx-ai-core",
+    DesktopPowerArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_power",
+    validate=False,
+)
+_reg(
+    "desktop_resources",
+    "native",
+    "matrx-ai-core",
+    DesktopResourcesArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_resources",
+    validate=False,
+)
+_reg(
+    "fs_watch",
+    "native",
+    "matrx-ai-core",
+    FsWatchArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "fs_watch",
+    validate=False,
 )
 _reg(
     "shell_python",

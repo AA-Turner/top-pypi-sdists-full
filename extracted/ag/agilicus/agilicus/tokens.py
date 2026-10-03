@@ -16,8 +16,6 @@ from .input_helpers import strip_none
 from .input_helpers import update_if_present
 from .pagination import pagination
 
-from .output import output_if_console
-
 from . import context, response
 from . import access
 
@@ -591,6 +589,8 @@ def create_session_challenge(
 
         webbrowser.open(profile_uri, new=1, autoraise=True)
     except Exception:
+        from .output import output_if_console  # deferred: breaks output<->tokens cycle
+
         output_if_console(ctx, "Failed to open browser")
         output_if_console(ctx, "Please visit the following link to answer the challenge")
         output_if_console(ctx, profile_uri)

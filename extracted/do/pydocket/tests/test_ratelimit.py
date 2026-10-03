@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import timedelta
 from typing import Annotated
 
@@ -72,6 +73,25 @@ async def test_per_parameter_rate_limit_independent_scopes(
     assert results.count(1) == 1
 
 
+async def test_per_parameter_rate_limit_allows_different_positional_values(
+    docket: Docket, worker: Worker
+):
+    """Per-parameter rate limit reads the value of a positional argument."""
+    results: list[int] = []
+
+    async def rated_task(
+        customer_id: Annotated[int, RateLimit(1, per=timedelta(seconds=5), drop=True)],
+    ):
+        results.append(customer_id)
+
+    await docket.add(rated_task)(1)
+    await docket.add(rated_task)(2)
+
+    await worker.run_until_finished()
+
+    assert sorted(results) == [1, 2]
+
+
 async def test_drop_true_drops_excess(docket: Docket, worker: Worker):
     """With drop=True, excess tasks are quietly dropped instead of rescheduled."""
     results: list[str] = []
@@ -92,19 +112,22 @@ async def test_drop_true_drops_excess(docket: Docket, worker: Worker):
 
 async def test_drop_false_excess_eventually_executes(docket: Docket, worker: Worker):
     """With drop=False (default), excess tasks reschedule and eventually execute."""
-    results: list[str] = []
+    started: list[float] = []
 
+    # The window must outlast the gap between the two claims on a slow runner,
+    # or the second task is never blocked and this tests nothing.
     async def rated_task(
-        rate: RateLimit = RateLimit(1, per=timedelta(milliseconds=50)),
+        rate: RateLimit = RateLimit(1, per=timedelta(seconds=1)),
     ):
-        results.append("executed")
+        started.append(time.monotonic())
 
     await docket.add(rated_task)()
     await docket.add(rated_task)()
 
     await worker.run_until_finished()
 
-    assert len(results) == 2
+    assert len(started) == 2
+    assert started[1] - started[0] >= 0.5
 
 
 async def test_multiple_rate_limits_on_different_parameters(

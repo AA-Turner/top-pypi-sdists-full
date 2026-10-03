@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """MCMC diagnostics."""
+from typing import NamedTuple
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -27,6 +29,10 @@ __all__ = [
     "ess_tail",
     "pareto_khat",
     "psis_weights",
+    "DivergenceConcentrationReport",
+    "divergence_concentration",
+    "divergence_concentration_from_counts",
+    "format_divergence_warning",
 ]
 
 
@@ -53,7 +59,7 @@ def potential_scale_reduction(
     -----
     The diagnostic is computed by:
 
-    .. math:: \\hat{R} = \\frac{\\hat{V}}{W}
+    .. math:: \\hat{R} = \\sqrt{\\frac{\\hat{V}}{W}}
 
     where :math:`W` is the within-chain variance and :math:`\\hat{V}` is the posterior variance
     estimate for the pooled traces. This is the potential scale reduction factor, which
@@ -122,6 +128,18 @@ def rhat(input_array: ArrayLike, chain_axis: int = 0, sample_axis: int = 1) -> A
        them, and compute split-R̂ again (**tail**).
     5. Return :math:`\\max(\\hat{R}_{\\text{bulk}}, \\hat{R}_{\\text{tail}})`.
 
+    .. warning::
+
+       ``NaN`` from this function does **not** uniquely mean "the draws
+       contained a missing observation".  The folded component subtracts the
+       pooled median, so when at least half of a component's pooled draws are
+       ``+inf`` (or ``-inf``) the median is infinite and the fold evaluates
+       ``inf - inf``, which is ``NaN``.  Such a component returns ``NaN`` from
+       :func:`rhat` while containing no ``NaN`` at all — and while
+       :func:`ess_bulk` and :func:`ess_tail` still return finite values for it.
+       Infinity handling is a separate open question from the missing-data
+       contract; this is documented, not yet decided.
+
     References
     ----------
     .. cite:p:`vehtari2021rank`
@@ -166,6 +184,11 @@ def effective_sample_size(
     Returns
     -------
     NDArray of the resulting statistics (ess), with the chain and sample dimensions squeezed.
+    Variables whose within-chain variance is numerically zero have an effective
+    sample size of zero.  Variables containing a ``NaN`` draw are undefined and
+    report ``NaN``; the reduction is per variable, so an independent finite
+    variable is unaffected.  Infinities are ordered values and are not treated
+    as missing.
 
     Notes
     -----
@@ -192,6 +215,13 @@ def effective_sample_size(
         num_samples > 1
     ), f"The input array must have at least 2 samples, got only {num_samples}."
 
+    first_sample = jnp.take(input_array, jnp.array([0]), axis=sample_axis)
+    has_within_chain_variation = jnp.any(
+        input_array != first_sample,
+        axis=(chain_axis, sample_axis),
+        keepdims=True,
+    )
+
     mean_across_chain = input_array.mean(axis=sample_axis, keepdims=True)
     # Compute autocovariance estimates for every lag for the input array using FFT.
     centered_array = input_array - mean_across_chain
@@ -208,6 +238,9 @@ def effective_sample_size(
         * num_samples
         / (num_samples - 1.0)
     )
+    is_numerically_degenerate = jnp.isfinite(mean_var0) & (
+        ~has_within_chain_variation | (mean_var0 <= 0.0)
+    )
     weighted_var = mean_var0 * (num_samples - 1.0) / num_samples
     weighted_var = jax.lax.cond(
         num_chains > 1,
@@ -215,6 +248,9 @@ def effective_sample_size(
         + mean_across_chain.var(axis=chain_axis, ddof=1, keepdims=True),
         lambda _: weighted_var,
         operand=mean_across_chain,
+    )
+    weighted_var = jnp.where(
+        is_numerically_degenerate, jnp.ones_like(weighted_var), weighted_var
     )
 
     # Geyer's initial positive sequence
@@ -278,8 +314,20 @@ def effective_sample_size(
 
     tau_hat = jnp.maximum(tau_hat, 1 / np.log10(ess_raw))
     ess = ess_raw / tau_hat
+    ess = jnp.where(is_numerically_degenerate.squeeze(), 0.0, ess.squeeze())
 
-    return ess.squeeze()
+    # A NaN draw is a missing observation, not a value the estimator can use.
+    # Geyer's truncation above gates on partial sums being > 0, and every such
+    # comparison is False for NaN, so the truncation collapses and tau_hat
+    # falls back to its 1 / log10(MN) floor — manufacturing a large, entirely
+    # fictitious sample size.  Report the component as undefined instead.  The
+    # reduction runs over the chain and draw axes only, so a contaminated
+    # component never poisons an independent finite one, and ``.squeeze()``
+    # mirrors the squeeze applied to ``ess`` just above.
+    has_nan = jnp.any(jnp.isnan(input_array), axis=(chain_axis, sample_axis))
+    ess = jnp.where(jnp.squeeze(has_nan), jnp.nan, ess)
+
+    return ess
 
 
 def splitR(position, num_chains, superchain_size, func_for_splitR=jnp.square):
@@ -338,6 +386,115 @@ def _split_chains(x: Array) -> Array:
     return jnp.concatenate([first, second], axis=0)
 
 
+def _average_ranks(x_flat: Array) -> Array:
+    """One-indexed ranks along axis 0, averaging the ranks of tied values.
+
+    Equal values form a *tie group* and all receive the mean of the ordinal
+    ranks that the group spans.  This makes the ranking invariant to the
+    permutation of the pooled draws, which ordinal (``argsort``-of-``argsort``)
+    ranking is not.
+
+    Parameters
+    ----------
+    x_flat
+        Array of shape ``(n, …)``; ranks are computed along axis 0
+        independently for each element of the trailing dimensions.
+
+    Returns
+    -------
+    Array of the same shape holding 1-indexed average ranks.
+
+    Notes
+    -----
+    The implementation is written with sort and cumulative-reduction
+    primitives only, so it is ``jit``/``vmap``-compatible and has no
+    data-dependent shapes.
+
+    A ``NaN`` is a missing or invalid observation, not an ordered value that
+    could be tied with anything, so a component containing one cannot be
+    ranked: the whole component returns ``NaN``.  The reduction runs over
+    axis 0 alone, so an invalid component never poisons an independent finite
+    sibling.
+
+    Infinities are ordered values and are ranked normally *by this function*.
+    That does not make the whole diagnostic pipeline infinity-safe: see the
+    note on folding in :func:`rhat`.
+    """
+    n = x_flat.shape[0]
+    extra_shape = x_flat.shape[1:]
+
+    order = jnp.argsort(x_flat, axis=0)
+    x_sorted = jnp.take_along_axis(x_flat, order, axis=0)
+
+    # Adjacent sorted entries share a tie group when they are equal.
+    same_as_prev = x_sorted[1:] == x_sorted[:-1]
+    true_row = jnp.ones((1, *extra_shape), dtype=bool)
+    is_first = jnp.concatenate([true_row, ~same_as_prev], axis=0)
+    is_last = jnp.concatenate([~same_as_prev, true_row], axis=0)
+
+    positions = jnp.broadcast_to(
+        jnp.arange(n).reshape((n, *(1,) * len(extra_shape))), x_flat.shape
+    )
+    # Running max/min of the group boundary markers gives, for every sorted
+    # position, the first and last 0-indexed position of its tie group.
+    group_start = jax.lax.cummax(jnp.where(is_first, positions, 0), axis=0)
+    group_end = jax.lax.cummin(
+        jnp.where(is_last, positions, n - 1), axis=0, reverse=True
+    )
+
+    # Mean of the 1-indexed ordinal ranks spanned by the group.
+    avg_rank_sorted = (group_start + group_end) / 2.0 + 1.0
+
+    # Scatter back to the original positions.
+    inverse = jnp.argsort(order, axis=0)
+    ranks = jnp.take_along_axis(avg_rank_sorted, inverse, axis=0)
+
+    # A component holding a missing observation has no valid ranking.
+    contaminated = jnp.any(jnp.isnan(x_flat), axis=0, keepdims=True)
+    return jnp.where(contaminated, jnp.nan, ranks)
+
+
+def _propagate_nan_components(value: Array, x: Array) -> Array:
+    """Set the entries of ``value`` whose draws contain a ``NaN`` to ``NaN``.
+
+    Parameters
+    ----------
+    value
+        Diagnostic values of shape ``x.shape[2:]``.
+    x
+        Draws of shape ``(nchains, nsamples, …)``.
+
+    Returns
+    -------
+    ``value`` with every contaminated component replaced by ``NaN``.
+
+    Notes
+    -----
+    The reduction runs over the chain and draw axes only, so a component
+    holding a missing observation never poisons an independent finite one.
+
+    ``x`` here is the *split* array, so with an odd number of draws the last
+    draw has already been trimmed by :func:`_split_chains` and a ``NaN``
+    sitting only in that draw is not seen.  The contract is therefore "a
+    ``NaN`` among the draws the diagnostic actually uses", which is narrower
+    than "a ``NaN`` anywhere in the input".
+
+    The guard is needed because the estimators downstream do not propagate
+    ``NaN`` on their own.  Geyer's initial-positive-sequence truncation in
+    :func:`effective_sample_size` compares partial autocorrelation sums
+    against zero; every such comparison is ``False`` for ``NaN``, so the
+    truncation collapses and :math:`\\hat{\\tau}` falls back to its
+    ``1 / log10(MN)`` floor — turning an all-``NaN`` input into a large and
+    entirely fictitious sample size instead of ``NaN``.
+    """
+    contaminated = jnp.any(jnp.isnan(x), axis=(0, 1))
+    # ``effective_sample_size`` ends with a bare ``.squeeze()``, which drops
+    # genuine size-1 event axes as well as the chain/draw axes.  Squeeze the
+    # mask the same way, or ``jnp.where`` broadcasts a (…, 1) mask against a
+    # squeezed value and silently changes both the shape and the numbers.
+    return jnp.where(jnp.squeeze(contaminated), jnp.nan, value)
+
+
 def _rank_normalize(x: Array) -> Array:
     """Rank-normalize draws using the Blom plotting position.
 
@@ -362,6 +519,19 @@ def _rank_normalize(x: Array) -> Array:
 
     where :math:`r` is the 1-indexed rank and :math:`n = \\text{nchains}
     \\times \\text{nsamples}`.
+
+    Tied draws receive the *average* of the ordinal ranks their tie group
+    spans (see :func:`_average_ranks`), matching Vehtari et al. (2021) and
+    ``scipy.stats.rankdata(method="average")``.  Ordinal ranking would give
+    equal values different scores depending on where they sit in the pooled
+    array, manufacturing chain/time structure out of ties — a constant input
+    would acquire a spurious spread, and repeated states would inflate R̂ and
+    deflate bulk ESS.  The damage scales with how large and how scattered the
+    tie groups are: it is severe for indicator and discrete observables, and
+    mild for rejection repeats in a continuous chain, where the repeats form
+    short contiguous runs.  A constant input now maps to a constant field of
+    zeros, leaving R̂ undefined (0/0) and the ESS degeneracy guard free to
+    report 0.
     """
     nchains, nsamples = x.shape[0], x.shape[1]
     extra_shape = x.shape[2:]
@@ -370,8 +540,8 @@ def _rank_normalize(x: Array) -> Array:
     # Pool chains and draws into the leading axis: (n, …extra).
     x_flat = x.reshape(n, *extra_shape)
 
-    # Double argsort gives 0-indexed ranks; +1 for 1-indexed.
-    ranks = jnp.argsort(jnp.argsort(x_flat, axis=0), axis=0).astype(float) + 1
+    # Average ranks, so that tied draws receive identical scores.
+    ranks = _average_ranks(x_flat)
 
     # Blom plotting position.
     z = jax.scipy.special.ndtri((ranks - 3.0 / 8) / (n + 1.0 / 4))
@@ -418,6 +588,8 @@ def ess_bulk(
     x = _to_standard_axes(jnp.asarray(input_array), chain_axis, sample_axis)
     x_split = _split_chains(x)
     x_rn = _rank_normalize(x_split)
+    # A contaminated component is already all-NaN after _rank_normalize, and
+    # effective_sample_size propagates that on its own.
     return effective_sample_size(x_rn)
 
 
@@ -436,8 +608,22 @@ def ess_tail(
     The tail quantiles are determined by ``prob``: the lower tail uses the
     ``(1 - prob) / 2`` quantile and the upper tail uses the
     ``(1 + prob) / 2`` quantile.  The default ``prob=0.90`` corresponds to
-    the 5th/95th percentiles, which matches ``az.ess(method="tail")`` in
-    ArviZ (the ArviZ default is also ``prob=(0.05, 0.95)``).
+    the 5th/95th percentiles, matching ArviZ's default ``prob=(0.05, 0.95)``.
+
+    .. warning::
+
+       The agreement with ``az.ess(method="tail")`` holds for **continuous**
+       draws only.  The upper-tail indicator here is
+       :math:`\\mathbf{1}(x \\ge q_{\\text{high}})`, whereas Vehtari et al.
+       and ArviZ use :math:`\\mathbf{1}(x \\le q)` for both tails.  On
+       continuous draws the two are exact complements and the ESS is
+       identical, but on tied draws they are not: for iid Bernoulli(0.1),
+       :math:`P(x \\ge q_{95})` is 0.097 rather than 0.05, and for a 5-level
+       grid it is 0.21.  This is a separate known defect in the tail
+       estimator's tie handling, tracked independently of the
+       rank-normalization fix; note that simply switching to ``<=`` does not
+       resolve it, since that indicator is identically 1 on such draws and
+       would be reported as degenerate.
 
     Parameters
     ----------
@@ -497,7 +683,12 @@ def ess_tail(
     ess_lower = effective_sample_size(I_lower)
     ess_upper = effective_sample_size(I_upper)
 
-    return jnp.minimum(ess_lower, ess_upper)
+    # A NaN draw makes the pooled quantiles NaN, every indicator comparison
+    # False, and the resulting all-zero series degenerate — which would report
+    # 0 rather than "undefined".  Guard once on the reduced value: the
+    # indicators themselves are never NaN, so the estimator cannot propagate
+    # this on its own the way it does for ess_bulk.
+    return _propagate_nan_components(jnp.minimum(ess_lower, ess_upper), x_split)
 
 
 def pareto_khat(x: ArrayLike, tail: str = "both", tail_frac: float = 0.10) -> Array:
@@ -691,3 +882,264 @@ def psis_weights(log_ratios: Array, r_eff: float = 1.0) -> tuple[Array, Array]:
     lw_orig = jnp.zeros_like(lw_smooth).at[sorted_idx].set(lw_smooth)
     log_w = lw_orig - jax.nn.logsumexp(lw_orig)
     return log_w, k
+
+
+class DivergenceConcentrationReport(NamedTuple):
+    """Per-run divergence-concentration diagnostic report.
+
+    All fields are plain JAX numerics — no strings — so the statistic
+    itself stays JIT-compilable.  Pass the report to
+    :func:`format_divergence_warning` to render a human-readable message
+    from concrete (non-traced) values.
+
+    Attributes
+    ----------
+    warn
+        Bool. Whether a minority of chains (see the module notes on
+        :func:`divergence_concentration`) crossed ``rate_threshold``.
+    flagged
+        Bool array, shape ``(n_chains,)``. Which chains crossed
+        ``rate_threshold``, independent of whether ``warn`` ends up true.
+    num_flagged
+        Number of flagged chains, ``flagged.sum()``.
+    rates
+        Per-chain sampling-phase divergence rate, shape ``(n_chains,)``.
+    early_rate, late_rate
+        Per-chain divergence rate in the first and last quarter of the
+        sampling draws, shape ``(n_chains,)``. ``NaN`` when computed from
+        :func:`divergence_concentration_from_counts` (no per-draw
+        resolution available).
+    median_other_rate
+        For each chain, the median ``rates`` value across the *other*
+        ``n_chains - 1`` chains, shape ``(n_chains,)``. ``NaN`` when
+        ``n_chains <= 1``.
+    total_divergences
+        Total divergence count ``D`` summed over all chains.
+    num_chains
+        Number of chains ``M``.
+    rate_threshold
+        The threshold that was applied (echoed back for the message /
+        for callers that only keep the report).
+    multinomial_p_value
+        Bonferroni-corrected exchangeable-null tail probability for the
+        single worst chain, ``min(1, M * P(Binomial(D, 1/M) >= d_max))``.
+        Context only; never drives ``warn``. ``NaN`` when ``D=0``.
+    """
+
+    warn: Array
+    flagged: Array
+    num_flagged: Array
+    rates: Array
+    early_rate: Array
+    late_rate: Array
+    median_other_rate: Array
+    total_divergences: Array
+    num_chains: Array
+    rate_threshold: Array
+    multinomial_p_value: Array
+
+
+def divergence_concentration(
+    is_divergent: ArrayLike,
+    *,
+    rate_threshold: float = 0.02,
+) -> DivergenceConcentrationReport:
+    """Flag a run where sampling-phase divergences concentrate on a minority of chains.
+
+    Parameters
+    ----------
+    is_divergent
+        Per-draw divergence flags (bool or 0/1) for the sampling
+        (post-warmup) phase only, shape ``(n_chains, n_draws)``.
+    rate_threshold
+        Minimum per-chain divergence rate for chain ``k`` to count as
+        flagged. Default ``0.02`` (2%).
+
+    Returns
+    -------
+    :class:`DivergenceConcentrationReport`. ``warn`` is true iff between
+    1 and ``max(1, n_chains // 4)`` chains are flagged -- a
+    minority-outlier trigger; an ensemble where most/all chains cross the
+    threshold returns populated fields but no warning.
+
+    Notes
+    -----
+    - Counting is sampling-phase only; warmup divergences are out of scope.
+    - Concatenating warmup draws in front of sampling draws dilutes a real
+      signal below threshold rather than raising a false alarm -- slice to
+      sampling draws only before calling this.
+    - ``multinomial_p_value`` is context only; it never decides ``warn``.
+    """
+    # NaN must flag, not silently pass.
+    is_divergent = jnp.asarray(is_divergent).astype(bool)
+    n_draws = is_divergent.shape[-1]
+    num_chains = is_divergent.shape[-2]
+    counts = jnp.sum(is_divergent, axis=-1)
+
+    quarter = max(n_draws // 4, 1)
+    early_rate = jnp.sum(is_divergent[:, :quarter], axis=-1) / quarter
+    late_rate = jnp.sum(is_divergent[:, n_draws - quarter :], axis=-1) / quarter
+
+    return _divergence_concentration_core(
+        counts,
+        n_draws,
+        num_chains,
+        early_rate,
+        late_rate,
+        rate_threshold=rate_threshold,
+    )
+
+
+def divergence_concentration_from_counts(
+    chain_divergence_counts: ArrayLike,
+    n_draws: int,
+    *,
+    rate_threshold: float = 0.02,
+) -> DivergenceConcentrationReport:
+    """Same as :func:`divergence_concentration`, from precomputed per-chain counts.
+
+    Use when per-draw flags are not retained but per-chain totals are.
+    ``early_rate`` / ``late_rate`` are ``NaN`` (no per-draw resolution for
+    a quarter profile); :func:`format_divergence_warning` omits that part
+    of the message rather than printing "nan%".
+
+    Parameters
+    ----------
+    chain_divergence_counts
+        Per-chain divergence counts for the sampling phase, shape
+        ``(n_chains,)``.
+    n_draws
+        Number of sampling draws per chain.
+    rate_threshold
+        See :func:`divergence_concentration`.
+
+    Returns
+    -------
+    :class:`DivergenceConcentrationReport`
+    """
+    # NaN must flag (as fully divergent), not silently pass.
+    counts = jnp.asarray(chain_divergence_counts).astype(float)
+    counts = jnp.clip(jnp.nan_to_num(counts, nan=float(n_draws)), 0.0, float(n_draws))
+    num_chains = counts.shape[-1]
+    nan_quarters = jnp.full((num_chains,), jnp.nan)
+    return _divergence_concentration_core(
+        counts,
+        n_draws,
+        num_chains,
+        nan_quarters,
+        nan_quarters,
+        rate_threshold=rate_threshold,
+    )
+
+
+def _divergence_concentration_core(
+    counts: Array,
+    n_draws: int,
+    num_chains: int,
+    early_rate: Array,
+    late_rate: Array,
+    *,
+    rate_threshold: float,
+) -> DivergenceConcentrationReport:
+    total = jnp.sum(counts, axis=-1)
+    max_count = jnp.max(counts, axis=-1)
+
+    rates = counts / n_draws
+    flagged = rates >= rate_threshold
+    num_flagged = jnp.sum(flagged, axis=-1)
+    cap = jnp.maximum(1, num_chains // 4)
+    warn = (num_flagged >= 1) & (num_flagged <= cap)
+
+    # Static per-chain index gather keeps this jit-safe (num_chains is a
+    # Python int); no "others" exist when num_chains == 1.
+    if num_chains > 1:
+        median_other_rate = jnp.stack(
+            [
+                jnp.median(
+                    rates[
+                        jnp.concatenate([jnp.arange(k), jnp.arange(k + 1, num_chains)])
+                    ]
+                )
+                for k in range(num_chains)
+            ]
+        )
+    else:
+        median_other_rate = jnp.full((num_chains,), jnp.nan)
+
+    # Exact binomial tail via the regularized incomplete beta function;
+    # D == 0 is guarded so betainc never sees a == 0.
+    has_divergences = total > 0
+    safe_total = jnp.where(has_divergences, total, 1)
+    safe_max = jnp.where(has_divergences, max_count, 1)
+    tail = jax.scipy.special.betainc(
+        safe_max.astype(float),
+        (safe_total - safe_max + 1).astype(float),
+        1.0 / num_chains,
+    )
+    p_value = jnp.where(
+        has_divergences,
+        jnp.minimum(1.0, num_chains * tail),
+        jnp.asarray(jnp.nan),
+    )
+
+    return DivergenceConcentrationReport(
+        warn=warn,
+        flagged=flagged,
+        num_flagged=num_flagged,
+        rates=rates,
+        early_rate=early_rate,
+        late_rate=late_rate,
+        median_other_rate=median_other_rate,
+        total_divergences=total,
+        num_chains=jnp.asarray(num_chains),
+        rate_threshold=jnp.asarray(rate_threshold),
+        multinomial_p_value=p_value,
+    )
+
+
+def format_divergence_warning(report: DivergenceConcentrationReport) -> str:
+    """Render a :class:`DivergenceConcentrationReport` as a human-readable message.
+
+    Returns ``""`` when ``report.warn`` is false. Otherwise returns one
+    sentence per flagged chain (newline-separated when more than one
+    chain is flagged). Not JIT-compatible by design — call it on concrete
+    report values (e.g. after a sampling run has completed), not inside
+    traced code.
+
+    Parameters
+    ----------
+    report
+        A report produced by :func:`divergence_concentration` or
+        :func:`divergence_concentration_from_counts`.
+
+    Returns
+    -------
+    ``str``, empty when there is nothing to warn about.
+    """
+    if not bool(report.warn):
+        return ""
+
+    lines = []
+    flagged = np.asarray(report.flagged)
+    for k in np.flatnonzero(flagged):
+        k = int(k)
+        pct = "%.1f" % (float(report.rates[k]) * 100.0)
+        median = "%.1f" % (float(report.median_other_rate[k]) * 100.0)
+        early = float(report.early_rate[k])
+        late = float(report.late_rate[k])
+        if np.isfinite(early) and np.isfinite(late):
+            early_str = "%.1f" % (early * 100.0)
+            late_str = "%.1f" % (late * 100.0)
+            quarters = " ({}% in the first quarter, {}% in the last)".format(
+                early_str,
+                late_str,
+            )
+        else:
+            quarters = ""
+        lines.append(
+            f"chain {k}: {pct}% of its sampling draws diverged{quarters} — "
+            f"significantly more than the other chains ({median}% median)"
+            "; draws from this chain, especially early ones, may be "
+            "untrustworthy."
+        )
+    return "\n".join(lines)

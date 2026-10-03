@@ -48,6 +48,9 @@ from sqlbuild.compiler.compile._helpers.config.namespace_validation import (
     validate_preserved_logical_namespace,
 )
 from sqlbuild.compiler.compile._helpers.config.table_type import resolve_storage_policies
+from sqlbuild.compiler.compile._helpers.diagnostics.sql_analysis_opt_outs import (
+    rejected_sql_analysis_opt_out,
+)
 from sqlbuild.compiler.compile._helpers.explicit_references.macro_arguments import (
     merge_call_site_references,
     resource_references,
@@ -117,7 +120,9 @@ from sqlbuild.compiler.compile.models import (
     ModelConfigScanCache,
     ModelHeaderColumnCache,
     ModelInputBuildContext,
+    SqlAnalysisOptOutRequest,
 )
+from sqlbuild.compiler.discovery.constants import PROJECT_CONFIG_FILENAME
 from sqlbuild.compiler.discovery.models import (
     ConstantDeclaration,
     DiscoveredHookFunction,
@@ -148,6 +153,7 @@ from sqlbuild.compiler.scopes.types import (
     UsageKind,
     VisibilityReason,
 )
+from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
 from sqlbuild.python_nodes.models import SqlResourceRef
 from sqlbuild.spec.contracts.models import (
     DefaultsConfig,
@@ -158,6 +164,7 @@ from sqlbuild.spec.contracts.models import (
     SchemaModelEntry,
     SchemaSeedEntry,
     SettingsConfig,
+    SourceLocation,
     TargetConfig,
 )
 
@@ -232,6 +239,7 @@ class _VisibleModelDeclarationCache:
 class _ModelValidationContext:
     effective_settings: SettingsConfig
     no_sql_validation: bool
+    project_config_path: Path
     defer_model_sql_validation: bool
     external_sql_reference_resolver: ExternalSqlReferenceResolver | None
     extract_references: Callable[[str], tuple[CompileSqlReference, ...]]
@@ -254,6 +262,7 @@ class _HookExpansionContext:
     sql_hook_definitions: dict[str, DiscoveredSqlHookFile]
     consumer: ResourceIdentity | DeclarationIdentity
     facts: _HookExpansionFacts
+    sql_lexical_syntax: SqlLexicalSyntax
 
 
 @dataclass
@@ -391,7 +400,9 @@ def build_model_inputs(
     legacy_schema_files: tuple[DiscoveredSchemaFile, ...] = tuple(
         schema_file for schema_file in discovered_inputs.schema_files if schema_file.model_entries
     )
-    with cached_sql_reference_extractor(root=reference_cache_dir) as extract_references:
+    with cached_sql_reference_extractor(
+        root=reference_cache_dir, syntax=context.sql_lexical_syntax
+    ) as extract_references:
         return _build_model_inputs(
             discovered_inputs=discovered_inputs,
             context=context,
@@ -434,6 +445,7 @@ def _build_model_inputs(
     validation_context: _ModelValidationContext = _ModelValidationContext(
         effective_settings=effective_settings,
         no_sql_validation=no_sql_validation,
+        project_config_path=(discovered_inputs.project_dir or Path()) / PROJECT_CONFIG_FILENAME,
         defer_model_sql_validation=defer_model_sql_validation,
         external_sql_reference_resolver=external_sql_reference_resolver,
         extract_references=extract_references,
@@ -588,7 +600,7 @@ def _build_model_inputs(
             if isinstance(raw_placeholders, dict)
             else None
         )
-        sql_validation_enabled, references = _validate_model_input(
+        sql_validation_enabled, references, rejected_opt_out = _validate_model_input(
             context=validation_context,
             model_file=model_file,
             config=effective_config,
@@ -621,6 +633,7 @@ def _build_model_inputs(
                 collection_rendering=context.collection_rendering,
                 resolver=context.declaration_resolver,
             ),
+            sql_lexical_syntax=context.sql_lexical_syntax,
             sql_hook_definitions=sql_hook_definitions,
             consumer=model_identity,
         )
@@ -701,6 +714,7 @@ def _build_model_inputs(
                     macro_source_sql=declaration_expanded_sql,
                     references=references,
                     sql_validation_enabled=sql_validation_enabled,
+                    rejected_sql_analysis_opt_out=rejected_opt_out,
                     enum_declarations=tuple(declarations.local_enums.values()),
                     constant_declarations=tuple(declarations.local_constants.values()),
                     enum_columns=enum_columns,
@@ -729,6 +743,7 @@ def _build_model_inputs(
                 references=references,
                 schema_entry=header_schema_entry,
                 sql_validation_enabled=sql_validation_enabled,
+                rejected_sql_analysis_opt_out=rejected_opt_out,
                 enum_declarations=tuple(declarations.local_enums.values()),
                 constant_declarations=tuple(declarations.local_constants.values()),
                 enum_columns=enum_columns,
@@ -783,13 +798,31 @@ def _validate_model_input(
     sql_validation_placeholders: dict[str, str] | None,
     model_schema_columns: tuple[SchemaColumn, ...] | None,
     argument_references: tuple[CompileSqlReference, ...],
-) -> tuple[bool, tuple[CompileSqlReference, ...]]:
+) -> tuple[bool, tuple[CompileSqlReference, ...], SourceLocation | None]:
     model_name: str = model_file.file_path.stem
     sql_validation_enabled: bool = _model_sql_validation_gate(
         effective_settings=context.effective_settings,
         no_sql_validation=context.no_sql_validation,
         model_config=config,
     )
+    rejected_opt_out: SourceLocation | None = (
+        None
+        if sql_validation_enabled
+        else rejected_sql_analysis_opt_out(
+            SqlAnalysisOptOutRequest(
+                model_file=model_file,
+                config=config,
+                settings=context.effective_settings,
+                no_sql_validation=context.no_sql_validation,
+                query_sql=cursor_intrinsics_analysis_sql(
+                    sql=expanded_query_sql, cursor_type=config.values.get("cursor_type")
+                ),
+                placeholders=sql_validation_placeholders,
+                project_config_path=context.project_config_path,
+            )
+        )
+    )
+    sql_validation_enabled = sql_validation_enabled or rejected_opt_out is not None
     if sql_validation_enabled and not context.defer_model_sql_validation:
         validate_sql_syntax(
             query_sql=cursor_intrinsics_analysis_sql(
@@ -846,7 +879,7 @@ def _validate_model_input(
         query_sql=expanded_query_sql,
         custom_materialization_names=context.custom_materialization_names,
     )
-    return sql_validation_enabled, references
+    return sql_validation_enabled, references, rejected_opt_out
 
 
 def _build_visible_declaration_indexes(
@@ -1205,6 +1238,7 @@ def expand_model_hook_macros_result(
     loaded_macros: dict[str, LoadedMacro],
     macro_context: MacroContext,
     declaration_expansion: DeclarationExpansionContext,
+    sql_lexical_syntax: SqlLexicalSyntax,
     sql_hook_definitions: dict[str, DiscoveredSqlHookFile] | None = None,
     consumer: ResourceIdentity | None = None,
 ) -> HookExpansionResult:
@@ -1229,6 +1263,7 @@ def expand_model_hook_macros_result(
                 sql_hook_definitions=sql_hook_definitions or {},
                 consumer=consumer or ResourceIdentity(ResourceKind.MODEL, file_path.stem),
                 facts=facts,
+                sql_lexical_syntax=sql_lexical_syntax,
             ),
             hook_key=hook_key,
         )
@@ -1466,7 +1501,9 @@ def expand_sql_macros_in_value(
         facts.add(expansion.usages)
         facts.add_references(
             merge_call_site_references(
-                references=extract_sql_references(expansion.sql),
+                references=extract_sql_references(
+                    sql=expansion.sql, syntax=context.sql_lexical_syntax
+                ),
                 argument_references=expansion.argument_references,
             )
         )

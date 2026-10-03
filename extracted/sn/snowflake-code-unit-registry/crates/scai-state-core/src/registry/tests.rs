@@ -1461,28 +1461,26 @@ fn create_auto_refreshes_ranks() {
     let dir = temp_dir();
     let registry = CodeUnitRegistry::init(dir.path()).unwrap();
 
-    registry
-        .create(&mut make_unit_with_deps("c", &[]), None)
-        .unwrap();
-    registry
-        .create(&mut make_unit_with_deps("b", &["c"]), None)
-        .unwrap();
-    registry
-        .create(&mut make_unit_with_deps("a", &["b"]), None)
-        .unwrap();
+    let mut c = make_unit_with_deps("c", &[]);
+    c.planning.get_or_insert_with(Default::default).wave_rank = Some(42);
+    let mut b = make_unit_with_deps("b", &["c"]);
+    b.planning.get_or_insert_with(Default::default).wave_rank = Some(42);
+    let mut a = make_unit_with_deps("a", &["b"]);
+    a.planning.get_or_insert_with(Default::default).wave_rank = Some(42);
 
-    assert_eq!(
-        read_unit(&registry, "c").planning.unwrap().topological_rank,
-        Some(0)
-    );
-    assert_eq!(
-        read_unit(&registry, "b").planning.unwrap().topological_rank,
-        Some(1)
-    );
-    assert_eq!(
-        read_unit(&registry, "a").planning.unwrap().topological_rank,
-        Some(2)
-    );
+    registry.create(&mut c, None).unwrap();
+    registry.create(&mut b, None).unwrap();
+    registry.create(&mut a, None).unwrap();
+
+    let c = read_unit(&registry, "c");
+    let b = read_unit(&registry, "b");
+    let a = read_unit(&registry, "a");
+    assert_eq!(c.planning.as_ref().unwrap().topological_rank, Some(0));
+    assert_eq!(b.planning.as_ref().unwrap().topological_rank, Some(1));
+    assert_eq!(a.planning.as_ref().unwrap().topological_rank, Some(2));
+    assert_eq!(c.planning.unwrap().wave_rank, Some(42));
+    assert_eq!(b.planning.unwrap().wave_rank, Some(42));
+    assert_eq!(a.planning.unwrap().wave_rank, Some(42));
 }
 
 #[test]

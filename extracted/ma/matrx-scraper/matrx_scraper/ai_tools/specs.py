@@ -19,7 +19,7 @@ There is deliberately NO `crawl_*` group here. Site crawling is the canonical
 `web.*` crawler (`matrx_scraper/web_crawl/`), driven by `api/crawl_router.py`
 and the `web.crawl_schedule` dispatcher — never by a host-injected `_ext` seam.
 The old `crawl_start`/`crawl_status`/`crawl_pages`/`crawl_cancel` descriptors
-addressed the retired `scraper.crawl_runs` world (graveyarded 2026-08-09) and
+addressed the retired `scraper.crawl_runs` world (deprecated 2026-08-09) and
 were deleted with it: they were unregistered in `tool.definition`, no host ever
 wired their exts, and every call raised. An agent-facing entry point to the
 canonical crawler is a NEW tool over `web.crawl_session`, not a revival of these.

@@ -41,6 +41,12 @@ class ContentHasher:
     def hash_file(self, path: Path) -> str:
         """Hash a file's content and return its hex digest.
 
+        Equivalence with :meth:`hash_string` for the same logical content
+        is guaranteed only when the file is LF-encoded UTF-8 text. Files
+        with CRLF line endings or non-UTF-8 encodings are not guaranteed
+        to produce the same hash as ``hash_string`` on the equivalent
+        string.
+
         Args:
             path: Path to the file to hash.
 
@@ -50,8 +56,7 @@ class ContentHasher:
         Raises:
             FileNotFoundError: If the file does not exist.
         """
-        content = path.read_text(encoding='utf-8')
-        return self.hash_string(content)
+        return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def hash_files(self, paths: list[Path]) -> dict[str, str]:
         """Hash multiple files and return a mapping of path to hash.

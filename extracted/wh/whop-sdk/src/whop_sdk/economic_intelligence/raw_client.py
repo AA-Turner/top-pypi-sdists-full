@@ -18,8 +18,11 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.economic_intelligence import EconomicIntelligence
 from ..types.v1error_response import V1ErrorResponse
+from .types.list_economic_intelligence_request_direction import ListEconomicIntelligenceRequestDirection
+from .types.list_economic_intelligence_request_order import ListEconomicIntelligenceRequestOrder
 from .types.list_economic_intelligence_request_status import ListEconomicIntelligenceRequestStatus
 from .types.list_economic_intelligence_response import ListEconomicIntelligenceResponse
+from .types.update_economic_intelligence_request_result_page import UpdateEconomicIntelligenceRequestResultPage
 from .types.update_economic_intelligence_request_sentiment import UpdateEconomicIntelligenceRequestSentiment
 from .types.update_economic_intelligence_request_status import UpdateEconomicIntelligenceRequestStatus
 from pydantic import ValidationError
@@ -38,6 +41,9 @@ class RawEconomicIntelligenceClient:
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListEconomicIntelligenceRequestStatus] = None,
         input: typing.Optional[str] = None,
+        has_run: typing.Optional[bool] = None,
+        order: typing.Optional[ListEconomicIntelligenceRequestOrder] = None,
+        direction: typing.Optional[ListEconomicIntelligenceRequestDirection] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -45,7 +51,7 @@ class RawEconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation.
+        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read.
 
         Parameters
         ----------
@@ -57,6 +63,15 @@ class RawEconomicIntelligenceClient:
 
         input : typing.Optional[str]
             What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
+
+        has_run : typing.Optional[bool]
+            When true, only recommendations someone has started running, by any user. Without `account_id`, covers every account you can read that has Economic Intelligence. Can't be combined with `input`.
+
+        order : typing.Optional[ListEconomicIntelligenceRequestOrder]
+            Sort field.
+
+        direction : typing.Optional[ListEconomicIntelligenceRequestDirection]
+            Sort direction.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -86,6 +101,9 @@ class RawEconomicIntelligenceClient:
                 "account_id": account_id,
                 "status": status,
                 "input": input,
+                "has_run": has_run,
+                "order": order,
+                "direction": direction,
                 "first": first,
                 "after": after,
                 "last": last,
@@ -112,6 +130,9 @@ class RawEconomicIntelligenceClient:
                         account_id=account_id,
                         status=status,
                         input=input,
+                        has_run=has_run,
+                        order=order,
+                        direction=direction,
                         first=first,
                         after=_parsed_next,
                         last=last,
@@ -178,13 +199,16 @@ class RawEconomicIntelligenceClient:
         *,
         account_id: typing.Optional[str] = None,
         input: typing.Optional[str] = OMIT,
+        result_id: typing.Optional[str] = OMIT,
+        result_page: typing.Optional[UpdateEconomicIntelligenceRequestResultPage] = OMIT,
+        result_url: typing.Optional[str] = OMIT,
         sentiment: typing.Optional[UpdateEconomicIntelligenceRequestSentiment] = OMIT,
         status: typing.Optional[UpdateEconomicIntelligenceRequestStatus] = OMIT,
         user_feedback: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[EconomicIntelligence]:
         """
-        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire it and request replacements; a rating alone leaves its status unchanged.
+        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire a ready recommendation and request replacements; a rating alone leaves its status unchanged. To run a recommendation yourself, send `status: running` to start, then `status: executed` when it is carried out (with `result_id` naming what it changed, or `result_page` naming where it worked, so the result links there) or `status: incomplete` if the run ended without carrying it out. Whop AI reports its own runs the same way. Send `status: acknowledged` once an executed run's result has been seen.
 
         Parameters
         ----------
@@ -197,11 +221,20 @@ class RawEconomicIntelligenceClient:
         input : typing.Optional[str]
             What you want the replacement recommendation for, in your own words. Up to 1000 characters. Sent when superseding, it directs the generation that replaces the rejected recommendation.
 
+        result_id : typing.Optional[str]
+            With `status: executed`, the ID of what the run produced or changed, and the recommendation's `result_url` becomes where to view it: an ad (`ad_`), ad group (`adgrp_`) or ad campaign (`adcamp_`), a website (`app_`), a product (`prod_`), a plan (`plan_`), a checkout link (`ch_`), a promo code (`promo_`), or an experience (`exp_`). Without `result_id` or `result_page`, `result_url` links to the resource the recommendation was about, when it names one. Send only one of `result_id`, `result_page` and `result_url`.
+
+        result_page : typing.Optional[UpdateEconomicIntelligenceRequestResultPage]
+            With `status: executed`, the page where the run's result can be seen when it is not one resource, such as the checkout links list or the store page. The recommendation's `result_url` becomes that page on the account's dashboard, or its store page for `store_page`.
+
+        result_url : typing.Optional[str]
+            With `status: executed`, where to view what was produced when it is outside Whop. An http or https URL. Prefer `result_id` for anything on Whop.
+
         sentiment : typing.Optional[UpdateEconomicIntelligenceRequestSentiment]
             A signed-in user can rate a recommendation as `positive` or `negative`. Can be sent alone or together with status.
 
         status : typing.Optional[UpdateEconomicIntelligenceRequestStatus]
-            Use `executed` to record approval, or `superseded` to reject the recommendation.
+            Use `running` to start a run of a ready recommendation, `executed` to record that it was carried out, `incomplete` to record that a running recommendation's run ended without carrying it out, `superseded` to reject a ready recommendation, or `acknowledged` to mark an executed run as seen; the recommendation stays `executed` and records `acknowledged_at`.
 
         user_feedback : typing.Optional[str]
             An optional explanation of the rating or rejection. Negative feedback informs replacement recommendations.
@@ -223,6 +256,9 @@ class RawEconomicIntelligenceClient:
             },
             json={
                 "input": input,
+                "result_id": result_id,
+                "result_page": result_page,
+                "result_url": result_url,
                 "sentiment": sentiment,
                 "status": status,
                 "user_feedback": user_feedback,
@@ -307,6 +343,9 @@ class AsyncRawEconomicIntelligenceClient:
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListEconomicIntelligenceRequestStatus] = None,
         input: typing.Optional[str] = None,
+        has_run: typing.Optional[bool] = None,
+        order: typing.Optional[ListEconomicIntelligenceRequestOrder] = None,
+        direction: typing.Optional[ListEconomicIntelligenceRequestDirection] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -314,7 +353,7 @@ class AsyncRawEconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation.
+        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read.
 
         Parameters
         ----------
@@ -326,6 +365,15 @@ class AsyncRawEconomicIntelligenceClient:
 
         input : typing.Optional[str]
             What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
+
+        has_run : typing.Optional[bool]
+            When true, only recommendations someone has started running, by any user. Without `account_id`, covers every account you can read that has Economic Intelligence. Can't be combined with `input`.
+
+        order : typing.Optional[ListEconomicIntelligenceRequestOrder]
+            Sort field.
+
+        direction : typing.Optional[ListEconomicIntelligenceRequestDirection]
+            Sort direction.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -355,6 +403,9 @@ class AsyncRawEconomicIntelligenceClient:
                 "account_id": account_id,
                 "status": status,
                 "input": input,
+                "has_run": has_run,
+                "order": order,
+                "direction": direction,
                 "first": first,
                 "after": after,
                 "last": last,
@@ -383,6 +434,9 @@ class AsyncRawEconomicIntelligenceClient:
                             account_id=account_id,
                             status=status,
                             input=input,
+                            has_run=has_run,
+                            order=order,
+                            direction=direction,
                             first=first,
                             after=_parsed_next,
                             last=last,
@@ -450,13 +504,16 @@ class AsyncRawEconomicIntelligenceClient:
         *,
         account_id: typing.Optional[str] = None,
         input: typing.Optional[str] = OMIT,
+        result_id: typing.Optional[str] = OMIT,
+        result_page: typing.Optional[UpdateEconomicIntelligenceRequestResultPage] = OMIT,
+        result_url: typing.Optional[str] = OMIT,
         sentiment: typing.Optional[UpdateEconomicIntelligenceRequestSentiment] = OMIT,
         status: typing.Optional[UpdateEconomicIntelligenceRequestStatus] = OMIT,
         user_feedback: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[EconomicIntelligence]:
         """
-        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire it and request replacements; a rating alone leaves its status unchanged.
+        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire a ready recommendation and request replacements; a rating alone leaves its status unchanged. To run a recommendation yourself, send `status: running` to start, then `status: executed` when it is carried out (with `result_id` naming what it changed, or `result_page` naming where it worked, so the result links there) or `status: incomplete` if the run ended without carrying it out. Whop AI reports its own runs the same way. Send `status: acknowledged` once an executed run's result has been seen.
 
         Parameters
         ----------
@@ -469,11 +526,20 @@ class AsyncRawEconomicIntelligenceClient:
         input : typing.Optional[str]
             What you want the replacement recommendation for, in your own words. Up to 1000 characters. Sent when superseding, it directs the generation that replaces the rejected recommendation.
 
+        result_id : typing.Optional[str]
+            With `status: executed`, the ID of what the run produced or changed, and the recommendation's `result_url` becomes where to view it: an ad (`ad_`), ad group (`adgrp_`) or ad campaign (`adcamp_`), a website (`app_`), a product (`prod_`), a plan (`plan_`), a checkout link (`ch_`), a promo code (`promo_`), or an experience (`exp_`). Without `result_id` or `result_page`, `result_url` links to the resource the recommendation was about, when it names one. Send only one of `result_id`, `result_page` and `result_url`.
+
+        result_page : typing.Optional[UpdateEconomicIntelligenceRequestResultPage]
+            With `status: executed`, the page where the run's result can be seen when it is not one resource, such as the checkout links list or the store page. The recommendation's `result_url` becomes that page on the account's dashboard, or its store page for `store_page`.
+
+        result_url : typing.Optional[str]
+            With `status: executed`, where to view what was produced when it is outside Whop. An http or https URL. Prefer `result_id` for anything on Whop.
+
         sentiment : typing.Optional[UpdateEconomicIntelligenceRequestSentiment]
             A signed-in user can rate a recommendation as `positive` or `negative`. Can be sent alone or together with status.
 
         status : typing.Optional[UpdateEconomicIntelligenceRequestStatus]
-            Use `executed` to record approval, or `superseded` to reject the recommendation.
+            Use `running` to start a run of a ready recommendation, `executed` to record that it was carried out, `incomplete` to record that a running recommendation's run ended without carrying it out, `superseded` to reject a ready recommendation, or `acknowledged` to mark an executed run as seen; the recommendation stays `executed` and records `acknowledged_at`.
 
         user_feedback : typing.Optional[str]
             An optional explanation of the rating or rejection. Negative feedback informs replacement recommendations.
@@ -495,6 +561,9 @@ class AsyncRawEconomicIntelligenceClient:
             },
             json={
                 "input": input,
+                "result_id": result_id,
+                "result_page": result_page,
+                "result_url": result_url,
                 "sentiment": sentiment,
                 "status": status,
                 "user_feedback": user_feedback,

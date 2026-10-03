@@ -56,6 +56,7 @@ from matrx_ai.orchestrator.execution_state import (
     ExecutionStateSnapshot,
     clear_execution_state,
     set_execution_state,
+    try_get_execution_state,
 )
 from matrx_ai.orchestrator.loop_guard import LoopHealth, evaluate_loop_health
 from matrx_ai.orchestrator.mandate_carrier import (
@@ -2391,6 +2392,34 @@ def _record_billed_usage_on_failure(
         )
 
 
+def _turn_ttft_ms(state: ExecutionState | None) -> int | None:
+    """Time-to-first-token for THIS execution's user turn, in whole milliseconds.
+
+    Measured by the stream emitter (request accepted → first text or reasoning
+    chunk emitted; see ``StreamEmitter.time_to_first_output_s``). ``None`` — and
+    nothing is persisted — when no output ever reached the stream, when the
+    stream has no armed request start, when the first output belonged to an
+    earlier execution on the same stream, or for a child agent (it shares its
+    parent's stream, so the parent's first token is not the child's).
+    """
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    if ctx is None or getattr(ctx, "parent_conversation_id", None):
+        return None
+    emitter = getattr(ctx, "emitter", None)
+    ttft_fn = getattr(emitter, "time_to_first_output_s", None)
+    first_at = getattr(emitter, "first_output_at", None)
+    if not callable(ttft_fn) or not isinstance(first_at, float):
+        return None
+    if state is not None and first_at < state.started_perf:
+        return None
+    ttft_s = ttft_fn()
+    if not isinstance(ttft_s, float):
+        return None
+    return int(round(ttft_s * 1000))
+
+
 async def _finalize_and_persist(
     current_request: AIMatrixRequest,
     iteration: int,
@@ -2440,10 +2469,19 @@ async def _finalize_and_persist(
             if _key != "tool_dispositions" and _value is not None:
                 metadata.setdefault(_key, _value)
 
+    # TIME TO FIRST TOKEN — per user turn, platform-wide. The number lands in
+    # chat.user_request.metadata.ttft_ms (via build_request_summary) and in the
+    # completion event's timing_stats.first_token_seconds.
+    _timing_stats = current_request.timing_stats
+    _ttft_ms = _turn_ttft_ms(state or try_get_execution_state())
+    if _ttft_ms is not None:
+        metadata = {**metadata, "ttft_ms": _ttft_ms}
+        _timing_stats = {**_timing_stats, "first_token_seconds": _ttft_ms / 1000}
+
     completed = CompletedRequest(
         request=current_request,
         total_usage=current_request.total_usage,
-        timing_stats=current_request.timing_stats,
+        timing_stats=_timing_stats,
         tool_call_stats=current_request.tool_call_stats,
         iterations=iteration,
         final_response=final_response,
@@ -3484,6 +3522,28 @@ async def _capture_terminal_provider_failure(
         # classified (_capture_provider_out_of_credit) — one row, one class.
         return
 
+    if error_info.error_type == "invalid_setting":
+        # A settings rejection has ONE store of record: the K10 row
+        # (provider_setting_rejected) filed by the provider failure door —
+        # normally already at the dispatch seam. This is the second layer for
+        # a failure that reached the turn another way; the door dedupes.
+        from matrx_ai.providers.failure_report import report_provider_failure
+
+        await report_provider_failure(
+            exc,
+            provider=_provider_name_for_event(error_info, provider),
+            model=current_request.config.model,
+            route="orchestrator/provider_request",
+            error_info=error_info,
+            payload={"iteration": iteration, "retry_attempt": retry_attempt},
+            setting_context={"config": current_request.config},
+            request_id=current_request.request_id or getattr(exec_ctx, "request_id", None),
+            user_id=getattr(exec_ctx, "user_id", None),
+            conversation_id=current_request.conversation_id
+            or getattr(exec_ctx, "conversation_id", None),
+        )
+        return
+
     # A sanitation refusal happens before the SDK call. Give it its own repair
     # class instead of laundering it into a provider outage.
     kind = (
@@ -3587,6 +3647,7 @@ async def _write_request_snapshot(
     error_payload: Any = None,
     provider: str | None = None,
     model: str | None = None,
+    snapshot_id: str | None = None,
 ) -> None:
     """Persistence of the full provider request/response for one iteration.
 
@@ -3733,6 +3794,14 @@ async def _write_request_snapshot(
             ),
         }
 
+        # Host-staged metadata (aidream: the turn's on-request context texts), first iteration
+        # only — see matrx_ai.orchestrator.snapshot_metadata.
+        from matrx_ai.orchestrator.snapshot_metadata import snapshot_metadata_for
+
+        staged_metadata = snapshot_metadata_for(exec_ctx, iteration)
+        if staged_metadata:
+            payload_dict["metadata"] = _json_safe(staged_metadata)
+
         # cx_request_snapshot is an append-only audit log, never UPDATE'd.
         # In a request lane: route through the WriteCoordinator so it lands in
         # the same single transactional flush as the cx_request row it shadows.
@@ -3754,7 +3823,9 @@ async def _write_request_snapshot(
             queue_request_snapshot_create,
         )
 
-        snapshot_id = str(uuid4())
+        # A pre-allocated id (the failure path) is the one a settings-rejection
+        # record already links as request_snapshot_id.
+        snapshot_id = snapshot_id or str(uuid4())
         snapshot_fields = dict(payload_dict)
         snap_conv_id = snapshot_fields.pop("conversation_id")
         snap_ur_id = snapshot_fields.pop("user_request_id") or ""
@@ -3929,6 +4000,8 @@ async def _write_request_snapshot_on_failure(
     try:
         snap_payload = state.snapshot_payload
         state.snapshot_payload = None
+        pre_allocated_snapshot_id = state.failure_snapshot_id
+        state.failure_snapshot_id = None
         try:
             unified_snap = current_request.to_dict()
         except Exception:
@@ -3947,6 +4020,7 @@ async def _write_request_snapshot_on_failure(
             error_payload=_error_to_response_payload(error),
             provider=provider,
             model=model,
+            snapshot_id=pre_allocated_snapshot_id,
         )
     except Exception as exc:
         # Capturing the failure must never mask or replace the failure itself.
@@ -4739,6 +4813,10 @@ async def _execute_until_complete_inner(
                         return await _execute_stoppable(call, request_control_id)
 
                 async def _on_provider_error(_provider_exc: Exception) -> None:
+                    if getattr(_provider_exc, "is_caller_refusal", False):
+                        # Refused before the provider (the guest AI allowance):
+                        # nothing reached the wire, so there is no failure to snapshot.
+                        return
                     await _write_request_snapshot_on_failure(
                         exec_ctx=exec_ctx,
                         iteration=iteration,
@@ -4749,6 +4827,14 @@ async def _execute_until_complete_inner(
                         first_assistant_position=first_assistant_position,
                     )
 
+                # Allocate the failure snapshot's id BEFORE the call, so a
+                # settings-rejection record filed from inside it can link the
+                # snapshot (K10 request_snapshot_id). Persisted runs only — an
+                # ephemeral run writes no snapshot and must link none.
+                if state is not None:
+                    state.failure_snapshot_id = (
+                        str(uuid4()) if getattr(exec_ctx, "store", True) else None
+                    )
                 try:
                     api_response: UnifiedResponse = (
                         await send_once(
@@ -4761,6 +4847,9 @@ async def _execute_until_complete_inner(
                             on_provider_error=_on_provider_error,
                         )
                     ).response
+                    if state is not None:
+                        # Accepted: no failure snapshot will carry this id.
+                        state.failure_snapshot_id = None
                 except ProviderCallStopped as _stopped:
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
@@ -5935,36 +6024,42 @@ async def _execute_until_complete_inner(
                             color="red",
                         )
 
-                    await capture_issue(
-                        _issue_key,
-                        error_type=error_info.error_type,
-                        provider=_issue_provider if _issue_provider != "unknown" else None,
-                        model=current_request.config.model,
-                        status_code=error_info.status_code,
-                        is_retryable=error_info.is_retryable,
-                        was_recovered=False,
-                        retry_count=retry_attempt,
-                        user_id=exec_ctx.user_id,
-                        conversation_id=exec_ctx.conversation_id,
-                        request_id=current_request.request_id,
-                        detail={
-                            "message": error_info.message,
-                            "user_message": error_info.user_message,
-                            "retry_after": error_info.retry_after,
-                            "iteration": iteration,
-                            "retries_exhausted": _retries_exhausted,
-                        },
-                    )
+                    # A CALLER REFUSAL (the guest AI allowance) is decided before
+                    # the provider and is an expected outcome, not a provider
+                    # failure: no ops issue, no provider-failure record, and its
+                    # numbers ride the error event so the client can show them.
+                    _caller_refusal = bool(getattr(e, "is_caller_refusal", False))
+                    if not _caller_refusal:
+                        await capture_issue(
+                            _issue_key,
+                            error_type=error_info.error_type,
+                            provider=_issue_provider if _issue_provider != "unknown" else None,
+                            model=current_request.config.model,
+                            status_code=error_info.status_code,
+                            is_retryable=error_info.is_retryable,
+                            was_recovered=False,
+                            retry_count=retry_attempt,
+                            user_id=exec_ctx.user_id,
+                            conversation_id=exec_ctx.conversation_id,
+                            request_id=current_request.request_id,
+                            detail={
+                                "message": error_info.message,
+                                "user_message": error_info.user_message,
+                                "retry_after": error_info.retry_after,
+                                "iteration": iteration,
+                                "retries_exhausted": _retries_exhausted,
+                            },
+                        )
 
-                    await _capture_terminal_provider_failure(
-                        e,
-                        exec_ctx=exec_ctx,
-                        current_request=current_request,
-                        error_info=error_info,
-                        provider=provider,
-                        iteration=iteration,
-                        retry_attempt=retry_attempt,
-                    )
+                        await _capture_terminal_provider_failure(
+                            e,
+                            exec_ctx=exec_ctx,
+                            current_request=current_request,
+                            error_info=error_info,
+                            provider=provider,
+                            iteration=iteration,
+                            retry_attempt=retry_attempt,
+                        )
 
                     await exec_ctx.emitter.send_error(
                         error_type=error_info.error_type,
@@ -5976,6 +6071,8 @@ async def _execute_until_complete_inner(
                         user_message=error_info.user_message
                         if not error_info.is_retryable
                         else f"Failed after {retry_attempt + 1} attempts. {error_info.user_message}",
+                        code=error_info.error_type if _caller_refusal else None,
+                        details=dict(error_info.details) if _caller_refusal else None,
                     )
 
                     # Containment: finalize this request as failed and return

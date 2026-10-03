@@ -38,7 +38,6 @@ dependencies = [
     "wcwidth ~= 0.8.3",
     "pyperclip ~= 1.11.0",
     "pycryptodomex ~= 3.23.0",
-    "pyfzf ~= 0.3.1",
     "rapidfuzz ~= 3.14.5",
     "keyring ~= 25.7.0",
     "jinja2 ~= 3.1.6",
@@ -146,7 +145,6 @@ requires = ['tox>=4.20']
 
 [tool.tox.env_run_base]
 skip_install = true
-deps = ['uv']
 passenv = ['PYTEST_HOST',
            'PYTEST_USER',
            'PYTEST_PASSWORD',
@@ -158,13 +156,18 @@ commands = [['uv', 'pip', 'install', '-e', '.[dev,llm,dataframe]'],
             ['coverage', 'report', '-m', '--sort=Miss'],
             ['behave', 'test/features']]
 commands_post = [['rm', '-f', '--', './.myclirc']]
-allowlist_externals = ['rm']
+allowlist_externals = ['rm', 'uv']
 
 [tool.tox.env.style]
 skip_install = true
 deps = ['ruff']
 commands = [['ruff', 'check'],
             ['ruff', 'format', '--diff']]
+
+[tool.tox.env.typecheck]
+skip_install = true
+commands = [['uv', 'run', '--no-sync', '--frozen', '--', 'python', '-m', 'ensurepip'],
+            ['uv', 'run', '--no-sync', '--frozen', '--', 'python', '-m', 'mypy', '--no-pretty', '--install-types', '--non-interactive', '.']]
 
 [tool.pytest]
 addopts = ['--random-order']

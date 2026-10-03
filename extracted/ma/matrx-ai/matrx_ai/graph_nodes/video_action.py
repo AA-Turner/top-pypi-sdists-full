@@ -20,6 +20,7 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
@@ -37,8 +38,9 @@ class GenerateVideoInput(BaseModel):
             "'sora-2', 'sora-2-pro', 'grok-imagine-video', "
             "'google/veo-3.0-fast-audio' (Together), 'google/veo-3.1' (Replicate)."
         ),
-        json_schema_extra=field_extras(widget="model_picker"),
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
+    offering_id: str | None = offering_id_field()
     prompt: str = Field(
         min_length=1,
         description="Video description.",
@@ -256,6 +258,7 @@ async def _run_video_action(
 
         config_payload: dict[str, Any] = {
             "model": inputs.model,
+            "offering_id": inputs.offering_id,
             "messages": [{"role": "user", "content": inputs.prompt}],
             "aspect_ratio": inputs.aspect_ratio,
             "resolution": inputs.resolution,

@@ -757,7 +757,7 @@ def test_guided_install_finishes_with_dashboard_handoff_after_both_import_choice
     cli_main = importlib.import_module("probe.cli.main")
     events = []
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_monitor_test")
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(doctor, "collect", lambda: _caps(claude_available=True))
     monkeypatch.setattr(setup, "interactive", lambda: True)

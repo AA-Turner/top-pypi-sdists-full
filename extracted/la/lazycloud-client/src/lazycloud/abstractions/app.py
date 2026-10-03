@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Awaitable, Callable, Iterable, Mapping
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextvars import copy_context
 from copy import deepcopy
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeVar, overload
+from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeVar, cast, overload
 
-from pydantic import JsonValue
-from shared.app_slug import validate_app_slug
-from shared.autoscaling import Autoscaler
-from shared.deployment_records import (
+from lazycloud._shared.app_slug import validate_app_slug
+from lazycloud._shared.autoscaling import Autoscaler
+from lazycloud._shared.deployment_records import (
     DEFAULT_FUNCTION_AUTHORIZED,
     DEFAULT_FUNCTION_CPU,
     DEFAULT_FUNCTION_MEMORY,
@@ -26,13 +22,10 @@ from shared.deployment_records import (
     MemoryRequest,
     VolumeMount,
 )
-from shared.deployments import DeploymentKind, PodRole
-from shared.disks import DiskMount, parse_disk_size_bytes
-from shared.gpu import GpuInput
-from shared.http.errors import HttpApiError, HttpResponseDecodeError, HttpTransportError
-from shared.serialization import to_json_value
-from shared.tasks import TaskPolicy
-
+from lazycloud._shared.deployments import DeploymentKind, PodRole
+from lazycloud._shared.disks import DiskMount, parse_disk_size_bytes
+from lazycloud._shared.gpu import GpuInput
+from lazycloud._shared.tasks import TaskPolicy
 from lazycloud.abstractions.disk import Disk, disk_mounts
 from lazycloud.abstractions.metadata import (
     LifecycleHookInput,
@@ -43,16 +36,9 @@ from lazycloud.abstractions.metadata import (
 from lazycloud.abstractions.volume import VolumeExport, volume_mounts
 from lazycloud.agent_harness import AgentHarness, agent_install_commands
 from lazycloud.control import resolve_control_client_config
-from lazycloud.json_contracts import resource_payload
+from lazycloud.exceptions import SdkError
 
 if TYPE_CHECKING:
-    from shared.http.deployment_plans import (
-        DeploymentPlanRequest,
-        DeploymentPlanResponse,
-        DeploymentPruneResponse,
-    )
-    from shared.http.gateway import DeployStubResponse
-
     from lazycloud.abstractions.endpoint import (
         ASGI,
         Endpoint,
@@ -62,9 +48,11 @@ if TYPE_CHECKING:
     from lazycloud.abstractions.image import Image
     from lazycloud.abstractions.pod import Pod
     from lazycloud.abstractions.sandbox import Sandbox
+    from lazycloud.contracts.api import Deployment, DeploymentPlan, DeploymentPlanRequest
+    from lazycloud.session.deployment import AppFunctions
 
 
-class AppOperationError(RuntimeError):
+class AppOperationError(SdkError):
     pass
 
 
@@ -75,23 +63,6 @@ class AppResource(Protocol):
 ResourceT = TypeVar("ResourceT", bound=AppResource)
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-@dataclass(frozen=True, slots=True)
-class AppDeployResult:
-    app: str
-    resources: tuple[DeployStubResponse, ...]
-    pruning: DeploymentPruneResponse | None = None
-
-    def model_dump(self, *, mode: str = "python") -> dict[str, JsonValue]:
-        _ = mode
-        payload: dict[str, JsonValue] = {
-            "app": self.app,
-            "resources": [to_json_value(resource_payload(item)) for item in self.resources],
-        }
-        if self.pruning is not None:
-            payload["pruning"] = self.pruning.model_dump(mode="json")
-        return payload
 
 
 class App:
@@ -119,38 +90,6 @@ class App:
             for item in app.resources:
                 target._register(item)
         return tuple(combined.values())
-
-    def deployment_manifest(
-        self, *, prune: bool = False, resource: str | None = None, name: str | None = None
-    ) -> DeploymentPlanRequest:
-        from shared.http.deployment_plans import DeploymentPlanRequest, WorkloadIdentity
-
-        if prune and (resource is not None or name is not None):
-            raise AppOperationError("pruning requires the complete app without a name override")
-        selected = (
-            self._select_many(resource=resource, method="deploy") if resource else self.resources
-        )
-        return DeploymentPlanRequest(
-            app=self.slug,
-            prune=prune,
-            workloads=[
-                WorkloadIdentity(kind=spec.kind, name=name or spec.name)
-                for item in selected
-                if callable(getattr(item, "deploy", None))
-                for spec in [item.spec()]
-            ],
-        )
-
-    def plan(self, *, prune: bool = False, workspace: str | None = None) -> DeploymentPlanResponse:
-        from lazycloud.control_clients import resource_control_client
-
-        config = resolve_control_client_config(workspace=workspace)
-        try:
-            return resource_control_client(config).plan_deployment(
-                self.deployment_manifest(prune=prune)
-            )
-        except (HttpApiError, HttpTransportError, HttpResponseDecodeError) as exc:
-            raise AppOperationError(str(exc)) from exc
 
     @overload
     def function(
@@ -1028,100 +967,77 @@ class App:
         prune: bool = False,
         resource: str | None = None,
         workspace: str | None = None,
-        external_url: str | None = None,
         source_root: str | Path | None = None,
-    ) -> AppDeployResult:
-        """Deploy this app or one selected app resource.
+    ) -> Deployment:
+        """Deploy this app's functions, or one selected function.
 
-        Without `resource`, every deployable resource registered on the app is
-        deployed. With `resource`, pass either the resource name or
-        `"kind:name"` when names overlap, for example `"endpoint:api"`.
-
-        Up to four resources deploy concurrently and share matching source and
-        image preparation within this call. Results retain registration order.
-        On failure, queued deployments are canceled; running deployments may finish.
+        Without `resource`, every function registered on the app is deployed.
+        With `resource`, pass the function name or `"function:name"`.
 
         Args:
-            prune: Remove omitted workloads after all deployments register successfully.
-                Requires a complete app. An empty app removes every deployed workload.
+            prune: Stop the app's deployed functions that this app no longer
+                declares. Requires the complete app.
             resource: Optional resource selector to deploy only one item.
-            workspace: Workspace slug or name for the deployment.
-            external_url: External URL to attach to endpoint-style deployments.
-            source_root: Local source directory shared by the selected resources.
+            workspace: Workspace name for the deployment.
+            source_root: Local source directory the functions import from.
+                Defaults to the current directory.
         """
-        from lazycloud.control_clients import resource_control_client
-        from lazycloud.session.app_deployment import AppDeploymentSession, AppDeploymentTarget
+        from lazycloud.control import api_client, require_workspace
+        from lazycloud.session.deployment import deploy_functions
+
+        target = self.deployment_target(prune=prune, resource=resource)
+        config = resolve_control_client_config(workspace=workspace, timeout_seconds=60)
+        return deploy_functions(
+            [target],
+            client=api_client(config),
+            workspace=require_workspace(config),
+            source_root=source_root,
+            terminal=target.functions[0].terminal if target.functions else None,
+        )[0]
+
+    def deployment_manifest(
+        self, *, prune: bool = False, resource: str | None = None, name: str | None = None
+    ) -> DeploymentPlanRequest:
+        """The workloads a deploy of this app would make current, as a plan request."""
+        from lazycloud.session.deployment import plan_request
+
+        if prune and (resource is not None or name is not None):
+            raise AppOperationError("pruning requires the complete app without a name override")
+        return plan_request(self.deployment_target(prune=prune, resource=resource), name=name)
+
+    def plan(self, *, prune: bool = False, workspace: str | None = None) -> DeploymentPlan:
+        """What a deploy would add, redeploy, retain or remove, without deploying."""
+        from lazycloud.clients.api import ApiError
+        from lazycloud.control import api_client, require_workspace
+
+        config = resolve_control_client_config(workspace=workspace)
+        try:
+            return api_client(config).plan_deployment(
+                require_workspace(config), self.slug, self.deployment_manifest(prune=prune)
+            )
+        except ApiError as exc:
+            raise AppOperationError(str(exc)) from exc
+
+    def deployment_target(
+        self, *, prune: bool = False, resource: str | None = None
+    ) -> AppFunctions:
+        """The functions, endpoints, ASGI apps, pods and devboxes a deployment makes current.
+
+        Sandboxes are never deployed; each `create()` prepares its own release.
+        """
+        from lazycloud.session.deployment import AppFunctions, WorkloadDefinition
 
         if prune and resource is not None:
             raise AppOperationError("pruning requires the complete app without a resource selector")
-        deployable = (
+        selected = (
             self._select_many(resource=resource, method="deploy")
-            if not prune or resource is not None or self.deployment_manifest().workloads
-            else ()
+            if resource
+            else tuple(item for item in self.resources if callable(getattr(item, "deploy", None)))
         )
-
-        def submit() -> tuple[DeployStubResponse, ...]:
-            return self._submit_deployments(
-                deployable,
-                workspace=workspace,
-                external_url=external_url,
-                source_root=source_root,
-            )
-
-        if not prune:
-            return AppDeployResult(app=self.slug, resources=submit())
-        control = resource_control_client(
-            resolve_control_client_config(workspace=workspace, timeout_seconds=60)
-        )
-        try:
-            outcome = AppDeploymentSession(control).deploy(
-                [
-                    AppDeploymentTarget(self.deployment_manifest(prune=True), submit),
-                ]
-            )[0]
-        except (HttpApiError, HttpTransportError, HttpResponseDecodeError) as exc:
-            raise AppOperationError(str(exc)) from exc
-        return AppDeployResult(app=self.slug, resources=outcome.resources, pruning=outcome.pruning)
-
-    def _submit_deployments(
-        self,
-        deployable: tuple[Function[..., Any] | Endpoint[..., Any] | ASGI | Pod, ...],
-        *,
-        workspace: str | None,
-        external_url: str | None,
-        source_root: str | Path | None,
-    ) -> tuple[DeployStubResponse, ...]:
-        from lazycloud.session.preparation import MAX_DEPLOYMENT_PREPARATIONS, DeploymentPreparation
-
-        with (
-            DeploymentPreparation() as preparation,
-            ThreadPoolExecutor(
-                max_workers=MAX_DEPLOYMENT_PREPARATIONS, thread_name_prefix="app-deploy"
-            ) as executor,
-        ):
-            submitted = [
-                executor.submit(
-                    copy_context().run,
-                    _deploy_app_resource,
-                    item,
-                    {
-                        "workspace": workspace,
-                        "external_url": external_url,
-                        "source_root": source_root,
-                        "_preparation": preparation,
-                    },
-                )
-                for item in deployable
-            ]
-            try:
-                for future in as_completed(submitted):
-                    future.result()
-                results = tuple(future.result() for future in submitted)
-            except BaseException:
-                for future in submitted:
-                    future.cancel()
-                raise
-        return results
+        if not selected and not prune:
+            raise AppOperationError(f"app {self.slug} has no functions to deploy")
+        workloads = tuple(cast("WorkloadDefinition", item) for item in selected)
+        return AppFunctions(app=self.slug, functions=workloads, prune=prune)
 
     def serve(
         self,
@@ -1230,22 +1146,6 @@ def _is_serveable(resource: AppResource) -> bool:
     }
 
 
-def _deploy_app_resource(
-    item: Function[..., Any] | Endpoint[..., Any] | ASGI | Pod,
-    kwargs: Mapping[str, object],
-) -> DeployStubResponse:
-    from shared.http.gateway import DeployStubResponse
-
-    try:
-        result = _invoke_method(item.deploy, kwargs)
-        if not isinstance(result, DeployStubResponse):
-            raise AppOperationError("deployment did not return its registered deployment")
-        return result
-    except RuntimeError as exc:
-        spec = item.spec()
-        raise AppOperationError(f"failed to deploy {spec.kind.value}:{spec.name}: {exc}") from exc
-
-
 def _invoke_method(method: Callable[..., Any], kwargs: Mapping[str, object]) -> Any:
     selected = {key: value for key, value in kwargs.items() if value is not None}
     try:
@@ -1261,4 +1161,4 @@ def _invoke_method(method: Callable[..., Any], kwargs: Mapping[str, object]) -> 
     return method(**accepted)
 
 
-__all__ = ["App", "AppDeployResult", "AppOperationError"]
+__all__ = ["App", "AppOperationError"]

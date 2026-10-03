@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.900
+Version: 0.12.905
 Summary: ClawMetry - Real-time observability for 32 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -33,6 +33,7 @@ Requires-Dist: cffi<2; python_version < "3.10"
 Requires-Dist: cffi>=2; python_version >= "3.10"
 Requires-Dist: duckdb!=1.4.5,>=0.10
 Requires-Dist: websocket-client>=1.6
+Requires-Dist: zstandard>=0.22; python_version < "3.14"
 Requires-Dist: truststore>=0.8; python_version >= "3.10"
 Requires-Dist: certifi>=2024.7.4
 Provides-Extra: otel

@@ -815,6 +815,30 @@ class ConcatenationOperator(enum.Enum):
     NOT = "NOT"
 
 
+def _apply_rfc_json_path(value, rfc_json_path):
+    import json as _json
+
+    import jsonpath as _jsonpath
+
+    if isinstance(value, str):
+        try:
+            value = _json.loads(value)
+        except (ValueError, TypeError):
+            pass
+    if isinstance(value, dict) and "status" in value and "headers" in value \
+            and ("response_body" in value or "body" in value):
+        value = value.get("response_body", value.get("body"))
+        if isinstance(value, str):
+            try:
+                value = _json.loads(value)
+            except (ValueError, TypeError):
+                pass
+    env = getattr(_apply_rfc_json_path, "_strict_env", None)
+    if env is None:
+        env = _apply_rfc_json_path._strict_env = _jsonpath.JSONPathEnvironment(strict=True)
+    return env.findall(rfc_json_path, value)
+
+
 class Assertion:
     def __init__(
         self,
@@ -829,6 +853,7 @@ class Assertion:
         composite_operator: str = "",
         verification: str = "",
         claim: str = "",
+        json_path: str = "",
     ):
         # Handle backward compatibility with 'operator' parameter
         if operator is not None and assertion_operator is None:
@@ -857,6 +882,7 @@ class Assertion:
         self.composite_operator: str = composite_operator or ""
         self.verification: str = verification or ""
         self.claim: str = claim or ""
+        self.json_path: str = json_path or ""
 
 
     def update_variable_scope(self, new_variable_reference: str, old_variable_reference: str):
@@ -1046,6 +1072,16 @@ class Assertion:
         used_variables.update(left_variables)
         used_variables.update(right_variables)
 
+        if self.json_path:
+            matches = _apply_rfc_json_path(left, self.json_path)
+            if not matches:
+                return False, used_variables
+            for cond in self.assertion_operator:
+                for match_value in matches:
+                    if not self._eval_leaf_condition(cond, match_value, right):
+                        return False, used_variables
+            return True, used_variables
+
         for cond in self.assertion_operator:
             if not self._eval_leaf_condition(cond, left, right):
                 return False, used_variables
@@ -1069,6 +1105,8 @@ class Assertion:
             d["verification"] = self.verification
         if self.claim:
             d["claim"] = self.claim
+        if self.json_path:
+            d["json_path"] = self.json_path
         return d
 
 
@@ -1119,5 +1157,6 @@ class Assertion:
             assertion_operator=conditions,
             left_operand=json_data.get("left_operand"),
             right_operand=json_data.get("right_operand"),
+            json_path=json_data.get("json_path", ""),
             **v16_kwargs,
         )

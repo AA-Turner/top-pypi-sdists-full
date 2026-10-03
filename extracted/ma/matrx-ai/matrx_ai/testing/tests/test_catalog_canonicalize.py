@@ -27,8 +27,20 @@ class TestCanonicalizeReasoning:
         out = canonical_settings_from_config(_cfg(disable_reasoning=False))
         assert out["reasoning_effort"] == "medium"
 
+    def test_thinking_budget_requests_target_conversion(self):
+        # C5: canonicalize no longer picks an effort from a budget — it records
+        # the conversion request; the TARGET converts (bridge_numbers).
+        out = canonical_settings_from_config(_cfg(thinking_budget=5000))
+        assert "reasoning_effort" not in out
+        assert out["_convert"] == {"reasoning_effort": "thinking_budget"}
+        assert out["thinking_budget"] == 5000
+
     def test_thinking_budget_tiers(self):
-        # Transcribed from ThinkingConfig.to_openai_reasoning.
+        # Transcribed from ThinkingConfig.to_openai_reasoning — now the DECLARED
+        # default from_number a target applies when its rule carries none
+        # (passthrough map = a target with no rules).
+        from matrx_ai.catalog.controls import CompiledControlsMap
+
         for budget, effort in [
             (0, "none"),
             (1, "low"),
@@ -40,9 +52,11 @@ class TestCanonicalizeReasoning:
             (20_000, "xhigh"),
             (100_000, "xhigh"),
         ]:
-            out = canonical_settings_from_config(_cfg(thinking_budget=budget))
-            assert out["reasoning_effort"] == effort, f"budget={budget}"
-            assert out["thinking_budget"] == budget  # raw budget rides along
+            canonical = canonical_settings_from_config(_cfg(thinking_budget=budget))
+            bridged, _ = CompiledControlsMap().bridge_numbers(canonical)
+            assert bridged["reasoning_effort"] == effort, f"budget={budget}"
+            assert bridged["thinking_budget"] == budget  # raw budget rides along
+            assert bridged["_converted"] == {"reasoning_effort": "thinking_budget"}
 
     def test_budget_passthrough_with_explicit_effort(self):
         out = canonical_settings_from_config(_cfg(reasoning_effort="high", thinking_budget=4096))

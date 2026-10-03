@@ -79,6 +79,8 @@ pub mod host_liveness;
 pub mod launch_scratch_liveness;
 pub mod machine_hood;
 pub mod machine_setup;
+pub mod macro_catalog;
+mod macro_text_block;
 pub mod managed_origin;
 pub mod managed_tmp;
 pub mod managed_tmp_roots;
@@ -134,8 +136,6 @@ pub mod tool_run;
 pub mod vcs_log;
 pub mod wire;
 pub mod workspace_lease;
-pub mod xprompt_catalog;
-mod xprompt_text_block;
 
 /// Return launch-inert literal zones as UTF-8 byte ranges.
 ///
@@ -283,7 +283,7 @@ pub use agent_launch::{
     LAUNCH_PLAN_WIRE_SCHEMA_VERSION, PROC_DISPATCH_WIRE_SCHEMA_VERSION,
     PROC_PHASE_ACQUIRING_WORKSPACE, PROC_PHASE_CHECKING,
     PROC_PHASE_PREPARING_SCRIPT, PROC_PHASE_RUNNING, PROC_PHASE_SETTLING,
-    PROC_PHASE_WAITING, XPROMPT_PROC_ORIGIN,
+    PROC_PHASE_WAITING,
 };
 pub use agent_name_template::{
     agent_name_template_namespace_template, agent_name_template_tokens_after,
@@ -365,10 +365,9 @@ pub use agent_scan::{
     OutputVariableSelectorError, OutputVariableSelectorPathWire,
     OutputVariableSelectorScopeWire, OutputVariableSelectorWire,
     OutputVariableValue, PlanPathMarkerWire, PromptStepMarkerWire,
-    RunningMarkerWire, UsedXPromptWire, WaitingMarkerWire,
-    WorkflowArtifactCandidate, WorkflowArtifactCandidates, WorkflowStateWire,
-    WorkflowStepStateWire, ACE_RUN_WORKFLOW_DIR,
-    AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
+    RunningMarkerWire, WaitingMarkerWire, WorkflowArtifactCandidate,
+    WorkflowArtifactCandidates, WorkflowStateWire, WorkflowStepStateWire,
+    ACE_RUN_WORKFLOW_DIR, AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_ARTIFACT_INDEX_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_SELECTOR_WIRE_SCHEMA_VERSION,
@@ -396,8 +395,7 @@ pub use agent_stats::{
     AgentRunnerOccupancyWire, AgentRunnerStatsWire, AgentRunnerTrendSliceWire,
     AgentRuntimeGroupStatsWire, AgentStatsCountWire,
     AgentStatsDistributionWire, AgentStatsRuntimeGroupByWire,
-    AgentWorkStatsWire, AgentWorkspaceStatsWire, AgentXPromptFocusWire,
-    AgentXPromptStatsRowWire, AgentXPromptStatsWire,
+    AgentWorkStatsWire, AgentWorkspaceStatsWire,
     AGENT_STATS_WIRE_SCHEMA_VERSION,
 };
 pub use agent_tribe::{
@@ -673,9 +671,8 @@ pub use content_layout::{
     CompatibleLayoutPathWire, HomeContentLayoutWire,
     LayoutCandidateResolutionWire, LayoutCollisionPolicyWire,
     LayoutPathRoleWire, LayoutPathWire, LayoutTrackingWire, MemorySourceWire,
-    MemoryTierWire, MemoryXpromptIssueWire, MemoryXpromptRuleWire,
-    ProjectContentLayoutWire, SaseContentLayoutWire, SkillPlacementIssueWire,
-    SkillPlacementRuleWire, SkillSourceWire, XpromptSourceWire,
+    MemoryTierWire, ProjectContentLayoutWire, SaseContentLayoutWire,
+    SkillPlacementIssueWire, SkillPlacementRuleWire, SkillSourceWire,
     CONTENT_LAYOUT_SCHEMA_VERSION, MEMORY_NAMESPACE_SEGMENT,
     MEMORY_README_FILENAME, REF_DIRECTORY_SEGMENT, SKILL_DIRECTORY_SEGMENT,
     SKILL_NAMESPACE_SEGMENT,
@@ -766,8 +763,6 @@ pub use editor::{
     build_vcs_repo_completion_candidates as editor_build_vcs_repo_completion_candidates,
     build_wait_completion_candidates as editor_build_wait_completion_candidates,
     build_wait_completion_candidates_for_form as editor_build_wait_completion_candidates_for_form,
-    build_xprompt_arg_name_candidates as editor_build_xprompt_arg_name_candidates,
-    build_xprompt_completion_candidates as editor_build_xprompt_completion_candidates,
     canonical_directive_name as editor_canonical_directive_name,
     classify_completion_context as editor_classify_completion_context,
     classify_completion_context_with_artifacts_and_workflows as editor_classify_completion_context_with_artifacts_and_workflows,
@@ -794,9 +789,6 @@ pub use editor::{
     directive_snippet_recipes_with_flags as editor_directive_snippet_recipes_with_flags,
     extract_placeholder_spans as editor_extract_placeholder_spans,
     extract_token_at_position as editor_extract_token_at_position,
-    extract_xprompt_argument_spans as editor_extract_xprompt_argument_spans,
-    extract_xprompt_argument_spans_with_catalog as editor_extract_xprompt_argument_spans_with_catalog,
-    extract_xprompt_call_name_spans as editor_extract_xprompt_call_name_spans,
     filter_explicit_model_shortcut_entries as editor_filter_explicit_model_shortcut_entries,
     filter_model_alias_shortcut_entries as editor_filter_model_alias_shortcut_entries,
     frontmatter_field_schema as editor_frontmatter_field_schema,
@@ -808,7 +800,6 @@ pub use editor::{
     is_slash_skill_like_token as editor_is_slash_skill_like_token,
     is_snippet_trigger_token as editor_is_snippet_trigger_token,
     is_vcs_project_trigger_token as editor_is_vcs_project_trigger_token,
-    is_xprompt_like_token as editor_is_xprompt_like_token,
     model_shortcut_context as editor_model_shortcut_context,
     model_shortcut_edit as editor_model_shortcut_edit,
     named_args_skeleton as editor_named_args_skeleton,
@@ -847,8 +838,6 @@ pub use editor::{
     PlaceholderSpan, RawPlaceholderField, TokenInfo, VcsNamespaceEntry,
     VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
     VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
-    XpromptArgumentSource, XpromptArgumentSpan, XpromptArgumentSpanRole,
-    XpromptArgumentSpanValidity, XpromptAssistEntry, XpromptInputHint,
     AGENT_CATALOG_SCHEMA_VERSION, AT_REFERENCE_MAX_GROUP_ROWS,
     BEAD_COMPLETION_LIMIT, DIRECTIVES as EDITOR_DIRECTIVES,
     EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
@@ -1163,6 +1152,7 @@ pub use machine_setup::{
     RECONCILE_STATUS_ENROLLED, RECONCILE_STATUS_NEW, RECONCILE_STATUS_REPAIR,
     SASE_GATEWAY_HEALTH_SERVICE, TAILNET_PROVIDER_REF,
 };
+pub use macro_catalog::load_editor_snippet_catalog;
 pub use managed_origin::{
     decide_managed_origin_reconciliation, ManagedOriginPushUrlRewriteWire,
     ManagedOriginReconciliationDecisionWire,
@@ -1292,8 +1282,8 @@ pub use procs::{
     ProcReserveOutcomeWire, ProcReserveWire, ProcServiceWire,
     ProcSettlementWire, ProcStopRequestWire, ProcStoreError,
     ProcStoreSnapshotWire, ProcStoreStatsWire, ProcSupervisorClaimWire,
-    ProcUpdateOutcomeWire, ProcUpdateWire, ProcWire, XpromptProcMetaWire,
-    PROC_WIRE_SCHEMA_VERSION, SUPPORTED_PROC_WIRE_SCHEMA_VERSIONS,
+    ProcUpdateOutcomeWire, ProcUpdateWire, ProcWire, PROC_WIRE_SCHEMA_VERSION,
+    SUPPORTED_PROC_WIRE_SCHEMA_VERSIONS,
 };
 pub use project_spec::{
     active_project_spec_filename, apply_project_aliases_update,
@@ -1404,8 +1394,8 @@ pub use query::{
     tokenize_query_with_profile, try_evaluate_query_many_in_corpus,
     CompiledQueryProfile, FieldValueKind, QueryCorpus, QueryErrorWire,
     QueryEvaluationContext, QueryExprWire, QueryFieldSpec, QueryFieldValues,
-    QueryMacroSpec, QueryPredicateFacts, QueryProgram, QueryProgramWire,
-    QueryRow, QuerySigilSpec, QueryTokenKind, QueryTokenWire,
+    QueryPredicateFacts, QueryProgram, QueryProgramWire, QueryRow,
+    QueryShorthandSpec, QuerySigilSpec, QueryTokenKind, QueryTokenWire,
 };
 pub use queue_directive::{
     collect_queue_fields, collect_queue_fields_with_flags,
@@ -1644,12 +1634,4 @@ pub use workspace_lease::{
     LEGACY_PRIMARY_WORKSPACE_NUM, MACHINE_OWNED_MIN_WORKSPACE,
     OPERATIONAL_LEASE_POLICY_KIND, PRIMARY_WORKSPACE_NUM,
     UNIFIED_MAX_WORKSPACE,
-};
-pub use xprompt_catalog::{
-    load_editor_snippet_catalog, load_editor_xprompt_catalog,
-    resolve_xprompt_skill_definition, XpromptCatalogLoadError,
-    XpromptCatalogLoadOptions, XpromptCatalogResourcePaths,
-    XpromptSkillDefinitionCandidateWire, XpromptSkillDefinitionRequestWire,
-    XpromptSkillDefinitionResolutionWire,
-    XPROMPT_SKILL_DEFINITION_WIRE_SCHEMA_VERSION,
 };

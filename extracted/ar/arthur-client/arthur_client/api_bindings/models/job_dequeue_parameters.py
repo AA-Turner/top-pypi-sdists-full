@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,8 @@ class JobDequeueParameters(BaseModel):
     JobDequeueParameters
     """ # noqa: E501
     memory_limit_mb: StrictInt = Field(description="Available memory in megabytes for job execution")
-    __properties: ClassVar[List[str]] = ["memory_limit_mb"]
+    discovery_source_test: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["memory_limit_mb", "discovery_source_test"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +69,11 @@ class JobDequeueParameters(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if discovery_source_test (nullable) is None
+        # and model_fields_set contains the field
+        if self.discovery_source_test is None and "discovery_source_test" in self.model_fields_set:
+            _dict['discovery_source_test'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +86,8 @@ class JobDequeueParameters(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "memory_limit_mb": obj.get("memory_limit_mb")
+            "memory_limit_mb": obj.get("memory_limit_mb"),
+            "discovery_source_test": obj.get("discovery_source_test")
         })
         return _obj
 

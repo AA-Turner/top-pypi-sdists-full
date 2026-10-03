@@ -11557,7 +11557,7 @@ class KnowSureThing(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.I
         ...
 
 
-class RelativeDailyVolume(QuantConnect.Indicators.TradeBarIndicator):
+class RelativeDailyVolume(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     The Relative Daily Volume indicator is an indicator that compares current
     cumulative volume to the cumulative volume for a given
@@ -11569,6 +11569,15 @@ class RelativeDailyVolume(QuantConnect.Indicators.TradeBarIndicator):
     @property
     def is_ready(self) -> bool:
         """Gets a flag indicating when the indicator is ready and fully initialized"""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
+        ...
+
+    @warm_up_period.setter
+    def warm_up_period(self, value: int) -> None:
         ...
 
     @overload

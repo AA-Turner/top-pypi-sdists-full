@@ -10,6 +10,7 @@ from .account_balance_token import AccountBalanceToken
 from .account_capabilities import AccountCapabilities
 from .account_cards import AccountCards
 from .account_company_formation import AccountCompanyFormation
+from .account_financing import AccountFinancing
 from .account_home_preferences_item import AccountHomePreferencesItem
 from .account_onboarding_type import AccountOnboardingType
 from .account_opengraph_image_variant import AccountOpengraphImageVariant
@@ -27,11 +28,17 @@ from .account_tax_type import AccountTaxType
 from .account_three_ds_level import AccountThreeDsLevel
 from .account_wallet import AccountWallet
 from .file import File
+from .money import Money
 from .trading_account import TradingAccount
 from .user_summary import UserSummary
 
 
 class Account(UniversalBaseModel):
+    ads_spend_usd: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Lifetime charged ad spend for the account, in USD. Computed only on `list` for callers with `stats:read` on the account; `null` otherwise.
+    """
+
     balances: typing.List[AccountBalanceToken]
     banner_image_url: typing.Optional[str] = pydantic.Field(default=None)
     """
@@ -98,9 +105,14 @@ class Account(UniversalBaseModel):
     Account promotional description.
     """
 
+    dispute_fighter_enabled: bool = pydantic.Field()
+    """
+    Whether Whop assembles and files dispute evidence for this account. Enabling it opts the account into the success fee charged on disputes it wins.
+    """
+
     economic_intelligence: bool = pydantic.Field()
     """
-    Whether economic intelligence is enabled for the account.
+    Whether Economic Intelligence is on for the account. It turns off automatically when its committed period ends.
     """
 
     email: typing.Optional[str] = pydantic.Field(default=None)
@@ -111,6 +123,11 @@ class Account(UniversalBaseModel):
     eula: typing.Optional[File] = pydantic.Field(default=None)
     """
     The account's end-user license agreement document, or `null` if they have not published one.
+    """
+
+    financing: typing.Optional[AccountFinancing] = pydantic.Field(default=None)
+    """
+    The account's most recent financing application. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise, or when the account has never applied for financing.
     """
 
     home_preferences: typing.List[AccountHomePreferencesItem]
@@ -159,6 +176,11 @@ class Account(UniversalBaseModel):
     Account Open Graph image variant.
     """
 
+    orchestration_enabled: bool = pydantic.Field()
+    """
+    Whether payment orchestration is enabled for this account.
+    """
+
     other_business_description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Business type details when business_type is `other`.
@@ -189,6 +211,7 @@ class Account(UniversalBaseModel):
     Payment health controls currently applied to the account. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise.
     """
 
+    platform_credits: typing.List[Money]
     privacy_policy: typing.Optional[File] = pydantic.Field(default=None)
     """
     The account's privacy policy document, or `null` if they have not published one.
@@ -265,7 +288,7 @@ class Account(UniversalBaseModel):
 
     status_reason: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Why the account was suspended, as the label shown to the account owner, such as `Suspended - Fraudulent payment activity`. Computed on `retrieve`, `me`, and `suspend`; `null` otherwise, when `status` is not `suspended`, and when the suspension was recorded without a reason.
+    Why the account was suspended, as the label shown to the account owner, such as `Suspended - Fraudulent activity`. Computed on `retrieve`, `me`, and `suspend`; `null` otherwise, when `status` is not `suspended`, and when the suspension was recorded without a reason.
     """
 
     store_page_config: AccountStorePageConfig = pydantic.Field()

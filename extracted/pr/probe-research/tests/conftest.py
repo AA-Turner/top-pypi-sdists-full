@@ -6,6 +6,7 @@ Lets us test the SDK + CLI end to end with no live server.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import math
@@ -408,6 +409,9 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # the status line into `$CLAUDE_CONFIG_DIR/settings.json`, so a developer
     # who exports it would otherwise have tests editing their real Claude Code.
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    # PI_CODING_AGENT_DIR, likewise: an update test reaching the pi step would
+    # run a real `pi update` against a developer's own pi install.
+    monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
     # XDG_STATE_HOME is the telemetry flavor of the same hole: machine_id and
     # the identity cache live under it, and the plugin's build_batch now mints
     # a machine id on every call — a developer exporting XDG_STATE_HOME would
@@ -493,6 +497,16 @@ _RUN_VIEWS = re.compile(r"^/v1/runs/([^/]+)/views$")
 _RUN_VIEWS_PREVIEW = re.compile(r"^/v1/runs/([^/]+)/views/preview$")
 _RUN_VIEW_DATA = re.compile(r"^/v1/runs/([^/]+)/views/([^/]+)/data$")
 _VIEW = re.compile(r"^/v1/views/([^/]+)$")
+
+
+def _instant(stamp: str):
+    """An ISO timestamp as an aware datetime, so `Z` and `+00:00` compare equal
+    -- the server compares the parsed instant, never the spelling."""
+    from datetime import datetime
+
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+
 _RUN_COORDINATES = re.compile(r"^/v1/runs/([^/]+)/coordinates$")
 _RUN_SPANS = re.compile(r"^/v1/runs/([^/]+)/spans$")
 _RUN_STEPS = re.compile(r"^/v1/runs/([^/]+)/steps$")
@@ -530,6 +544,81 @@ _ME = "00000000-0000-0000-0000-000000000001"
 _WS_MINE = "11111111-1111-1111-1111-111111111111"
 _WS_OTHER = "22222222-2222-2222-2222-222222222222"
 _T0 = "2026-01-01T00:00:00Z"
+
+#: `kind_rank` per catalog kind, as app/notes_catalog/service.py's SQL arms
+#: number them: the tiebreak inside one `created_at`, and part of the cursor.
+_NOTE_KIND_RANK = {
+    "project": 6,
+    "experiment": 5,
+    "run": 4,
+    "sub_note": 3,
+    "group": 2,
+    "artifact": 1,
+}
+
+_ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
+_STAMP_OVERFLOW = re.compile(r"^(.*T\d\d:\d\d:)(\d+)((?:\.\d+)?)(Z|[+-]\d\d:\d\d)?$")
+
+
+def _keyset_time(value: object) -> float:
+    """A row's `created_at` as a sortable instant, the way Postgres compares a
+    timestamptz: `Z` and `+00:00` are one zone, and fractions count.
+
+    Also reads the fake's own `_stamp()` past 59 seconds (`...00:00:75Z`), which
+    is not ISO but is how this fake has always numbered its 60th row onward."""
+    from datetime import datetime, timedelta
+
+    text = str(value or "1970-01-01T00:00:00Z")
+    match = _STAMP_OVERFLOW.match(text)
+    if match is None:
+        return 0.0
+    head, seconds, fraction, zone = match.groups()
+    zone = "+00:00" if zone in (None, "Z") else zone
+    base = datetime.fromisoformat(f"{head}00{zone}")
+    return (base + timedelta(seconds=int(seconds) + float(fraction or 0))).timestamp()
+
+
+def _min_max_downsample(points: list[dict], max_points: int | None) -> list[dict]:
+    """app/telemetry/store.py `_downsample`, verbatim in effect: the two
+    endpoints plus each bucket's finite min and max, at most `max_points`, in
+    order, no duplicates. Copied rather than approximated, because how many
+    points a CUT series comes back with is what the MCP reads to decide whether
+    a series was sampled."""
+    n = len(points)
+    if max_points is None or n <= max_points:
+        return points
+    keep = {0, n - 1}
+    buckets = max(0, (max_points - len(keep)) // 2)
+    for b in range(buckets):
+        lo, hi = b * n // buckets, (b + 1) * n // buckets
+        if lo >= hi:
+            continue
+        window = [i for i in range(lo, hi) if math.isfinite(points[i]["value"])]
+        if not window:
+            keep.add(lo)
+            continue
+        keep.add(min(window, key=lambda i: points[i]["value"]))
+        keep.add(max(window, key=lambda i: points[i]["value"]))
+    return [points[i] for i in sorted(keep)]
+
+
+def _series_read_provenance(source_backed: bool, max_points: int | None) -> dict:
+    """What POST /v1/series/query stamps on a series. A LOCAL series is marked
+    sampled whenever the read named `max_points` -- cut or not -- exactly as
+    provider_reads.local_read_provenance does; a provider series carries the
+    provider's own receipt."""
+    if source_backed:
+        return {"source": "wandb", "coverage": "sampled", "exactness": "sampled"}
+    if max_points is None:
+        return {"source": "probe", "coverage": "complete", "exactness": "exact"}
+    return {
+        "source": "probe",
+        "coverage": "sampled",
+        "exactness": "sampled",
+        "fetched_at": "2026-10-02T00:00:00Z",
+        "warning": "Probe downsampled this local series for display",
+    }
 
 
 def _newest_first(rows: list[dict]) -> list[dict]:
@@ -1297,6 +1386,23 @@ class FakeApp:
         #: run_id -> SeriesResult rows, served by POST /v1/series/query (compare()).
         self.series_points: dict[str, list[dict]] = {}
         self.series_queries: list[dict] = []
+        #: Extra fields POST /v1/series/query answers with -- `errors` (per-series
+        #: read failures) and `truncated` (the raw-point ceiling) -- as seed knobs.
+        self.series_result_extra: dict = {}
+        #: Runs that are SOURCE-BACKED (a W&B mirror's passport): the series and
+        #: bundle routes answer them 422 `unsupported_source_query` unless the
+        #: request names the coverage-v1 read contract, as production does.
+        self.source_backed_runs: set[str] = set()
+        #: (run_id, trial) -> {"entries": [...], "counts": {...}, ...}, served by
+        #: GET /v1/runs/{id}/sandbox-state/diff with its real path-keyed paging.
+        self.sandbox_diffs: dict[tuple[str, str], dict] = {}
+        self.sandbox_diff_calls: list[dict] = []
+        #: run_id -> AgentSessionOut rows the run BUNDLE carries (capped at 50).
+        self.run_sessions: dict[str, list[dict]] = {}
+        #: artifact_id -> AgentSessionOut rows, GET /v1/artifacts/{id}/sessions.
+        self.artifact_sessions: dict[str, list[dict]] = {}
+        #: project_id -> ProjectReadmeOut, GET /v1/projects/{id}/readme.
+        self.project_readmes: dict[str, dict] = {}
         self.metric_points: dict[str, list[dict]] = {}
         # Points as POSTED (coords/labels/span_id included), keyed by run id.
         # Separate from `metric_points`, which read-path tests seed by hand;
@@ -1526,6 +1632,9 @@ class FakeApp:
         payload["notes_limit_chars"] = cap
         if "notes" in row:
             payload["notes_remaining_chars"] = max(0, cap - len(row["notes"] or ""))
+        # `notes_version` is NOT NULL DEFAULT 0 on every carrier, and entity
+        # responses publish it (0130) whether or not a note was ever written.
+        payload.setdefault("notes_version", 0)
         return httpx.Response(response.status_code, json=payload)
 
     def _sub_note_tick(self) -> str:
@@ -1673,7 +1782,11 @@ class FakeApp:
             row["updated_at"] = self._sub_note_tick()
         return None
 
-    NOTES_WRITE_FIELDS = ("notes", "notes_append", "notes_edit")
+    #: The notes write's own fields, never columns the PATCH copies onto the row:
+    #: the three writes and the replace's precondition, idempotency key and force.
+    NOTES_WRITE_FIELDS = (
+        "notes", "notes_append", "notes_edit", "base_version", "op_key", "force",
+    )
 
     def _apply_notes_write(
         self, row: dict, body: dict, cap: int, *, stores: bool = True
@@ -1695,6 +1808,26 @@ class FakeApp:
         if not stores:
             return None
         if body.get("notes") is not None:
+            # The replace's precondition (`stale_replace`): a `base_version`
+            # that is not the head is refused with the head's version and no
+            # body. `notes_version` moves only when the text does (0130).
+            head = row.get("notes_version") or 0
+            base = body.get("base_version")
+            if base is not None and base != head:
+                return httpx.Response(
+                    409,
+                    json={
+                        "detail": {
+                            "message": (
+                                "the document moved since you read it; re-read it and "
+                                "merge, then replace again from the version you merged onto"
+                            ),
+                            "notes_version": head,
+                        }
+                    },
+                )
+            if body["notes"] != (row.get("notes") or ""):
+                row["notes_version"] = head + 1
             row["notes"] = body["notes"]
         if self.stores_notes_append and body.get("notes_append") is not None:
             current = row.get("notes") or ""
@@ -1941,12 +2074,68 @@ class FakeApp:
                 return httpx.Response(404, json={"detail": "Not Found"})
             return httpx.Response(200, json=self.browse_response)
 
+        # -- reads the MCP's entity views and browse modes reach --------------
+        m = re.match(r"^/v1/runs/([^/]+)/sandbox-state/diff$", path)
+        if m and method == "GET":
+            rid, trial = m.group(1), request.url.params.get("trial")
+            self.sandbox_diff_calls.append(dict(request.url.params))
+            if not trial:
+                # `trial` is `Query(...)` on the real route.
+                return httpx.Response(422, json={"detail": "trial is required"})
+            diff = self.sandbox_diffs.get((rid, trial))
+            if diff is None:
+                return httpx.Response(
+                    404,
+                    json={"detail": {"reason": "no_bundle", "message": f"no bundle for {trial}"}},
+                )
+            entries = sorted(diff["entries"], key=lambda e: e["path"])
+            prefix = request.url.params.get("path_prefix")
+            if prefix:
+                entries = [e for e in entries if e["path"].startswith(prefix)]
+            # The real cursor is the LAST PATH of the previous page.
+            after = request.url.params.get("cursor")
+            if after:
+                entries = [e for e in entries if e["path"] > after]
+            limit = int(request.url.params.get("limit") or 500)
+            page, more = entries[:limit], len(entries) > limit
+            return httpx.Response(
+                200,
+                json={
+                    "trial": trial,
+                    "schema": "probe.sandbox-state/1",
+                    "compare_mode": "hash",
+                    "begin_state_hash": "b" * 64,
+                    "counts": diff["counts"],
+                    "entries": page,
+                    "truncated": more,
+                    "next_cursor": page[-1]["path"] if more else None,
+                },
+            )
+
+        m = re.match(r"^/v1/artifacts/([^/]+)/sessions$", path)
+        if m and method == "GET":
+            rows = self.artifact_sessions.get(m.group(1), [])
+            limit = int(request.url.params.get("limit") or 50)
+            return httpx.Response(
+                200, json={"sessions": rows[:limit], "session_total": len(rows)}
+            )
+
+        m = re.match(r"^/v1/projects/([^/]+)/readme$", path)
+        if m and method == "GET":
+            pid = m.group(1)
+            if pid not in self.projects:
+                return httpx.Response(404, json={"detail": "project not found"})
+            # app/integrations/github/readme_router.py: a project with no
+            # attached repository answers `{"state": "none"}` -- no reason, no
+            # text. Seeds use the real states (snapshot/live/none/unavailable).
+            return httpx.Response(200, json=self.project_readmes.get(pid) or {"state": "none"})
+
         # -- the tenant-wide notes catalog --------------------------------
-        # ONE page, no cursor: the fake's tenants are small enough that paging
-        # here would only test the fake. What it DOES model is the row shape the
-        # sweep ranks on -- `chars` and `limit_chars` per row, with the caps
-        # differing by kind, which is the whole reason the sweep can compare a
-        # run note against a project note at all.
+        # One flat page per `limit` (offset cursor), with `query` matched
+        # literally. What it models above all is the row shape the sweep ranks
+        # on -- `chars` and `limit_chars` per row, with the caps differing by
+        # kind, which is the whole reason the sweep can compare a run note
+        # against a project note at all.
         # -- overview pages (0199) ----------------------------------------
         # The agent door. Models the server's verdicts a CLI test cares about:
         # 404 for an unknown entity or a tenant without the lane
@@ -2175,7 +2364,67 @@ class FakeApp:
 
         if path == "/v1/notes" and method == "GET":
             include_sub_notes = request.url.params.get("include_sub_notes") == "true"
-            return httpx.Response(200, json=self._notes_catalog(include_sub_notes))
+            catalog = self._notes_catalog(include_sub_notes)
+            query = request.url.params.get("query")
+            if query is not None:
+                # LITERAL and case-insensitive over the row's text and its
+                # ancestry, like the real search (never a wildcard).
+                needle = query.lower()
+                catalog["items"] = [
+                    item
+                    for item in catalog["items"]
+                    if needle in item["title"].lower()
+                    or needle in item["excerpt"].lower()
+                    or any(needle in a["title"].lower() for a in item.get("ancestors") or [])
+                ]
+            if request.url.params.get("limit") is not None:
+                # A limit selects the FLAT listing, paged exactly as
+                # app/notes_catalog/service.py pages it: entity rows newest first
+                # by (created_at, kind_rank, id) with a one-row lookahead, the
+                # cursor base64 of `<created_at>|<kind_rank>|<id>`, and the team
+                # note on the FIRST page only, outside the page's budget. (A
+                # cursor the catalog already carries -- a test forcing "there is
+                # more" -- is kept.)
+                limit = int(request.url.params["limit"])
+                team = [i for i in catalog["items"] if i["kind"] == "team_note"]
+                rows = sorted(
+                    (i for i in catalog["items"] if i["kind"] in _NOTE_KIND_RANK),
+                    key=lambda i: (
+                        _keyset_time(i.get("created_at")),
+                        _NOTE_KIND_RANK[i["kind"]],
+                        str(i["id"]),
+                    ),
+                    reverse=True,
+                )
+                cursor = request.url.params.get("cursor")
+                if cursor:
+                    try:
+                        at, rank, rid = (
+                            base64.urlsafe_b64decode(cursor.encode()).decode().split("|", 2)
+                        )
+                        key = (_keyset_time(at), int(rank), rid)
+                    except (ValueError, UnicodeDecodeError):
+                        return httpx.Response(422, json={"detail": "malformed notes cursor"})
+                    rows = [
+                        i
+                        for i in rows
+                        if (
+                            _keyset_time(i.get("created_at")),
+                            _NOTE_KIND_RANK[i["kind"]],
+                            str(i["id"]),
+                        )
+                        < key
+                    ]
+                page = rows[:limit]
+                next_cursor = catalog.get("next_cursor")
+                if len(rows) > limit and page:
+                    last = page[-1]
+                    rank = _NOTE_KIND_RANK[last["kind"]]
+                    next_cursor = base64.urlsafe_b64encode(
+                        f"{last.get('created_at')}|{rank}|{last['id']}".encode()
+                    ).decode()
+                catalog = {"items": ([] if cursor else team) + page, "next_cursor": next_cursor}
+            return httpx.Response(200, json=catalog)
 
         # -- the team note (0125) -----------------------------------------
         # SYNC is the agent write and behaves like the server's: a matching
@@ -2248,6 +2497,64 @@ class FakeApp:
                     "remaining_chars": self.team_note["remaining_chars"],
                     "body": body,
                     "merged": body != payload["body"],
+                },
+            )
+
+        if path in ("/v1/team-note/apply/paragraph", "/v1/team-note/apply/span") and (
+            method == "POST"
+        ):
+            # The server-computed writes (app/team_notes/service.py): read,
+            # change and store under the row lock, so no version is sent.
+            payload = json.loads(request.content or b"{}")
+            current = self.team_note["body"]
+            if path.endswith("/paragraph"):
+                text = payload.get("text") or ""
+                if not text or len(text) > 8_192:
+                    return httpx.Response(422, json={"detail": "text must be 1..8192 characters"})
+                # `_topped_up`: the stored text right-stripped, a blank line,
+                # the paragraph stripped, one trailing newline.
+                body = (
+                    f"{current.rstrip()}\n\n{text.strip()}\n" if current.strip() else f"{text.strip()}\n"
+                )
+            else:
+                old_text, new_text = payload.get("old_text") or "", payload.get("new_text", "")
+                matches = current.count(old_text) if old_text else 0
+                if matches != 1:
+                    return httpx.Response(
+                        409,
+                        json={
+                            "detail": {
+                                "message": (
+                                    "`old_text` must match exactly once; add surrounding "
+                                    "context to make it unique, or re-read the document if "
+                                    "it matched nothing."
+                                ),
+                                "match_count": matches,
+                            }
+                        },
+                    )
+                body = current.replace(old_text, new_text, 1)
+            if len(body) > 100_000:
+                return httpx.Response(
+                    422,
+                    json={
+                        "detail": (
+                            "the result would exceed the 100000-character team note limit. "
+                            "Compact the document first."
+                        )
+                    },
+                )
+            self.team_note["body"] = body
+            self.team_note["version"] += 1
+            self.team_note["remaining_chars"] = 100_000 - len(body)
+            self.team_note_versions.append({"version": self.team_note["version"], "body": body})
+            return httpx.Response(
+                200,
+                json={
+                    "state": "applied",
+                    "version": self.team_note["version"],
+                    "remaining_chars": self.team_note["remaining_chars"],
+                    "merged": False,
                 },
             )
 
@@ -2522,6 +2829,9 @@ class FakeApp:
             for field in ("name", "description", "document", "metadata"):
                 if body.get(field) is not None:
                     row[field] = body[field]
+            if body.get("tags") is not None:
+                # Whole-list replace (0066), canonicalized as the server does.
+                row["tags"] = _canonical_tags(body["tags"])
             # Gated so the fake can be a backend on EITHER side of research-os
             # 0094: ProjectPatch does not forbid extra fields, so a pre-0094
             # server takes `notes`, ignores it, and answers 200 -- the write
@@ -2567,12 +2877,17 @@ class FakeApp:
             return httpx.Response(201, json=row)
 
         if path == "/v1/workspaces" and method == "GET":
-            # Server order does not depend on the caller or historical kind.
+            # Server order does not depend on the caller or historical kind:
+            # `ORDER BY lower(name), id` under the C collation, whose lower()
+            # folds ASCII letters only.
             rows = sorted(
                 self.workspaces.values(),
-                key=lambda w: (
-                    (w.get("name") or "").lower(),
-                    w["id"],
+                key=getattr(self, "workspace_sort", None)
+                or (
+                    lambda w: (
+                        (w.get("name") or "").translate(_ASCII_LOWER),
+                        w["id"],
+                    )
                 ),
             )
             for row in rows:
@@ -2710,9 +3025,21 @@ class FakeApp:
 
         if path == "/v1/runs" and method == "GET":
             rows = list(self.runs.values())
-            if request.url.params.get("unfiled") == "true" and self.supports_floating:
+            params = request.url.params
+            if params.get("unfiled") == "true" and self.supports_floating:
                 # The caller's floating runs (the fake has one caller).
                 rows = [row for row in rows if row.get("project_id") is None]
+            elif (
+                self.supports_floating
+                and not params.get("experiment_id")
+                and not params.get("project_id")
+                and not params.get("name")
+                and not params.get("foreign_key")
+            ):
+                # 0260, app/runs/service.py `fetch_runs_page`: an unscoped
+                # BROWSE holds filed runs only; an identity lookup (name /
+                # foreign_key) still sees unfiled ones.
+                rows = [row for row in rows if row.get("project_id") is not None]
             # Exact, case-insensitive -- mirrors the engine's ?name= filter.
             name = request.url.params.get("name")
             if name:
@@ -2720,6 +3047,18 @@ class FakeApp:
             experiment_id = request.url.params.get("experiment_id")
             if experiment_id:
                 rows = [row for row in rows if row.get("experiment_id") == experiment_id]
+            status = request.url.params.get("status")
+            if status:
+                rows = [row for row in rows if row.get("status") == status]
+            if request.url.params.get("active") == "true":
+                # Effectively live: stored running AND inside the liveness
+                # window. The fake marks a stale heartbeat with `_stale`.
+                rows = [
+                    row for row in rows if row.get("status") == "running" and not row.get("_stale")
+                ]
+            wanted_tags = request.url.params.get_list("tags")
+            if wanted_tags:
+                rows = [row for row in rows if set(wanted_tags) <= set(row.get("tags") or [])]
             if self.supports_project_direct:
                 # project_id (0054): ALL of a project's runs — direct AND attached.
                 project_id = request.url.params.get("project_id")
@@ -2730,16 +3069,38 @@ class FakeApp:
             else:
                 # Pre-0054: unknown params are ignored, rows have no project_id.
                 rows = [{k: v for k, v in row.items() if k != "project_id"} for row in rows]
-            # Page it, like the real endpoint: limit defaults to 50 and caps at
-            # 200 (schema/openapi.json), with an opaque cursor. Serving every row
-            # regardless made any "does the client paginate?" test vacuous — a
-            # client that read one page and stopped passed identically.
-            limit = min(int(request.url.params.get("limit") or 50), 200)
-            start = int(request.url.params.get("cursor") or 0)
-            window = rows[start : start + limit]
+            # Page it EXACTLY like the real endpoint (app/core/pagination.py):
+            # newest first by (created_at, id), limit defaulting to 50 and capped
+            # at 200, and the KEYSET cursor -- base64 of `<created_at>|<id>`,
+            # meaning "rows strictly before this one" -- named whenever a page
+            # comes back full. An offset cursor here let a client that resumed
+            # by counting rows pass, while production resumes by key.
+            rows.sort(
+                key=lambda row: (_keyset_time(row.get("created_at")), row["id"]), reverse=True
+            )
+            limit = min(int(params.get("limit") or 50), 200)
+            if cursor := params.get("cursor"):
+                try:
+                    raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+                    at, _, rid = raw.partition("|")
+                    uuid.UUID(rid)
+                    key = (_keyset_time(at), rid)
+                except (ValueError, UnicodeDecodeError):
+                    return httpx.Response(422, json={"detail": "malformed pagination cursor"})
+                rows = [
+                    row
+                    for row in rows
+                    if (_keyset_time(row.get("created_at")), row["id"]) < key
+                ]
+            else:
+                rows = rows[int(params.get("offset") or 0) :]
+            window = rows[:limit]
             headers = {}
-            if start + limit < len(rows):
-                headers["x-next-cursor"] = str(start + limit)
+            if window and len(window) == limit:
+                last = window[-1]
+                headers["x-next-cursor"] = base64.urlsafe_b64encode(
+                    f"{last.get('created_at')}|{last['id']}".encode()
+                ).decode()
             return httpx.Response(200, json=window, headers=headers)
 
         m = _EXP_ITEM.match(path)
@@ -3440,6 +3801,25 @@ class FakeApp:
                     if row["id"] != vid:
                         continue
                     if method == "PATCH":
+                        # The CAS precondition (`_stale_view_conflict`): a caller
+                        # naming the revision it read is refused with the CURRENT
+                        # head when the view moved. A fence input, never stored.
+                        expected = body.pop("expected_updated_at", None)
+                        if expected is not None and _instant(expected) != _instant(
+                            row["updated_at"]
+                        ):
+                            current = {k: row[k] for k in ("name", "spec", "updated_at")}
+                            return httpx.Response(
+                                409,
+                                json={
+                                    "detail": {
+                                        "message": (
+                                            "view changed since it was loaded; reload and reapply"
+                                        ),
+                                        "current": current,
+                                    }
+                                },
+                            )
                         updated = {**row, **{k: v for k, v in body.items() if v is not None}}
                         updated["updated_at"] = "2026-08-03T01:00:00Z"
                         rows[i] = updated
@@ -3623,10 +4003,23 @@ class FakeApp:
             scalars = []
             for rid in body.get("run_ids", []):
                 row = self.runs.get(rid)
-                # Every run is validated in-tenant AND live before any read.
-                if row is None:
+                # Every run is validated in-tenant AND live before any read. A
+                # run seeded only through `seed_series` exists for this fake too.
+                if row is None and rid not in self.series_points:
                     return httpx.Response(404, json={"detail": "run not found"})
-                for s in self.series.get(rid, []):
+                # The CATALOG: seeded rows when a test gave some, else derived
+                # from the seeded points, as the real catalog is from logged ones.
+                catalog = self.series.get(rid) or [
+                    {
+                        "kind": s.get("kind", "model"),
+                        "key": s["key"],
+                        "dimensions": s.get("dimensions") or {},
+                        "x_axis": s.get("x_axis", "step"),
+                        "point_count": len(s["points"]),
+                    }
+                    for s in self.series_points.get(rid, [])
+                ]
+                for s in catalog:
                     if body.get("keys") and s.get("key") not in body["keys"]:
                         continue
                     if body.get("kind") and s.get("kind") != body["kind"]:
@@ -3658,21 +4051,61 @@ class FakeApp:
             # seed_series() put in `series_points`, filtered the way the real
             # endpoint filters: by run, by (key, kind) selector, and by step.
             self.series_queries.append(body)
+            run_ids = [str(rid) for rid in body.get("run_ids", [])]
+            if self.source_backed_runs.intersection(run_ids) and (
+                body.get("source_read_contract") != "coverage-v1"
+            ):
+                # provider_reads.require_source_read_contract
+                return httpx.Response(
+                    422,
+                    json={
+                        "detail": {
+                            "code": "unsupported_source_query",
+                            "message": (
+                                "source-backed metrics require the coverage-v1 read contract"
+                            ),
+                        }
+                    },
+                )
             wanted = {(s["key"], s.get("kind", "model")) for s in (body.get("series") or [])}
+            # `keys` is the route's key-only prefilter: every kind and dimension
+            # variant of each named key, intersected with `series` when both.
+            keys = set(body["keys"]) if body.get("keys") else None
             step_from, step_to = body.get("step_from"), body.get("step_to")
+            max_points = body.get("max_points")
             out = []
-            for rid in body.get("run_ids", []):
-                for row in self.series_points.get(str(rid), []):
+            for rid in run_ids:
+                for row in self.series_points.get(rid, []):
                     if wanted and (row["key"], row.get("kind", "model")) not in wanted:
                         continue
+                    if keys is not None and row["key"] not in keys:
+                        continue
+                    # `step_index >= $n` in SQL: a stepless point never passes
+                    # a step bound.
                     points = [
                         p
                         for p in row["points"]
-                        if (step_from is None or p.get("step_index", 0) >= step_from)
-                        and (step_to is None or p.get("step_index", 0) <= step_to)
+                        if (
+                            step_from is None
+                            or (p.get("step_index") is not None and p["step_index"] >= step_from)
+                        )
+                        and (
+                            step_to is None
+                            or (p.get("step_index") is not None and p["step_index"] <= step_to)
+                        )
                     ]
-                    out.append({**row, "run_id": str(rid), "points": points})
-            return httpx.Response(200, json={"series": out})
+                    points = _min_max_downsample(points, max_points)
+                    out.append(
+                        {
+                            **row,
+                            "run_id": rid,
+                            "points": points,
+                            "read_provenance": _series_read_provenance(
+                                rid in self.source_backed_runs, max_points
+                            ),
+                        }
+                    )
+            return httpx.Response(200, json={"series": out, **self.series_result_extra})
 
         m = _RUN_STEPS.match(path)
         if m and method == "POST":
@@ -3765,6 +4198,22 @@ class FakeApp:
         m = _RUN_BUNDLE.match(path)
         if m and method == "GET":
             rid = m.group(1)
+            if rid in self.source_backed_runs and (
+                request.url.params.get("source_read_contract") != "coverage-v1"
+            ):
+                # app/read_models/router.py: a source-backed run's bundle
+                # requires the coverage read contract.
+                return httpx.Response(
+                    422,
+                    json={
+                        "detail": {
+                            "code": "unsupported_source_query",
+                            "message": (
+                                "source-backed metrics require the coverage-v1 read contract"
+                            ),
+                        }
+                    },
+                )
             artifacts = self.artifacts.get(rid, [])
             return httpx.Response(
                 200,
@@ -3776,6 +4225,10 @@ class FakeApp:
                     "span_types": [],
                     "parent_run_id": self.runs[rid].get("parent_run_id"),
                     "child_run_ids": [],
+                    # Capped server-side (SESSION_DISPLAY_LIMIT) against an
+                    # exact total, and the route takes no offset.
+                    "sessions": self.run_sessions.get(rid, [])[:50],
+                    "session_total": len(self.run_sessions.get(rid, [])),
                 },
             )
 
@@ -4171,6 +4624,27 @@ class FakeApp:
                         arts.remove(a)
                         return httpx.Response(204)
             return httpx.Response(404, json={"detail": "artifact not found"})
+        if m and method in ("GET", "PATCH"):
+            # The artifact detail read and its PATCH (name, description, the
+            # notes writes). The notes primitives run through the one shared
+            # implementation, against the 4,000-character annotation cap.
+            row = self._find_artifact(m.group(1))
+            if row is None:
+                return httpx.Response(404, json={"detail": "artifact not found"})
+            if method == "PATCH":
+                refused = self._apply_notes_write(
+                    row, body, self.entity_notes_cap, stores=self.stores_entity_notes
+                )
+                if refused is not None:
+                    return refused
+                row.update(
+                    {
+                        key: value
+                        for key, value in body.items()
+                        if value is not None and key not in self.NOTES_WRITE_FIELDS
+                    }
+                )
+            return httpx.Response(200, json=dict(row))
 
         # -- reads: series / metrics / spans / experiment edges --
         m = _RUN_SERIES.match(path)
@@ -4499,7 +4973,14 @@ class FakeApp:
 
         m = _WS_FILES.match(path)
         if m and method == "GET":
-            return httpx.Response(200, json=self.artifacts.get(f"workspace:{m.group(1)}", []))
+            # `ORDER BY name ASC` under the C collation (code-point order), and
+            # `limit` (le=1000) caps one read, like the real route; no cursor.
+            rows = sorted(
+                self.artifacts.get(f"workspace:{m.group(1)}", []), key=lambda r: str(r["name"])
+            )
+            if (cap := request.url.params.get("limit")) is not None:
+                rows = rows[: int(cap)]
+            return httpx.Response(200, json=rows)
 
         if path == "/v1/shared/files" and method == "GET":
             # `prefix` is a FOLDER filter, and this fake models that EXACTLY,
@@ -4511,7 +4992,8 @@ class FakeApp:
             # the whole name look correct, and that client returns "no such
             # artifact" for every flat-named scorer -- read downstream as licence
             # to create a duplicate.
-            rows = self.artifacts.get("shared:team", [])
+            # `ORDER BY name ASC` under the C collation: code-point order.
+            rows = sorted(self.artifacts.get("shared:team", []), key=lambda r: str(r["name"]))
             if (want := request.url.params.get("prefix")) is not None:
                 want = want.rstrip("/")
                 if want:
@@ -4523,6 +5005,9 @@ class FakeApp:
                     rows = [
                         a for a in rows if _dirname(a) == want or _dirname(a).startswith(f"{want}/")
                     ]
+            # `limit` (le=1000) caps one read, like the real route; no cursor.
+            if (cap := request.url.params.get("limit")) is not None:
+                rows = rows[: int(cap)]
             return httpx.Response(200, json=rows)
 
         m = _SHARED_FILE_SUB.match(path)

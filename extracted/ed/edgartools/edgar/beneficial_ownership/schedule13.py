@@ -6,13 +6,23 @@ and Schedule 13G filings using XML-based parsing.
 """
 import re
 from datetime import date
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, overload
 
 if TYPE_CHECKING:
     from edgar._filings import Filing
 
 from edgar._party import Address
-from edgar.beneficial_ownership.models import IssuerInfo, ReportingPerson, Schedule13DItems, Schedule13GItems, SecurityInfo, Signature
+from edgar.beneficial_ownership.models import (
+    _OWNERSHIP_FIGURES,
+    IssuerInfo,
+    ReportingPerson,
+    Schedule13DItems,
+    Schedule13GItems,
+    SecurityInfo,
+    Signature,
+    _aggregation_basis,
+    _reported_total,
+)
 from edgar.core import get_bool
 from edgar.xmltools import child_text, find_all_elements, find_element, local_name
 from edgar.xmltools import parse_xml as parse_xml_document
@@ -20,7 +30,15 @@ from edgar.xmltools import parse_xml as parse_xml_document
 __all__ = ['Schedule13D', 'Schedule13G']
 
 
-def safe_int(value: Optional[str], default: int = 0) -> int:
+@overload
+def safe_int(value: Optional[str], default: int = 0) -> int: ...
+
+
+@overload
+def safe_int(value: Optional[str], default: None) -> Optional[int]: ...
+
+
+def safe_int(value: Optional[str], default: Optional[int] = 0) -> Optional[int]:
     """
     Safely convert a string value to an integer.
 
@@ -43,7 +61,15 @@ def safe_int(value: Optional[str], default: int = 0) -> int:
         return default
 
 
-def safe_float(value: Optional[str], default: float = 0.0) -> float:
+@overload
+def safe_float(value: Optional[str], default: float = 0.0) -> float: ...
+
+
+@overload
+def safe_float(value: Optional[str], default: None) -> Optional[float]: ...
+
+
+def safe_float(value: Optional[str], default: Optional[float] = 0.0) -> Optional[float]:
     """
     Safely convert a string value to a float.
 
@@ -64,6 +90,43 @@ def safe_float(value: Optional[str], default: float = 0.0) -> float:
         return float(cleaned) if cleaned else default
     except (ValueError, AttributeError):
         return default
+
+
+def _ownership_figures(sole_voting: Optional[str], shared_voting: Optional[str],
+                       sole_dispositive: Optional[str], shared_dispositive: Optional[str],
+                       aggregate: Optional[str], percent: Optional[str]) -> dict:
+    """
+    ReportingPerson keyword arguments for the six ownership figures, from their XML text.
+
+    A figure whose element is missing (an amendment may leave any of them out) or
+    is not a number keeps the placeholder 0 it has always had, and is named in
+    ``unreported_fields`` so that it can be told apart from a reported 0.
+    """
+    texts = dict(zip(_OWNERSHIP_FIGURES, (sole_voting, shared_voting, sole_dispositive,
+                                           shared_dispositive, aggregate, percent), strict=True))
+    figures = {}
+    unreported = set()
+    for figure, text in texts.items():
+        parse = safe_float if figure == 'percent_of_class' else safe_int
+        value = parse(text, default=None)
+        if value is None:
+            unreported.add(figure)
+            value = parse(None)
+        figures[figure] = value
+    figures['unreported_fields'] = frozenset(unreported)
+    return figures
+
+
+def _describe_shares(value: Optional[int]) -> str:
+    return f"{value:,} shares" if value is not None else "shares not reported"
+
+
+def _describe_percent(value: Optional[float]) -> str:
+    return f"{value:.1f}%" if value is not None else "percent not reported"
+
+
+def _describe_count(value: Optional[int]) -> str:
+    return f"{value:,}" if value is not None else "not reported"
 
 
 def extract_amendment_number(form_name: str) -> Optional[int]:
@@ -156,6 +219,7 @@ def _partial_from_header(filing: 'Filing') -> tuple:
                     aggregate_amount=0,
                     percent_of_class=0.0,
                     type_of_reporting_person='',
+                    unreported_fields=frozenset(_OWNERSHIP_FIGURES),
                 ))
 
     return issuer_info, reporting_persons
@@ -292,12 +356,14 @@ class Schedule13D:
                     name=child_text(person_el, 'reportingPersonName') or '',
                     fund_type=child_text(person_el, 'fundType'),
                     citizenship=child_text(person_el, 'citizenshipOrOrganization') or '',
-                    sole_voting_power=safe_int(child_text(person_el, 'soleVotingPower')),
-                    shared_voting_power=safe_int(child_text(person_el, 'sharedVotingPower')),
-                    sole_dispositive_power=safe_int(child_text(person_el, 'soleDispositivePower')),
-                    shared_dispositive_power=safe_int(child_text(person_el, 'sharedDispositivePower')),
-                    aggregate_amount=safe_int(child_text(person_el, 'aggregateAmountOwned')),
-                    percent_of_class=safe_float(child_text(person_el, 'percentOfClass')),
+                    **_ownership_figures(
+                        child_text(person_el, 'soleVotingPower'),
+                        child_text(person_el, 'sharedVotingPower'),
+                        child_text(person_el, 'soleDispositivePower'),
+                        child_text(person_el, 'sharedDispositivePower'),
+                        child_text(person_el, 'aggregateAmountOwned'),
+                        child_text(person_el, 'percentOfClass'),
+                    ),
                     type_of_reporting_person=child_text(person_el, 'typeOfReportingPerson') or '',
                     comment=child_text(person_el, 'commentContent'),
                     member_of_group=child_text(person_el, 'memberOfGroup'),
@@ -482,9 +548,11 @@ class Schedule13D:
         """
         Total beneficial ownership across all reporting persons.
 
-        Within a single 13D filing, reporting persons always report overlapping
-        beneficial ownership (group formations or control chains). Independent
-        filers file separate forms. The correct aggregate is always max().
+        The largest share count any counted reporting person reports. Usually the
+        persons restate one position (a fund, its general partner and its manager),
+        and then this is the group's holding. When they hold separate positions it
+        is less than the group's: check ``aggregation_basis`` before treating it as
+        the group total.
 
         Excludes shares flagged with is_aggregate_exclude_shares == True.
 
@@ -510,9 +578,11 @@ class Schedule13D:
         """
         Total ownership percentage across all reporting persons.
 
-        Within a single 13D filing, reporting persons always report overlapping
-        beneficial ownership (group formations or control chains). Independent
-        filers file separate forms. The correct aggregate is always max().
+        The largest share count any counted reporting person reports. Usually the
+        persons restate one position (a fund, its general partner and its manager),
+        and then this is the group's holding. When they hold separate positions it
+        is less than the group's: check ``aggregation_basis`` before treating it as
+        the group total.
 
         Excludes shares flagged with is_aggregate_exclude_shares == True.
 
@@ -532,6 +602,25 @@ class Schedule13D:
             return 0.0
 
         return max(p.percent_of_class for p in included_persons)
+
+    @property
+    def aggregation_basis(self) -> Optional[str]:
+        """
+        Whether ``total_shares`` is the group's total, from how the persons' rows relate.
+
+        * ``'single'`` — one reporting person counts.
+        * ``'identical'`` — every person reports the same shares (a control chain).
+        * ``'parent_sums_children'`` — the largest row is the sum of the others.
+        * ``'ambiguous'`` — the persons may hold separate positions, and the group's
+          total can exceed ``total_shares``: GAMCO's 13D on Nevro (0000807249-25-000053)
+          states 2,123,900 shares in Item 5(a), against a largest row of 1,322,950.
+
+        None when ``has_structured_data`` is False, there are no reporting persons,
+        or a counted person leaves its share count out.
+        """
+        if not self.has_structured_data:
+            return None
+        return _aggregation_basis(self.reporting_persons)
 
     def to_context(self, detail: str = 'standard') -> str:
         """
@@ -554,7 +643,12 @@ class Schedule13D:
         if self.security_info.title:
             lines.append(f"Security: {self.security_info.title}")
         if self.has_structured_data:
-            lines.append(f"Ownership: {self.total_percent:.1f}% ({self.total_shares:,} shares)")
+            percent = _reported_total(self.reporting_persons, 'percent_of_class')
+            shares = _reported_total(self.reporting_persons, 'aggregate_amount')
+            lines.append(f"Ownership: {_describe_percent(percent)} ({_describe_shares(shares)})")
+            if self.aggregation_basis == 'ambiguous':
+                lines.append("  (largest single reporting person; persons may hold separate positions,"
+                             " see aggregation_basis)")
         else:
             lines.append("Ownership: unavailable (pre-2025 HTML filing)")
 
@@ -588,7 +682,8 @@ class Schedule13D:
             lines.append("REPORTING PERSONS:")
             for p in self.reporting_persons[:5]:
                 if self.has_structured_data:
-                    p_line = f"  {p.name}: {p.percent_of_class:.1f}% ({p.aggregate_amount:,} shares)"
+                    p_line = (f"  {p.name}: {_describe_percent(p.reported('percent_of_class'))}"
+                              f" ({_describe_shares(p.reported('aggregate_amount'))})")
                 else:
                     p_line = f"  {p.name}"
                     if p.cik:
@@ -613,6 +708,7 @@ class Schedule13D:
         lines.append("  .items                      Narrative items 1-7")
         lines.append("  .total_shares               Aggregate beneficial ownership")
         lines.append("  .total_percent              Ownership percentage")
+        lines.append("  .aggregation_basis          Whether total_shares is the group total")
         lines.append("  .signatures                 Filing signatures")
 
         if detail == 'standard':
@@ -629,10 +725,10 @@ class Schedule13D:
             p = self.reporting_persons[0]
             lines.append("")
             lines.append(f"VOTING/DISPOSITIVE POWER ({p.name}):")
-            lines.append(f"  Sole Voting: {p.sole_voting_power:,}")
-            lines.append(f"  Shared Voting: {p.shared_voting_power:,}")
-            lines.append(f"  Sole Dispositive: {p.sole_dispositive_power:,}")
-            lines.append(f"  Shared Dispositive: {p.shared_dispositive_power:,}")
+            lines.append(f"  Sole Voting: {_describe_count(p.reported('sole_voting_power'))}")
+            lines.append(f"  Shared Voting: {_describe_count(p.reported('shared_voting_power'))}")
+            lines.append(f"  Sole Dispositive: {_describe_count(p.reported('sole_dispositive_power'))}")
+            lines.append(f"  Shared Dispositive: {_describe_count(p.reported('shared_dispositive_power'))}")
 
         return "\n".join(lines)
 
@@ -777,15 +873,15 @@ class Schedule13G:
         for person_el in find_all_elements(form_data, 'coverPageHeaderReportingPersonDetails'):
             # Get shares info
             shares_el = find_element(person_el, 'reportingPersonBeneficiallyOwnedNumberOfShares')
-            sole_voting = 0
-            shared_voting = 0
-            sole_disp = 0
-            shared_disp = 0
+            sole_voting = None
+            shared_voting = None
+            sole_disp = None
+            shared_disp = None
             if shares_el is not None:
-                sole_voting = safe_int(child_text(shares_el, 'soleVotingPower'))
-                shared_voting = safe_int(child_text(shares_el, 'sharedVotingPower'))
-                sole_disp = safe_int(child_text(shares_el, 'soleDispositivePower'))
-                shared_disp = safe_int(child_text(shares_el, 'sharedDispositivePower'))
+                sole_voting = child_text(shares_el, 'soleVotingPower')
+                shared_voting = child_text(shares_el, 'sharedVotingPower')
+                sole_disp = child_text(shares_el, 'soleDispositivePower')
+                shared_disp = child_text(shares_el, 'sharedDispositivePower')
 
             aggregate = child_text(person_el, 'reportingPersonBeneficiallyOwnedAggregateNumberOfShares')
             percent = child_text(person_el, 'classPercent')
@@ -794,12 +890,7 @@ class Schedule13G:
                 cik='',  # Not provided in 13G cover page
                 name=child_text(person_el, 'reportingPersonName') or '',
                 citizenship=child_text(person_el, 'citizenshipOrOrganization') or '',
-                sole_voting_power=sole_voting,
-                shared_voting_power=shared_voting,
-                sole_dispositive_power=sole_disp,
-                shared_dispositive_power=shared_disp,
-                aggregate_amount=safe_int(aggregate),
-                percent_of_class=safe_float(percent),
+                **_ownership_figures(sole_voting, shared_voting, sole_disp, shared_disp, aggregate, percent),
                 type_of_reporting_person=child_text(person_el, 'typeOfReportingPerson') or '',
                 fund_type=None,
                 comment=None,
@@ -991,9 +1082,11 @@ class Schedule13G:
         """
         Total beneficial ownership across all reporting persons.
 
-        Within a single 13G filing, reporting persons always report overlapping
-        beneficial ownership (group formations or control chains). Independent
-        filers file separate forms. The correct aggregate is always max().
+        The largest share count any counted reporting person reports. Usually the
+        persons restate one position (a fund, its general partner and its manager),
+        and then this is the group's holding. When they hold separate positions it
+        is less than the group's: check ``aggregation_basis`` before treating it as
+        the group total.
 
         Excludes shares flagged with is_aggregate_exclude_shares == True.
 
@@ -1019,9 +1112,11 @@ class Schedule13G:
         """
         Total ownership percentage across all reporting persons.
 
-        Within a single 13G filing, reporting persons always report overlapping
-        beneficial ownership (group formations or control chains). Independent
-        filers file separate forms. The correct aggregate is always max().
+        The largest share count any counted reporting person reports. Usually the
+        persons restate one position (a fund, its general partner and its manager),
+        and then this is the group's holding. When they hold separate positions it
+        is less than the group's: check ``aggregation_basis`` before treating it as
+        the group total.
 
         Excludes shares flagged with is_aggregate_exclude_shares == True.
 
@@ -1047,6 +1142,25 @@ class Schedule13G:
         """Check if this is a passive investor (13G are passive by definition)"""
         return True
 
+    @property
+    def aggregation_basis(self) -> Optional[str]:
+        """
+        Whether ``total_shares`` is the group's total, from how the persons' rows relate.
+
+        * ``'single'`` — one reporting person counts.
+        * ``'identical'`` — every person reports the same shares (a control chain).
+        * ``'parent_sums_children'`` — the largest row is the sum of the others.
+        * ``'ambiguous'`` — the persons may hold separate positions, and the group's
+          total can exceed ``total_shares``: GAMCO's 13D on Nevro (0000807249-25-000053)
+          states 2,123,900 shares in Item 5(a), against a largest row of 1,322,950.
+
+        None when ``has_structured_data`` is False, there are no reporting persons,
+        or a counted person leaves its share count out.
+        """
+        if not self.has_structured_data:
+            return None
+        return _aggregation_basis(self.reporting_persons)
+
     def to_context(self, detail: str = 'standard') -> str:
         """
         AI-optimized context string.
@@ -1068,7 +1182,12 @@ class Schedule13G:
         if self.security_info.title:
             lines.append(f"Security: {self.security_info.title}")
         if self.has_structured_data:
-            lines.append(f"Ownership: {self.total_percent:.1f}% ({self.total_shares:,} shares)")
+            percent = _reported_total(self.reporting_persons, 'percent_of_class')
+            shares = _reported_total(self.reporting_persons, 'aggregate_amount')
+            lines.append(f"Ownership: {_describe_percent(percent)} ({_describe_shares(shares)})")
+            if self.aggregation_basis == 'ambiguous':
+                lines.append("  (largest single reporting person; persons may hold separate positions,"
+                             " see aggregation_basis)")
         else:
             lines.append("Ownership: unavailable (pre-2025 HTML filing)")
 
@@ -1103,7 +1222,8 @@ class Schedule13G:
             lines.append("REPORTING PERSONS:")
             for p in self.reporting_persons[:5]:
                 if self.has_structured_data:
-                    p_line = f"  {p.name}: {p.percent_of_class:.1f}% ({p.aggregate_amount:,} shares)"
+                    p_line = (f"  {p.name}: {_describe_percent(p.reported('percent_of_class'))}"
+                              f" ({_describe_shares(p.reported('aggregate_amount'))})")
                 else:
                     p_line = f"  {p.name}"
                     if p.cik:
@@ -1122,6 +1242,7 @@ class Schedule13G:
         lines.append("  .items                      Structured items data")
         lines.append("  .total_shares               Aggregate beneficial ownership")
         lines.append("  .total_percent              Ownership percentage")
+        lines.append("  .aggregation_basis          Whether total_shares is the group total")
         lines.append("  .is_passive_investor        Always True for 13G")
 
         if detail == 'standard':
@@ -1132,10 +1253,10 @@ class Schedule13G:
             p = self.reporting_persons[0]
             lines.append("")
             lines.append(f"VOTING/DISPOSITIVE POWER ({p.name}):")
-            lines.append(f"  Sole Voting: {p.sole_voting_power:,}")
-            lines.append(f"  Shared Voting: {p.shared_voting_power:,}")
-            lines.append(f"  Sole Dispositive: {p.sole_dispositive_power:,}")
-            lines.append(f"  Shared Dispositive: {p.shared_dispositive_power:,}")
+            lines.append(f"  Sole Voting: {_describe_count(p.reported('sole_voting_power'))}")
+            lines.append(f"  Shared Voting: {_describe_count(p.reported('shared_voting_power'))}")
+            lines.append(f"  Sole Dispositive: {_describe_count(p.reported('sole_dispositive_power'))}")
+            lines.append(f"  Shared Dispositive: {_describe_count(p.reported('shared_dispositive_power'))}")
 
         return "\n".join(lines)
 

@@ -36,220 +36,96 @@
 //! `an_unset_flag_matches_its_declared_default` now checks the two against
 //! each other for every declared flag.
 
-use std::ffi::OsStr;
+/// Declare a crate's own variables with the shared mechanism; see
+/// `running_process_platform_internal::declare_env_vars`. Re-exported so a
+/// crate built on `running-process` can keep its own table without depending
+/// on the platform layer directly.
+pub use running_process_platform_internal::declare_env_vars;
+pub use running_process_platform_internal::env::{
+    flag_foreign, flag_opt_out, flag_owned, os_named, string_named, value_is_affirmative_foreign,
+    EnvKind, EnvVar, Owner,
+};
+/// The variables `running-process-platform-internal` declares and reads,
+/// including the ones this crate reads too. See [`all_declared`] for the
+/// combined inventory.
+pub use running_process_platform_internal::env_vars as platform;
 
-/// What kind of value a variable carries, and how it is read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EnvKind {
-    /// A switch this crate defines. Unknown values are off; see [`flag_owned`].
-    OwnedFlag,
-    /// A switch whose value space belongs to someone else. Unknown values are
-    /// on; see [`flag_foreign`].
-    ForeignFlag,
-    /// An escape hatch that is on unless explicitly turned off. Unset is on;
-    /// see [`flag_opt_out`].
-    OptOutFlag,
-    /// A switch that is on for exactly one spelling and off for every other,
-    /// including plausible ones. Reserved for guards where honouring a
-    /// misspelling would be the dangerous direction.
-    ExactValue(&'static str),
-    /// A filesystem path.
-    Path,
-    /// Free text -- a name, scope, endpoint, or token.
-    Text,
-    /// A number: a count, a timeout in milliseconds, a port, a descriptor.
-    ///
-    /// `zero_selects_default` records what `0` means for *this* variable,
-    /// because it is not the same answer everywhere. A connect timeout of zero
-    /// makes every connection fail instantly and is never what anyone wants,
-    /// so zero falls back to the default. A drain timeout of zero means "do
-    /// not wait", which is a perfectly reasonable thing to ask for, so zero is
-    /// honoured. Leaving this unstated is how the two ended up parsed
-    /// differently by accident.
-    Number { zero_selects_default: bool },
-}
-
-/// Who decides what values a variable may take.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Owner {
-    /// Defined by this crate; the value space is ours.
-    Crate,
-    /// Set by a supervising process or a test harness; we only read it.
-    Foreign,
-}
-
-/// One environment variable this crate reads.
-#[derive(Debug, Clone, Copy)]
-pub struct EnvVar {
-    /// The variable name as it appears in the environment.
-    pub name: &'static str,
-    /// What the value means and how it is parsed.
-    pub kind: EnvKind,
-    /// Who owns the value space.
-    pub owner: Owner,
-    /// What happens when the variable is unset.
-    pub default: &'static str,
-    /// One line an embedder can read to know whether they care.
-    pub summary: &'static str,
-}
-
-impl EnvVar {
-    /// Read this variable as a boolean, using the semantics it declares.
-    ///
-    /// # Panics
-    /// If the variable is not declared as a flag. That is a programming error
-    /// in this crate, caught by `an_unset_flag_matches_its_declared_default`,
-    /// not something a value in the environment can cause.
-    pub fn is_set(&self) -> bool {
-        match self.kind {
-            EnvKind::OwnedFlag => flag_owned(self.name),
-            EnvKind::ForeignFlag => flag_foreign(self.name),
-            EnvKind::OptOutFlag => flag_opt_out(self.name),
-            EnvKind::ExactValue(expected) => {
-                std::env::var_os(self.name).is_some_and(|value| value == OsStr::new(expected))
-            }
-            other => panic!("{} is declared as {other:?}, not a flag", self.name),
-        }
-    }
-}
-
-impl EnvVar {
-    /// Read this variable as a count, falling back to `default`.
-    ///
-    /// A value that is not a number is not a smaller number: it is a mistake,
-    /// and the default is a better answer than a silently-wrong one.
-    pub fn count_or(&self, default: usize) -> usize {
-        self.parsed::<usize>().unwrap_or(default)
-    }
-
-    /// Read this variable as a millisecond duration, falling back to `default`.
-    pub fn millis_or(&self, default: std::time::Duration) -> std::time::Duration {
-        self.parsed::<u64>()
-            .map(std::time::Duration::from_millis)
-            .unwrap_or(default)
-    }
-
-    /// Read this variable as a port number, if it names one.
-    pub fn port(&self) -> Option<u16> {
-        self.parsed::<u16>()
-    }
-
-    /// Read this variable as text, if it is set to anything.
-    pub fn text(&self) -> Option<String> {
-        std::env::var(self.name)
-            .ok()
-            .filter(|value| !value.is_empty())
-    }
-
-    /// Read this variable as a path, if it is set to anything.
-    ///
-    /// Takes the value as the host wrote it: a path that is not valid Unicode
-    /// is still a path, and lossily repairing it would point somewhere else.
-    pub fn path(&self) -> Option<std::path::PathBuf> {
-        std::env::var_os(self.name)
-            .filter(|value| !value.is_empty())
-            .map(std::path::PathBuf::from)
-    }
-
-    /// Parse the value, applying this variable's declared rule for zero.
-    ///
-    /// # Panics
-    /// If the variable is not declared as a number. A programming error in
-    /// this crate, not something the environment can cause.
-    fn parsed<T>(&self) -> Option<T>
-    where
-        T: std::str::FromStr + Default + PartialEq,
-    {
-        let EnvKind::Number {
-            zero_selects_default,
-        } = self.kind
-        else {
-            panic!("{} is declared as {:?}, not a number", self.name, self.kind);
-        };
-        let parsed: T = std::env::var(self.name)
-            .ok()?
-            .trim()
-            .parse()
-            .ok()
-            .filter(|value: &T| !(zero_selects_default && *value == T::default()))?;
-        Some(parsed)
-    }
-}
-
-/// Spellings that turn an owned switch on. Anything else, including an
-/// unrecognised value, leaves it off.
-const AFFIRMATIVE: &[&str] = &["1", "true", "yes", "on"];
-
-/// Spellings that turn a foreign switch off. Anything else, including an
-/// unrecognised value, leaves it on.
-const NEGATIVE: &[&str] = &["", "0", "false", "no", "off"];
-
-/// Read a switch this crate owns: on only for a recognised affirmative.
-pub fn flag_owned(name: &str) -> bool {
-    match std::env::var_os(name) {
-        Some(value) => AFFIRMATIVE.contains(&normalize(&value).as_str()),
-        None => false,
-    }
-}
-
-/// Read a switch someone else writes: off only for a recognised negative.
+/// Every environment variable read by this crate or by the platform layer it
+/// builds on, once each, sorted by name.
 ///
-/// Unset is still off -- absence is not a value, and reading it as "on" would
-/// make every process claim every marker.
-pub fn flag_foreign(name: &str) -> bool {
-    match std::env::var_os(name) {
-        Some(value) => !NEGATIVE.contains(&normalize(&value).as_str()),
-        None => false,
-    }
-}
-
-/// Read an escape hatch that is on unless turned off.
+/// With the `probe` feature this also lists the probe crate's own reads (its
+/// crash spool and report directories, its crash-handler opt-out), because
+/// such a build links that crate. The probe daemon and the symbolization
+/// worker are separate processes that declare their own reads.
 ///
-/// Unset is *on*, which is what separates this from [`flag_foreign`]: the
-/// caller is asking whether the default behaviour still applies, and it does
-/// until someone says otherwise. Every recognised falsy spelling opens the
-/// hatch, so a user who reaches for `=false` or `=off` gets the fallback they
-/// were plainly asking for rather than silently keeping the default.
-pub fn flag_opt_out(name: &str) -> bool {
-    match std::env::var_os(name) {
-        Some(value) => !NEGATIVE.contains(&normalize(&value).as_str()),
-        None => true,
-    }
-}
-
-/// Whether a *value already in hand* reads as a foreign switch being on.
+/// [`DECLARED`] lists what `running-process` itself reads. A process that
+/// links `running-process` also runs `running-process-platform-internal`,
+/// whose reads ([`platform::DECLARED_PLATFORM`]) include variables this crate
+/// never touches directly -- `HOME`, `DISPLAY`, the ConPTY switches. An
+/// embedder scrubbing a child's environment needs both, so this is the one
+/// list to check.
 ///
-/// Callers that scan another process's environment block have the value
-/// without being able to read it from their own environment.
-pub fn value_is_affirmative_foreign(value: &str) -> bool {
-    !NEGATIVE.contains(&value.trim().to_ascii_lowercase().as_str())
+/// A name read by both crates has one declaration, owned by the lower crate
+/// and referred to from [`DECLARED`], so it appears here once;
+/// `the_combined_inventory_is_sorted_unique_and_documented` holds that.
+pub fn all_declared() -> Vec<EnvVar> {
+    let mut all: Vec<EnvVar> = DECLARED
+        .iter()
+        .chain(platform::DECLARED_PLATFORM)
+        .copied()
+        .collect();
+    // The probe crate sits below this one only behind its feature; its table
+    // joins the inventory exactly when its code does.
+    #[cfg(feature = "probe")]
+    all.extend_from_slice(running_process_probe::env_vars::DECLARED_PROBE);
+    all.sort_by(|left, right| left.name.cmp(right.name));
+    all.dedup_by(|left, right| left.name == right.name);
+    all
 }
 
-fn normalize(value: &OsStr) -> String {
-    value.to_string_lossy().trim().to_ascii_lowercase()
-}
-
+/// Declares this crate's variables and builds [`DECLARED`] from them.
+///
+/// An entry is either a full declaration, or `IDENT => use PATH;` for a
+/// variable owned by a crate below this one: the constant is re-exported
+/// under the same name and listed in [`DECLARED`] where it sorts, so each name
+/// has exactly one declaration however many crates read it.
 macro_rules! declare {
-    ($($ident:ident => $name:literal, $kind:expr, $owner:expr, $default:literal, $summary:literal;)*) => {
-        $(
-            #[doc = $summary]
-            ///
-            #[doc = concat!("Environment variable `", $name, "`. Unset: ", $default, ".")]
-            pub const $ident: EnvVar = EnvVar {
-                name: $name,
-                kind: $kind,
-                owner: $owner,
-                default: $default,
-                summary: $summary,
-            };
-        )*
-
+    (@collect [$($all:ident)*]) => {
         /// Every environment variable this crate reads.
         ///
         /// Kept in the same order as the declarations above, which
         /// `declarations_are_sorted_and_unique` holds to alphabetical so a
-        /// reader can find a name without searching.
-        pub const DECLARED: &[EnvVar] = &[$($ident),*];
+        /// reader can find a name without searching. [`all_declared`] adds the
+        /// variables only the platform layer reads.
+        pub const DECLARED: &[EnvVar] = &[$($all),*];
+    };
+    (@collect [$($all:ident)*] $ident:ident => use $($path:ident)::+; $($rest:tt)*) => {
+        #[doc = concat!(
+            "Declared by the platform layer, which reads it too: [`",
+            stringify!($($path)::+),
+            "`]."
+        )]
+        pub const $ident: EnvVar = $($path)::+;
+        declare!(@collect [$($all)* $ident] $($rest)*);
+    };
+    (@collect [$($all:ident)*]
+        $ident:ident => $name:literal, $kind:expr, $owner:expr, $default:literal, $summary:literal;
+        $($rest:tt)*
+    ) => {
+        #[doc = $summary]
+        ///
+        #[doc = concat!("Environment variable `", $name, "`. Unset: ", $default, ".")]
+        pub const $ident: EnvVar = EnvVar {
+            name: $name,
+            kind: $kind,
+            owner: $owner,
+            default: $default,
+            summary: $summary,
+        };
+        declare!(@collect [$($all)* $ident] $($rest)*);
+    };
+    ($($rest:tt)*) => {
+        declare!(@collect [] $($rest)*);
     };
 }
 
@@ -260,12 +136,8 @@ declare! {
     INVOCATION_ID => "INVOCATION_ID",
         EnvKind::Text, Owner::Foreign, "not started by systemd",
         "Set by systemd for a unit invocation; identifies the launching unit.";
-    LOCALAPPDATA => "LOCALAPPDATA",
-        EnvKind::Path, Owner::Foreign, "the platform default is derived",
-        "Windows per-user application data root.";
-    PATH => "PATH",
-        EnvKind::Text, Owner::Foreign, "the child inherits no explicit PATH",
-        "Executable search path, forwarded to the symbolization worker.";
+    LOCALAPPDATA => use running_process_platform_internal::env_vars::LOCALAPPDATA;
+    PATH => use running_process_platform_internal::env_vars::PATH;
     BROKER_ALLOW_PRIVILEGED => "RUNNING_PROCESS_BROKER_ALLOW_PRIVILEGED",
         EnvKind::ExactValue("1"), Owner::Crate, "privileged startup is refused",
         "Opt out of the broker's refusal to start as root or LocalSystem.";
@@ -332,6 +204,9 @@ declare! {
     CLIENT_RPC_TIMEOUT_MS => "RUNNING_PROCESS_CLIENT_RPC_TIMEOUT_MS",
         EnvKind::Number { zero_selects_default: true }, Owner::Crate, "the built-in RPC timeout",
         "Daemon client RPC timeout, in milliseconds.";
+    DAEMON_IDENTITY_STAMP => "RUNNING_PROCESS_DAEMON_IDENTITY_STAMP",
+        EnvKind::Text, Owner::Crate, "a dev-scope daemon computes it from its own executable",
+        "Dev-scope daemon identity stamp, `<version>-<16 hex of the executable's blake3>`; ignored outside dev scope.";
     DAEMON_SCOPE => "RUNNING_PROCESS_DAEMON_SCOPE",
         EnvKind::Text, Owner::Crate, "the user-wide scope",
         "Daemon scope selector; `dev` gives a CWD-scoped daemon for tests.";
@@ -350,9 +225,7 @@ declare! {
     IS_DAEMON => "RUNNING_PROCESS_IS_DAEMON",
         EnvKind::ForeignFlag, Owner::Crate, "the process is not a daemon",
         "Marks a process spawned as a daemon, for originator reaping.";
-    KILL_DRAIN_TIMEOUT_MS => "RUNNING_PROCESS_KILL_DRAIN_TIMEOUT_MS",
-        EnvKind::Number { zero_selects_default: false }, Owner::Crate, "two seconds",
-        "How long `kill()` waits for output capture to drain, in milliseconds.";
+    KILL_DRAIN_TIMEOUT_MS => use running_process_platform_internal::env_vars::KILL_DRAIN_TIMEOUT_MS;
     MANIFEST_DIR => "RUNNING_PROCESS_MANIFEST_DIR",
         EnvKind::Path, Owner::Foreign, "the standard manifest location",
         "Where broker cache manifests are read and written.";
@@ -365,21 +238,13 @@ declare! {
     SERVICE_DEF_DIR => "RUNNING_PROCESS_SERVICE_DEF_DIR",
         EnvKind::Path, Owner::Foreign, "the standard service-definition location",
         "Where service definitions are read from.";
-    TMPDIR => "TMPDIR",
-        EnvKind::Path, Owner::Foreign, "the platform temporary directory",
-        "macOS per-session temporary directory; a broker endpoint root.";
+    TMPDIR => use running_process_platform_internal::env_vars::TMPDIR;
     USERNAME => "USERNAME",
         EnvKind::Text, Owner::Foreign, "the endpoint is named `unknown`",
         "Windows account name, mixed into the daemon pipe name.";
-    XDG_CONFIG_HOME => "XDG_CONFIG_HOME",
-        EnvKind::Path, Owner::Foreign, "`~/.config` is used",
-        "XDG per-user configuration root; where service definitions are read.";
-    XDG_DATA_HOME => "XDG_DATA_HOME",
-        EnvKind::Path, Owner::Foreign, "the platform default is derived",
-        "XDG per-user data root, used by the daemon runtime collector.";
-    XDG_RUNTIME_DIR => "XDG_RUNTIME_DIR",
-        EnvKind::Path, Owner::Foreign, "a per-user directory under /tmp",
-        "XDG per-user runtime root; where broker sockets are placed.";
+    XDG_CONFIG_HOME => use running_process_platform_internal::env_vars::XDG_CONFIG_HOME;
+    XDG_DATA_HOME => use running_process_platform_internal::env_vars::XDG_DATA_HOME;
+    XDG_RUNTIME_DIR => use running_process_platform_internal::env_vars::XDG_RUNTIME_DIR;
 }
 
 #[cfg(test)]

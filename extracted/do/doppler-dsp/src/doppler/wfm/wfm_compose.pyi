@@ -4,6 +4,7 @@ from typing import Any, Iterator
 from typing_extensions import disjoint_base
 import numpy as np
 from numpy.typing import NDArray
+from doppler.wfm import FrameDesc
 
 @disjoint_base
 class Synth:
@@ -110,10 +111,6 @@ class Synth:
         renders each source independently and concurrently; compose() and
         stream() honour both.
         One of ``"per_instance"``, ``"persist"``.
-    bits : bytes | None, default None
-        The payload bits: a Field on the command line and in a scene, an array
-        in Python. For type=bits, the pattern, oversampled by sps and cycled to
-        fill the request; for type=dsss, the payload bits of the burst frame.
     modulation : str, default ``"bpsk"``
         Symbol mapping of a bits pattern. none: the pattern shaped and output
         as-is (NRZ). bpsk: +/-1 symbols. qpsk: Gray-coded symbols from pairs of
@@ -170,6 +167,52 @@ class Synth:
         Continuous dsss data source: 1 = code-only (the pure spreading code, no
         data modulation); 0 = data-modulated (the payload when supplied, else
         the seeded PN). Ignored for burst dsss and non-dsss types.
+    frame : FrameDesc | str | None, default None
+        A frame DESCRIPTION, the whole frame: fields in wire order, and stages
+        that each name the span they cover (crc16, rs, randomise, interleave,
+        conv, or a kind of your own). It is the only way a source says anything
+        but the common frame: a coding stage, a field of the caller's own bits
+        at a position of their choosing, a stage covering a span they name.
+        `wfmgen --frame FILE`, a scene's `frame` key and Python's `frame=` (a
+        FrameDesc or a Frame) all land here. When it is set it IS the frame,
+        and the common-frame fields below (acq_code/sync/crc/payload) do not
+        frame this source. NULL means the common frame, `[preamble x reps |
+        sync | payload | crc]`, which `dp_wfm_frame_fixed()` builds from the
+        fields below. A C caller's description is borrowed, exactly as
+        `wfm_seq_t` is borrowed elsewhere here, so it must outlive the source.
+        The composer and a Python source hold their own copy
+        (`dp_wfm_frame_copy()`), so a later change to the FrameDesc does not
+        reach them. On the Python face `frame=` is an input: read it back from
+        the composer's JSON (its getter is jm's, pending removal:
+        doppler#1694). KERNELS stay in C by design. A description names a
+        stage's KIND; the code that runs it is a `wfm_frame_ops_t` entry, and a
+        caller adding a genuinely new transform (convolutional interleaving,
+        say) writes that kernel in C and hands it to `dp_wfm_frame_assemble`
+        directly.
+    bits : bytes | None, default None
+        RETIRED (doppler#1718): nothing reads it but the refusal. A payload is
+        drawn from a data source, so bits=, and its aliases payload= and
+        pattern=, are refused naming data=; the CLI and a scene refuse --bits
+        and "payload" the same way.
+    data : bytes | None, default None
+        A frame's payload drawn from a data source: a Field on the command line
+        and in a scene, a bit array in Python. The source is split into
+        data_len-bit frames, one chunk per frame, and its last chunk is padded
+        from fill. For type=bits, bpsk/qpsk/pn framed, a dsss burst (one burst
+        per frame), and continuous dsss (one bit per data symbol, no frame);
+        not with data_from_file.
+    data_len : int, default 0
+        Bits of the data source per frame: the data:LEN of the common frame
+        [preamble x reps | sync | data:LEN | crc]. 0 takes a finite source
+        whole, as one frame. A carried frame names its own data field, and this
+        is then 0 or that field's LEN. Continuous dsss has no frame, and
+        refuses it.
+    fill : bytes | None, default None
+        The bits that pad a data source's last frame when it does not divide
+        into data_len-bit frames, tiled from their first bit; stdin on a framed
+        source always needs them. Without them such a source is refused before
+        the first sample. A Field on the command line and in a scene, a bit
+        array in Python. Continuous dsss has no frame to pad, and refuses it.
     fs : float, default 1.0
         Sample rate in Hz, one per segment and shared by all its sources. At
         the default 1.0 every frequency is normalised (cycles per sample);
@@ -195,7 +238,6 @@ class Synth:
         doppler_rate: float | tuple[float, float] = ...,
         carrier_hz: float = ...,
         doppler_lifetime: str = ...,
-        bits: bytes | None = ...,
         modulation: str = ...,
         pulse: str = ...,
         rrc_beta: float = ...,
@@ -208,6 +250,11 @@ class Synth:
         crc: str = ...,
         symbol_rate: float = ...,
         dsss_code_only: int = ...,
+        frame: FrameDesc | str | None = ...,
+        bits: bytes | None = ...,
+        data: bytes | None = ...,
+        data_len: int = ...,
+        fill: bytes | None = ...,
         fs: float = ...,
     ) -> None: ...
     type: str
@@ -227,7 +274,6 @@ class Synth:
     doppler_rate: float | tuple[float, float]
     carrier_hz: float
     doppler_lifetime: str
-    bits: bytes | None
     modulation: str
     pulse: str
     rrc_beta: float
@@ -240,6 +286,14 @@ class Synth:
     crc: str
     symbol_rate: float
     dsss_code_only: int
+    @property
+    def frame(self) -> str | None: ...
+    @frame.setter
+    def frame(self, value: FrameDesc | str | None) -> None: ...
+    bits: bytes | None
+    data: bytes | None
+    data_len: int
+    fill: bytes | None
     fs: float
     def steps(self, n: int) -> NDArray[np.complex64]:
         """Generate the next *n* samples of this source on its own.
@@ -260,10 +314,10 @@ class Synth:
         Raises
         ------
         ValueError
-            If `n` is negative.
+            If `n` is negative. If `dp_wfm_source_to_synth` refuses this
+            configuration; the message is its reason.
         RuntimeError
-            If `dp_wfm_source_to_synth` cannot build the generator from this
-            configuration.
+            If `dp_wfm_source_to_synth` fails and gives no reason.
         """
     def step(self) -> complex:
         """Generate the next sample of this source on its own.
@@ -278,9 +332,11 @@ class Synth:
 
         Raises
         ------
+        ValueError
+            If `dp_wfm_source_to_synth` refuses this configuration; the message
+            is its reason.
         RuntimeError
-            If `dp_wfm_source_to_synth` cannot build the generator from this
-            configuration.
+            If `dp_wfm_source_to_synth` fails and gives no reason.
         """
     def reset(self) -> None:
         """Rewind the generator to sample 0.
@@ -394,10 +450,6 @@ class Segment:
         renders each source independently and concurrently; compose() and
         stream() honour both.
         One of ``"per_instance"``, ``"persist"``.
-    bits : bytes | None, default None
-        The payload bits: a Field on the command line and in a scene, an array
-        in Python. For type=bits, the pattern, oversampled by sps and cycled to
-        fill the request; for type=dsss, the payload bits of the burst frame.
     modulation : str, default ``"bpsk"``
         Symbol mapping of a bits pattern. none: the pattern shaped and output
         as-is (NRZ). bpsk: +/-1 symbols. qpsk: Gray-coded symbols from pairs of
@@ -454,6 +506,52 @@ class Segment:
         Continuous dsss data source: 1 = code-only (the pure spreading code, no
         data modulation); 0 = data-modulated (the payload when supplied, else
         the seeded PN). Ignored for burst dsss and non-dsss types.
+    frame : FrameDesc | str | None, default None
+        A frame DESCRIPTION, the whole frame: fields in wire order, and stages
+        that each name the span they cover (crc16, rs, randomise, interleave,
+        conv, or a kind of your own). It is the only way a source says anything
+        but the common frame: a coding stage, a field of the caller's own bits
+        at a position of their choosing, a stage covering a span they name.
+        `wfmgen --frame FILE`, a scene's `frame` key and Python's `frame=` (a
+        FrameDesc or a Frame) all land here. When it is set it IS the frame,
+        and the common-frame fields below (acq_code/sync/crc/payload) do not
+        frame this source. NULL means the common frame, `[preamble x reps |
+        sync | payload | crc]`, which `dp_wfm_frame_fixed()` builds from the
+        fields below. A C caller's description is borrowed, exactly as
+        `wfm_seq_t` is borrowed elsewhere here, so it must outlive the source.
+        The composer and a Python source hold their own copy
+        (`dp_wfm_frame_copy()`), so a later change to the FrameDesc does not
+        reach them. On the Python face `frame=` is an input: read it back from
+        the composer's JSON (its getter is jm's, pending removal:
+        doppler#1694). KERNELS stay in C by design. A description names a
+        stage's KIND; the code that runs it is a `wfm_frame_ops_t` entry, and a
+        caller adding a genuinely new transform (convolutional interleaving,
+        say) writes that kernel in C and hands it to `dp_wfm_frame_assemble`
+        directly.
+    bits : bytes | None, default None
+        RETIRED (doppler#1718): nothing reads it but the refusal. A payload is
+        drawn from a data source, so bits=, and its aliases payload= and
+        pattern=, are refused naming data=; the CLI and a scene refuse --bits
+        and "payload" the same way.
+    data : bytes | None, default None
+        A frame's payload drawn from a data source: a Field on the command line
+        and in a scene, a bit array in Python. The source is split into
+        data_len-bit frames, one chunk per frame, and its last chunk is padded
+        from fill. For type=bits, bpsk/qpsk/pn framed, a dsss burst (one burst
+        per frame), and continuous dsss (one bit per data symbol, no frame);
+        not with data_from_file.
+    data_len : int, default 0
+        Bits of the data source per frame: the data:LEN of the common frame
+        [preamble x reps | sync | data:LEN | crc]. 0 takes a finite source
+        whole, as one frame. A carried frame names its own data field, and this
+        is then 0 or that field's LEN. Continuous dsss has no frame, and
+        refuses it.
+    fill : bytes | None, default None
+        The bits that pad a data source's last frame when it does not divide
+        into data_len-bit frames, tiled from their first bit; stdin on a framed
+        source always needs them. Without them such a source is refused before
+        the first sample. A Field on the command line and in a scene, a bit
+        array in Python. Continuous dsss has no frame to pad, and refuses it.
     fs : float, default 1.0
         Sample rate in Hz, one per segment and shared by all its sources. At
         the default 1.0 every frequency is normalised (cycles per sample);
@@ -507,7 +605,6 @@ class Segment:
     doppler_rate: float
     carrier_hz: float
     doppler_lifetime: str
-    bits: bytes | None
     modulation: str
     pulse: str
     rrc_beta: float
@@ -520,6 +617,11 @@ class Segment:
     crc: str
     symbol_rate: float
     dsss_code_only: int
+    frame: str | None
+    bits: bytes | None
+    data: bytes | None
+    data_len: int
+    fill: bytes | None
     def __init__(
         self,
         type: str = ...,
@@ -539,7 +641,6 @@ class Segment:
         doppler_rate: float | tuple[float, float] = ...,
         carrier_hz: float = ...,
         doppler_lifetime: str = ...,
-        bits: bytes | None = ...,
         modulation: str = ...,
         pulse: str = ...,
         rrc_beta: float = ...,
@@ -552,6 +653,11 @@ class Segment:
         crc: str = ...,
         symbol_rate: float = ...,
         dsss_code_only: int = ...,
+        frame: FrameDesc | str | None = ...,
+        bits: bytes | None = ...,
+        data: bytes | None = ...,
+        data_len: int = ...,
+        fill: bytes | None = ...,
         fs: float = ...,
         num_samples: int | tuple[int, int] = ...,
         off_samples: int | tuple[int, int] = ...,

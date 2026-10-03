@@ -1,8 +1,8 @@
 import dataclasses
 
-from aiopenapi3.errors import HTTPServerError as base_HTTPServerError
-from aiopenapi3.errors import HTTPClientError as base_HTTPClientError
-from aiopenapi3.errors import HTTPError
+from aiopenapi3.errors import (
+    HTTPClientError as base_HTTPClientError, HTTPError, HTTPServerError as base_HTTPServerError,
+)
 
 
 class ESIErrorLimitException(Exception):
@@ -10,22 +10,28 @@ class ESIErrorLimitException(Exception):
     https://developers.eveonline.com/docs/services/esi/best-practices/#error-limit
     """
 
-    def __init__(self, reset=None, *args, **kwargs) -> None:
+    def __init__(self, reset: float | None = None, message: str | None = None) -> None:
+        super().__init__(reset, message)
         self.reset = reset
-        msg = kwargs.get("message") or (
+        self.message = message or (
             f"ESI Error limited. Reset in {reset} seconds." if reset else "ESI Error limited."
         )
-        super().__init__(msg, *args)
+
+    def __str__(self) -> str:
+        return self.message
 
 
 class ESIBucketLimitException(Exception):
     """Endpoint (Bucket) Specific Rate Limit Exceeded"""
 
-    def __init__(self, bucket, reset: float = 0, *args, **kwargs) -> None:
+    def __init__(self, bucket, reset: float = 0, message: str | None = None) -> None:
+        super().__init__(bucket, reset, message)
         self.bucket = bucket
         self.reset = reset if reset else self.bucket.window
-        msg = kwargs.get("message") or f"ESI bucket limit reached for {bucket}."
-        super().__init__(msg, *args)
+        self.message = message or f"ESI bucket limit reached for {bucket}."
+
+    def __str__(self) -> str:
+        return self.message
 
 
 @dataclasses.dataclass(repr=False)
@@ -52,9 +58,10 @@ class HTTPServerError(base_HTTPServerError):
 
 
 class TaskBucketLimitException(Exception):
-    def __init__(self, bucket, reset):
+    def __init__(self, bucket, reset) -> None:
+        super().__init__(bucket, reset)
         self.bucket = bucket
         self.reset = reset
-        super().__init__(
-            f"Task Bucket Limit Exceeded: {bucket} - Retry after {reset} seconds"
-        )
+
+    def __str__(self) -> str:
+        return f"Task Bucket Limit Exceeded: {self.bucket} - Retry after {self.reset} seconds"

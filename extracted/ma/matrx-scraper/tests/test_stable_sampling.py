@@ -61,7 +61,8 @@ async def test_sitemap_discovery_samples_entire_urlset(monkeypatch) -> None:
                 return _Response(200, body)
             return _Response(404)
 
-    monkeypatch.setattr(crawler.httpx, "AsyncClient", lambda **_kwargs: _Client())
+    # The client is a dependency here: the sampling, not the fetch, is under test.
+    monkeypatch.setattr(crawler, "public_http_client", lambda **_kwargs: _Client())
 
     discovered = await crawler._discover_sitemap_urls(
         "https://x.test/",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fixture_origins import allow_fixture_origins
 import pytest
 
 from matrx_scraper import scraper
@@ -33,6 +34,7 @@ class _Session:
 
 
 def test_curl_redirect_chain_is_captured_without_response_history(monkeypatch) -> None:
+    allow_fixture_origins(monkeypatch, "https://x", "https://y")  # stand-in hosts; the engine is stubbed
     session = _Session(
         [
             _Response(301, "https://x/start", {"location": "/middle"}),
@@ -63,6 +65,7 @@ def test_curl_redirect_chain_is_captured_without_response_history(monkeypatch) -
 
 
 def test_curl_redirect_limit_fails_loudly(monkeypatch) -> None:
+    allow_fixture_origins(monkeypatch, "https://x", "https://y")  # stand-in hosts; the engine is stubbed
     session = _Session(
         [_Response(302, f"https://x/{index}", {"location": f"/{index + 1}"}) for index in range(11)]
     )

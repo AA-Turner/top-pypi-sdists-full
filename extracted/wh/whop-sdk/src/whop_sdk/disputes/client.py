@@ -81,7 +81,7 @@ class DisputesClient:
             Sort direction.
 
         status : typing.Optional[typing.Union[ListDisputesRequestStatusItem, typing.Sequence[ListDisputesRequestStatusItem]]]
-            Only disputes in these statuses. Repeat the parameter to pass several — one paginated list covers all of them. Covers both chargebacks and inquiries at each stage. A `needs_response` dispute whose evidence deadline has passed reports and filters as `under_review` instead.
+            Only disputes in these statuses. Repeat the parameter to pass several — one paginated list covers all of them. Inquiries match only the `warning_` statuses. A `needs_response` dispute whose evidence deadline has passed reports and filters as `under_review` instead.
 
         currency : typing.Optional[str]
             Only disputes in this three-letter ISO currency.
@@ -105,7 +105,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -182,7 +182,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -221,7 +221,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -263,7 +263,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,7 +296,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -339,7 +339,7 @@ class DisputesClient:
         from whop_sdk.disputes import UploadEvidenceDisputesRequestDocumentsItem
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -416,7 +416,7 @@ class AsyncDisputesClient:
             Sort direction.
 
         status : typing.Optional[typing.Union[ListDisputesRequestStatusItem, typing.Sequence[ListDisputesRequestStatusItem]]]
-            Only disputes in these statuses. Repeat the parameter to pass several — one paginated list covers all of them. Covers both chargebacks and inquiries at each stage. A `needs_response` dispute whose evidence deadline has passed reports and filters as `under_review` instead.
+            Only disputes in these statuses. Repeat the parameter to pass several — one paginated list covers all of them. Inquiries match only the `warning_` statuses. A `needs_response` dispute whose evidence deadline has passed reports and filters as `under_review` instead.
 
         currency : typing.Optional[str]
             Only disputes in this three-letter ISO currency.
@@ -442,7 +442,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -528,7 +528,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -575,7 +575,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -625,7 +625,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -666,7 +666,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -717,7 +717,7 @@ class AsyncDisputesClient:
         from whop_sdk.disputes import UploadEvidenceDisputesRequestDocumentsItem
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

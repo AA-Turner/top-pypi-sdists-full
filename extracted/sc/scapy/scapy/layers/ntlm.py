@@ -29,6 +29,7 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE_OF,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.config import crypto_validator
 from scapy.compat import bytes_base64
 from scapy.error import log_runtime
 from scapy.fields import (
@@ -60,11 +61,10 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
-    _GSSAPI_OIDS,
-    _GSSAPI_SIGNATURE_OIDS,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_BINDINGS,
+    GSS_S_BAD_MIC,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_CREDENTIAL,
@@ -72,6 +72,8 @@ from scapy.layers.gssapi import (
     GSS_S_FLAGS,
     GssChannelBindings,
     SSP,
+    _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # Typing imports
@@ -113,6 +115,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     __slots__ = [
         "fields",
         "fields_map",
+        "fields_pad",
         "offset",
         "length_from",
         "force_order",
@@ -125,6 +128,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         name,  # type: str
         offset,  # type: Union[int, Callable[[Packet], int]]
         fields,  # type: List[Field[Any, Any]]
+        fields_pad=0,  # type: int
         length_from=None,  # type: Optional[Callable[[Packet], int]]
         force_order=None,  # type: Optional[List[str]]
         offset_name="BufferOffset",  # type: str
@@ -136,6 +140,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.length_from = length_from
         self.force_order = force_order  # whether the order of fields is fixed
         self.offset_name = offset_name
+        self.fields_pad = fields_pad
         super(_NTLMPayloadField, self).__init__(
             name,
             [
@@ -195,6 +200,10 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if offset is None:
                 # No offset specified: calc
                 offset = len(buf)
+                if self.fields_pad:
+                    pad = (-offset) % self.fields_pad
+                    offset += pad
+                    buf.append(pad * b"\x00", len(buf))
             else:
                 # Calc relative offset
                 offset -= r_off
@@ -369,8 +378,9 @@ _NTLM_CONFIG = [
 
 def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
     """Util function to build the offset and populate the lengths"""
+    gl_fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME)
     for field_name, value in self.fields[self._NTLM_PAYLOAD_FIELD_NAME]:
-        fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map[field_name]
+        fld = gl_fld.fields_map[field_name]
         length = fld.i2len(self, value)
         count = fld.i2count(self, value)
         offset = fields[field_name]
@@ -390,7 +400,9 @@ def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
             else:
                 raise ValueError
             if ftype & _NTLM_ENUM.PAD8:
-                fval += (-fval) % 8
+                pad = (-fval) % 8
+                fval += pad
+                pay_offset += pad
             sz = self.get_field(field_name + fname).sz
             if self.getfieldval(field_name + fname) is None:
                 p = (
@@ -490,7 +502,7 @@ _negotiateFlags = [
     "J",
     "NEGOTIATE_OEM_DOMAIN_SUPPLIED",  # K
     "NEGOTIATE_OEM_WORKSTATION_SUPPLIED",  # L
-    "r7",
+    "NEGOTIATE_LOCAL_CALL",
     "NEGOTIATE_ALWAYS_SIGN",  # M
     "TARGET_TYPE_DOMAIN",  # N
     "TARGET_TYPE_SERVER",  # O
@@ -590,8 +602,9 @@ class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet, NTLM_Header):
                 "Payload",
                 OFFSET,
                 [
-                    _NTLMStrField("DomainName", b""),
-                    _NTLMStrField("WorkstationName", b""),
+                    # "MUST be encoded using the OEM character set"
+                    StrField("DomainName", b""),
+                    StrField("WorkstationName", b""),
                 ],
             ),
         ]
@@ -1012,6 +1025,13 @@ class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet, NTLM_Header):
             ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(self)
         )
 
+    def verify_mic(self, ExportedSessionKey, negotiate, challenge):
+        auth = self.copy()
+        auth.MIC = b"\x00" * 16
+        return self.MIC == HMAC_MD5(
+            ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(auth)
+        )
+
 
 class NTLM_AUTHENTICATE_V2(NTLM_AUTHENTICATE):
     NTLM_VERSION = 2
@@ -1267,7 +1287,6 @@ class NTLMSSP(SSP):
 
     Common arguments:
 
-        :param auth_level: One of DCE_C_AUTHN_LEVEL
         :param USE_MIC: whether to use a MIC or not (default: True)
         :param NTLM_VALUES: a dictionary used to override the following values
 
@@ -1295,6 +1314,7 @@ class NTLMSSP(SSP):
                     if without domain)
         :param HASHNT: the password to use for NTLM auth
         :param PASSWORD: the password to use for NTLM auth
+        :param LOCAL: use local authentication (must be running locally on Windows)
 
     Server-only arguments:
 
@@ -1335,6 +1355,7 @@ class NTLMSSP(SSP):
             "ServerDomain",
         ]
 
+        @crypto_validator
         def __init__(self, IsAcceptor, req_flags=None):
             self.state = NTLMSSP.STATE.INIT
             self.SessionKey = None
@@ -1392,7 +1413,7 @@ class NTLMSSP(SSP):
             self.USE_MIC = False
         else:
             self.USE_MIC = USE_MIC
-        self.NTLM_VALUES = NTLM_VALUES
+
         if UPN is not None:
             # Populate values used only in server mode.
             from scapy.layers.kerberos import _parse_upn
@@ -1407,7 +1428,7 @@ class NTLMSSP(SSP):
                 pass
 
         # Compute various netbios/fqdn names
-        self.DOMAIN_FQDN = DOMAIN_FQDN or "domain.local"
+        self.DOMAIN_FQDN = DOMAIN_FQDN or "WORKGROUP"
         self.DOMAIN_NB_NAME = (
             DOMAIN_NB_NAME or self.DOMAIN_FQDN.split(".")[0].upper()[:15]
         )
@@ -1415,8 +1436,17 @@ class NTLMSSP(SSP):
         self.COMPUTER_FQDN = COMPUTER_FQDN or (
             self.COMPUTER_NB_NAME.lower() + "." + self.DOMAIN_FQDN
         )
+        self.NTLM_VALUES = NTLM_VALUES
 
-        self.IDENTITIES = IDENTITIES
+        if IDENTITIES:
+            self.IDENTITIES = {
+                # Windows usernames are case insensitive
+                user.upper(): hashnt
+                for user, hashnt in IDENTITIES.items()
+            }
+        else:
+            self.IDENTITIES = IDENTITIES
+
         self.DO_NOT_CHECK_LOGIN = DO_NOT_CHECK_LOGIN
         self.SERVER_CHALLENGE = SERVER_CHALLENGE
         super(NTLMSSP, self).__init__(**kwargs)
@@ -1534,6 +1564,7 @@ class NTLMSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             # Client: negotiate
+
             # Create a default token
             tok = NTLM_NEGOTIATE(
                 VARIANT=self.VARIANT,
@@ -1576,18 +1607,28 @@ class NTLMSSP(SSP):
                         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
                         else []
                     )
+                    + (
+                        [
+                            "NEGOTIATE_IDENTIFY",
+                        ]
+                        if Context.flags & GSS_C_FLAGS.GSS_C_IDENTIFY_FLAG
+                        else []
+                    )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
-                ProductBuild=19041,
+                ProductBuild=26100,
             )
+
+            # Update that token with the customs one
             if self.NTLM_VALUES:
-                # Update that token with the customs one
                 for key in [
                     "NegotiateFlags",
                     "ProductMajorVersion",
                     "ProductMinorVersion",
                     "ProductBuild",
+                    "DomainName",
+                    "WorkstationName",
                 ]:
                     if key in self.NTLM_VALUES:
                         setattr(tok, key, self.NTLM_VALUES[key])
@@ -1598,6 +1639,7 @@ class NTLMSSP(SSP):
         elif Context.state == self.STATE.CLI_SENT_NEGO:
             # Client: auth (token=challenge)
             chall_tok = input_token
+
             if self.UPN is None or self.HASHNT is None:
                 raise ValueError(
                     "Must provide a 'UPN' and a 'HASHNT' or 'PASSWORD' when "
@@ -1639,11 +1681,12 @@ class NTLMSSP(SSP):
                 NegotiateFlags=chall_tok.NegotiateFlags,
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
-                ProductBuild=19041,
+                ProductBuild=26100,
             )
-            tok.LmChallengeResponse = LMv2_RESPONSE()
 
             # Populate the token
+            tok.LmChallengeResponse = LMv2_RESPONSE()
+
             # 1. Set username
             try:
                 tok.UserName, realm = _parse_upn(self.UPN)
@@ -1681,7 +1724,10 @@ class NTLMSSP(SSP):
                 + [
                     AV_PAIR(
                         AvId="MsvAvSingleHost",
-                        Value=Single_Host_Data(MachineID=os.urandom(32)),
+                        Value=Single_Host_Data(
+                            MachineID=os.urandom(32),
+                            PermanentMachineID=os.urandom(32),
+                        ),
                     ),
                 ]
                 + (
@@ -1791,10 +1837,12 @@ class NTLMSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (input_token=negotiate)
-            nego_tok = input_token
-            if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
+            neg_tok = input_token
+            if not neg_tok or NTLM_NEGOTIATE not in neg_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
+            Context.neg_tok = neg_tok
 
             # Build the challenge token
             currentTime = (time.time() + 11644473600) * 1e7
@@ -1821,17 +1869,18 @@ class NTLMSSP(SSP):
                     )
                     + (
                         ["NEGOTIATE_SIGN"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SIGN
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SIGN
                         else []
                     )
                     + (
                         ["NEGOTIATE_SEAL"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SEAL
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SEAL
                         else []
                     )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
+                ProductBuild=26100,
                 Payload=[
                     ("TargetName", ""),
                     (
@@ -1922,6 +1971,24 @@ class NTLMSSP(SSP):
                 Context.ExportedSessionKey = ExportedSessionKey
                 # [MS-SMB] 3.2.5.3
                 Context.SessionKey = Context.ExportedSessionKey
+            else:
+                # Bad NTProofStr or unknown user
+                Context.SessionKey = None
+                Context.state = self.STATE.INIT
+                return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
+
+            # Verify MIC
+            try:
+                Flags = auth_tok.NtChallengeResponse.getAv(0x0006).Value
+                if Flags & 2:
+                    # MIC is required
+                    if not auth_tok.verify_mic(
+                        ExportedSessionKey, Context.neg_tok, Context.chall_tok
+                    ):
+                        log_runtime.warning("Client MIC is invalid !")
+                        return Context, None, GSS_S_BAD_MIC
+            except IndexError:
+                pass
 
             # Check the timestamp
             try:
@@ -1937,7 +2004,14 @@ class NTLMSSP(SSP):
                 pass
 
             # Check the channel bindings
-            if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
+            if chan_bindings == GSS_C_NO_CHANNEL_BINDINGS:
+                if (
+                    req_flags is not None
+                    and GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                    not in req_flags
+                ):
+                    return Context, None, GSS_S_BAD_BINDINGS
+            else:
                 try:
                     Bnd = auth_tok.NtChallengeResponse.getAv(0x000A).Value
                     if Bnd != chan_bindings.digestMD5():
@@ -1948,36 +2022,31 @@ class NTLMSSP(SSP):
                         # Uhoh, we required channel bindings
                         return Context, None, GSS_S_BAD_BINDINGS
 
-            if Context.SessionKey:
-                # Compute NTLM keys
-                Context.SendSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealHandle = RC4Init(Context.SendSealKey)
-                Context.RecvSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+            # Compute NTLM keys
+            Context.SendSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealHandle = RC4Init(Context.SendSealKey)
+            Context.RecvSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
 
-                # Check the NTProofStr
-                if self._checkLogin(Context, auth_tok):
-                    # Set negotiated flags
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
-                    return Context, None, GSS_S_COMPLETE
+            # Check the NTProofStr
+            if self._checkLogin(Context, auth_tok):
+                # Set negotiated flags
+                if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
+                return Context, None, GSS_S_COMPLETE
 
-            # Bad NTProofStr or unknown user
-            Context.SessionKey = None
-            Context.state = self.STATE.INIT
-            return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
 
@@ -2048,7 +2117,8 @@ class NTLMSSP(SSP):
         Function that returns the SessionBaseKey from the ntlm Authenticate.
         """
         try:
-            username = auth_tok.UserName
+            # Windows usernames are case insensitive
+            username = auth_tok.UserName.upper()
         except AttributeError:
             username = None
         try:
@@ -2076,9 +2146,9 @@ class NTLMSSP(SSP):
 
         Overwrite and return True to bypass.
         """
-        # Create the NTLM AUTH
         try:
-            username = auth_tok.UserName
+            # Windows usernames are case insensitive
+            username = auth_tok.UserName.upper()
         except AttributeError:
             username = None
         try:
@@ -2113,7 +2183,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
     :param HASHNT: the HASHNT of the machine account (use Netlogon secure channel).
     :param ssp: a KerberosSSP to use (use Kerberos secure channel).
     :param PASSWORD: the PASSWORD of the machine account to use for Netlogon.
-    :param DC_IP: (optional) specify the IP of the DC.
+    :param DC_FQDN: (optional) specify the FQDN of the DC.
 
     Netlogon example::
 

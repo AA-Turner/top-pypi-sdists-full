@@ -51,12 +51,28 @@ pub(crate) use independent_io::open_regular as independent_open_regular;
 pub(crate) const INDEPENDENT_ZERO_WRITE_PENDING: bool = false;
 pub use process_inspect::{
     process_executable_path, process_force_kill, process_same_executable_path,
-    process_signal_terminate, ProcessLiveness,
+    process_fault_code_name, process_signal_terminate, ProcessLiveness,
+};
+
+#[path = "platform_linux/loaded_images.rs"]
+mod loaded_images;
+pub use loaded_images::{
+    loaded_images as process_loaded_images,
+    open_loaded_image_file as process_open_loaded_image_file,
 };
 
 #[path = "platform_linux/raw_write.rs"]
 pub(crate) mod raw_write;
 pub use raw_write::write_all_to_descriptor as fs_write_all_to_descriptor;
+
+/// Whether a handle another process holds open keeps a file from being removed.
+///
+/// Linux unlinks a name while descriptors on it stay open, so
+/// callers use the answer to decide whether releasing handles before a
+/// recursive delete means anything here.
+pub const fn fs_open_handles_block_removal() -> bool {
+    false
+}
 
 #[path = "platform_linux/shutdown_request.rs"]
 pub(crate) mod shutdown_request;
@@ -81,12 +97,19 @@ pub use host::{
 };
 pub use host::login_environment_block as host_login_environment_block;
 
+/// This process's control-group membership (`/proc/self/cgroup`). Linux has
+/// cgroups, so the answer is always `Some`; the inner error is a read failure.
+pub fn host_process_cgroup() -> Option<io::Result<String>> {
+    Some(std::fs::read_to_string("/proc/self/cgroup"))
+}
+
 #[cfg(feature = "fs")]
 #[path = "platform_linux/fs.rs"]
 pub(crate) mod fs;
 #[cfg(feature = "fs")]
 pub use fs::{
     create_private_file as fs_create_private_file,
+    is_link_handle as fs_is_link_handle, open_read_no_follow as fs_open_read_no_follow,
     decode_path_bytes as fs_decode_path_bytes,
     replace_file as fs_replace_file, sync_directory as fs_sync_directory,
     user_config_dir as fs_user_config_dir,
@@ -95,8 +118,24 @@ pub use fs::{
     open_lock_file as fs_open_lock_file, path_identity as fs_path_identity,
     try_lock_exclusive as fs_try_lock_exclusive, unlock as fs_unlock,
     user_run_data_root as fs_user_run_data_root, user_runtime_dir as fs_user_runtime_dir,
-    user_state_dir as fs_user_state_dir, FileIdentity as FsFileIdentity,
+    user_state_dir as fs_user_state_dir,
+    user_state_dir_from_environment as fs_user_state_dir_from_environment,
+    state_home_from_environment as fs_state_home_from_environment,
+    FileIdentity as FsFileIdentity,
 };
+
+#[path = "platform_linux/ape.rs"]
+pub(crate) mod ape;
+pub use ape::{
+    default_loader_dirs as ape_default_loader_dirs, is_exec_format_error as ape_is_exec_format_error,
+    is_executable as ape_is_executable, mark_executable as ape_mark_executable,
+    anonymous_executable as ape_anonymous_executable,
+    private_exec_dir as ape_private_exec_dir,
+    route_through_execvp as ape_route_through_execvp, APE_LOADER_HOST,
+    APE_EXECVP_SHELL_FALLBACK, APE_NEEDS_LOADER, APE_SHELL, APE_SYSTEM_LOADERS,
+};
+#[cfg(feature = "async-process")]
+pub use ape::route_tokio_through_execvp as ape_route_tokio_through_execvp;
 
 #[path = "platform_linux/executable.rs"]
 pub(crate) mod executable;
@@ -116,6 +155,7 @@ mod ipc_private_dir;
 pub use ipc::{
     current_user_id as ipc_current_user_id, Endpoint as IpcEndpoint,
     endpoint_is_filesystem_backed as ipc_endpoint_is_filesystem_backed,
+    handoff_transport_available as ipc_handoff_transport_available,
     nonblocking_zero_read_is_pending as ipc_nonblocking_zero_read_is_pending,
     select_endpoint_address as ipc_select_endpoint_address,
     InheritedListener as IpcInheritedListener, Listener as IpcListener,
@@ -156,11 +196,55 @@ pub fn ipc_broker_endpoint_name(bare_name: &str, path_scoped: bool) -> std::io::
         for byte in hash.finalize().as_bytes().iter().take(16) { let _ = write!(leaf, "{byte:02x}"); }
         return Ok(PathBuf::from("/tmp").join(format!(".rp-path-{leaf}.sock")).to_string_lossy().into_owned());
     }
-    let directory = match std::env::var_os("XDG_RUNTIME_DIR") {
-        Some(value) => PathBuf::from(value).join("running-process").join("broker-v2"),
-        None => PathBuf::from(format!("/tmp/running-process-{}/broker-v2", unsafe { libc::getuid() })),
-    };
-    Ok(directory.join(format!("{bare_name}.sock")).to_string_lossy().into_owned())
+    Ok(ipc_component_endpoint_path("broker-v2", bare_name))
+}
+
+/// Concrete socket path for `bare_name` in the per-user runtime directory of
+/// `component` (`broker-v2`, `probe`, ...). Pure: performs no filesystem write.
+///
+/// The component only picks the directory leaf, so two services never share a
+/// namespace while following one convention (#974).
+#[cfg(feature = "ipc")]
+pub fn ipc_component_endpoint_path(component: &str, bare_name: &str) -> String {
+    // SAFETY: `getuid` reads a process property and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    component_endpoint_path_in(crate::env_vars::XDG_RUNTIME_DIR.os(), uid, component, bare_name)
+}
+
+/// Per-user runtime directory of `component`: the directory that holds its
+/// sockets and any runtime files published beside them. Pure.
+#[cfg(feature = "ipc")]
+pub fn ipc_component_runtime_dir(component: &str) -> std::path::PathBuf {
+    // SAFETY: `getuid` reads a process property and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    component_runtime_dir_in(crate::env_vars::XDG_RUNTIME_DIR.os(), uid, component)
+}
+
+#[cfg(feature = "ipc")]
+fn component_runtime_dir_in(
+    xdg_runtime_dir: Option<std::ffi::OsString>,
+    uid: u32,
+    component: &str,
+) -> std::path::PathBuf {
+    use std::path::PathBuf;
+
+    match xdg_runtime_dir {
+        Some(value) => PathBuf::from(value).join("running-process").join(component),
+        None => PathBuf::from(format!("/tmp/running-process-{uid}/{component}")),
+    }
+}
+
+#[cfg(feature = "ipc")]
+fn component_endpoint_path_in(
+    xdg_runtime_dir: Option<std::ffi::OsString>,
+    uid: u32,
+    component: &str,
+    bare_name: &str,
+) -> String {
+    component_runtime_dir_in(xdg_runtime_dir, uid, component)
+        .join(format!("{bare_name}.sock"))
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Linux `sun_path` is 108 bytes including the NUL terminator.
@@ -184,7 +268,7 @@ pub fn ipc_endpoint_name_limit() -> crate::platform::ipc::EndpointNameLimit {
 fn broker_v1_socket_dir() -> std::path::PathBuf {
     use std::path::PathBuf;
 
-    match std::env::var_os("XDG_RUNTIME_DIR") {
+    match crate::env_vars::XDG_RUNTIME_DIR.os() {
         Some(dir) => PathBuf::from(dir).join("running-process").join("broker"),
         None => PathBuf::from(format!(
             "/tmp/running-process-{}/broker",
@@ -224,7 +308,7 @@ pub fn ipc_endpoint_scope_bytes(path: &std::path::Path) -> Vec<u8> {
 
 #[cfg(feature = "ipc")]
 pub fn ipc_broker_v2_runtime_dir() -> std::path::PathBuf {
-    match std::env::var_os("XDG_RUNTIME_DIR") {
+    match crate::env_vars::XDG_RUNTIME_DIR.os() {
         Some(dir) => std::path::PathBuf::from(dir)
             .join("running-process")
             .join("broker-v2"),
@@ -311,6 +395,16 @@ use crate::SpawnSpec;
 #[path = "platform_linux_descendants.rs"]
 mod descendants;
 pub use descendants::start_descendant_monitor;
+
+/// Attach to an already-running root (#1015). On this host the descendant
+/// monitor never depended on the spawn, so attaching is the same monitor.
+pub fn start_attached_descendant_monitor(
+    root_pid: u32,
+    stop: std::sync::Arc<crate::platform::process::DescendantMonitorStop>,
+    emit: Box<dyn Fn(crate::platform::process::DescendantEvent) + Send>,
+) -> std::io::Result<()> {
+    start_descendant_monitor(root_pid, stop, emit)
+}
 
 #[path = "platform_linux_trace.rs"]
 mod exact_trace;
@@ -449,6 +543,12 @@ pub fn kill_tree(pid: u32, timeout: std::time::Duration) -> io::Result<u32> {
 pub fn exit_code(status: std::process::ExitStatus) -> i32 {
     use std::os::unix::process::ExitStatusExt;
     status.code().unwrap_or_else(|| -status.signal().unwrap_or(1))
+}
+
+/// The signal that terminated `status`'s process, if it died from one.
+pub fn exit_signal(status: &std::process::ExitStatus) -> Option<i32> {
+    use std::os::unix::process::ExitStatusExt;
+    status.signal()
 }
 
 pub fn set_process_name(name: &str) {
@@ -836,6 +936,23 @@ pub(crate) fn observe_owned_child_exit(pid: i32) -> io::Result<Option<i32>> {
     Ok(Some(if info.si_code == libc::CLD_EXITED { status } else { 128 + status }))
 }
 
+/// Apply a process priority expressed as a Unix nice value.
+pub fn apply_process_priority(pid: u32, nice: i32) -> io::Result<()> {
+    unix_set_priority(pid, nice)
+}
+
+/// Deliver the host's interactive-interrupt request to `pid`.
+///
+/// Unix sends SIGINT to the process, or to its group when the child leads one.
+/// `creationflags` only matters on Windows and is ignored here.
+pub fn send_interrupt(pid: u32, _creationflags: Option<u32>, create_process_group: bool) -> io::Result<()> {
+    use crate::platform::process::UnixSignalKind;
+    if create_process_group {
+        unix_signal_process_group(pid as i32, UnixSignalKind::Interrupt)
+    } else {
+        unix_signal_process(pid, UnixSignalKind::Interrupt)
+    }
+}
 pub fn unix_signal_process_group(pid: i32, signal: crate::platform::process::UnixSignalKind) -> io::Result<()> {
     if unsafe { libc::killpg(pid, unix_signal_raw(signal)) } == -1 { Err(io::Error::last_os_error()) } else { Ok(()) }
 }
@@ -862,6 +979,24 @@ pub fn after_compat_tokio_spawn(
     Ok(())
 }
 
+/// Configure a caller-built command for [`crate::SpawnSpec::from_std_command`].
+///
+/// This is the `NativeProcess` launch mapping (`ProcessCommandConfig`), not
+/// the declarative `SpawnSpec` one, so a command handed over by the sync
+/// engine is configured exactly once and by the same code it uses today.
+#[cfg(feature = "async-process")]
+pub(crate) fn configure_override_command(
+    command: &mut std::process::Command,
+    config: crate::platform::process::ProcessCommandConfig,
+    kill_when_owner_dies: bool,
+) -> io::Result<()> {
+    if kill_when_owner_dies {
+        configure_process_command_for_bounded_owner_death(command, config)
+    } else {
+        configure_process_command(command, config)
+    }
+}
+
 #[cfg(feature = "async-process")]
 pub(crate) fn configure_command(
     command: &mut Command,
@@ -872,7 +1007,7 @@ pub(crate) fn configure_command(
     if create_process_group {
         command.process_group(0);
     }
-    if kill_when_owner_dies || nice.is_some() {
+    if kill_when_owner_dies {
         let owner_pid = unsafe { libc::getpid() };
         // SAFETY: the closure invokes only async-signal-safe libc calls.
         unsafe {
@@ -882,9 +1017,7 @@ pub(crate) fn configure_command(
                         return Err(io::Error::last_os_error());
                     }
                 }
-                if kill_when_owner_dies {
-                    install_parent_death_signal_with_race_guard(owner_pid)?;
-                }
+                install_parent_death_signal_with_race_guard(owner_pid)?;
                 Ok(())
             });
         }
@@ -892,8 +1025,46 @@ pub(crate) fn configure_command(
     Ok(())
 }
 
+/// Niceness that must be applied to the child right after spawn.
+///
+/// A `pre_exec` hook makes std abandon `posix_spawn` for `fork` + `exec`,
+/// whose cost grows with the parent's resident size (~0.5-1 ms per child in
+/// a large daemon, #1248). Owner-death has to run in the child, so it keeps
+/// the hook and applies niceness there. Niceness alone does not: it is set
+/// on the child's pid once `spawn` has returned, before this call returns to
+/// the caller. The only window is the child's first instructions, and a
+/// thread or grandchild it starts inside that window inherits the old value.
 #[cfg(feature = "async-process")]
-pub(crate) fn after_spawn(_child: &Child, _kill_when_owner_dies: bool) -> io::Result<()> {
+fn nice_after_spawn(kill_when_owner_dies: bool, nice: Option<i32>) -> Option<i32> {
+    if kill_when_owner_dies {
+        None
+    } else {
+        nice
+    }
+}
+
+#[cfg(feature = "async-process")]
+pub(crate) fn after_spawn(
+    child: &Child,
+    kill_when_owner_dies: bool,
+    nice: Option<i32>,
+) -> io::Result<()> {
+    let Some(nice) = nice_after_spawn(kill_when_owner_dies, nice) else {
+        return Ok(());
+    };
+    let Some(pid) = child.id() else {
+        return Ok(());
+    };
+    // SAFETY: plain syscall on a pid this process just spawned and has not
+    // yet reaped, so the pid cannot have been recycled.
+    if unsafe { libc::setpriority(libc::PRIO_PROCESS, pid as libc::id_t, nice) } == -1 {
+        let error = io::Error::last_os_error();
+        // The caller asked for this priority and the child is already running:
+        // do not leave it running at the wrong one. The caller drops `child`,
+        // which reaps it.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -1067,6 +1238,22 @@ pub(crate) fn shell_spec(command: &OsStr) -> SpawnSpec {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exit_signal_reports_the_signal_that_killed_the_child() {
+        use std::os::unix::process::ExitStatusExt;
+        // A raw wait status whose low bits carry the signal: killed by SIGKILL.
+        let killed = std::process::ExitStatus::from_raw(libc::SIGKILL);
+        assert_eq!(super::exit_signal(&killed), Some(libc::SIGKILL));
+        // Exit code 3 in the high byte: a normal exit, no signal.
+        let exited = std::process::ExitStatus::from_raw(3 << 8);
+        assert_eq!(super::exit_signal(&exited), None);
+    }
+
+    #[test]
+    fn linux_always_reports_a_cgroup_membership() {
+        assert!(super::host_process_cgroup().is_some());
+    }
+
     #[cfg(feature = "async-process")]
     #[test]
     fn async_identity_mismatch_fails_closed_without_pid_signal() {
@@ -1241,4 +1428,36 @@ pub(crate) async fn shutdown_output_reader<R>(reader: R, _pending: bool) -> std:
     // Tokio's Unix child pipes use readiness I/O, not detached blocking reads.
     drop(reader);
     Ok(())
+}
+
+/// Pins the per-host answers that facade callers branch on, so a change to
+/// either is a visible, reviewed edit rather than a silent behaviour change.
+#[cfg(test)]
+mod host_semantics_tests {
+    const ABSENT_PID: u32 = 0x7fff_fffe;
+
+    #[test]
+    fn priority_on_absent_pid_reports_the_os_error() {
+        assert!(super::apply_process_priority(ABSENT_PID, 0).is_err());
+    }
+
+    #[test]
+    fn interrupt_ignores_creation_flags_and_reports_absent_pid() {
+        // Unix has no CREATE_NEW_PROCESS_GROUP prerequisite: flags never
+        // short-circuit the signal, so the OS answers for a missing pid.
+        let error = super::send_interrupt(ABSENT_PID, None, false).unwrap_err();
+        assert_ne!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(super::send_interrupt(ABSENT_PID, Some(0), true).is_err());
+    }
+
+    #[test]
+    fn open_handles_block_removal_matches_this_host() {
+        assert!(!super::fs_open_handles_block_removal());
+    }
+
+    #[cfg(feature = "ipc")]
+    #[test]
+    fn handoff_transport_is_available() {
+        assert!(super::ipc_handoff_transport_available());
+    }
 }

@@ -42,9 +42,11 @@ SCOPES = [
 log = logging.getLogger(__name__)
 
 
-def init_api_root(api_root: str | None) -> tuple[bool, str]:
+def init_api_root(
+        api_root: str | None, api_is_dev: bool | None = None,
+) -> tuple[bool, str]:
     if api_root:
-        return True, api_root
+        return api_is_dev is None or api_is_dev, api_root
 
     host = os.environ.get('STORAGE_EMULATOR_HOST')
     if host:
@@ -152,11 +154,14 @@ class Storage:
     _api_root_write: str
 
     def __init__(
-            self, *, service_file: str | IO[AnyStr] | None = None,
-            token: Token | None = None, session: Session | None = None,
+            self, *,
+            service_file: str | IO[AnyStr] | None = None,
+            token: Token | None = None,
+            session: Session | None = None,
             api_root: str | None = None,
+            api_is_dev: bool | None = None,
     ) -> None:
-        self._api_is_dev, self._api_root = init_api_root(api_root)
+        self._api_is_dev, self._api_root = init_api_root(api_root, api_is_dev)
         self._api_root_read = f'{self._api_root}/storage/v1/b'
         self._api_root_write = f'{self._api_root}/upload/storage/v1/b'
 
@@ -856,7 +861,7 @@ class Storage:
                     headers.update({'Content-Range': 'bytes */*'})
                     stream.seek(original_position)
 
-                    await sleep(  # type: ignore[func-returns-value]
+                    await sleep(  # type: ignore[func-returns-value,misc]
                         2. ** tries,
                     )
                 else:

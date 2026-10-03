@@ -54,6 +54,7 @@ from omnimarket.inference.provider_quota_observation import (
 )
 from omnimarket.inference.provider_quota_policy import ModelQuotaVerdict
 from omnimarket.inference.provider_response_error import (
+    IN_BODY_ERROR_MESSAGE_PREFIX,
     describe_provider_refusal,
     failure_class_for_status,
     provider_error_from_body,
@@ -83,6 +84,9 @@ from omnimarket.nodes.contract_topics import (
     contract_subscribe_topics,
 )
 from omnimarket.nodes.node_llm_delegation_call_effect.handlers import transport
+from omnimarket.nodes.node_llm_delegation_call_effect.models.model_earlier_model_attempt import (
+    ModelEarlierModelAttempt,
+)
 from omnimarket.nodes.node_llm_delegation_call_effect.models.model_llm_delegation_call_request import (
     ModelLlmDelegationCallRequest,
 )
@@ -342,6 +346,20 @@ def _uuid_or_none(value: str | None) -> UUID | None:
         return None
 
 
+def _is_transient_model_failure(result: ModelLlmDelegationCallResult) -> bool:
+    """Whether the model is throttled (429) or its upstream is down (OMN-19205).
+
+    The 429 class, or the provider-unavailable error an aggregator delivers in
+    a 200 body. Every other failure (a timeout, a refused connection, billing,
+    auth, a missing model) is not a verdict on this model and keeps its path.
+    """
+    if result.failure_class is EnumDelegationFailureClass.RATE_LIMITED:
+        return True
+    return result.failure_class is EnumDelegationFailureClass.MODEL_UNAVAILABLE and (
+        result.error_message or ""
+    ).startswith(IN_BODY_ERROR_MESSAGE_PREFIX)
+
+
 class HandlerLlmDelegationCall:
     """Executes a single LLM API call and returns a typed result with cost telemetry.
 
@@ -521,7 +539,12 @@ class HandlerLlmDelegationCall:
         * the provider answers 404 model-not-found: the model is re-resolved
           ONCE from the same list, excluding the one that failed, and the call
           is re-issued with it. A second 404, or a list naming no other
-          preferred model, is the typed ``PROVIDER_MODEL_NOT_FOUND`` refusal.
+          preferred model, is the typed ``PROVIDER_MODEL_NOT_FOUND`` refusal;
+        * OMN-19205: the chosen model is throttled (429) or its upstream is down
+          (an "Upstream error from ..." inside a 200): the same one-shot
+          re-resolve, excluding the failed model. A free slug's mood is not the
+          customer's route. A second failure is the typed refusal naming both
+          models, and never a third call.
 
         This is not a transport retry and it never changes backend: it is the
         same customer route asking its own provider which model it offers. A
@@ -549,6 +572,10 @@ class HandlerLlmDelegationCall:
                 return retry
             request = retry
             result = self._execute_call_once(request, endpoint_url, event_publisher)
+        elif not result.success and _is_transient_model_failure(result):
+            result, request = self._retry_on_another_model(
+                request, byok, endpoint_url, event_publisher, first=result
+            )
         if (
             result.success
             and request.model_id != configured
@@ -558,6 +585,57 @@ class HandlerLlmDelegationCall:
             # answered, so it is the attribution, not the route's stale value.
             result = result.model_copy(update={"served_model_id": request.model_id})
         return result
+
+    def _retry_on_another_model(
+        self,
+        request: ModelLlmDelegationCallRequest,
+        byok: ModelByokProviderBackend,
+        endpoint_url: str,
+        event_publisher: Any,
+        *,
+        first: ModelLlmDelegationCallResult,
+    ) -> tuple[ModelLlmDelegationCallResult, ModelLlmDelegationCallRequest]:
+        """Re-aim a throttled or unavailable customer call ONCE; return result and request.
+
+        OMN-19205. Same backend, same key, same customer route: only the model
+        changes, chosen from the key's own list excluding the one that failed
+        and every listed model of its preference family.
+        When the list offers nothing else the first result stands as the typed
+        refusal. The retry is not remembered as the key's model, since a
+        throttle is momentary and says nothing about the model's availability
+        to this key.
+        """
+        # The throttle or the overload belongs to the slug's upstream, which its
+        # preference-family siblings share (2026-10-02: both google/gemma-4 free
+        # slugs 429 at once), so the one switch leaves the whole family.
+        retry = self._resolve_byok_model(
+            request,
+            byok,
+            exclude=(request.model_id,),
+            exclude_families_of=(request.model_id,),
+            refused=first,
+            remember=False,
+        )
+        if isinstance(retry, ModelLlmDelegationCallResult):
+            return retry, request
+        earlier = ModelEarlierModelAttempt(
+            model_id=request.model_id,
+            failure_class=first.failure_class or EnumDelegationFailureClass.UNKNOWN,
+            error_message=first.error_message or "",
+            http_status=first.http_status,
+        )
+        second = self._execute_call_once(retry, endpoint_url, event_publisher)
+        update: dict[str, Any] = {
+            "earlier_model_attempts": (*first.earlier_model_attempts, earlier)
+        }
+        if not second.success:
+            update["error_message"] = (
+                f"{second.error_message} | models tried on this key's own list: "
+                f"{earlier.model_id} ({earlier.failure_class.value}), "
+                f"{retry.model_id} "
+                f"({second.failure_class.value if second.failure_class else 'unknown'})"
+            )
+        return second.model_copy(update=update), retry
 
     @staticmethod
     def _customer_byok_row(
@@ -574,7 +652,9 @@ class HandlerLlmDelegationCall:
         byok: ModelByokProviderBackend,
         *,
         exclude: tuple[str, ...],
+        exclude_families_of: tuple[str, ...] = (),
         refused: ModelLlmDelegationCallResult | None = None,
+        remember: bool = True,
     ) -> ModelLlmDelegationCallRequest | ModelLlmDelegationCallResult:
         """Ask the provider which model this key may use; return the re-aimed request.
 
@@ -600,7 +680,9 @@ class HandlerLlmDelegationCall:
                 EnumLocalCredentialRefusalReason.CREDENTIAL_ABSENT,
                 detail_text="",
             )
-        discovery = discover_byok_model_sync(byok, api_key, exclude=exclude)
+        discovery = discover_byok_model_sync(
+            byok, api_key, exclude=exclude, exclude_families_of=exclude_families_of
+        )
         if discovery.model is not None:
             logger.info(
                 "byok model resolved from the provider's list provider=%s plan=%s "
@@ -611,7 +693,7 @@ class HandlerLlmDelegationCall:
                 request.model_id,
                 request.correlation_id,
             )
-            if request.secret_ref is not None:
+            if remember and request.secret_ref is not None:
                 # A local credential remembers it, so the next delegation runs
                 # it without re-learning. A hosted reference has no local row
                 # and updates nothing.
@@ -729,6 +811,7 @@ class HandlerLlmDelegationCall:
                 )
             served_model_id = request.model_id
 
+        secret_source: EnumSecretSource | None = None
         try:
             # OMN-13861: resolve the backend's API key from ``secret_ref`` and merge
             # ``Authorization: Bearer <key>`` into the outbound headers BEFORE the
@@ -764,6 +847,7 @@ class HandlerLlmDelegationCall:
                 EnumDelegationFailureClass.TIMEOUT,
                 "request timed out",
                 quota_observation=observation,
+                secret_source=secret_source,
             )
         except httpx.HTTPStatusError as exc:
             # OMN-18696: classified by the SAME function the 200-body path uses
@@ -862,6 +946,7 @@ class HandlerLlmDelegationCall:
                     request,
                     EnumLocalCredentialRefusalReason.CREDENTIAL_REJECTED,
                     detail_text=detail,
+                    secret_source=secret_source,
                 )
             if failure_class in (
                 EnumDelegationFailureClass.PROVIDER_BILLING,
@@ -886,6 +971,7 @@ class HandlerLlmDelegationCall:
                     if verdict is not None
                     else None,
                     quota_observation=observation,
+                    secret_source=secret_source,
                 )
             return self._failure_result(
                 request,
@@ -894,6 +980,7 @@ class HandlerLlmDelegationCall:
                 http_status=exc.response.status_code,
                 provider_code=verdict.provider_code if verdict is not None else None,
                 quota_observation=observation,
+                secret_source=secret_source,
             )
         except SecretResolutionError as exc:
             # OMN-18696 AC1: the backend DECLARES a credential and nothing
@@ -919,6 +1006,7 @@ class HandlerLlmDelegationCall:
                 EnumDelegationFailureClass.UNKNOWN,
                 str(exc),
                 quota_observation=observation,
+                secret_source=secret_source,
             )
 
         # OMN-18265: a top-level ``error`` object inside a 2xx body is the
@@ -952,6 +1040,7 @@ class HandlerLlmDelegationCall:
                 provider_error.failure_class,
                 provider_error.as_error_message(),
                 quota_observation=observation,
+                secret_source=secret_source,
             )
 
         choices = response_json.get("choices") or []
@@ -960,6 +1049,7 @@ class HandlerLlmDelegationCall:
                 request,
                 EnumDelegationFailureClass.INVALID_JSON,
                 "API returned empty choices array",
+                secret_source=secret_source,
             )
 
         # OMN-18278: read the provider's own stop reason off the SAME choice the
@@ -1211,6 +1301,7 @@ class HandlerLlmDelegationCall:
         reason: EnumLocalCredentialRefusalReason,
         *,
         detail_text: str,
+        secret_source: EnumSecretSource | None = None,
     ) -> ModelLlmDelegationCallResult:
         """Build the typed, non-retryable credential refusal (OMN-18696).
 
@@ -1241,6 +1332,8 @@ class HandlerLlmDelegationCall:
             request_id=request.request_id,
             success=False,
             failure_class=refusal.failure_class,
+            secret_source=secret_source,
+            secret_ref=request.secret_ref if secret_source is not None else None,
             error_message=refusal.message,
             credential_refusal=refusal,
             endpoint_healthy=True,
@@ -1256,11 +1349,14 @@ class HandlerLlmDelegationCall:
         http_status: int | None = None,
         provider_code: str | None = None,
         quota_observation: ModelProviderQuotaObserved | None = None,
+        secret_source: EnumSecretSource | None = None,
     ) -> ModelLlmDelegationCallResult:
         return ModelLlmDelegationCallResult(
             request_id=request.request_id,
             success=False,
             failure_class=failure_class,
+            secret_source=secret_source,
+            secret_ref=request.secret_ref if secret_source is not None else None,
             error_message=error_message,
             endpoint_healthy=endpoint_healthy,
             http_status=http_status,

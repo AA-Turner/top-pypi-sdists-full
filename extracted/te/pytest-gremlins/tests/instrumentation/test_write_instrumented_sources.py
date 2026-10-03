@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from pytest_gremlins.plugin import _write_instrumented_sources
+from pytest_gremlins.plugin import (
+    _write_instrumented_sources,
+)
 
 
 def _parse_final_source(tmp_path: Path, source: str) -> list[ast.stmt]:
@@ -139,3 +141,22 @@ class DescribeWriteInstrumentedSources:
             f'All future imports must precede injection: {labels}'
         )
         assert injection_index < user_code_index, f'Injection must precede user code: {labels}'
+
+
+@pytest.mark.medium
+class DescribeLightweightRunnerDisabled:
+    """The lightweight runner cannot reproduce pytest's environment, so it is not offered (issue #538)."""
+
+    def it_writes_no_lightweight_runner_into_the_instrumented_directory(self, tmp_path: Path) -> None:
+        asts = {str(tmp_path / 'mymod.py'): ast.parse('x = 1')}
+
+        instrumented_dir = _write_instrumented_sources(asts, tmp_path)
+
+        assert not (instrumented_dir / 'gremlin_lightweight_runner.py').exists()
+
+    def it_still_writes_the_bootstrap_the_pytest_path_runs_through(self, tmp_path: Path) -> None:
+        asts = {str(tmp_path / 'mymod.py'): ast.parse('x = 1')}
+
+        instrumented_dir = _write_instrumented_sources(asts, tmp_path)
+
+        assert (instrumented_dir / 'gremlin_bootstrap.py').exists()

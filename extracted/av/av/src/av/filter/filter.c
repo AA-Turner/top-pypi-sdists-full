@@ -1891,8 +1891,6 @@ struct __pyx_obj_2av_6filter_7context_FilterContext {
   struct AVFilterContext *ptr;
   struct __pyx_obj_2av_6filter_5graph_Graph *graph;
   struct __pyx_obj_2av_6filter_6filter_Filter *filter;
-  PyObject *_inputs;
-  PyObject *_outputs;
   int inited;
   unsigned char _kind;
 };
@@ -1947,13 +1945,11 @@ struct __pyx_obj_2av_6filter_4link_FilterContextPad {
  * 
  * cdef class Filter:             # <<<<<<<<<<<<<<
  *     cdef const lib.AVFilter *ptr
- *     cdef tuple _inputs
+ * 
 */
 struct __pyx_obj_2av_6filter_6filter_Filter {
   PyObject_HEAD
   struct AVFilter const *ptr;
-  PyObject *_inputs;
-  PyObject *_outputs;
 };
 
 
@@ -2342,13 +2338,6 @@ static void __Pyx_RaiseErrorWithType(PyObject* exc_type, const char* message, Py
 /* CallNewInitFromVectorcall.proto */
 #if CYTHON_VECTORCALL_TPNEW
 static PyObject *__Pyx_CallNewInitFromVectorcall(PyTypeObject *t, PyObject *const *args, size_t nargsf, PyObject *kwnames);
-#endif
-
-/* CallTypeTraverse.proto */
-#if !CYTHON_USE_TYPE_SPECS
-#define __Pyx_call_type_traverse(o, always_call, visit, arg) 0
-#else
-static int __Pyx_call_type_traverse(PyObject *o, int always_call, visitproc visit, void *arg);
 #endif
 
 /* FunctionExport.proto */
@@ -3345,7 +3334,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_5flags___get__(struct __py
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def inputs(self):
- *         if self._inputs is None:
+ *         return alloc_filter_pads(self, self.ptr.inputs, True)
 */
 
 /* Python wrapper */
@@ -3366,8 +3355,7 @@ static PyObject *__pyx_pw_2av_6filter_6filter_6Filter_6inputs_1__get__(PyObject 
 static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3376,54 +3364,21 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   /* "av/filter/filter.py":42
  *     @property
  *     def inputs(self):
- *         if self._inputs is None:             # <<<<<<<<<<<<<<
- *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)
- *         return self._inputs
-*/
-  __pyx_t_1 = (__pyx_v_self->_inputs == ((PyObject*)Py_None));
-  if (__pyx_t_1) {
-
-
-    /* "av/filter/filter.py":43
- *     def inputs(self):
- *         if self._inputs is None:
- *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)             # <<<<<<<<<<<<<<
- *         return self._inputs
- * 
-*/
-    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->inputs, 1, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_inputs);
-    __Pyx_DECREF(__pyx_v_self->_inputs);
-    __pyx_v_self->_inputs = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "av/filter/filter.py":42
- *     @property
- *     def inputs(self):
- *         if self._inputs is None:             # <<<<<<<<<<<<<<
- *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)
- *         return self._inputs
-*/
-  }
-
-  /* "av/filter/filter.py":44
- *         if self._inputs is None:
- *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)
- *         return self._inputs             # <<<<<<<<<<<<<<
+ *         return alloc_filter_pads(self, self.ptr.inputs, True)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
+  __pyx_t_1 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->inputs, 1, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
     {
       __pyx_temp = __pyx_r;
-      __Pyx_INCREF(__pyx_v_self->_inputs);
-      __pyx_r = __pyx_v_self->_inputs;
+      __pyx_r = __pyx_t_1;
     }
     __Pyx_XDECREF(__pyx_temp);
   }
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
   /* "av/filter/filter.py":40
@@ -3431,12 +3386,12 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def inputs(self):
- *         if self._inputs is None:
+ *         return alloc_filter_pads(self, self.ptr.inputs, True)
 */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_AddTraceback("av.filter.filter.Filter.inputs.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3445,12 +3400,12 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/filter/filter.py":46
- *         return self._inputs
+/* "av/filter/filter.py":44
+ *         return alloc_filter_pads(self, self.ptr.inputs, True)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def outputs(self):
- *         if self._outputs is None:
+ *         return alloc_filter_pads(self, self.ptr.outputs, False)
 */
 
 /* Python wrapper */
@@ -3471,77 +3426,43 @@ static PyObject *__pyx_pw_2av_6filter_6filter_6Filter_7outputs_1__get__(PyObject
 static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.py":48
+  /* "av/filter/filter.py":46
  *     @property
  *     def outputs(self):
- *         if self._outputs is None:             # <<<<<<<<<<<<<<
- *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)
- *         return self._outputs
-*/
-  __pyx_t_1 = (__pyx_v_self->_outputs == ((PyObject*)Py_None));
-  if (__pyx_t_1) {
-
-
-    /* "av/filter/filter.py":49
- *     def outputs(self):
- *         if self._outputs is None:
- *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)             # <<<<<<<<<<<<<<
- *         return self._outputs
- * 
-*/
-    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->outputs, 0, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 49, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GIVEREF(__pyx_t_2);
-    __Pyx_GOTREF(__pyx_v_self->_outputs);
-    __Pyx_DECREF(__pyx_v_self->_outputs);
-    __pyx_v_self->_outputs = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "av/filter/filter.py":48
- *     @property
- *     def outputs(self):
- *         if self._outputs is None:             # <<<<<<<<<<<<<<
- *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)
- *         return self._outputs
-*/
-  }
-
-  /* "av/filter/filter.py":50
- *         if self._outputs is None:
- *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)
- *         return self._outputs             # <<<<<<<<<<<<<<
+ *         return alloc_filter_pads(self, self.ptr.outputs, False)             # <<<<<<<<<<<<<<
  * 
  * 
 */
+  __pyx_t_1 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->outputs, 0, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
     {
       __pyx_temp = __pyx_r;
-      __Pyx_INCREF(__pyx_v_self->_outputs);
-      __pyx_r = __pyx_v_self->_outputs;
+      __pyx_r = __pyx_t_1;
     }
     __Pyx_XDECREF(__pyx_temp);
   }
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/filter.py":46
- *         return self._inputs
+  /* "av/filter/filter.py":44
+ *         return alloc_filter_pads(self, self.ptr.inputs, True)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def outputs(self):
- *         if self._outputs is None:
+ *         return alloc_filter_pads(self, self.ptr.outputs, False)
 */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_AddTraceback("av.filter.filter.Filter.outputs.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3754,7 +3675,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_4__setstate_cython__(CYTHO
   return __pyx_r;
 }
 
-/* "av/filter/filter.py":53
+/* "av/filter/filter.py":49
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3776,19 +3697,19 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_filter_names", 0);
 
-  /* "av/filter/filter.py":55
+  /* "av/filter/filter.py":51
  * @cython.cfunc
  * def get_filter_names() -> set[str]:
  *     names: set[str] = set()             # <<<<<<<<<<<<<<
  *     ptr: cython.pointer[cython.const[lib.AVFilter]]
  *     opaque: cython.p_void = cython.NULL
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_names = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/filter/filter.py":57
+  /* "av/filter/filter.py":53
  *     names: set[str] = set()
  *     ptr: cython.pointer[cython.const[lib.AVFilter]]
  *     opaque: cython.p_void = cython.NULL             # <<<<<<<<<<<<<<
@@ -3797,7 +3718,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
 */
   __pyx_v_opaque = NULL;
 
-  /* "av/filter/filter.py":58
+  /* "av/filter/filter.py":54
  *     ptr: cython.pointer[cython.const[lib.AVFilter]]
  *     opaque: cython.p_void = cython.NULL
  *     while True:             # <<<<<<<<<<<<<<
@@ -3806,7 +3727,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
 */
   while (1) {
 
-    /* "av/filter/filter.py":59
+    /* "av/filter/filter.py":55
  *     opaque: cython.p_void = cython.NULL
  *     while True:
  *         ptr = lib.av_filter_iterate(cython.address(opaque))             # <<<<<<<<<<<<<<
@@ -3815,7 +3736,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
 */
     __pyx_v_ptr = av_filter_iterate((&__pyx_v_opaque));
 
-    /* "av/filter/filter.py":60
+    /* "av/filter/filter.py":56
  *     while True:
  *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
@@ -3827,20 +3748,20 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
     if (__pyx_t_2) {
 
 
-      /* "av/filter/filter.py":61
+      /* "av/filter/filter.py":57
  *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:
  *             names.add(ptr.name)             # <<<<<<<<<<<<<<
  *         else:
  *             break
 */
-      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PySet_Add(((PyObject*)__pyx_v_names), __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 61, __pyx_L1_error)
+      __pyx_t_3 = PySet_Add(((PyObject*)__pyx_v_names), __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 57, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
 
-      /* "av/filter/filter.py":60
+      /* "av/filter/filter.py":56
  *     while True:
  *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
@@ -3850,7 +3771,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
       goto __pyx_L5;
     }
 
-    /* "av/filter/filter.py":63
+    /* "av/filter/filter.py":59
  *             names.add(ptr.name)
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -3864,7 +3785,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
   }
   __pyx_L4_break:;
 
-  /* "av/filter/filter.py":64
+  /* "av/filter/filter.py":60
  *         else:
  *             break
  *     return names             # <<<<<<<<<<<<<<
@@ -3882,7 +3803,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
   }
   goto __pyx_L0;
 
-  /* "av/filter/filter.py":53
+  /* "av/filter/filter.py":49
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3912,9 +3833,6 @@ static PyObject *__pyx_tp_new__initialisation_2av_6filter_6filter_Filter(PyObjec
     PyObject *a, PyObject *k
 #endif
 ) {
-  struct __pyx_obj_2av_6filter_6filter_Filter *p = ((struct __pyx_obj_2av_6filter_6filter_Filter *)o);
-  p->_inputs = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  p->_outputs = ((PyObject*)Py_None); Py_INCREF(Py_None);
   {
     int cinit_result = __pyx_pw_2av_6filter_6filter_6Filter_1__cinit__(o, 
 #if CYTHON_VECTORCALL_TPNEW
@@ -3968,10 +3886,6 @@ static PyObject *__pyx_tp_vectorcall_2av_6filter_6filter_Filter(PyObject *t, PyO
 #endif
 
 static void __pyx_tp_dealloc_2av_6filter_6filter_Filter(PyObject *o) {
-  struct __pyx_obj_2av_6filter_6filter_Filter *p = (struct __pyx_obj_2av_6filter_6filter_Filter *)o;
-  PyObject_GC_UnTrack(o);
-  Py_CLEAR(p->_inputs);
-  Py_CLEAR(p->_outputs);
   PyTypeObject *tp = Py_TYPE(o);
   #if CYTHON_USE_TYPE_SLOTS
   (*tp->tp_free)(o);
@@ -3984,34 +3898,6 @@ static void __pyx_tp_dealloc_2av_6filter_6filter_Filter(PyObject *o) {
   #if CYTHON_USE_TYPE_SPECS
   Py_DECREF(tp);
   #endif
-}
-
-static int __pyx_tp_traverse_2av_6filter_6filter_Filter(PyObject *o, visitproc v, void *a) {
-  int e;
-  struct __pyx_obj_2av_6filter_6filter_Filter *p = (struct __pyx_obj_2av_6filter_6filter_Filter *)o;
-  {
-    e = __Pyx_call_type_traverse(o, 1, v, a);
-    if (e) return e;
-  }
-  if (p->_inputs) {
-    e = (*v)(p->_inputs, a); if (e) return e;
-  }
-  if (p->_outputs) {
-    e = (*v)(p->_outputs, a); if (e) return e;
-  }
-  return 0;
-}
-
-static int __pyx_tp_clear_2av_6filter_6filter_Filter(PyObject *o) {
-  PyObject* tmp;
-  struct __pyx_obj_2av_6filter_6filter_Filter *p = (struct __pyx_obj_2av_6filter_6filter_Filter *)o;
-  tmp = ((PyObject*)p->_inputs);
-  p->_inputs = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  Py_XDECREF(tmp);
-  tmp = ((PyObject*)p->_outputs);
-  p->_outputs = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  Py_XDECREF(tmp);
-  return 0;
 }
 
 static PyObject *__pyx_getprop_2av_6filter_6filter_6Filter_name(PyObject *o, CYTHON_UNUSED void *x) {
@@ -4051,8 +3937,6 @@ static struct PyGetSetDef __pyx_getsets_2av_6filter_6filter_Filter[] = {
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_2av_6filter_6filter_Filter_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_2av_6filter_6filter_Filter},
-  {Py_tp_traverse, (void *)__pyx_tp_traverse_2av_6filter_6filter_Filter},
-  {Py_tp_clear, (void *)__pyx_tp_clear_2av_6filter_6filter_Filter},
   {Py_tp_methods, (void *)__pyx_methods_2av_6filter_6filter_Filter},
   {Py_tp_getset, (void *)__pyx_getsets_2av_6filter_6filter_Filter},
   {Py_tp_new, (void *)__pyx_tp_new_2av_6filter_6filter_Filter},
@@ -4067,7 +3951,7 @@ static PyType_Spec __pyx_type_2av_6filter_6filter_Filter_spec = {
   "av.filter.filter.Filter",
   sizeof(struct __pyx_obj_2av_6filter_6filter_Filter),
   0,
-  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_HAVE_GC,
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG,
   __pyx_type_2av_6filter_6filter_Filter_slots,
 };
 #else
@@ -4092,10 +3976,10 @@ static PyTypeObject __pyx_type_2av_6filter_6filter_Filter = {
   0, /*tp_getattro*/
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
-  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG, /*tp_flags*/
   0, /*tp_doc*/
-  __pyx_tp_traverse_2av_6filter_6filter_Filter, /*tp_traverse*/
-  __pyx_tp_clear_2av_6filter_6filter_Filter, /*tp_clear*/
+  0, /*tp_traverse*/
+  0, /*tp_clear*/
   0, /*tp_richcompare*/
   0, /*tp_weaklistoffset*/
   0, /*tp_iter*/
@@ -4756,14 +4640,14 @@ __Pyx_RefNannySetupContext("PyInit_filter", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/filter/filter.py":67
+  /* "av/filter/filter.py":63
  * 
  * 
  * filters_available = get_filter_names()             # <<<<<<<<<<<<<<
 */
-  __pyx_t_2 = __pyx_f_2av_6filter_6filter_get_filter_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_2av_6filter_6filter_get_filter_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filters_available, __pyx_t_2) < (0)) __PYX_ERR(0, 67, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filters_available, __pyx_t_2) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "av/filter/filter.py":1
@@ -5721,22 +5605,6 @@ static PyObject *__Pyx_CallNewInitFromVectorcall(PyTypeObject *t, PyObject *cons
     Py_XDECREF(args_tuple);
     Py_XDECREF(kwds_dict);
     return result;
-}
-#endif
-
-/* CallTypeTraverse */
-#if !CYTHON_USE_TYPE_SPECS
-#else
-static int __Pyx_call_type_traverse(PyObject *o, int always_call, visitproc visit, void *arg) {
-    if (!always_call) {
-        PyTypeObject *base = __Pyx_PyObject_GetSlot(o, tp_base, PyTypeObject*);
-        unsigned long flags = PyType_GetFlags(base);
-        if (flags & Py_TPFLAGS_HEAPTYPE) {
-            return 0;
-        }
-    }
-    Py_VISIT((PyObject*)Py_TYPE(o));
-    return 0;
 }
 #endif
 

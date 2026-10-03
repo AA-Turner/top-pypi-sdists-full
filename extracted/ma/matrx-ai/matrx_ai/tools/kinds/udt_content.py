@@ -24,6 +24,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "workbook_result",
+    disposition="record",
     label="Workbook Result",
     family="udt_content",
     example={

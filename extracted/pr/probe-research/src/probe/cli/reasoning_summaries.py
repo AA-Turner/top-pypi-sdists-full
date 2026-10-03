@@ -44,9 +44,25 @@ from probe.sdk import homedir
 
 CLAUDE_CODE = "claude_code"
 CODEX = "codex"
-#: The coding agents this covers: the two with a daemon profile.
-SOURCES: tuple[str, ...] = (CLAUDE_CODE, CODEX)
-LABELS: dict[str, str] = {CLAUDE_CODE: "Claude Code", CODEX: "Codex"}
+def _covered():
+    from probe.harness import get_registry
+
+    return tuple(h for h in get_registry().all() if h.reasoning_setting)
+
+
+#: The coding agents this covers: the registry rows with a reasoning setting
+#: (Claude Code's settings.json key, Codex's config.toml key). The readers and
+#: writers below know exactly those two files; `_check` refuses anything else.
+SOURCES: tuple[str, ...] = tuple(h.id for h in _covered())
+LABELS: dict[str, str] = {h.id: h.label for h in _covered()}
+
+
+def _check(source: str) -> str:
+    """A source this module can read and write, or ValueError: never Codex's
+    config.toml on another harness's behalf."""
+    if source not in (CLAUDE_CODE, CODEX) or source not in SOURCES:
+        raise ValueError(f"no reasoning-summaries setting for coding agent {source!r}")
+    return source
 
 CLAUDE_KEY = "showThinkingSummaries"
 CODEX_KEY = "model_reasoning_summary"
@@ -82,6 +98,7 @@ class Unparseable(OSError):
 
 
 def settings_path(source: str) -> Path:
+    _check(source)
     return statusline.settings_path() if source == CLAUDE_CODE else codex_config.config_path()
 
 
@@ -103,6 +120,7 @@ def _read_claude(path: Path) -> tuple[State, object, dict | None]:
 
 
 def _read(source: str, path: Path) -> tuple[State, object]:
+    _check(source)
     if source == CLAUDE_CODE:
         state, value, _parsed = _read_claude(path)
         return state, value
@@ -119,6 +137,7 @@ def _read(source: str, path: Path) -> tuple[State, object]:
 
 def _write(source: str, path: Path, value: object) -> None:
     """Write the RAW value (None removes the key) into `path`."""
+    _check(source)
     if source == CLAUDE_CODE:
         _state, _value, settings = _read_claude(path)
         if settings is None:
@@ -134,14 +153,17 @@ def _write(source: str, path: Path, value: object) -> None:
 
 
 def _on_value(source: str) -> object:
+    _check(source)
     return True if source == CLAUDE_CODE else CODEX_ON
 
 
 def _off_value(source: str) -> object:
+    _check(source)
     return False if source == CLAUDE_CODE else CODEX_OFF
 
 
 def _key(source: str) -> str:
+    _check(source)
     return CLAUDE_KEY if source == CLAUDE_CODE else CODEX_KEY
 
 

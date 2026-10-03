@@ -143,13 +143,10 @@ nav:
           - "Symbols: Bring Your Own Constellation": gallery/symbols.md
           - Composing a Scene: gallery/wfm-composition.md
           - Waveform I/O: gallery/wfm-io.md
-          - Waveform JSON Round-Trip: gallery/wfm-json.md
           - A CCSDS CADU: gallery/ccsds-link.md
           - "A Frame You Built, Generated": gallery/wfmgen-carried-frame.md
           - Name Your Own Code: gallery/coding.md
-          - Waveform Write: gallery/wfm-write.md
           - WCDMA Carriers: gallery/wcdma-carriers.md
-          - "Prepare Once, Sweep Many (Plan)": gallery/plan.md
           - "One Cache Slot for a Whole Background Field": gallery/plan-background.md
           - "A Crowded Band (parallel prepare)": gallery/crowded-band.md
           - AWGN: gallery/awgn.md
@@ -170,7 +167,6 @@ nav:
           - "Lock Detection: Verify Counts": gallery/lockdet.md
           - 2-D Acquisition: gallery/detection2d.md
           - "DSSS Acquisition: Pd/Pfa": gallery/dsss-acq-characterization.md
-          - 5-Burst DSSS Link (wfmgen's 3 Faces): gallery/dsss-burst-pipeline.md
           - Streaming Async Despreader: gallery/async-despread.md
           - Full-Chain Lock-Up: gallery/receiver-lock.md
           - DsssReceiver (Composed Object): gallery/dsss-receiver.md
@@ -296,6 +292,9 @@ nav:
       - Receiver Test Harness: design/rx-test.md
       - A Frame as a Description: design/frame-description.md
       - "A Frame as a Description: the measurement record": design/frame-description-measurements.md
+      - The Payload as a Data Source: design/payload-data-source.md
+      - "The Payload as a Data Source: the measurement record": design/payload-data-source-measurements.md
+      - A Receiver Built from a Frame Description: design/rx-frame-description.md
       - Corr2D Interpolated Inverse: design/corr2d-interpolated-inverse.md
       - Spectral & Measurement API Map: design/spectral-api-map.md
       - wfmgen — the waveform generator: design/wfmgen.md
@@ -308,7 +307,6 @@ nav:
       - Waveforms: guide/wfmgen/waveforms.md
       - Scenes: guide/wfmgen/scenes.md
       - "Fields: Bits as Text": guide/wfmgen/fields.md
-      - Python API: guide/wfmgen/python.md
       - Field Reference: guide/wfmgen/options.md
   - Capture I/O:
       - Capture I/O: guide/wfm-io/index.md
@@ -336,6 +334,7 @@ nav:
           - Docs Conventions: dev/contributing/docs-conventions.md
       - Maintainer internals:
           - Open Issues: dev/issues.md
+          - How We Work: dev/workflow.md
           - Continuous Integration: dev/ci.md
           - Release: dev/release.md
           - Build Internals: dev/build-internals.md

@@ -723,8 +723,8 @@ preloader={
 						'exec':volume_pint
 					},
 	f'{uuid1()}':{
-						'cmds':['cooking units',],
-						'desc':f'review conversions for the kitchen',
+						'cmds':['cooking units','cvt unts','cooking conversion','ck cvt'],
+						'desc':f'review conversions for the kitchen; cooking conversions',
 						'exec':CC_Ui
 					},
 	f'{uuid1()}':{

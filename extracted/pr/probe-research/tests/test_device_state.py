@@ -636,7 +636,7 @@ def _run_wizard(server, monkeypatch, *argv: str):
     from probe.cli import bootstrap
 
     monkeypatch.setattr(caps_mod, "fetch_device_state", _REAL_FETCH)
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     if not argv:
         argv = ("--action", "diagnose", "--yes")
     return CliRunner().invoke(cli_main.app, ["wizard", "--agent", "both", *argv])
@@ -792,7 +792,7 @@ def test_diagnose_asks_again_when_the_held_answer_was_not_one(home, server, monk
     from probe.cli import bootstrap
     from typer.testing import CliRunner
 
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     result = CliRunner().invoke(
         cli_main.app, ["wizard", "--agent", "claude", "--action", "diagnose", "--yes"]
     )
@@ -812,7 +812,7 @@ def test_the_call_goes_to_the_server_collect_reports_on(home, server, monkeypatc
     from probe.cli import bootstrap
     from typer.testing import CliRunner
 
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     result = CliRunner().invoke(
         cli_main.app,
         ["--base-url", "http://127.0.0.1:9", "wizard", "--agent", "claude", "--action", "diagnose", "--yes"],

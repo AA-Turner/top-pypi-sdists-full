@@ -197,12 +197,12 @@ def test_a_refused_key_releases_the_lease_and_waits(tmp_path, monkeypatch, statu
 @pytest.mark.parametrize(
     ("body", "said"),
     [
-        ({"code": "companion_paid_plan_required", "message": "m"}, "daemon recording is on paid plans"),
+        ({"code": "companion_disabled", "message": "m"}, "daemon recording is turned off for this team"),
         ({"error": {"code": "companion_disabled", "message": "m"}}, "daemon recording is turned off for this team"),
     ],
 )
 def test_a_refusal_about_the_team_says_why_instead_of_asking_for_a_new_key(tmp_path, monkeypatch, body, said):
-    """A plan or a switched-off team refuses a new key the same way: the message
+    """A switched-off team refuses a new key the same way: the message
     names the cause and never sends anyone to approve one."""
     from pydantic_ai.exceptions import ModelHTTPError
 

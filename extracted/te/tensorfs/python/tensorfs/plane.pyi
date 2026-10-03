@@ -42,6 +42,8 @@ class HostStats(TypedDict):
     buffered_bytes: int
     inline_bytes: int
     direct_refused: int
+    map_refused: int  # always 0 since 0.3.93
+    disk_read_bytes: int  # read from storage by this process, from /proc/self/io
     fills: int
     fill_bytes: int
     fill_ns: int
@@ -68,6 +70,8 @@ class DeviceStats(TypedDict):
     host_copy_ns: int
     disk_copy_bytes: int
     disk_copy_ns: int
+    mapped_copy_bytes: int  # always 0 since 0.3.93 (0.3.92 copied from page-cache mappings)
+    mapped_copy_ns: int
     misses: int
     evictions: int
     evicted_bytes: int

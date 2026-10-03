@@ -32,7 +32,10 @@ class EntitySource:
         return {}
 
 
-_KINDS = sorted({kind for kind, view in _VIEWS if view == View.CARD})
+# Every kind whose compact card has the lossless RECORD read behind it. A
+# sub-note is the one card-only kind (VIEW_MATRIX): its card IS the whole
+# document, which tests/test_mcp_read_gaps.py pins.
+_KINDS = sorted({kind for kind, view in _VIEWS if view == View.RECORD})
 
 
 @pytest.mark.parametrize("kind", _KINDS)

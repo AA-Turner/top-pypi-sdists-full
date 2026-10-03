@@ -3,12 +3,15 @@ mod utils;
 use async_trait::async_trait;
 use serial_test::serial;
 use statsig_rust::{
-    SpecsSource, Statsig, StatsigErr, StatsigOptions,
+    SpecsSource, Statsig, StatsigErr, StatsigOptions, StatsigUser,
     data_store_interface::{DataStoreResponse, DataStoreTrait, RequestPath},
     output_logger::LogLevel,
 };
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 use tokio::time::{Duration, sleep};
 use utils::{
     mock_log_provider::{MockLogProvider, RecordedLog},
@@ -21,6 +24,8 @@ struct StringOnlyDataStore {
     values: Mutex<HashMap<String, String>>,
     set_calls: Mutex<u32>,
     get_calls: Mutex<u32>,
+    write_once: bool,
+    polling_checks: AtomicUsize,
 }
 
 impl StringOnlyDataStore {
@@ -29,6 +34,8 @@ impl StringOnlyDataStore {
             values: Mutex::new(HashMap::new()),
             set_calls: Mutex::new(0),
             get_calls: Mutex::new(0),
+            write_once: false,
+            polling_checks: AtomicUsize::new(0),
         }
     }
 
@@ -55,6 +62,10 @@ impl StringOnlyDataStore {
 
 #[async_trait]
 impl DataStoreTrait for StringOnlyDataStore {
+    fn write_once(&self) -> bool {
+        self.write_once
+    }
+
     async fn initialize(&self) -> Result<(), StatsigErr> {
         Ok(())
     }
@@ -86,8 +97,97 @@ impl DataStoreTrait for StringOnlyDataStore {
     }
 
     async fn support_polling_updates_for(&self, _path: RequestPath) -> bool {
+        self.polling_checks.fetch_add(1, Ordering::Relaxed);
         false
     }
+}
+
+#[tokio::test]
+#[serial]
+async fn write_once_string_store_can_publish_json_after_unsupported_protobuf() {
+    let mock_scrapi = MockScrapi::new().await;
+    let data_store = Arc::new(StringOnlyDataStore {
+        write_once: true,
+        ..StringOnlyDataStore::new()
+    });
+    mock_scrapi
+        .stub(EndpointStub {
+            response: StubData::Bytes(include_bytes!("data/eval_proj_dcs.pb.br").to_vec()),
+            res_headers: Some(HashMap::from([
+                (
+                    "Content-Type".to_string(),
+                    "application/octet-stream".to_string(),
+                ),
+                ("Content-Encoding".to_string(), "statsig-br".to_string()),
+            ])),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+    let options = StatsigOptions {
+        data_store: Some(data_store.clone()),
+        specs_url: Some(mock_scrapi.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+        specs_sync_interval_ms: Some(1000),
+        fallback_to_statsig_api: Some(false),
+        disable_all_logging: Some(true),
+        disable_country_lookup: Some(true),
+        ..StatsigOptions::new()
+    };
+    let statsig = Statsig::new("secret-sdk-key", Some(Arc::new(options)));
+    assert!(
+        statsig
+            .initialize_with_details()
+            .await
+            .unwrap()
+            .init_success
+    );
+    // Bootstrap checks polling once; the unsupported protobuf write checks again.
+    assert_eventually!(|| data_store.polling_checks.load(Ordering::Relaxed) >= 2);
+    assert_eq!(data_store.set_calls(), 0);
+
+    let mut dcs: serde_json::Value = serde_json::from_str(EVAL_PROJ_JSON).unwrap();
+    let mut published_json = None;
+    for version in [2_000_000_000_000_u64, 2_000_000_000_001] {
+        mock_scrapi.reset_all().await;
+        dcs["time"] = version.into();
+        dcs["checksum"] = format!("full-response-{version}").into();
+        let json = dcs.to_string();
+        mock_scrapi
+            .stub(EndpointStub {
+                response: StubData::String(json.clone()),
+                res_headers: Some(HashMap::from([(
+                    "Content-Type".to_string(),
+                    "application/json".to_string(),
+                )])),
+                ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+            })
+            .await;
+        let user = StatsigUser::with_user_id("a-user");
+        assert_eventually!(|| statsig
+            .get_dynamic_config(&user, "test_experiment_no_targeting")
+            .details
+            .lcut
+            == Some(version));
+        assert_eventually!(|| data_store.set_calls() == 1);
+        assert_eventually!(|| data_store
+            .last_written_key_containing("|plain_text|")
+            .is_some());
+        let key = data_store
+            .last_written_key_containing("|plain_text|")
+            .unwrap();
+        let first_json = published_json.get_or_insert(json);
+        assert_eq!(data_store.value_for_key(&key).as_ref(), Some(&*first_json));
+    }
+
+    // Observe the next poll after the second update has finished processing.
+    assert_eventually!(|| mock_scrapi
+        .get_requests_for_endpoint(Endpoint::DownloadConfigSpecs)
+        .iter()
+        .any(|request| request
+            .url
+            .query_pairs()
+            .any(|(key, value)| key == "sinceTime" && value == "2000000000001")));
+    statsig.shutdown().await.unwrap();
+    assert_eq!(data_store.set_calls(), 1);
 }
 
 #[tokio::test]

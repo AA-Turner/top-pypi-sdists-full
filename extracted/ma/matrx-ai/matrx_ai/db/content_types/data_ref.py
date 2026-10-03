@@ -71,7 +71,7 @@ ALLOWED_TABLES: dict[str, _TableSpec] = {
     ),
     "tasks": _TableSpec(
         label="Task",
-        table_name="workspace.tasks",
+        table_name="projects.tasks",
         model_key="Tasks",
         fields_allowed=[
             "id",
@@ -92,7 +92,7 @@ ALLOWED_TABLES: dict[str, _TableSpec] = {
     # Projects
     "projects": _TableSpec(
         label="Project",
-        table_name="workspace.projects",
+        table_name="projects.projects",
         model_key="Projects",
         fields_allowed=[
             "id",

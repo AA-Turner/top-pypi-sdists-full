@@ -211,19 +211,17 @@ class MatrxFetcher:
         # Process patterns in reverse order to maintain string positions
         result = text
         for pattern in reversed(patterns):
-            try:
-                fetched = cls.fetch(
-                    pattern.table,
-                    pattern.column,
-                    pattern.value,
-                    pattern.fields,
-                )
-                result = result[:pattern.start_pos] + fetched + result[pattern.end_pos:]
-            except Exception as e:
-                error_msg = f"[FETCH_ERROR: {str(e)}]"
-                result = result[:pattern.start_pos] + error_msg + result[pattern.end_pos:]
-        
+            result = result[:pattern.start_pos] + cls.fetch_one(pattern) + result[pattern.end_pos:]
         return result
+
+    @classmethod
+    def fetch_one(cls, pattern: Any) -> str:
+        """The text one pattern is replaced with — its fetched content, or the
+        ``[FETCH_ERROR: …]`` marker the model then reads in its place."""
+        try:
+            return cls.fetch(pattern.table, pattern.column, pattern.value, pattern.fields)
+        except Exception as e:
+            return f"[FETCH_ERROR: {str(e)}]"
 
 if __name__ == "__main__":
     from matrx_utils import clear_terminal, vcprint

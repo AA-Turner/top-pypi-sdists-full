@@ -14,6 +14,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from matrx_utils import vcprint
+from matrx_utils.text_case import humanize_identifier
 from pydantic import BaseModel, Field, PrivateAttr, field_validator
 from pydantic_core import to_jsonable_python
 
@@ -30,6 +31,24 @@ TOOL_OUTPUT_GATE_DOCS = "packages/matrx-ai/matrx_ai/tools/TOOL_OUTPUT_VALIDATION
 
 def to_json_safe(value: Any) -> Any:
     return to_jsonable_python(value, serialize_unknown=True, fallback=str)
+
+
+def tool_output_text(output: Any) -> tuple[str, str]:
+    """THE one serialization of a tool's output as text: ``(text, "text" | "json")``.
+
+    The model receives exactly this text for a successful non-media result
+    (``ToolResult.to_tool_result_content``) and ``chat.tool_call.output`` stores
+    exactly this text (``ToolExecutionLogger._serialize_output``), so a turn
+    rebuilt from the row replays the bytes the model read live. A string is
+    itself; anything else — a dict, a list, a pydantic kind model, a dataclass —
+    is JSON (``to_json_safe``, UTF-8 kept). Never ``str()``: on 2026-10-02 37
+    tools whose output was a pydantic model (``context`` among them) were stored
+    as a Python repr (``kind_='context_tool_result' key=…``) and every later turn
+    replayed that repr to the model instead of the JSON it had read.
+    """
+    if isinstance(output, str):
+        return output, "text"
+    return json.dumps(to_json_safe(output), ensure_ascii=False), "json"
 
 
 class ToolOutputContractError(ValueError):
@@ -79,6 +98,45 @@ _GOOGLE_MISSING_ITEMS_WARNED: set[str] = set()
 #: optional and the model fills them with placeholders. Our tools rely on
 #: omitted arguments meaning "use the default / the knob".
 OPENAI_FUNCTION_STRICT = False
+
+#: Row key naming a lean dispatcher's ARGS ENVELOPE (2026-10-02). A tool whose
+#: per-action contract is too large to send on every run (``records``: ~7,700
+#: Anthropic tokens per run) advertises only ``action`` plus one object — the
+#: envelope — and serves each action's arguments on demand. The full ``$variants``
+#: contract stays in the row for the drift gate and the executor, which unwraps
+#: the envelope before validating. Anthropic's own tool guidance is the reference:
+#: short definitions, details loaded when needed.
+ARGS_ENVELOPE_KEY = "$envelope"
+
+
+def _with_action_descriptions(
+    chosen: dict[str, Any], root_spec: Any, by_action: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """Give a flattened field the description EVERY action needs, not the first action's.
+
+    Flattening ``$variants`` used to merge root + first variant, so the first action's wording
+    for a shared field (``file_id`` = "the Google Sheet's id") was all the model ever read —
+    every other action's meaning was silently dropped (google_workspace, cms_page, 2026-10-02).
+    Rule: one distinct variant text (or none) → root text if present, else that text; several
+    distinct texts → root text only when it is deliberately written union text (equals none of
+    them), otherwise each text prefixed by the actions it serves.
+    """
+    texts: dict[str, list[str]] = {}
+    for action, spec in by_action.items():
+        text = spec.get("description")
+        if isinstance(text, str) and text.strip():
+            texts.setdefault(text.strip(), []).append(action)
+    root_text = root_spec.get("description") if isinstance(root_spec, dict) else None
+    root_text = root_text.strip() if isinstance(root_text, str) and root_text.strip() else None
+    if len(texts) <= 1:
+        merged = root_text or next(iter(texts), None)
+    elif root_text and root_text not in texts:
+        merged = root_text
+    else:
+        merged = " ".join(f"{', '.join(actions)}: {text}" for text, actions in texts.items())
+    if merged is None or chosen.get("description") == merged:
+        return chosen
+    return {**chosen, "description": merged}
 
 
 def _choice_text(values: list[Any]) -> str:
@@ -991,11 +1049,7 @@ class ToolResult(BaseModel):
                 elif _is_media_ref_list_output(content):
                     content = _build_media_ref_list_blocks(content)
                 elif not isinstance(content, str):
-                    content = (
-                        json.dumps(to_json_safe(content), ensure_ascii=False)
-                        if content is not None
-                        else ""
-                    )
+                    content = tool_output_text(content)[0] if content is not None else ""
         else:
             # Failure: lead with the error message, but ALSO include any
             # structured output the tool returned. Some tools (shell_execute,
@@ -1006,11 +1060,7 @@ class ToolResult(BaseModel):
             # the agent reason about what actually happened.
             error_text = self.error.to_agent_message() if self.error else "Unknown error"
             if self.output not in (None, "", {}, []):
-                output_text = self.output
-                if isinstance(output_text, dict | list):
-                    output_text = json.dumps(to_json_safe(output_text), ensure_ascii=False)
-                elif not isinstance(output_text, str):
-                    output_text = str(output_text)
+                output_text = tool_output_text(self.output)[0]
                 content = f"{error_text}\n\n--- output ---\n{output_text}"
             else:
                 content = error_text
@@ -1546,9 +1596,36 @@ class ToolDefinition(BaseModel):
                 return key
         return None
 
-    def _provider_parameters(self, *, union_keys: set[str] | None = None) -> dict[str, Any]:
+    @property
+    def args_envelope(self) -> str | None:
+        """The key a lean dispatcher row carries each action's arguments in, or ``None``.
+
+        A row declares ``"$envelope": "args"`` (and a root ``args`` object) when its
+        per-action contract is too big to send on every run: the provider is shown only
+        the root map (``action`` + ``args``), the executor unwraps ``args`` back into
+        the flat call before validating it against the full ``$variants`` contract, and
+        the tool serves each action's arguments on demand. See
+        :data:`ARGS_ENVELOPE_KEY` and ``_dispatch_util.unwrap_args_envelope``.
+        """
+        key = self.parameters.get(ARGS_ENVELOPE_KEY)
+        if not isinstance(key, str) or not isinstance(self.parameters.get(key), dict):
+            return None
+        if not isinstance(self.parameters.get("$variants"), dict):
+            return None
+        return key
+
+    def _provider_parameters(
+        self, *, union_keys: set[str] | None = None, contract: bool = False
+    ) -> dict[str, Any]:
         """The flattened per-action contract. ``union_keys`` (when given)
-        collects the fields whose allowed values differ across actions."""
+        collects the fields whose allowed values differ across actions.
+
+        A row with an args envelope advertises its ROOT map as written (the
+        discriminator and the envelope object) to providers; ``contract=True``
+        asks for the flattened per-action contract regardless — what the
+        executor validates the unwrapped call against."""
+        if not contract and self.args_envelope is not None:
+            return self.parameters
         variants = self.parameters.get("$variants")
         if not isinstance(variants, dict) or not variants:
             return self.parameters
@@ -1645,6 +1722,15 @@ class ToolDefinition(BaseModel):
                     if isinstance(root_spec, dict)
                     else first_variant_spec
                 )
+            chosen = _with_action_descriptions(
+                chosen,
+                root_spec,
+                {
+                    action: variant[key]
+                    for action, variant in zip(variants, variant_maps, strict=True)
+                    if key in variant and isinstance(variant[key], dict)
+                },
+            )
             before = chosen
             chosen = _union_action_choices(
                 key,
@@ -1703,11 +1789,16 @@ class ToolDefinition(BaseModel):
         guide = "Actions:\n" + "\n".join(lines)
         return {**spec, "description": f"{base.rstrip()}\n{guide}" if base.strip() else guide}
 
-    def _build_json_schema(self, *, strip_openai_unsupported: bool = False) -> dict[str, Any]:
+    def _build_json_schema(
+        self, *, strip_openai_unsupported: bool = False, contract: bool = False
+    ) -> dict[str, Any]:
+        """The provider ``input_schema``. ``contract=True`` builds the full flattened
+        per-action contract instead of an envelope row's lean advertised root — the
+        shape a call has after the executor unwraps its envelope."""
         properties: dict[str, Any] = {}
         required: list[str] = []
 
-        for key, param in self._provider_parameters().items():
+        for key, param in self._provider_parameters(contract=contract).items():
             if key.startswith("$"):
                 # `$`-prefixed keys (e.g. `$variants`) are internal contract
                 # metadata, NOT tool parameters. They must never reach a provider's
@@ -1818,7 +1909,10 @@ class ToolDefinition(BaseModel):
             contract_definition,
         )
 
-        input_schema = self._build_json_schema()
+        # The CONTRACT shape, not the advertised one: an envelope row's calls are
+        # unwrapped before anything checks them, so the flat per-action contract is
+        # what a recorded call is measured against.
+        input_schema = self._build_json_schema(contract=True)
         if self.tool_id:
             source_name = f"{self.name}:{self.tool_id}"
         else:
@@ -1990,7 +2084,7 @@ class ToolDefinition(BaseModel):
             if self.display_name:
                 # An opaque as-called name (``custom_tool_N``) must never reach a person.
                 return f"Asking {self.display_name}"
-            return f"Executing {' '.join(self.name.split('_')).title()}"
+            return f"Executing {humanize_identifier(self.name)}"
         from matrx_ai.config.template_substitution import substitute_authored
 
         template = self.on_call_message_template

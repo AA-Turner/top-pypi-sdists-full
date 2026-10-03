@@ -385,7 +385,7 @@ async def datasource_truncate(ctx, datasource_name, yes, cascade):
 
 @datasource.command(name="delete")
 @click.argument("datasource_name")
-@click.option("--sql-condition", default=None, help="SQL WHERE condition to remove rows", hidden=True, required=True)
+@click.option("--sql-condition", help="SQL WHERE condition to remove rows", hidden=True, required=True)
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.option(
     "--wait/--no-wait",

@@ -7,12 +7,34 @@ on:
   # get the same CI as one targeting main — an unfiltered pull_request event
   # runs on every PR, while the push trigger above keeps post-merge runs
   # scoped to the long-lived branches (no double-run for feature pushes).
+  # Every PR runs the FULL matrix: it is the run that gates the merge. There
+  # is no merge queue (retired 2026-10-01), so nothing runs after a PR's own
+  # checks and before it lands; docs/dev/ci.md has why.
   pull_request:
+  # NIGHTLY, the one full run main still gets. protect-main requires a PR to
+  # be up to date, so every tree on main was tested green as a PR, and its
+  # push run skips the matrix (ci-tree-tested, below). What that cannot see
+  # is the ENVIRONMENT moving under an unchanged tree: hosted runner images,
+  # unpinned tools (#1751). This run never takes a skip (`changes` answers
+  # src=true for any event but pull_request and push), so drift goes red
+  # here, on main, instead of on whichever PR meets it first. 03:43 UTC:
+  # off the hour, and clear of ci-image.yml's Monday 04:23.
+  schedule:
+    - cron: '43 3 * * *'
+  # By hand: a full run (`changes` skips nothing for it), and the way back in
+  # when a push run fails at startup and cannot be re-run
+  # (workflow-dispatch-check, just-makeit#1801).
+  workflow_dispatch:
 
 # A force-push to a PR (routine while a stacked branch rebases) supersedes
-# the in-flight run — cancel it. Pushes to main/develop never cancel.
+# the in-flight run — cancel it. Pushes to main/develop never cancel: a PR
+# push lands in the PR's own `refs/pull/N/merge` group and cannot reach them.
+#
+# The event is in the group so the nightly and a push to main never share
+# one: in a group, a newer pending run cancels an older pending run, so a
+# shared group would let either one silently replace the other.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -61,34 +83,73 @@ jobs:
       # changelog -- all inert to the C/Python matrix (CI_INERT_RE), none of
       # them inert to the site. Fail-safe: anything unclassifiable is true.
       docs: ${{ steps.classify.outputs.docs }}
+      # Something other than the docs changed (`make ci-docs`, CI_DOCS_RE).
+      # The jobs docs cannot break are gated on it, and `CI passed` lets
+      # them skip only on an explicit code=false (its CODE_ONLY list). False
+      # for a docs-only diff, a bump, and a push whose tree its PR tested.
+      code: ${{ steps.classify.outputs.code }}
+      # The Python matrix: every supported version, or the primary alone
+      # when code=false -- docs can break the full suite (live-tree gate
+      # tests, doc fences), but not on one interpreter more than another.
+      pythons: ${{ steps.classify.outputs.pythons }}
+      # The `python` job's PRIMARY leg, by role rather than by number: the one
+      # interpreter that runs the steps worth running once. It is the floor
+      # (scripts/python_versions.py --primary states the rule). A step runs
+      # on it with `== primary`, or on every other leg with `!= primary`;
+      # check_ci_aggregator.py refuses any other leg selector, a version
+      # literal above all, and holds docs/dev/ci.md's table of them to it.
+      primary: ${{ steps.classify.outputs.primary }}
     steps:
     - uses: actions/checkout@v7
       with:
         fetch-depth: 2
     - id: classify
+      env:
+        # ci-tree-tested asks the API which PR this push merged.
+        GH_TOKEN: ${{ github.token }}
       run: |
+        # Fail-safe: everything runs unless a classifier proves otherwise.
+        # Each one is called with GITHUB_OUTPUT blanked and its answer
+        # captured, so every output is written exactly once, at the end.
+        src=true docs=true code=true base=
         case "${{ github.event_name }}" in
           # A PR is checked out as its merge commit: HEAD^ is the base tip.
           pull_request) base=HEAD^ ;;
           # A push: the pushed range. If `before` cannot be fetched (a new
-          # branch is all zeros), ci-changes cannot prove a bump -> src=true.
+          # branch is all zeros), the classifiers cannot prove anything.
           push) base="${{ github.event.before }}"
-                git fetch -q --depth=1 origin "$base" 2>/dev/null || true ;;
-          *) { echo "src=true"; echo "docs=true"; } >> "$GITHUB_OUTPUT"
-             exit 0 ;;
+                git fetch -q --depth=1 origin "$base" 2>/dev/null || true
+                # The tree this push landed already passed as a PR that
+                # contained `before` (protect-main requires it to be up to
+                # date): nothing here is untested, so the matrix skips, as
+                # for a bump, and so does the site the PR already built.
+                t=$(GITHUB_OUTPUT= make -s ci-tree-tested BEFORE="$base")
+                if [ "$t" = tested=true ]; then
+                  src=false docs=false code=false base=
+                fi ;;
+          # schedule (the nightly) and anything else: a full run.
         esac
-        make -s ci-changes BASE="$base"
-        if files=$(git diff --name-only "$base" HEAD 2>/dev/null) \
-           && [ -n "$files" ]; then
-          # A here-string, not `printf | grep -q`: under pipefail an early
-          # `grep -q` match SIGPIPEs the printf and would read as NO match.
-          if grep -Eq \
-              '^(docs/|benchmarks/published/|mkdocs[^/]*\.yml$|CHANGELOG\.md$|changelog\.d/)' \
-              <<< "$files"
-          then echo "docs=true"; else echo "docs=false"; fi
+        if [ -n "$base" ]; then
+          c=$(GITHUB_OUTPUT= make -s ci-changes BASE="$base")
+          src=${c#src=}
+          d=$(GITHUB_OUTPUT= make -s ci-docs BASE="$base")
+          docs=$(sed -n 's/^docs=//p' <<< "$d")
+          code=$(sed -n 's/^code=//p' <<< "$d")
+          # A bump alone has no code to test either.
+          if [ "$src" = false ]; then code=false; fi
+        fi
+        # The Python matrix is read from pyproject.toml's classifiers, never
+        # written here.
+        primary=$(python3 scripts/python_versions.py --primary)
+        if [ "$code" = true ]; then
+          pythons=$(python3 scripts/python_versions.py --matrix)
         else
-          echo "docs=true"
-        fi >> "$GITHUB_OUTPUT"
+          pythons="[\"$primary\"]"
+        fi
+        { echo "src=$src"; echo "docs=$docs"; echo "code=$code"
+          echo "pythons=$pythons"; echo "primary=$primary"
+        } >> "$GITHUB_OUTPUT"
+        echo "src=$src docs=$docs code=$code pythons=$pythons"
 
   pin:
     name: Resolve the pinned CI image
@@ -113,8 +174,8 @@ jobs:
         echo "24.04 $CI_IMAGE_2404" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-test-linux:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: Build on ${{ matrix.os }}
     runs-on: ubuntu-latest
@@ -223,9 +284,16 @@ jobs:
       # name, and only the consumer's link notices. Absolute since #1565.
       run: make symbol-prefix-check
 
+    - name: Verify the shared libraries export exactly the public API
+      # libdoppler.so exported every external symbol -- vendored cJSON and
+      # PFFFT included -- until its export list was written from the
+      # headers (#1164). Both directions: nothing leaks, nothing is missing.
+      run: make export-check
+
     - name: Verify a consumer's own cJSON / nats.c links beside doppler
-      # doppler embeds both; their symbols are respelled dp__v_* so a
-      # program bringing its own copy neither collides nor hijacks (#1565).
+      # doppler embeds both; the archives respell them dp__v_* and the
+      # shared libraries do not export them, so a program bringing its own
+      # copy neither collides nor hijacks, static or shared (#1565, #1164).
       run: make vendored-collision-check
 
     - name: Smoke-test the three consumer faces (cc / CMake / pkg-config)
@@ -262,8 +330,9 @@ jobs:
   # on it unseen (#1561). Same pinned image as the x86 legs: the digest is a
   # multi-platform index, so the arm runner pulls its arm64 variant.
   build-and-test-linux-arm64:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: Build on ubuntu-24.04-arm
     runs-on: ubuntu-24.04-arm
@@ -309,8 +378,9 @@ jobs:
   # tested under it -- the prerequisite for a Windows wheel.
   build-and-test-windows:
     needs: changes
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: Build on windows-latest (clang-cl)
     runs-on: windows-latest
     timeout-minutes: 45
@@ -389,7 +459,8 @@ jobs:
   # rebuild, and serialising it would roughly double that job's wall time.
   wheel-smoke-windows:
     needs: changes
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: Wheel smoke (win_amd64, cp312)
     runs-on: windows-latest
     timeout-minutes: 45
@@ -423,8 +494,9 @@ jobs:
   # it auto-detects apt vs brew, so this stays exactly as it was.
   build-and-test-macos:
     needs: changes
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: Build on macos-latest
     runs-on: macos-latest
     timeout-minutes: 45
@@ -512,7 +584,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # No provisioning step: the toolchain is the image. See
-    # deploy/docker/Dockerfile.ci and .github/ci-images.env.
+    # docker/ci.Dockerfile (canonical's, vendored), docker/ci-extra.sh and
+    # .github/ci-images.env.
     container:
       image: ${{ needs.pin.outputs.image_2404 }}
       credentials:
@@ -521,7 +594,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        # Every supported version: the list is declared once, in `changes`
+        # (its `pythons` output), read from pyproject.toml's classifiers.
+        python-version: ${{ fromJSON(needs.changes.outputs.pythons) }}
 
     steps:
     - uses: actions/checkout@v7
@@ -588,25 +663,29 @@ jobs:
       # as a group -- a broken page usually breaks more than one fence class,
       # and `make test-snippets` reports all three instead of stopping at the
       # first, which is a whole CI round trip per class.
-      if: matrix.python-version == '3.12'
+      #
+      # The primary leg (doppler#1714: a version literal here once matched no
+      # leg a pull_request ran, so a broken fence reached main).
+      if: matrix.python-version == needs.changes.outputs.primary
       run: make test-snippets
 
     - name: Test
       # The fence gates are version-independent and have their own step above
-      # (3.12 only); `make test-python` excludes those markers by definition, so
-      # local and CI select exactly the same tests.
+      # (the primary leg only); `make test-python` excludes those markers by
+      # definition, so local and CI select exactly the same tests.
       #
-      # No PYTEST_ARGS here: this is every version except the one that keeps a
+      # No PYTEST_ARGS here: this is every leg except the one that keeps a
       # report, and coverage that is computed and discarded is just a slower
-      # test run. The Python line coverage is uploaded from 3.12 (below), and
-      # the number the patch gate actually reads comes from the `coverage` job,
-      # which measures C ∪ Python ∪ Rust against one instrumented build.
-      if: matrix.python-version != '3.12'
+      # test run. The Python line coverage is uploaded from the primary leg
+      # (below), and the number the patch gate actually reads comes from the
+      # `coverage` job, which measures C ∪ Python ∪ Rust against one
+      # instrumented build.
+      if: matrix.python-version != needs.changes.outputs.primary
       run: make test-python
 
     - name: Test with coverage
-      # 3.12 only -- the version whose coverage.xml is uploaded.
-      if: matrix.python-version == '3.12'
+      # The primary leg: the coverage.xml it writes is uploaded below.
+      if: matrix.python-version == needs.changes.outputs.primary
       run: |
         make test-python PYTEST_ARGS="--cov \
           --cov-report=term-missing \
@@ -651,14 +730,15 @@ jobs:
       #
       # Verified against the toolchain that broke it -- gcc 13.3 / glibc 2.39
       # in a container, against this box's 15.2 / 2.43 -- where all eleven now
-      # pass. Version-independent, so once, like the fence gates; 23 s for all
-      # eleven.
-      if: matrix.python-version == '3.12'
+      # pass. Version-independent, so once, like the fence gates.
+      #
+      if: matrix.python-version == needs.changes.outputs.primary
       run: make validate-check
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v7
-      if: matrix.python-version == '3.12'
+      # The primary leg, with the step that wrote the file.
+      if: matrix.python-version == needs.changes.outputs.primary
       with:
         name: coverage-report
         path: coverage.xml
@@ -669,8 +749,9 @@ jobs:
   # ------------------------------------------------------------------
   glibc-228:
     needs: changes
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: glibc 2.28 (Debian 10)
     # No `container:` any more, and no provisioning inline. The Debian 10
     # environment this job needs is deploy/docker/Dockerfile.glibc228, and
@@ -693,8 +774,8 @@ jobs:
   # Doxygen C API docs — zero warnings required
   # ------------------------------------------------------------------
   doxygen:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: Doxygen
     runs-on: ubuntu-latest
@@ -751,8 +832,9 @@ jobs:
   # the pinned image, and nowhere else. Locally `make test-sweep` reports.
   # ------------------------------------------------------------------
   sweep-validators:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: sweep validators
     runs-on: ubuntu-latest
@@ -835,8 +917,9 @@ jobs:
   # ------------------------------------------------------------------
   docker:
     needs: changes
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: Docker
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -857,8 +940,9 @@ jobs:
   # ------------------------------------------------------------------
   linux-packages:
     needs: changes
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     name: Linux packages (.deb + .rpm)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -945,41 +1029,6 @@ jobs:
         CHANGELOG_BASE: ${{ github.event.pull_request.base.sha || 'origin/main' }}
       run: make lint
 
-  # The pending-repin gate. `ci-image-check` (in `pre-commit`'s `make lint`)
-  # is a no-network check of OUR inputs; it cannot see that the nightly
-  # rebuild produced a different PACKAGE SET under an unchanged Dockerfile.
-  # That is the drift ci-image.yml exists to find, and it had no gate at all:
-  # the nightly's only way to report it was a PR the org forbids Actions from
-  # opening, so the workflow force-pushed `ci/repin-image`, died on
-  # `gh pr create`, and was red on every `main` run for three releases while
-  # gating nothing (doppler#1212).
-  #
-  # Its own job, not a step on `pre-commit`, for the reason `ci-image-check`
-  # is not in it either: this one needs the network, and folding a fetch into
-  # the lint job would make `make lint` mean something different here than on
-  # a dev box.
-  #
-  # `fetch-depth: 0` is NOT needed -- the script fetches the one branch it
-  # reads at depth 1 -- but `persist-credentials` must stay on so that fetch
-  # authenticates on a private fork.
-  ci-image-repin:
-    name: CI image repin pending
-    runs-on: ubuntu-latest
-    # 25, not the 10 this job's actual work justifies (a checkout, a depth-1
-    # fetch of one branch, and a shell comparison -- seconds). `make
-    # deps-budget-check` requires EVERY `timeout-minutes` in the tree to
-    # exceed the provisioning budget (DEPS_DEADLINE x DEPS_TRIES + backoff =
-    # 1290s), because a ceiling under it would kill a retry mid-download. 25
-    # is the tightest value that clears it, and is a backstop against a hung
-    # fetch rather than an estimate.
-    timeout-minutes: 25
-
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Check for an unmerged CI-image repin
-      run: make ci-image-repin-check
-
   manifest-drift:
     name: jm manifest drift gate
     runs-on: ubuntu-latest
@@ -1043,8 +1092,9 @@ jobs:
   # job's result is a failure if any leg fails. No ruleset names these legs.
   # ------------------------------------------------------------------
   sanitizers:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: ${{ matrix.san.label }}
     runs-on: ubuntu-latest
@@ -1108,8 +1158,9 @@ jobs:
   # .py/.rs diffs carry no C coverage data and aren't counted.
   # ------------------------------------------------------------------
   coverage:
-    # A version bump alone skips this (ci-changes, standard.mk); see `changes`.
-    if: needs.changes.outputs.src == 'true'
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    # Docs cannot break this: skipped when code=false; see `changes`.
+    if: needs.changes.outputs.code == 'true'
     needs: [pin, changes]
     name: coverage (C + Python + Rust)
     runs-on: ubuntu-latest
@@ -1168,9 +1219,12 @@ jobs:
       # diff-cover fails the job (→ blocks ci-passed) when a PR's added/changed
       # C lines aren't covered by the merged report. Pure .py/.rs diffs carry no
       # C coverage data and aren't counted. Pushes to main diff empty → pass.
+      # A PR's base is the main it was merged onto for this run.
+      env:
+        COV_BASE: ${{ github.event.pull_request.base.sha || 'origin/main' }}
       run: |
         git fetch --no-tags origin main
-        make coverage-gate COV_BASE=origin/main
+        make coverage-gate COV_BASE="$COV_BASE"
 
     - name: Coverage summary
       if: always()
@@ -1214,7 +1268,6 @@ jobs:
       - linux-packages
       - pre-commit
       - manifest-drift
-      - ci-image-repin
       - coverage
       - sanitizers
     runs-on: ubuntu-latest
@@ -1223,16 +1276,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # scripts/ci_passed.py: every job must SUCCEED, except that a job in
-      # SKIPPABLE may be skipped when `changes` classified the diff as a
-      # version bump alone. SKIPPABLE is exactly the jobs gated on
-      # `changes` -- scripts/check_ci_aggregator.py holds the two equal.
+      # SKIPPABLE may be skipped when `changes` said src=false (a bump, or a
+      # push whose tree its PR tested), and a job in CODE_ONLY when it said
+      # code=false (that, or a docs-only diff). scripts/check_ci_aggregator.py
+      # holds SKIPPABLE to the jobs gated on `src` and CODE_ONLY to the jobs
+      # gated on `code`.
       - name: Require all jobs to have succeeded
         env:
           NEEDS: ${{ toJSON(needs) }}
-          SKIPPABLE: >-
-            build-and-test-linux build-and-test-linux-arm64 build-and-test-windows
-            wheel-smoke-windows
-            build-and-test-macos
-            python glibc-228 doxygen sweep-validators docs docker sanitizers
-            coverage linux-packages
+          SKIPPABLE: python docs
+          CODE_ONLY: >-
+            build-and-test-linux build-and-test-linux-arm64
+            build-and-test-windows wheel-smoke-windows build-and-test-macos
+            glibc-228 doxygen sweep-validators docker linux-packages
+            sanitizers coverage
         run: python3 scripts/ci_passed.py

@@ -1,82 +1,61 @@
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
+import base64
+import io
+import pickle
 import time
-from collections.abc import Iterator, Mapping
-from contextvars import copy_context
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
+from collections.abc import Callable, Iterator, Mapping
+from dataclasses import dataclass
+from typing import Any, Generic, TypeVar, cast
+from uuid import UUID
 
-import shared.tasks
+import cloudpickle
 from pydantic import JsonValue
-from shared.function_payloads import FunctionResultPayload
-from shared.http.errors import HttpApiError, HttpResponseDecodeError
-from shared.tasks import TaskStatus, is_terminal_task_status
-from shared.transport_retry import (
-    TRANSIENT_TRANSPORT_ERRORS,
-    TransientRetry,
-    call_with_transient_retry,
-    is_transient_transport_error,
-)
 
-from lazycloud.control import ControlClientConfigMixin, workspace_path
-from lazycloud.function_results import (
-    FunctionResultDecodeError,
-    decode_function_result,
+from lazycloud._shared.task_context import current_task_id
+from lazycloud.aio import to_thread
+from lazycloud.clients.api import ApiClient, ApiError, is_transient
+from lazycloud.contracts.api import (
+    ContainerLogEntry,
+    Encoding,
+    LogEntry,
+    Payload,
+    TaskInput,
+    TaskPendingProgress,
+    TaskStatus,
 )
-from lazycloud.json_contracts import parse_json_value, validate_json_object
-from lazycloud.progress import PendingProgressReporter, TaskPendingProgress
+from lazycloud.contracts.api import Task as TaskView
+from lazycloud.control import api_client, require_workspace, resolve_control_client_config
+from lazycloud.exceptions import RemoteTaskError, TaskCancelledError, TaskNotFoundError
+from lazycloud.progress import PendingProgressReporter, progress_observed
 from lazycloud.terminal import Terminal
 
-if TYPE_CHECKING:
-    from shared.http.observability import LogQueryRequest, LogQueryResponse, LogRecord
-    from shared.http.tasks import (
-        TaskDetailResponse,
-        TaskPageResponse,
-        TaskResponse,
-        TaskStopResponse,
-        TaskSummaryResponse,
-    )
-    from shared.http_transport import HttpChannel
-
-    from lazycloud.clients.observability.control import ObservabilityClient
-
-
 R = TypeVar("R")
+T = TypeVar("T")
 
-
-class TaskControlClient(Protocol):
-    def list_tasks(
-        self,
-        *,
-        stub_ids: tuple[str, ...] = (),
-        status: TaskStatus | None = None,
-        deployment_id: str | None = None,
-        app_id: str | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> TaskPageResponse: ...
-
-    def task(self, task_id: str) -> TaskDetailResponse: ...
-
-    def stop_tasks(self, task_ids: tuple[str, ...]) -> TaskStopResponse: ...
-
-
-class TaskOperationError(RuntimeError):
-    def __init__(self, message: str, *, status: TaskStatus | None = None) -> None:
-        self.status = status
-        super().__init__(message)
+# The API holds a status read for at most this long.
+WAIT_SECONDS = 30
+# Calls one input may depend on; the API rejects more.
+MAX_DEPENDENCIES = 100
+# How often a wait reads a queued task while a progress callback listens.
+PENDING_POLL_SECONDS = 1
+# How long transient failures may continue, counted from the first one,
+# before a wait gives up. A task keeps running when the client gives up, so a
+# server restart or network blip must not end a caller's wait.
+_TRANSIENT_BUDGET_SECONDS = 600.0
+TERMINAL_STATUSES = frozenset({TaskStatus.succeeded, TaskStatus.failed, TaskStatus.cancelled})
 
 
 @dataclass(frozen=True, slots=True)
 class TaskResult(Generic[R]):
-    task: shared.tasks.Task
+    """A task's state with its value; the value is None until it succeeds."""
+
+    task: TaskView
     value: R
 
     @property
     def id(self) -> str:
-        return self.task.id
+        return str(self.task.id)
 
     @property
     def status(self) -> TaskStatus:
@@ -84,22 +63,26 @@ class TaskResult(Generic[R]):
 
     @property
     def ok(self) -> bool:
-        return self.task.status is TaskStatus.Complete and (self.task.exit_code in {None, 0})
+        return self.task.status is TaskStatus.succeeded
 
     @property
     def error(self) -> str:
-        return self.task.error or ""
+        failure = self.task.failure
+        if failure is None:
+            return ""
+        return f"{failure.type}: {failure.message}" if failure.type else failure.message
 
     @property
     def exit_code(self) -> int | None:
-        return self.task.exit_code
+        """Always None: tasks fail with a typed failure rather than an exit code."""
+        return None
 
 
 @dataclass(frozen=True, slots=True)
 class TaskLifecycleEvent:
     event: str
     data: dict[str, JsonValue]
-    task: TaskResponse | None = None
+    task: TaskView | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,235 +98,205 @@ class TaskSubscription:
         return self.events[-1] if self.events else None
 
 
-class TaskHandleClient(Protocol):
-    def get(self, task_id: str) -> TaskDetailResponse: ...
-
-    def get_result_task(self, task_id: str) -> shared.tasks.Task: ...
-
-    def logs(
-        self,
-        task_id: str,
-        *,
-        workspace: str | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> list[LogRecord]: ...
-
-    def subscribe(self, task_id: str) -> TaskSubscription: ...
-
-    def cancel(self, task_id: str) -> TaskStopResponse: ...
-
-
 @dataclass(slots=True)
 class Task:
+    """A submitted task, addressed by id within its workspace."""
+
     task_id: str
-    client: TaskHandleClient
+    workspace: str
+    client: ApiClient
 
     @classmethod
     def from_id(cls, task_id: str, *, workspace: str | None = None) -> Task:
         """Reconnect to a task using the active profile and selected workspace."""
-        return cls(task_id=task_id, client=TaskClient(workspace=workspace))
+        config = resolve_control_client_config(workspace=workspace)
+        return cls(task_id=task_id, workspace=require_workspace(config), client=api_client(config))
 
-    def get(self) -> shared.tasks.Task:
-        return self.client.get_result_task(self.task_id)
+    @property
+    def _id(self) -> UUID:
+        try:
+            return UUID(self.task_id)
+        except ValueError:
+            raise TaskNotFoundError(self.task_id) from None
 
-    def view(self) -> TaskDetailResponse:
-        return self.client.get(self.task_id)
+    def get(self) -> TaskView:
+        """The task's current state."""
+        return self._read(lambda: self.client.get_task(self.workspace, self._id))
+
+    def view(self) -> TaskView:
+        return self.get()
 
     @property
     def pending_progress(self) -> TaskPendingProgress | None:
-        return self.view().pending_progress
+        """Why a queued task has not started; None once it runs."""
+        return self.view().pending
 
     def result(
-        self,
-        *,
-        wait: bool = False,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> TaskResult[JsonValue | FunctionResultPayload]:
+        self, *, wait: bool = False, timeout_seconds: float | None = None
+    ) -> TaskResult[Payload | None]:
+        """The task with its stored result payload, waiting for it to finish when `wait`."""
         if wait:
-            return self.wait(
-                timeout_seconds=timeout_seconds,
-                poll_interval_seconds=poll_interval_seconds,
-            )
-        task = self.get()
-        return TaskResult(task, task.function_result or task.result)
+            return self.wait(timeout_seconds=timeout_seconds)
+        return self._with_result(self.get())
 
-    def wait(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> TaskResult[JsonValue | FunctionResultPayload]:
-        deadline = None if timeout_seconds is None else time.monotonic() + timeout_seconds
-        retry = TransientRetry(deadline=deadline)
-        pending_reporter = PendingProgressReporter(terminal=Terminal(default_enabled=False))
-        while True:
-            try:
-                view = self.view()
-                task = shared.tasks.Task.model_validate(view, from_attributes=True)
-            except TRANSIENT_TRANSPORT_ERRORS as exc:
-                if not is_transient_transport_error(exc):
-                    raise
-                try:
-                    retry.backoff(exc)
-                except TRANSIENT_TRANSPORT_ERRORS:
-                    if _task_wait_deadline_exceeded(deadline):
-                        msg = (
-                            f"task {self.task_id} did not complete within {timeout_seconds} seconds"
-                        )
-                    else:
-                        msg = f"task {self.task_id} status could not be read: {exc}"
-                    raise TaskOperationError(msg) from exc
-                continue
+    def wait(self, *, timeout_seconds: float | None = None) -> TaskResult[Payload | None]:
+        """Hold until the task finishes and return it with its result payload.
 
-            retry.reset()
-            pending_reporter.update(self.task_id, view.pending_progress)
-            if is_terminal_task_status(task.status):
-                return TaskResult(task, task.function_result or task.result)
-            if deadline is not None and time.monotonic() >= deadline:
-                msg = f"task {self.task_id} did not complete within {timeout_seconds} seconds"
-                raise TaskOperationError(msg)
-            time.sleep(poll_interval_seconds)
+        Raises TimeoutError when `timeout_seconds` passes first; the task keeps
+        running.
+        """
+        return self._with_result(self.wait_view(timeout_seconds=timeout_seconds))
 
     async def async_wait(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> TaskResult[JsonValue | FunctionResultPayload]:
-        return await asyncio.to_thread(
-            self.wait,
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        )
+        self, *, timeout_seconds: float | None = None
+    ) -> TaskResult[Payload | None]:
+        return await to_thread(self.wait, timeout_seconds=timeout_seconds)
 
-    def logs(self, *, limit: int = 100, cursor: str | None = None) -> list[LogRecord]:
-        return self.client.logs(self.task_id, limit=limit, cursor=cursor)
+    def wait_view(self, *, timeout_seconds: float | None = None) -> TaskView:
+        deadline = None if timeout_seconds is None else time.monotonic() + timeout_seconds
+        reporter = PendingProgressReporter(terminal=Terminal(default_enabled=False))
+        view: TaskView | None = None
+        while True:
+            hold = WAIT_SECONDS
+            if progress_observed() and (view is None or view.status is TaskStatus.queued):
+                hold = PENDING_POLL_SECONDS
+            if deadline is not None:
+                hold = min(hold, max(int(deadline - time.monotonic()), 0))
+            view = self._read(
+                lambda hold=hold: self.client.get_task(self.workspace, self._id, wait_seconds=hold)
+            )
+            reporter.update(self.task_id, view.pending)
+            if view.status in TERMINAL_STATUSES:
+                return view
+            if deadline is not None and time.monotonic() >= deadline:
+                msg = f"task {self.task_id} did not finish within {timeout_seconds} seconds"
+                raise TimeoutError(msg)
 
-    def output(self, *, limit: int = 100, cursor: str | None = None) -> str:
-        return "\n".join(entry.message for entry in self.logs(limit=limit, cursor=cursor))
+    def outcome(self, view: TaskView) -> Any:
+        """The decoded value of a finished task, or its failure raised locally."""
+        if view.status is TaskStatus.succeeded:
+            return decode_payload(
+                self._read(lambda: self.client.get_task_result(self.workspace, self._id))
+            )
+        if view.status is TaskStatus.cancelled:
+            raise TaskCancelledError(self.task_id)
+        if view.status is TaskStatus.failed:
+            raise_task_failure(view)
+        msg = f"task {self.task_id} has not finished: {view.status.value}"
+        raise RuntimeError(msg)
+
+    def logs(self, *, limit: int = 100, cursor: str | int | None = None) -> list[LogEntry]:
+        """Stored log entries: the last `limit`, or the first `limit` after `cursor`.
+
+        An entry's `id` is the cursor for the entries that follow it.
+        """
+        if cursor is None:
+            stream = self.client.stream_task_logs(self.workspace, self._id, tail=limit)
+        else:
+            stream = self.client.stream_task_logs(self.workspace, self._id, after=int(cursor))
+        entries: list[LogEntry] = []
+        for entry in stream:
+            entries.append(entry)
+            if len(entries) >= limit:
+                break
+        return entries
+
+    def output(self, *, limit: int = 100, cursor: str | int | None = None) -> str:
+        return "\n".join(entry.data for entry in self.logs(limit=limit, cursor=cursor))
 
     def subscribe(self) -> TaskSubscription:
-        return self.client.subscribe(self.task_id)
+        """The task's lifecycle so far: one `status` event with its current state."""
+        view = self.get()
+        event = TaskLifecycleEvent(
+            event="status", data=cast(dict[str, JsonValue], view.model_dump(mode="json")), task=view
+        )
+        return TaskSubscription(task_id=self.task_id, events=(event,))
 
-    def cancel(self) -> TaskStopResponse:
-        return self.client.cancel(self.task_id)
+    def cancel(self) -> TaskView:
+        return self._read(lambda: self.client.cancel_task(self.workspace, self._id))
 
+    def follow_logs(self, emit: Callable[[LogEntry], None]) -> None:
+        """Deliver log entries until the task finishes, resuming after dropped streams."""
+        for entry in follow_log_stream(
+            lambda after: self.client.stream_task_logs(
+                self.workspace, self._id, after=after, follow=True
+            )
+        ):
+            emit(entry)
 
-class FunctionCallClient(Protocol):
-    def handle(self, task_id: str) -> Task: ...
+    def _with_result(self, view: TaskView) -> TaskResult[Payload | None]:
+        if view.status is not TaskStatus.succeeded:
+            return TaskResult(view, None)
+        payload = self._read(lambda: self.client.get_task_result(self.workspace, self._id))
+        return TaskResult(view, payload)
 
-    def rerun(self, task_id: str) -> Task: ...
-
-
-class FunctionCallHandle(Protocol):
-    def get(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> object: ...
+    def _read(self, call: Callable[[], T]) -> T:
+        return retry_transient(call, not_found=lambda: TaskNotFoundError(self.task_id))
 
 
 @dataclass(slots=True)
 class FunctionCall(Generic[R]):
-    task_id: str
-    client: FunctionCallClient
-    result_payload: FunctionResultPayload | None = None
-    complete: bool = False
-    exit_code: int = 0
-    error: str = ""
-    workspace_id: str = ""
-    status: TaskStatus | None = None
-    __orig_class__: object = field(init=False, repr=False, compare=False)
+    """A spawned function task whose value can be collected later.
+
+    Passed as an argument of another remote call, it arrives there as its
+    value: the platform starts the dependent task after this one succeeds.
+    """
+
+    task: Task
 
     @property
-    def task(self) -> Task:
-        return self.client.handle(self.task_id)
+    def task_id(self) -> str:
+        return self.task.task_id
 
     def result(
-        self,
-        *,
-        wait: bool = False,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
+        self, *, wait: bool = False, timeout_seconds: float | None = None
     ) -> TaskResult[R | None]:
-        result = self.task.result(
-            wait=wait,
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        )
+        """The task with its decoded value, which is None unless it succeeded."""
+        result = self.task.result(wait=wait, timeout_seconds=timeout_seconds)
         if not result.ok or result.value is None:
             return TaskResult(result.task, None)
-        try:
-            decoded = decode_function_result(result.value)
-        except FunctionResultDecodeError as exc:
-            raise TaskOperationError(f"function task {self.task_id}: {exc}") from exc
-        return TaskResult(result.task, decoded)
+        return TaskResult(result.task, cast(R, decode_payload(result.value)))
 
-    def get(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> R:
-        if self.complete:
-            if self.exit_code != 0:
-                raise TaskOperationError(
-                    self.error or f"function task {self.task_id} failed", status=self.status
-                )
-            try:
-                return cast(R, decode_function_result(self.result_payload))
-            except FunctionResultDecodeError as exc:
-                raise TaskOperationError(f"function task {self.task_id}: {exc}") from exc
-        result = self.result(
-            wait=True,
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        )
-        if not result.ok:
-            msg = result.error or f"function task {self.task_id} failed"
-            raise TaskOperationError(msg, status=result.status)
-        return cast(R, result.value)
+    def get(self, *, timeout_seconds: float | None = None) -> R:
+        """The call's value; a failure raises the remote exception."""
+        view = self.task.wait_view(timeout_seconds=timeout_seconds)
+        return cast(R, self.task.outcome(view))
 
-    def logs(self, *, limit: int = 100, cursor: str | None = None) -> list[LogRecord]:
+    def logs(self, *, limit: int = 100, cursor: str | int | None = None) -> list[LogEntry]:
         return self.task.logs(limit=limit, cursor=cursor)
 
-    def output(self, *, limit: int = 100, cursor: str | None = None) -> str:
+    def output(self, *, limit: int = 100, cursor: str | int | None = None) -> str:
         return self.task.output(limit=limit, cursor=cursor)
 
     def subscribe(self) -> TaskSubscription:
         return self.task.subscribe()
 
-    def cancel(self) -> TaskStopResponse:
+    def cancel(self) -> TaskView:
         return self.task.cancel()
 
     def rerun(self) -> FunctionCall[R]:
-        task = self.client.rerun(self.task_id)
-        return FunctionCall(
-            task_id=task.task_id,
-            client=self.client,
-            workspace_id=self.workspace_id,
-        )
+        """Submit this call's input again, to the release it ran on."""
+        task = self.task
+        view = task._read(lambda: task.client.rerun_task(task.workspace, task._id))
+        return FunctionCall(Task(str(view.id), task.workspace, task.client))
+
+    def __reduce__(self) -> tuple[object, ...]:
+        # Remote calls pickle a FunctionCall by reference; any other pickle
+        # would carry the API client and its token.
+        msg = "a FunctionCall can be passed only as an argument of a remote call"
+        raise TypeError(msg)
 
     @classmethod
     def gather(
         cls,
-        *calls: FunctionCallHandle,
+        *calls: FunctionCall[Any],
         timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
         return_exceptions: bool = False,
     ) -> list[Any]:
         results: list[Any] = []
         for call in calls:
             try:
-                results.append(
-                    call.get(
-                        timeout_seconds=timeout_seconds,
-                        poll_interval_seconds=poll_interval_seconds,
-                    )
-                )
+                results.append(call.get(timeout_seconds=timeout_seconds))
             except Exception as exc:
                 if not return_exceptions:
                     raise
@@ -351,274 +304,151 @@ class FunctionCall(Generic[R]):
         return results
 
 
-@dataclass(frozen=True, slots=True)
-class TaskBatch:
-    handles: tuple[Task, ...]
+def task_input(
+    args: tuple[Any, ...] | list[Any], kwargs: Mapping[str, Any], *, workspace: str
+) -> TaskInput:
+    """Cloudpickled arguments, with each FunctionCall written as a reference to its task.
 
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "handles", tuple(self.handles))
+    The runner resolves `("function_call", task_id)` to the call's value, and
+    `depends_on` tells the platform to start the task after those succeed.
+    """
+    depends_on: dict[str, UUID] = {}
 
-    def __iter__(self) -> Iterator[Task]:
-        return iter(self.handles)
+    def persistent_id(value: object) -> tuple[str, str] | None:
+        if not isinstance(value, FunctionCall):
+            return None
+        if value.task.workspace != workspace:
+            msg = (
+                f"task {value.task_id} belongs to workspace {value.task.workspace}, not {workspace}"
+            )
+            raise ValueError(msg)
+        depends_on.setdefault(value.task_id, UUID(value.task_id))
+        return ("function_call", value.task_id)
 
-    def __len__(self) -> int:
-        return len(self.handles)
+    stream = io.BytesIO()
+    pickler = cloudpickle.CloudPickler(stream)
+    pickler.persistent_id = persistent_id  # type: ignore[method-assign]
+    pickle.Pickler.dump(pickler, {"args": list(args), "kwargs": dict(kwargs)})
+    if len(depends_on) > MAX_DEPENDENCIES:
+        raise ValueError(f"a call can depend on at most {MAX_DEPENDENCIES} other calls")
+    payload: dict[str, Any] = {
+        "encoding": Encoding.cloudpickle,
+        "data": base64.b64encode(stream.getvalue()),
+    }
+    if depends_on:
+        payload["depends_on"] = list(depends_on.values())
+    return TaskInput.model_validate(payload)
 
-    def wait(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> list[TaskResult[JsonValue | FunctionResultPayload]]:
-        results: list[TaskResult[JsonValue | FunctionResultPayload] | None] = [None] * len(
-            self.handles
-        )
-        for index, result in self._as_completed_indexed(
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        ):
-            results[index] = result
-        return [result for result in results if result is not None]
 
-    def as_completed(
-        self,
-        *,
-        timeout_seconds: float | None = None,
-        poll_interval_seconds: float = 1.0,
-    ) -> Iterator[TaskResult[JsonValue | FunctionResultPayload]]:
-        for _, result in self._as_completed_indexed(
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        ):
-            yield result
+def parent_task_id() -> UUID | None:
+    """The task this code runs in, which becomes the parent of the calls it makes."""
+    try:
+        return UUID(current_task_id())
+    except ValueError:
+        return None
 
-    def _as_completed_indexed(
-        self,
-        *,
-        timeout_seconds: float | None,
-        poll_interval_seconds: float,
-    ) -> Iterator[tuple[int, TaskResult[JsonValue | FunctionResultPayload]]]:
-        if not self.handles:
+
+EntryT = TypeVar("EntryT", LogEntry, ContainerLogEntry)
+
+
+def follow_log_stream(
+    open_stream: Callable[[int], Iterator[EntryT]],
+) -> Iterator[EntryT]:
+    """Yield a followed log stream, reopening after the last entry when it drops.
+
+    `open_stream` receives the id of the last delivered entry, 0 at first.
+    Non-transient failures, and transient ones past the retry budget, raise.
+    """
+    cursor = 0
+    failures = 0
+    failing_since = 0.0
+    while True:
+        try:
+            for entry in open_stream(cursor):
+                cursor = entry.id
+                failures = 0
+                yield entry
             return
-        deadline = _batch_deadline(timeout_seconds)
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(self.handles))
-        try:
-            futures = {
-                executor.submit(
-                    copy_context().run,
-                    handle.wait,
-                    timeout_seconds=_batch_remaining_seconds(deadline, timeout_seconds),
-                    poll_interval_seconds=poll_interval_seconds,
-                ): index
-                for index, handle in enumerate(self.handles)
-            }
-            for future in concurrent.futures.as_completed(futures, timeout=timeout_seconds):
-                yield futures[future], future.result()
-        except concurrent.futures.TimeoutError as exc:
-            raise _batch_timeout_error(timeout_seconds) from exc
-        finally:
-            executor.shutdown(wait=False, cancel_futures=True)
-
-
-@dataclass(slots=True)
-class TaskClient(ControlClientConfigMixin):
-    client: TaskControlClient | None = None
-    observability_client: ObservabilityClient | None = None
-    workspace: str | None = None
-    endpoint: str | None = None
-    token: str | None = None
-    timeout_seconds: float = 10.0
-
-    @property
-    def control_client(self) -> TaskControlClient:
-        from lazycloud.control_clients import resource_control_client
-
-        if self.client is None:
-            self.client = resource_control_client(self._config())
-        return self.client
-
-    @property
-    def observability(self) -> ObservabilityClient:
-        from lazycloud.control_clients import observability_control_client
-
-        if self.observability_client is None:
-            self.observability_client = observability_control_client(self._config())
-        return self.observability_client
-
-    def list(
-        self,
-        *,
-        status: TaskStatus | None = None,
-        stub_ids: tuple[str, ...] = (),
-        deployment_id: str | None = None,
-        app_id: str | None = None,
-        limit: int = 100,
-    ) -> list[TaskSummaryResponse]:
-        response = self.control_client.list_tasks(
-            stub_ids=stub_ids,
-            status=status,
-            deployment_id=deployment_id,
-            app_id=app_id,
-            limit=limit,
-        )
-        return response.data
-
-    def get(self, task_id: str) -> TaskDetailResponse:
-        try:
-            return self.control_client.task(task_id)
-        except HttpApiError as exc:
-            if exc.status_code != 404:
+        except Exception as exc:
+            failures += 1
+            if failures == 1:
+                failing_since = time.monotonic()
+            if not is_transient(exc) or retry_budget_spent(failing_since):
                 raise
-            raise TaskOperationError(f"task not found: {task_id}") from exc
+            retry_backoff(failures)
 
-    def logs(
-        self,
-        task_id: str,
-        *,
-        workspace: str | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> list[LogRecord]:
-        from shared.http.observability import LogQueryRequest
 
-        response = self.log_query(
-            LogQueryRequest(
-                workspace_id=workspace or self._config().workspace,
-                task_id=task_id,
-                limit=limit,
-                cursor=cursor,
-            )
+def retry_transient(call: Callable[[], T], *, not_found: Callable[[], Exception]) -> T:
+    """Run `call`, retrying transient failures within the budget; a 404 raises `not_found()`."""
+    failures = 0
+    failing_since = 0.0
+    while True:
+        try:
+            return call()
+        except Exception as exc:
+            if isinstance(exc, ApiError) and exc.status_code == 404:
+                raise not_found() from exc
+            failures += 1
+            if failures == 1:
+                failing_since = time.monotonic()
+            if not is_transient(exc) or retry_budget_spent(failing_since):
+                raise
+        retry_backoff(failures)
+
+
+def decode_payload(payload: Payload) -> Any:
+    if payload.encoding is Encoding.json:
+        return payload.value
+    if payload.data is None:
+        raise ValueError("cloudpickle payload has no data")
+    return pickle.loads(payload.data)
+
+
+def raise_task_failure(view: TaskView) -> None:
+    failure = view.failure
+    task_id = str(view.id)
+    if failure is None:
+        raise RemoteTaskError(
+            task_id, kind="system", type=None, message="no failure recorded", traceback=None
         )
-        return list(response.data)
-
-    def log_query(self, request: LogQueryRequest) -> LogQueryResponse:
-        return self.observability.logs(request)
-
-    def cancel(self, task_id: str) -> TaskStopResponse:
-        return self.control_client.stop_tasks((task_id,))
-
-    def handle(self, task_id: str) -> Task:
-        return Task(task_id=task_id, client=self)
-
-    def task(self, task_id: str) -> Task:
-        return self.handle(task_id)
-
-    def get_result_task(self, task_id: str) -> shared.tasks.Task:
+    remote = RemoteTaskError(
+        task_id,
+        kind=failure.kind.value,
+        type=failure.type,
+        message=failure.message,
+        traceback=failure.traceback,
+    )
+    if failure.exception:
         try:
-            response = self.detail(task_id)
-            return shared.tasks.Task.model_validate(response, from_attributes=True)
-        except (TaskOperationError, ValueError) as exc:
-            raise TaskOperationError(f"failed to load task result for {task_id}") from exc
-
-    def detail(self, task_id: str) -> TaskDetailResponse:
-        return self.control_client.task(task_id)
-
-    def result(
-        self, task_id: str, *, wait: bool = False
-    ) -> TaskResult[JsonValue | FunctionResultPayload]:
-        return self.handle(task_id).result(wait=wait)
-
-    def output(self, task_id: str, *, limit: int = 100, cursor: str | None = None) -> str:
-        return self.handle(task_id).output(limit=limit, cursor=cursor)
-
-    def subscribe(self, task_id: str) -> TaskSubscription:
-        raw = call_with_transient_retry(
-            lambda: self._http_channel().get(
-                workspace_path(f"/api/v1/tasks/{task_id}/subscribe", self._config().workspace)
-            )
-        )
-        return TaskSubscription(task_id=task_id, events=tuple(_parse_task_events(raw)))
-
-    def rerun(self, task_id: str) -> Task:
-        from shared.http.tasks import TaskResponse
-
-        raw = self._http_channel().post(
-            workspace_path(f"/api/v1/tasks/{task_id}/rerun", self._config().workspace)
-        )
-        try:
-            rerun_task = TaskResponse.model_validate(raw)
-        except ValueError as exc:
-            raise TaskOperationError(f"failed to rerun task {task_id}") from exc
-        return self.handle(rerun_task.id)
-
-    def _http_channel(self) -> HttpChannel:
-        from lazycloud.control_clients import control_http_channel
-
-        return control_http_channel(self._config())
+            restored = pickle.loads(failure.exception)
+        except Exception:
+            restored = None
+        if isinstance(restored, BaseException):
+            raise restored from remote
+    raise remote
 
 
-def _task_wait_deadline_exceeded(deadline: float | None) -> bool:
-    return deadline is not None and time.monotonic() >= deadline
+def retry_budget_spent(failing_since: float) -> bool:
+    return time.monotonic() - failing_since >= _TRANSIENT_BUDGET_SECONDS
 
 
-def _batch_deadline(timeout_seconds: float | None) -> float | None:
-    if timeout_seconds is None:
-        return None
-    return time.monotonic() + timeout_seconds
-
-
-def _batch_remaining_seconds(
-    deadline: float | None,
-    timeout_seconds: float | None,
-) -> float | None:
-    if deadline is None:
-        return None
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise _batch_timeout_error(timeout_seconds)
-    return remaining
-
-
-def _batch_timeout_error(timeout_seconds: float | None) -> TaskOperationError:
-    return TaskOperationError(f"task batch did not complete within {timeout_seconds} seconds")
-
-
-def _parse_task_events(raw: object) -> list[TaskLifecycleEvent]:
-    if not isinstance(raw, str):
-        try:
-            return [_task_event_from_data("message", validate_json_object(raw))]
-        except ValueError as exc:
-            raise HttpResponseDecodeError("task subscription returned an invalid response") from exc
-    events: list[TaskLifecycleEvent] = []
-    for block in raw.replace("\r\n", "\n").split("\n\n"):
-        event = "message"
-        data_lines: list[str] = []
-        for line in block.splitlines():
-            if line.startswith("event:"):
-                event = line.removeprefix("event:").strip() or event
-            elif line.startswith("data:"):
-                data_lines.append(line.removeprefix("data:").strip())
-        if not data_lines:
-            continue
-        try:
-            data = parse_json_value("\n".join(data_lines))
-        except ValueError:
-            data = {"message": "\n".join(data_lines)}
-        if isinstance(data, dict):
-            events.append(_task_event_from_data(event, data))
-    return events
-
-
-def _task_event_from_data(event: str, data: Mapping[str, JsonValue]) -> TaskLifecycleEvent:
-    from shared.http.tasks import TaskResponse
-
-    task = None
-    if event == "status":
-        try:
-            task = TaskResponse.model_validate(data)
-        except ValueError as exc:
-            raise HttpResponseDecodeError("task subscription returned an invalid task") from exc
-    return TaskLifecycleEvent(event=event, data=dict(data), task=task)
+def retry_backoff(failures: int) -> None:
+    time.sleep(min(0.5 * 2 ** (failures - 1), 8.0))
 
 
 __all__ = [
+    "TERMINAL_STATUSES",
     "FunctionCall",
     "Task",
-    "TaskBatch",
-    "TaskClient",
-    "TaskControlClient",
     "TaskLifecycleEvent",
-    "TaskOperationError",
     "TaskResult",
     "TaskSubscription",
+    "decode_payload",
+    "follow_log_stream",
+    "parent_task_id",
+    "raise_task_failure",
+    "retry_backoff",
+    "retry_budget_spent",
+    "retry_transient",
+    "task_input",
 ]

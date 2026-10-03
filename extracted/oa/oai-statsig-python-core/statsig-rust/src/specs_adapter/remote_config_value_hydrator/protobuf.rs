@@ -12,10 +12,10 @@ use tokio::time::timeout;
 #[cfg(test)]
 use std::io::Write;
 
-use crate::StatsigErr;
 use crate::networking::ResponseData;
 use crate::specs_response::proto_stream_reader::ProtoStreamReader;
 use crate::specs_response::statsig_config_specs::{self as pb, return_value};
+use crate::{DynamicReturnable, StatsigErr};
 
 use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
 use super::metadata::{
@@ -43,6 +43,61 @@ impl ProtobufResponseMode {
 
 type RemoteValueDownload<'a> = BoxFuture<'a, Result<(String, Arc<Vec<u8>>), StatsigErr>>;
 
+/// A parsed value whose original remote body has already passed verification.
+/// Keep the metadata private so callers cannot create a trusted entry from an
+/// arbitrary parsed value or from a reserialized datastore sidecar.
+#[derive(Debug)]
+pub(crate) struct VerifiedRemoteValue {
+    metadata: RemoteConfigValueMetadata,
+    pub(crate) value: DynamicReturnable,
+}
+
+impl VerifiedRemoteValue {
+    /// Identify the actual immutable value previously verified for this full
+    /// metadata tuple without serializing it or trusting a value hash alone.
+    pub(crate) fn matches_value(
+        &self,
+        metadata: &pb::RemoteConfigValueMetadata,
+        value: &DynamicReturnable,
+    ) -> bool {
+        use crate::evaluation::dynamic_returnable::DynamicReturnableValue;
+
+        let Ok(metadata) = metadata_from_proto(metadata) else {
+            return false;
+        };
+        if self.metadata != metadata {
+            return false;
+        }
+
+        match (&self.value.value, &value.value) {
+            (DynamicReturnableValue::Null, DynamicReturnableValue::Null) => true,
+            (DynamicReturnableValue::Bool(left), DynamicReturnableValue::Bool(right)) => {
+                left == right
+            }
+            (
+                DynamicReturnableValue::JsonPointer(left),
+                DynamicReturnableValue::JsonPointer(right),
+            ) => Arc::ptr_eq(left, right),
+            (
+                DynamicReturnableValue::JsonStatic(left),
+                DynamicReturnableValue::JsonStatic(right),
+            ) => std::ptr::eq(*left, *right),
+            (
+                DynamicReturnableValue::JsonArchived(left),
+                DynamicReturnableValue::JsonArchived(right),
+            ) => std::ptr::eq(*left, *right),
+            _ => false,
+        }
+    }
+}
+
+pub(crate) type VerifiedRemoteValues = HashMap<String, Arc<VerifiedRemoteValue>>;
+pub(crate) struct VerifiedSpecValues {
+    pub(crate) default_value: Option<DynamicReturnable>,
+    pub(crate) rule_values: Vec<Option<DynamicReturnable>>,
+    pub(crate) provenance: VerifiedRemoteValues,
+}
+
 /// Tracks one protobuf store update while the parser pauses only at dynamic
 /// config envelopes that actually reference remote values. Keeping the budget
 /// here preserves the per-response concurrency window even though downloads
@@ -57,6 +112,10 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // same-response SHA deduplication without retaining worker-private blobs
     // for the lifetime of the adapter.
     hydrated_values: HashMap<String, Arc<Vec<u8>>>,
+    // Previous snapshots share parsed values; their original bodies are not
+    // retained. Registration validates each incoming reference before reuse.
+    previous_values: VerifiedRemoteValues,
+    resolved_values: VerifiedRemoteValues,
     // Keep the download fanout warm while the parser continues reading entity
     // envelopes. Unlike a batch-wide await, a completed request immediately
     // opens a slot for the next discovered SHA.
@@ -136,6 +195,8 @@ pub(super) fn begin_session<'a>(
         result: HydrationResult::new(hydrator),
         references: HashMap::new(),
         hydrated_values: HashMap::new(),
+        previous_values: HashMap::new(),
+        resolved_values: HashMap::new(),
         in_flight_downloads: FuturesUnordered::new(),
         in_flight_sha256: HashSet::new(),
         response_budget: None,
@@ -407,20 +468,43 @@ impl ProtobufHydrationSession<'_> {
     /// Register one decoded dynamic config without awaiting network I/O. The
     /// parser can register a bounded run of envelopes first, so the session's
     /// download fanout spans configs instead of restarting for every envelope.
-    pub(crate) fn register_spec_references(&mut self, spec: &pb::Spec) -> Result<(), StatsigErr> {
+    /// Return whether every remote value is already verified for this spec.
+    pub(crate) fn register_spec_references(&mut self, spec: &pb::Spec) -> Result<bool, StatsigErr> {
         self.saw_remote_metadata = true;
         self.mark_remote_metadata();
 
         let mut references = HashMap::<String, RemoteValueReference>::new();
         collect_protobuf_spec_references(&mut references, spec, self.source_url)?;
-        for (sha256, reference) in references {
-            insert_reference(&mut self.references, sha256, reference)?;
+        for (sha256, reference) in &references {
+            insert_reference(&mut self.references, sha256.clone(), reference.clone())?;
         }
         let (reference_count, total_bytes) = validate_reference_limits(self.references.values())?;
         self.reference_count = reference_count;
         self.total_bytes = total_bytes;
 
-        Ok(())
+        let mut ready = true;
+        for (sha256, reference) in references {
+            if let Some(value) = self.previous_values.get(&sha256) {
+                if reference.metadata == value.metadata {
+                    self.resolved_values
+                        .insert(sha256.clone(), Arc::clone(value));
+                }
+            }
+            ready &= self
+                .resolved_values
+                .get(&sha256)
+                .is_some_and(|value| value.metadata == reference.metadata)
+                || self.hydrated_values.contains_key(&sha256);
+        }
+
+        Ok(ready)
+    }
+
+    /// Install previous candidates once before reading the response. Incoming
+    /// registration checks only the SHAs in that spec, avoiding a scan of the
+    /// previous snapshot for every dynamic config.
+    pub(crate) fn set_previous_values(&mut self, values: VerifiedRemoteValues) {
+        self.previous_values = values;
     }
 
     /// Atomically accept reused values only when every SHA was registered and
@@ -475,7 +559,10 @@ impl ProtobufHydrationSession<'_> {
     }
 
     async fn reserve_response_budget(&mut self) -> Result<(), StatsigErr> {
-        if self.references.is_empty() || self.try_reserve_response_budget()? {
+        // Reused parsed values hold no body bytes; downloads and seeded bodies do.
+        if (self.pending_reference_count() == 0 && self.hydrated_values.is_empty())
+            || self.try_reserve_response_budget()?
+        {
             return Ok(());
         }
 
@@ -576,8 +663,10 @@ impl ProtobufHydrationSession<'_> {
 
     fn next_unstarted_reference(&self) -> Option<(String, RemoteValueReference)> {
         self.references.iter().find_map(|(sha256, reference)| {
-            (!self.hydrated_values.contains_key(sha256) && !self.in_flight_sha256.contains(sha256))
-                .then(|| (sha256.clone(), reference.clone()))
+            (!self.resolved_values.contains_key(sha256)
+                && !self.hydrated_values.contains_key(sha256)
+                && !self.in_flight_sha256.contains(sha256))
+            .then(|| (sha256.clone(), reference.clone()))
         })
     }
 
@@ -612,7 +701,10 @@ impl ProtobufHydrationSession<'_> {
     fn pending_reference_count(&self) -> usize {
         self.references
             .keys()
-            .filter(|sha256| !self.hydrated_values.contains_key(*sha256))
+            .filter(|sha256| {
+                !self.resolved_values.contains_key(*sha256)
+                    && !self.hydrated_values.contains_key(*sha256)
+            })
             .count()
     }
 
@@ -620,15 +712,144 @@ impl ProtobufHydrationSession<'_> {
         self.saw_remote_metadata
     }
 
+    /// Resolve downloaded bodies once per SHA and return parsed overrides in
+    /// wire rule order. Run synchronously within the parser's mmap scope.
+    pub(crate) fn take_verified_spec_values(
+        &mut self,
+        spec: &mut pb::Spec,
+    ) -> Result<VerifiedSpecValues, StatsigErr> {
+        let mut entries = HashMap::new();
+        let default_value = if let Some(metadata) = &spec.remote_config_metadata {
+            if spec.default_value.is_none() {
+                return Err(hydration_error(
+                    HydrationFailureReason::MetadataWithoutValue,
+                    "protobuf remote metadata had no matching default value",
+                ));
+            }
+            let value = self.resolve_verified_value(metadata)?;
+            entries.insert(metadata.sha256.clone(), Arc::clone(&value));
+            Some(value.value.clone())
+        } else {
+            None
+        };
+        let mut rule_values = Vec::with_capacity(spec.rules.len());
+        for rule in &spec.rules {
+            let value = if let Some(metadata) = &rule.remote_config_metadata {
+                if rule.return_value.is_none() {
+                    return Err(hydration_error(
+                        HydrationFailureReason::MetadataWithoutValue,
+                        "protobuf remote metadata had no matching rule value",
+                    ));
+                }
+                let value = self.resolve_verified_value(metadata)?;
+                entries.insert(metadata.sha256.clone(), Arc::clone(&value));
+                Some(value.value.clone())
+            } else {
+                None
+            };
+            rule_values.push(value);
+        }
+
+        // Mutate the protobuf only after every remote slot resolved. The
+        // normal decoder handles ordinary values and cannot decode a remote
+        // URL placeholder after the corresponding override is installed.
+        if default_value.is_some() {
+            spec.remote_config_metadata = None;
+            spec.default_value = None;
+        }
+        for (rule, value) in spec.rules.iter_mut().zip(&rule_values) {
+            if value.is_some() {
+                rule.remote_config_metadata = None;
+                rule.return_value = None;
+            }
+        }
+        Ok(VerifiedSpecValues {
+            default_value,
+            rule_values,
+            provenance: entries,
+        })
+    }
+
+    fn resolve_verified_value(
+        &mut self,
+        metadata: &pb::RemoteConfigValueMetadata,
+    ) -> Result<Arc<VerifiedRemoteValue>, StatsigErr> {
+        let metadata = self.registered_metadata(metadata)?;
+        let sha256 = metadata.sha256.as_str();
+        if let Some(value) = self.resolved_values.get(sha256) {
+            return Ok(Arc::clone(value));
+        }
+        let body = hydrated_value(&self.hydrated_values, sha256)?;
+        let value = serde_json::from_slice::<DynamicReturnable>(body).map_err(|error| {
+            hydration_error(HydrationFailureReason::InvalidJson, &error.to_string())
+        })?;
+        let entry = Arc::new(VerifiedRemoteValue { metadata, value });
+        self.resolved_values
+            .insert(entry.metadata.sha256.to_string(), Arc::clone(&entry));
+        Ok(entry)
+    }
+
+    fn registered_metadata(
+        &self,
+        metadata: &pb::RemoteConfigValueMetadata,
+    ) -> Result<RemoteConfigValueMetadata, StatsigErr> {
+        let metadata = metadata_from_proto(metadata)?;
+        if self
+            .references
+            .get(metadata.sha256.as_str())
+            .is_none_or(|reference| reference.metadata != metadata)
+        {
+            return Err(hydration_error(
+                HydrationFailureReason::MetadataConflict,
+                "remote value metadata was not registered with the same tuple",
+            ));
+        }
+        Ok(metadata)
+    }
+
+    /// Materialize only this frame's semantic JSON for an offline datastore
+    /// sidecar. The temporary bytes must never seed verified remote bodies:
+    /// reserialization does not preserve the original wire length or digest.
+    pub(crate) fn data_store_values(
+        &self,
+        spec: &pb::Spec,
+    ) -> Result<HashMap<String, Arc<Vec<u8>>>, StatsigErr> {
+        let mut values = HashMap::new();
+        for metadata in spec.remote_config_metadata.iter().chain(
+            spec.rules
+                .iter()
+                .filter_map(|rule| rule.remote_config_metadata.as_ref()),
+        ) {
+            let metadata = self.registered_metadata(metadata)?;
+            let sha256 = metadata.sha256.as_str();
+            if values.contains_key(sha256) {
+                continue;
+            }
+            if let Some(body) = self.hydrated_values.get(sha256) {
+                values.insert(sha256.to_string(), Arc::clone(body));
+                continue;
+            }
+            let value = self.resolved_values.get(sha256).ok_or_else(|| {
+                hydration_error(
+                    HydrationFailureReason::MissingHydratedValue,
+                    "remote value has no verified parsed value",
+                )
+            })?;
+            let bytes = serde_json::to_vec(&value.value).map_err(|error| {
+                hydration_error(HydrationFailureReason::InvalidJson, &error.to_string())
+            })?;
+            values.insert(sha256.to_string(), Arc::new(bytes));
+        }
+        Ok(values)
+    }
+
     /// Apply already-verified values to one queued spec. This remains
     /// synchronous so mmap and parse-option thread-local scopes never cross an
     /// await boundary.
+    #[cfg(test)]
     pub(crate) fn apply_registered_spec(&self, spec: &mut pb::Spec) -> Result<(), StatsigErr> {
-        apply_protobuf_spec_hydration(spec, &self.hydrated_values)
-    }
-
-    pub(crate) fn hydrated_values(&self) -> &HashMap<String, Arc<Vec<u8>>> {
-        &self.hydrated_values
+        let hydrated = self.data_store_values(spec)?;
+        apply_protobuf_spec_hydration(spec, &hydrated)
     }
 
     pub(crate) fn finish(mut self, result: Result<(), &StatsigErr>) {
@@ -682,6 +903,7 @@ fn collect_protobuf_spec_references(
     Ok(())
 }
 
+#[cfg(test)]
 fn apply_protobuf_spec_hydration(
     spec: &mut pb::Spec,
     hydrated: &HashMap<String, Arc<Vec<u8>>>,

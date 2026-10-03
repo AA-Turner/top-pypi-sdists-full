@@ -308,9 +308,16 @@ _CATALOG_FALLBACK_CHAT_RULES: dict[str, dict[str, Any]] = {
                 "default_max_tokens": 32768,
             },
         },
+        # Same as the anthropic_chat api cell: Anthropic's range is 0..1, and the SDK
+        # carries temperature only through extra_body (catalog/FEATURE.md §7).
         "temperature": {
+            "clamp": {"min": 0, "max": 1},
             "processor": "anthropic_temp_topp_exclusion",
-            "processor_config": {"order": 200, "consumes": ["top_p", "top_k"]},
+            "processor_config": {
+                "order": 200,
+                "consumes": ["top_p", "top_k"],
+                "wire_container": "extra_body",
+            },
         },
         "max_output_tokens": {"provider_key": "max_tokens"},
     },
@@ -320,6 +327,24 @@ _CATALOG_FALLBACK_CHAT_RULES: dict[str, dict[str, Any]] = {
         "stop_sequences": {},
         "max_output_tokens": {},
     },
+}
+
+
+# Where the fallback above deliberately sends a DIFFERENT wire than the api-layer
+# translation cells (ai.offering_rules_compiled, layer "api") for the same wire.
+# tests/test_host_catalog_fallback_matches_api_cells.py compiles both and compares
+# the wire for every fallback key; any difference not named here fails, and an
+# entry that no longer differs fails too. "(unset)" = the wire of an empty ask.
+FALLBACK_DIVERGES_FROM_API_CELLS: dict[tuple[str, str], str] = {
+    ("together_chat", "(unset)"): (
+        "the together_chat api cell sends reasoning_effort on every request through "
+        "together_reasoning; a client host cannot tell a reasoning model from a plain one, "
+        "and plain models reject it (settings-translation C7 list), so the fallback sends none"
+    ),
+    ("together_chat", "reasoning_effort"): (
+        "same reason: reasoning dialects on together are per model, so the fallback drops "
+        "the reasoning controls instead of guessing"
+    ),
 }
 
 

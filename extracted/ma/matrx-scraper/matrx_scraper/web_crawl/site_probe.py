@@ -62,6 +62,7 @@ from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+from matrx_scraper.utils.url import public_http_client
 from matrx_utils import utcnow
 
 from matrx_scraper.db.models_web import Page as WebPage
@@ -572,7 +573,9 @@ async def probe_site(root_url: str, page_urls: Iterable[str] = ()) -> SiteProbe:
 
     headers = {"User-Agent": PROBE_USER_AGENT}
     sampled = sample_page_urls(page_urls)
-    async with httpx.AsyncClient(
+    # Pinned: the pre-gate above resolved the host once; this client re-checks
+    # every request and redirect hop and connects to the IP it approved.
+    async with public_http_client(
         timeout=PROBE_TIMEOUT_SECONDS, follow_redirects=True, headers=headers
     ) as client:
         robots, tls, *variants = await asyncio.gather(

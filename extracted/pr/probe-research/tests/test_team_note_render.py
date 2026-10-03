@@ -36,10 +36,25 @@ def harnesses(tmp_path, monkeypatch):
     return claude / "CLAUDE.md", codex / "AGENTS.md"
 
 
-def test_one_render_writes_both_harnesses(harnesses) -> None:
+def _opt_in(path, text: str = "") -> None:
+    """`text`, then the pointer block: the file of a machine that kept the rules."""
+    path.write_text(text, encoding="utf-8")
+    agent_rules.install(path)
+
+
+@pytest.fixture
+def opted_in(harnesses):
+    """Both files carry the pointer block. The note renders only beside it:
+    an absent pointer is the `--no-agent-rules` opt-out."""
+    for path in harnesses:
+        _opt_in(path)
+    return harnesses
+
+
+def test_one_render_writes_both_harnesses(opted_in) -> None:
     """The measured failure this exists to fix: each harness's copy only
     refreshed when THAT harness ran, so the two drifted 7 hours apart."""
-    claude_md, agents_md = harnesses
+    claude_md, agents_md = opted_in
     report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
 
     assert report.ok, report.failures
@@ -56,10 +71,10 @@ def test_one_render_writes_both_harnesses(harnesses) -> None:
         assert str(path.parent / "probe-team-note.md") not in text
 
 
-def test_an_unchanged_note_writes_nothing(harnesses) -> None:
+def test_an_unchanged_note_writes_nothing(opted_in) -> None:
     """`Stop` fires every turn on every session. Without this short circuit,
     13 sessions rewrite two files per turn for content that changes daily."""
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     settings = _Settings()
     team_note_file.render_blocks("## rules\n\n- one", settings=settings)
     before = claude_md.stat().st_mtime_ns
@@ -70,8 +85,8 @@ def test_an_unchanged_note_writes_nothing(harnesses) -> None:
     assert claude_md.stat().st_mtime_ns == before
 
 
-def test_an_edited_note_does_write(harnesses) -> None:
-    claude_md, _ = harnesses
+def test_an_edited_note_does_write(opted_in) -> None:
+    claude_md, _ = opted_in
     settings = _Settings()
     team_note_file.render_blocks("## rules\n\n- one", settings=settings)
     report = team_note_file.render_blocks("## rules\n\n- one\n- two", settings=settings)
@@ -79,10 +94,10 @@ def test_an_edited_note_does_write(harnesses) -> None:
     assert "- two" in claude_md.read_text(encoding="utf-8")
 
 
-def test_over_budget_writes_a_pointer_and_never_a_partial_note(harnesses) -> None:
+def test_over_budget_writes_a_pointer_and_never_a_partial_note(opted_in) -> None:
     """Partial content under a header calling itself a copy of the team note
     reads as complete. A pointer is honest about carrying nothing."""
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     huge = "## big\n\n" + ("x" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES + 5_000))
     report = team_note_file.render_blocks(huge, settings=_Settings())
 
@@ -98,7 +113,7 @@ def test_a_file_too_full_for_even_a_pointer_is_refused_and_recorded(harnesses) -
     """Refusing is the honest answer, but only if somebody hears about it."""
     claude_md, agents_md = harnesses
     for path in (claude_md, agents_md):
-        path.write_text("y" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 50), encoding="utf-8")
+        _opt_in(path, "y" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 50))
 
     report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
 
@@ -131,12 +146,12 @@ def test_a_successful_render_clears_a_previous_failure(harnesses) -> None:
     when it has since succeeded stops trusting the warning."""
     claude_md, agents_md = harnesses
     for path in (claude_md, agents_md):
-        path.write_text("y" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 50), encoding="utf-8")
+        _opt_in(path, "y" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 50))
     team_note_file.render_blocks("## rules", settings=_Settings())
     assert team_note_file.pending_render_failures()
 
     for path in (claude_md, agents_md):
-        path.write_text("small\n", encoding="utf-8")
+        _opt_in(path, "small\n")
     report = team_note_file.render_blocks("## rules", settings=_Settings())
 
     assert report.ok
@@ -156,7 +171,7 @@ def test_the_render_preserves_the_pointer_block_and_human_prose(harnesses) -> No
     assert text.count(agent_rules.NOTE_BLOCK.begin) == 1
 
 
-def test_notes_sync_actually_renders_the_blocks(harnesses, monkeypatch, capsys) -> None:
+def test_notes_sync_actually_renders_the_blocks(opted_in, monkeypatch, capsys) -> None:
     """WIRING, not capability. Every other test in this file calls
     render_blocks directly, which proves the function works and says nothing
     about whether anything calls it. Delete the call site in `notes sync` and
@@ -169,7 +184,7 @@ def test_notes_sync_actually_renders_the_blocks(harnesses, monkeypatch, capsys) 
 
     main = importlib.import_module("probe.cli.main")
 
-    claude_md, agents_md = harnesses
+    claude_md, agents_md = opted_in
     monkeypatch.setenv("PROBE_BASE_URL", "https://example.invalid")
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_test")
 
@@ -195,7 +210,7 @@ def test_notes_sync_actually_renders_the_blocks(harnesses, monkeypatch, capsys) 
         assert agent_rules.NOTE_BLOCK.begin in text
 
 
-def test_push_only_renders_nothing_because_it_never_fetched(harnesses, monkeypatch) -> None:
+def test_push_only_renders_nothing_because_it_never_fetched(opted_in, monkeypatch) -> None:
     """`--push-only` is the NORMAL Stop path, fired every turn -- NOT a failure.
 
     This test was originally named for a failed fetch, which conflated two
@@ -213,7 +228,7 @@ def test_push_only_renders_nothing_because_it_never_fetched(harnesses, monkeypat
 
     main = importlib.import_module("probe.cli.main")
 
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     monkeypatch.setenv("PROBE_BASE_URL", "https://example.invalid")
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_test")
 
@@ -237,11 +252,11 @@ def test_push_only_renders_nothing_because_it_never_fetched(harnesses, monkeypat
     assert "CURRENT-CONTENT" in claude_md.read_text(encoding="utf-8")
 
 
-def test_a_stray_import_in_the_note_is_neutralised(harnesses) -> None:
+def test_a_stray_import_in_the_note_is_neutralised(opted_in) -> None:
     """The note lands INSIDE CLAUDE.md, whose own content is import-parsed four
     levels deep. Dropping our own @import line did not remove this danger --
     the danger was never our line, it was the note's content."""
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     body = "## rules\n\nSee @docs/secret.md and mail rich@example.com and `@pytest.mark.fleet_sweep`."
     team_note_file.render_blocks(body, settings=_Settings())
 
@@ -266,11 +281,11 @@ def test_a_note_carrying_our_own_marker_is_refused_not_mangled(harnesses) -> Non
     assert not agents_md.exists()
 
 
-def test_escaping_is_stable_so_the_hash_does_not_thrash(harnesses) -> None:
+def test_escaping_is_stable_so_the_hash_does_not_thrash(opted_in) -> None:
     """The stamp is computed AFTER escaping, so an escaped body must escape to
     itself -- otherwise every render sees a different hash and writes again,
     defeating the short circuit that keeps Stop cheap."""
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     body = "## rules\n\nSee @docs/api.md"
     settings = _Settings()
     team_note_file.render_blocks(body, settings=settings)
@@ -280,12 +295,12 @@ def test_escaping_is_stable_so_the_hash_does_not_thrash(harnesses) -> None:
     assert claude_md.stat().st_mtime_ns == before
 
 
-def test_the_budget_is_measured_in_bytes_not_code_points(harnesses) -> None:
+def test_the_budget_is_measured_in_bytes_not_code_points(opted_in) -> None:
     """REGRESSION. `project_doc_max_bytes` is a BYTE budget and the team note is
     full of em-dashes and middots, so measuring len(str) under-counts every
     non-ASCII character by one to three bytes -- in the direction that overruns
     the cap."""
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     # Every character is 3 bytes in UTF-8, so a body that "fits" by code points
     # is three times over by bytes.
     body = "## rules\n\n" + ("中" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES // 2))
@@ -326,11 +341,11 @@ def test_the_lock_is_keyed_on_the_file_not_the_credential(harnesses, monkeypatch
     )
 
 
-def test_a_pointer_upgrades_back_to_the_full_note_when_space_frees_up(harnesses) -> None:
+def test_a_pointer_upgrades_back_to_the_full_note_when_space_frees_up(opted_in) -> None:
     """The form is part of the block's identity. Stamping a pointer with the body
     hash alone would make it report itself current forever, so a machine that
     trimmed its instruction file would never get the real note back."""
-    claude_md, agents_md = harnesses
+    claude_md, agents_md = opted_in
     # STAMPED TODAY so the audit advisory stays silent: it fires on an
     # unstamped note ("never audited"), and its bytes land inside the window
     # this test sizes, putting BOTH forms over budget and turning a pointer
@@ -349,7 +364,9 @@ def test_a_pointer_upgrades_back_to_the_full_note_when_space_frees_up(harnesses)
             agent_rules.render_note_block(body, document=doc, pointer_only=True).encode("utf-8")
         )
         assert ptr_len < full_len, "pointer must be smaller than the full block"
-        path.write_text("z" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - full_len + 1), encoding="utf-8")
+        rules = path.read_text(encoding="utf-8")  # the pointer block, from `opted_in`
+        filler = team_note_file.INSTRUCTION_FILE_MAX_BYTES - full_len + 1 - len(rules.encode("utf-8"))
+        path.write_text(rules + "z" * filler, encoding="utf-8")
 
     first = team_note_file.render_blocks(body, settings=_Settings())
     assert set(first.pointer_only) == {"claude_code", "codex"}
@@ -359,7 +376,8 @@ def test_a_pointer_upgrades_back_to_the_full_note_when_space_frees_up(harnesses)
     for path in (claude_md, agents_md):
         text = path.read_text(encoding="utf-8")
         marker = text.index(agent_rules.NOTE_BLOCK.begin)
-        path.write_text("small\n\n" + text[marker:], encoding="utf-8")
+        rules = text[: text.index(agent_rules.END_MARKER) + len(agent_rules.END_MARKER)]
+        path.write_text(rules + "\nsmall\n\n" + text[marker:], encoding="utf-8")
 
     second = team_note_file.render_blocks(body, settings=_Settings())
     assert set(second.written) == {"claude_code", "codex"}, second
@@ -377,11 +395,11 @@ def test_a_status_file_that_is_not_an_object_fails_open(harnesses) -> None:
         assert team_note_file.pending_render_failures() == []
 
 
-def test_an_undecodable_instruction_file_is_recorded_not_raised(harnesses) -> None:
+def test_an_undecodable_instruction_file_is_recorded_not_raised(opted_in) -> None:
     """UnicodeDecodeError is a ValueError, NOT an OSError -- the same trap
     apply_agent_rules already documents. One latin-1 byte would otherwise escape
     the handler and leave the other harness unrendered."""
-    claude_md, agents_md = harnesses
+    claude_md, agents_md = opted_in
     claude_md.write_bytes(b"caf\xe9 rules\n")  # latin-1, invalid utf-8
 
     report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
@@ -493,7 +511,7 @@ def test_only_the_sessionend_registration_asks_for_a_reconcile() -> None:
     assert "PROBE_HOOK_EVENT=stop" in marked["Stop"]
 
 
-def test_a_reconcile_whose_fetch_fails_leaves_both_files_byte_for_byte(harnesses, monkeypatch) -> None:
+def test_a_reconcile_whose_fetch_fails_leaves_both_files_byte_for_byte(opted_in, monkeypatch) -> None:
     """The coverage the rename gave up, restored as its own test.
 
     `--push-only` not rendering is a design choice. A reconcile whose FETCH
@@ -506,7 +524,7 @@ def test_a_reconcile_whose_fetch_fails_leaves_both_files_byte_for_byte(harnesses
     import importlib
 
     main = importlib.import_module("probe.cli.main")
-    claude_md, agents_md = harnesses
+    claude_md, agents_md = opted_in
     monkeypatch.setenv("PROBE_BASE_URL", "https://example.invalid")
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_test")
 
@@ -568,19 +586,47 @@ def test_the_sync_carries_a_stale_research_block_to_every_harness(harnesses) -> 
 
 
 def test_the_sync_does_not_install_a_research_block_that_was_never_there(harnesses) -> None:
-    """A file with no block opted out; a background sync must not opt it in."""
+    """A file with no block opted out; a background sync must not opt it in --
+    and that includes the NOTE. It used to render regardless ("the two blocks
+    are independent"), which put Probe's text in the global CLAUDE.md of a
+    customer who had passed `--no-agent-rules` (2026-10-02)."""
     claude_md, agents_md = harnesses
     for path in (claude_md, agents_md):
         path.write_text("# only my own rules\n", encoding="utf-8")
 
     report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
 
-    assert report.rules_refreshed == ()
+    assert report.ok, report.failures
+    assert report.rules_refreshed == () and report.written == () and report.pointer_only == ()
+    assert set(report.opted_out) == {"claude_code", "codex"}
     for path in (claude_md, agents_md):
-        text = path.read_text(encoding="utf-8")
-        assert agent_rules.BEGIN_MARKER not in text
-        # The note still renders -- the two blocks are independent.
-        assert agent_rules.NOTE_BLOCK.begin in text
+        assert path.read_text(encoding="utf-8") == "# only my own rules\n"
+
+
+def test_no_file_is_created_for_a_harness_that_has_none(harnesses) -> None:
+    """A Claude-only machine got a fresh ~/.codex/AGENTS.md from every sync."""
+    claude_md, agents_md = harnesses
+    _opt_in(claude_md)
+
+    report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
+
+    assert report.written == ("claude_code",) and report.opted_out == ("codex",)
+    assert not agents_md.exists()
+
+
+def test_a_note_left_from_before_the_opt_out_is_removed(opted_in) -> None:
+    """The opt-out used to drop the pointer and leave the note, which the next
+    sync then kept current. Whatever left it there, the sync now takes it out."""
+    claude_md, agents_md = opted_in
+    team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
+    agent_rules.remove(claude_md)  # the old opt-out: pointer only
+    assert agent_rules.NOTE_BLOCK.begin in claude_md.read_text(encoding="utf-8")
+
+    report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
+
+    assert report.removed == ("claude_code",) and report.unchanged == ("codex",)
+    assert agent_rules.NOTE_BLOCK.begin not in claude_md.read_text(encoding="utf-8")
+    assert agent_rules.NOTE_BLOCK.begin in agents_md.read_text(encoding="utf-8")
 
 
 def test_a_damaged_research_block_is_reported_as_itself_and_the_note_still_lands(
@@ -606,7 +652,7 @@ def _note_block(text: str) -> str:
     return text[text.index(begin) : text.index(end) + len(end)]
 
 
-def test_the_block_cannot_be_tipped_to_pointer_by_a_due_audit(harnesses) -> None:
+def test_the_block_cannot_be_tipped_to_pointer_by_a_due_audit(opted_in) -> None:
     """WHAT THE MOVE BOUGHT, pinned so it is not given back.
 
     While the advisory was rendered INTO the block it added bytes, so a note
@@ -617,7 +663,7 @@ def test_the_block_cannot_be_tipped_to_pointer_by_a_due_audit(harnesses) -> None
     The line now travels on the UserPromptSubmit hook, so a due note and a note
     that is not due render byte-identical blocks and nothing can tip.
     """
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     body = "<!-- audited 2026-01-01 -->\n## rules\n\n- one\n- two"
     doc = str(claude_md.parent / "probe-team-note.md")
     assert team_note_file.audit_advisory(
@@ -642,7 +688,7 @@ def test_the_block_cannot_be_tipped_to_pointer_by_a_due_audit(harnesses) -> None
     assert due == quiet, "the block must not depend on whether an audit is due"
 
 
-def test_the_first_render_on_a_fresh_machine_never_advises(harnesses) -> None:
+def test_the_first_render_on_a_fresh_machine_never_advises(opted_in) -> None:
     """BOOTSTRAP: the first render on a machine writes the measurement that every
     later size decision reads.
 
@@ -654,7 +700,7 @@ def test_the_first_render_on_a_fresh_machine_never_advises(harnesses) -> None:
     every render -- what still matters, and is pinned here, is that the
     measurement lands.
     """
-    claude_md, _ = harnesses
+    claude_md, _ = opted_in
     assert not team_note_file.note_health_path().exists()
 
     huge = "<!-- audited 2026-01-01 -->\n## big\n\n" + ("x" * 28_000)

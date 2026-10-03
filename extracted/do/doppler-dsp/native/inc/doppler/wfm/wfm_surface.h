@@ -34,6 +34,8 @@ typedef enum
   WFM_SV_CHOICE,  /* an int index into `choices` */
   WFM_SV_SYMBOLS, /* float _Complex *, its count at `len_off` */
   WFM_SV_FIELD,   /* a wfm_seq_t, as a Field (wfm_frame.h) */
+  WFM_SV_BESPOKE, /* a pointer each face reads with its own code;
+                     the generic readers and writers skip it */
 } wfm_sv_kind_t;
 
 typedef struct
@@ -80,7 +82,6 @@ enum
   WFM_SURFACE_source_doppler_rate,
   WFM_SURFACE_source_carrier_hz,
   WFM_SURFACE_source_doppler_lifetime,
-  WFM_SURFACE_source_bits,
   WFM_SURFACE_source_modulation,
   WFM_SURFACE_source_pulse,
   WFM_SURFACE_source_rrc_beta,
@@ -91,6 +92,12 @@ enum
   WFM_SURFACE_source_sync,
   WFM_SURFACE_source_crc,
   WFM_SURFACE_source_symbol_rate,
+  WFM_SURFACE_source_dsss_code_only,
+  WFM_SURFACE_source_frame,
+  WFM_SURFACE_source_data_from_file,
+  WFM_SURFACE_source_data,
+  WFM_SURFACE_source_data_len,
+  WFM_SURFACE_source_fill,
   WFM_SURFACE_segment_fs,
   WFM_SURFACE_segment_num_samples,
   WFM_SURFACE_segment_off_samples,
@@ -270,14 +277,6 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
     .json = "doppler_lifetime",
     .json_omit = 1,
   },
-  [WFM_SURFACE_source_bits] = {
-    .name = "bits",
-    .cli = "--bits",
-    .owner = WFM_SURF_SOURCE,
-    .kind = WFM_SV_FIELD,
-    .off = offsetof (wfm_source_t, payload),
-    .json = "payload",
-  },
   [WFM_SURFACE_source_modulation] = {
     .name = "modulation",
     .cli = "--modulation",
@@ -379,6 +378,57 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
     .when_row = WFM_SURFACE_source_type,
     .when_value = 8,
   },
+  [WFM_SURFACE_source_dsss_code_only] = {
+    .name = "dsss_code_only",
+    .cli = "--code-only",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_INT,
+    .off = offsetof (wfm_source_t, dsss_code_only),
+    .json = "code_only",
+    .json_omit = 1,
+    .json_bool = 1,
+  },
+  [WFM_SURFACE_source_frame] = {
+    .name = "frame",
+    .cli = "--frame",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_BESPOKE,
+    .off = offsetof (wfm_source_t, frame),
+    .json = "frame",
+  },
+  [WFM_SURFACE_source_data_from_file] = {
+    .name = "data_from_file",
+    .cli = "--data-from-file",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_BESPOKE,
+    .off = offsetof (wfm_source_t, data_from_file),
+    .json = "data_from_file",
+  },
+  [WFM_SURFACE_source_data] = {
+    .name = "data",
+    .cli = "--data",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_FIELD,
+    .off = offsetof (wfm_source_t, data),
+    .json = "data",
+  },
+  [WFM_SURFACE_source_data_len] = {
+    .name = "data_len",
+    .cli = "--data-len",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_SIZE,
+    .off = offsetof (wfm_source_t, data_len),
+    .json = "data_len",
+    .json_omit = 1,
+  },
+  [WFM_SURFACE_source_fill] = {
+    .name = "fill",
+    .cli = "--fill",
+    .owner = WFM_SURF_SOURCE,
+    .kind = WFM_SV_FIELD,
+    .off = offsetof (wfm_source_t, fill),
+    .json = "fill",
+  },
   [WFM_SURFACE_segment_fs] = {
     .name = "fs",
     .cli = "--fs",
@@ -439,6 +489,63 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
     .json_omit = 1,
   },
 };
+
+/* Two rows no face takes together, and the reason, spelled for each
+   face that can be given both: the CLI (both flags), a scene (both
+   keys), the object (both members set). NULL: that face cannot
+   carry one of the two, so it has nothing to refuse. */
+typedef struct
+{
+  int         a, b; /* WFM_SURFACE_<owner>_<name> */
+  const char *cli_why;
+  const char *json_why;
+  const char *obj_why;
+} wfm_surface_exclusive_t;
+
+#define WFM_SURFACE_N_EXCLUSIVE 1
+static const wfm_surface_exclusive_t
+    WFM_SURFACE_EXCLUSIVE[1] = {
+  {
+    .a = WFM_SURFACE_source_data,
+    .b = WFM_SURFACE_source_data_from_file,
+    .cli_why = "--data and --data-from-file cannot both be given: a "
+        "payload has one data source",
+    .json_why = "\"data\" and \"data_from_file\" cannot both be given: a "
+        "payload has one data source",
+    .obj_why = "a source's data and data_from_file cannot both be set:"
+        " a payload has one data source",
+  },
+};
+
+/* Whether a row's member holds a value: the object face's
+   "given". Only the kinds an exclusion may name (the generator
+   refuses any other) have an unset value to test for. */
+static inline int
+wfm_surface_row_is_set (const wfm_surface_row_t *r,
+                        const void              *base)
+{
+  const char *m = (const char *)base + r->off;
+  switch (r->kind)
+    {
+    case WFM_SV_FIELD:
+      return ((const wfm_seq_t *)m)->len != 0;
+    case WFM_SV_BESPOKE:
+      return *(const void *const *)m != NULL;
+    case WFM_SV_SYMBOLS:
+      return *(const size_t *)((const char *)base + r->len_off)
+             != 0;
+    default:
+      return 0;
+    }
+}
+
+/* A Field row with no repetition count refuses *REPS: only the
+   rows with `field_reps` repeat (a preamble). One reason per face.
+*/
+#define WFM_SURFACE_REPS_WHY_CLI \
+  "only --acq-code repeats (a preamble): drop the *REPS"
+#define WFM_SURFACE_REPS_WHY_JSON \
+  "only \"acq_code\" repeats (a preamble): drop the *REPS"
 
 /* --help option lines, one string per USAGE section. */
 #define WFM_SURFACE_HELP_SIGNAL \
@@ -501,10 +608,19 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
   "                  per_instance | persist. (default per_instance)\n"
 
 #define WFM_SURFACE_HELP_BITS \
-  "  --bits FIELD    The payload bits: a Field on the command line and in a scene,\n" \
-  "                  an array in Python.\n" \
   "  --modulation M  Symbol mapping of a bits pattern. One of: none | bpsk | qpsk.\n" \
-  "                  (default bpsk)\n"
+  "                  (default bpsk)\n" \
+  "  --data-from-file PATH\n" \
+  "                  A data source read from a file of packed octets, MSB first,\n" \
+  "                  or `-` for stdin, instead of data. Not with --data.\n" \
+  "  --data FIELD    A frame's payload drawn from a data source: a Field on the\n" \
+  "                  command line and in a scene, a bit array in Python. Not with\n" \
+  "                  --data-from-file.\n" \
+  "  --data-len BITS Bits of the data source per frame: the data:LEN of the common\n" \
+  "                  frame [preamble x reps | sync | data:LEN | crc]. (default 0)\n" \
+  "  --fill FIELD    The bits that pad a data source's last frame when it does not\n" \
+  "                  divide into data_len-bit frames, tiled from their first bit;\n" \
+  "                  stdin on a framed source always needs them.\n"
 
 #define WFM_SURFACE_HELP_PULSE \
   "  --pulse SHAPE   Pulse shape per symbol or chip, for\n" \
@@ -541,6 +657,165 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
 #define WFM_SURFACE_HELP_DSSS_CONT \
   "  --symbol-rate HZ\n" \
   "                  For type=dsss: > 0 selects CONTINUOUS asynchronous mode.\n" \
-  "                  (default 0.0)\n"
+  "                  (default 0.0)\n" \
+  "  --code-only     Continuous dsss data source: 1 = code-only (the pure\n" \
+  "                  spreading code, no data modulation); 0 = data-modulated (the\n" \
+  "                  payload when supplied, else the seeded PN). (default 0)\n"
+
+#define WFM_SURFACE_HELP_CODED \
+  "  --frame FILE    A frame DESCRIPTION, the whole frame: fields in wire order,\n" \
+  "                  and stages that each name the span they cover (crc16, rs,\n" \
+  "                  randomise, interleave, conv, or a kind of your own).\n"
+
+/* The keys each object of a scene takes, generated from the schema's
+   `properties` (docs/schema/wfmgen.schema.json). The reader refuses any
+   other key by name: the schema and the reader are one table (#1153). */
+typedef enum
+{
+  WFM_JSON_ROOT,
+  WFM_JSON_INLINE_SEGMENT,
+  WFM_JSON_SUM_SEGMENT,
+  WFM_JSON_SOURCE,
+  WFM_JSON_FRAME,
+  WFM_JSON_FIELD,
+  WFM_JSON_STAGE,
+  WFM_JSON_N_LEVELS
+} wfm_json_level_t;
+
+static const char *const WFM_JSON_KEYS_ROOT[] = {
+  "continuous",
+  "headroom",
+  "repeat",
+  "seed_advance",
+  "segments",
+  "version",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_INLINE_SEGMENT[] = {
+  "acq_code",
+  "background",
+  "carrier_hz",
+  "code_only",
+  "crc",
+  "data",
+  "data_code",
+  "data_from_file",
+  "data_len",
+  "delay_samples",
+  "doppler",
+  "doppler_lifetime",
+  "doppler_rate",
+  "f_end",
+  "fill",
+  "frame",
+  "freq",
+  "fs",
+  "gap_noise",
+  "level",
+  "lfsr",
+  "modulation",
+  "num_samples",
+  "off_samples",
+  "pn_length",
+  "pn_poly",
+  "pulse",
+  "repeats",
+  "rrc_beta",
+  "rrc_span",
+  "seed",
+  "snr",
+  "snr_mode",
+  "span",
+  "sps",
+  "symbol_rate",
+  "symbols",
+  "sync",
+  "type",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_SUM_SEGMENT[] = {
+  "delay_samples",
+  "fs",
+  "gap_noise",
+  "num_samples",
+  "off_samples",
+  "repeats",
+  "sum",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_SOURCE[] = {
+  "acq_code",
+  "background",
+  "carrier_hz",
+  "code_only",
+  "crc",
+  "data",
+  "data_code",
+  "data_from_file",
+  "data_len",
+  "doppler",
+  "doppler_lifetime",
+  "doppler_rate",
+  "f_end",
+  "fill",
+  "frame",
+  "freq",
+  "level",
+  "lfsr",
+  "modulation",
+  "pn_length",
+  "pn_poly",
+  "pulse",
+  "rrc_beta",
+  "rrc_span",
+  "seed",
+  "snr",
+  "snr_mode",
+  "span",
+  "sps",
+  "symbol_rate",
+  "symbols",
+  "sync",
+  "type",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_FRAME[] = {
+  "fields",
+  "stages",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_FIELD[] = {
+  "bits",
+  "derived_by",
+  "name",
+  "spec",
+  NULL
+};
+
+static const char *const WFM_JSON_KEYS_STAGE[] = {
+  "depth",
+  "emit_den",
+  "emit_num",
+  "first_field",
+  "kind",
+  "n_fields",
+  "unit_bits",
+  NULL
+};
+
+static const char *const *const WFM_JSON_KEYS[WFM_JSON_N_LEVELS] = {
+  WFM_JSON_KEYS_ROOT,
+  WFM_JSON_KEYS_INLINE_SEGMENT,
+  WFM_JSON_KEYS_SUM_SEGMENT,
+  WFM_JSON_KEYS_SOURCE,
+  WFM_JSON_KEYS_FRAME,
+  WFM_JSON_KEYS_FIELD,
+  WFM_JSON_KEYS_STAGE,
+};
 
 #endif /* WFM_SURFACE_H */

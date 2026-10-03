@@ -11,7 +11,6 @@ from typing import Any
 
 from courlan import (
     extract_domain,
-    get_base_url,
     is_valid_url,
     normalize_url,
     validate_url,
@@ -20,6 +19,7 @@ from htmldate import find_date
 from lxml.etree import XPath
 from lxml.html import HtmlElement, tostring
 
+from .baseline import block_text
 from .htmlprocessing import prune_unwanted_nodes
 from .json_metadata import (
     extract_json,
@@ -28,7 +28,7 @@ from .json_metadata import (
     normalize_json,
 )
 from .settings import Document, set_date_params
-from .utils import HTML_STRIP_TAGS, line_processing, load_html, trim
+from .utils import HTML_STRIP_TAGS, line_processing, load_html, safe_base_url, trim
 from .xpaths import (
     AUTHOR_DISCARD_XPATHS,
     AUTHOR_XPATHS,
@@ -53,7 +53,7 @@ CLEAN_META_TAGS = re.compile(r'["\']')
 LICENSE_REGEX = re.compile(r"/(by-nc-nd|by-nc-sa|by-nc|by-nd|by-sa|by|zero)/([1-9]\.[0-9])")
 TEXT_LICENSE_REGEX = re.compile(
     r"(cc|creative commons) (by-nc-nd|by-nc-sa|by-nc|by-nd|by-sa|by|zero) ?([1-9]\.[0-9])?",
-    re.I,
+    re.IGNORECASE,
 )
 
 METANAME_AUTHOR = {
@@ -117,7 +117,6 @@ METANAME_TITLE = {
     "title",
     "twitter:title",
 }
-METANAME_URL = {"rbmainurl", "twitter:url"}
 METANAME_IMAGE = {
     "image",
     "og:image",
@@ -207,19 +206,6 @@ def examine_meta(tree: HtmlElement) -> Document:
     """Search meta tags for relevant information"""
     # bootstrap from potential OpenGraph tags
     metadata = Document().from_dict(extract_opengraph(tree))
-
-    # test if all values not assigned in the following have already been assigned
-    if all(
-        (
-            metadata.title,
-            metadata.author,
-            metadata.url,
-            metadata.description,
-            metadata.sitename,
-            metadata.image,
-        )
-    ):  # tags
-        return metadata
 
     tags, backup_sitename = [], None
 
@@ -332,10 +318,8 @@ def extract_title(tree: HtmlElement) -> str | None:
     """Extract the document title"""
     # only one h1-element: take it
     h1_results = tree.findall(".//h1")
-    if len(h1_results) == 1:
-        title = trim(h1_results[0].text_content())
-        if title:
-            return title
+    if len(h1_results) == 1 and (title := block_text(h1_results[0])):
+        return title
     # extract using x-paths
     title = extract_metainfo(tree, TITLE_XPATHS) or ""
     if title:
@@ -346,15 +330,13 @@ def extract_title(tree: HtmlElement) -> str | None:
         if t and "." not in t:
             return t
     # take first non-empty h1-title
-    if h1_results:
-        for h1_result in h1_results:
-            title = trim(h1_result.text_content())
-            if title:
-                return title
+    for h1_result in h1_results:
+        if title := block_text(h1_result):
+            return title
     # take first h2-title
-    try:
-        title = trim(tree.xpath(".//h2")[0].text_content())
-    except IndexError:
+    if h2_results := tree.xpath(".//h2"):
+        title = block_text(h2_results[0])
+    else:
         LOGGER.debug("no h2 title found")
     return title or None
 
@@ -377,12 +359,15 @@ def extract_url(tree: HtmlElement, default_url: str | None = None) -> str | None
         if url:
             break
 
+    # protocol-relative URL: only the scheme is missing
+    if url and url.startswith("//"):
+        url = f"https:{url}"
     # fix relative URLs
-    if url and url.startswith("/"):
+    elif url and url.startswith("/"):
         for element in tree.iterfind(".//head//meta[@content]"):
             attrtype = element.get("name") or element.get("property") or ""
-            if attrtype.startswith("og:") or attrtype.startswith("twitter:"):
-                base_url = get_base_url(element.attrib["content"])
+            if attrtype.startswith(("og:", "twitter:")):
+                base_url = safe_base_url(element.attrib["content"])
                 if base_url:
                     # prepend URL
                     url = base_url + url
@@ -409,13 +394,15 @@ def extract_catstags(metatype: str, tree: HtmlElement) -> list[str]:
     xpath_expression = CATEGORIES_XPATHS if metatype == "category" else TAGS_XPATHS
     # search using custom expressions
     for catexpr in xpath_expression:
-        results.extend(elem.text_content() for elem in catexpr(tree) if re.search(regexpr, elem.attrib["href"]))
+        results.extend(block_text(elem) for elem in catexpr(tree) if re.search(regexpr, elem.attrib["href"]))
         if results:
             break
     # category fallback
     if metatype == "category" and not results:
-        for element in tree.xpath('.//head//meta[@property="article:section" or contains(@name, "subject")][@content]'):
-            results.append(element.attrib["content"])
+        results.extend(
+            element.attrib["content"]
+            for element in tree.xpath('.//head//meta[@property="article:section" or contains(@name, "subject")][@content]')
+        )
         # optional: search through links
         # if not results:
         #    for elem in tree.xpath('.//a[@href]'):
@@ -430,8 +417,7 @@ def parse_license_element(element: HtmlElement, strict: bool = False) -> str | N
     match = LICENSE_REGEX.search(element.get("href", ""))
     if match:
         return f"CC {match[1].upper()} {match[2]}"
-    # use text_content() to also catch text wrapped in nested markup
-    text = trim(element.text_content())
+    text = block_text(element)
     if text:
         # check if it could be a CC license
         if strict:
@@ -444,7 +430,9 @@ def parse_license_element(element: HtmlElement, strict: bool = False) -> str | N
 def extract_license(tree: HtmlElement) -> str | None:
     """Search the HTML code for license information and parse it."""
     # look for links labeled as license
-    for element in tree.findall('.//a[@rel="license"][@href]'):
+    for element in tree.findall(".//a[@rel][@href]"):
+        if "license" not in element.get("rel", "").lower().split():
+            continue
         result = parse_license_element(element, strict=False)
         if result is not None:
             return result
@@ -528,12 +516,6 @@ def extract_metadata(
     if not metadata.sitename:
         metadata.sitename = extract_sitename(tree)
     if metadata.sitename:
-        # fix: take 1st element (['Westdeutscher Rundfunk'])
-        if isinstance(metadata.sitename, list):
-            metadata.sitename = metadata.sitename[0]
-        # hotfix: probably an error coming from json_metadata (#195)
-        elif isinstance(metadata.sitename, dict):
-            metadata.sitename = str(metadata.sitename)
         # scrap Twitter ID
         metadata.sitename = metadata.sitename.lstrip("@")
         # capitalize

@@ -1,7 +1,7 @@
 """Canonical ``metadata.__ir`` envelope emission — the ``py-block-detector`` engine.
 
 Guards the wire contract with matrx-frontend
-(``/Users/armanisadeghi/code/common-docs/systems/content-ir-system/PYTHON_ENVELOPE_CONTRACT.md``):
+(``/Users/armanisadeghi/code/common-docs/systems/architecture/content-ir/FEATURE.md``):
 
 * the fingerprint is byte-identical to the TypeScript implementation — asserted
   against the SHARED, TS-generated vectors, never a mock;

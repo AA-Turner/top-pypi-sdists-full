@@ -14,6 +14,7 @@ from ..errors.conflict_error import ConflictError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.delete_ssh_key_response_out import DeleteSshKeyResponseOut
+from ..types.me_email_preferences_response_out import MeEmailPreferencesResponseOut
 from ..types.me_sources_response_out import MeSourcesResponseOut
 from ..types.ssh_key_list_response_out import SshKeyListResponseOut
 from ..types.ssh_key_out import SshKeyOut
@@ -52,6 +53,42 @@ class RawUsersClient:
                     UserInfoOut,
                     parse_obj_as(
                         type_=UserInfoOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def me_email_preferences(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[MeEmailPreferencesResponseOut]:
+        """
+        The caller's email preferences for agent-sent mail in their current workspace: the domains and specific addresses they have approved as recipients, plus their custom drafting instruction. Built for computer-asset apps that compose or send email on the user's behalf, so they apply the same recipient policy the chat email tools enforce — a recipient is approved when its full address is in `approved_emails` or its domain is in `approved_domains` (both compared case-insensitively). Read-only: the policy is edited from Settings → Email & Meetings (`manage_url`).
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[MeEmailPreferencesResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v0/me/email-preferences",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    MeEmailPreferencesResponseOut,
+                    parse_obj_as(
+                        type_=MeEmailPreferencesResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -310,6 +347,42 @@ class AsyncRawUsersClient:
                     UserInfoOut,
                     parse_obj_as(
                         type_=UserInfoOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def me_email_preferences(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[MeEmailPreferencesResponseOut]:
+        """
+        The caller's email preferences for agent-sent mail in their current workspace: the domains and specific addresses they have approved as recipients, plus their custom drafting instruction. Built for computer-asset apps that compose or send email on the user's behalf, so they apply the same recipient policy the chat email tools enforce — a recipient is approved when its full address is in `approved_emails` or its domain is in `approved_domains` (both compared case-insensitively). Read-only: the policy is edited from Settings → Email & Meetings (`manage_url`).
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[MeEmailPreferencesResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v0/me/email-preferences",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    MeEmailPreferencesResponseOut,
+                    parse_obj_as(
+                        type_=MeEmailPreferencesResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

@@ -61,8 +61,10 @@ FrameDescObj_init (FrameDescObject *self, PyObject *args, PyObject *kwds)
   size_t         preamble_len = 0;
   if (preamble_obj && preamble_obj != Py_None)
     {
-      preamble_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          preamble_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+      preamble_arr = jm_array_arg_hint (
+          preamble_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "preamble",
+          "a bit field takes bits (a uint8 array); build them from text with "
+          "field_bits()");
       if (!preamble_arr)
         {
           return -1;
@@ -73,8 +75,10 @@ FrameDescObj_init (FrameDescObject *self, PyObject *args, PyObject *kwds)
   size_t         sync_len = 0;
   if (sync_obj && sync_obj != Py_None)
     {
-      sync_arr = (PyArrayObject *)PyArray_FROM_OTF (sync_obj, NPY_UINT8,
-                                                    NPY_ARRAY_C_CONTIGUOUS);
+      sync_arr = jm_array_arg_hint (sync_obj, NPY_UINT8,
+                                    NPY_ARRAY_C_CONTIGUOUS, "sync",
+                                    "a bit field takes bits (a uint8 array); "
+                                    "build them from text with field_bits()");
       if (!sync_arr)
         {
           Py_XDECREF (preamble_arr);
@@ -86,8 +90,10 @@ FrameDescObj_init (FrameDescObject *self, PyObject *args, PyObject *kwds)
   size_t         payload_len = 0;
   if (payload_obj && payload_obj != Py_None)
     {
-      payload_arr = (PyArrayObject *)PyArray_FROM_OTF (payload_obj, NPY_UINT8,
-                                                       NPY_ARRAY_C_CONTIGUOUS);
+      payload_arr = jm_array_arg_hint (
+          payload_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "payload",
+          "a bit field takes bits (a uint8 array); build them from text with "
+          "field_bits()");
       if (!payload_arr)
         {
           Py_XDECREF (preamble_arr);
@@ -156,8 +162,9 @@ FrameDescObj_bits (FrameDescObject *self, PyObject *args, PyObject *kwds)
                            " ndarray of the output dtype");
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_UINT8,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           return NULL;
@@ -201,7 +208,15 @@ FrameDescObj_bits (FrameDescObject *self, PyObject *args, PyObject *kwds)
   size_t _need = (size_t)n;
   size_t _cap  = dp_frame_bits_max_out (self->handle, (size_t)n);
   (void)_need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "FrameDesc.bits: output of %zu elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_UINT8);
   if (!arr0)
     {
@@ -244,8 +259,10 @@ FrameDescObj_crc_ok (FrameDescObject *self, PyObject *args, PyObject *kwds)
   PyObject    *rx_bits_obj = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", _kwlist, &rx_bits_obj))
     return NULL;
-  PyArrayObject *rx_bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      rx_bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *rx_bits_arr = jm_array_arg_hint (
+      rx_bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "rx_bits",
+      "a bit field takes bits (a uint8 array); build them from text with "
+      "field_bits()");
   if (!rx_bits_arr)
     {
       return NULL;
@@ -271,8 +288,10 @@ FrameDescObj_add_field (FrameDescObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "sO", _kwlist, &name,
                                     &bits_obj))
     return NULL;
-  PyArrayObject *bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *bits_arr
+      = jm_array_arg_hint (bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "bits",
+                           "a bit field takes bits (a uint8 array); build "
+                           "them from text with field_bits()");
   if (!bits_arr)
     {
       return NULL;
@@ -493,8 +512,10 @@ FrameDescObj_deframe (FrameDescObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &rx_bits_obj,
                                     &out_obj))
     return NULL;
-  rx_bits_arr = (PyArrayObject *)PyArray_FROM_OTF (rx_bits_obj, NPY_UINT8,
-                                                   NPY_ARRAY_C_CONTIGUOUS);
+  rx_bits_arr = jm_array_arg_hint (rx_bits_obj, NPY_UINT8,
+                                   NPY_ARRAY_C_CONTIGUOUS, "rx_bits",
+                                   "a bit field takes bits (a uint8 array); "
+                                   "build them from text with field_bits()");
   if (!rx_bits_arr)
     return NULL;
   if (out_obj && out_obj != Py_None)
@@ -512,8 +533,9 @@ FrameDescObj_deframe (FrameDescObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (rx_bits_arr);
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_UINT8,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           Py_DECREF (rx_bits_arr);
@@ -557,7 +579,16 @@ FrameDescObj_deframe (FrameDescObject *self, PyObject *args, PyObject *kwds)
   size_t _cap  = dp_frame_deframe_max_out (self->handle,
                                            (size_t)PyArray_SIZE (rx_bits_arr));
   (void)_need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (rx_bits_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "FrameDesc.deframe: output of %zu elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_UINT8);
   if (!arr0)
     {
@@ -621,8 +652,10 @@ FrameDescObj_check (FrameDescObject *self, PyObject *args, PyObject *kwds)
   PyObject    *rx_bits_obj = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", _kwlist, &rx_bits_obj))
     return NULL;
-  PyArrayObject *rx_bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      rx_bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *rx_bits_arr = jm_array_arg_hint (
+      rx_bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "rx_bits",
+      "a bit field takes bits (a uint8 array); build them from text with "
+      "field_bits()");
   if (!rx_bits_arr)
     {
       return NULL;
@@ -809,6 +842,19 @@ FrameDesc_getprop_nbits (FrameDescObject *self, void *Py_UNUSED (closure))
     }
   return PyLong_FromUnsignedLongLong ((unsigned long long)self->handle->nbits);
 }
+static PyObject *
+FrameDesc_getprop__capsule (FrameDescObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* Borrowed: NULL destructor, so the capsule never
+     frees a pointer FrameDesc still owns. */
+  return PyCapsule_New ((void *)(&self->handle->d), "doppler.wfm.frame_desc",
+                        NULL);
+}
 
 static PyGetSetDef FrameDesc_getset[] = {
   { "rx_ok", (getter)FrameDesc_getprop_rx_ok, NULL,
@@ -829,6 +875,11 @@ static PyGetSetDef FrameDesc_getset[] = {
     "before it is lost -- what an outer code reports and a CRC cannot.\n",
     NULL },
   { "nbits", (getter)FrameDesc_getprop_nbits, NULL, "Nbits.\n", NULL },
+  { "_capsule", (getter)FrameDesc_getprop__capsule, NULL,
+    "The description as a `doppler.wfm.frame_desc` capsule (a borrowed "
+    "`wfm_frame_desc_t *`), the handle a composer source's `frame=` copies "
+    "from. Valid while this object lives.\n",
+    NULL },
   { NULL }
 };
 
@@ -871,10 +922,10 @@ static PyMethodDef FrameDescObj_methods[] = {
     "Materialise n consecutive frames, one bit per byte.\n"
     "\n"
     "n counts FRAMES, not bits: a descriptor describes one frame, and a\n"
-    "capture holds many. Repeating here rather than making the caller tile\n"
-    "it is what matches the generator, whose framed source cycles the same\n"
-    "frame to fill whatever length was asked for — so a stream compared\n"
-    "against this lines up with the one that was transmitted.\n"
+    "capture holds many. It is the truth for a transmitter that sends the\n"
+    "same frame n times -- a data source of n copies of the payload, one\n"
+    "chunk a frame -- so a stream compared against this lines up with the\n"
+    "one that was transmitted.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -929,7 +980,7 @@ static PyMethodDef FrameDescObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8]\n"
+    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, one per byte.\n"
     "\n"
     "Returns\n"
@@ -974,7 +1025,7 @@ static PyMethodDef FrameDescObj_methods[] = {
     "name : str\n"
     "    The field's name, or NULL/\"\" for anonymous; a name another field\n"
     "    carries is refused.\n"
-    "bits : NDArray[np.uint8]\n"
+    "bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    The bits, one per element, each 0 or 1.\n"
     "\n"
     "Returns\n"
@@ -1350,7 +1401,7 @@ static PyMethodDef FrameDescObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8]\n"
+    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, `frame_bits` of them; treated as a capture and never\n"
     "    modified.\n"
     "out : NDArray[np.uint8] | None\n"
@@ -1436,7 +1487,7 @@ static PyMethodDef FrameDescObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8]\n"
+    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, one per byte. Copied, not modified.\n"
     "\n"
     "Returns\n"

@@ -189,18 +189,6 @@ def _verify_is_tileable(
     ):
         raise ValueError("negative tile sizes are not supported")
 
-    # Operands that mix the two are rejected outright rather than tiled, since
-    # each kind is written back a different way. MLIR does not consider such an
-    # op valid either, requiring pure tensor or pure buffer semantics.
-    operand_types = tuple(operand.type for operand in op.operands)
-    if any(isa(operand_type, MemRefType) for operand_type in operand_types) and any(
-        isa(operand_type, TensorType) for operand_type in operand_types
-    ):
-        raise ValueError(
-            "tiling a linalg op with a mix of memref and tensor operands is "
-            "not supported"
-        )
-
     # A reduction dimension is tiled like any other. It is absent from the output
     # indexing maps, being the dimension reduced away, so the output is not sliced
     # along it and each tile reads the value the last one left, accumulating into
@@ -695,13 +683,25 @@ def _offset_tiled_indices(
         )
 
 
+@dataclass(frozen=True)
+class TilingResult:
+    """The tiled op, enclosing loops (outermost first), and replacement results."""
+
+    tiled_op: linalg.abstract_ops.LinalgStructuredOperation
+    loops: tuple[scf.ForOp, ...]
+    replacements: tuple[SSAValue, ...]
+
+
 def tile_structured_op(
     rewriter: PatternRewriter,
     op: linalg.abstract_ops.LinalgStructuredOperation,
     tile_sizes: Sequence[SSAValue | int],
-) -> bool:
+) -> TilingResult:
     """
-    Rewrite supported structured linalg ops into tiled form.
+    Tile `op` with provided tile sizes.
+    If no dimensions are tiled, then `op` is not replaced.
+    If dimensions are tiled, it's replaced with a for loop nest with specified
+    iteration counts.
     """
     try:
         plan = TilingPlan.analyze(op, tile_sizes)
@@ -709,7 +709,7 @@ def tile_structured_op(
         raise PassFailedException(str(e)) from e
 
     if not plan.tiled_dims:
-        return False
+        return TilingResult(op, (), tuple(op.results))
 
     # Outputs with value semantics are threaded through the loops, since each
     # tile produces a new value instead of writing through a view.
@@ -796,8 +796,7 @@ def tile_structured_op(
         rewriter.insert(scf.YieldOp(*yielded), InsertPoint.at_end(loop.body.block))
         yielded = loop.results
 
-    # The outermost loop carries out the fully updated tensors. An op tiling
-    # memrefs carries nothing and has no results, so this replaces it with
-    # nothing, which is the erase that case needs.
-    rewriter.replace(op, [], loops[0].results)
-    return True
+    # The outermost loop carries out the fully updated tensors.
+    # An op tiling memrefs carries nothing and has no results.
+    rewriter.replace(op, (), new_results := loops[0].results)
+    return TilingResult(tiled_op, tuple(loops), new_results)

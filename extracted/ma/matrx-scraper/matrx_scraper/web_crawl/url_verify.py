@@ -72,7 +72,7 @@ from matrx_scraper.db.models_web import (
 )
 from matrx_scraper.robots_txt import ROBOTS_MAX_BYTES, RobotsDocument, parse_robots_txt
 from matrx_scraper.scraper import content_type_from_header
-from matrx_scraper.utils.url import url_match_key, validate_public_http_url
+from matrx_scraper.utils.url import public_http_client, url_match_key, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
@@ -676,7 +676,7 @@ async def run_frontier(
     summary = summary or VerificationSummary()
     started_at = time.monotonic()
     owns_client = http is None
-    client = http or httpx.AsyncClient(
+    client = http or public_http_client(
         timeout=REQUEST_TIMEOUT_SECONDS,
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT},

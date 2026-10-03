@@ -16,6 +16,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "scope_system_result",
+    disposition="record",
     label="Scope System Result",
     family="scope_system",
     example={"context": "# Organization scopes\n- region: …", "organization_id": None},

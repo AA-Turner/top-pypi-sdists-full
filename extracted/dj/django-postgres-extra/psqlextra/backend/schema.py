@@ -61,8 +61,11 @@ class PostgresSchemaEditor(SchemaEditor):
     sql_create_view = "CREATE VIEW %s AS (%s)"
     sql_replace_view = "CREATE OR REPLACE VIEW %s AS (%s)"
     sql_drop_view = "DROP VIEW IF EXISTS %s"
-    sql_create_materialized_view = (
+    sql_create_materialized_view_with_data = (
         "CREATE MATERIALIZED VIEW %s AS (%s) WITH DATA"
+    )
+    sql_create_materialized_view_without_data = (
+        "CREATE MATERIALIZED VIEW %s AS (%s) WITH NO DATA"
     )
     sql_drop_materialized_view = "DROP MATERIALIZED VIEW %s"
     sql_refresh_materialized_view = "REFRESH MATERIALIZED VIEW %s"
@@ -250,10 +253,11 @@ class PostgresSchemaEditor(SchemaEditor):
                     model, tuple(), model._meta.unique_together
                 )
 
-            if model._meta.index_together:
-                self.alter_index_together(
-                    model, tuple(), model._meta.index_together
-                )
+            if django.VERSION < (5, 1):
+                if model._meta.index_together:
+                    self.alter_index_together(
+                        model, tuple(), model._meta.index_together
+                    )
 
             for field in model._meta.local_concrete_fields:  # type: ignore[attr-defined]
                 # Django creates primary keys later added to the model with
@@ -282,8 +286,9 @@ class PostgresSchemaEditor(SchemaEditor):
                 # a AccessExclusiveLock on the referenced table. We want to avoid
                 # that and created the FK as NOT VALID. We can run VALIDATE in
                 # a separate transaction later to validate the entries without
-                # acquiring a AccessExclusiveLock.
-                if field.remote_field:
+                # acquiring a AccessExclusiveLock. A field with `db_constraint=False`
+                # has no foreign key constraint to clone.
+                if field.remote_field and field.db_constraint:
                     with postgres_reset_local_search_path(
                         using=self.connection.alias
                     ):
@@ -547,19 +552,28 @@ class PostgresSchemaEditor(SchemaEditor):
         sql = self.sql_drop_view % self.quote_name(model._meta.db_table)
         self.execute(sql)
 
-    def create_materialized_view_model(self, model: Type[Model]) -> None:
+    def create_materialized_view_model(
+        self, model: Type[Model], *, with_data: bool = True
+    ) -> None:
         """Creates a new materialized view model."""
 
-        self._create_view_model(self.sql_create_materialized_view, model)
+        if with_data:
+            self._create_view_model(
+                self.sql_create_materialized_view_with_data, model
+            )
+        else:
+            self._create_view_model(
+                self.sql_create_materialized_view_without_data, model
+            )
 
     def replace_materialized_view_model(self, model: Type[Model]) -> None:
         """Replaces a materialized view with a newer version.
 
         This is used to alter the backing query of a materialized view.
 
-        Replacing a materialized view is a lot trickier than a normal view.
-        For normal views we can use `CREATE OR REPLACE VIEW`, but for
-        materialized views, we have to create the new view, copy all
+        Replacing a materialized view is a lot trickier than a normal
+        view. For normal views we can use `CREATE OR REPLACE VIEW`, but
+        for materialized views, we have to create the new view, copy all
         indexes and constraints and drop the old one.
 
         This operation is atomic as it runs in a transaction.
@@ -570,7 +584,7 @@ class PostgresSchemaEditor(SchemaEditor):
                 cursor, model._meta.db_table
             )
 
-        with transaction.atomic():
+        with transaction.atomic(using=self.connection.alias):
             self.delete_materialized_view_model(model)
             self.create_materialized_view_model(model)
 
@@ -604,21 +618,54 @@ class PostgresSchemaEditor(SchemaEditor):
             self.quote_name(field_name) for field_name in meta.key
         )
 
+        pk_field = model._meta.pk
+        has_composite_pk = self._is_composite_primary_key(pk_field)
+
         # create a composite key that includes the partitioning key
-        sql = sql.replace(" PRIMARY KEY", "")
-        if model._meta.pk and model._meta.pk.name not in meta.key:
-            sql = sql[:-1] + ", PRIMARY KEY (%s, %s))" % (
-                self.quote_name(model._meta.pk.name),
-                partitioning_key_sql,
+        # if the user didn't already define one
+        if not has_composite_pk:
+            inline_pk_sql = self._create_primary_key_inline_sql(model, pk_field)
+            inline_tablespace_sql = (
+                self._create_primary_key_inline_tablespace_sql(model, pk_field)
             )
-        else:
-            sql = sql[:-1] + ", PRIMARY KEY (%s))" % (partitioning_key_sql,)
+
+            sql = sql.replace(inline_pk_sql, "")
+
+            if (
+                not self._is_virtual_primary_key(pk_field)
+                and pk_field
+                and pk_field.name not in meta.key
+            ):
+                last_brace_idx = sql.rfind(")")
+                sql = (
+                    sql[:last_brace_idx]
+                    + f", PRIMARY KEY (%s, %s){inline_tablespace_sql}"
+                    % (
+                        self.quote_name(pk_field.name),
+                        partitioning_key_sql,
+                    )
+                    + sql[last_brace_idx:]
+                )
+            else:
+                last_brace_idx = sql.rfind(")")
+                sql = (
+                    sql[:last_brace_idx]
+                    + f", PRIMARY KEY (%s){inline_tablespace_sql}"
+                    % (partitioning_key_sql,)
+                    + sql[last_brace_idx:]
+                )
 
         # extend the standard CREATE TABLE statement with
         # 'PARTITION BY ...'
-        sql += self.sql_partition_by % (
-            meta.method.upper(),
-            partitioning_key_sql,
+        last_brace_idx = sql.rfind(")") + 1
+        sql = (
+            sql[:last_brace_idx]
+            + self.sql_partition_by
+            % (
+                meta.method.upper(),
+                partitioning_key_sql,
+            )
+            + sql[last_brace_idx:]
         )
 
         self.execute(sql, params)
@@ -673,7 +720,7 @@ class PostgresSchemaEditor(SchemaEditor):
             "%s",
         )
 
-        with transaction.atomic():
+        with transaction.atomic(using=self.connection.alias):
             self.execute(sql, (from_values, to_values))
 
             if comment:
@@ -716,7 +763,7 @@ class PostgresSchemaEditor(SchemaEditor):
             ",".join(["%s" for _ in range(len(values))]),
         )
 
-        with transaction.atomic():
+        with transaction.atomic(using=self.connection.alias):
             self.execute(sql, values)
 
             if comment:
@@ -762,7 +809,7 @@ class PostgresSchemaEditor(SchemaEditor):
             "%s",
         )
 
-        with transaction.atomic():
+        with transaction.atomic(using=self.connection.alias):
             self.execute(sql, (modulus, remainder))
 
             if comment:
@@ -799,7 +846,7 @@ class PostgresSchemaEditor(SchemaEditor):
             self.quote_name(model._meta.db_table),
         )
 
-        with transaction.atomic():
+        with transaction.atomic(using=self.connection.alias):
             self.execute(sql)
 
             if comment:
@@ -1045,7 +1092,7 @@ class PostgresSchemaEditor(SchemaEditor):
                 % (model.__name__, meta.method)
             )
 
-        if not isinstance(meta.key, list):
+        if not isinstance(meta.key, (list, tuple)):
             raise ImproperlyConfigured(
                 (
                     "Model '%s' is not properly configured to be partitioned."
@@ -1072,6 +1119,72 @@ class PostgresSchemaEditor(SchemaEditor):
 
     def create_partition_table_name(self, model: Type[Model], name: str) -> str:
         return "%s_%s" % (model._meta.db_table.lower(), name.lower())
+
+    def _create_primary_key_inline_sql(
+        self, model: Type[Model], pk_field: Optional[Field]
+    ) -> str:
+        pk_field = model._meta.pk
+        if not pk_field:
+            return ""
+
+        tablespace_sql = self._create_primary_key_inline_tablespace_sql(
+            model, pk_field
+        )
+
+        if self._is_virtual_primary_key(pk_field):
+            return ""
+
+        pk_sql = " PRIMARY KEY" if pk_field else ""
+        if tablespace_sql:
+            pk_sql += tablespace_sql
+
+        return pk_sql
+
+    def _create_primary_key_inline_tablespace_sql(
+        self, model: Type[Model], pk_field: Optional[Field]
+    ) -> str:
+        tablespace = (pk_field.db_tablespace if pk_field else None) or model._meta.db_tablespace  # type: ignore [attr-defined]
+        return (
+            " " + self.connection.ops.tablespace_sql(tablespace, inline=True)
+            if tablespace
+            else ""
+        )
+
+    def _is_composite_primary_key(self, field: Optional[Field]) -> bool:
+        """Checks whether the specified field is a composite primary key.
+
+        This needs to be wrapped because composite primary keys are only
+        natively supported in Django 5.2 and newer.
+        """
+
+        if not field:
+            return False
+
+        try:
+            from django.db.models.fields.composite import CompositePrimaryKey
+
+            return isinstance(field, CompositePrimaryKey)
+        except ImportError:
+            return False
+
+    def _is_virtual_primary_key(self, field: Optional[Field]) -> bool:
+        """Gets whether the declared primary key is a virtual field that
+        doesn't construct any real column in the DB.
+
+        It is pseudo-standard to have virtual fields by creating
+        a field with no DB type. CompositePrimaryKey in Django
+        5.2 and newer use this. Some third-party packages use
+        the same technique.
+
+        ManyToManyFields were the first to actually use this.
+        """
+
+        if not field:
+            return True
+
+        pk_db_params = field.db_parameters(connection=self.connection)
+        pk_db_type = pk_db_params["type"] if pk_db_params else None
+        return not bool(pk_db_type)
 
     def _clone_model_field(self, field: Field, **overrides) -> Field:
         """Clones the specified model field and overrides its kwargs with the

@@ -7,6 +7,11 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class MachineLog(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MACHINE_LOG_UNSPECIFIED: _ClassVar[MachineLog]
+    MACHINE_LOG_TENSORFS_TRANSPORT: _ClassVar[MachineLog]
+
 class RunProductOp(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     RUN_PRODUCT_OP_UNSPECIFIED: _ClassVar[RunProductOp]
@@ -313,6 +318,8 @@ class WeightsFinalizeOutcome(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WEIGHTS_FINALIZE_OUTCOME_UNSPECIFIED: _ClassVar[WeightsFinalizeOutcome]
     WEIGHTS_FINALIZE_OUTCOME_ADOPTED: _ClassVar[WeightsFinalizeOutcome]
     WEIGHTS_FINALIZE_OUTCOME_ABANDONED: _ClassVar[WeightsFinalizeOutcome]
+MACHINE_LOG_UNSPECIFIED: MachineLog
+MACHINE_LOG_TENSORFS_TRANSPORT: MachineLog
 RUN_PRODUCT_OP_UNSPECIFIED: RunProductOp
 RUN_PRODUCT_OP_SET: RunProductOp
 RUN_PRODUCT_OP_APPEND: RunProductOp
@@ -515,6 +522,22 @@ WEIGHTS_FINALIZE_DISPOSITION_ABANDON_UNCOMMITTED: WeightsFinalizeDisposition
 WEIGHTS_FINALIZE_OUTCOME_UNSPECIFIED: WeightsFinalizeOutcome
 WEIGHTS_FINALIZE_OUTCOME_ADOPTED: WeightsFinalizeOutcome
 WEIGHTS_FINALIZE_OUTCOME_ABANDONED: WeightsFinalizeOutcome
+
+class MachineLogQuery(_message.Message):
+    __slots__ = ("claim", "log", "tail_bytes")
+    CLAIM_FIELD_NUMBER: _ClassVar[int]
+    LOG_FIELD_NUMBER: _ClassVar[int]
+    TAIL_BYTES_FIELD_NUMBER: _ClassVar[int]
+    claim: Claim
+    log: MachineLog
+    tail_bytes: int
+    def __init__(self, claim: _Optional[_Union[Claim, _Mapping]] = ..., log: _Optional[_Union[MachineLog, str]] = ..., tail_bytes: _Optional[int] = ...) -> None: ...
+
+class MachineLogChunk(_message.Message):
+    __slots__ = ("data",)
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
 class ProtocolInfoRequest(_message.Message):
     __slots__ = ()
@@ -1221,7 +1244,7 @@ class MachineHub(_message.Message):
     def __init__(self, origin: _Optional[str] = ..., machine_id: _Optional[str] = ...) -> None: ...
 
 class MachineRuntime(_message.Message):
-    __slots__ = ("version", "wire_minor", "minimum_wire_minor", "tensorfs_version", "python_version", "torch_version", "uv_version", "accelerator_backend", "executor_uid_isolation", "devices", "resources", "execution_workspace_id", "started_at_unix_ms", "store", "interpreters")
+    __slots__ = ("version", "wire_minor", "minimum_wire_minor", "tensorfs_version", "python_version", "torch_version", "uv_version", "accelerator_backend", "executor_uid_isolation", "devices", "resources", "execution_workspace_id", "started_at_unix_ms", "store", "interpreters", "preparation_progress")
     VERSION_FIELD_NUMBER: _ClassVar[int]
     WIRE_MINOR_FIELD_NUMBER: _ClassVar[int]
     MINIMUM_WIRE_MINOR_FIELD_NUMBER: _ClassVar[int]
@@ -1237,6 +1260,7 @@ class MachineRuntime(_message.Message):
     STARTED_AT_UNIX_MS_FIELD_NUMBER: _ClassVar[int]
     STORE_FIELD_NUMBER: _ClassVar[int]
     INTERPRETERS_FIELD_NUMBER: _ClassVar[int]
+    PREPARATION_PROGRESS_FIELD_NUMBER: _ClassVar[int]
     version: str
     wire_minor: int
     minimum_wire_minor: int
@@ -1252,7 +1276,8 @@ class MachineRuntime(_message.Message):
     started_at_unix_ms: int
     store: MachineFilesystem
     interpreters: _containers.RepeatedCompositeFieldContainer[PythonInterpreter]
-    def __init__(self, version: _Optional[str] = ..., wire_minor: _Optional[int] = ..., minimum_wire_minor: _Optional[int] = ..., tensorfs_version: _Optional[str] = ..., python_version: _Optional[str] = ..., torch_version: _Optional[str] = ..., uv_version: _Optional[str] = ..., accelerator_backend: _Optional[str] = ..., executor_uid_isolation: bool = ..., devices: _Optional[_Iterable[_Union[MachineDevice, _Mapping]]] = ..., resources: _Optional[_Union[WorkerResources, _Mapping]] = ..., execution_workspace_id: _Optional[str] = ..., started_at_unix_ms: _Optional[int] = ..., store: _Optional[_Union[MachineFilesystem, _Mapping]] = ..., interpreters: _Optional[_Iterable[_Union[PythonInterpreter, _Mapping]]] = ...) -> None: ...
+    preparation_progress: _containers.RepeatedCompositeFieldContainer[PrepareModelProgress]
+    def __init__(self, version: _Optional[str] = ..., wire_minor: _Optional[int] = ..., minimum_wire_minor: _Optional[int] = ..., tensorfs_version: _Optional[str] = ..., python_version: _Optional[str] = ..., torch_version: _Optional[str] = ..., uv_version: _Optional[str] = ..., accelerator_backend: _Optional[str] = ..., executor_uid_isolation: bool = ..., devices: _Optional[_Iterable[_Union[MachineDevice, _Mapping]]] = ..., resources: _Optional[_Union[WorkerResources, _Mapping]] = ..., execution_workspace_id: _Optional[str] = ..., started_at_unix_ms: _Optional[int] = ..., store: _Optional[_Union[MachineFilesystem, _Mapping]] = ..., interpreters: _Optional[_Iterable[_Union[PythonInterpreter, _Mapping]]] = ..., preparation_progress: _Optional[_Iterable[_Union[PrepareModelProgress, _Mapping]]] = ...) -> None: ...
 
 class ProtocolInfoResult(_message.Message):
     __slots__ = ("wire_minor", "minimum_wire_minor")

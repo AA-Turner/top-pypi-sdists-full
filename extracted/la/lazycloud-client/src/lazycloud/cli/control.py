@@ -1,22 +1,16 @@
 from __future__ import annotations
 
-from lazycloud.clients.compute.control import ComputeClient
-from lazycloud.clients.disk.control import DiskControlClient
-from lazycloud.clients.domain.control import DomainControlClient
-from lazycloud.clients.gateway.control import GatewayControlClient
-from lazycloud.clients.observability.control import ObservabilityControlClient
-from lazycloud.clients.resource.control import ResourceControlClient
-from lazycloud.clients.secret.control import SecretControlClient
-from lazycloud.clients.ssh.control import SshControlClient
-from lazycloud.clients.volume.control import VolumeControlClient
-from lazycloud.clients.workspace.control import WorkspaceControlClient
-from lazycloud.control import ControlClientConfig, resolve_control_client_config
-from lazycloud.control_clients import (
-    gateway_control_client,
-    observability_control_client,
-    resource_control_client,
+from lazycloud.clients.api import ApiClient
+from lazycloud.clients.storage import StorageClient
+from lazycloud.clients.workloads import WorkloadsClient
+from lazycloud.control import (
+    ControlClientConfig,
+    api_client,
+    require_workspace,
+    resolve_control_client_config,
+    storage_client,
+    workloads_client,
 )
-from lazycloud.session.task import TaskClient
 
 
 def control_config(
@@ -27,152 +21,32 @@ def control_config(
     return resolve_control_client_config(workspace=workspace, timeout_seconds=timeout_seconds)
 
 
-def ssh_client(*, workspace: str | None = None) -> SshControlClient:
-    config = control_config(workspace=workspace)
-    return SshControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def gateway_client(
+def api_session(
     *,
     workspace: str | None = None,
     timeout_seconds: float = 10.0,
-) -> GatewayControlClient:
-    return gateway_control_client(
-        control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    )
-
-
-def resource_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> ResourceControlClient:
-    return resource_control_client(
-        control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    )
-
-
-def compute_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> ComputeClient:
+) -> tuple[ApiClient, str]:
+    """The public API client and the workspace a command acts in."""
     config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return ComputeClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
+    return api_client(config), require_workspace(config)
 
 
-def observability_client(
+def workloads(*, workspace: str | None = None, timeout_seconds: float = 10.0) -> WorkloadsClient:
+    """The workload operations of the workspace a command acts in."""
+    return workloads_client(control_config(workspace=workspace, timeout_seconds=timeout_seconds))
+
+
+def workspace_storage(
     *,
     workspace: str | None = None,
     timeout_seconds: float = 10.0,
-) -> ObservabilityControlClient:
-    return observability_control_client(
-        control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    )
-
-
-def domain_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> DomainControlClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return DomainControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def secret_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> SecretControlClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return SecretControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def disk_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> DiskControlClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return DiskControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def volume_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> VolumeControlClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return VolumeControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def workspace_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> WorkspaceControlClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return WorkspaceControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-        workspace=config.workspace,
-    )
-
-
-def task_client(
-    *,
-    workspace: str | None = None,
-    timeout_seconds: float = 10.0,
-) -> TaskClient:
-    config = control_config(workspace=workspace, timeout_seconds=timeout_seconds)
-    return TaskClient(
-        workspace=config.workspace,
-        endpoint=config.endpoint,
-        token=config.token,
-        timeout_seconds=config.timeout_seconds,
-    )
+) -> StorageClient:
+    return storage_client(control_config(workspace=workspace, timeout_seconds=timeout_seconds))
 
 
 __all__ = [
-    "compute_client",
+    "api_session",
     "control_config",
-    "gateway_client",
-    "observability_client",
-    "secret_client",
-    "ssh_client",
-    "task_client",
-    "volume_client",
-    "workspace_client",
+    "workloads",
+    "workspace_storage",
 ]

@@ -785,3 +785,191 @@ def test_a_failed_fetch_still_releases_the_lock(monkeypatch, isolate):
     version_refresh._apply_if_newer()
     assert autoupdate.acquire_lock(), "the lock must be free after a failed fetch"
     autoupdate.release_lock()
+
+
+# ---------------------------------------------------------------------------
+# pi's session start (2026-10-02). pi has no SessionStart hook, and every
+# `probe` call its extension makes is off a terminal, so the TTY gate refused
+# them all and pi never auto-updated.
+# ---------------------------------------------------------------------------
+
+
+def test_pis_session_start_applies_an_update_off_a_terminal(spawns, no_network, monkeypatch):
+    _enable()
+    _cache("99.9.9", age=10)
+    _as_tty(monkeypatch, False)
+    monkeypatch.setenv("PROBE_AGENT", "pi")
+    monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "initialize", "--session", "s1"])
+    from probe.cli import run_lock
+
+    monkeypatch.setattr(run_lock, "any_live", lambda: False)
+    monkeypatch.setattr(cli_main, "_spawn_harness_update", lambda: spawns.append(["harness"]))
+
+    cli_main._version_notice()
+
+    assert spawns[-1] == ["harness"], "it waits for pi, not just for this command"
+    assert ["apply"] not in spawns
+
+
+def test_the_harness_update_waits_for_pi_before_taking_the_lock(monkeypatch):
+    """pi runs `probe session initialize` itself, so our parent IS pi: the child
+    waits for it, and takes the update lock only after."""
+    from probe.cli import version_refresh
+
+    spawned = {}
+    monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env))
+    cli_main._spawn_harness_update()
+    assert spawned["argv"][-1] == "--apply-if-newer"
+    assert spawned["env"][autoupdate.WAIT_FOR_HARNESS_PID_ENV] == str(cli_main.os.getppid())
+
+    order = []
+    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
+    monkeypatch.setenv(autoupdate.WAIT_FOR_PID_ENV, "4243")
+    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: order.append(("wait", pid)) or True)
+    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: order.append(("lock",)) or False)
+    restarted = {}
+
+    def execve(path, argv, env):
+        order.append(("restart",))
+        restarted.update(argv=argv, env=env)
+        raise _Restarted
+
+    monkeypatch.setattr(version_refresh.os, "execve", execve)
+    with pytest.raises(_Restarted):
+        version_refresh._apply_if_newer()
+    assert order == [("wait", 4242), ("restart",)], "no lock before the restart"
+    assert restarted["argv"][-2:] == ["--apply-if-newer", "--no-daemon"]
+    assert autoupdate.WAIT_FOR_HARNESS_PID_ENV not in restarted["env"]
+    assert autoupdate.WAIT_FOR_PID_ENV not in restarted["env"], "hours later that pid may be anyone's"
+
+    # The restarted process: no pid to wait for, so straight to the lock.
+    monkeypatch.delenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV)
+    version_refresh._apply_if_newer()
+    assert order[-1] == ("lock",)
+
+
+class _Restarted(Exception):
+    """Stands in for `os.execve` replacing the process."""
+
+
+def test_a_pi_that_outlives_the_wait_updates_nothing(monkeypatch):
+    from probe.cli import version_refresh
+
+    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
+    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: False)
+    monkeypatch.setattr(version_refresh.os, "execve", lambda *a: pytest.fail("no restart on a timeout"))
+    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: pytest.fail("no update on a timeout"))
+
+    version_refresh._apply_if_newer()
+
+
+def test_a_restart_that_fails_updates_nothing(monkeypatch):
+    """The interpreter went with the old install: carrying on would run the
+    very stale process the restart exists to replace."""
+    from probe.cli import version_refresh
+
+    def gone(*_args):
+        raise FileNotFoundError("python")
+
+    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
+    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: True)
+    monkeypatch.setattr(version_refresh.os, "execve", gone)
+    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: pytest.fail("no update without the restart"))
+
+    version_refresh._apply_if_newer()
+
+
+def test_an_orphaned_session_start_waits_for_no_one(monkeypatch):
+    """Parent already gone (reparented to init): waiting on init would hold
+    the update for the whole timeout."""
+    monkeypatch.setattr(cli_main.os, "getppid", lambda: 1)
+    monkeypatch.setattr(cli_main, "_spawn_detached", lambda *a: pytest.fail("nothing to wait for"))
+    cli_main._spawn_harness_update()
+
+
+def _pi_session_start(monkeypatch, spawns):
+    _enable()
+    _as_tty(monkeypatch, False)
+    monkeypatch.setenv("PROBE_AGENT", "pi")
+    monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "initialize", "--session", "s1"])
+    monkeypatch.setattr(cli_main, "_spawn_harness_update", lambda: spawns.append(["harness"]))
+
+
+@pytest.mark.parametrize("cache", ["current", "cold"])
+def test_pis_session_start_retries_an_owed_pi_update_with_the_cli_current(spawns, no_network, monkeypatch, cache):
+    """The update that skipped pi's package because pi was running owes it:
+    with the CLI current nothing else would ever retry it before the next
+    release."""
+    _pi_session_start(monkeypatch, spawns)
+    if cache == "current":
+        _cache("0.0.1", age=10)
+
+    cli_main._version_notice()
+    assert ["harness"] not in spawns, "nothing owed, nothing spawned"
+
+    autoupdate.mark_pi_update_pending(True)
+    cli_main._version_notice()
+    assert spawns[-1] == ["harness"]
+
+
+def test_only_pis_session_start_retries_an_owed_pi_update(spawns, no_network, monkeypatch):
+    _pi_session_start(monkeypatch, spawns)
+    _cache("0.0.1", age=10)
+    autoupdate.mark_pi_update_pending(True)
+    monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "status"])
+
+    cli_main._version_notice()
+
+    assert ["harness"] not in spawns
+
+
+def test_apply_if_newer_runs_only_the_owed_pi_step_when_the_cli_is_current(applied, monkeypatch, isolate):
+    from probe.cli import upgrading, version_refresh
+
+    owed = []
+    monkeypatch.setattr(upgrading, "update_owed_pi_package", lambda: owed.append(1))
+    _stub_manifest(monkeypatch, "0.0.1")
+
+    version_refresh._apply_if_newer()
+    assert owed == [], "nothing owed"
+
+    autoupdate.mark_pi_update_pending(True)
+    version_refresh._apply_if_newer()
+    assert owed == [1] and applied == [], "the pi step alone, never the CLI and plugins"
+
+
+@pytest.mark.parametrize(
+    ("agent", "argv"),
+    [
+        ("pi", ["probe", "session", "status"]),  # only the session start
+        ("claude_code", ["probe", "session", "initialize"]),  # Claude Code has its hook
+        (None, ["probe", "session", "initialize"]),
+    ],
+)
+def test_other_calls_off_a_terminal_still_skip(spawns, no_network, monkeypatch, agent, argv):
+    _enable()
+    _cache("99.9.9", age=10)
+    _as_tty(monkeypatch, False)
+    if agent:
+        monkeypatch.setenv("PROBE_AGENT", agent)
+    else:
+        monkeypatch.delenv("PROBE_AGENT", raising=False)
+    monkeypatch.setattr(cli_main.sys, "argv", argv)
+
+    cli_main._version_notice()
+
+    assert ["apply"] not in spawns
+
+
+def test_windows_never_applies_from_pis_session_start(spawns, no_network, monkeypatch):
+    """No fork: the update would run inline and outlast the extension's 5 s budget."""
+    _enable()
+    _cache("99.9.9", age=10)
+    _as_tty(monkeypatch, False)
+    monkeypatch.setenv("PROBE_AGENT", "pi")
+    monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "initialize"])
+    monkeypatch.delattr(cli_main.os, "fork", raising=False)
+
+    cli_main._version_notice()
+
+    assert ["apply"] not in spawns

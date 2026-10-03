@@ -568,6 +568,33 @@ def _atms_get_totp_seed(variable_name: str) -> str:
     return resp.json()["data"]
 
 
+def _coerce_schema(content: Any) -> Any:
+    if isinstance(content, str):
+        return json.loads(content)
+    return content
+
+
+def _atms_get_schema(schema_id: str) -> Any:
+    try:
+        import requests
+        atms_url = os.getenv("ATMS_URL", "")
+        from urllib.parse import quote
+        url = f"{atms_url}/api/v1/schema/{quote(str(schema_id), safe='')}?form=canonical"
+        resp = requests.get(url=url, headers=_atms_auth_headers())
+        if resp.status_code == 200:
+            return _coerce_schema(resp.json()["data"]["canonical_content"])
+        _log.warning(
+            "schema %s live fetch failed (%s): %s",
+            schema_id, resp.status_code, resp.text[:200],
+        )
+    except Exception as exc:
+        _log.warning("schema %s live fetch error: %s", schema_id, exc)
+
+    raise RuntimeError(
+        f"Schema '{schema_id}' could not be fetched from ATMS at runtime"
+    )
+
+
 # ---------------------------------------------------------------------------
 # is_persist write-back helper
 # ---------------------------------------------------------------------------

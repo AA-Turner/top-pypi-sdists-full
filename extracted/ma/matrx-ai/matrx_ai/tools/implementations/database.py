@@ -48,8 +48,8 @@ BLOCKED_RELATIONS = {
 READ_ONLY_TABLES = {"agent.definition"}
 
 # Schemas that are NOT application data. Excluded from `schema` discovery and
-# blocked for writes. `graveyard` holds retired tables (reachable only by an
-# explicit `graveyard.x` reference, never listed). Everything NOT in here is a
+# blocked for writes. `deprecated` holds retired tables (reachable only by an
+# explicit `deprecated.x` reference, never listed). Everything NOT in here is a
 # real app schema the agent may read AND write (PostgREST exposes them all).
 _NON_APP_SCHEMAS: frozenset[str] = frozenset(
     {
@@ -71,7 +71,7 @@ _NON_APP_SCHEMAS: frozenset[str] = frozenset(
         "pgbouncer",
         "_analytics",
         "_realtime",
-        "graveyard",
+        "deprecated",
     }
 )
 
@@ -889,6 +889,20 @@ def _attach_rows_receipt(
 async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = DbUpdateArgs(**args)
+    if not parsed.match:
+        # Same refusal as delete: an empty match is an UPDATE with no WHERE — every row.
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="validation",
+                message="match must be a non-empty object of column=value filters for "
+                "update (refusing unbounded UPDATE).",
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="db_update",
+            call_id=ctx.call_id,
+        )
 
     schema, name, err_type, err_msg = await _resolve_write_target(parsed.table)
     if err_type:

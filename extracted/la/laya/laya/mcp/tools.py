@@ -918,7 +918,11 @@ def _validate_batch_item(request: Any, i: int) -> dict:
         if key in request:
             item[key] = _validate_batch_str(request[key], "%s[%r]" % (where, key))
     if "lang_guess" in request:
-        item["lang_guess"] = request["lang_guess"]
+        # Type-check it the way the single-request path does (`validate_lang_guess`), instead of
+        # passing it through raw: a non-string (e.g. a JSON object) otherwise reached
+        # `_english_from_code(dict)`, stringified to something that matches no English subtag, and
+        # silently routed that item to the multilingual checkpoint instead of raising cleanly.
+        item["lang_guess"] = validate_lang_guess(request["lang_guess"])
     # `Router.predict_batch` reads both off the request dict and splits requests that ask for
     # different budgets into separate forward passes, so an item that names one must keep it.
     for key in ("max_len", "head_max_len"):
@@ -1011,6 +1015,12 @@ def laya_predict_batch(
     """
     items = validate_batch_requests(requests)
     size = _validate_batch_size(batch_size)
+    # Validate the call-level controls up front, the way every sibling tool does, so a bad value is
+    # a clean ToolError the client can read -- not an `internal_error: ValueError` that escapes the
+    # TypeError-only handler below (min_confidence), and not a silent 1-second hook deadline from
+    # core's `float(True) == 1.0` (hooks_timeout).
+    mc = validate_min_confidence(min_confidence)
+    ht = _validate_hooks_timeout(hooks_timeout)
     if router is None:
         raise ToolError("models_not_ready", "Router is not loaded")
     if not hasattr(router, "predict_batch"):
@@ -1021,10 +1031,10 @@ def laya_predict_batch(
         kwargs = {}
         if size is not None:
             kwargs["batch_size"] = size
-        if hooks_timeout is not None:
-            kwargs["hooks_timeout"] = hooks_timeout
-        if min_confidence is not None:
-            kwargs["min_confidence"] = min_confidence
+        if ht is not None:
+            kwargs["hooks_timeout"] = ht
+        if mc is not None:
+            kwargs["min_confidence"] = mc
         if sort_by_length:
             kwargs["sort_by_length"] = True
         results = router.predict_batch(items, **kwargs)

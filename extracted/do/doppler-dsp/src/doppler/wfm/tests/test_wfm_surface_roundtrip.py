@@ -59,7 +59,10 @@ ROWS = [
     for r in GEN.surface_rows(
         GEN.tomllib.loads(GEN.MANIFEST.read_text(encoding="utf-8"))
     )
-    if r["cli"] and r["json"]
+    # A bespoke row (the frame) is read by each face's own code, and its
+    # value is a whole object rather than one flag's text: pinned by
+    # test_frame_source.py, not driven here.
+    if r["cli"] and r["json"] and r["kind"] != "WFM_SV_BESPOKE"
 ]
 
 #: A non-default value per row where the kind's generic one will not do.
@@ -74,30 +77,52 @@ VALUE = {
     "pn_poly": "24577",
     # Field rows take their CANONICAL text (dp_wfm_field_format), so the
     # record carries back exactly what was given.
-    "bits": "0x1acf",
     "acq_code": "pn:31:5*2",
     "sync": "pn:63:6",
     "data_code": "pn:7:3:0x1",
+    # #1619: a data source, and the fill its 12 bits need in 8-bit frames.
+    "data": "0x1acf",
+    "fill": "01",
 }
 
 #: Flags a row needs beside its own for the run to be buildable at all.
 EXTRA = {
-    "modulation": ["--bits", "1011"],
+    "modulation": ["--type", "bits", "--data", "1011"],
     "symbol_rate": ["--data-code", "1011"],
     # A payload is written for a source that carries one; a preamble or a
     # sync word only for a FRAMED one, which needs a payload; a spreading
     # code only for dsss.
-    "bits": ["--type", "bits"],
-    "acq_code": ["--type", "bits", "--bits", "0x1acf"],
-    "sync": ["--type", "bits", "--bits", "0x1acf"],
-    "data_code": ["--type", "dsss", "--bits", "0x1acf"],
+    "acq_code": ["--type", "bits", "--data", "0x1acf"],
+    "sync": ["--type", "bits", "--data", "0x1acf"],
+    "data_code": ["--type", "dsss", "--data", "0x1acf"],
+    # A data source fills a framed type's frames; code-only is continuous
+    # dsss's switch.
+    "data": ["--type", "bpsk", "--data-len", "8"],
+    "fill": ["--type", "bpsk", "--data", "0xabc", "--data-len", "8"],
+    "dsss_code_only": [
+        "--type",
+        "dsss",
+        "--symbol-rate",
+        "100",
+        "--data-code",
+        "1011",
+        "--fs",
+        "48000",
+    ],
 }
+
+#: Rows whose run takes its length from a FINITE data source, so a --count
+#: beside them is refused (payload-data-source.md 4.6) and the record
+#: carries none.
+NO_COUNT = {"data", "fill", "modulation", "acq_code", "sync", "data_code"}
 
 #: Rows this test cannot drive, each with the reason.
 SKIP: dict[str, str] = {}
 
 
 def _value(r: dict[str, Any]) -> str:
+    if r["json_bool"]:
+        return "1"  # a switch: given, it is true
     if r["name"] in VALUE:
         return str(VALUE[r["name"]])
     if r["values"]:
@@ -110,7 +135,7 @@ def _value(r: dict[str, Any]) -> str:
 def _flags(r: dict[str, Any], value: str) -> list[str]:
     """The row's flag, plus whatever makes it written: a `json_when`
     condition (`f_end` only exists on a chirp) and any EXTRA."""
-    argv = [r["cli"], value]
+    argv = [r["cli"]] if r["json_bool"] else [r["cli"], value]
     w = r["json_when"]
     if w:
         ((field, choice),) = w.items()
@@ -121,7 +146,7 @@ def _flags(r: dict[str, Any], value: str) -> list[str]:
     return argv + EXTRA.get(r["name"], [])
 
 
-def _record(tmp: Path, argv: list[str]) -> dict[str, Any]:
+def _record(tmp: Path, argv: list[str], count: bool = True) -> dict[str, Any]:
     rec = tmp / "record.json"
     rec.unlink(missing_ok=True)
     subprocess.run(
@@ -131,8 +156,7 @@ def _record(tmp: Path, argv: list[str]) -> dict[str, Any]:
         # and a broken build that misreads --count once wrote 8 GB here.
         [
             cli._runnable(),
-            "--count",
-            "256",
+            *(["--count", "256"] if count else []),
             *argv,
             "--record",
             str(rec),
@@ -145,10 +169,12 @@ def _record(tmp: Path, argv: list[str]) -> dict[str, Any]:
     return json.loads(rec.read_text(encoding="utf-8"))
 
 
-def _replay(tmp: Path, record: dict[str, Any]) -> dict[str, Any]:
+def _replay(
+    tmp: Path, record: dict[str, Any], count: bool = True
+) -> dict[str, Any]:
     scene = tmp / "scene.json"
     scene.write_text(json.dumps(record), encoding="utf-8")
-    return _record(tmp, ["--from-file", str(scene)])
+    return _record(tmp, ["--from-file", str(scene)], count)
 
 
 def _rebuild(record: dict[str, Any]) -> list[str]:
@@ -158,6 +184,9 @@ def _rebuild(record: dict[str, Any]) -> list[str]:
     for r in ROWS:
         v = seg.get(r["json"])
         if v is None:
+            continue
+        if isinstance(v, bool):
+            argv += [r["cli"]] if v else []  # a switch: true is the flag
             continue
         if isinstance(v, list):
             v = f"{v[0]}:{v[1]}"
@@ -174,7 +203,8 @@ def test_row_reaches_the_record_and_back(row: dict, tmp_path: Path) -> None:
     if row["name"] in SKIP:
         pytest.skip(SKIP[row["name"]])
     value = _value(row)
-    first = _record(tmp_path, _flags(row, value))
+    count = row["name"] not in NO_COUNT
+    first = _record(tmp_path, _flags(row, value), count)
 
     got = _key(first, row)
     assert got is not None, f"{row['cli']} {value} wrote no `{row['json']}`"
@@ -185,9 +215,11 @@ def test_row_reaches_the_record_and_back(row: dict, tmp_path: Path) -> None:
 
     # The non-table flags (EXTRA) are re-given as they were; every table
     # flag comes back from the record alone.
-    again = _record(tmp_path, _rebuild(first) + EXTRA.get(row["name"], []))
+    again = _record(
+        tmp_path, _rebuild(first) + EXTRA.get(row["name"], []), count
+    )
     assert again == first
-    assert _replay(tmp_path, first) == first
+    assert _replay(tmp_path, first, count) == first
 
 
 @pytest.mark.parametrize(

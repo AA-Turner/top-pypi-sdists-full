@@ -1567,15 +1567,13 @@ static const char* const __pyx_f[] = {
   "av/buffer.pxd",
   "av/codec/hwaccel.pxd",
   "av/codec/codec.pxd",
-  "av/dictionary.pxd",
-  "av/sidedata/sidedata.pxd",
   "av/frame.pxd",
   "av/codec/context.pxd",
   "av/container/pyio.pxd",
   "av/container/streams.pxd",
+  "av/dictionary.pxd",
   "av/format.pxd",
   "av/container/core.pxd",
-  "av/index.pxd",
   "av/stream.pxd",
   "av/opaque.pxd",
   "av/rational.pxd",
@@ -1774,17 +1772,13 @@ struct __pyx_obj_2av_5codec_7hwaccel_HWConfig;
 struct __pyx_obj_2av_5codec_7hwaccel_HWDevice;
 struct __pyx_obj_2av_5codec_7hwaccel_HWAccel;
 struct __pyx_obj_2av_5codec_5codec_Codec;
-struct __pyx_obj_2av_10dictionary_Dictionary;
-struct __pyx_obj_2av_8sidedata_8sidedata_SideData;
-struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer;
 struct __pyx_obj_2av_5frame_Frame;
 struct __pyx_obj_2av_5codec_7context_CodecContext;
 struct __pyx_obj_2av_9container_4pyio_PyIOFile;
 struct __pyx_obj_2av_9container_7streams_StreamContainer;
+struct __pyx_obj_2av_10dictionary_Dictionary;
 struct __pyx_obj_2av_6format_ContainerFormat;
 struct __pyx_obj_2av_9container_4core_Container;
-struct __pyx_obj_2av_5index_IndexEntry;
-struct __pyx_obj_2av_5index_IndexEntries;
 struct __pyx_obj_2av_6stream_Stream;
 struct __pyx_obj_2av_6stream_DataStream;
 struct __pyx_obj_2av_6stream_AttachmentStream;
@@ -1821,9 +1815,9 @@ struct __pyx_opt_args_2av_5codec_5codec_5Codec__init {
 };
 struct __pyx_opt_args_2av_5frame_5Frame__copy_internal_attributes;
 
-/* "av/frame.pxd":13
+/* "av/frame.pxd":11
+ *     cdef lib.AVRational _time_base
  *     cdef void _rebase_time(self, lib.AVRational)
- *     cdef _SideDataContainer _side_data
  *     cdef void _copy_internal_attributes(self, Frame source, bint data_layout=?)             # <<<<<<<<<<<<<<
  *     cdef void _init_user_attributes(self)
 */
@@ -1886,7 +1880,7 @@ struct __pyx_t_2av_9container_4core_timeout_info {
 };
 struct __pyx_opt_args_2av_6stream_6Stream__assert_has_codec_context;
 
-/* "av/stream.pxd":26
+/* "av/stream.pxd":17
  *     cdef bint _is_open(self)
  *     cdef void _assert_open(self)
  *     cdef void _assert_has_codec_context(self, int err=*)             # <<<<<<<<<<<<<<
@@ -2017,51 +2011,7 @@ struct __pyx_obj_2av_5codec_5codec_Codec {
 };
 
 
-/* "av/dictionary.pxd":4
- * 
- * 
- * cdef class Dictionary:             # <<<<<<<<<<<<<<
- *     cdef lib.AVDictionary *ptr
- *     cpdef Dictionary copy(self)
-*/
-struct __pyx_obj_2av_10dictionary_Dictionary {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtab;
-  AVDictionary *ptr;
-};
-
-
-/* "av/sidedata/sidedata.pxd":8
- * 
- * 
- * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
- *     cdef Frame frame
- *     cdef lib.AVFrameSideData *ptr
-*/
-struct __pyx_obj_2av_8sidedata_8sidedata_SideData {
-  struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
-  struct __pyx_obj_2av_5frame_Frame *frame;
-  struct AVFrameSideData *ptr;
-  struct __pyx_obj_2av_10dictionary_Dictionary *metadata;
-};
-
-
-/* "av/sidedata/sidedata.pxd":16
- * cdef int get_display_rotation(Frame frame)
- * 
- * cdef class _SideDataContainer:             # <<<<<<<<<<<<<<
- *     cdef Frame frame
- *     cdef list[SideData] _by_index
-*/
-struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer {
-  PyObject_HEAD
-  struct __pyx_obj_2av_5frame_Frame *frame;
-  PyObject *_by_index;
-  PyObject *_by_type;
-};
-
-
-/* "av/frame.pxd":7
+/* "av/frame.pxd":6
  * 
  * 
  * cdef class Frame:             # <<<<<<<<<<<<<<
@@ -2073,7 +2023,6 @@ struct __pyx_obj_2av_5frame_Frame {
   struct __pyx_vtabstruct_2av_5frame_Frame *__pyx_vtab;
   struct AVFrame *ptr;
   AVRational _time_base;
-  struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer *_side_data;
 };
 
 
@@ -2133,6 +2082,20 @@ struct __pyx_obj_2av_9container_7streams_StreamContainer {
 };
 
 
+/* "av/dictionary.pxd":4
+ * 
+ * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
+*/
+struct __pyx_obj_2av_10dictionary_Dictionary {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtab;
+  AVDictionary *ptr;
+};
+
+
 /* "av/format.pxd":4
  * 
  * 
@@ -2177,40 +2140,12 @@ struct __pyx_obj_2av_9container_4core_Container {
 };
 
 
-/* "av/index.pxd":6
- * 
- * 
- * cdef class IndexEntry:             # <<<<<<<<<<<<<<
- *     cdef lib.AVIndexEntry entry
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
-*/
-struct __pyx_obj_2av_5index_IndexEntry {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtab;
-  struct AVIndexEntry entry;
-};
-
-
-/* "av/index.pxd":10
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
- * 
- * cdef class IndexEntries:             # <<<<<<<<<<<<<<
- *     cdef Stream stream
- *     cdef void _init(self, Stream stream)
-*/
-struct __pyx_obj_2av_5index_IndexEntries {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtab;
-  struct __pyx_obj_2av_6stream_Stream *stream;
-};
-
-
-/* "av/stream.pxd":10
+/* "av/stream.pxd":9
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
  *     cdef lib.AVStream *ptr
- * 
+ *     cdef readonly Container container
 */
 struct __pyx_obj_2av_6stream_Stream {
   PyObject_HEAD
@@ -2219,11 +2154,10 @@ struct __pyx_obj_2av_6stream_Stream {
   struct __pyx_obj_2av_9container_4core_Container *container;
   PyObject *metadata;
   struct __pyx_obj_2av_5codec_7context_CodecContext *codec_context;
-  struct __pyx_obj_2av_5index_IndexEntries *index_entries;
 };
 
 
-/* "av/stream.pxd":34
+/* "av/stream.pxd":25
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2235,7 +2169,7 @@ struct __pyx_obj_2av_6stream_DataStream {
 };
 
 
-/* "av/stream.pxd":37
+/* "av/stream.pxd":28
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2367,35 +2301,7 @@ struct __pyx_vtabstruct_2av_5codec_5codec_Codec {
 static struct __pyx_vtabstruct_2av_5codec_5codec_Codec *__pyx_vtabptr_2av_5codec_5codec_Codec;
 
 
-/* "av/dictionary.pxd":4
- * 
- * 
- * cdef class Dictionary:             # <<<<<<<<<<<<<<
- *     cdef lib.AVDictionary *ptr
- *     cpdef Dictionary copy(self)
-*/
-
-struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
-  struct __pyx_obj_2av_10dictionary_Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary_Dictionary *, int __pyx_skip_dispatch);
-};
-static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
-
-
-/* "av/sidedata/sidedata.pxd":8
- * 
- * 
- * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
- *     cdef Frame frame
- *     cdef lib.AVFrameSideData *ptr
-*/
-
-struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData {
-  struct __pyx_vtabstruct_2av_6buffer_Buffer __pyx_base;
-};
-static struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData *__pyx_vtabptr_2av_8sidedata_8sidedata_SideData;
-
-
-/* "av/frame.pxd":7
+/* "av/frame.pxd":6
  * 
  * 
  * cdef class Frame:             # <<<<<<<<<<<<<<
@@ -2454,6 +2360,20 @@ struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer {
 static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtabptr_2av_9container_7streams_StreamContainer;
 
 
+/* "av/dictionary.pxd":4
+ * 
+ * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
+*/
+
+struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
+  struct __pyx_obj_2av_10dictionary_Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary_Dictionary *, int __pyx_skip_dispatch);
+};
+static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
+
+
 /* "av/container/core.pxd":17
  * 
  * 
@@ -2471,40 +2391,12 @@ struct __pyx_vtabstruct_2av_9container_4core_Container {
 static struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtabptr_2av_9container_4core_Container;
 
 
-/* "av/index.pxd":6
- * 
- * 
- * cdef class IndexEntry:             # <<<<<<<<<<<<<<
- *     cdef lib.AVIndexEntry entry
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
-*/
-
-struct __pyx_vtabstruct_2av_5index_IndexEntry {
-  void (*_init)(struct __pyx_obj_2av_5index_IndexEntry *, struct AVIndexEntry const *);
-};
-static struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtabptr_2av_5index_IndexEntry;
-
-
-/* "av/index.pxd":10
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
- * 
- * cdef class IndexEntries:             # <<<<<<<<<<<<<<
- *     cdef Stream stream
- *     cdef void _init(self, Stream stream)
-*/
-
-struct __pyx_vtabstruct_2av_5index_IndexEntries {
-  void (*_init)(struct __pyx_obj_2av_5index_IndexEntries *, struct __pyx_obj_2av_6stream_Stream *);
-};
-static struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtabptr_2av_5index_IndexEntries;
-
-
-/* "av/stream.pxd":10
+/* "av/stream.pxd":9
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
  *     cdef lib.AVStream *ptr
- * 
+ *     cdef readonly Container container
 */
 
 struct __pyx_vtabstruct_2av_6stream_Stream {
@@ -2518,7 +2410,7 @@ struct __pyx_vtabstruct_2av_6stream_Stream {
 static struct __pyx_vtabstruct_2av_6stream_Stream *__pyx_vtabptr_2av_6stream_Stream;
 
 
-/* "av/stream.pxd":34
+/* "av/stream.pxd":25
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2532,7 +2424,7 @@ struct __pyx_vtabstruct_2av_6stream_DataStream {
 static struct __pyx_vtabstruct_2av_6stream_DataStream *__pyx_vtabptr_2av_6stream_DataStream;
 
 
-/* "av/stream.pxd":37
+/* "av/stream.pxd":28
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -3576,11 +3468,6 @@ static struct __pyx_obj_2av_6buffer_ByteSource *(*__pyx_f_2av_6buffer_bytesource
 
 /* Module declarations from "av.codec.codec" */
 
-/* Module declarations from "av.dictionary" */
-static struct __pyx_obj_2av_10dictionary_Dictionary *(*__pyx_f_2av_10dictionary_wrap_dictionary)(AVDictionary *); /*proto*/
-
-/* Module declarations from "av.sidedata.sidedata" */
-
 /* Module declarations from "av.frame" */
 
 /* Module declarations from "av.codec.context" */
@@ -3589,11 +3476,11 @@ static struct __pyx_obj_2av_10dictionary_Dictionary *(*__pyx_f_2av_10dictionary_
 
 /* Module declarations from "av.container.streams" */
 
+/* Module declarations from "av.dictionary" */
+
 /* Module declarations from "av.format" */
 
 /* Module declarations from "av.container.core" */
-
-/* Module declarations from "av.index" */
 
 /* Module declarations from "av.stream" */
 
@@ -3743,17 +3630,13 @@ namespace {
     PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWDevice;
     PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWAccel;
     PyTypeObject *__pyx_ptype_2av_5codec_5codec_Codec;
-    PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
-    PyTypeObject *__pyx_ptype_2av_8sidedata_8sidedata_SideData;
-    PyTypeObject *__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer;
     PyTypeObject *__pyx_ptype_2av_5frame_Frame;
     PyTypeObject *__pyx_ptype_2av_5codec_7context_CodecContext;
     PyTypeObject *__pyx_ptype_2av_9container_4pyio_PyIOFile;
     PyTypeObject *__pyx_ptype_2av_9container_7streams_StreamContainer;
+    PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
     PyTypeObject *__pyx_ptype_2av_6format_ContainerFormat;
     PyTypeObject *__pyx_ptype_2av_9container_4core_Container;
-    PyTypeObject *__pyx_ptype_2av_5index_IndexEntry;
-    PyTypeObject *__pyx_ptype_2av_5index_IndexEntries;
     PyTypeObject *__pyx_ptype_2av_6stream_Stream;
     PyTypeObject *__pyx_ptype_2av_6stream_DataStream;
     PyTypeObject *__pyx_ptype_2av_6stream_AttachmentStream;
@@ -3768,7 +3651,7 @@ namespace {
     PyTypeObject *__pyx_ptype_2av_6packet___pyx_scope_struct__iter_sidedata;
     PyObject *__pyx_tuple[1];
     PyObject *__pyx_codeobj_tab[1];
-    PyObject *__pyx_string_tab[114];
+    PyObject *__pyx_string_tab[113];
     PyObject *__pyx_number_tab[1];
 /* #### Code section: module_state_contents ### */
 /* PyFrozenDict.module_state_decls */
@@ -3931,12 +3814,11 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_x __pyx_string_tab[105]
 #define __pyx_kp_b_PyObject_PyObject_name_PyObject __pyx_string_tab[106]
 #define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[107]
-#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[108]
-#define __pyx_kp_b_struct___pyx_obj_2av_6buffer_Byt __pyx_string_tab[109]
-#define __pyx_kp_b_struct___pyx_obj_2av_6opaque_Opa __pyx_string_tab[110]
-#define __pyx_kp_b_struct___pyx_obj_2av_8rational_A __pyx_string_tab[111]
-#define __pyx_kp_b_void_PyObject_AVRational_to_avra __pyx_string_tab[112]
-#define __pyx_kp_b_iso88591_q __pyx_string_tab[113]
+#define __pyx_kp_b_struct___pyx_obj_2av_6buffer_Byt __pyx_string_tab[108]
+#define __pyx_kp_b_struct___pyx_obj_2av_6opaque_Opa __pyx_string_tab[109]
+#define __pyx_kp_b_struct___pyx_obj_2av_8rational_A __pyx_string_tab[110]
+#define __pyx_kp_b_void_PyObject_AVRational_to_avra __pyx_string_tab[111]
+#define __pyx_kp_b_iso88591_q __pyx_string_tab[112]
 #define __pyx_int_0 __pyx_number_tab[0]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
@@ -3958,17 +3840,13 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWDevice);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_8sidedata_SideData);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4core_Container);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntry);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -3983,7 +3861,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_2av_6packet___pyx_scope_struct__iter_sidedata);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<114; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<113; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -4013,17 +3891,13 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWDevice);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_8sidedata_SideData);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4core_Container);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntry);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -4038,7 +3912,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_2av_6packet___pyx_scope_struct__iter_sidedata);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<114; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<113; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -11397,42 +11271,7 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec) __PYX_ERR(4, 6, __pyx_L1_error)
   if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec, (void**)&__pyx_vtabptr_2av_5codec_5codec_Codec) != 1)) __PYX_ERR(4, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(5, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.dictionary", "Dictionary",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
-  #else
-  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary) __PYX_ERR(5, 4, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary, (void**)&__pyx_vtabptr_2av_10dictionary_Dictionary) != 1)) __PYX_ERR(5, 4, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(6, 8, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.sidedata.sidedata", "SideData",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata_SideData), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata_SideData),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata_SideData), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata_SideData),
-  #else
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata_SideData), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata_SideData),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData) __PYX_ERR(6, 8, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData, (void**)&__pyx_vtabptr_2av_8sidedata_8sidedata_SideData) != 1)) __PYX_ERR(6, 8, __pyx_L1_error)
-  __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.sidedata.sidedata", "_SideDataContainer",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
-  #else
-  sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(6, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 7, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(5, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5frame_Frame = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.frame", "Frame",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11442,10 +11281,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5frame_Frame) __PYX_ERR(7, 7, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5frame_Frame, (void**)&__pyx_vtabptr_2av_5frame_Frame) != 1)) __PYX_ERR(7, 7, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5frame_Frame) __PYX_ERR(5, 6, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5frame_Frame, (void**)&__pyx_vtabptr_2av_5frame_Frame) != 1)) __PYX_ERR(5, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(6, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.codec.context", "CodecContext",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11455,10 +11294,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7context_CodecContext), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5codec_7context_CodecContext),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(8, 11, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext, (void**)&__pyx_vtabptr_2av_5codec_7context_CodecContext) != 1)) __PYX_ERR(8, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(6, 11, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext, (void**)&__pyx_vtabptr_2av_5codec_7context_CodecContext) != 1)) __PYX_ERR(6, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.container.pyio", "PyIOFile",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11468,9 +11307,9 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4pyio_PyIOFile), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_9container_4pyio_PyIOFile),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(9, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(7, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 6, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.container.streams", "StreamContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11480,10 +11319,23 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_7streams_StreamContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_9container_7streams_StreamContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(10, 6, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer, (void**)&__pyx_vtabptr_2av_9container_7streams_StreamContainer) != 1)) __PYX_ERR(10, 6, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(8, 6, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer, (void**)&__pyx_vtabptr_2av_9container_7streams_StreamContainer) != 1)) __PYX_ERR(8, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.dictionary", "Dictionary",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
+  #else
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_10dictionary_Dictionary),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary) __PYX_ERR(9, 4, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary, (void**)&__pyx_vtabptr_2av_10dictionary_Dictionary) != 1)) __PYX_ERR(9, 4, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.format", "ContainerFormat",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11493,9 +11345,9 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6format_ContainerFormat), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6format_ContainerFormat),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(11, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(10, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 17, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11505,33 +11357,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(12, 17, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container, (void**)&__pyx_vtabptr_2av_9container_4core_Container) != 1)) __PYX_ERR(12, 17, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(11, 17, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container, (void**)&__pyx_vtabptr_2av_9container_4core_Container) != 1)) __PYX_ERR(11, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 6, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntry = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.index", "IndexEntry",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #else
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry) __PYX_ERR(13, 6, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry, (void**)&__pyx_vtabptr_2av_5index_IndexEntry) != 1)) __PYX_ERR(13, 6, __pyx_L1_error)
-  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntries = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.index", "IndexEntries",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #else
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries) __PYX_ERR(13, 10, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries, (void**)&__pyx_vtabptr_2av_5index_IndexEntries) != 1)) __PYX_ERR(13, 10, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 10, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6stream_Stream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "Stream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11541,8 +11370,8 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_Stream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_Stream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(14, 10, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream, (void**)&__pyx_vtabptr_2av_6stream_Stream) != 1)) __PYX_ERR(14, 10, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(12, 9, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream, (void**)&__pyx_vtabptr_2av_6stream_Stream) != 1)) __PYX_ERR(12, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_DataStream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "DataStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_DataStream),
@@ -11551,8 +11380,8 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_DataStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(14, 34, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream, (void**)&__pyx_vtabptr_2av_6stream_DataStream) != 1)) __PYX_ERR(14, 34, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(12, 25, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream, (void**)&__pyx_vtabptr_2av_6stream_DataStream) != 1)) __PYX_ERR(12, 25, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "AttachmentStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_AttachmentStream),
@@ -11561,10 +11390,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_AttachmentStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(14, 37, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream, (void**)&__pyx_vtabptr_2av_6stream_AttachmentStream) != 1)) __PYX_ERR(14, 37, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(12, 28, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream, (void**)&__pyx_vtabptr_2av_6stream_AttachmentStream) != 1)) __PYX_ERR(12, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.opaque"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 5, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.opaque"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 5, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.opaque", "OpaqueContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11574,10 +11403,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6opaque_OpaqueContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6opaque_OpaqueContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer) __PYX_ERR(15, 5, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer, (void**)&__pyx_vtabptr_2av_6opaque_OpaqueContainer) != 1)) __PYX_ERR(15, 5, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer) __PYX_ERR(13, 5, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6opaque_OpaqueContainer, (void**)&__pyx_vtabptr_2av_6opaque_OpaqueContainer) != 1)) __PYX_ERR(13, 5, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.rational"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.rational"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_8rational_AVRational = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.rational", "AVRational",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11587,10 +11416,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_8rational_AVRational), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8rational_AVRational),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_8rational_AVRational) __PYX_ERR(16, 4, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8rational_AVRational, (void**)&__pyx_vtabptr_2av_8rational_AVRational) != 1)) __PYX_ERR(16, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_8rational_AVRational) __PYX_ERR(14, 4, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8rational_AVRational, (void**)&__pyx_vtabptr_2av_8rational_AVRational) != 1)) __PYX_ERR(14, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule(__Pyx_BUILTIN_MODULE_NAME); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule(__Pyx_BUILTIN_MODULE_NAME); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7cpython_4type_type = __Pyx_ImportType_3_3_0(__pyx_t_1, __Pyx_BUILTIN_MODULE_NAME, "type",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -11600,7 +11429,7 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(PyHeapTypeObject), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(PyHeapTypeObject),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_7cpython_4type_type) __PYX_ERR(17, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_7cpython_4type_type) __PYX_ERR(15, 9, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -11665,26 +11494,6 @@ static int __Pyx_modinit_Function_import_code(__pyx_mstatetype *__pyx_mstate) {
     #endif
     const char * __pyx_import_name = __pyx_import_signature + 121;
     void (**const __pyx_import_pointers[])(void) = {(void (**)(void))&__pyx_f_2av_6buffer_bytesource, (void (**)(void)) NULL};
-    void (**const *__pyx_import_pointer)(void) = __pyx_import_pointers;
-    const char *__pyx_import_current_signature = __pyx_import_signature;
-    while (*__pyx_import_pointer) {
-      if (__Pyx_ImportFunction_3_3_0(__pyx_t_1, __pyx_import_name, *__pyx_import_pointer, __pyx_import_current_signature) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-      ++__pyx_import_pointer;
-      __pyx_import_name = strchr(__pyx_import_name, '\0') + 1;
-      __pyx_import_signature = strchr(__pyx_import_signature, '\0') + 1;
-      if (*__pyx_import_signature != '\0') __pyx_import_current_signature = __pyx_import_signature;
-    }
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  }
-  {
-    __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    const char * __pyx_import_signature = __Pyx_PyBytes_AsString(__pyx_mstate_global->__pyx_kp_b_struct___pyx_obj_2av_10dictionar);
-    #if !CYTHON_ASSUME_SAFE_MACROS
-    if (unlikely(!__pyx_import_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
-    #endif
-    const char * __pyx_import_name = __pyx_import_signature + 63;
-    void (**const __pyx_import_pointers[])(void) = {(void (**)(void))&__pyx_f_2av_10dictionary_wrap_dictionary, (void (**)(void)) NULL};
     void (**const *__pyx_import_pointer)(void) = __pyx_import_pointers;
     const char *__pyx_import_current_signature = __pyx_import_signature;
     while (*__pyx_import_pointer) {
@@ -12285,30 +12094,30 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
     const struct { const unsigned int length: 6; } str_length_index[] = {{12},{5},{6},{6},{21},{2},{1},{1},{27},{30},{25},{3},{12},{50},{31},{8},{7},{6},{20},{14},{12},{9},{17},{8},{8},{10},{8},{11},{14},{12},{8},{6},{3},{27},{18},{9},{18},{5},{15},{19},{14},{9},{6},{14},{9},{3},{5},{18},{27},{15},{20},{4},{14},{14},{11},{8},{12},{9},{1},{15},{19},{26},{11},{2},{5},{5},{13},{12},{5},{26},{25},{15},{4},{16},{13},{4},{6},{33},{31},{7},{12},{4},{3},{13},{11},{7},{13},{4},{4},{10},{8},{4},{12},{9},{12},{9},{16},{17},{5},{9},{9},{6},{5},{17},{15},{1}};
-    const struct { const unsigned int length: 11; } bytes_length_index[] = {{1511},{109},{78},{131},{63},{71},{45},{5}};
+    const struct { const unsigned int length: 11; } bytes_length_index[] = {{1511},{109},{131},{63},{71},{45},{5}};
     #ifndef CYTHON_COMPRESS_STRINGS
       #define CYTHON_COMPRESS_STRINGS 90
     #endif
-    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (1309 bytes) */
-static const char cstring[] = "x\332\305V\315\216\3444\020\356\003\357\201%.\333\255a\230\235aW \004h\177@Z@\332\321\354\260\027\204J\216]\351\366tb{m\047\335\331\047\341\261x$\252\234\244;\331\356\205\003H\\\022\273\376\\\365\325\217-\212.a\0242\211\253\275p\245\370\354B\350\024\277\275\020\236\2767\032\002\226\030\320*\004m\242\257d\027\277\021\337}\377BZ\353\222\010X\310\210\"9\361\036\203\023\311\324x\371\3025\225\026\314\225U\345\224L(\236\275}\336\224d\346\016\313\037\245\251P\263\306\201[c\355B\047\333K\331~\341\245\332b\272\364\235uBc)\233*\t \037tC\016\200\320M>\314:\373y\n\2465\262\"\2562\326$\000>\034\262;u\023\223(PHK\047\337\311d\234\225\325\253\204A&\027~1\274\250n\363A\375\367\222I\020\215F-\223\354ioh\367\222w\333\303\362\236\216\252d\214\000\343b\215\211Tk&h\243\022\377kil\376;\335T\310++\353\374\367\335\036b\242\200\373e\233d\321\013\274kd5\nQ*\310\214|r\003J\311R\313\2720h\023\264\006w\306\256\001mk\202\2635\321d\243\215\203\210\2415\004M\352<\022\202=|\2522\026\201\374HA*\312\220\332\252\312ET\256\252P1\032\361R\026J9\233\330ve\326\033\372b\213\225\362\005\370\340<\206d02\030\331\260&U\302\246O?EH\320\357\265k\r\220\211\222\212Eg\241\216b0\n6:<\276\002_5qB\201X{\n\374\372\352\353/Az\377\204\352)t\236]!7K7\333R.3mo\312\222j\204\335\317\201l\313\300 )\362\317\023\026ep5\364\361R\032@\206u\334\\?\275\201\272\310\352\033lU\366\317\030Y\227\231D\322d!ok\263\2075g\352H\n\024\244\355\211\023a\245\030\220\222j\326hc59e}\223f\365\362\340AS\006)\343\326U\212\216\255e$>\247\353\000\031&\311\242\014\235\213[\t\005\225\376\026\244\326\246/\316Q\000\032O?\352\207\026k\217\353\024\251b\002\312\032\214\266\270\003\334\023\020,gi\325\307\336\177\017\316\344|A\306\246\352\013\375\254@rGv\205)a\216\026\324F\3325\372P&j~.K\223\272\\\2631`\016\204\341\tIy\210!>\276\256s\317qmD\254\312\210VGLC\327\216\347E\363\036\343\326\220\206\254}\2051\372\ra\243d\305f\215\242\3007N3^\350\340\206\026\214[<\000\026\233\202\300\2466\361.f\250\322&\270\335\241\323\223\033*\200\202\"\275VV\r\356\260h\023\225\220""\246\3326\245\3010\020H:\261\355\375m\367\272x\240>\020\253G\307%\367\337\2058\356\251\026h\206\254L\355]H\250s\023G\026\200\310\021A\022\025R\241\234\260G\375\261\247\2474\032\t<%.\204\261\254N\375\266\\\214\334\243/+\321\217\216\243\346J\260\245\263\262+\221c\236{\226IT\373\215M3z\300H\211\001\262m\327i\323\273\261\245\242^.h5\301b\273\323\263X\304\000\306vw<l\344\215Lj\277\214\301o\277O\271l\351zJ\350\r\364B\007\277lSs~s\013\2370\266\273\236\334\037C\005\032V\242ll\036c\320#\314q\230\265u\001\241\261[\353vv\320\372\247\300\376{\347?\352\345\277s\345\377\204m%\362\304p\305\303H\277\247\375\350Y:K\3643\034g\221\234\312\367\007\370\024\304\205h\235\321T\323\371j\\.x7\301\214\\`S\263\223h=\rrld\216\r\367R\245\023#\275\306\007\320N\t\251\230\315\001\331\304\321\223\017\261\204\017\316:IBm\354)M\356Oh%\265\252\376\310!\223\204\315\253g\271\000\270\245w\004\274\312Ch\330\365\233\037i\376\017\204\333\356WkxD\303O\316\330\221(C\304\237\261\333\271\240\343}Cs\371\014\343%\315\252{\307\337\2170\0072\r\326\306\017O\264\303\241\234$\270C\251\273\321\3157\230\350\tV\277\266\314\232\250\023\375m\316\367\260\177\026\326,\361C\010.\014\244;i\"N\327$\223\330\353W\226\322g\364\310BFg\014\213\323\362\310\330a\334\016\317/\276\210\370R\226I\321\000\244\333\246Q#\317\371\376\021\001\327\262\205\047\310\307\003}\351ND\265\025\253\203P\276\257\241\357\223\003\177n\251x\310F\036_\361\270g\371\320\301\313\303\222\356\235go\247\333\345b\027\244\207\243\360YkO\213\374\204\206\347\364\\\177\343\232\240pv\201\375]4\243j~\351\017\252g\3439\n\234w\301y\371\216\256\226\327\371\367\202ncz\016 5\335b`\250\221tV\375\2530<\305\341\370*\317`\214\233\345\"?\\d;\nrG\210Y\220S\315\345\202\356\377\243\360\237\237|\372\307\273\277\000\302\322\327\211";
-    PyObject *data = __Pyx_DecompressString(cstring, 1309, 1);
+    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (1282 bytes) */
+static const char cstring[] = "x\332\305V\315\216\0345\020\236\003\357\201%.\331\321\262$\273l\004B\200\362C\244\004\244\254v\227\\\020*\271\355\352\031\357\270m\307v\367L\347Ix,\036\211*w\367\374d&p\000\211K\267]\377\365U\225mQ\365\031\223\220Y<\336\010_\213/\316\205\316\351\373s\021\350{\245!b\215\021\235B\320&\005+\373\364\235\370\341\307\027\3229\237E\304J&\024\331\213\017\030\275\310\246\301\213\027\276\265Z0WZ\353\225\314(\236\275{\336\326d\346\026\353W\322X\324\254\261\3456\330\370\330\313\356Bv_\005\251V\230/B\357\274\320X\313\326f\001\024\203n)\000\020\272-\316\234w_\346h:#-q\225q&\003\260s(\3414m\312\242B!\035y\276\225\331x\047\355\353\214Qf\037\1771\274\2607\305\321\360\275`\022$\243Q\313,\007\332\035\355^\362n\265]\336\223++S\002\230\026\013\314\244\3320A\033\225\371\337H\343\312\337\353\326\"\257\234l\312?\364\033H\231\022\036\226]\226\325 \360\276\225v\022\242R\220\031y}\005J\311Z\313\2462\3502t\006\327\306-\000]g\242w\r\321d\253\215\207\204\2613\004M\356\003\022\202\003|\312\032\207@q\344(\025UH\255\224\365\t\225\267\026\025\243\221.d\245\224w\231m[\263X\322\027;\264*T\020\242\017\030\263\301\304`\024\303\232T\t\233\241\374\224!A\277\321\2763@&jj\026]\204z\312\301(X\352\370\3441\004\333\246=\n\244&P\342\227\217\277\375\032d\010\327\324O\261\017\034\n\205Y\373\203-\325\262\3206\246\256\251G8\374\222\310\252\216\014\222\242\370\002aQG\337\300\220/\225\001d\\\244\345\345\323+h\252\242\276\304N\225\370\214\221M]H$M\026\312\2661\033Xp\245v\244HI\272\201\270\047\254\024\003RS\317\032m\234\246\240\\h\363A\277<\004\320TA\252\270\363V\221\333F&\342s\271\266\220a\226,\312\320\371\264\222PQ\353\257@jm\206\346\234\004\240\r\364\243y\350\260\t\270\310\211:&\242l\300h\207k\300\r\001\301r\216VC\356\303w\033L\251\027\024l\354\320\350\047\005\262\337\261-\346\214%[PK\351\026\030b\235i\370\271-M\356K\317\246\210%\021\206\047f\025 \305\364\344\262)3\307\275\221\320\326\t\235N\230\307\251\235\374%\363\001\323\312\220\206l\202\305\224\302\222\260Q\322\262Y\243(\361\245\327\214\027z\270\242\005\343\226""\266\200\245\266\"\260iL\202O\005\252\274\214~\275\235\364\354\307\016\240\244H\257\223\266\3055V]\246\026\322\324\333\2466\030G\002Ig\266\275\271\351\337V\0174\007b\376h\267\344\371;\027\273=\365\002\235!s\323\004\0373\3522\304\211\005 qF\220\205Ej\224#\366\244?\315\364>\215\216\004>%\316\205q\254N\363v6\233\270\273X\346b8:v\232s\301\226N\312\316E\311\3710\262B\242\336o]>\240GLT\030 \333n\221\227C\030+j\352\263\031\255\366\260X\255\365A.b\004c\265\3369\233x\023\223\306\257`\360\333\357\373\\\266t\271O\030\014\014B\333\270\\\333p}\313\010\0371V\353\201<\270\241\006\215sQ\267\256\034c0 \314y\230\205\363\021\241u+\347\327n\324\372\247\304\376\373\340?\031\345\277\013\345\377\204m.\312\211\341\253\207\211~O\373)\262|\222\030\016p<\310\344X~p\020r\024\347\242\363FSO\227\253\361l\306\273=\314(\0046u\340\211\326\373IN\203\314\271\341F\252|dd\320\370\010\332}B\256\016\316\001\331\246)\222\217\261\204\217|\035\025\2411\356\230&7G\264\232FU\177\302\311^\301\016\273\347l\006pC\357\010x]\016\241q7l^\321\371?\022n\372_\235\341#\032\336x\343&\242\214\t\177\306~\355\243N\367-\235\313\047\030/\351\254\272\367\374\375\004s$\323\301\332\206\361\211\266u\312E\202[\224\272\237\302\274\303LO\260\346\255c\326\236:\321\337\225z\217\373gq\301\022?\305\350\343H\272\225&\341\376\232d2G\375\332Q\371\214\236X\310\350LiqY\036\0317\036\267\343\363\213/\"\276\224eVt\000\322m\323\252\211\347\303\360\210\200K\331\3015\262{\240/\335\211\250Vb\276\025*\3675\014s\262\345\037Z\252\036\212\221\247Uy\364\302sz`\337\3716*<\270r\376\316\377\244Z\336\346\243\352\311\010v\002\247C\360A\276\247\313\340m\371\275\240\373\223.p\2441\231\215\0145\221N\252\177\023\307\3073\354\336\321\224\303ns6+O\r\331M\202\334\303\342 \311}\315\263\031\335\330;\341\077\077\373\374\217\367\177\001\223q\272W";
+    PyObject *data = __Pyx_DecompressString(cstring, 1282, 1);
     #define __Pyx_DecompressString_LZSS_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (1857 bytes) */
-static const char cstring[] = "\377 bytes a\377t 0x of \377#, dts=,\373 p\003\0003d_re\377ference_\377displays\377; >?Cann\377ot rebas\377e to zer\377o time.C\337ould \032\001al\377locate A\357VBufD\000Ref?Failed.\001\025\006\377memoryav\377.av/pack\377et.pyno \377default \355_\201\000du~\000_ d\375uh\002non-tr\337ivial\033\000ci_nit__y\001_\212\002\377must be \373anw\000Ratio\377nalItera\337torLi\005\001lP\364d\002\000\003.\017\001_sid_edata\024\003S\013\000\355D\n\001kt\003\005T__\177class__\001\005\327getK\000m\r\001di\375c\201\000__main~\035\001module\047\001\367nam\003\002pyx_\333st\214 __\007\001vt{ab\033\003qual\035\005\374\210@\310\000a53_cc\377afdambie\377nt_viewi\377ng_envir\367onm\021\000audi\177o_servi\231@\317type\277 \271#cl\357ine_\205\000tra\375c\237@ckclos\177ecollec\212!\377s.abccon\375tX\001light_\377levelcpb\377_propertWies\211!_U\001d8\000\360\231 \371C\337\000\370 xdov\253i_@\000f\252`d \002y\376\346\000ic_hdr1\1770_plusd\010\007\377_smpte_2\377094_app5\316\315`ryp\225A\244\000fo\354\002\n\311@in\021\000xif\325f\277`b\217`_\305\001kf\325r\306!c\235\000p\211 fr\347om_\251c\204@_ar\377gsh263_m\275bN\002hevc\233\002i\017iamfa\002+\000?\000\n\002\337mix_g\246Apa\212\013\005r\235 n\017\003{\001&\004c\375c\215!fileid\377indexinp{ut\243jjp_d\277@\177_monolct\000\307mas\351`\253A\253\205\004_m\367eta\327amatr\377oska_blo\177ck_addi\227\204\003\376\031\005_update\377movempeg\373ts\257`ream_\377idnew_ex\004\317@\240\204\001n\007\000\245\205\003\253\205\003\264\204\006\253B\345_\227\"l\343\204\003\014\022to_\276\026\006lette\203\"_\377changepr\337ftpts\223\204\001it\235y\257\204\002sre\367\206\001\257\"r\377tcp_srs1\3732m\357\205\002codes\377elfsends\363et\257\206\004\306\205\005size\367ski/\000ampl\377esspheri\267cal\207\205\001ic\227 h{od\254!eo_3\006\000\337rings\250&su\377btitle_p\373os\246\"throw\330\341\206\006\304\000\253\207\003ty\217ava\377luewebvt\375t\256 entifi\323er\n\004\230\000tX\001xP\377yObject \263*(\001\007\241\206\001, \021\007c\367ons\037\000impo_rted_\301\206\001s""\035\001\373_s\316\001_t le\303n_\r\017S\005\314\206\005H\tmo~\355@ct, in;\001\237vel)\000\205\005\202\007*\231 \265\207\003\204\007* \277\207\001\027\022*\361 \357\002\214\013\202\"_cou\373nt\245\nresulwt_u\267\000gth\201\003?kind)\000\216\000\201(\257kwds\200) \206$k\351wc\007\273%*\026\004arg&\236\"[]\272)F\0012\313)\250\003\034\037\003\301&num\334A\276\206\002\326*\326\025\001kw\326\206\001,}\004ch\177ar* fun\302\210\002\374\221B\311#ignore\377_unknown\001_0\003\271\035kO\261c\223\020M;\273\200y{* \330\213\001_obj\240e\257Type\273\205\005t\000\022p\360\370J\364J3\017[\003ptr \377, void* \006\225\215\003)\000\n\001\231\206\010\200\000\237\206\001r\n7ype\220i *\303\206\003\336\205\001\037exact4\016\245\215\001\201\204\016\366\356\206\ttb\373\206\nause\344\203\004\315M_]\014\253\204\016minv\002\017ax\323\204\016fou\202\206\001\370\352\002\251v\310\205\r)\000__P\037yx__I\237\210\002\007\004\007\003\357From\030\004PyU\373ni\237\212\001_Join\376\r\005arseKey\377wordsTup\373le\006\020DictT\361o\002\001\006\024z\004setu\361p\234\222\004l\006\240a_Rea\373dy\237\005SetIt\217emOn\273aK\010\025\000V\334\206\221\002\311\004Arg\335aEr\367ror\334\004Rais\361e\000\t!\000q\000leIn_valid\037\005e\323\212\001\034\317\005\341\211\001(in\350\211\004\356\221\003\204\214\002\376\303\224\001atch, s\317truc\334\223\001\227\222\001op\375t\300\217\002_2av_5\365e{\001_\003\000_che\257ck *\257\222\003o\257\220\002a\315l\352\217\002)\000\027\006<\013bj\346@\00210\221\223\001\371\223\001ry_|\312!\005\003 *(AV\003\t\177)\000wrap_#\007\3669\0226b\276\225\002_Byt\177eSource\264\214\n\200\262\0313\005\345\226\0024\004\273\022\027\007m\023o\177paque_O\002\002\377Containe/r *\000\022\004c\013\005\373\022;8r\204\226\004_AV\216\226\005\210\"6\233\226\005)\000\320\222\002av!\005\213\207\001\365 \233\216\010,\305\226\010 *)\000\367to_#\007\320\004\037\230\001q";
-    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 1857, 3278);
+    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (1821 bytes) */
+static const char cstring[] = "\377 bytes a\377t 0x of \377#, dts=,\373 p\003\0003d_re\377ference_\377displays\377; >?Cann\377ot rebas\377e to zer\377o time.C\337ould \032\001al\377locate A\357VBufD\000Ref?Failed.\001\025\006\377memoryav\377.av/pack\377et.pyno \377default \355_\201\000du~\000_ d\375uh\002non-tr\337ivial\033\000ci_nit__y\001_\212\002\377must be \373anw\000Ratio\377nalItera\337torLi\005\001lP\364d\002\000\003.\017\001_sid_edata\024\003S\013\000\355D\n\001kt\003\005T__\177class__\001\005\327getK\000m\r\001di\375c\201\000__main~\035\001module\047\001\367nam\003\002pyx_\333st\214 __\007\001vt{ab\033\003qual\035\005\374\210@\310\000a53_cc\377afdambie\377nt_viewi\377ng_envir\367onm\021\000audi\177o_servi\231@\317type\277 \271#cl\357ine_\205\000tra\375c\237@ckclos\177ecollec\212!\377s.abccon\375tX\001light_\377levelcpb\377_propertWies\211!_U\001d8\000\360\231 \371C\337\000\370 xdov\253i_@\000f\252`d \002y\376\346\000ic_hdr1\1770_plusd\010\007\377_smpte_2\377094_app5\316\315`ryp\225A\244\000fo\354\002\n\311@in\021\000xif\325f\277`b\217`_\305\001kf\325r\306!c\235\000p\211 fr\347om_\251c\204@_ar\377gsh263_m\275bN\002hevc\233\002i\017iamfa\002+\000?\000\n\002\337mix_g\246Apa\212\013\005r\235 n\017\003{\001&\004c\375c\215!fileid\377indexinp{ut\243jjp_d\277@\177_monolct\000\307mas\351`\253A\253\205\004_m\367eta\327amatr\377oska_blo\177ck_addi\227\204\003\376\031\005_update\377movempeg\373ts\257`ream_\377idnew_ex\004\317@\240\204\001n\007\000\245\205\003\253\205\003\264\204\006\253B\345_\227\"l\343\204\003\014\022to_\276\026\006lette\203\"_\377changepr\337ftpts\223\204\001it\235y\257\204\002sre\367\206\001\257\"r\377tcp_srs1\3732m\357\205\002codes\377elfsends\363et\257\206\004\306\205\005size\367ski/\000ampl\377esspheri\267cal\207\205\001ic\227 h{od\254!eo_3\006\000\337rings\250&su\377btitle_p\373os\246\"throw\330\341\206\006\304\000\253\207\003ty\217ava\377luewebvt\375t\256 entifi\323er\n\004\230\000tX\001xP\377yObject \263*(\001\007\241\206\001, \021\007c\367ons\037\000impo_rted_\301\206\001s""\035\001\373_s\316\001_t le\303n_\r\017S\005\314\206\005H\tmo~\355@ct, in;\001\237vel)\000\205\005\202\007*\231 \265\207\003\204\007* \277\207\001\027\022*\361 \357\002\214\013\202\"_cou\373nt\245\nresulwt_u\267\000gth\201\003?kind)\000\216\000\201(\257kwds\200) \206$k\351wc\007\273%*\026\004arg&\236\"[]\272)F\0012\313)\250\003\034\037\003\301&num\334A\276\206\002\326*\326\025\001kw\326\206\001,}\004ch\177ar* fun\302\210\002\374\221B\311#ignore\377_unknown\001_0\003\271\035kO\261c\223\020M;\273\200y{* \330\213\001_obj\240e\257Type\273\205\005t\000\022p\360\370J\364J3\017[\003ptr \377, void* \006\225\215\003)\000\n\001\231\206\010\200\000\237\206\001r\n7ype\220i *\303\206\003\336\205\001\037exact4\016\245\215\001\201\204\016\366\356\206\ttb\373\206\nause\344\203\004\315M_]\014\253\204\016minv\002\017ax\323\204\016fou\202\206\001\370\352\002\251v\310\205\r)\000__P\037yx__I\237\210\002\007\004\007\003\357From\030\004PyU\373ni\237\212\001_Join\376\r\005arseKey\377wordsTup\373le\006\020DictT\361o\002\001\006\024z\004setu\361p\234\222\004l\006\240a_Rea\373dy\237\005SetIt\217emOn\273aK\010\025\000V\334\206\221\002\311\004Arg\335aEr\367ror\334\004Rais\361e\000\t!\000q\000leIn_valid\037\005e\323\212\001\034\317\005\341\211\001(in\350\211\004\356\221\003\204\214\002\376\303\224\001atch, s\317truc\334\223\001\227\222\001op\375t\300\217\002_2av_5\365e{\001_\003\000_che\257ck *\257\222\003o\257\220\002a\315l\352\217\002)\000\027\006<\013bj\366@\0026b\360\224\002_Byt\177eSource\346\213\n\200d\0313\005\227\226\0024\004m\022\027\007m\023o\177paque_O\002\002\377Containe/r *\000\022\004c\013\005\255\022\2738r\266\225\004_AV\300\225\005 \333*(\003\007)\000\202\222\002av\324!\005\275\206\001 \315\215\010,\367\225\010 *\337)\000to_#\007\320\004\007\037\230q";
+    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 1821, 3200);
     #define __Pyx_DecompressString_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3278 bytes) */
-static const char bytes[] = " bytes at 0x of #, dts=, pts=3d_reference_displays; >?Cannot rebase to zero time.Could not allocate AVBufferRefFailed to allocate memoryav.av/packet.pyno default __reduce__ due to non-trivial __cinit__time_base must be an AVRationalIteratorLiteralPacketPacket.iter_sidedataPacketSideDataPktSideDataT__class____class_getitem____dict____main____module____name____pyx_state__pyx_vtable____qualname____test__a53_ccafdambient_viewing_environmentaudio_service_typeav.packetcline_in_tracebackclosecollections.abccontent_light_levelcpb_propertiesdata_typedecodedisplay_matrixdovi_confdtsdtypedynamic_hdr10_plusdynamic_hdr_smpte_2094_app5encryption_infoencryption_init_infoexiffallback_trackframe_croppingfrom_packetget_argsh263_mb_infohevc_confiiamf_info_paramiamf_mix_gain_paramiamf_recon_gain_info_paramicc_profileidindexinputiter_sidedatajp_dual_monolcevcmastering_display_metadatamatroska_block_additionalmetadata_updatemovempegts_stream_idnew_extradatanextpacketpacket_sidedata_type_from_literalpacket_sidedata_type_to_literalpaletteparam_changeprftptsquality_statsreplay_gainrtcp_srs12m_timecodeselfsendsetdefaultsidedatasizeskip_samplessphericalstaticmethodstereo_3dstrings_metadatasubtitle_positionthrowtime_baseto_packettypingvaluewebvtt_identifierwebvtt_settingsxPyObject *(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level)\000PyObject*(PyObject* module, PyObject* name)\000PyObject*(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength, int kind)\000int(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_""args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject *tp, PyObject *k, PyObject *v)\000int(PyTypeObject* typeptr , void* vtable)\000void(PyObject *obj, PyTypeObject *type, const char *name, int exact)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx__Import\000__Pyx_ImportFrom\000__Pyx_PyUnicode_Join\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx__SetItemOnTypeDict\000__Pyx_SetVtable\000__Pyx_ArgTypeError\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywordsint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_6buffer_ByteSource *(PyObject *, struct __pyx_opt_args_2av_6buffer_bytesource *__pyx_optional_args)\000bytesourcestruct __pyx_obj_2av_6opaque_OpaqueContainer *\000opaque_containerstruct __pyx_obj_2av_8rational_AVRational *(AVRational)\000from_avrationalvoid (PyObject *, AVRational *)\000to_avrational\320\004\037\230q";
+    #else /* compression: none (3200 bytes) */
+static const char bytes[] = " bytes at 0x of #, dts=, pts=3d_reference_displays; >?Cannot rebase to zero time.Could not allocate AVBufferRefFailed to allocate memoryav.av/packet.pyno default __reduce__ due to non-trivial __cinit__time_base must be an AVRationalIteratorLiteralPacketPacket.iter_sidedataPacketSideDataPktSideDataT__class____class_getitem____dict____main____module____name____pyx_state__pyx_vtable____qualname____test__a53_ccafdambient_viewing_environmentaudio_service_typeav.packetcline_in_tracebackclosecollections.abccontent_light_levelcpb_propertiesdata_typedecodedisplay_matrixdovi_confdtsdtypedynamic_hdr10_plusdynamic_hdr_smpte_2094_app5encryption_infoencryption_init_infoexiffallback_trackframe_croppingfrom_packetget_argsh263_mb_infohevc_confiiamf_info_paramiamf_mix_gain_paramiamf_recon_gain_info_paramicc_profileidindexinputiter_sidedatajp_dual_monolcevcmastering_display_metadatamatroska_block_additionalmetadata_updatemovempegts_stream_idnew_extradatanextpacketpacket_sidedata_type_from_literalpacket_sidedata_type_to_literalpaletteparam_changeprftptsquality_statsreplay_gainrtcp_srs12m_timecodeselfsendsetdefaultsidedatasizeskip_samplessphericalstaticmethodstereo_3dstrings_metadatasubtitle_positionthrowtime_baseto_packettypingvaluewebvtt_identifierwebvtt_settingsxPyObject *(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level)\000PyObject*(PyObject* module, PyObject* name)\000PyObject*(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength, int kind)\000int(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_""args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject *tp, PyObject *k, PyObject *v)\000int(PyTypeObject* typeptr , void* vtable)\000void(PyObject *obj, PyTypeObject *type, const char *name, int exact)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx__Import\000__Pyx_ImportFrom\000__Pyx_PyUnicode_Join\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx__SetItemOnTypeDict\000__Pyx_SetVtable\000__Pyx_ArgTypeError\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywordsint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_6buffer_ByteSource *(PyObject *, struct __pyx_opt_args_2av_6buffer_bytesource *__pyx_optional_args)\000bytesourcestruct __pyx_obj_2av_6opaque_OpaqueContainer *\000opaque_containerstruct __pyx_obj_2av_8rational_AVRational *(AVRational)\000from_avrationalvoid (PyObject *, AVRational *)\000to_avrational\320\004\037\230q";
     PyObject *data = NULL;
     #define __Pyx_DecompressString_UNUSED
     #define __Pyx_DecompressString_LZSS_UNUSED
@@ -12326,7 +12135,7 @@ static const char bytes[] = " bytes at 0x of #, dts=, pts=3d_reference_displays;
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 106; i < 114; i++) {
+    for (int i = 106; i < 113; i++) {
       Py_ssize_t bytes_length = bytes_length_index[i-106].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -12337,7 +12146,7 @@ static const char bytes[] = " bytes at 0x of #, dts=, pts=3d_reference_displays;
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 114; i++) {
+    for (Py_ssize_t i = 0; i < 113; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
@@ -12345,7 +12154,7 @@ static const char bytes[] = " bytes at 0x of #, dts=, pts=3d_reference_displays;
     #if CYTHON_IMMORTAL_CONSTANTS
     {
       PyObject **table = stringtab + 106;
-      for (Py_ssize_t i=0; i<8; ++i) {
+      for (Py_ssize_t i=0; i<7; ++i) {
         #if PY_VERSION_HEX >= 0x030F0000
         PyUnstable_SetImmortal(table[i]);
         #elif CYTHON_COMPILING_IN_CPYTHON_FREETHREADING

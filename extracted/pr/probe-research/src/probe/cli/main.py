@@ -202,6 +202,20 @@ class EndStatus(str, Enum):
     untracked = "untracked"
 
 
+class RunCorrection(str, Enum):
+    """What `run set --status` may record: a FINISHED run's status.
+
+    Not the route's whole vocabulary. `created`/`running` on a finished run skip
+    the reopen guard, and the reaper later marks it crashed and emails the
+    launcher; `untracked` is the reaper's own verdict, not a correction.
+    """
+
+    completed = "completed"
+    failed = "failed"
+    crashed = "crashed"
+    canceled = "canceled"
+
+
 class Agg(str, Enum):
     mean = "mean"
     sum = "sum"
@@ -731,13 +745,13 @@ def _version_notice() -> None:
         ):
             _spawn_version_refresh()
 
-        if not isinstance(manifest, dict):
-            return  # cold cache: nothing to compare against until the refresh lands
-
         from . import updater
 
-        latest = updater.cli_update_available(manifest, __version__)
+        latest = isinstance(manifest, dict) and updater.cli_update_available(manifest, __version__)
         if not latest:
+            # Cold cache or CLI current: nothing to apply, except a pi package
+            # update a running pi deferred, which pi's session start retries.
+            _retry_owed_pi_update()
             return
 
         from . import autoupdate
@@ -747,7 +761,7 @@ def _version_notice() -> None:
             err=True,
         )
 
-        if not sys.stdout.isatty():
+        if not sys.stdout.isatty() and not _extension_session_start():
             autoupdate.record_skip(autoupdate.SKIP_NOT_A_TTY, available=latest)
             return
         if _invoked_command() in _UPDATE_HOT_PATH_COMMANDS:
@@ -760,9 +774,49 @@ def _version_notice() -> None:
             autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT, available=latest)
             return
 
-        _spawn_autoupdate()
+        if _extension_session_start():
+            _spawn_harness_update()
+        else:
+            _spawn_autoupdate()
     except Exception:  # noqa: BLE001 -- a version check must never break a command
         pass
+
+
+def _retry_owed_pi_update() -> None:
+    """pi's session start, with a pi package update still owed
+    (`autoupdate.pi_update_pending`): spawn it, to run once pi exits. No run
+    check: it touches pi's package, never the CLI a run imports from."""
+    if not _extension_session_start():
+        return
+    from . import autoupdate
+
+    if autoupdate.pi_update_pending():
+        _spawn_harness_update()
+
+
+def _extension_session_start() -> bool:
+    """`probe session initialize` from an extension-family harness (pi): that
+    harness's session start, the moment Claude Code's SessionStart hook updates
+    from (`hooks/version_check.py`). pi has no hook, and every `probe` call its
+    extension makes is off a terminal, so the TTY gate refused all of them and
+    pi never auto-updated at all (2026-10-02). The update is detached and waits
+    for this command to exit, exactly as it does from a terminal."""
+    import sys as _sys
+
+    from probe.harness import FAMILY_EXTENSION, get_registry
+
+    if not hasattr(os, "fork"):
+        # Windows: the update cannot detach, so it would run inline and wait
+        # for this command to exit -- past the extension's 5 s budget for it.
+        return False
+    harness = get_registry().find(os.environ.get("PROBE_AGENT"))
+    argv = _sys.argv[1:]
+    return (
+        harness is not None
+        and harness.family == FAMILY_EXTENSION
+        and _invoked_command() == "session"
+        and "initialize" in argv
+    )
 
 
 def _capture_block(session_id: str, *, heal_cwd: str | None) -> dict:
@@ -894,7 +948,7 @@ def _spawn_version_refresh() -> None:
         version_policy.release_refresh()
 
 
-def _spawn_update(flag: str) -> None:
+def _spawn_update(flag: str, *, harness_pid: int | None = None) -> None:
     """Launch version_refresh detached, naming OURSELVES as the pid to outlive.
 
     The wait is the whole point, and it is why both update triggers share this
@@ -909,7 +963,29 @@ def _spawn_update(flag: str) -> None:
 
     env = dict(os.environ)
     env[autoupdate.WAIT_FOR_PID_ENV] = str(os.getpid())
+    if harness_pid is not None:
+        env[autoupdate.WAIT_FOR_HARNESS_PID_ENV] = str(harness_pid)
     _spawn_detached([sys.executable, "-m", "probe.cli.version_refresh", flag], env)
+
+
+def _spawn_harness_update() -> None:
+    """Apply an update found at an extension harness's session start (pi's).
+
+    The child waits for THAT harness (our parent: pi runs `probe session
+    initialize` itself) to exit before it updates, since the update rewrites
+    the package folder pi loads from; and it re-checks that an update is still
+    due (`--apply-if-newer`), so several pi sessions started while one was
+    pending never stack duplicate updates.
+    """
+    harness_pid = os.getppid()
+    if harness_pid <= 1:
+        # Our parent is already gone (reparented to init): there is no pi to
+        # wait for, and waiting on init would hold the update for hours.
+        return
+    try:
+        _spawn_update("--apply-if-newer", harness_pid=harness_pid)
+    except Exception:  # noqa: BLE001 -- fail-open: never block the command
+        pass
 
 
 def _spawn_autoupdate() -> None:
@@ -1216,6 +1292,28 @@ def _apply_tag_ops(
     out = [t for t in canonical_tags(current) if t not in remove_c]
     out.extend(t for t in add_c if t not in out)
     return out
+
+
+def _tag_flags_given(add, remove, replace) -> bool:
+    """Did a `set` verb get any of --add-tag/--remove-tag/--set-tags?"""
+    return bool(add) or bool(remove) or replace is not None
+
+
+def _set_verb_tags(current, add, remove, replace) -> tuple[list[str], bool]:
+    """The tag list a `set` verb sends beside its other fields, and whether it
+    differs from the stored one -- the `tag` verb's arithmetic, one write.
+
+    The list goes in the body whenever a tag flag was given, changed or not:
+    a retried command (the daemon's Idempotency-Key) then sends the same body
+    it sent the first time and replays instead of being refused as a
+    different request."""
+    if replace is not None and (add or remove):
+        raise typer.BadParameter(
+            "--set-tags replaces the whole list; don't combine it with --add-tag/--remove-tag"
+        )
+    stored = list(current or [])
+    wanted = _apply_tag_ops(stored, add or [], remove or [], replace)
+    return wanted, wanted != stored
 
 
 def _tag_verb_flow(entity_id, current, add, remove, replace, write) -> dict:
@@ -1864,7 +1962,11 @@ def wizard(
     whatever is already configured, so `--yes` in CI can never silently revoke
     someone's capture pairing.
     """
+    from probe.cli import capture as capture_mod
     from probe.cli import tui
+
+    # D4: a sign-in from before D3 may have left pi's capture off for good.
+    capture_mod.clear_stray_pi_killswitch()
 
     # `--experimental` gated the Who records rows until 0.204.1; still
     # accepted so a script or a habit that passes it keeps working.
@@ -2262,10 +2364,10 @@ def _wizard_session(
             tui.say("Sign in to use the wizard. Run `npx probe-research` again.")
             raise typer.Exit(0)
 
-    # The state the menu's Defaults row was switched to in place and saved
-    # with Enter (`wizard.DefaultChoice`), for the DEFAULTS action to apply
-    # without opening its picker. Reset on every menu, so it never outlives
-    # the choice that set it.
+    # A state handed back as `wizard.DefaultChoice`, for the DEFAULTS action to
+    # apply without opening its picker. The menu's Defaults row saves on each
+    # press itself now, so only a caller that still answers DefaultChoice sets
+    # it. Reset on every menu, so it never outlives the choice that set it.
     menu_default: str | None = None
     # The same for the Who records row, which applies the moment it is switched
     # (`wizard.RecorderChoice`); None means Enter on the row. `--who-records`
@@ -2278,7 +2380,21 @@ def _wizard_session(
         from probe.cli import import_jobs
 
         import_jobs.recover_jobs()
+        default_before = session_marker.default_session_state()
         picked = wizard.run_action_menu(state_caps_by_source)
+        if (
+            session_marker.default_session_state() != default_before
+            and picked is not actions_mod.Action.DEFAULTS
+        ):
+            # The Defaults row saves on each press, inside the menu, so it never
+            # reaches the pass's own event: count it here as the `defaults`
+            # action it is, once per menu -- unless the menu answers DEFAULTS
+            # (Enter on the same row), whose pass counts it already.
+            tel.emit(
+                telemetry_mod.EVENT_WIZARD_ACTION_CHOSEN,
+                action=actions_mod.Action.DEFAULTS.value,
+                via_flag=False,
+            )
         menu_default = None
         menu_recorder = None
         if isinstance(picked, wizard.DefaultChoice):
@@ -2823,9 +2939,9 @@ def _wizard_session(
             all_backed_out = True
             for index, source in enumerate(targets):
                 # Uninstall revokes each agent's capture key as it goes, and
-                # two agents can share one (pi falls back to the CLI's), so the
-                # next agent's answer can change under it. Diagnose and update
-                # change nothing the server reports.
+                # the next agent's answer can change under it (the server
+                # state it reads moves). Diagnose and update change nothing
+                # the server reports.
                 current = _collect_agent(
                     source,
                     fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
@@ -3381,7 +3497,12 @@ def _run_wizard_action(
 
     if chosen_action is actions_mod.Action.RECORDER:
         return _run_recorder_action(
-            yes=yes, caps_by_source=caps_by_source, base_now=base_now, chosen=recorder, telemetry=tel
+            yes=yes,
+            caps_by_source=caps_by_source,
+            base_now=base_now,
+            chosen=recorder,
+            telemetry=tel,
+            agent_rules=agent_rules,
         )
 
     if chosen_action is actions_mod.Action.DEFAULTS:
@@ -3790,7 +3911,11 @@ def _run_wizard_action(
                 None,
             )
         )
-    if selection.agent_rules != caps.agent_rules_installed or caps.agent_rules_stale:
+    if (
+        selection.agent_rules != caps.agent_rules_installed
+        or caps.agent_rules_stale
+        or (not selection.agent_rules and wizard.leftover_team_note(caps))
+    ):
         work.append(
             (
                 f"write the rules into your global {wizard.instruction_files(caps.agent_source)}",
@@ -4102,9 +4227,9 @@ def _run_defaults_action(
 ) -> list[str] | None:
     """The main menu's Defaults row: this machine's default for new sessions.
 
-    `chosen` is a state already picked on the menu row itself (`←`/`→`, then
-    Enter); without one, the picker opens (`run_defaults_menu`), where the save
-    is `→`. The states are on / read / off; whether the daemon records is the
+    `chosen` is a state already picked elsewhere (`wizard.DefaultChoice`; the
+    menu row itself saves on each press now); without one, the picker opens
+    (`run_defaults_menu`), where `→` saves and so does leaving after a change. The states are on / read / off; whether the daemon records is the
     "Who records" setting, which mints and revokes the daemon's key
     (`setup.apply_recorder`).
     """
@@ -4257,6 +4382,7 @@ def _run_recorder_action(
     base_now: str | None = None,
     chosen: str | None = None,
     telemetry=None,
+    agent_rules: bool | None = None,
 ) -> list[str] | None:
     """The main menu's Who records row: the agent or the Probe daemon, ONE value
     for every coding agent on this device (Richard 2026-09-29).
@@ -4265,11 +4391,15 @@ def _run_recorder_action(
     Enter: each agent moves (`setup.apply_recorder`: plugins, the instruction
     block), and moving to the daemon asks for the daemon's own sign-in (the
     browser approval that mints its key) and then its page. A team the daemon
-    is not open to (the paid-plan answer) is told so and nothing moves.
+    is not open to (the server's answer) is told so and nothing moves.
     Without `chosen` (Enter on the row): the daemon's page, when it records.
 
     Every switch reports `wizard.recorder_changed` with how it ended, the
-    plan refusal included (#probe-usage pings it).
+    server's refusal included (#probe-usage pings it).
+
+    `agent_rules` is `--agent-rules/--no-agent-rules` beside `--who-records`:
+    it decides each moved agent's instruction block, and None keeps whatever
+    each file has (`setup.apply_recorder`).
     """
     from probe.cli import setup as wizard
     from probe.cli import telemetry as telemetry_mod
@@ -4286,22 +4416,62 @@ def _run_recorder_action(
     if chosen is None:
         if current != daemon:
             return None
-        # Enter on the row while the daemon records is also its repair: a key
-        # revoked on the dashboard, or libraries gone after an update, have no
-        # other way back in the wizard (switching away and back would revoke
-        # the key and ask for a second approval).
-        repaired = _ensure_daemon(base)
-        page = _run_daemon_page(caps_by_source=caps_by_source)
-        return [*repaired, *(page or [])] or None
+        # Enter on the row while the daemon records also brings along any
+        # set-up agent still recording itself: an agent that gained a daemon
+        # profile in an update (pi, 2026-10) never moves on its own, because
+        # who records decides what leaves the machine.
+        behind = [
+            source
+            for source in wizard.RECORDER_SOURCES
+            if source in caps_by_source
+            and caps_by_source[source].configured
+            and session_marker.recorder(source) != daemon
+        ]
+        if not behind:
+            # Otherwise Enter is the daemon's repair: a key revoked on the
+            # dashboard, or libraries gone after an update, have no other way
+            # back in the wizard (switching away and back would revoke the key
+            # and ask for a second approval).
+            repaired = _ensure_daemon(base)
+            page = _run_daemon_page(caps_by_source=caps_by_source)
+            return [*repaired, *(page or [])] or None
+        chosen = daemon
+    sources = [source for source in wizard.RECORDER_SOURCES if source in caps_by_source]
+    # SAY WHICH AGENTS STAY BEHIND: an agent with no daemon profile, if one is
+    # ever set up. A switch that names only the agents it moved reads as "every
+    # agent here" -- a customer with pi found out from what was missing
+    # (2026-10-02). Only agents Probe is set up for.
+    left_alone = [
+        f"{wizard.agent_label(source)} keeps recording itself: it has no daemon profile yet."
+        for source, snapshot in caps_by_source.items()
+        if chosen == daemon and source not in wizard.RECORDER_SOURCES and snapshot.configured
+    ]
+    # An agent already on the chosen profile is left alone: moving it again
+    # would reinstall a plugin its owner may have declined.
+    pending = [source for source in sources if session_marker.recorder(source) != chosen]
+    # Agents a pre-flight already kept on their profile (and said why).
+    held: set[str] = set()
+    # A rules flag beside the switch applies to agents already on the profile
+    # too, and FIRST: it is a local edit that needs no sign-in, no daemon key
+    # and no server's yes, and on a machine already on the daemon
+    # `--who-records daemon --no-agent-rules` is the way to take out a block
+    # the switch should never have written.
+    lines: list[str] = []
+    if agent_rules is not None:
+        for source in sources:
+            if source not in pending:
+                lines.extend(wizard.apply_recorder_rules(source, chosen, agent_rules))
+    # The rules edit above happened whatever stops the switch below.
+    nothing = "Who records did not change" if lines else "nothing changed"
+    unchanged = f"{nothing[0].upper()}{nothing[1:]}."
     if chosen == daemon and not resolve(base_url=base).token:
         # A signed-out machine would move every agent onto a profile with no
         # credential to record with. Back to the agent stays open: it is the
         # way off the daemon.
-        return ["Sign in before switching Who records to the daemon (`probe wizard --action login`).",
-                "Nothing changed."]
-    sources = [source for source in wizard.RECORDER_SOURCES if source in caps_by_source]
+        return [*lines, "Sign in before switching Who records to the daemon (`probe wizard --action login`).",
+                unchanged]
     if not sources:
-        return ["No coding agent set up on this device has a daemon profile yet.", "Nothing changed."]
+        return ["No coding agent set up on this device has a daemon profile yet.", *left_alone, "Nothing changed."]
     from probe.cli import tui
 
     started = time.monotonic()
@@ -4316,14 +4486,13 @@ def _run_recorder_action(
             duration_seconds=round(time.monotonic() - started, 3),
         )
 
-    lines: list[str] = []
     if chosen == daemon:
         # The spinner, never a blank screen, while the server answers.
         with tui.working("Checking the Probe daemon is open to your team"):
             offered, note = wizard.daemon_availability(base_url=base)
         if offered is False:
             _report(telemetry_mod.RecorderOutcome.REFUSED_PLAN, [])
-            return [note or wizard.DAEMON_PAID_ONLY_NOTE, "Nothing changed."]
+            return [*lines, note or wizard.DAEMON_UNAVAILABLE_NOTE, unchanged]
         # The daemon's key (a browser approval, only when missing or refused)
         # and its AI libraries (an install, only when missing, no approval),
         # OUTSIDE the spinner: the approval prints its link and waits on the
@@ -4334,21 +4503,35 @@ def _run_recorder_action(
         lines.extend(_ensure_daemon(base, open_browser=not headless))
         if not wizard.companion_token_held():
             _report(telemetry_mod.RecorderOutcome.NO_KEY, [])
-            return [*lines, "! The daemon has no key, so nothing changed."]
+            return [*lines, f"! The daemon has no key, so {nothing}."]
         if ai_libraries() is None:
             _report(telemetry_mod.RecorderOutcome.NO_LIBRARIES, [])
-            return [*lines, "! The daemon's AI libraries are missing, so nothing changed."]
-    # An agent already on the chosen profile is left alone: moving it again
-    # would reinstall a plugin its owner may have declined.
-    pending = [source for source in sources if session_marker.recorder(source) != chosen]
+            return [*lines, f"! The daemon's AI libraries are missing, so {nothing}."]
+        # An agent whose daemon starts from its own capture (pi) pairs it here,
+        # outside the spinner below: the approval prints a link to open. Its
+        # package is checked (and updated) FIRST: pairing mints its capture
+        # token, and a switch that then stopped on an old package would leave
+        # it capturing on agent, which it did not do before.
+        for source in pending:
+            if wizard.needs_capture_pairing(source):
+                with tui.working(f"Checking {wizard.agent_label(source)}'s Probe package"):
+                    package = wizard.daemon_package_ready(source)
+                lines.extend(package.lines)
+                if not package.ok:
+                    held.add(source)
+                    continue
+                lines.extend(wizard.pair_capture(source, base_url=base, open_browser=not headless))
     if not pending:
         _report(telemetry_mod.RecorderOutcome.MOVED, sources)
-        return [*lines, f"{wizard.RECORDER_ROW_TITLE}: already {chosen} for every coding agent here."]
+        everyone = "every coding agent here" if not left_alone else wizard.agent_label(tuple(sources))
+        return [*lines, f"{wizard.RECORDER_ROW_TITLE}: already {chosen} for {everyone}.", *left_alone]
     # Plugin moves capture their own output, so the spinner owns the screen.
     with tui.working("Moving your coding agents to the daemon" if chosen == daemon
                      else "Moving your coding agents back to recording themselves"):
         for source in pending:
-            lines.extend(wizard.apply_recorder(caps_by_source[source], chosen, base_url=base))
+            if source not in held:
+                lines.extend(wizard.apply_recorder(caps_by_source[source], chosen, base_url=base, rules=agent_rules))
+    lines.extend(left_alone)
     # What each agent's config SAYS now, not which steps ran: `apply_recorder`
     # reports a failure as a line and keeps going.
     moved = [source for source in sources if session_marker.recorder(source) == chosen]
@@ -4420,7 +4603,8 @@ def _run_daemon_page(*, caps_by_source: dict) -> list[str] | None:
     """The daemon's page: what the Probe daemon sees (the agents' reasoning
     summaries). Enter on the main menu's Who records row while the daemon
     records, and straight after switching to it. The settings screen's
-    machinery on `setup.DAEMON_GROUPS`: nothing is written until `Set settings ›`."""
+    machinery on `setup.DAEMON_GROUPS`: a change is written by `Set settings ›`,
+    or by leaving the page with `←`/Escape after making it."""
     from probe.cli import setup as wizard
     from probe.cli import tui
 
@@ -5575,6 +5759,24 @@ def notes_opt() -> Any:
     return typer.Option(None, "--notes", help=NOTES_HELP)
 
 
+#: Tag changes on a `set` verb: the `tag` verb's add / --remove / --set, spelled
+#: so they cannot be mistaken for the other fields `set` takes. They ride in the
+#: SAME PATCH as those fields, so an edit that renames and retags is one write
+#: that cannot land half.
+def add_tag_opt() -> Any:
+    return typer.Option(None, "--add-tag", help="add a tag (repeatable)")
+
+
+def remove_tag_opt() -> Any:
+    return typer.Option(None, "--remove-tag", help="remove a tag (repeatable)")
+
+
+def set_tags_opt() -> Any:
+    return typer.Option(
+        None, "--set-tags", help="replace the whole tag list (repeatable; --set-tags '' clears)"
+    )
+
+
 #: WHO composed the name and description on this write. One definition, because
 #: eight verbs offer it and a help string that drifts between them is a
 #: different promise on each.
@@ -5817,9 +6019,12 @@ def project_set(
     description: str = description_opt(),
     summary: str = entity_markdown_opt(),
     workspace: str = typer.Option(None, "--workspace", help="not here — use `probe project move`"),
+    add_tag: list[str] = add_tag_opt(),
+    remove_tag: list[str] = remove_tag_opt(),
+    set_tags: list[str] = set_tags_opt(),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Update a project's display fields."""
+    """Update a project's display fields and tags, in one write."""
     if workspace is not None:
         # Refused on purpose. Re-filing fans out a reindex across every descendant, so
         # it must be the thing you asked for, not a flag that rode along on an edit.
@@ -5829,15 +6034,23 @@ def project_set(
             file=sys.stderr,
         )
         raise typer.Exit(1)
+    fields = {"name": name, "description": description, "document": _text_value(summary)}
+    retagging = _tag_flags_given(add_tag, remove_tag, set_tags)
+    if not retagging and all(value is None for value in fields.values()):
+        raise typer.BadParameter(
+            "pass at least one of --name/--description/--summary/--add-tag/--remove-tag/--set-tags"
+        )
     with _client() as c:
+        pid = _project_id(c, project_id)
+        if retagging:
+            current = c.get_project(pid)
+            tags, changed = _set_verb_tags(current.get("tags"), add_tag, remove_tag, set_tags)
+            if not changed and all(value is None for value in fields.values()):
+                _print_json(current)  # the tags already read that way: nothing to write
+                return
+            fields["tags"] = tags
         _print_json(
-            c.update_project(
-                _project_id(c, project_id),
-                name=name,
-                description=description,
-                document=_text_value(summary),
-                authored_by=_authored_by_value(authored_by),
-            )
+            c.update_project(pid, **fields, authored_by=_authored_by_value(authored_by))
         )
 
 
@@ -6642,9 +6855,24 @@ def run_set(
     name: str = typer.Option(None, "--name"),
     description: str = description_opt(),
     notes: str = notes_opt(),
+    status: RunCorrection = typer.Option(
+        None,
+        "--status",
+        help=(
+            "correct a finished run's status; start and end times are kept. `failed` "
+            "emails the run's launcher. To close a running run, `run end`"
+        ),
+    ),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Update a run's human title, description, visible Markdown or notes.
+    """Update a run's human title, description, notes or status.
+
+    `--status` corrects a FINISHED run's record and sends no start or end time,
+    so the run's duration stays as recorded. Only finished statuses are taken:
+    `running` or `created` on a finished run would skip the reopen guard, and
+    the reaper would later mark it crashed and email the launcher. `probe run
+    end --status` is not the same thing: it stamps the end time NOW, which
+    rewrites the duration of a run that finished long ago.
 
     `--notes` is NOT a second description, and the difference decides which one a
     caveat goes in. A description says what the run IS and is written before it
@@ -6658,8 +6886,8 @@ def run_set(
     (`probe run tag RUN invalid`) so a reader is warned, and write the notes so
     they know why.
     """
-    if name is None and description is None and notes is None:
-        raise typer.BadParameter("pass at least one of --name/--description/--notes")
+    if name is None and description is None and notes is None and status is None:
+        raise typer.BadParameter("pass at least one of --name/--description/--notes/--status")
     with _client() as c:
         # PATCH /v1/runs/{run_id} is UUID-typed, so a petname has to be resolved
         # before it is sent -- unresolved it 422s with a raw pydantic uuid dump.
@@ -6670,6 +6898,7 @@ def run_set(
                 name=name,
                 description=description,
                 notes=_text_value(notes),
+                status=status.value if status is not None else None,
                 authored_by=_authored_by_value(authored_by),
             )
         )
@@ -8445,17 +8674,32 @@ def session_initialize(
     `track|untrack|toggle`.
     """
     resolved = _resolve_agent_session(session)
+    agent = _initializing_agent()
+    # WHICH PROFILE THIS SESSION RUNS: what the machine's "Who records" says for
+    # this agent NOW, written on EVERY start, resume and reload. pi reads its
+    # package's skill filter (the profile's install) when it starts, so the
+    # session's profile must follow the same moment, not the session's first
+    # start. Claude Code and Codex never call this command; their lean plugin
+    # writes the mark itself.
+    if agent is not None:
+        session_marker.mark_session_profile(resolved, session_marker.recorder(agent))
     state = session_marker.session_state(resolved)
     signal = session_marker.tracking_signal(resolved)
     seeded = False
     source = "session"
+    if state in (session_marker.STATE_FULL, session_marker.STATE_DAEMON) and agent is not None:
+        # An `on` session follows its profile: a session resumed after the
+        # researcher switched Who records records the way pi now loads it.
+        # `read-only` and `off` are the researcher's own switch and stay.
+        target = session_marker.on_state(resolved, agent)
+        if target != state and session_marker.set_session_state(resolved, target):
+            state = session_marker.session_state(resolved)
+            signal = session_marker.tracking_signal(resolved)
     if state is None:
-        from probe.cli.daemon_cli import calling_agent
-
         default, source = session_marker.resolve_state_default(cwd)
         # The same rule as the session-start hook: `on` (or a `daemon` default
         # from before) is stored by who records.
-        default = session_marker.seed_state(resolved, default, calling_agent())
+        default = session_marker.seed_state(resolved, default, agent)
         seeded = session_marker.set_session_state_if_absent(resolved, default)
         state = session_marker.session_state(resolved)
         signal = session_marker.tracking_signal(resolved)
@@ -8491,8 +8735,28 @@ def session_initialize(
             "source": source,
             "capture": capture,
             "effective": _effective(session_marker.is_tracking(signal), capture),
+            # NEW, additive (an old extension ignores it): "daemon" when the
+            # Probe daemon records and reads for this session, else "agent".
+            "profile": session_marker.session_profile(resolved) or session_marker.RECORDER_AGENT,
         }
     )
+
+
+def _initializing_agent() -> "str | None":
+    """The coding agent calling `session initialize`: its session markers when
+    this shell has them, else `PROBE_AGENT` when it names a harness. The pi
+    extension runs this command with an allowlisted environment that carries
+    `PROBE_AGENT=pi` and no PI_* variable (pi sets those only on its bash
+    tool's children), so without the second rung every pi session seeded as
+    if no agent had called."""
+    from probe.cli.daemon_cli import calling_agent
+    from probe.harness import get_registry
+
+    detected = calling_agent()
+    if detected is not None:
+        return detected
+    harness = get_registry().find(os.environ.get("PROBE_AGENT"))
+    return harness.id if harness is not None and harness.installable else None
 
 
 @session_app.command("status")
@@ -8814,6 +9078,50 @@ def views_rename(
     """Rename a view. The expression is untouched."""
     with _client() as c:
         _print_json(c.update_view(view_id, name=name))
+
+
+@views_app.command("update")
+def views_update(
+    view_id: str = typer.Argument(..., help="view id (`probe views list RUN` shows it)"),
+    name: str = typer.Option(None, "--name", help="new name; omit to keep it"),
+    spec: str = typer.Option(
+        None, "--spec", metavar="JSON", help="new expression; REPLACES the stored one whole"
+    ),
+    spec_file: str = typer.Option(
+        None, "--spec-file", metavar="PATH", help="spec JSON from a file, or - for stdin"
+    ),
+    expected_updated_at: str = typer.Option(
+        None,
+        "--expected-updated-at",
+        metavar="TIMESTAMP",
+        help="the view's updated_at as you read it; refused if it changed since",
+    ),
+) -> None:
+    """Change a view's expression and/or name.
+
+    The spec replaces the stored one whole, so read the view first (`probe views
+    list RUN`) and build on what is there. Pass its `updated_at` as
+    `--expected-updated-at` and an edit made since you read it is refused rather
+    than overwritten; the refusal prints the view as it is now.
+    """
+    body = _read_spec(spec, spec_file) if (spec is not None or spec_file is not None) else None
+    if name is None and body is None:
+        raise typer.BadParameter("pass --name, --spec or --spec-file")
+    with _client() as c:
+        try:
+            updated = c.update_view(
+                view_id, name=name, spec=body, expected_updated_at=expected_updated_at
+            )
+        except errors.ConflictError as exc:
+            if not (isinstance(exc.detail, dict) and "current" in exc.detail):
+                raise  # a name clash, not a moved view: the plain error says it
+            print(f"error: {exc}", file=sys.stderr)
+            # The view as it stands, so the caller can rebuild its change on it
+            # without a second read. null: it was deleted meanwhile.
+            current = json.dumps(exc.detail["current"], ensure_ascii=False)
+            print(f"current: {current}", file=sys.stderr)
+            raise typer.Exit(1) from exc
+    _print_json(updated)
 
 
 @views_app.command("delete")
@@ -12217,10 +12525,10 @@ def notes_write(
 # TEAM note (0125), through target flags rather than five parallel verb groups.
 
 #: Every entity that carries notes, and how to resolve one from a CLI flag.
-#: `--team` is GONE, not merely absent. The team note is no longer written with
-#: append/edit at all: it is a file the session syncs (`probe notes sync`, and
-#: the hooks that call it). Entity notes keep both verbs -- they have one owner
-#: and no file surface, which is the distinction app/core/notes.py records.
+#: The TEAM note is not one of them: a session that has its file edits it and
+#: syncs (`probe notes sync`, and the hooks that call it). Only `notes append`
+#: and `notes edit` take `--team`, for a caller with no file, and they reach the
+#: server-computed team-note writes rather than anything resolved here.
 #: A TRIAL is deliberately absent, though `PATCH /v1/trials/{id}` takes the same
 #: three notes writes and the dashboard offers the editor. Every carrier here is
 #: something the agent CREATED, which is what gives it a moment to annotate;
@@ -12534,6 +12842,552 @@ def notes_create(
     if isinstance(row, dict):
         payload["id"] = row.get("id")
     _print_json({**payload, **_headroom_fields(row)})
+
+
+# ------------------------------------------------- notes append / edit, no file
+#
+# The file model (checkout, edit, push) needs a file system and a second step. An
+# agent that can only pass arguments -- the dashboard assistant, a sandboxed tool
+# -- adds or corrects a note with these two instead. The text is ALWAYS literal:
+# no `@file`, no `-` for stdin, so a command can never send a file it names.
+#
+# The server has no append or span edit any more (0.388.0.0), so both read the
+# note, change its text here, and replace it pinned to the version they read
+# (`base_version`, the `notes push` contract). If someone wrote in between, the
+# server refuses with 409 and the change is applied again to the new text.
+
+#: Reads-and-retries before giving up on a note that keeps moving. Each attempt
+#: is a fresh read, so this runs out only under a continuous stream of writes.
+_NOTE_REWRITE_ATTEMPTS = 5
+
+
+def _note_carrier(
+    c: Client,
+    *,
+    project: str | None,
+    experiment: str | None,
+    run: str | None,
+    group: str | None,
+    artifact: str | None,
+    note: str | None,
+) -> tuple[str, str, str | None, str]:
+    """(kind, entity id, sub-note id or None, label) for a text-only write."""
+    kind, entity_id, label = _note_target(
+        c, project=project, experiment=experiment, run=run, group=group, artifact=artifact
+    )
+    if note is None:
+        return kind, entity_id, None, label
+    try:
+        found = _resolve_sub_note_by_title(c, kind, entity_id, note)
+    except errors.RosError as exc:
+        _sub_notes_supported(exc)
+        raise
+    return kind, entity_id, found["id"], f"{label} › {note}"
+
+
+def _send_note(
+    c: Client, kind: str, entity_id: str, sub_id: str | None, text: str, version: int
+) -> dict | None:
+    """Replace one note pinned to `version`: the main note, or a sub-note by id."""
+    op_key = uuid.uuid4().hex
+    if sub_id is not None:
+        return c._replace_sub_note(sub_id, text, base_version=version, op_key=op_key)
+    return c._replace_notes(kind, entity_id, text, base_version=version, op_key=op_key)
+
+
+def _stored_form(field: str, text: str) -> str:
+    """`text` as Probe would store it under `field`.
+
+    The client (`Client.write`) and the server (`app/security/content_guard.py`)
+    both run the credential scrubber over every write body, so this is what lands.
+    Some rules rewrite a span; some rewrite the WHOLE value to `<redacted>`.
+    Applied until it stops changing, because it runs more than once on the way.
+    """
+    from ..sdk.redaction import default_scrub
+
+    for _ in range(3):
+        scrubbed = default_scrub({field: text})[field]
+        if scrubbed == text:
+            break
+        text = scrubbed
+    return text
+
+
+def _is_version(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _refuse_scrubbed_old(old: str) -> None:
+    """Refuse an `--old` the scrubber would rewrite (the server scrubs `old_text`
+    before matching it, so it would match the `<redacted>` text instead)."""
+    if _stored_form("old_text", old) != old:
+        print(
+            "error: --old holds text Probe's credential scrubber rewrites, so it would "
+            "match the wrong text; nothing was written. Match a nearby piece of the note "
+            "instead.",
+            file=sys.stderr,
+        )
+        raise typer.Exit(1)
+
+
+def _read_note(
+    c: Client, kind: str, entity_id: str, sub_id: str | None
+) -> tuple[dict, str, object]:
+    """(row, document, notes_version) for the main note or one sub-note.
+
+    Raises ValueError for a reply that is not Probe's JSON row."""
+    row = c.get_sub_note(sub_id) if sub_id is not None else _entity_notes_row(c, kind, entity_id)
+    if not isinstance(row, dict):
+        raise ValueError(f"the reply was not a {kind} note")
+    if sub_id is not None:
+        return _sub_note_row_for_headroom(row), row.get("body") or "", row.get("notes_version")
+    return row, row.get("notes") or "", row.get("notes_version")
+
+
+@dataclass(frozen=True)
+class _Unconfirmed:
+    """Why a write's reply did not confirm it, and whether it can still land.
+
+    `may_still_land`: the request reached Probe and nobody saw it finish -- a
+    timeout, a reply lost after sending, a 502/504 from the ingress. The CLI
+    gives up after 30 s and the server keeps working for up to 300 s, and a
+    read is not blocked by the write's row lock, so a note that reads unchanged
+    NOW can still change. Only when the app itself answered (a redirect, a
+    non-JSON 200, its own 500/503) does unchanged mean nothing was written."""
+
+    why: str
+    may_still_land: bool
+
+
+#: A reply with no version: a redirect, or a 200 that is not Probe's JSON.
+_NO_VERSION_REPLY = _Unconfirmed("Probe's reply did not say what it stored", False)
+
+#: Gateway answers: the ingress gave up on the app, which may still be working.
+_GATEWAY_STATUSES = frozenset({502, 504})
+
+
+def _settle_unconfirmed(
+    read, base: int, sent: str, what: str, *, why: _Unconfirmed, shown: str
+) -> dict:
+    """A write whose reply did not confirm it. Never sent again: read the note.
+
+    One version on with exactly the text sent is this write, landed. The same
+    version is nothing written only when the app answered; after a timeout it
+    is "not there yet". Anything else may be this write or someone else's, and
+    only a person reading the note can tell. `read()` returns
+    (row, document, version); `shown` is the command that prints the note.
+    """
+    try:
+        row, document, version = read()
+    except (errors.RosError, ValueError) as exc:
+        # ValueError: a reply that was not JSON (an ingress page).
+        print(
+            f"error: {why.why}; the {what} could not be re-read ({exc}), so the write may "
+            f"have landed. Read it (`{shown}`) before running this again.",
+            file=sys.stderr,
+        )
+        raise typer.Exit(1) from None
+    if version == base + 1 and document == sent:
+        print(f"{why.why}; the {what} shows this write landed", file=sys.stderr)
+        return row
+    if version == base and why.may_still_land:
+        print(
+            f"error: {why.why}; the {what} does not show this write yet, but Probe may still "
+            f"be applying it. Read it (`{shown}`) in a few minutes, before running this again.",
+            file=sys.stderr,
+        )
+        raise typer.Exit(1)
+    if version == base:
+        print(
+            f"error: {why.why}; the {what} is unchanged, so nothing was written. Run it again.",
+            file=sys.stderr,
+        )
+        raise typer.Exit(1)
+    print(
+        f"error: {why.why}; the {what} changed meanwhile, so this write may have landed. "
+        f"Read it (`{shown}`) before running this again.",
+        file=sys.stderr,
+    )
+    raise typer.Exit(1)
+
+
+def _unconfirmed_reason(exc: errors.RosError) -> _Unconfirmed | None:
+    """Why a failed write MAY have landed, or None when it surely did not.
+
+    A connection that never reached Probe wrote nothing. A timeout, a reply
+    lost after sending or a gateway 502/504 may still land; a 5xx the app
+    answered itself (500, 503) did not write."""
+    if isinstance(exc, errors.TransportError):
+        if getattr(exc, "unreachable", False):
+            return None
+        return _Unconfirmed(f"the reply was lost ({exc})", True)
+    if isinstance(exc, errors.ServerError):
+        if exc.status in _GATEWAY_STATUSES:
+            return _Unconfirmed(f"Probe's gateway gave up waiting ({exc})", True)
+        return _Unconfirmed(f"Probe answered with an error ({exc})", False)
+    return None
+
+
+def _refuse_over_cap(row: object, text: str, kind: str, label: str, *, appending: bool) -> None:
+    """Refuse, before sending, a note the server would refuse for its length.
+
+    Uses the cap the READ published (`notes_limit_chars`); a server too old to
+    publish it answers for itself."""
+    from ..sdk.notes import full_note_message, notes_fullness
+
+    fullness = notes_fullness(row)
+    if fullness is None or len(text) <= fullness[1]:
+        return
+    limit = fullness[1]
+    if appending:
+        print(
+            f"error: appending would exceed the {limit:,}-character notes limit; "
+            "nothing was written",
+            file=sys.stderr,
+        )
+        for line in textwrap.wrap(full_note_message(kind, label), width=76):
+            print(f"       {line}", file=sys.stderr)
+    else:
+        print(
+            f"error: the edit would leave the {kind} note ({label}) at {len(text):,} "
+            f"characters, over its {limit:,}-character limit; nothing was written",
+            file=sys.stderr,
+        )
+    raise typer.Exit(1)
+
+
+def _rewrite_note(
+    c: Client,
+    kind: str,
+    entity_id: str,
+    sub_id: str | None,
+    label: str,
+    change: Callable[[str], tuple[str, str, str]],
+    *,
+    appending: bool,
+) -> dict:
+    """Read the note, `change` its text, replace it pinned to the version read.
+
+    `change(document)` returns (kept before, new text, kept after) and refuses
+    by raising (an edit whose `--old` does not match once). On a stale-version
+    409 the note is read again and `change` runs on the new text, so a
+    concurrent writer's words are kept, never overwritten.
+
+    Nothing already in the note may change except what the caller asked for,
+    and the scrubber every write passes through can change it: a note holding
+    text it would rewrite is refused, and so is new text whose scrub would
+    rewrite the rest of the note. A reply that does not confirm the write is
+    settled by reading the note, never by sending it again."""
+    field = "body" if sub_id is not None else "notes"
+    what = f"{kind} note ({label})"
+
+    def read() -> tuple[dict, str, object]:
+        return _read_note(c, kind, entity_id, sub_id)
+
+    for _ in range(_NOTE_REWRITE_ATTEMPTS):
+        try:
+            row, document, version = read()
+        except ValueError:
+            # Not JSON: an ingress page answered the read, not Probe.
+            print(
+                f"error: reading the {what} did not return Probe's answer; nothing was "
+                "written.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(1) from None
+        if not _is_version(version):
+            print(
+                f"error: Probe did not say which version of the {what} it read, so a "
+                "write could overwrite someone else's; nothing was written.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(1)
+        if _stored_form(field, document) != document:
+            print(
+                f"error: the {what} holds text Probe's credential scrubber would rewrite, "
+                "and saving the note would rewrite it; nothing was written. Review it with "
+                "`probe notes checkout`, then `probe notes push`.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(1)
+        before, middle, after = change(document)
+        text = before + middle + after
+        sent = _stored_form(field, text)
+        if not (
+            sent.startswith(before)
+            and sent.endswith(after)
+            and len(sent) >= len(before) + len(after)
+        ):
+            print(
+                f"error: the new text holds something Probe's credential scrubber would "
+                f"rewrite, and the rewrite would change the rest of the {what} too; nothing "
+                "was written. Leave the credential-shaped text out.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(1)
+        _refuse_over_cap(row, sent, kind, label, appending=appending)
+        try:
+            written = _notes_write(
+                kind, label, lambda: _send_note(c, kind, entity_id, sub_id, text, version)
+            )
+        except errors.ConflictError as exc:
+            # `stale_replace`: the document moved since the read. Any other 409
+            # is a refusal this loop cannot fix.
+            if isinstance(exc.detail, dict) and "notes_version" in exc.detail:
+                continue
+            raise
+        except errors.RosError as exc:
+            why = _unconfirmed_reason(exc)
+            if why is None:
+                raise
+            return _settle_unconfirmed(
+                read, version, sent, what, why=why, shown="probe notes show"
+            )
+        written = _sub_note_row_for_headroom(written)
+        if not (isinstance(written, dict) and _is_version(written.get("notes_version"))):
+            return _settle_unconfirmed(
+                read, version, sent, what, why=_NO_VERSION_REPLY, shown="probe notes show"
+            )
+        return written
+    print(
+        f"error: the {what} kept changing while this wrote; nothing was written. "
+        "Run it again.",
+        file=sys.stderr,
+    )
+    raise typer.Exit(1)
+
+
+# The TEAM note is different: the server keeps two writes that compute the change
+# itself under the note's row lock (`POST /v1/team-note/apply/paragraph|span`),
+# so nothing is merged here. The note IS read first, for its version and text:
+# that is what settles a write whose reply was lost. A session that has the
+# team-note file edits it and `probe notes sync`s instead; these are for a
+# caller with no file.
+
+_TEAM_LABEL = "team note"
+
+
+def _team_only(team: bool, **targets: object) -> None:
+    """Refuse `--team` beside an entity flag or `--note`: one note per write."""
+    if team and any(value is not None for value in targets.values()):
+        raise typer.BadParameter(
+            "--team writes the team note; drop --project/--experiment/--run/--group/"
+            "--artifact/--note"
+        )
+
+
+def _team_topped_up(body: str, text: str) -> str:
+    """The server's append (`app/team_notes/service.py::_topped_up`)."""
+    return f"{body.rstrip()}\n\n{text.strip()}\n" if body.strip() else f"{text.strip()}\n"
+
+
+def _write_team_note(
+    c: Client, write: Callable[[], dict | None], expected: Callable[[str], str]
+) -> dict:
+    """Run a team-note write, retrying the one refusal that wrote nothing and
+    says so (`retryable`: another write landed at the same instant).
+
+    `expected(body)` is what the server stores when it applies this write to
+    `body`; with the version read just before, it settles a reply that did not
+    confirm the write. A credential that cannot read the note still writes, but
+    such a reply is then reported as possibly landed."""
+    for _ in range(_NOTE_REWRITE_ATTEMPTS):
+        base: tuple[int, str] | None = None
+        try:
+            head = c.get_team_note()
+        except (errors.ScopeError, ValueError):
+            # No read scope, or a reply that was not JSON: write anyway, but a
+            # reply that does not confirm the write cannot be settled.
+            head = None
+        if isinstance(head, dict) and _is_version(head.get("version")):
+            base = (head["version"], head.get("body") or "")
+
+        def read() -> tuple[dict, str, object]:
+            row = c.get_team_note()
+            if not isinstance(row, dict):
+                raise ValueError("the reply was not a team note")
+            return row, row.get("body") or "", row.get("version")
+
+        def settle(why: _Unconfirmed) -> dict:
+            if base is None:
+                print(
+                    f"error: {why.why}, and the {_TEAM_LABEL} could not be read before the "
+                    "write to check against; the write may have landed. Read it (`probe "
+                    "notes team`) before running this again.",
+                    file=sys.stderr,
+                )
+                raise typer.Exit(1)
+            return _settle_unconfirmed(
+                read, base[0], expected(base[1]), _TEAM_LABEL, why=why, shown="probe notes team"
+            )
+
+        try:
+            row = write()
+        except errors.ConflictError as exc:
+            if isinstance(exc.detail, dict) and exc.detail.get("retryable") is True:
+                continue
+            raise
+        except errors.RosError as exc:
+            why = _unconfirmed_reason(exc)
+            if why is None:
+                raise
+            return settle(why)
+        if not (isinstance(row, dict) and _is_version(row.get("version"))):
+            return settle(_NO_VERSION_REPLY)
+        return row
+    print(
+        "error: the team note kept changing while this wrote; nothing was written. "
+        "Run it again.",
+        file=sys.stderr,
+    )
+    raise typer.Exit(1)
+
+
+def _team_payload(row: dict, **fields: object) -> dict:
+    payload: dict[str, Any] = {"target": "team", "label": _TEAM_LABEL, **fields}
+    payload["version"] = row.get("version")
+    if isinstance(row.get("remaining_chars"), int):
+        payload["remaining"] = row["remaining_chars"]
+    return payload
+
+
+def _refuse_edit_match(found: int, kind: str, label: str) -> None:
+    """The refusal for an `--old` that does not match exactly once."""
+    if found == 0:
+        why = "matches nothing", "Copy it exactly from `probe notes show`"
+    else:
+        why = f"matches {found} places", "Add surrounding text until it matches once"
+    print(
+        f"error: --old {why[0]} in the {kind} note ({label}); nothing was "
+        f"written. {why[1]}.",
+        file=sys.stderr,
+    )
+    raise typer.Exit(1)
+
+
+@notes_app.command("append")
+def notes_append(
+    text: str = typer.Option(..., "--text", help="the paragraph to add, as literal text"),
+    project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
+    experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
+    run: str = typer.Option(None, "--run", help="run slug or id"),
+    group: str = typer.Option(None, "--group", help="group id"),
+    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
+    note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
+    team: bool = typer.Option(False, "--team", help="the TEAM note instead of an entity's"),
+) -> None:
+    """Add a paragraph to the end of a note: an entity's, one sub-note, or the team note.
+
+    The text is taken literally (no @file, no stdin). It lands after a blank
+    line, and anything a teammate wrote meanwhile is kept.
+    """
+    if not text.strip():
+        raise typer.BadParameter("--text is empty")
+    _team_only(
+        team, project=project, experiment=experiment, run=run, group=group,
+        artifact=artifact, note=note,
+    )
+    if team:
+        stored = _stored_form("text", text)
+        with _client() as c:
+            row = _write_team_note(
+                c,
+                lambda: c.append_team_note(text),
+                lambda body: _team_topped_up(body, stored),
+            )
+        print(f"appended to the {_TEAM_LABEL}", file=sys.stderr)
+        _print_json(_team_payload(row, chars=len(text)))
+        return
+    from ..sdk.notes import append_to_document
+
+    def change(document: str) -> tuple[str, str, str]:
+        joined = append_to_document(document, text)
+        return joined[: len(joined) - len(text)], text, ""
+
+    with _client() as c:
+        kind, entity_id, sub_id, label = _note_carrier(
+            c, project=project, experiment=experiment, run=run, group=group,
+            artifact=artifact, note=note,
+        )
+        row = _rewrite_note(c, kind, entity_id, sub_id, label, change, appending=True)
+    print(f"appended to {kind} note ({label})", file=sys.stderr)
+    payload: dict[str, Any] = {"target": kind, "label": label}
+    if note is not None:
+        payload["note"] = note
+    payload.update({"chars": len(text), "version": row.get("notes_version")})
+    _print_json({**payload, **_headroom_fields(row)})
+    _report_notes_headroom(row, kind, label)
+
+
+@notes_app.command("edit")
+def notes_edit(
+    old: str = typer.Option(..., "--old", help="the exact text to replace; must match once"),
+    new: str = typer.Option(..., "--new", help="what replaces it ('' deletes it)"),
+    project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
+    experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
+    run: str = typer.Option(None, "--run", help="run slug or id"),
+    group: str = typer.Option(None, "--group", help="group id"),
+    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
+    note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
+    team: bool = typer.Option(False, "--team", help="the TEAM note instead of an entity's"),
+) -> None:
+    """Replace one exact piece of a note: an entity's, one sub-note, or the team note.
+
+    `--old` must appear exactly once, character for character; otherwise
+    nothing is written and the command fails. Both values are literal text
+    (no @file, no stdin).
+    """
+    if not old:
+        raise typer.BadParameter("--old is empty")
+    _team_only(
+        team, project=project, experiment=experiment, run=run, group=group,
+        artifact=artifact, note=note,
+    )
+    _refuse_scrubbed_old(old)
+    if team:
+        stored_new = _stored_form("new_text", new)
+        with _client() as c:
+            try:
+                row = _write_team_note(
+                    c,
+                    lambda: c.edit_team_note(old, new),
+                    lambda body: body.replace(old, stored_new, 1),
+                )
+            except errors.ConflictError as exc:
+                found = exc.detail.get("match_count") if isinstance(exc.detail, dict) else None
+                if not isinstance(found, int):
+                    raise
+                _refuse_edit_match(found, "team", _TEAM_LABEL)
+        print(f"edited the {_TEAM_LABEL}", file=sys.stderr)
+        _print_json(_team_payload(row, removed=len(old), added=len(new)))
+        return
+    from ..sdk.notes import edit_match_count
+
+    with _client() as c:
+        kind, entity_id, sub_id, label = _note_carrier(
+            c, project=project, experiment=experiment, run=run, group=group,
+            artifact=artifact, note=note,
+        )
+
+        def change(document: str) -> tuple[str, str, str]:
+            found = edit_match_count(document, old)
+            if found != 1:
+                _refuse_edit_match(found, kind, label)
+            at = document.index(old)
+            return document[:at], new, document[at + len(old) :]
+
+        row = _rewrite_note(c, kind, entity_id, sub_id, label, change, appending=False)
+    print(f"edited {kind} note ({label})", file=sys.stderr)
+    payload: dict[str, Any] = {"target": kind, "label": label}
+    if note is not None:
+        payload["note"] = note
+    payload.update(
+        {"removed": len(old), "added": len(new), "version": row.get("notes_version")}
+    )
+    _print_json({**payload, **_headroom_fields(row)})
+    # An edit is also how a note is compacted, so this line going quiet is how a
+    # caller sees that a compaction worked.
+    _report_notes_headroom(row, kind, label)
 
 
 @notes_app.command("rename")
@@ -12870,6 +13724,7 @@ def notes_sync(
             "rendered": list(render.written),
             "rendered_pointer_only": list(render.pointer_only),
             "render_unchanged": list(render.unchanged),
+            "render_opted_out": [*render.opted_out, *render.removed],
             "render_failures": list(render.failures),
         }
     )
@@ -13004,25 +13859,34 @@ def experiment_set(
         hidden=True,
     ),
     summary: str = entity_markdown_opt(),
+    add_tag: list[str] = add_tag_opt(),
+    remove_tag: list[str] = remove_tag_opt(),
+    set_tags: list[str] = set_tags_opt(),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Amend an experiment's question, name, or visible Markdown."""
+    """Amend an experiment's question, name, visible Markdown or tags, in one write."""
     if description is not None:
         raise typer.BadParameter(
             "an experiment's description was replaced by its QUESTION (0231). Use "
             "--question for what the experiment is testing, or --summary for prose "
             "about it -- which is where existing descriptions were moved."
         )
-    if question is None and name is None and summary is None:
-        raise typer.BadParameter("pass at least one of --question/--name/--summary")
-    with _client() as c:
-        result = c.update_experiment(
-            _ref(c, "experiment", experiment_id).id,
-            question=question,
-            name=name,
-            document=_text_value(summary),
-            authored_by=_authored_by_value(authored_by),
+    fields = {"question": question, "name": name, "document": _text_value(summary)}
+    retagging = _tag_flags_given(add_tag, remove_tag, set_tags)
+    if not retagging and all(value is None for value in fields.values()):
+        raise typer.BadParameter(
+            "pass at least one of --question/--name/--summary/--add-tag/--remove-tag/--set-tags"
         )
+    with _client() as c:
+        eid = _ref(c, "experiment", experiment_id).id
+        if retagging:
+            current = c.get_experiment(eid)
+            tags, changed = _set_verb_tags(current.get("tags"), add_tag, remove_tag, set_tags)
+            if not changed and all(value is None for value in fields.values()):
+                _print_json(current)  # the tags already read that way: nothing to write
+                return
+            fields["tags"] = tags
+        result = c.update_experiment(eid, **fields, authored_by=_authored_by_value(authored_by))
     _print_json(result)
 
 

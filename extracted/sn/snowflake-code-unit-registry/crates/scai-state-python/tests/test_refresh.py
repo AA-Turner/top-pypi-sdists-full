@@ -20,6 +20,7 @@ from snowflake_code_unit_registry.types import (
     Dependency,
     Kind,
     ObjectType,
+    Planning,
     SourceMetadata,
     TargetMetadata,
 )
@@ -50,9 +51,16 @@ def _unit(id: str, dep_ids: list[str] | None = None) -> CodeUnit:
 def test_create_auto_refreshes_topological_ranks(registry_dir: str):
     registry = CodeUnitRegistry.init(registry_dir)
 
-    registry.create(_unit("c"))
-    registry.create(_unit("b", ["c"]))
-    registry.create(_unit("a", ["b"]))
+    c_in = _unit("c")
+    c_in.planning = Planning(waveRank=42)
+    b_in = _unit("b", ["c"])
+    b_in.planning = Planning(waveRank=42)
+    a_in = _unit("a", ["b"])
+    a_in.planning = Planning(waveRank=42)
+
+    registry.create(c_in)
+    registry.create(b_in)
+    registry.create(a_in)
 
     a = registry.get_by_id("a")
     b = registry.get_by_id("b")
@@ -61,6 +69,9 @@ def test_create_auto_refreshes_topological_ranks(registry_dir: str):
     assert c.planning.topologicalRank == 0
     assert b.planning.topologicalRank == 1
     assert a.planning.topologicalRank == 2
+    assert c.planning.waveRank == 42
+    assert b.planning.waveRank == 42
+    assert a.planning.waveRank == 42
 
 
 def test_create_best_effort_on_cycle(registry_dir: str):

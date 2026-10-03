@@ -298,6 +298,18 @@ def _slice_value(obj: Any, content_str: str, slice_content: str) -> Any:
     return slice_content
 
 
+async def default_source_read(
+    materialize: Any, source: Any, *, user_id: str, budget: int = _MAX_RESULT_CHARS
+) -> Any:
+    """The window a bare ``context(action="get", key=K)`` returns for a lazy source: mode
+    ``full`` from offset 0, filled to the result budget — the same call ``ctx_get`` makes, so a
+    host that shows "what the context tool returns" (aidream's context viewer) serves exactly
+    these bytes. ``None`` when no resolver answered."""
+    return await _materialize_window(
+        materialize, source, mode="full", offset=0, chars=budget, user_id=user_id
+    )
+
+
 def _materialized_slice_value(slice_: Any) -> Any:
     """Return native JSON when a lazy-source slice contains the whole value.
 

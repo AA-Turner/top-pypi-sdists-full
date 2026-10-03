@@ -11,7 +11,8 @@ from enum import Enum
 
 from rich.style import Style
 from rich.text import Text
-from shared.http.deployment_plans import DeploymentPlanAction
+
+from lazycloud.contracts.api import DeploymentPlanAction
 
 SUCCESS = Style(color="green")
 ERROR = Style(color="red")
@@ -81,10 +82,10 @@ def state_style(state: object) -> Style:
 
 def deployment_action_style(action: DeploymentPlanAction) -> Style:
     return {
-        DeploymentPlanAction.Add: SUCCESS,
-        DeploymentPlanAction.Remove: ERROR,
-        DeploymentPlanAction.Redeploy: WARNING,
-        DeploymentPlanAction.Retain: PLAIN,
+        DeploymentPlanAction.add: SUCCESS,
+        DeploymentPlanAction.remove: ERROR,
+        DeploymentPlanAction.redeploy: WARNING,
+        DeploymentPlanAction.retain: PLAIN,
     }[action]
 
 

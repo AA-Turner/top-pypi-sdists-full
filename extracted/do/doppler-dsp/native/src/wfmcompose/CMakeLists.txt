@@ -69,6 +69,21 @@ target_include_directories(wfm_compose_core PUBLIC
 # tests and the .so that link this object library pick up -pthread transitively.
 target_link_libraries(wfm_compose_core PUBLIC ${DP_MATH_LIBRARY} Threads::Threads)
 
+# The pull that replaces the cycle: a synth fed frame by frame from a data
+# source (dp_wfm_synth_attach_data in the bridge). Links as test_wfm_compose
+# does, because the bridge is part of wfm_compose_core.
+add_executable(test_wfm_synth_data
+    ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_synth_data.c)
+target_link_libraries(test_wfm_synth_data PRIVATE
+    wfm_compose_core doppler_channel_core wfm_draw_core wfm_dsp_core wfm_frame_core cvt_core wfm_cjson_core
+    ccsds_tm_core conv_core rs_core
+    wfm_synth_core lo_core awgn_core
+    pn_core gold_core fir_core resamp_core
+    ${DP_MATH_LIBRARY})
+target_include_directories(test_wfm_synth_data PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_wfm_synth_data COMMAND test_wfm_synth_data)
+
 add_executable(test_wfm_compose
     ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_compose.c)
 # the composer reuses synth, which pulls in lo/awgn/pn
@@ -126,13 +141,27 @@ add_test(NAME test_wfm_plan COMMAND test_wfm_plan)
 # one, which is what lets a receiver regenerate a long record's truth from a
 # handful of numbers instead of carrying the array.
 add_library(wfm_frame_core OBJECT
-    ${CMAKE_SOURCE_DIR}/native/src/wfm/wfm_frame.c)
+    ${CMAKE_SOURCE_DIR}/native/src/wfm/wfm_frame.c
+    # A frame's data source (wfm/wfm_data.h): where a data:LEN payload's
+    # bits come from, LEN at a time. Here rather than in a library of its
+    # own because its dependencies ARE this one's -- the Field parser, pn,
+    # cvt's dp_bytes_to_bin -- so every consumer of a frame already links
+    # everything it needs (docs/design/payload-data-source.md).
+    ${CMAKE_SOURCE_DIR}/native/src/wfm/wfm_data.c)
 target_include_directories(wfm_frame_core PUBLIC
     ${CMAKE_SOURCE_DIR}/native/inc
     ${CMAKE_SOURCE_DIR}/native/inc/doppler/wfm)
 # cvt: a Field written in hex expands through dp_hex_to_bin and prints back
 # through dp_bin_to_hex -- cvt's, rather than a second hex codec here.
 target_link_libraries(wfm_frame_core PUBLIC pn_core gold_core cvt_core ${DP_MATH_LIBRARY})
+
+add_executable(test_wfm_data
+    ${CMAKE_SOURCE_DIR}/native/tests/test_wfm_data.c)
+target_link_libraries(test_wfm_data PRIVATE wfm_frame_core
+    cvt_core pn_core gold_core ${DP_MATH_LIBRARY})
+target_include_directories(test_wfm_data PRIVATE
+    ${CMAKE_SOURCE_DIR}/native/inc ${CMAKE_SOURCE_DIR}/native/tests)
+add_test(NAME test_wfm_data COMMAND test_wfm_data)
 
 # ── DSSS spreading + RRC pulse-shaping taps (pure DSP, no deps) ──────────────
 add_library(wfm_dsp_core OBJECT

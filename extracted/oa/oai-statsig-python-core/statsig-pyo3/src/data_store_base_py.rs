@@ -21,6 +21,7 @@ const TAG: &str = "DataStoreBasey";
 #[derive(Default)]
 pub struct DataStoreBasePy {
     is_read_only_fn: Option<Py<PyAny>>,
+    write_once_fn: Option<Py<PyAny>>,
     initialize_fn: Option<Py<PyAny>>,
     shutdown_fn: Option<Py<PyAny>>,
     get_fn: Option<Py<PyAny>>,
@@ -40,8 +41,14 @@ impl<'a, 'py> FromPyObject<'a, 'py> for DataStoreBasePy {
             Err(error) if error.is_instance_of::<PyAttributeError>(obj.py()) => None,
             Err(error) => return Err(error),
         };
+        let write_once_fn = match obj.getattr("write_once_fn") {
+            Ok(value) => value.extract()?,
+            Err(error) if error.is_instance_of::<PyAttributeError>(obj.py()) => None,
+            Err(error) => return Err(error),
+        };
         Ok(Self {
             is_read_only_fn,
+            write_once_fn,
             initialize_fn: obj.getattr("initialize_fn")?.extract()?,
             shutdown_fn: obj.getattr("shutdown_fn")?.extract()?,
             get_fn: obj.getattr("get_fn")?.extract()?,
@@ -68,10 +75,42 @@ impl DataStoreBasePy {
     pub fn is_read_only(&self) -> bool {
         false
     }
+
+    /// Override to publish one config-spec snapshot successfully per SDK instance,
+    /// retrying failed writes with the same prepared payload.
+    /// ID-list writes are unaffected; later full responses are writable by default.
+    pub fn write_once(&self) -> bool {
+        false
+    }
 }
 
 #[async_trait]
 impl DataStoreTrait for DataStoreBasePy {
+    fn write_once(&self) -> bool {
+        let Some(callback) = &self.write_once_fn else {
+            return false;
+        };
+        SafeGil::run(|py| {
+            let Some(py) = py else {
+                return true;
+            };
+            match callback
+                .call0(py)
+                .and_then(|value| value.extract::<bool>(py))
+            {
+                Ok(write_once) => write_once,
+                Err(error) => {
+                    log_e!(
+                        TAG,
+                        "Failed to call DataStoreBasePy.write_once: {:?}",
+                        error
+                    );
+                    true
+                }
+            }
+        })
+    }
+
     fn is_read_only(&self) -> bool {
         let Some(is_read_only_fn) = &self.is_read_only_fn else {
             return false;

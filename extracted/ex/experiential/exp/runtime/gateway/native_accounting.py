@@ -98,11 +98,8 @@ TOOL_SEARCH_ROUND: Final = "tool_search_round"
 class NativeAttemptAccounting:
     """Registry of admitted requests and their durable attempt settlements.
 
-    Methods are called from multiple Rust worker threads; the registry is
-    guarded by one lock and swept both opportunistically and on a timer so an
-    abandoned reservation cannot outlive its request deadline by more than
-    the sweep grace. A lost durable terminal write latches the registry
-    unhealthy so readiness fails until the next startup reconciliation.
+    A lock protects Rust callbacks; timed and opportunistic sweeps bound abandoned
+    reservations. Failed terminal writes block readiness until startup reconciliation.
     """
 
     def __init__(
@@ -118,17 +115,11 @@ class NativeAttemptAccounting:
 
         Args:
             write_ledger: Blocking durable request and attempt ledger.
-            budget_error_factory: Optional hosted mapping for a rejected
-                reservation.
+            budget_error_factory: Optional mapping for a rejected reservation.
             default_lane_bound: Per-worker cap for rungs authoring no bound (lane_saturation).
-            cache_sample_gate: Optional hosted predicate deciding whether one
-                settled attempt (by attempt id) may feed the cache-priority
-                EWMA. The hosted store knows which attempts are promo-funded;
-                admitting those samples would let free-tier replay traffic
-                (whose cached prefixes are costless under a promotion) buy
-                fair-share weight with the very replay the promotion already
-                subsidizes. ``None`` admits every sample; a raising gate
-                skips the sample (fails closed).
+            cache_sample_gate: Predicate admitting a settled attempt to the cache-priority
+                EWMA. Hosts exclude promo-funded samples so subsidized replay cannot buy
+                fair-share weight. ``None`` admits every sample; exceptions skip it.
         """
         self._write_ledger = write_ledger
         self._finish_attempt: Callable[..., None] = write_ledger.finish_attempt
@@ -422,9 +413,9 @@ class NativeAttemptAccounting:
                 ladder = (current_depth,)
             last_failure = None
         forced_overflow = False
+        capacity_refused = False
         shed_records: dict[int, RungShed] = {}
-        # The input half of the reservation tokenizes the whole prompt, so it
-        # is computed once per ladder walk and shared with every candidate.
+        # Tokenize the input reservation once per ladder walk for all candidates.
         reserved_input_tokens = worst_case_input_tokens(entry.request)
         while True:
             with self._lock:
@@ -451,6 +442,7 @@ class NativeAttemptAccounting:
                     forced_overflow = candidate is not None
                     if candidate is None:
                         last_failure = lane_saturated_failure()
+                        capacity_refused = True
                         with self._lock:
                             self._rung_saturation_refusals += 1
                         break
@@ -519,6 +511,7 @@ class NativeAttemptAccounting:
                     is None
                 ):
                     last_failure = lane_saturated_failure()
+                    capacity_refused = True
                     with self._lock:
                         self._rung_saturation_refusals += 1
                     break
@@ -642,21 +635,23 @@ class NativeAttemptAccounting:
             )
         exhaustion = last_failure
         if exhaustion is None:
-            # Nothing dispatched and nothing classified: forced claims admit
-            # any non-throttled circuit, so an empty first claim means every
-            # deployment sits inside a provider throttle window.
+            # An empty forced claim means every deployment is provider-throttled.
+            # Otherwise report unavailable without a free-capacity certificate.
             throttled_remaining = self._health.throttled_remaining_seconds(keys)
             exhaustion = (
                 all_routes_throttled_failure(throttled_remaining)
                 if throttled_remaining is not None
                 else all_routes_unavailable_failure()
             )
-        if active:
-            self.finish_request_quietly(entry.authorization, ledger_failure(exhaustion))
+        certified = active and self.finish_request_quietly(
+            entry.authorization,
+            ledger_failure(exhaustion),
+            certify_no_effects=capacity_refused and entry.no_paid_prework,
+        )
         with self._lock:
             if entry.pending_abandon is None:
                 self._inflight.pop(request_id, None)
-        return exhausted_attempt_payload(exhaustion)
+        return exhausted_attempt_payload(exhaustion, known_unbilled=capacity_refused and certified)
 
     def settle(self, argument: str) -> str:
         """Durably settle one previously reserved attempt exactly once.
@@ -799,15 +794,20 @@ class NativeAttemptAccounting:
         self,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Finalize accepted pre-dispatch work without masking the primary failure."""
+        *,
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Return committed no-effects proof; failed writes never certify free work."""
         try:
-            self._write_ledger.finish_request(
+            committed = self._write_ledger.finish_request(
                 authorization=authorization,
                 failure=failure,
+                certify_no_effects=certify_no_effects,
             )
+            return committed is True
         except Exception:  # noqa: BLE001 - primary admission failure stays authoritative.
             self._accounting_healthy = False
+            return False
 
     def _record_health(
         self,

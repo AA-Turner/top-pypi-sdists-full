@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-09-30T13:33:32.391383                                                            #
+# Generated on 2026-10-02T22:12:32.794057                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import metaflow
+import abc
 import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.secrets
-    import metaflow.exception
     import abc
+    import metaflow.exception
 
 from ...exception import MetaflowException as MetaflowException
 from ..secrets import SecretsProvider as SecretsProvider

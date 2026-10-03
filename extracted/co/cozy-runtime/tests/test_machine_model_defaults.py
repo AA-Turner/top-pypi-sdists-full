@@ -6,8 +6,8 @@ import hashlib
 import json
 import threading
 import time
-from collections.abc import Callable
-from contextlib import ExitStack
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -30,6 +30,7 @@ from cozy_runtime.internal.worker.workspace_calls import Call
 from cozy_runtime.internal.worker.workspace_executions import Executions
 from cozy_runtime.protocol import documents
 from cozy_runtime.protocol import worker_pb2 as pb
+from fault_hub import ALWAYS, HEADER, FaultHub, Gate, Stall, Watched, checkpoint, on, temps
 from test_device_lanes import _config
 from test_machine_execution import ack, complete, offer
 from test_model_runtime_closure import _ASSET, _HEADER, _snapshot
@@ -73,7 +74,8 @@ def peer(capture: dict[str, Any]) -> Worker:
             ),
             host_facts=lambda: hostfacts.measure("none"),
             model_transfer_lock=threading.Lock(),
-            model_transfers={},
+            model_preparation_progress={},
+            model_preparation_observers={},
             executions=SimpleNamespace(
                 capture_root=lambda *_: "root",
                 capture=lambda *_: capture,
@@ -101,23 +103,6 @@ def target() -> Target:
         binding=None,
         operation_identity="",
     )
-
-
-@pytest.fixture(params=["ensure", "pull"])
-def fetch(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
-    """Both model fetch paths against the same Hub: TensorFS `ensure` where the installed
-    TensorFS names it, and `pull`, which the Runtime keeps for an older TensorFS."""
-    if request.param == "pull":
-        monkeypatch.setattr(fill, "capabilities", frozenset)
-    elif "ensure/1" not in fill.capabilities():
-        pytest.skip("the installed TensorFS has no ensure")
-    else:
-
-        def forbidden(*_: object, **__: object) -> None:
-            raise AssertionError("a TensorFS with ensure was asked to pull")
-
-        monkeypatch.setattr(tensorfs, "pull", forbidden)
-    return str(request.param)
 
 
 def test_default_capture_admits_any_order_and_open_slots_but_not_forged_rungs() -> None:
@@ -166,10 +151,13 @@ def test_unused_or_overridden_defaults_do_not_touch_catalog_or_storage(
     monkeypatch.setattr(fill, "tensorfs_module", forbidden)
     empty_peer = cast(Worker, SimpleNamespace())
     call = cast(Call, SimpleNamespace(parent_request="root"))
-    assert defaults.select(
-        empty_peer, "owner", call, target(), {"model": {}, "adapter": {}}, model_choices={}
-    ) == []
-    defaults.materialize(empty_peer, [], ExitStack())
+    assert (
+        defaults.select(
+            empty_peer, "owner", call, target(), {"model": {}, "adapter": {}}, model_choices={}
+        )
+        == []
+    )
+    defaults.materialize(empty_peer, [])
     worker = peer(captured())
     selected = defaults.select(worker, "owner", call, target(), {"model": {}, "adapter": None})
     assert (
@@ -182,9 +170,8 @@ def test_unused_or_overridden_defaults_do_not_touch_catalog_or_storage(
     assert not defaults.matches("H100", "")
 
 
-@pytest.mark.parametrize("reuse", [False, True])
 def test_serving_default_uses_real_catalog_input_pin_without_derived_provenance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reuse: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root, manifest, length, store = _snapshot(tmp_path, include_asset=True, checkpoint_only=True)
     operation = store.begin_operation("default-fixture", "proof", "adapter")
@@ -204,46 +191,46 @@ def test_serving_default_uses_real_catalog_input_pin_without_derived_provenance(
         raise AssertionError("an already verified exact native checkpoint was downloaded")
 
     monkeypatch.setattr(tensorfs, "pull", no_download)
-    with ExitStack() as read_access:
-        leases = set((root / "tmp/leases").glob("read-*.lease"))
-        defaults.materialize(worker, [row], None if reuse else read_access)
-        assert bool(set((root / "tmp/leases").glob("read-*.lease")) - leases) is not reuse
-        bindings, accesses = defaults.inputs([row])
-        spec = pb.InvocationSpec(
-            inputs=bindings,
-            serving=pb.ServingInvocationSpec(
-                entrypoint_binding_digest=BINDING,
-                attempt_binding_id=BINDING,
-                bindings_digest=BINDING,
-            ),
+    leases = set((root / "tmp/leases").glob("read-*.lease"))
+    defaults.materialize(worker, [row])
+    # Materializing leases nothing: admission's native root is what holds the bytes.
+    assert set((root / "tmp/leases").glob("read-*.lease")) == leases
+    bindings, accesses = defaults.inputs([row])
+    spec = pb.InvocationSpec(
+        inputs=bindings,
+        serving=pb.ServingInvocationSpec(
+            entrypoint_binding_digest=BINDING,
+            attempt_binding_id=BINDING,
+            bindings_digest=BINDING,
+        ),
+    )
+    raw, digest = documents.identity(spec)
+    offer = pb.AttemptOffer(
+        request_id="serving-child",
+        attempt_ordinal=1,
+        invocation_spec_canonical_bytes=raw,
+        invocation_spec_digest=digest,
+        grant=pb.DeliveryGrant(invocation_spec_digest=digest, inputs=accesses),
+    )
+    entries = grants.model_inputs(
+        grants.bind(documents.read(raw, pb.InvocationSpec), offer.grant, digest)
+    )
+    with pytest.raises(WorkspaceRefusal, match="not retained"), workspace.locked() as db:
+        Workspace.accept_in(db, "owner", offer)
+    with workspace.locked() as db:
+        assert db.execute("SELECT count(*) FROM attempts").fetchone()[0] == 0
+    with machine_checkpoint_inputs.admission(workspace, "owner", offer.request_id):
+        machine_checkpoint_inputs.preflight(workspace, "owner", offer, entries)
+        for entry in entries.values():
+            machine_checkpoint_inputs.retain(workspace, "owner", offer, entry)
+        executions = Executions(workspace)
+        executions.submit(
+            "owner",
+            "serving-input",
+            b"x" * 32,
+            offer,
+            expected_execution_workspace_id=executions.workspace_id,
         )
-        raw, digest = documents.identity(spec)
-        offer = pb.AttemptOffer(
-            request_id="serving-child",
-            attempt_ordinal=1,
-            invocation_spec_canonical_bytes=raw,
-            invocation_spec_digest=digest,
-            grant=pb.DeliveryGrant(invocation_spec_digest=digest, inputs=accesses),
-        )
-        entries = grants.model_inputs(
-            grants.bind(documents.read(raw, pb.InvocationSpec), offer.grant, digest)
-        )
-        with pytest.raises(WorkspaceRefusal, match="not retained"), workspace.locked() as db:
-            Workspace.accept_in(db, "owner", offer)
-        with workspace.locked() as db:
-            assert db.execute("SELECT count(*) FROM attempts").fetchone()[0] == 0
-        with machine_checkpoint_inputs.admission(workspace, "owner", offer.request_id):
-            machine_checkpoint_inputs.preflight(workspace, "owner", offer, entries)
-            for entry in entries.values():
-                machine_checkpoint_inputs.retain(workspace, "owner", offer, entry)
-            executions = Executions(workspace)
-            executions.submit(
-                "owner",
-                "serving-input",
-                b"x" * 32,
-                offer,
-                expected_execution_workspace_id=executions.workspace_id,
-            )
     with workspace.locked() as db:
         pin = db.execute(
             "SELECT * FROM execution_checkpoint_inputs WHERE recipient='serving-child'"
@@ -270,7 +257,7 @@ def test_unavailable_default_refuses_before_accelerator_discovery(
     with pytest.raises(WorkspaceRefusal, match="captured Model default is unavailable"):
         defaults.select(peer(captured()), "owner", call, target(), {"adapter": {}})
     # An open slot is read at the machine's own Hub; a machine without a grant has none.
-    with pytest.raises(WorkspaceRefusal, match="no Hub grant"):
+    with pytest.raises(WorkspaceRefusal, match="names no Hub"):
         defaults.select(peer({"model_defaults": []}), "owner", call, target(), {"adapter": {}})
 
 
@@ -378,13 +365,14 @@ def test_registered_serving_binding_skips_read_lease_but_rechecks_native_source(
             machine_checkpoint_inputs.preflight(worker.workspace, "owner", child, entries)
         with worker.workspace.locked() as db:
             assert not db.execute("SELECT 1 FROM execution_checkpoint_inputs").fetchone()
-        # A resident construction skips only the early check; retention refuses it the same.
+        # A stale held index skips only the early check; retention refuses it the same.
+        held = {documents.spell(entry.digest) for entry in entries.values()}
         with (
             pytest.raises(WorkspaceRefusal, match=reason),
             machine_checkpoint_inputs.admission(worker.workspace, "owner", "child"),
         ):
             machine_checkpoint_inputs.preflight(
-                worker.workspace, "owner", child, entries, resident=True
+                worker.workspace, "owner", child, entries, held=held
             )
             for entry in entries.values():
                 machine_checkpoint_inputs.retain(worker.workspace, "owner", child, entry)
@@ -399,7 +387,7 @@ def test_registered_serving_binding_skips_read_lease_but_rechecks_native_source(
 
 
 def test_cold_default_native_pull_requires_deployment_object_storage_host(
-    tmp_path: Path, fetch: str
+    tmp_path: Path,
 ) -> None:
     origin_root = tmp_path / "origin"
     origin_root.mkdir()
@@ -464,13 +452,12 @@ def test_cold_default_native_pull_requires_deployment_object_storage_host(
     }
     try:
         worker.config = cast(Any, SimpleNamespace(object_storage_hosts=()))
-        with ExitStack() as access, pytest.raises(WorkspaceRefusal, match="SOURCE_NOT_ALLOWED"):
-            defaults.materialize(worker, [row], access)
+        with pytest.raises(WorkspaceRefusal, match="SOURCE_NOT_ALLOWED"):
+            defaults.materialize(worker, [row])
         assert fetched == []
         worker.config = cast(Any, SimpleNamespace(object_storage_hosts=("127.0.0.1",)))
-        with ExitStack() as access:
-            defaults.materialize(worker, [row], access)
-            store.verify_checkpoint_source("proof/adapter", manifest, length)
+        defaults.materialize(worker, [row])
+        store.verify_checkpoint_source("proof/adapter", manifest, length)
         assert set(fetched) == {"/" + digest for digest in bodies}
     finally:
         server.shutdown()
@@ -478,7 +465,7 @@ def test_cold_default_native_pull_requires_deployment_object_storage_host(
         thread.join()
 
 
-def test_a_cold_preparation_pulls_its_slots_at_once(tmp_path: Path, fetch: str) -> None:
+def test_a_cold_preparation_pulls_its_slots_at_once(tmp_path: Path) -> None:
     """Run 1510 pulled H3's turbo adapter only after its 100 GB base had landed. Here each
     slot's closure waits for the other's, which a one-after-another pull never shows."""
     refs: dict[str, tuple[str, int]] = {}
@@ -554,10 +541,9 @@ def test_a_cold_preparation_pulls_its_slots_at_once(tmp_path: Path, fetch: str) 
     ]
     reported: list[tuple[int, int]] = []
     try:
-        with ExitStack() as access:
-            defaults.materialize(
-                worker, rows, access, progress=lambda done, whole: reported.append((done, whole))
-            )
+        defaults.materialize(
+            worker, rows, progress=lambda done, whole: reported.append((done, whole))
+        )
         for ref, (manifest, length) in refs.items():
             store.verify_checkpoint_source(ref.partition("@")[0], manifest, length)
     finally:
@@ -570,7 +556,7 @@ def test_a_cold_preparation_pulls_its_slots_at_once(tmp_path: Path, fetch: str) 
 
 
 def test_a_private_checkpoint_is_pulled_with_the_worker_capability_at_its_own_hub_only(
-    tmp_path: Path, fetch: str
+    tmp_path: Path,
 ) -> None:
     """The machine's own Hub serves its owner's unpublished checkpoint only to the worker
     capability; another origin never sees it, and a refused or absent grant is surfaced
@@ -672,8 +658,7 @@ def test_a_private_checkpoint_is_pulled_with_the_worker_capability_at_its_own_hu
             "repository": "fidika/private",
             "manifest": {"digest": manifest, "length": length},
         }
-        with ExitStack() as access:
-            defaults.materialize(worker, [row], access)
+        defaults.materialize(worker, [row])
         tensorfs.Store.open(str(root)).verify_checkpoint_source("fidika/private", manifest, length)
 
     grant = PublicationAuthority(own, "worker-1", token)
@@ -703,7 +688,100 @@ def test_a_private_checkpoint_is_pulled_with_the_worker_capability_at_its_own_hu
                 materialize(name, own, authority)
             presented = ("", "") if authority is None else ("worker-1", "e" * 43)
             assert own_seen == [("/v1/tensorfs/closure", *presented)], own_seen
+
+        # A row naming no Hub cannot be taken anywhere: refused as that, with nothing asked.
+        own_seen.clear()
+        with pytest.raises(WorkspaceRefusal, match="model_access_absent: fidika/private@sha256:"):
+            materialize("unnamed", "", grant)
+        assert own_seen == []
     finally:
         for server in servers:
             server.shutdown()
             server.server_close()
+
+
+def test_a_second_pull_of_one_checkpoint_waits_in_tensorfs_and_can_leave(tmp_path: Path) -> None:
+    """Two preparations of one checkpoint share TensorFS's flight. The one that waits shows
+    TensorFS's waiting samples and leaves when canceled, while the first still holds it."""
+    point = checkpoint(tmp_path / "origin")
+    # TensorFS asks a silent object again: every later ask is held until the pulls have left.
+    released = threading.Event()
+    stalled = on(HEADER, 1, 1, Stall(after=10)), on(HEADER, 2, ALWAYS, Gate(released))
+    with FaultHub(point, *stalled) as hub:
+        root = tmp_path / "store"
+        tensorfs.Store.init(str(root))
+        worker = peer({})
+        worker.workspace = Workspace(root)
+        worker.config = cast(Any, SimpleNamespace(object_storage_hosts=("127.0.0.1",)))
+        row = {
+            "parameter": "model",
+            "public_origin": hub.origin,
+            "repository": point.model,
+            "manifest": {"digest": point.manifest, "length": point.length},
+        }
+        first, second = tensorfs.PullCancellation(), tensorfs.PullCancellation()
+        leading = Watched(hub, lambda: defaults.materialize(worker, [row], cancellation=first))
+        hub.until(lambda: hub.sent(HEADER) == 10)
+        waited: list[tuple[int, int]] = []
+        waiting = Watched(
+            hub,
+            lambda: defaults.materialize(
+                worker, [row], cancellation=second, progress=lambda *at: waited.append(at)
+            ),
+        )
+        hub.until(lambda: any(whole for _, whole in waited), lambda: len(waited))
+        second.cancel()
+        with pytest.raises(WorkspaceRefusal):
+            waiting.result()
+        assert leading.thread.is_alive(), hub.log()
+        first.cancel()
+        with pytest.raises(WorkspaceRefusal):
+            leading.result()
+        released.set()
+        asked = hub.asks(HEADER)
+        defaults.materialize(worker, [row])
+        tensorfs.Store.open(str(root)).verify_checkpoint_source(
+            point.model, point.manifest, point.length
+        )
+        assert temps(root) == [] and hub.asks(HEADER) == asked + 1, hub.log()
+
+
+def test_a_preparation_reports_its_whole_size_only_once_every_pull_has_one(
+    tmp_path: Path,
+) -> None:
+    """The adapter's Hub answers only after the base has its size: a sum of the base alone
+    would tell a watcher the whole download is the base."""
+    base = checkpoint(tmp_path / "base", "proof/base")
+    adapter = checkpoint(tmp_path / "adapter", "proof/adapter", path="adapter.cozytensors")
+    sized = threading.Event()
+
+    @contextmanager
+    def downloading(row: defaults.Selected) -> Iterator[defaults.Sample]:
+        yield lambda _, total: sized.set() if row.repository == base.model and total else None
+
+    root = tmp_path / "store"
+    tensorfs.Store.init(str(root))
+    worker = peer({})
+    worker.workspace = Workspace(root)
+    worker.config = cast(Any, SimpleNamespace(object_storage_hosts=("127.0.0.1",)))
+    reported: list[tuple[int, int]] = []
+    with FaultHub(base) as first, FaultHub(adapter, on("closure", 1, 1, Gate(sized))) as second:
+        rows = [
+            {
+                "parameter": point.model.removeprefix("proof/"),
+                "public_origin": hub.origin,
+                "repository": point.model,
+                "manifest": {"digest": point.manifest, "length": point.length},
+            }
+            for point, hub in ((base, first), (adapter, second))
+        ]
+        Watched(
+            second,
+            lambda: defaults.materialize(
+                worker, rows, downloading=downloading, progress=lambda *at: reported.append(at)
+            ),
+            first.reading,
+        ).result()
+    whole = reported[-1][1]
+    assert reported[-1][0] == whole and {size for _, size in reported} == {whole}, reported
+    assert [done for done, _ in reported] == sorted(done for done, _ in reported), reported

@@ -22,6 +22,7 @@ from vercel_runtime.routing import (
     apply_service_route_prefix_to_asgi_scope,
     strip_service_route_prefix,
 )
+from vercel_runtime.schedules import is_schedule_scripts_app
 from vercel_runtime.wait_until import (
     WaitUntilCollector,
     begin_wait_until,
@@ -480,6 +481,19 @@ def _start_wsgi(host: str, port: int) -> None:
 
 
 def _start_asgi(host: str, port: int) -> None:
+    # The schedule supervisor runs each firing as a fresh process, so code
+    # changes apply without reloading it, and `vercel dev` restarts it when
+    # its schedules change.
+    if is_schedule_scripts_app(_asgi_user_app):
+        vendored_uvicorn.run(
+            "vercel_runtime.dev:asgi_app",
+            host=host,
+            port=port,
+            use_colors=not _NO_COLOR,
+            log_config=_build_uvicorn_log_config(),
+        )
+        return
+
     # Prefer user-installed fastapi-cli for web services;
     # cron/worker go straight to uvicorn.
     if not is_cron_service() and not is_worker_service():

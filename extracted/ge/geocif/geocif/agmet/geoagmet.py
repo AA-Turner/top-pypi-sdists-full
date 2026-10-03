@@ -611,6 +611,18 @@ def _build_county_fname(region, region_id, with_state, boundary_gdf):
     return f"{region}_{state_slug}.png"
 
 
+def _district_columns(eo_model, available, with_forecast):
+    """Columns averaged into a district plot, each listed once.
+
+    eo_model usually already contains chirps_gefs. Appending it again for an
+    in-season forecast gave the aggregate two chirps_gefs columns, the plotter
+    read a 2-D forecast and dropped it, so district plots never showed the
+    CHIRPS-GEFS forecast (found 2026-10-02 on the Indiana district plots).
+    """
+    extra = ["month", "day", "chirps_gefs", "yield"] if with_forecast else ["month", "day", "yield"]
+    return [c for c in dict.fromkeys(list(eo_model or []) + extra) if c in available]
+
+
 def _process_combination(obj, country, scale, crop, growing_season):
     """Process a single (country, scale, crop, growing_season) combination.
 
@@ -771,8 +783,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
             ]
 
             # Build column list for aggregation
-            columns = [c for c in (obj.eo_model or []) + ["month", "day", "yield"]
-                       if c in df_district.columns]
+            with_forecast = False
             if "chirps" in df_district.columns:
                 try:
                     bool_year_check, bool_date_check = obj.check_date(
@@ -780,11 +791,8 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     )
                 except Exception:
                     bool_year_check, bool_date_check = False, False
-
-                if bool_date_check and bool_year_check:
-                    columns = [c for c in (obj.eo_model or []) + [
-                        "month", "day", "chirps_gefs", "yield",
-                    ] if c in df_district.columns]
+                with_forecast = bool_date_check and bool_year_check
+            columns = _district_columns(obj.eo_model, df_district.columns, with_forecast)
 
             try:
                 df_agg = (

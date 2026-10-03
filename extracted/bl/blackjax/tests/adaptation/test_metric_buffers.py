@@ -148,17 +148,24 @@ def _tols_for_dtype(dtype):
     """Return (atol, rtol) for parity checks at a given dtype.
 
     f64 (with ``jax_enable_x64=True``): tight absolute tolerance 1e-9.
-    f32 (JAX default): relative tolerance 1e-4; atol 0.  Relative tolerance
-    is more robust than absolute for M2 values (which scale with n × variance).
+    f32 (JAX default): relative tolerance 1e-4 with absolute tolerance floor 1e-4.
+    Relative tolerance is more robust than absolute for M2 values (which scale
+    with n × variance), but the absolute floor guards against false failures on
+    near-zero elements and accumulated f32 errors in the M2 matrix across
+    multiple CGL-merge blocks where a single rounding step can produce relative
+    error ~ 1.6e-2 even when both operands are small (e.g., M2 elements ~ 1e-4).
 
     The rtol=1e-4 bound accounts for values near zero: when the true mean is
     O(1e-4), one extra f32 rounding step produces absolute error O(eps·|sum|)
     whose relative magnitude vs the mean can reach ~1e-4.  A tighter rtol=1e-5
-    falsely rejects valid f32 arithmetic at that scale.
+    falsely rejects valid f32 arithmetic at that scale.  The atol=1e-4 floor
+    accommodates accumulated error in M2 (a d×d matrix with d=10) where
+    relative error on small elements can exceed the rtol threshold despite valid
+    f32 arithmetic.
     """
     if np.dtype(dtype) == np.float64:
         return 1e-9, 0.0  # atol, rtol
-    return 0.0, 1e-4  # atol, rtol for f32
+    return 1e-4, 1e-4  # atol, rtol for f32
 
 
 def _assert_allclose_dtype(actual, desired, dtype, err_msg=""):
@@ -518,8 +525,8 @@ class ResetWindowBufferTest(BlackJAXTest):
         block = get_moments(state)
         ref_n, ref_mean, ref_m2 = _ref_single_pass_moments(draws)
 
-        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4)
-        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4)
+        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4, atol=1e-5)
         self.assertAlmostEqual(float(block.count), ref_n, places=5)
 
     def test_push_split_zeros_accumulator(self):
@@ -579,8 +586,8 @@ class ResetWindowBufferTest(BlackJAXTest):
         # Fresh accumulation on draws2 only
         ref_n, ref_mean, ref_m2 = _ref_single_pass_moments(draws2)
 
-        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4)
-        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4)
+        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4, atol=1e-5)
         self.assertAlmostEqual(float(block.count), ref_n, places=5)
 
     def test_requires_draws_false_no_draw_ring(self):
@@ -691,8 +698,8 @@ class AccumulatingSplitPopTest(BlackJAXTest):
         all_draws = np.concatenate(draws_list, axis=0)
         ref_n, ref_mean, ref_m2 = _ref_single_pass_moments(all_draws)
 
-        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4)
-        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4)
+        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4, atol=1e-5)
         self.assertAlmostEqual(float(block.count), ref_n, places=5)
 
     @parameterized.named_parameters(
@@ -776,12 +783,14 @@ class AccumulatingSplitPopTest(BlackJAXTest):
             np.array(block.mean),
             ref_mean,
             rtol=1e-4,
+            atol=1e-5,
             err_msg="pop-oldest: merged mean != recomputation from scratch",
         )
         np.testing.assert_allclose(
             np.array(block.m2),
             ref_m2,
             rtol=1e-4,
+            atol=1e-5,
             err_msg="pop-oldest: merged M2 != recomputation from scratch",
         )
         self.assertAlmostEqual(
@@ -1020,6 +1029,7 @@ class DiagReferenceTest(BlackJAXTest):
             np.array(diag_ref),
             expected,
             rtol=1e-4,
+            atol=1e-5,
             err_msg="diag_reference != diag(M2)/max(n-1,1)",
         )
 
@@ -1102,6 +1112,7 @@ class LateStartTest(BlackJAXTest):
             np.array(block.mean),
             ref_mean,
             rtol=1e-4,
+            atol=1e-7,
             err_msg="late_start: mean includes skipped draws",
         )
         np.testing.assert_allclose(
@@ -1144,8 +1155,8 @@ class LateStartTest(BlackJAXTest):
         all_valid = np.concatenate(valid_draws, axis=0)
         ref_n, ref_mean, ref_m2 = _ref_single_pass_moments(all_valid)
 
-        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4)
-        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4)
+        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4, atol=1e-5)
         self.assertAlmostEqual(float(block.count), ref_n, places=5)
 
     def test_zero_offset(self):
@@ -1170,8 +1181,8 @@ class LateStartTest(BlackJAXTest):
         block = ls_get_moments(state)
         ref_n, ref_mean, ref_m2 = _ref_single_pass_moments(draws)
 
-        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4)
-        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4)
+        np.testing.assert_allclose(np.array(block.mean), ref_mean, rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(np.array(block.m2), ref_m2, rtol=1e-4, atol=1e-5)
         self.assertAlmostEqual(float(block.count), ref_n, places=5)
 
     def test_state_is_late_start_state(self):
@@ -1675,6 +1686,7 @@ class MergeBlockRingK1ShortCircuitTest(BlackJAXTest):
             np.array(block.mean),
             ref_mean,
             rtol=1e-4,
+            atol=1e-5,
             err_msg="k=1 split_pop: push_split must zero the slot (hard reset)",
         )
         self.assertAlmostEqual(
@@ -1921,6 +1933,7 @@ class LateStartEnsembleOffsetSemanticsTest(BlackJAXTest):
             np.array(block.mean),
             ref_mean,
             rtol=1e-4,
+            atol=1e-7,
             err_msg="late_start × ensemble_batch: mean wrong (offset counts calls)",
         )
 

@@ -64,6 +64,7 @@ class KindComponentContextSummary(KindSubModel):
 
 @kind(
     "kind_component_context",
+    disposition="record",
     label="Kind Component Context",
     family="kind_components",
     example={
@@ -129,6 +130,7 @@ class KindComponentContext(KindModel):
 
 @kind(
     "kind_component_code",
+    disposition="record",
     label="Kind Component Code",
     family="kind_components",
     example={
@@ -176,6 +178,7 @@ class KindComponentCode(KindModel):
 
 @kind(
     "kind_component_create_result",
+    disposition="receipt",
     label="Kind Component Created",
     family="kind_components",
     example={
@@ -210,6 +213,7 @@ class KindComponentCreateResult(KindModel):
 
 @kind(
     "kind_component_update_result",
+    disposition="receipt",
     label="Kind Component Updated",
     family="kind_components",
     example={
@@ -251,6 +255,7 @@ class KindComponentPatchOutcome(KindSubModel):
 
 @kind(
     "kind_component_patch_result",
+    disposition="receipt",
     label="Kind Component Patched",
     family="kind_components",
     example={
@@ -280,6 +285,7 @@ class KindComponentPatchResult(KindModel):
 
 @kind(
     "kind_component_incident_resolution",
+    disposition="record",
     label="Kind Component Incident Resolved",
     family="kind_components",
     example={

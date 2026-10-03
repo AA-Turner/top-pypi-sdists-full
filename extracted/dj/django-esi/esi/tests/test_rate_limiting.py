@@ -12,15 +12,8 @@ from django.test import TestCase
 from esi.decorators import rate_limited_task
 from esi.exceptions import ESIBucketLimitException, TaskBucketLimitException
 from esi.rate_limiting import (
-    ESIRateLimitBucket,
-    ESIRateLimiter,
-    TaskRateLimitBucket,
-    TaskRateLimiter,
-    force_string,
-    interval_to_seconds,
-    kwargs_to_list,
-    limit_to_rate,
-    task_bucket_slug_key,
+    ESIRateLimitBucket, ESIRateLimiter, TaskRateLimitBucket, TaskRateLimiter, force_string, interval_to_seconds,
+    kwargs_to_list, limit_to_rate, task_bucket_slug_key,
 )
 
 

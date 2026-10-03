@@ -42,6 +42,7 @@ from exp.runtime.gateway.ledger_errors import (
 from exp.runtime.gateway.ledger_errors import (
     IdempotencyReplayUnavailableError as IdempotencyReplayUnavailableError,
 )
+from exp.runtime.gateway.ledger_requests import finish_request
 from exp.runtime.gateway.ledger_service_tiers import (
     long_context_values,
     reconcile_tier_receipt,
@@ -196,12 +197,14 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         if authorization.caller_operation_sha256 is not None:
             prior = connection.execute(
                 """
-                SELECT canonical_request_sha256, terminal_state
+                SELECT canonical_request_sha256, terminal_state, failed_without_effects,
+                  NOT EXISTS (SELECT 1 FROM gateway_attempts AS a
+                    WHERE a.request_id = gateway_requests.request_id) AS no_dispatch
                 FROM gateway_requests
                 WHERE organization_id = ? AND identity_id = ?
                   AND alias_revision_id = ? AND api_surface = ?
                   AND caller_operation_sha256 = ?
-                ORDER BY accepted_at DESC LIMIT 1
+                ORDER BY rowid DESC LIMIT 1
                 """,
                 (
                     authorization.organization_id,
@@ -215,18 +218,19 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
                 if str(prior["canonical_request_sha256"]) != (
                     authorization.canonical_request_sha256
                 ):
-                    # Deliberately fail closed even when the prior attempt
-                    # failed: after an ambiguous failure the provider may
-                    # have executed, so different content under one
-                    # operation identity is a client bug the key exists to
-                    # surface. Retrying different content needs a new key.
+                    # A failed request never authorizes different content under the same key.
                     raise IdempotencyConflictError(
                         "caller operation key was reused with different request content"
                     )
-                if str(prior["terminal_state"]) not in {
-                    "expired_before_dispatch",
-                    "unknown_after_crash",
-                }:
+                if not (
+                    str(prior["terminal_state"])
+                    in {"expired_before_dispatch", "unknown_after_crash"}
+                    or (
+                        prior["terminal_state"] == "failed"
+                        and prior["failed_without_effects"]
+                        and prior["no_dispatch"]
+                    )
+                ):
                     raise IdempotencyReplayUnavailableError(
                         "matching keyed request exists but durable content replay is unavailable"
                     )
@@ -767,15 +771,22 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Idempotently terminalize accepted work that never reached dispatch.
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Terminalize accepted work and return its committed no-effects certificate.
 
         Args:
             authorization: Frozen authority identifying the accepted request.
             failure: Sanitized pre-dispatch terminal failure.
+            certify_no_effects: Trusted proof that admission could not perform paid prework.
         """
         with self._transaction() as connection:
-            self.apply_finish_request(connection, authorization=authorization, failure=failure)
+            return self.apply_finish_request(
+                connection,
+                authorization=authorization,
+                failure=failure,
+                certify_no_effects=certify_no_effects,
+            )
 
     def apply_finish_request(
         self,
@@ -783,38 +794,22 @@ class SQLiteAttemptLedger(LocalSnapshotMemoOwner):
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Run the pre-dispatch settlement inside the caller's open write transaction.
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Persist a no-effects certificate under the write fence; expose after commit.
 
         Args:
             connection: Open write transaction owned by the caller.
             authorization: Frozen authority identifying the accepted request.
             failure: Sanitized pre-dispatch terminal failure.
+            certify_no_effects: Trusted proof that admission could not perform paid prework.
         """
-        state, normalized_failure, _failure_message, _ = _terminal_values(None, failure)
-        del normalized_failure, _failure_message
-        row = connection.execute(
-            """
-            SELECT organization_id, terminal_state FROM gateway_requests
-            WHERE request_id = ?
-            """,
-            (authorization.request_id,),
-        ).fetchone()
-        if row is None:
-            raise GatewayLedgerError("request was not durably accepted")
-        if str(row["organization_id"]) != authorization.organization_id:
-            raise GatewayLedgerError("request authority differs from accepted request")
-        current = row["terminal_state"]
-        if current is not None:
-            if str(current) == state:
-                return
-            raise GatewayLedgerError("request is already settled with another terminal state")
-        connection.execute(
-            """
-            UPDATE gateway_requests SET terminal_state = ?, terminal_at = ?
-            WHERE request_id = ? AND terminal_state IS NULL
-            """,
-            (state, utc_text(self._clock.now()), authorization.request_id),
+        return finish_request(
+            connection,
+            authorization=authorization,
+            failure=failure,
+            terminal_at=self._clock.now(),
+            certify_no_effects=certify_no_effects,
         )
 
     def reconcile_crashed_requests(self, *, cleanup_grace: timedelta) -> tuple[int, int]:

@@ -2,10 +2,6 @@
 
 use toml_doc::{Document, Piece, Quoting, Repr, Value};
 
-fn parse(source: &str) -> Document<'_> {
-    toml_doc::parse(source).expect("valid source")
-}
-
 #[test]
 fn reordering_sections_carries_their_comments() {
     let mut document = parse("# about b\n[b]\nx = 1\n\n# about a\n[a]\ny = 2\n");
@@ -300,6 +296,21 @@ fn a_file_that_ends_without_a_break_is_written_back_without_one() {
     assert_eq!(written, sources);
 }
 
+#[test]
+fn a_byte_order_mark_is_written_back() {
+    let sources = ["\u{feff}# lead\na=1\n", "\u{feff}a=1# tail\n"];
+
+    assert_eq!(sources.map(|source| parse(source).to_string()), sources);
+}
+
+#[test]
+fn a_byte_order_mark_stays_at_the_start_of_the_file() {
+    let mut document = parse("\u{feff}[b]\nx = 1\n[a]\ny = 2\n");
+    document.sections.reverse();
+
+    assert_eq!(document.to_string(), "\u{feff}[a]\ny = 2\n[b]\nx = 1\n");
+}
+
 /// The ending the last line was holding goes with the file, not with the entry, so an entry that
 /// closed the file still ends a line once something follows it.
 #[test]
@@ -467,4 +478,8 @@ fn a_source_that_stops_mid_token_is_rejected() {
         assert!(toml_doc::parse(source).is_err(), "{source}");
         assert!(toml_doc::parse_syntax(source).is_err(), "{source}");
     }
+}
+
+fn parse(source: &str) -> Document<'_> {
+    toml_doc::parse(source).expect("valid source")
 }

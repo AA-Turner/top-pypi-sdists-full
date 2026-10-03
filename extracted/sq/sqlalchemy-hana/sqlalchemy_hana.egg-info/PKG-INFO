@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-hana
-Version: 4.6.1
+Version: 5.0.0
 Summary: SQLAlchemy dialect for SAP HANA
 Author-email: Christoph Heer <christoph.heer@sap.com>
 Maintainer-email: Christoph Heer <christoph.heer@sap.com>, Kai Harder <kai.harder@sap.com>
@@ -13,7 +13,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,7 +23,7 @@ Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: ~=3.10
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: sqlalchemy<3,>=2
@@ -52,7 +51,7 @@ Please notice that sqlalchemy-hana isn't an official SAP product and isn't cover
 
 Prerequisites
 -------------
-* Python 3.10+
+* Python 3.11+
 * SQLAlchemy 2.x
 * `hdbcli <https://help.sap.com/viewer/f1b440ded6144a54ada97ff95dac7adf/latest/en-US/f3b8fabf34324302b123297cdbe710f0.html>`_
 
@@ -324,7 +323,9 @@ If ``Computed(persisted=False)`` is used, a fully virtual column using ``AS`` is
 
 Views
 ~~~~~
-sqlalchemy-hana supports the creation and usage of SQL views.
+sqlalchemy-hana supports the creation and usage of SQL views for SQLAlchemy 2.0.
+SQLAlchemy 2.1 adds native support which should be preferred over the custom view handling provided
+by sqlalchemy-hana.
 
 The views are not bound to the metadata object, therefore each needs to be created/dropped manually
 using ``CreateView`` and ``DropView``.
@@ -469,6 +470,7 @@ The linters and formatters can be executed using ``pre-commit``: ``uv run pre-co
 Testing
 -------
 **Pre-Submit**: Linters, formatters and test matrix
+
 **Post-Submit**: Linters and formatters
 
 Release Actions

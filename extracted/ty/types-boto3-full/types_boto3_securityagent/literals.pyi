@@ -92,6 +92,9 @@ __all__ = (
     "ThreatActorType",
     "ThreatSeverityType",
     "ThreatStatusType",
+    "TriggerEventType",
+    "TriggerFilterMatchModeType",
+    "TriggerFilterTypeType",
     "UserRoleType",
     "ValidationModeType",
     "ValidationStatusType",
@@ -204,6 +207,11 @@ TaskExecutionStatusType = Literal["ABORTED", "COMPLETED", "FAILED", "INTERNAL_ER
 ThreatActorType = Literal["AGENT", "CUSTOMER"]
 ThreatSeverityType = Literal["CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM"]
 ThreatStatusType = Literal["DISMISSED", "OPEN", "RESOLVED"]
+TriggerEventType = Literal[
+    "PULL_REQUEST_DRAFT", "PULL_REQUEST_LABEL_ADDED", "PULL_REQUEST_READY_FOR_REVIEW"
+]
+TriggerFilterMatchModeType = Literal["EXCLUDE", "INCLUDE"]
+TriggerFilterTypeType = Literal["LABEL", "TARGET_BRANCH"]
 UserRoleType = Literal["MEMBER"]
 ValidationModeType = Literal["DISABLED", "SIMULATED"]
 ValidationStatusType = Literal[

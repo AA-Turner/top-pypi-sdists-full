@@ -125,7 +125,7 @@ def test_roundtrip_full_document(registry_dir: str):
             requiredBy=["dep-002"],
         ),
         planning=Planning(
-            wave=2, topologicalRank=1, generatedBy="test-harness"
+            wave=2, waveRank=4, topologicalRank=1, generatedBy="test-harness"
         ),
         issues=[
             Issue(code="SC0001", count=1),
@@ -218,7 +218,9 @@ def test_roundtrip_full_document(registry_dir: str):
 
     # Planning -- auto-refresh recomputes topologicalRank (0 because the
     # only dependency is missing and therefore not a graph edge).
+    # waveRank is authored and must survive refresh.
     assert loaded.planning.wave == 2
+    assert loaded.planning.waveRank == 4
     assert loaded.planning.topologicalRank == 0
     assert loaded.planning.generatedBy == "test-harness"
 

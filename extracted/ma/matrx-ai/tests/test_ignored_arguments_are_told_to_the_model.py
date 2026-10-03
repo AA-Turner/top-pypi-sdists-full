@@ -1,4 +1,5 @@
-"""Arguments the executor strips are TOLD to the model, never dropped quietly.
+"""Arguments the executor strips are TOLD to the model, never dropped quietly — and only an EMPTY
+placeholder is ever stripped: a stray argument with a value refuses the call by name.
 
 The flattened dispatcher schema offers every action's fields, so a model can send
 a field another action owns (``web`` action=search with ``url``). The executor
@@ -72,10 +73,23 @@ def _ctx() -> ToolContext:
     return ToolContext(call_id="call-ignored", tool_name="web", emitter=_NullEmitter())
 
 
-async def test_a_stray_argument_is_named_in_the_result_the_model_reads(web_dispatch) -> None:
+async def test_a_stray_argument_with_a_value_is_refused_by_name_and_nothing_runs(web_dispatch) -> None:
+    """The $640 / $1,440 class (2026-10-02): an argument with a value that the chosen action
+    cannot honour used to be stripped and the call answered a DIFFERENT question as success
+    (`match` dropped from records.record_aggregate -> the unfiltered total). It is refused now."""
     executor, persisted = web_dispatch
     content, result = await executor.execute(
         "web", {"action": "search", "queries": ["plumbers"], "url": "https://a.example"}, _ctx()
+    )
+    assert result.success is False
+    assert "search.url" in (result.error.message if result.error else "")
+    assert "3 search results" not in str(content["content"])
+
+
+async def test_a_stray_empty_placeholder_is_named_in_the_result_the_model_reads(web_dispatch) -> None:
+    executor, persisted = web_dispatch
+    content, result = await executor.execute(
+        "web", {"action": "search", "queries": ["plumbers"], "url": ""}, _ctx()
     )
     assert result.success is True, result.error
     text = content["content"]

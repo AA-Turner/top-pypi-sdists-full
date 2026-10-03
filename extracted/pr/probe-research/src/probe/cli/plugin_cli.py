@@ -42,8 +42,11 @@ def available(source: str) -> bool:
 
 
 def run(source: str, args: list[str], *, timeout: float) -> claude_cli.Result:
-    """Run an agent CLI with captured output and closed stdin."""
-    if source != CODEX:
+    """Run an agent CLI with captured output and closed stdin. A source with no
+    marketplace CLI is refused by name: falling through to `claude` once ran
+    Claude Code's plugin commands on a pi device's behalf."""
+    binary_name(source)  # raises for anything but the two marketplace harnesses
+    if source == CLAUDE:
         return claude_cli.run(args, timeout=timeout)
     command = " ".join(["codex", *args])
     binary = shutil.which("codex")
@@ -73,9 +76,29 @@ def run(source: str, args: list[str], *, timeout: float) -> claude_cli.Result:
     return claude_cli.Result(ok=True, detail=out, command=command)
 
 
+#: Each marketplace CLI's own verbs. A dialect of the two binaries, so it lives
+#: here and nowhere else; `binary_name` refuses any other source first.
+_VERBS = {
+    CLAUDE: {"refresh": "update", "install": "install", "uninstall": "uninstall", "list": ("plugin", "list")},
+    CODEX: {"refresh": "upgrade", "install": "add", "uninstall": "remove", "list": ("plugin", "list", "--json")},
+}
+
+
+def _verb(source: str, action: str):
+    binary_name(source)
+    return _VERBS[source][action]
+
+
+def refresh_verb(source: str) -> str:
+    return _verb(source, "refresh")
+
+
+def install_verb(source: str) -> str:
+    return _verb(source, "install")
+
+
 def list_plugins(source: str) -> claude_cli.Result:
-    args = ["plugin", "list", "--json"] if source == CODEX else ["plugin", "list"]
-    return run(source, args, timeout=claude_cli.LIST_TIMEOUT_S)
+    return run(source, list(_verb(source, "list")), timeout=claude_cli.LIST_TIMEOUT_S)
 
 
 def add_marketplace(source: str, location: str) -> claude_cli.Result:
@@ -87,28 +110,25 @@ def add_marketplace(source: str, location: str) -> claude_cli.Result:
 
 
 def refresh_marketplace(source: str, marketplace: str) -> claude_cli.Result:
-    verb = "upgrade" if source == CODEX else "update"
     return run(
         source,
-        ["plugin", "marketplace", verb, marketplace],
+        ["plugin", "marketplace", refresh_verb(source), marketplace],
         timeout=claude_cli.REFRESH_TIMEOUT_S,
     )
 
 
 def install(source: str, plugin_id: str) -> claude_cli.Result:
-    verb = "add" if source == CODEX else "install"
     return run(
         source,
-        ["plugin", verb, plugin_id],
+        ["plugin", install_verb(source), plugin_id],
         timeout=claude_cli.INSTALL_TIMEOUT_S,
     )
 
 
 def uninstall(source: str, plugin_id: str) -> claude_cli.Result:
-    verb = "remove" if source == CODEX else "uninstall"
     return run(
         source,
-        ["plugin", verb, plugin_id],
+        ["plugin", _verb(source, "uninstall"), plugin_id],
         timeout=claude_cli.INSTALL_TIMEOUT_S,
     )
 

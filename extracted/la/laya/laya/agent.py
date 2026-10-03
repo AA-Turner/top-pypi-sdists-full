@@ -1,4 +1,5 @@
 """High-level inference runtime for laya System 1 decision models."""
+import copy
 import json
 import os
 import tempfile
@@ -595,13 +596,16 @@ class Agent(HookRegistry):
         if device is not None:
             target_device = torch.device(device)
             if target_device.type == "cuda" and not torch.cuda.is_available():
-                print("Warning: CUDA requested but not available. Falling back to CPU.")
+                warnings.warn("Warning: CUDA requested but not available. Falling back to CPU.",
+                              RuntimeWarning)
                 self.device = torch.device("cpu")
             elif target_device.type == "mps" and not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
-                print("Warning: MPS requested but not available. Falling back to CPU.")
+                warnings.warn("Warning: MPS requested but not available. Falling back to CPU.",
+                              RuntimeWarning)
                 self.device = torch.device("cpu")
             elif target_device.type == "xpu" and not (hasattr(torch, "xpu") and torch.xpu.is_available()):
-                print("Warning: XPU requested but not available. Falling back to CPU.")
+                warnings.warn("Warning: XPU requested but not available. Falling back to CPU.",
+                              RuntimeWarning)
                 self.device = torch.device("cpu")
             else:
                 self.device = target_device
@@ -741,7 +745,7 @@ class Agent(HookRegistry):
             self.accelerate()
 
         if fell_back_from is not None:
-            print(
+            warnings.warn(
                 "\n[laya] Warning: could not place the model on %s, so it is running on CPU.\n"
                 "  Reason: %s\n"
                 "  Inference will be roughly 10-15x slower (~200-500 ms rather than ~35 ms).\n"
@@ -749,7 +753,7 @@ class Agent(HookRegistry):
                 "  may not support its CUDA architecture:\n"
                 "    pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu128\n"
                 "  See https://pytorch.org/get-started/locally/\n"
-                % (fell_back_from, fell_back_why), flush=True)
+                % (fell_back_from, fell_back_why), RuntimeWarning)
 
     def accelerate(self, use_graphs: bool = True, strict: bool = False):
         """Replace the model forward with the TileLang fast path (fused GEMM/GEGLU/LayerNorm/RoPE kernels,
@@ -779,7 +783,8 @@ class Agent(HookRegistry):
         if self._fast is None:
             if strict:
                 raise last
-            print("Warning: laya fast path unavailable (%s); using the stock forward." % last)
+            warnings.warn("Warning: laya fast path unavailable (%s); using the stock forward." % last,
+                          RuntimeWarning)
             return False
         self._stock_forward = self.model.forward
         self.model.forward = self._fast.forward
@@ -838,8 +843,8 @@ class Agent(HookRegistry):
             self.model.to(torch.device("cpu"))
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            print("Warning: could not move the model back to %s after the CPU retry (%s); "
-                  "staying on CPU." % (device, e))
+            warnings.warn("Warning: could not move the model back to %s after the CPU retry (%s); "
+                          "staying on CPU." % (device, e), RuntimeWarning)
             return
         self.device, self.dtype, self.amp_enabled = device, dtype, amp_enabled
         if had_fast:
@@ -884,13 +889,15 @@ class Agent(HookRegistry):
                                  "label -> description, or a list of labels" % (qid,))
             if not crit:
                 raise ValueError("question %r: a choice question needs at least one criterion" % (qid,))
-            # A label is used as a dict key when a list of labels is normalised, so a list, dict
-            # or set label raised `TypeError: unhashable type: 'list'` from three frames down --
-            # which names neither the question nor the label, and which `serve` cannot classify
-            # as a caller error, so over HTTP it became a 500 "inference failed" instead of a 422.
-            # Labels are rendered as option text, so a nested structure has no meaning here.
+            # A label is used as a dict key when a list of labels is normalised, so an unhashable
+            # label raised `TypeError` from three frames down -- which names neither the question nor
+            # the label, and which `serve` cannot classify as a caller error, so over HTTP it became
+            # a 500 "inference failed" instead of a 422. Requiring the documented scalars exactly
+            # also catches the hashable-but-not-scalar shapes (`tuple`, `frozenset`, `bytes`,
+            # `complex`) that the old deny-list let through to the same 500. Labels are rendered as
+            # option text, so a nested structure has no meaning here.
             for i, label in enumerate(crit if isinstance(crit, list) else crit.keys()):
-                if isinstance(label, (list, dict, set, bytearray)):
+                if label is not None and not isinstance(label, (str, int, float, bool)):
                     raise ValueError(
                         "question %r: choice label %d is a %s; a label is rendered as option text "
                         "and used as the answer key, so it must be a scalar (a string, number or "
@@ -1118,7 +1125,8 @@ class Agent(HookRegistry):
             # "cuda" substring used to be accepted too, so any CUDA-shaped RuntimeError (a
             # shape, assert or kernel error) silently and permanently demoted the agent.
             if self.device.type != "cpu" and (isinstance(e, torch.cuda.OutOfMemoryError) or "memory" in low):
-                print("Warning: GPU memory exceeded during inference. Retrying this request on CPU...")
+                warnings.warn("Warning: GPU memory exceeded during inference. "
+                              "Retrying this request on CPU...", RuntimeWarning)
                 # Scoped, not permanent: the demotion used to rewrite device/dtype/amp and move
                 # the model for the life of the process, so one oversized request left every
                 # later call ~10-15x slower on CPU. Demote under the write lock (#649) so any
@@ -1162,8 +1170,9 @@ class Agent(HookRegistry):
                     finally:
                         self._amp_failures += 1
                         if self._amp_failures >= _AMP_FAIL_LIMIT:
-                            print("Warning: autocast failed %d times in a row. Disabling mixed precision."
-                                  % self._amp_failures)
+                            warnings.warn("Warning: autocast failed %d times in a row. "
+                                          "Disabling mixed precision." % self._amp_failures,
+                                          RuntimeWarning)
                             self.amp_enabled = False
                             self.dtype = torch.float32
             raise
@@ -1529,8 +1538,7 @@ class Agent(HookRegistry):
         number of windows that were cut, and the token counts include the overlap), and
         `truncated_questions` is the last window's list. The two can disagree: when only an
         earlier window was cut, `truncated` is above 0 and `truncated_questions` is empty. A
-        window is cut when it is larger than the room a question's head leaves, from a `window`
-        above the default or a start hook that narrows `max_len` / `head_max_len`. Test
+        window is cut when it is larger than the room a question's head leaves. Test
         `usage["truncated"] > 0` here, not `is True`.
         """
         if state is None:
@@ -1560,9 +1568,18 @@ class Agent(HookRegistry):
         internal = {qid: self._to_internal(questions[qid]) for qid in ids}
         budget, step, _ = window_budget(self.tok, [internal[qid] for qid in ids], max_len,
                                         head_max_len, window=window, stride=stride)
+        # Snapshot the questions the scan was just sized against, BEFORE any start hook can
+        # rewrite them, and compare against this instead of `questions` itself. `==` over the
+        # mapping cannot see an in-place rewrite: a hook that adds options to
+        # `ctx.questions[q]["criteria"]` -- the `widen_for_high_cardinality` pattern in
+        # `docs/hooks/patterns.md`, and the case this guard exists for -- mutates the same nested
+        # dict the caller's mapping holds, so both sides change together and compare equal. A deep
+        # copy is independent, so `_check_scan_budget` sees the difference; a shallow one would
+        # share the nested dicts and miss it exactly as before.
+        asked = copy.deepcopy(questions)
 
-        state_ids = self.tok(serialize_state(state).replace(self.tok.mask_token, " "),
-                             add_special_tokens=False)["input_ids"]
+        state_ids = encode_text(self.tok, serialize_state(state).replace(self.tok.mask_token, " "),
+                                add_special_tokens=False)["input_ids"]
         # Fits in one window: identical to a plain call, no windowing overhead. `windows` is still
         # written, so the key is total over the three paths this method can take and a caller can
         # ask "how much of the document did the model read?" without handling a KeyError on the
@@ -1579,7 +1596,7 @@ class Agent(HookRegistry):
             # fit one window was silently truncated by a re-budgeting hook and still reported
             # `windows: 1`, i.e. "the model read all of it" -- measured, 138 of 240 state tokens
             # never reached the model, while a longer document on the identical input hard-failed.
-            _check_scan_budget(self, evidence, budget, max_len, head_max_len, questions)
+            _check_scan_budget(self, evidence, budget, max_len, head_max_len, asked)
             single["usage"] = {**(single.get("usage") or {}), "windows": 0 if evidence["answered"] else 1}
             return single
 
@@ -1605,7 +1622,7 @@ class Agent(HookRegistry):
                                batch_size)
         results = self.predict_batch(list(windows), questions, batch_size=cap, lang=lang,
                                      **_with_start_probe(hook_kwargs, probe))
-        _check_scan_budget(self, evidence, budget, max_len, head_max_len, questions)
+        _check_scan_budget(self, evidence, budget, max_len, head_max_len, asked)
 
         if evidence["answered"]:
             # The hook replaced the call before any window was scored. Aggregating over its payload
@@ -1824,9 +1841,27 @@ class Agent(HookRegistry):
             subfolder=getattr(self, "subfolder", None),
             config=getattr(self, "cfg", None),
         )
-        with open(path, "w") as f:
-            json.dump(payload, f, indent=2)
-            f.write("\n")
+        destination = os.path.realpath(path)
+        fd, temporary = tempfile.mkstemp(dir=os.path.dirname(destination), prefix=".calibration.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(payload, f, indent=2)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+            try:
+                mode = os.stat(destination).st_mode & 0o777
+            except FileNotFoundError:
+                pass
+            else:
+                os.chmod(temporary, mode)
+            os.replace(temporary, destination)
+        except BaseException:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
 
     def load_calibration(self, path: str) -> None:
         """Read a JSON map written by `save_calibration` onto this agent.
@@ -1842,6 +1877,26 @@ class Agent(HookRegistry):
 
 
 RLAgent = Agent
+
+
+def _is_local_checkpoint_arg(model_id_or_path: str) -> bool:
+    """True when `model_id_or_path` should be treated as a local path, not a registry name.
+
+    A bare word with no path separator reads as a name/alias. Only treat it as a path when
+    it looks like one (contains a separator, or starts with `.` / `~`) or when the named
+    directory actually holds a Laya checkpoint (`rl_agent_config.json`). That way
+    `load("laya")` resolves the alias from the repo root, while `load("./laya")` and a
+    real checkpoint directory still load from disk.
+    """
+    if not model_id_or_path:
+        return False
+    if model_id_or_path.startswith((".", "~")):
+        return True
+    if os.sep in model_id_or_path or "/" in model_id_or_path or "\\" in model_id_or_path:
+        return True
+    return os.path.isdir(model_id_or_path) and os.path.isfile(
+        os.path.join(model_id_or_path, "rl_agent_config.json")
+    )
 
 
 def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str] = None,
@@ -1862,10 +1917,31 @@ def load(model_id_or_path: str = "convaiinnovations/laya", device: Optional[str]
         laya.load("convaiinnovations/laya", fast=True)                # TileLang GPU fast path
         laya.load("convaiinnovations/laya", compile=True)              # torch.compile the model
 
+    `model_id_or_path` also accepts a checkpoint name or alias -- the same ones
+    `Router` resolves, so both entry points read one table:
+
+        laya.load("typed-decisions")
+        laya.load("ml")                                               # multilingual
+
+    Anything else (a Hub repo id, a local directory) is passed to `Agent` unchanged.
+
     `revision`/`expected_sha256` pin and verify the downloaded artifacts; see `Agent`.
     `hooks` / `on_predict_start` / `on_predict_end` observe or shape every prediction; see
     `laya.hooks`. `calibration` is the same optional JSON path accepted by `Agent`.
     """
+    # A registry name or alias resolves to the same (repo, subfolder) the Router would
+    # pick, instead of being handed to the Hub as a repo id. A caller who spelled out a
+    # subfolder is loading that subfolder of whatever repo they named, so the name is only
+    # resolved when it is the whole argument. Treat the argument as a local path only when
+    # it looks like one (separator, or starts with `.`/`~`) or when the directory actually
+    # holds a checkpoint (`rl_agent_config.json`); a bare word like `laya` therefore
+    # resolves the alias even when a same-named package directory sits in the cwd.
+    if subfolder is None and not _is_local_checkpoint_arg(model_id_or_path):
+        from .router import resolve_model_spec
+
+        spec = resolve_model_spec(model_id_or_path)
+        if spec is not None:
+            model_id_or_path, subfolder = spec
     return Agent(model_id_or_path, device=device, token=token, subfolder=subfolder, fast=fast,
                  compile=compile,
                  revision=revision, expected_sha256=expected_sha256,

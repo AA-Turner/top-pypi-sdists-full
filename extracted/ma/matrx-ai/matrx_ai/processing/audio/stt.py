@@ -17,6 +17,8 @@ class STTRequest(BaseModel):
 
     audio_source: str | bytes | io.BytesIO
     model: str
+    #: The chosen CLASS of ``model`` (an ai.offering of it); ``None`` = its preferred class.
+    offering_id: str | None = None
     operation: Literal["transcription", "translation"] = "transcription"
     language: str | None = None
     response_format: Literal["json", "verbose_json", "text"] = "verbose_json"
@@ -244,7 +246,7 @@ async def execute_stt(request: STTRequest) -> STTResult:
     from matrx_ai.catalog.resolve import resolve_call_profile
     from matrx_ai.providers.unified_client import UnifiedAIClient
 
-    profile = await resolve_call_profile(request.model)
+    profile = await resolve_call_profile(request.model, offering_id=request.offering_id)
     if profile.client_attr != "stt":
         raise ValueError(
             f"Model {profile.model_name!r} resolves to {profile.client_attr!r}, not the "

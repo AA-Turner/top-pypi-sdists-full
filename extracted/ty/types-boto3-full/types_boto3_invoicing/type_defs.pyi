@@ -105,6 +105,7 @@ __all__ = (
     "ListProcurementPortalsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MarketplacePunchOutPreferenceTypeDef",
     "PaginatorConfigTypeDef",
     "ProcurementPortalPreferenceSelectorOutputTypeDef",
     "ProcurementPortalPreferenceSelectorTypeDef",
@@ -158,6 +159,9 @@ class ContactTypeDef(TypedDict):
 class ResourceTagTypeDef(TypedDict):
     Key: str
     Value: str
+
+class MarketplacePunchOutPreferenceTypeDef(TypedDict):
+    ApprovalRequestRedirectUrl: NotRequired[str]
 
 class TestEnvPreferenceInputTypeDef(TypedDict):
     BuyerDomain: Literal["NetworkID"]
@@ -478,6 +482,7 @@ class ProcurementPortalPreferenceSummaryTypeDef(TypedDict):
     CreateDate: datetime
     LastUpdateDate: datetime
     Selector: NotRequired[ProcurementPortalPreferenceSelectorOutputTypeDef]
+    MarketplacePunchOutEnabled: NotRequired[bool]
     EinvoiceDeliveryPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
     EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
     PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
@@ -516,6 +521,8 @@ class ProcurementPortalPreferenceTypeDef(TypedDict):
     PurchaseOrderRetrievalEndpoint: NotRequired[str]
     TestEnvPreference: NotRequired[TestEnvPreferenceTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceOutputTypeDef]
+    MarketplacePunchOutEnabled: NotRequired[bool]
+    MarketplacePunchOutPreference: NotRequired[MarketplacePunchOutPreferenceTypeDef]
     Contacts: NotRequired[list[ContactTypeDef]]
     EinvoiceDeliveryPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
     EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
@@ -601,6 +608,8 @@ class CreateProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalInstanceEndpoint: NotRequired[str]
     TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
+    MarketplacePunchOutEnabled: NotRequired[bool]
+    MarketplacePunchOutPreference: NotRequired[MarketplacePunchOutPreferenceTypeDef]
     ResourceTags: NotRequired[Sequence[ResourceTagTypeDef]]
     ClientToken: NotRequired[str]
 
@@ -614,6 +623,8 @@ class PutProcurementPortalPreferenceRequestTypeDef(TypedDict):
     ProcurementPortalInstanceEndpoint: NotRequired[str]
     TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
+    MarketplacePunchOutEnabled: NotRequired[bool]
+    MarketplacePunchOutPreference: NotRequired[MarketplacePunchOutPreferenceTypeDef]
     ClientToken: NotRequired[str]
 
 class ListProcurementPortalsResponseTypeDef(TypedDict):

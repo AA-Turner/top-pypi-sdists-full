@@ -7,9 +7,9 @@ maintainers = [
     {name = "Arie Bovenberg", email = "a.c.bovenberg@gmail.com"},
 ]
 readme = "README.md"
-version = "0.10.5"
+version = "0.11.0"
 license = "MIT"
-description = "Modern datetime library for Python"
+description = "Type-safe datetimes for Python that get DST right, in Rust or pure Python"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -42,14 +42,16 @@ keywords = [
 
 [dependency-groups]
 test = [
-    "pytest-benchmark[histogram]>=5.2.3,<6",
+    "pytest-benchmark[histogram]>=5.3.0,<6",
     "pytest-cov>=7.1.0,<8",
     "pytest-order>=1.4.0,<2",
     "pytest>=9.0.3,<10",
     "hypothesis>=6,<7",
+    "typing-extensions>=4.16.0",
 ]
 typing = [
-    "mypy>=2.3,<2.4",
+    "mypy>=2.4,<2.5",
+    "typing-extensions>=4.16.0",
 ]
 integrations = [
     "time_machine>=3.2,<4; implementation_name == 'cpython'",
@@ -58,7 +60,7 @@ integrations = [
 ]
 dev-extra = [
     "ruff>=0.16,<0.17",
-    "slotscheck>=0.20,<0.21",
+    "slotscheck>=0.21.0,<0.22",
     "build",
     "packaging>=26.2",
     "setuptools-rust",
@@ -77,7 +79,10 @@ docs = [
     "myst-parser>=5,<6",
     "sphinx-copybutton~=0.5",
     "sphinx-design>=0.7,<0.8",
+    "sphinx-llm>=1,<2",
+    "sphinx-reredirects>=1.1,<2",
     "sphinx>=9,<10",
+    "sphinxext-opengraph>=0.13,<0.14",
 ]
 
 [tool.uv.dependency-groups]
@@ -110,9 +115,31 @@ combine-as-imports = true
 
 [tool.ruff.format]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:dateutil.*",
+    # Don't add `whenever` warnings: it would affect coverage through imports.
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "def __repr__",
+    "@overload",
+    "^\\s+\\.\\.\\.",
+    "if TYPE_CHECKING.*:",
+]
+
 [tool.mypy]
 warn_unused_ignores = true
 strict = true
+enable_error_code = ["deprecated"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -151,8 +178,8 @@ bindings = "pyo3-ffi"
 
 [build-system]
 requires = [
-    "setuptools",
-    "wheel",
+    # 77 for the PEP 639 `license` field
+    "setuptools>=77",
 ]
 # We need a custom backend to make editable installs build the Rust
 # extension in place.

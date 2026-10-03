@@ -30,6 +30,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "context_write_result",
+    disposition="receipt",
     label="Context Write",
     family="conversation_context",
     example={
@@ -96,6 +97,7 @@ class ContextBatchEntry(KindSubModel):
 
 @kind(
     "context_tool_result",
+    disposition="record",
     label="Context Tool Result",
     family="conversation_context",
     example={

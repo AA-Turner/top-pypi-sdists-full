@@ -76,8 +76,9 @@ OWNERS: dict[str, str] = {
     "mcp env": SETUP, "mcp headers": SETUP, "mcp status": SETUP, "mcp token set": SETUP, "mcp token unset": SETUP,
     "metrics backfill": RESEARCHER, "metrics delete": RESEARCHER, "metrics export": READ, "metrics grouped": READ,
     "metrics plot": READ, "metrics wide": READ,
-    "notes audit-advisory": READ, "notes checkout": DAEMON, "notes create": DAEMON, "notes delete": DAEMON,
-    "notes list": READ, "notes push": DAEMON, "notes rename": DAEMON, "notes show": READ, "notes status": READ,
+    "notes append": DAEMON, "notes audit-advisory": READ, "notes checkout": DAEMON, "notes create": DAEMON,
+    "notes delete": DAEMON, "notes edit": DAEMON, "notes list": READ, "notes push": DAEMON, "notes rename": DAEMON,
+    "notes show": READ, "notes status": READ,
     "notes sync": DAEMON, "notes team": READ, "notes write": RESEARCHER,
     "outbox discard": SDK, "outbox drain": SDK, "outbox pause": SDK, "outbox resume": SDK, "outbox retry": SDK,
     "outbox status": READ, "outbox watch": READ,
@@ -112,7 +113,7 @@ OWNERS: dict[str, str] = {
     "trial list": READ, "trial reconcile": SDK, "trial set": SDK, "trial stage": SDK, "trial watch": SDK,
     "version create": DAEMON, "version list": READ,
     "views create": DAEMON, "views data": READ, "views delete": DAEMON, "views list": READ, "views preview": READ,
-    "views rename": DAEMON, "views show": READ,
+    "views rename": DAEMON, "views show": READ, "views update": DAEMON,
     "wandb discover": RESEARCHER, "wandb import-hosted": RESEARCHER, "wandb import-local": RESEARCHER,
     "wandb key set": SETUP, "wandb key status": SETUP,
     "whoami": READ,
@@ -169,6 +170,8 @@ _SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own Markdown on 
 #: stays the daemon's (the lane skips experiments).
 _PROJECT_DESCRIPTION_IS_THE_SERVERS = "a project's description is written by the server once a run finishes under it"
 _RUN_DESCRIPTION_IS_THE_SERVERS = "a run's description is written by the server once the run finishes"
+_TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it in its file instead, where "
+                            "the researcher sees each change first")
 _FORBIDDEN_OPTIONS = {
     ("notes push", "force"): "`--force` overwrites what others wrote since the checkout - push merges without it",
     ("notes checkout", "steal"): "`--steal` discards another writer's unpushed edits",
@@ -183,6 +186,10 @@ _FORBIDDEN_OPTIONS = {
     **{(path, "description"): _PROJECT_DESCRIPTION_IS_THE_SERVERS
        for path in ("project create", "project set", "project patch")},
     ("run set", "description"): _RUN_DESCRIPTION_IS_THE_SERVERS,
+    # D6: every team-note change is shown to the researcher first. The daemon
+    # changes it through its file, where each write is held as a question with
+    # its diff; `--team` would write it directly and skip that.
+    **{(path, "team"): _TEAM_NOTE_IS_A_QUESTION for path in ("notes append", "notes edit")},
 }
 #: Per command, the parameters whose value is a local file the command reads and
 #: sends (uploads, or reads as a body). Named by the command's MEANING, not by a
@@ -195,6 +202,7 @@ FILE_PARAMS: dict[str, tuple[str, ...]] = {
     "notes create": ("file",),
     "views create": ("spec_file",),
     "views preview": ("spec_file",),
+    "views update": ("spec_file",),
     "paper add": ("source",),  # a URL, or a local file path
     "paper update": ("source",),
 }
@@ -211,6 +219,12 @@ NOT_FILES: dict[tuple[str, str], str] = {
     ("edge add", "source"): "an entity ref (`run:<id>`)",
     ("artifact version-add", "from_artifact"): "an artifact id",
 }
+#: Text the CLI takes LITERALLY, never as `@file` or `-`: the text-only notes
+#: writes. A value here starting with `@` is still scanned as the text it is,
+#: and never read as a file the command would send.
+LITERAL_TEXT: frozenset[tuple[str, str]] = frozenset(
+    {("notes append", "text"), ("notes edit", "old"), ("notes edit", "new")}
+)
 #: `artifact add` anchor flags: with one, the RUN slot holds the FILE.
 _ARTIFACT_ANCHORS = ("project", "experiment", "workspace", "shared")
 
@@ -379,8 +393,10 @@ def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | N
         if key in file_params:
             continue
         for text in _strings(value):
-            if len(text) < _MIN_SCAN_CHARS or text.startswith("@"):
+            if len(text) < _MIN_SCAN_CHARS:
                 continue
+            if text.startswith("@") and (parsed.path, key) not in LITERAL_TEXT:
+                continue  # a file reference: scanned as the file below
             found = secrets.scan(text)
             if found:
                 return Block(new_block_id(), f"the text looks like it contains a credential ({found[0].rule})",
@@ -420,7 +436,8 @@ def _files_it_reads(parsed: Parsed, *, text_refs: bool = True) -> list[str]:
                 if key == "source" and re.match(r"^[a-z][a-z0-9+.-]*://", text, re.I):
                     continue
                 out.append(text)
-            elif text_refs and text.startswith("@") and len(text) > 1:
+            elif (text_refs and text.startswith("@") and len(text) > 1
+                  and (parsed.path, key) not in LITERAL_TEXT):
                 out.append(text[1:])
     return out
 

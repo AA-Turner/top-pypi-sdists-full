@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.128.1
+Version: 1.0.0
 Summary: The XBSL (1C:Element) toolkit: a linter with autofixes, LSP, MCP server, documentation search, project index, metadata scaffolding, translation into English spellings, and a VS Code extension
 Author: xbsl contributors
 License-Expression: MIT
@@ -9,7 +9,7 @@ Project-URL: Repository, https://github.com/keyfire/xbsl
 Project-URL: Issues, https://github.com/keyfire/xbsl/issues
 Project-URL: Changelog, https://github.com/keyfire/xbsl/blob/main/CHANGELOG.md
 Keywords: 1c,1c-element,xbsl,linter,lsp,mcp,scaffolding,translation,static-analysis
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Natural Language :: Russian
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -43,9 +43,6 @@ platform documentation search, metadata scaffolding, translation of sources into
 spellings and an MCP server for AI agents. Plus a VS Code extension on the same engine. It works
 on pairs of files: `Name.yaml` describes an element, `Name.xbsl` holds its code. And it answers
 long before the server-side compilation that runs on deploy.
-
-> Before 0.16 the project was named **xbsl-lint**, package `xbsllint`. The old commands,
-> imports, environment variables and entry-point groups keep working as aliases.
 
 > Not affiliated with 1C. "1C:Element", "1C:Fresh" and related names are trademarks of their
 > respective owners. Language data is generated from your own distribution. See [NOTICE](https://github.com/keyfire/xbsl/blob/main/NOTICE).

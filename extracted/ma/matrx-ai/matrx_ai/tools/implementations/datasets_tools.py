@@ -65,6 +65,28 @@ def _bounded_dataset_rows(
     }
 
 
+def _say_the_cut(output: dict[str, Any], cap: dict[str, Any], offset: int) -> dict[str, Any]:
+    """A page the size budget CUT says so: its true row count, PARTIAL, and where the rest is.
+
+    VISION-REACH W2 verifier (2026-10-02): `get` with limit 215 on a 215-row table answered
+    ``"count": 215`` and no PARTIAL note while carrying 163 rows — the budget above cut the
+    other 52 AFTER the page had been judged whole. The count a model reads is the rows it got."""
+    if not cap.get("rows_truncated"):
+        return output
+    shown = int(cap.get("returned_rows") or 0)
+    total = output.get("total_rows")
+    output["count"] = shown
+    output["partial"] = True
+    output["totals_note"] = (
+        f"PARTIAL: rows {offset + 1}-{offset + shown} of "
+        + (f"{total}" if total is not None else "more")
+        + f" — this page was cut to fit; the next page starts at offset {offset + shown}. A count, "
+        "total, average or list of who/which over the table MUST come from the records tool's "
+        "record_aggregate — never count or add up these rows."
+    )
+    return output
+
+
 def _self_capped(result: ToolResult) -> ToolResult:
     result.output_self_capped = True
     return result
@@ -331,13 +353,12 @@ async def usertable_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResu
     return _self_capped(
         ToolResult(
             success=True,
-            output={
-                "rows": data,
-                "count": page_count,
-                "offset": offset,
-                "limit": limit,
-                "cap": cap,
-            },
+            output=_say_the_cut(
+                {"rows": data, "count": page_count, "offset": offset, "limit": limit,
+                 "total_rows": got.get("total_rows"), "cap": cap},
+                cap,
+                offset,
+            ),
         )
     )
 
@@ -359,12 +380,11 @@ async def usertable_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolR
     return _self_capped(
         ToolResult(
             success=True,
-            output={
-                "rows": data,
-                "count": page_count,
-                "search_term": search_term,
-                "cap": cap,
-            },
+            output=_say_the_cut(
+                {"rows": data, "count": page_count, "search_term": search_term, "cap": cap},
+                cap,
+                offset,
+            ),
         )
     )
 
@@ -533,6 +553,7 @@ async def _dataset_get(args: dict[str, Any], ctx: ToolContext, started_at: float
         if "rows" in output:
             raw_rows = await _rows_in_words(dataset_id, output["rows"], ctx)
             output["rows"], output["cap"] = _bounded_dataset_rows(raw_rows)
+            _say_the_cut(output, output["cap"], int(args.get("offset", 0)))
     except Exception as exc:  # noqa: BLE001 — carried out whole
         return _stamp(_arm_error(exc), started_at, ctx)
     return _self_capped(_stamp(ToolResult(success=True, output=output), started_at, ctx))

@@ -305,3 +305,25 @@ def merge_llm_overrides(
         merged.pop("offering_id", None)
     merged.update(top)
     return merged
+
+
+def settle_layered_overrides(
+    merged: dict[str, Any] | None, *, keep_null: frozenset[str] | set[str] = frozenset()
+) -> dict[str, Any]:
+    """The finished result of a LAYERED override stack, ready to run.
+
+    Inside a ladder (system rung → org → user → run-scope) a ``null`` means
+    "cancel the layer below" — its job is done once ``merge_llm_overrides`` has
+    stacked every layer. Left in the result it would reach
+    ``UnifiedConfig.apply_overrides`` as an explicit null, which there means
+    "unset the holder's own stored setting" — the opposite of the ladder's
+    "restore the authored setting". So the settled stack drops every null
+    except ``offering_id`` (an explicit null there clears the holder's pin,
+    the one ladder null that has always reached the config) and the keys in
+    ``keep_null`` — the TOP layer's own nulls, a person's "not set" for this run.
+    """
+    return {
+        key: value
+        for key, value in (merged or {}).items()
+        if value is not None or key == "offering_id" or key in keep_null
+    }

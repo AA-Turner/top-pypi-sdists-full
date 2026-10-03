@@ -5,6 +5,7 @@ Examining feeds and extracting links for further processing.
 import json
 import logging
 import re
+from configparser import ConfigParser
 from itertools import islice
 from time import sleep
 
@@ -12,15 +13,14 @@ from courlan import (
     check_url,
     clean_url,
     filter_urls,
-    fix_relative_urls,
     get_hostinfo,
     is_valid_url,
 )
 
 from .deduplication import is_similar_domain
 from .downloads import fetch_url
-from .settings import MAX_LINKS
-from .utils import load_html
+from .settings import DEFAULT_CONFIG, MAX_FEEDS_CHECKED, MAX_LINKS
+from .utils import load_html, safe_relative_url
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,8 +50,8 @@ FEED_TYPES = {
 
 FEED_OPENING = re.compile(r"<(feed|rss|\?xml)")
 
-LINK_ATTRS = re.compile(r'<link .*?href=".+?"')
-LINK_HREF = re.compile(r'href="(.+?)"')
+LINK_ATTRS = re.compile(r"""<link\s+(?:[^>"']|"[^"]*"|'[^']*')*["']?/?>""")
+LINK_ATTRIBUTES = re.compile(r"""\s([\w:-]+)\s*=\s*(["'])(.*?)\2""", re.DOTALL)
 LINK_ELEMENTS = re.compile(r"<link>(?:\s*)(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?(?:\s*)</link>", re.DOTALL)
 
 BLACKLIST = re.compile(r"\bcomments\b")  # no comment feed
@@ -62,7 +62,7 @@ LINK_VALIDATION_RE = re.compile(
     r"\?type=100$|"  # Typo3
     r"feeds/posts/default/?$|"  # Blogger
     r"\?feed=(?:atom|rdf|rss|rss2)|"
-    r"feed$"  # Generic
+    r"feed$",  # Generic
 )
 
 
@@ -100,7 +100,7 @@ def handle_link_list(linklist: list[str], params: FeedParameters) -> list[str]:
     output_links = []
 
     for item in sorted(set(linklist)):
-        link = fix_relative_urls(params.base, item)
+        link = safe_relative_url(params.base, item)
         checked = check_url(link, language=params.lang)
 
         if checked is not None:
@@ -122,23 +122,33 @@ def find_links(feed_string: str, params: FeedParameters) -> list[str]:
         if feed_string.startswith("{"):
             try:
                 # fallback: https://www.jsonfeed.org/version/1.1/
-                candidates = [item.get("url") or item.get("id") for item in json.loads(feed_string).get("items", [])]
-                return [c for c in candidates if c is not None]
-            except json.decoder.JSONDecodeError:
+                items = json.loads(feed_string).get("items", [])
+                if not isinstance(items, list):
+                    return []
+                candidates = []
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    for key in ("url", "id"):
+                        candidate = item.get(key)
+                        if isinstance(candidate, str) and candidate:
+                            candidates.append(candidate)
+                            break
+                return candidates
+            except (json.decoder.JSONDecodeError, RecursionError):
                 LOGGER.debug("JSON decoding error: %s", params.domain)
         else:
             LOGGER.debug("Possibly invalid feed: %s", params.domain)
         return []
 
     # Atom
-    if "<link " in feed_string:
-        return [
-            LINK_HREF.search(link)[1]  # type: ignore[index]
-            for link in (m[0] for m in islice(LINK_ATTRS.finditer(feed_string), MAX_LINKS))
-            if "atom+xml" not in link and 'rel="self"' not in link
-        ]
-        # if '"' in feedlink:
-        #    feedlink = feedlink.split('"')[0]
+    if LINK_ATTRS.search(feed_string):
+        links = []
+        for match in islice(LINK_ATTRS.finditer(feed_string), MAX_LINKS):
+            attributes = {attr[1]: attr[3] for attr in LINK_ATTRIBUTES.finditer(match[0])}
+            if attributes.get("href") and attributes.get("rel") != "self" and "atom+xml" not in attributes.get("type", ""):
+                links.append(attributes["href"])
+        return links
 
     # RSS
     if "<link>" in feed_string:
@@ -177,7 +187,8 @@ def determine_feed(htmlstring: str, params: FeedParameters) -> list[str]:
     feed_urls = [
         link.get("href", "")
         for link in tree.xpath('//link[@rel="alternate"][@href]')
-        if link.get("type") in FEED_TYPES or LINK_VALIDATION_RE.search(link.get("href", ""))
+        # normalize the type attribute (e.g. "application/rss+xml; charset=UTF-8")
+        if link.get("type", "").split(";")[0].strip().lower() in FEED_TYPES or LINK_VALIDATION_RE.search(link.get("href", ""))
     ]
 
     # backup
@@ -189,7 +200,7 @@ def determine_feed(htmlstring: str, params: FeedParameters) -> list[str]:
     # refine
     output_urls = []
     for link in dict.fromkeys(feed_urls):
-        link = fix_relative_urls(params.base, link)
+        link = safe_relative_url(params.base, link)
         link = clean_url(link)
         if link and link != params.ref and is_valid_url(link) and not BLACKLIST.search(link):
             output_urls.append(link)
@@ -199,10 +210,13 @@ def determine_feed(htmlstring: str, params: FeedParameters) -> list[str]:
     return output_urls
 
 
-def probe_gnews(params: FeedParameters, urlfilter: str | None) -> list[str]:
+def probe_gnews(params: FeedParameters, urlfilter: str | None, config: ConfigParser = DEFAULT_CONFIG) -> list[str]:
     "Alternative way to gather feed links: Google News."
     if params.lang:
-        downloaded = fetch_url(f"https://news.google.com/rss/search?q=site:{params.domain}&hl={params.lang}&scoring=n&num=100")
+        downloaded = fetch_url(
+            f"https://news.google.com/rss/search?q=site:{params.domain}&hl={params.lang}&scoring=n&num=100",
+            config=config,
+        )
         if downloaded:
             feed_links = extract_links(downloaded, params)
             feed_links = filter_urls(feed_links, urlfilter)
@@ -216,6 +230,7 @@ def find_feed_urls(
     target_lang: str | None = None,
     external: bool = False,
     sleep_time: float = 2.0,
+    config: ConfigParser = DEFAULT_CONFIG,
 ) -> list[str]:
     """Try to find feed URLs.
 
@@ -227,6 +242,7 @@ def find_feed_urls(
         external: Similar hosts only or external URLs
                   (boolean, defaults to False).
         sleep_time: Wait between requests on the same website.
+        config: Pass configuration values for download control.
 
     Returns:
         The extracted links as a list (sorted list of unique links).
@@ -239,15 +255,17 @@ def find_feed_urls(
 
     params = FeedParameters(baseurl, domain, url, external, target_lang)
     urlfilter = None
-    downloaded = fetch_url(url)
+    downloaded = fetch_url(url, config=config)
 
     if downloaded is not None:
         # assume it's a feed
         feed_links = extract_links(downloaded, params)
         if not feed_links:
             # assume it's a web page
-            for feed in determine_feed(downloaded, params):
-                feed_string = fetch_url(feed)
+            for i, feed in enumerate(determine_feed(downloaded, params)[:MAX_FEEDS_CHECKED]):
+                if i:
+                    sleep(sleep_time)
+                feed_string = fetch_url(feed, config=config)
                 if feed_string:
                     feed_links.extend(extract_links(feed_string, params))
             # filter triggered, prepare it
@@ -263,13 +281,19 @@ def find_feed_urls(
         LOGGER.error("Could not download web page: %s", url)
         if url.strip("/") != baseurl:
             sleep(sleep_time)
-            return try_homepage(baseurl, target_lang, external, sleep_time)
+            return try_homepage(baseurl, target_lang, external, sleep_time, config)
 
-    return probe_gnews(params, urlfilter)
+    return probe_gnews(params, urlfilter, config)
 
 
-def try_homepage(baseurl: str, target_lang: str | None, external: bool, sleep_time: float) -> list[str]:
+def try_homepage(
+    baseurl: str,
+    target_lang: str | None,
+    external: bool,
+    sleep_time: float,
+    config: ConfigParser = DEFAULT_CONFIG,
+) -> list[str]:
     """Shift into reverse and try the homepage instead of the particular feed
     page that was given as input."""
     LOGGER.debug("Probing homepage for feeds instead: %s", baseurl)
-    return find_feed_urls(baseurl, target_lang, external, sleep_time)
+    return find_feed_urls(baseurl, target_lang, external, sleep_time, config)

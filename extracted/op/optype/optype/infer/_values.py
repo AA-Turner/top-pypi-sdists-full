@@ -1,0 +1,189 @@
+"""The shared data shapes of an exploration: its record, and the explored results."""
+
+# pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false
+
+from collections.abc import Generator, Iterable, Mapping, Sequence
+from contextvars import Context
+from dataclasses import dataclass, replace
+from enum import StrEnum
+from inspect import Parameter
+from itertools import chain
+from typing import Any, NamedTuple, NewType
+
+from ._spy import Spy, SpyObject, Traces
+
+VARIADIC_KINDS = frozenset({Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD})
+
+
+class GapKind(StrEnum):
+    """A reason the exploration could not cover every path."""
+
+    BRANCH_BUDGET = "branch budget exhausted"
+    RUN_BUDGET = "run budget exhausted"
+
+
+class Exploration(NamedTuple):
+    """What one exploration of a function against spy placeholders produced."""
+
+    spies: Mapping[str, SpyObject]
+    traces: Traces
+    results: Sequence[object]
+    var_count: int  # the `*args` placeholder count
+    fixed: Mapping[str, object]  # parameters passed as-is, not spies
+    deprecated: str | None = None  # a `DeprecationWarning` message raised when called
+    gaps: frozenset[GapKind] = frozenset()  # kinds of unexplored path
+    tuple_params: frozenset[str] = frozenset()  # params also accepting a tuple of self
+
+
+# not tuples: a `tuple()` match over a result tree must not match these
+
+
+@dataclass(frozen=True, slots=True)
+class Gen:
+    """An explored generator, iterator, or coroutine result, e.g. `Generator[R]`."""
+
+    yielded: Sequence[object]
+    kind: str
+    bare_when_empty: bool = False
+
+
+# the `Gen.kind` of an awaited coroutine, rendered as `Coroutine[object, None, R]`
+COROUTINE = "Coroutine"
+
+
+@dataclass(frozen=True, slots=True)
+class FnResult:
+    """An explored function result, rendered in signature syntax."""
+
+    params: Mapping[str, Parameter]
+    spies: Mapping[str, SpyObject]
+    fixed: Mapping[str, object]
+    results: Sequence[object]
+
+
+# the shared identity of a recursive `Rec` binder and its `RecRef` uses
+RecVar = NewType("RecVar", object)
+
+
+@dataclass(frozen=True, slots=True)
+class Rec:
+    """A result that reaches itself, rendered as a recursive typevar bound."""
+
+    var: RecVar  # the identity shared with this binder's `RecRef` uses
+    body: Any
+
+
+@dataclass(frozen=True, slots=True)
+class RecRef:
+    """A reference to the enclosing `Rec` binder of the same `var`."""
+
+    var: RecVar
+
+
+@dataclass(frozen=True, slots=True, eq=False)  # hashable in a set, whatever it holds
+class Map:
+    """A mapping as its class and `(key, value)` pairs, which can hold explored or bound
+    values without calling the class."""
+
+    cls: type
+    pairs: Sequence[tuple[Any, Any]]
+
+
+def as_mapping(value: object, /) -> Map | None:
+    """`value` as a `Map`, or `None` for anything else: a non-mapping, a `Context`, or a
+    mapping that raises when read (a closed shelf)."""
+    if isinstance(value, Map):
+        return value
+    if not isinstance(value, Mapping) or isinstance(value, Context):
+        return None
+    try:
+        # not `list(...)`: its length hint would add a `len` requirement to the mapping
+        pairs = [pair for pair in value.items()]  # ruff: ignore[unnecessary-comprehension]
+    except Exception:  # ruff: ignore[blind-except]
+        return None
+    return Map(type(value), pairs)
+
+
+def children(value: Any) -> Iterable[Any]:
+    """The values directly contained in an explored result."""
+    if isinstance(value, Spy):
+        # a spy is a leaf; its unique class defeats the `Mapping` check's negative cache
+        return ()
+
+    match value:
+        case Gen():
+            out: Iterable[object] = value.yielded
+        case FnResult():
+            out = value.results
+        case Rec():
+            out = (value.body,)
+        case RecRef():
+            out = ()
+        case tuple() | list() | set() | frozenset():
+            out = value
+        case _ if (mapping := as_mapping(value)) is not None:
+            out = chain.from_iterable(mapping.pairs)
+        case slice():
+            out = value.start, value.stop, value.step
+        case _:
+            out = ()
+    return out
+
+
+def walk(value: object) -> Generator[object]:
+    yield value
+    for child in children(value):
+        yield from walk(child)
+
+
+def map_values(value: Any, binding: Mapping[int, object]) -> Any:  # ruff: ignore[complex-structure]
+    """Rebuild `value` with each bound spy replaced by its binding.
+
+    Recurses into the same shapes as `children`, but a `tuple` subclass (namedtuple)
+    is a leaf, and a mapping comes back as a `Map`.
+    """
+
+    if isinstance(value, Spy):
+        # a spy is a leaf; see `children`
+        return binding.get(id(value), value)
+
+    match value:
+        case Gen():
+            yielded = [map_values(item, binding) for item in value.yielded]
+            out = replace(value, yielded=yielded)
+        case FnResult():
+            results = [map_values(item, binding) for item in value.results]
+            out = replace(value, results=results)
+        case Rec():
+            out = replace(value, body=map_values(value.body, binding))
+        case RecRef():
+            out = value
+        case tuple() if type(value) is tuple:
+            out = tuple(map_values(item, binding) for item in value)
+        case list():
+            out = [map_values(item, binding) for item in value]
+        case set() | frozenset():
+            items = {map_values(item, binding) for item in value}
+            out = frozenset(items) if isinstance(value, frozenset) else items
+        case _ if (mapping := as_mapping(value)) is not None:
+            pairs = [
+                (map_values(k, binding), map_values(v, binding))
+                for k, v in mapping.pairs
+            ]
+            out = Map(mapping.cls, pairs)
+        case slice():
+            out = slice(
+                map_values(value.start, binding),
+                map_values(value.stop, binding),
+                map_values(value.step, binding),
+            )
+        case _:
+            out = binding.get(id(value), value)
+    return out
+
+
+def fn_spies(results: Iterable[object]) -> Generator[SpyObject]:
+    for result in results:
+        for node in walk(result):
+            if isinstance(node, FnResult):
+                yield from node.spies.values()

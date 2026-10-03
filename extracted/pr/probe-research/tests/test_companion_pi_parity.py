@@ -1,6 +1,6 @@
 """pi's copy of the `daemon` state's messages matches the Python originals.
 
-pi has no hooks, so `plugins/probe-research-pi/src/daemonNotice.ts` carries its
+pi has no hooks, so `plugins/probe-research-pi/src/core/daemonNotice.ts` carries its
 own copy of what `version_check.py` says at session start and what
 `tracking_guard.py` says when recording changes hands. Two copies of a
 consent-adjacent message that drift apart tell the agent two different things,
@@ -16,7 +16,7 @@ from pathlib import Path
 
 AGENT = Path(__file__).resolve().parents[1]
 HOOKS = AGENT / "plugins" / "probe-research" / "hooks"
-TS = AGENT / "plugins" / "probe-research-pi" / "src" / "daemonNotice.ts"
+TS = AGENT / "plugins" / "probe-research-pi" / "src" / "core" / "daemonNotice.ts"
 
 
 def _load(name: str, path: Path):

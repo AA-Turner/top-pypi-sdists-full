@@ -9,7 +9,7 @@ is only meaningful when ``ok`` is True.
 
 Protocol version: **S2 v1.1** (v1 frozen 2026-08-18; v1.1 additive 2026-09-18 adds
 ``LaunchPolicy.egress`` and two control-plane-authored fields on ``CommandResponse``
-— see ``common-docs/systems/platform/residential-egress/FEATURE.md``). Additive only:
+— see ``common-docs/systems/architecture/residential-egress/FEATURE.md``). Additive only:
 an omitted optional field keeps the older worker's default, which is why
 ``HttpBrowserWorkerClient._post`` serialises with ``exclude_none=True``.
 """
@@ -363,7 +363,7 @@ class DisplayConfig(BaseModel):
 class EgressPolicy(BaseModel):
     """Residential egress — this run leaves through the PERSON'S OWN computer.
 
-    Contract: ``common-docs/systems/platform/residential-egress/FEATURE.md``
+    Contract: ``common-docs/systems/architecture/residential-egress/FEATURE.md``
     § "When we are blocked — Cloud browser". The control plane mints the ticket
     and hands the worker the two facts it needs to open consumer WebSockets
     against the gateway, plus the plain name the result announces.
@@ -483,7 +483,7 @@ class CommandEgress(BaseModel):
     sets it: only the Browser Manager knows that a blocked page was retried
     through the person's own computer. It rides the command reply because that
     is where the agent and the panel read the answer, and rule 5 of
-    ``common-docs/systems/platform/residential-egress/FEATURE.md`` says a page
+    ``common-docs/systems/architecture/residential-egress/FEATURE.md`` says a page
     fetched through a person's computer always says so.
     """
 

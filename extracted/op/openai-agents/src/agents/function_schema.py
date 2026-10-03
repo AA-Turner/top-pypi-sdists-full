@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal, cast, get_args, get_origin, get_type
 
 # griffelib exposes the `griffe` package at runtime but currently does not ship typing markers.
 from griffe import Docstring, DocstringSectionKind  # type: ignore[import-untyped]
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.fields import FieldInfo
 
 from .exceptions import ModelBehaviorError, UserError
@@ -316,15 +316,6 @@ def _extract_description_from_metadata(metadata: tuple[Any, ...]) -> str | None:
     return None
 
 
-def _extract_field_info_from_metadata(metadata: tuple[Any, ...]) -> FieldInfo | None:
-    """Returns the first FieldInfo in Annotated metadata, or None."""
-
-    for item in metadata:
-        if isinstance(item, FieldInfo):
-            return item
-    return None
-
-
 def function_schema(
     func: Callable[..., Any],
     docstring_style: DocstringStyle | None = None,
@@ -421,6 +412,7 @@ def function_schema(
     # We will collect field definitions for create_model as a dict:
     #   field_name -> (type_annotation, default_value_or_Field(...))
     fields: dict[str, Any] = {}
+    model_config = ConfigDict()
 
     for name, param in filtered_params:
         ann = type_hints.get(name, param.annotation)
@@ -433,12 +425,18 @@ def function_schema(
         # If a docstring param description exists, use it
         field_description = param_descs.get(name, None)
 
+        # Let Pydantic combine all Field entries and retain other Annotated metadata,
+        # including constrained type aliases and validators, in its original order.
+        field_info_from_annotated = (
+            FieldInfo.from_annotation(type_hints_with_extras[name])
+            if param_metadata.get(name)
+            else None
+        )
         value_ann = ann
         if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-            field_info = _extract_field_info_from_metadata(param_metadata.get(name, ()))
-            if field_info is not None and field_info.metadata:
+            if field_info_from_annotated is not None and field_info_from_annotated.metadata:
                 # Constraints apply to each value, not the collected container or its defaults.
-                value_ann = Annotated[(ann, *cast(Any, field_info).metadata)]
+                value_ann = Annotated[(ann, *cast(Any, field_info_from_annotated).metadata)]
 
         # Handle different parameter kinds
         if param.kind == param.VAR_POSITIONAL:
@@ -469,6 +467,15 @@ def function_schema(
             )
 
         elif param.kind == param.VAR_KEYWORD:
+            if strict_json_schema:
+                raise UserError(
+                    f"Variadic keyword parameter `**{name}` in function {func.__name__} cannot"
+                    " use a strict schema. Set strict_mode=False on the function tool"
+                    " (or strict_json_schema=False on function_schema) and pass keyword arguments"
+                    f" in the nested `{name}` object, or use explicit parameters for a strict tool."
+                )
+            # Reject flat keyword arguments instead of silently dropping them before invocation.
+            model_config["extra"] = "forbid"
             # **kwargs handling: a ``**kwargs: X`` annotation applies to each keyword *value*
             # (PEP 484), so the collected container is always ``dict[str, X]``. Preserve the full
             # annotation as the value type -- mirroring the variadic-positional handling above,
@@ -483,9 +490,6 @@ def function_schema(
 
         else:
             # Normal parameter
-            metadata = param_metadata.get(name, ())
-            field_info_from_annotated = _extract_field_info_from_metadata(metadata)
-
             if field_info_from_annotated is not None:
                 merged = FieldInfo.merge_field_infos(
                     field_info_from_annotated,
@@ -494,7 +498,17 @@ def function_schema(
                 if default is not inspect._empty and not isinstance(default, FieldInfo):
                     merged = FieldInfo.merge_field_infos(merged, default=default)
                 elif isinstance(default, FieldInfo):
-                    merged = FieldInfo.merge_field_infos(merged, default)
+                    merged = FieldInfo.from_annotated_attribute(
+                        cast(Any, Annotated[ann, merged]), default
+                    )
+                    if not any(
+                        isinstance(item, FieldInfo) for item in param_metadata.get(name, ())
+                    ):
+                        # Without an Annotated Field, descriptions retain the same precedence
+                        # as a plain annotation with a Field default below.
+                        merged = FieldInfo.merge_field_infos(
+                            merged, description=field_description or default.description
+                        )
                 fields[name] = (ann, merged)
             elif default is inspect._empty:
                 # Required field
@@ -518,7 +532,9 @@ def function_schema(
                 )
 
     # 3. Dynamically build a Pydantic model
-    dynamic_model = create_model(f"{func_name}_args", __base__=BaseModel, **fields)
+    dynamic_model = create_model(
+        f"{func_name}_args", __base__=BaseModel, __config__=model_config, **fields
+    )
 
     # 4. Build JSON schema from that model
     json_schema = dynamic_model.model_json_schema()

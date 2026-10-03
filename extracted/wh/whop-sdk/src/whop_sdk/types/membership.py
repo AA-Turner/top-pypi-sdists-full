@@ -15,9 +15,24 @@ class Membership(UniversalBaseModel):
     The account (seller) this membership belongs to.
     """
 
+    billing_period_days: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of days between recurring charges. `null` for non-renewing memberships or memberships with multiple renewal schedules.
+    """
+
     cancel_at_period_end: bool = pydantic.Field()
     """
-    Whether the membership is set to cancel when the current billing period ends. Only meaningful for recurring plans.
+    Whether the membership is set to cancel when the current billing period ends. Only meaningful for recurring variants.
+    """
+
+    canceled_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When cancellation was requested, or when the membership was canceled if no request time is recorded, as an ISO 8601 timestamp. `null` when neither is recorded.
+    """
+
+    cancellation_reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Free-text explanation provided when canceling. `null` when no reason was provided.
     """
 
     created_at: str = pydantic.Field()
@@ -30,6 +45,11 @@ class Membership(UniversalBaseModel):
     When the current billing period renews, or when a non-renewing membership expires, as an ISO 8601 timestamp. `null` for one-time purchases with no expiration.
     """
 
+    current_period_start: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the current billing period started, as an ISO 8601 timestamp. `null` when no billing period is recorded.
+    """
+
     id: str = pydantic.Field()
     """
     Membership ID, prefixed `mem_`.
@@ -38,6 +58,11 @@ class Membership(UniversalBaseModel):
     license_key: typing.Optional[str] = pydantic.Field(default=None)
     """
     The software license key for this membership. Only present when the product includes a software licensing experience.
+    """
+
+    manage_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    URL where the buyer can sign in to manage billing. `null` without a member record or unless the caller is the buyer or has `member:manage` on the account.
     """
 
     member: typing.Optional[MembershipMember] = pydantic.Field(default=None)
@@ -57,7 +82,7 @@ class Membership(UniversalBaseModel):
 
     plan_id: str = pydantic.Field()
     """
-    The plan the buyer purchased, prefixed `plan_`.
+    The variant the buyer purchased, prefixed `plan_`.
     """
 
     product_id: str = pydantic.Field()
@@ -65,9 +90,19 @@ class Membership(UniversalBaseModel):
     The product this membership grants access to, prefixed `prod_`.
     """
 
+    promo_code_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The promo code discounting this membership, prefixed `promo_`. `null` when none is applied. Set at checkout or by Apply Promo Code to Membership.
+    """
+
     status: MembershipStatus = pydantic.Field()
     """
     Billing state of the membership. `active`/`trialing` memberships grant access; `past_due` is the grace period after a failed payment; `completed` one-time purchases keep access; `canceled`/`expired` do not.
+    """
+
+    updated_at: str = pydantic.Field()
+    """
+    When the membership was last changed, as an ISO 8601 timestamp. Reflects the most recent change to the membership itself, so you can reconcile against webhook retries, replays, and backfills.
     """
 
     user_id: typing.Optional[str] = pydantic.Field(default=None)

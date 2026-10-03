@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: k3d
-Version: 3.1.1
+Version: 3.1.2
 Summary: WebGL 3D plotting for Jupyter: meshes, isosurfaces, volumes, voxels and point clouds
 Project-URL: Documentation, https://k3d-jupyter.org
 Project-URL: Homepage, https://k3d-jupyter.org
@@ -43,6 +43,7 @@ Requires-Dist: notebook; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
 Requires-Dist: pixelmatch==0.4.0; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: scikit-image; extra == 'dev'
 Requires-Dist: selenium; extra == 'dev'
@@ -68,6 +69,7 @@ Description-Content-Type: text/markdown
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/k3d/badges/downloads.svg)](https://anaconda.org/conda-forge/k3d)
 [![CodeQL](https://github.com/K3D-tools/K3D-jupyter/workflows/CodeQL/badge.svg)](https://github.com/K3D-tools/K3D-jupyter/actions)
 [![GitHub Sponsor](https://img.shields.io/github/sponsors/K3D-tools?label=Sponsor&logo=GitHub)](https://github.com/sponsors/K3D-tools)
+[![Mentioned in Awesome VTK](https://awesome.re/mentioned-badge.svg)](https://github.com/tkoyama010/awesome-vtk)
 
 <div>
 

@@ -27,6 +27,7 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
@@ -43,8 +44,9 @@ class TextToSpeechInput(BaseModel):
             "TTS model id. Example: 'eleven_v3', "
             "'playai-tts' (Groq), 'gemini-2.5-flash-preview-tts' (Google)."
         ),
-        json_schema_extra=field_extras(widget="model_picker"),
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
+    offering_id: str | None = offering_id_field()
     text: str = Field(
         min_length=1,
         description="Text to synthesize.",
@@ -258,6 +260,7 @@ async def ai_text_to_speech(
 
         config_payload: dict[str, Any] = {
             "model": inputs.model,
+            "offering_id": inputs.offering_id,
             "messages": [{"role": "user", "content": inputs.text}],
         }
         if inputs.voice:

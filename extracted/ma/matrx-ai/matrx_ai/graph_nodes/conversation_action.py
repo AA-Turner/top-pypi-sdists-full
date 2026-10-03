@@ -44,6 +44,7 @@ from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai._ext import get_ext, has_ext
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
     MAX_ITERATIONS_DESCRIPTION,
@@ -243,8 +244,13 @@ class ConversationContinueInput(BaseModel):
         ),
     )
     memory_model: str | None = Field(
-        default=None, description="Optional model override for observational-memory processing."
+        default=None,
+        description="Optional model override for observational-memory processing.",
+        json_schema_extra=field_extras(
+            widget="model_picker", **model_class_extras("memory_offering_id")
+        ),
     )
+    memory_offering_id: str | None = offering_id_field(model_field="memory_model")
     memory_scope: str = Field(
         default="thread", description="Observational-memory scope, normally the current thread."
     )

@@ -16,7 +16,7 @@ reclaim a few thousand tokens, re-paying full input price for the rest of the
 run. That is the class of hole this module closes for good.
 
 The law (also written into
-``common-docs/systems/agents/execution-runtime/STREAM-CONTRACT.md``):
+``common-docs/systems/architecture/execution-runtime/STREAM-CONTRACT.md``):
 
     **Nothing shapes a prompt outside the send boundary.** Every mutation of
     the wire-facing message list, system prompt, or wire config between the
@@ -585,7 +585,7 @@ LIVE_DATE_SLOT = "live_date"
 
 
 def _announce_live_date(config: Any, *, now: datetime | None = None) -> None:
-    """Tell the model today's date whenever the pinned system date is not today.
+    """Tell the model the live instant on every turn (and name a stale pinned date).
 
     The system prefix's ``Current date`` is pinned to the conversation's
     ``created_at`` so the cached prefix stays byte-stable (``_pin_system_date``).
@@ -612,16 +612,22 @@ def _announce_live_date(config: Any, *, now: datetime | None = None) -> None:
     moment = (now or datetime.now(UTC)).astimezone(UTC)
     today = moment.strftime("%Y-%m-%d")
     pinned = si.effective_date() if hasattr(si, "effective_date") else None
-    if not pinned or pinned == today:
-        attach("", slot=LIVE_DATE_SLOT)
-        return
+    # ALWAYS, not only when the pinned day is stale (Lane BC, 2026-10-03): a pin
+    # that equals today IN UTC is still the wrong day for half the world for part
+    # of every day — at 02:00Z it is yesterday evening in Los Angeles — so the
+    # live instant travels on every turn and the person's own clock wins.
+    began = (
+        f'The "Current date: {pinned}" line in your instructions is the day this '
+        f"conversation BEGAN, not today; never state it as the current date. "
+        if pinned and pinned != today
+        else ""
+    )
     attach(
         f"Today is {moment:%A}, {moment:%B} {moment.day}, {moment.year} — "
-        f'{moment:%Y-%m-%dT%H:%MZ} in UTC. The "Current date: {pinned}" line in your '
-        f"instructions is the day this conversation BEGAN, not today; never state it, "
-        f"or a date remembered from earlier in this conversation, as the current date. "
-        f"When your instructions give the person's own local time, that is the one to "
-        f"say to them.",
+        f"{moment:%Y-%m-%dT%H:%MZ} in UTC. {began}"
+        f"Never state a date or time remembered from earlier in this conversation as "
+        f"the current one. When your instructions give the person's own local time, "
+        f"that is the one to say to them — their date may differ from the UTC date.",
         slot=LIVE_DATE_SLOT,
     )
 

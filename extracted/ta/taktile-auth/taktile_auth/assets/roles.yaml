@@ -55,6 +55,7 @@ ws_editor/org_id,ws_id:
     - connection_user/org_id,ws_id
     - dh_viewer_sandbox/org_id,ws_id
     - dh_viewer_live/org_id,ws_id
+    - dh_deleter_sandbox/org_id,ws_id
     - chart_editor_live/org_id,ws_id
     - w:workspace/org_id,ws_id
     - w:workspace_data/org_id,ws_id
@@ -83,11 +84,10 @@ ws_admin/org_id,ws_id:
     - integration_builder/org_id,ws_id
     - flow_deployer/org_id,ws_id,*
     - flow_execute_live/org_id,ws_id,*
+    - dh_deleter_live/org_id,ws_id
     - w:workspace_endpoint/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id
     - r:workspace_decision_history_api/org_id,ws_id
-    # delete stays admin-only: no granular persona for it in the PRD
-    - d:workspace_decision_history/org_id,ws_id
     - w+d:workspace_api_keys/org_id,ws_id
     - r+w:workspace_user_management/org_id,ws_id
     - w:flow_settings/org_id,ws_id
@@ -189,6 +189,15 @@ dh_viewer_live/org_id,ws_id:
     # legacy env-unaware string: old call sites grant all envs, so live-only
     - r:workspace_decision_history/org_id,ws_id
     - r:decision_history/org_id,ws_id,{env=live}
+# delete carved the same way from ws_admin and api_key_history_admin
+dh_deleter_sandbox/org_id,ws_id:
+    - d:decision_history/org_id,ws_id,{env=sandbox}
+    - d:decision_history/org_id,ws_id,{env=test}
+dh_deleter_live/org_id,ws_id:
+    - dh_deleter_sandbox/org_id,ws_id
+    # legacy env-unaware string: old call sites delete in all envs, so live-only
+    - d:workspace_decision_history/org_id,ws_id
+    - d:decision_history/org_id,ws_id,{env=live}
 
 # P141c chart roles (Insights)
 chart_viewer_sandbox/org_id,ws_id:
@@ -268,16 +277,21 @@ file_user/org_id,ws_id:
 data_case_viewer/org_id,ws_id:
     - data_viewer/org_id,ws_id
     - case_reviewer/org_id,ws_id
+    # temporary additional permissions to be pushed further down the
+    # hierarchy or made separately assignable in future
+    - copilot_user/org_id,ws_id
     - file_viewer_sandbox/org_id,ws_id
     - file_viewer_live/org_id,ws_id
 data_case_editor/org_id,ws_id:
     - data_editor/org_id,ws_id
     - case_editor/org_id,ws_id
+    - copilot_user/org_id,ws_id
     - file_user_sandbox/org_id,ws_id
     - file_user_live/org_id,ws_id
 data_case_admin/org_id,ws_id:
     - data_admin/org_id,ws_id
     - case_admin/org_id,ws_id
+    - copilot_user/org_id,ws_id
     - file_user_sandbox/org_id,ws_id
     - file_user_live/org_id,ws_id
 
@@ -382,7 +396,8 @@ api_key_job_admin/org_id,ws_id:
     - r+w+d:job_run/org_id,ws_id,*,{env=*}
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
-    - r+w+d:workspace_decision_history/org_id,ws_id
+    - dh_deleter_live/org_id,ws_id
+    - r+w:workspace_decision_history/org_id,ws_id
 api_key_audit_logs/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r:organization/org_id

@@ -80,81 +80,77 @@ class AgentSpec:
     display: str = ""
 
 
-# Claude Code only exports CLAUDE_CODE_SESSION_ID to Bash subprocesses from
-# 2.1.132 onward. Below that the variable is simply absent, which is
-# indistinguishable from "not Claude Code" unless we also read the version —
-# hence version_env, so an old client gets a "you need to upgrade" answer
-# instead of silence.
+# The table is the harness registry's (probe/harness/harnesses.json): one row
+# per coding agent, in DETECTION ORDER (the first whose marker is set wins).
+# What the rows encode, and why:
 #
-# There is deliberately no child-session handling. CLAUDE_CODE_CHILD_SESSION
-# is a BOOLEAN FLAG ("1"), not an id: when it is set, CLAUDE_CODE_SESSION_ID
-# still holds the real session id, so there is nothing to resolve back to.
-AGENTS: tuple[AgentSpec, ...] = (
-    AgentSpec(
-        label="claude_code",
-        detect_env=("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"),
-        session_env="CLAUDE_CODE_SESSION_ID",
-        captured=True,
-        version_env="CLAUDE_CODE_VERSION",
-        min_version=(2, 1, 132),
-        display="Claude Code session",
-    ),
-    AgentSpec(
-        label="cursor",
-        detect_env=("CURSOR_TRACE_ID",),
-        session_env="CURSOR_TRACE_ID",
-        captured=False,
-        display="Cursor session",
-    ),
-    AgentSpec(
-        label="codex",
-        detect_env=("CODEX_SANDBOX", "CODEX_THREAD_ID"),
-        session_env="CODEX_THREAD_ID",
-        captured=True,
-        display="Codex session",
-    ),
-    # pi's CLI and RPC entry points always set PI_CODING_AGENT ("true") on
-    # every child process (the same unconditional-marker shape as CLAUDECODE),
-    # and stamp PI_SESSION_ID too -- exactly the subprocess a researcher's
-    # `import probe` script executes in. Verified against
-    # node_modules/@earendil-works/pi-coding-agent's own README (Environment
-    # Variables section). pi ALSO sets the generic AI_AGENT=pi, deliberately
-    # NOT used here: detect_agent() matches on presence, and a variable named
-    # for "any AI agent" is exactly the one some other harness will export
-    # next -- misdetecting that harness as pi is this table's worst failure.
-    # PI_CODING_AGENT alone is name-scoped and just as unconditional.
-    AgentSpec(
-        label="pi",
-        detect_env=("PI_CODING_AGENT",),
-        session_env="PI_SESSION_ID",
-        captured=True,
-        display="pi session",
-    ),
-)
+# - Claude Code only exports CLAUDE_CODE_SESSION_ID to Bash subprocesses from
+#   2.1.132 onward. Below that the variable is simply absent, which is
+#   indistinguishable from "not Claude Code" unless we also read the version --
+#   hence version_env, so an old client gets a "you need to upgrade" answer
+#   instead of silence. There is deliberately no child-session handling:
+#   CLAUDE_CODE_CHILD_SESSION is a BOOLEAN FLAG ("1"), not an id, and
+#   CLAUDE_CODE_SESSION_ID still holds the real session id when it is set.
+# - pi's CLI and RPC entry points always set PI_CODING_AGENT ("true") on every
+#   child process and stamp PI_SESSION_ID too. pi ALSO sets the generic
+#   AI_AGENT=pi, deliberately NOT used: a variable named for "any AI agent" is
+#   exactly the one some other harness will export next, and misdetecting that
+#   harness as pi is this table's worst failure.
+# - Cursor is detected but never captured.
+def _agents() -> tuple[AgentSpec, ...]:
+    from probe.harness import get_registry
+
+    return tuple(
+        AgentSpec(
+            label=h.id,
+            detect_env=h.detect_env,
+            session_env=h.session_env,
+            captured=h.captured,
+            version_env=h.version_env,
+            min_version=h.min_version,
+            display=h.display,
+        )
+        for h in get_registry().all()
+    )
 
 
-def _codex_capture_paired(env: Mapping[str, str]) -> bool:
-    """Whether the Codex tap has a credential without ever reading the secret.
+AGENTS: tuple[AgentSpec, ...] = _agents()
 
-    The tap accepts an explicit environment token or its mode-0600 token file.
-    Attribution mirrors those two sources but checks only presence/non-emptiness.
-    ``PRBE_CODEX_TAP_PLUGIN_DIR`` is also the tap's test/development override,
-    so this stays deterministic without touching a user's real Codex state.
+
+def _capture_paired(label: str, env: Mapping[str, str]) -> bool:
+    """Whether this harness's tap has a credential, without reading the secret.
+
+    For a harness whose session variable is set in every shell, Probe or not
+    (Codex), a session is only worth attributing once capture is paired:
+    otherwise the link could never resolve. The tap accepts its environment
+    token or its mode-0600 token file; this checks presence only. The plugin
+    dir override is also the tap's test/development hook, so this stays
+    deterministic without touching a user's real state.
     """
-    if (env.get("PRBE_CODEX_TAP_TOKEN") or "").strip():
+    from probe.harness import get_registry
+
+    capture = get_registry().get(label).capture
+    if capture is None:
+        return False
+    if (env.get(capture.token_env) or "").strip():
         return True
-    configured = env.get("PRBE_CODEX_TAP_PLUGIN_DIR")
+    configured = env.get(capture.plugin_dir_env)
     if configured:
         root = Path(configured)
     else:
-        state = homedir.home() / ".codex" / "state"
-        current = state / "probe-research-tap"
-        legacy = state / "prbe-codex-tap-plugin"
-        root = legacy if legacy.exists() and not current.exists() else current
+        current = homedir.home() / capture.plugin_dir
+        legacy = homedir.home() / capture.legacy_plugin_dir if capture.legacy_plugin_dir else None
+        root = legacy if legacy is not None and legacy.exists() and not current.exists() else current
     try:
         return bool((root / ".token").read_text(encoding="utf-8").strip())
     except OSError:
         return False
+
+
+def _attribution_needs_pairing(label: str) -> bool:
+    from probe.harness import get_registry
+
+    return get_registry().get(label).attribution_requires_pairing
 
 
 def _env(env: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -203,7 +199,7 @@ def resolve_agent_session(
     if not spec.captured or spec.session_env is None:
         return None
     values = _env(env)
-    if spec.label == "codex" and not _codex_capture_paired(values):
+    if _attribution_needs_pairing(spec.label) and not _capture_paired(spec.label, values):
         return None
     session_id = values.get(spec.session_env)
     if not valid_session_id(session_id):

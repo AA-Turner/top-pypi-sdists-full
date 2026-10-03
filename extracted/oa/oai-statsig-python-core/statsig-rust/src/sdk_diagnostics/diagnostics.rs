@@ -9,7 +9,7 @@ use crate::log_w;
 
 use crate::event_logging::event_logger::EventLogger;
 use parking_lot::Mutex;
-use rand::Rng;
+use rand::RngExt;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
@@ -148,8 +148,8 @@ impl Diagnostics {
 
     pub fn should_sample(&self, context: &ContextType, key: Option<KeyType>) -> bool {
         fn check_sampling_rate(sampling_rate: Option<&f64>) -> bool {
-            let mut rng = rand::thread_rng();
-            let rand_value = rng.gen::<f64>() * MAX_SAMPLING_RATE;
+            let mut rng = crate::utils::random::rng();
+            let rand_value = rng.random::<f64>() * MAX_SAMPLING_RATE;
 
             match sampling_rate {
                 Some(sampling_rate) => rand_value < *sampling_rate,

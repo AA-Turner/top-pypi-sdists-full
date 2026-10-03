@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from collections.abc import Iterable
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import django
@@ -7,6 +8,7 @@ from django.core.exceptions import SuspiciousOperation
 from django.db import connections, models
 from django.db.models import Expression, sql
 from django.db.models.constants import LOOKUP_SEP
+from django.db.models.expressions import Ref
 
 from .compiler import PostgresInsertOnConflictCompiler
 from .compiler import SQLUpdateCompiler as PostgresUpdateCompiler
@@ -68,11 +70,23 @@ class PostgresQuery(sql.Query):
                 # and a list in Django 5.x and newer.
                 # https://github.com/django/django/commit/d6b6e5d0fd4e6b6d0183b4cf6e4bd4f9afc7bf67
                 if isinstance(self.annotation_select_mask, set):
-                    self.annotation_select_mask.discard(old_name)
-                    self.annotation_select_mask.add(new_name)
+                    updated_annotation_select_mask = set(
+                        self.annotation_select_mask
+                    )
+                    updated_annotation_select_mask.discard(old_name)
+                    updated_annotation_select_mask.add(new_name)
+                    self.set_annotation_mask(updated_annotation_select_mask)
                 elif isinstance(self.annotation_select_mask, list):
                     self.annotation_select_mask.remove(old_name)
                     self.annotation_select_mask.append(new_name)
+
+        if isinstance(self.group_by, Iterable):
+            for statement in self.group_by:
+                if not isinstance(statement, Ref):
+                    continue
+
+                if statement.refs in annotations:  # type: ignore[attr-defined]
+                    statement.refs = annotations[statement.refs]  # type: ignore[attr-defined]
 
         self.annotations.clear()
         self.annotations.update(new_annotations)

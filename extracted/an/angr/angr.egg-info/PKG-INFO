@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: angr
-Version: 10.0.1
+Version: 10.0.1.post1
 Summary: A multi-architecture binary analysis toolkit, with the ability to perform dynamic symbolic execution and various static analyses on binaries
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/

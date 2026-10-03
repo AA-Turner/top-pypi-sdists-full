@@ -21,6 +21,8 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..types.setup_intent import SetupIntent
 from ..types.setup_status import SetupStatus
 from ..types.v1error_response import V1ErrorResponse
+from .types.create_setup_intents_request_purpose import CreateSetupIntentsRequestPurpose
+from .types.create_setup_intents_request_three_ds_level import CreateSetupIntentsRequestThreeDsLevel
 from .types.list_setup_intents_request_direction import ListSetupIntentsRequestDirection
 from .types.list_setup_intents_request_order import ListSetupIntentsRequestOrder
 from .types.list_setup_intents_request_status import ListSetupIntentsRequestStatus
@@ -191,7 +193,9 @@ class RawSetupIntentsClient:
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
+        purpose: typing.Optional[CreateSetupIntentsRequestPurpose] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        three_ds_level: typing.Optional[CreateSetupIntentsRequestThreeDsLevel] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SetupIntent]:
         """
@@ -217,8 +221,14 @@ class RawSetupIntentsClient:
         payment_method_id : typing.Optional[str]
             An existing payment method to re-verify and save, prefixed `payt_`. Provide this or `confirmation_token`, not both. Not available to a buyer credential.
 
+        purpose : typing.Optional[CreateSetupIntentsRequestPurpose]
+            What the saved payment method will pay for. Set to `ads_billing` when saving a card to pay for Whop Ads on `account_id`: the card is verified by Whop Ads, the merchant that charges it, which helps minimize security declines on ad payments, and it requires `ad_campaign:create` on `account_id`. Omit it for any other payment method.
+
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters.
+
+        three_ds_level : typing.Optional[CreateSetupIntentsRequestThreeDsLevel]
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Applies to this setup only, and only while the buyer is present: ignored with `payment_method_id`, which re-verifies off session. Not available with `purpose: ads_billing`. Defaults to `frictionless_if_required`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -239,7 +249,9 @@ class RawSetupIntentsClient:
                 "email": email,
                 "metadata": metadata,
                 "payment_method_id": payment_method_id,
+                "purpose": purpose,
                 "return_url": return_url,
+                "three_ds_level": three_ds_level,
             },
             headers={
                 "content-type": "application/json",
@@ -726,7 +738,9 @@ class AsyncRawSetupIntentsClient:
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
+        purpose: typing.Optional[CreateSetupIntentsRequestPurpose] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        three_ds_level: typing.Optional[CreateSetupIntentsRequestThreeDsLevel] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SetupIntent]:
         """
@@ -752,8 +766,14 @@ class AsyncRawSetupIntentsClient:
         payment_method_id : typing.Optional[str]
             An existing payment method to re-verify and save, prefixed `payt_`. Provide this or `confirmation_token`, not both. Not available to a buyer credential.
 
+        purpose : typing.Optional[CreateSetupIntentsRequestPurpose]
+            What the saved payment method will pay for. Set to `ads_billing` when saving a card to pay for Whop Ads on `account_id`: the card is verified by Whop Ads, the merchant that charges it, which helps minimize security declines on ad payments, and it requires `ad_campaign:create` on `account_id`. Omit it for any other payment method.
+
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters.
+
+        three_ds_level : typing.Optional[CreateSetupIntentsRequestThreeDsLevel]
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Applies to this setup only, and only while the buyer is present: ignored with `payment_method_id`, which re-verifies off session. Not available with `purpose: ads_billing`. Defaults to `frictionless_if_required`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -774,7 +794,9 @@ class AsyncRawSetupIntentsClient:
                 "email": email,
                 "metadata": metadata,
                 "payment_method_id": payment_method_id,
+                "purpose": purpose,
                 "return_url": return_url,
+                "three_ds_level": three_ds_level,
             },
             headers={
                 "content-type": "application/json",

@@ -1,0 +1,11 @@
+extend = "../../pyproject.toml"
+cache-dir = "../../.ruff_cache"
+
+[lint.per-file-ignores]
+"_cli.py" = ["exec-builtin", "suspicious-eval-usage", "print"]
+"_explore.py" = ["too-many-locals"]
+"_render.py" = ["manual-from-import"]
+"_spy.py" = ["non-self-return-type", "too-many-public-methods"]
+
+[lint.pylint]
+allow-dunder-method-names = ["__optype_trace_add__"]

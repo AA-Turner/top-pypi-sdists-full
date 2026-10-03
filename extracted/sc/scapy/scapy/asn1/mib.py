@@ -275,6 +275,9 @@ nist_oids = {
     "2.16.840.1.101.3.4.2.10": "sha3-512",
     "2.16.840.1.101.3.4.2.11": "shake128",
     "2.16.840.1.101.3.4.2.12": "shake256",
+    "2.16.840.1.101.3.4.3.17": "ml-dsa-44",
+    "2.16.840.1.101.3.4.3.18": "ml-dsa-65",
+    "2.16.840.1.101.3.4.3.19": "ml-dsa-87",
 }
 
 #       thawte      #
@@ -741,6 +744,7 @@ gssapi_oids = {
     '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
     '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',
+    '1.3.6.1.4.1.311.2.2.40': 'SPNEGO - Negotiate Late Fallback',
 }
 
 #      kerberos      #
@@ -807,6 +811,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 # of some algorithms from pkcs1_oids and x962Signature_oids.
 
 hash_by_oid = {
+    "1.2.840.113549.1.1.1": "sha1",
     "1.2.840.113549.1.1.2": "md2",
     "1.2.840.113549.1.1.3": "md4",
     "1.2.840.113549.1.1.4": "md5",
@@ -819,5 +824,10 @@ hash_by_oid = {
     "1.2.840.10045.4.3.1": "sha224",
     "1.2.840.10045.4.3.2": "sha256",
     "1.2.840.10045.4.3.3": "sha384",
-    "1.2.840.10045.4.3.4": "sha512"
+    "1.2.840.10045.4.3.4": "sha512",
+    "1.3.101.112": None,
+    "1.3.101.113": None,
+    "2.16.840.1.101.3.4.3.17": None,
+    "2.16.840.1.101.3.4.3.18": None,
+    "2.16.840.1.101.3.4.3.19": None,
 }

@@ -17,10 +17,14 @@ if typing.TYPE_CHECKING:
         ListSocialAccountsRequestOrder,
         ListSocialAccountsRequestPlatform,
         ListSocialAccountsRequestScopesItem,
+        ListSocialAccountsRequestTrustLevel,
         ListSocialAccountsResponse,
         ListSocialAccountsResponsePageInfo,
+        PartnersSocialAccountsResponse,
+        PartnersSocialAccountsResponsePageInfo,
         PostsSocialAccountsResponse,
         PostsSocialAccountsResponsePageInfo,
+        RemovePartnerSocialAccountsResponse,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "ConnectSocialAccountsRequestPlatform": ".types",
@@ -33,10 +37,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSocialAccountsRequestOrder": ".types",
     "ListSocialAccountsRequestPlatform": ".types",
     "ListSocialAccountsRequestScopesItem": ".types",
+    "ListSocialAccountsRequestTrustLevel": ".types",
     "ListSocialAccountsResponse": ".types",
     "ListSocialAccountsResponsePageInfo": ".types",
+    "PartnersSocialAccountsResponse": ".types",
+    "PartnersSocialAccountsResponsePageInfo": ".types",
     "PostsSocialAccountsResponse": ".types",
     "PostsSocialAccountsResponsePageInfo": ".types",
+    "RemovePartnerSocialAccountsResponse": ".types",
 }
 
 
@@ -72,8 +80,12 @@ __all__ = [
     "ListSocialAccountsRequestOrder",
     "ListSocialAccountsRequestPlatform",
     "ListSocialAccountsRequestScopesItem",
+    "ListSocialAccountsRequestTrustLevel",
     "ListSocialAccountsResponse",
     "ListSocialAccountsResponsePageInfo",
+    "PartnersSocialAccountsResponse",
+    "PartnersSocialAccountsResponsePageInfo",
     "PostsSocialAccountsResponse",
     "PostsSocialAccountsResponsePageInfo",
+    "RemovePartnerSocialAccountsResponse",
 ]

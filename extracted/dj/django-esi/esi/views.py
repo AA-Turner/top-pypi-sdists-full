@@ -1,21 +1,24 @@
+__lazy_modules__ = ["django.http"]  # py3,16
+
 import logging
+from typing import TYPE_CHECKING
 
-from requests_oauthlib import OAuth2Session
-
-from django.http import HttpResponseRedirect
 from django.http.response import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from esi import app_settings
+from esi import sso
 from esi.models import CallbackRedirect, Token
 
 from .decorators import tokens_required
 
+if TYPE_CHECKING:  # py3.14
+    from django.http import HttpResponseRedirect
+
 logger = logging.getLogger(__name__)
 
 
-def sso_redirect(request, scopes=None, return_to=None) -> HttpResponseRedirect:
+def sso_redirect(request, scopes=None, return_to=None) -> "HttpResponseRedirect":
     """
     Generates a :model:`esi.CallbackRedirect` for the specified request.
     Redirects to EVE for login.
@@ -46,12 +49,7 @@ def sso_redirect(request, scopes=None, return_to=None) -> HttpResponseRedirect:
     else:
         url = request.get_full_path()
 
-    oauth = OAuth2Session(
-        app_settings.ESI_SSO_CLIENT_ID,
-        redirect_uri=app_settings.ESI_SSO_CALLBACK_URL,
-        scope=scopes
-    )
-    redirect_url, state = oauth.authorization_url(app_settings.ESI_OAUTH_LOGIN_URL)
+    redirect_url, state = sso.authorization_url(scopes)
 
     CallbackRedirect.objects.create(
         session_key=request.session.session_key, state=state, url=url
@@ -65,7 +63,7 @@ def sso_redirect(request, scopes=None, return_to=None) -> HttpResponseRedirect:
     return redirect(redirect_url)
 
 
-def receive_callback(request) -> HttpResponseBadRequest | HttpResponseRedirect:
+def receive_callback(request) -> "HttpResponseBadRequest | HttpResponseRedirect":
     """
     Parses SSO callback, validates, retrieves :model:`esi.Token`,
     and internally redirects to the target url.

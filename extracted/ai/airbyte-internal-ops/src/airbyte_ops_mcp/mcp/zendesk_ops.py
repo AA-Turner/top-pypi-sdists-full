@@ -37,6 +37,7 @@ from airbyte_ops_mcp.zendesk_api import (
     get_ticket_comments,
     list_tickets_by_external_id,
     search,
+    set_ticket_email_ccs,
 )
 
 
@@ -606,6 +607,36 @@ def _outreach_tags(tags: list[str]) -> list[str]:
     return cleaned
 
 
+def _outreach_cc_contacts(
+    cc: list[OutreachContact],
+    requester_email: str,
+) -> list[dict[str, str]]:
+    """Build deduped Zendesk email CC contacts, excluding the requester."""
+    requester_email_normalized = requester_email.strip().casefold()
+    contacts: list[dict[str, str]] = []
+    seen_emails: set[str] = set()
+    for contact in cc:
+        email = contact.email.strip()
+        if not email:
+            raise ZendeskAPIError("CC contact email must not be empty.")
+        normalized_email = email.casefold()
+        if normalized_email == requester_email_normalized:
+            continue
+        if normalized_email in seen_emails:
+            continue
+        seen_emails.add(normalized_email)
+        contacts.append(
+            {
+                "user_email": email,
+                "user_name": contact.name.strip(),
+                "action": "put",
+            }
+        )
+    if len(contacts) > 48:
+        raise ZendeskAPIError("At most 48 unique CC contacts are allowed.")
+    return contacts
+
+
 @mcp_tool(
     read_only=False,
     idempotent=True,
@@ -655,6 +686,10 @@ def create_zendesk_outreach_ticket(
 
     This tool cannot send anything public. The first comment is always private
     and visible only to Zendesk agents.
+    CCs are applied in a separate update with no comment because Zendesk does
+    not update email CCs when an internal note is added in the same update.
+    Re-running on an existing ticket ensures the requested CCs without posting
+    another comment.
     Callers must not run concurrent calls with the same `external_id`; duplicates
     are detected after creation but not prevented.
     """
@@ -681,6 +716,33 @@ def create_zendesk_outreach_ticket(
             )
         if existing:
             ticket = existing[0]
+            if ticket_type == "incident" and cc:
+                if requester is None:
+                    raise ZendeskAPIError("`requester` is required for an incident.")
+                if not requester.email.strip():
+                    raise ZendeskAPIError("Requester email must not be empty.")
+                cc_contacts = _outreach_cc_contacts(cc, requester.email)
+                if cc_contacts:
+                    try:
+                        ticket = set_ticket_email_ccs(ticket["id"], cc_contacts)
+                    except ZendeskAPIError as exc:
+                        return _outreach_ticket_response(
+                            ticket,
+                            created=False,
+                            message=(
+                                f"Failed to ensure CCs for existing Zendesk ticket "
+                                f"{ticket.get('id')}: {exc}"
+                            ),
+                            success=False,
+                        )
+                return _outreach_ticket_response(
+                    ticket,
+                    created=False,
+                    message=(
+                        f"Found existing Zendesk ticket {ticket.get('id')}; "
+                        f"ensured {len(cc_contacts)} CCs."
+                    ),
+                )
             return _outreach_ticket_response(
                 ticket,
                 created=False,
@@ -720,27 +782,7 @@ def create_zendesk_outreach_ticket(
             if requester is not None
             else str(current_user.get("email") or "").strip()
         )
-        cc_contacts: list[dict[str, str]] = []
-        seen_cc_emails: set[str] = set()
-        for contact in cc:
-            email = contact.email.strip()
-            if not email:
-                raise ZendeskAPIError("CC contact email must not be empty.")
-            normalized_email = email.casefold()
-            if normalized_email == requester_email.casefold():
-                continue
-            if normalized_email in seen_cc_emails:
-                continue
-            seen_cc_emails.add(normalized_email)
-            cc_contacts.append(
-                {
-                    "user_email": email,
-                    "user_name": contact.name.strip(),
-                    "action": "put",
-                }
-            )
-        if len(cc_contacts) > 48:
-            raise ZendeskAPIError("At most 48 unique CC contacts are allowed.")
+        cc_contacts = _outreach_cc_contacts(cc, requester_email)
 
         ticket_form_id = find_ticket_form_id(ticket_form_name)
         ticket_payload: dict[str, Any] = {
@@ -753,7 +795,6 @@ def create_zendesk_outreach_ticket(
             "external_id": external_id,
             "ticket_form_id": ticket_form_id,
             "submitter_id": current_user_id,
-            "email_ccs": cc_contacts,
         }
         if ticket_type == "incident":
             ticket_payload["problem_id"] = problem_id
@@ -823,6 +864,20 @@ def create_zendesk_outreach_ticket(
             success=False,
             duplicate_ticket_ids=duplicate_ids,
         )
+    if cc_contacts:
+        try:
+            ticket = set_ticket_email_ccs(ticket["id"], cc_contacts)
+        except ZendeskAPIError as exc:
+            return _outreach_ticket_response(
+                ticket,
+                created=True,
+                message=(
+                    f"Created ticket {ticket.get('id')} but failed to add CCs: "
+                    f"{exc}; re-run to retry."
+                ),
+                fallbacks=response_fallbacks,
+                success=False,
+            )
     return _outreach_ticket_response(
         ticket,
         created=True,

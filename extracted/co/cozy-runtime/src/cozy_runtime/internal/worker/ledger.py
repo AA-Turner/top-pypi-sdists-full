@@ -32,9 +32,9 @@ from dataclasses import dataclass, field
 
 import msgspec
 
-from cozy_runtime.internal import proctree
+from cozy_runtime.internal import proctree, tolerant, weight_policy
 from cozy_runtime.internal.canonical import Json
-from cozy_runtime.internal.executor_replies import Metrics
+from cozy_runtime.internal.executor_replies import Metrics, PlaneFacts
 
 #: Every byte class this ledger carries, in report order. A class is added here only when a
 #: real producer exists for it; a row nothing writes is not a ledger entry, it is decoration.
@@ -127,6 +127,11 @@ def read_host_available() -> int:
     return proctree.available_host_bytes()
 
 
+def read_host_memory() -> proctree.HostMemory:
+    """The same budget with the shared memory it already counts (the pinned weight tiers)."""
+    return proctree.host_memory()
+
+
 def read_vmrss(pid: int) -> int:
     """Current resident bytes for one pid, or -1 when the process is gone (UNREADABLE)."""
     return proctree.rss_bytes(pid)
@@ -184,6 +189,13 @@ class _Pinned(msgspec.Struct, frozen=True):
     registered_bytes: int = 0
 
 
+class _Layout(msgspec.Struct, frozen=True):
+    common: int = 0
+    blocks: tuple[int, ...] = ()
+    #: (common, largest region) at the sub-block grain the executor refines to
+    fine: tuple[int, int] | None = None
+
+
 class ConstructionFacts(msgspec.Struct, frozen=True, kw_only=True):
     """The prepare reply's `facts` as the ledger reads them; the executor sends more."""
 
@@ -201,6 +213,8 @@ class ConstructionFacts(msgspec.Struct, frozen=True, kw_only=True):
     gpu_name: str = ""
     declared_scopes: dict[str, tuple[str, ...]] = {}
     paging: dict[str, dict[str, int]] = {}
+    #: the plane's weight sets, common and blocks per component (`weight_plane/1`)
+    layouts: dict[str, _Layout] = {}
     pinned: _Pinned = msgspec.field(default_factory=_Pinned)
 
 
@@ -330,6 +344,10 @@ class Ledger:
     declared_scopes: dict[str, tuple[str, ...]] = field(default_factory=dict)
     #: Runtime-derived block working sets; nominal checkpoint bytes remain separate.
     paging: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: the weight plane's latest document (`weight_plane/1` executors); None before the plane
+    plane: PlaneFacts | None = None
+    #: the active construction's weight sets as the plane holds them
+    layouts: dict[str, weight_policy.Layout] = field(default_factory=dict)
     #: every re-baselining and its size, so a moved line is visible rather than assumed
     baseline_notes: list[str] = field(default_factory=list)
     reconciliations: list[Reconciliation] = field(default_factory=list)
@@ -352,6 +370,13 @@ class Ledger:
         if self.device_process < 0 or self.device_reserved < 0:
             return -1
         return max(self.device_process - self.device_reserved, 0)
+
+    @property
+    def slack(self) -> int:
+        """torch's cached, unallocated segments: bytes activations reuse without the driver."""
+        if self.device_reserved < 0 or self.device_allocated < 0:
+            return 0
+        return max(self.device_reserved - self.device_allocated, 0)
 
     @property
     def allocatable(self) -> int:
@@ -397,6 +422,8 @@ class Ledger:
         self.parked = ()
         self.declared_scopes.clear()
         self.paging.clear()
+        self.plane = None
+        self.layouts.clear()
         self.baseline_notes.clear()
         self.residency_delta = 0
         self.unreconciled = ""
@@ -421,6 +448,10 @@ class Ledger:
         self.accelerator = read.gpu_name
         self.declared_scopes = dict(read.declared_scopes)
         self.paging = {name: dict(layout) for name, layout in read.paging.items()}
+        self.layouts = {
+            name: weight_policy.Layout(layout.common, layout.blocks, layout.fine)
+            for name, layout in read.layouts.items()
+        }
         self.device_free = read.device_free_bytes
         self.device_total = read.device_total_bytes
         self.registered = read.pinned.registered_bytes
@@ -430,6 +461,11 @@ class Ledger:
         # reservations are executor-generation-scoped and the ledger restarts WITH the new
         # generation, never reconstructed from device state. A successful construction
         # replaces the new generation's unknown facts; it never repairs the old numbers.
+
+    def observe_plane(self, document: object) -> None:
+        """The plane's document from an executor reply. Every member is telemetry: one that
+        does not decode is dropped, never the document."""
+        self.plane, _ = tolerant.read(document or {}, PlaneFacts, PlaneFacts.__struct_fields__)
 
     def observe_attempt(
         self,
@@ -655,6 +691,13 @@ class Ledger:
         """Every class as one flat mapping — the before half of a reconciliation."""
         return {counter.name: counter.bytes for counter in self.counters()}
 
+    def unaccounted(self, before: Mapping[str, int]) -> int:
+        """The device bytes `close_attempt` would call a leak as the ledger reads now."""
+        was, now = before.get("device_allocated", -1), self.snapshot()["device_allocated"]
+        if was < 0 or now < 0 or self.closed_since_baseline == 0:
+            return 0
+        return max(now - was - self.residency_delta, 0)
+
     def close_attempt(self, key: str, before: Mapping[str, int]) -> dict[str, Json]:
         """Reconcile EVERY class against the snapshot taken BEFORE the attempt was accepted.
 
@@ -671,8 +714,7 @@ class Ledger:
         them for the life of the PROCESS, not the attempt. That is a baseline SHIFT, not a
         leak: the ledger records it with its size, re-baselines, and holds every later attempt
         to the new line — where a genuine per-attempt leak would keep growing and be caught on
-        attempt two. An author's `Model.warm` that launches kernels pays it inside the
-        prepare, before this baseline is read (cr-110).
+        attempt two.
 
         THE DECLARED RESIDENCY TRANSITION (cl-003's second-1024px defect). Under a staged
         rung the attempt evicts and stages components ON PURPOSE, so `device_allocated`

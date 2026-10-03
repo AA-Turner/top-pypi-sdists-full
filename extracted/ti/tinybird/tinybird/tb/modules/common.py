@@ -1277,11 +1277,11 @@ class ConnectionReplacements:
         """Maps prompt parameters to API parameters."""
 
         api_params = {}
-        for key in params.keys():
+        for key, value in params.items():
             try:
-                api_params[ConnectionReplacements._PARAMS_REPLACEMENTS[service][key]] = params[key]
+                api_params[ConnectionReplacements._PARAMS_REPLACEMENTS[service][key]] = value
             except KeyError:
-                api_params[key] = params[key]
+                api_params[key] = value
 
         api_params["service"] = service
         return api_params

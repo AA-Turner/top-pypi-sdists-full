@@ -1,3 +1,13 @@
+"""Typed client packages for deployed apps, written by `lazycloud app export`.
+
+A package is `<output>/<app>/v_<version>` plus an `<app>` package that
+re-exports its current version. Functions get `remote()`, endpoints
+`request()`, and ASGI apps `request()` plus a typed method per route of their
+OpenAPI schema. The version hashes every exported manifest, which carries the
+contracts and active release ids, and the ASGI schemas, so a redeploy that
+changes any of them needs a new export.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,26 +19,38 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
-from shared.app_slug import validate_app_slug
-from shared.deployments import DeploymentKind
-from shared.http.client_manifests import (
-    INVOKABLE_DEPLOYMENT_KINDS,
+from pydantic import ValidationError
+from typing_extensions import assert_never
+
+from lazycloud._shared.app_slug import validate_app_slug
+from lazycloud._shared.http.client_manifests import (
     ClientContract,
-    ClientManifestRequest,
-    ClientManifestResource,
     ClientOperation,
     ClientOperationName,
     ClientParameter,
 )
-from shared.http.errors import HttpApiError, http_api_error_from_body
-
-from lazycloud.client_handles import ASGIHandle, handle_from_manifest
-from lazycloud.clients.gateway.control import GatewayControlClient
-from lazycloud.control import resolve_control_client_config
+from lazycloud._shared.http.errors import HttpApiError, http_api_error_from_body
+from lazycloud.client_contracts import asgi_client_contract
+from lazycloud.client_handles import (
+    ASGIHandle,
+    ResourceKind,
+    ResourceManifest,
+    handle_from_manifest,
+)
+from lazycloud.clients.api import ApiClient
+from lazycloud.contracts.api import WorkloadDetail, WorkloadKind, WorkloadState
+from lazycloud.control import api_client, require_workspace, resolve_control_client_config
 from lazycloud.exceptions import SdkError
 from lazycloud.json_contracts import JsonValue, parse_json_object, validate_json_object
 
 CLIENT_PACKAGE_ROOT = Path("lazycloud_clients")
+_LOCK_FILE = "lazycloud-clients.lock.json"
+_PAGE_LIMIT = 1000
+_EXPORTED_KINDS = {
+    WorkloadKind.function: ResourceKind.Function,
+    WorkloadKind.endpoint: ResourceKind.Endpoint,
+    WorkloadKind.asgi: ResourceKind.Asgi,
+}
 
 
 class ClientGenerationError(SdkError):
@@ -39,7 +61,7 @@ class ExportedResource(TypedDict):
     name: str
     kind: str
     deployment_version: int
-    invoke_url: str
+    release_id: str
 
 
 class ClientPackageExport(TypedDict):
@@ -55,100 +77,55 @@ class ClientPackageExport(TypedDict):
 def write_client_package(
     *,
     app: str,
-    workspace: str,
+    workspace: str | None,
     output: Path,
     openapi_files: Mapping[str, Path] | None = None,
     openapi_paths: Mapping[str, str] | None = None,
 ) -> ClientPackageExport:
-    """Fetch an app client manifest and write its versioned typed client package."""
+    """Read an app's deployed workloads and write their versioned typed client package."""
     slug = validate_app_slug(app)
     if not output.name.isidentifier() or keyword.iskeyword(output.name):
         raise ClientGenerationError("output directory name must be a Python package identifier")
     lock = _read_lock(output)
     config = resolve_control_client_config(workspace=workspace)
-    try:
-        response = GatewayControlClient.from_endpoint(
-            config.endpoint,
-            token=config.token,
-            workspace=config.workspace,
-            timeout_seconds=config.timeout_seconds,
-        ).client_manifest(
-            ClientManifestRequest(
-                app=slug,
-                workspace=config.workspace,
-                external_url=config.endpoint,
-            )
-        )
-    except HttpApiError as exc:
-        raise ClientGenerationError(
-            exc.detail or f"failed to fetch client manifest for {slug}"
-        ) from exc
-
-    resources = [item for item in response.resources if item.kind in INVOKABLE_DEPLOYMENT_KINDS]
-    _validate_typed_resources(slug, resources)
+    selected_workspace = require_workspace(config)
+    with api_client(config) as client:
+        resources = _deployed_resources(client, selected_workspace, slug)
     supplied = openapi_files or {}
     paths = openapi_paths or {}
-    unknown = (set(supplied) | set(paths)) - {
-        r.name for r in resources if r.kind is DeploymentKind.Asgi
-    }
+    asgi = [item for item in resources if item.kind is ResourceKind.Asgi]
+    unknown = (set(supplied) | set(paths)) - {item.name for item in asgi}
     if unknown:
         raise ClientGenerationError("unknown ASGI resources: " + ", ".join(sorted(unknown)))
     schemas: dict[str, dict[str, JsonValue]] = {}
-    for resource in resources:
-        if resource.kind is not DeploymentKind.Asgi:
-            continue
-        if resource.name in supplied:
-            document = parse_json_object(supplied[resource.name].read_text(encoding="utf-8"))
-        else:
-            handle = handle_from_manifest(resource.model_dump(mode="json"))
-            if not isinstance(handle, ASGIHandle):
-                raise ClientGenerationError("ASGI manifest did not produce an HTTP handle")
-            handle._bind_control(
-                endpoint=config.endpoint,
-                workspace=response.workspace,
-                token=config.token,
-            )
-            try:
-                schema_path = paths.get(resource.name, "/openapi.json")
-                if not schema_path.startswith("/") or schema_path.startswith("//"):
-                    raise ClientGenerationError("OpenAPI paths must be relative to the ASGI app")
-                schema_response = handle.request(method="GET", path=schema_path)
-                if not 200 <= schema_response.status_code < 300:
-                    raise http_api_error_from_body(
-                        schema_response.status_code,
-                        schema_response.content.decode("utf-8", errors="replace"),
-                    )
-                document = validate_json_object(schema_response.json())
-            except HttpApiError as exc:
-                if exc.status_code == 404 and resource.name not in paths:
-                    continue
-                raise ClientGenerationError(
-                    f"OpenAPI discovery failed for {resource.name}: {exc.detail or exc}"
-                ) from exc
-        if not str(document.get("openapi", "")).startswith("3.") or not isinstance(
-            document.get("paths"), dict
-        ):
-            raise ClientGenerationError(f"{resource.name} requires an OpenAPI 3 document")
-        schemas[resource.name] = document
+    for resource in asgi:
+        document = _openapi_document(
+            resource,
+            file=supplied.get(resource.name),
+            path=paths.get(resource.name),
+            endpoint=config.endpoint,
+            workspace=selected_workspace,
+        )
+        if document is not None:
+            schemas[resource.name] = document
+
     manifest_payload = [validate_json_object(item.model_dump(mode="json")) for item in resources]
     version = _manifest_version([*manifest_payload, *schemas.values()])
     package_root = output / slug
     version_root = package_root / f"v_{version}"
-    output.mkdir(parents=True, exist_ok=True)
     version_root.mkdir(parents=True, exist_ok=True)
-
     _write_version_package(
         version_root,
         resources,
         endpoint=config.endpoint,
-        workspace=response.workspace,
+        workspace=selected_workspace,
         openapi=schemas,
     )
     _write_app_package(package_root, version=version)
     lock[slug] = validate_json_object(
         {
             "app": slug,
-            "workspace": response.workspace,
+            "workspace": selected_workspace,
             "version": version,
             "resources": manifest_payload,
         }
@@ -157,20 +134,145 @@ def write_client_package(
     _write_root_package(output, lock)
     return {
         "app": slug,
-        "workspace": response.workspace,
+        "workspace": selected_workspace,
         "version": version,
         "package": f"{output.name}.{slug}",
         "path": str(package_root),
-        "resources": [_resource_symbol(item) for item in resources],
-        "asgi_without_schema": [
-            r.name for r in resources if r.kind is DeploymentKind.Asgi and r.name not in schemas
-        ],
+        "resources": [_exported_resource(item) for item in resources],
+        "asgi_without_schema": [item.name for item in asgi if item.name not in schemas],
     }
+
+
+def _deployed_resources(client: ApiClient, workspace: str, app: str) -> list[ResourceManifest]:
+    """The app's functions, endpoints and ASGI apps with an active release.
+
+    Each carries its release's contract; an ASGI app's is its generic
+    `request()`.
+    """
+    resources: list[ResourceManifest] = []
+    stale: list[str] = []
+    cursor: str | None = None
+    while True:
+        page = client.list_workloads(workspace, app=app, limit=_PAGE_LIMIT, cursor=cursor)
+        for workload in page.workloads:
+            kind = _EXPORTED_KINDS.get(workload.kind)
+            if kind is None or workload.state is WorkloadState.deleted:
+                continue
+            if workload.release_id is None:
+                continue
+            detail = client.get_workload(workspace, app, workload.kind, workload.name)
+            release = detail.release
+            label = f"{kind.value}:{workload.name}"
+            if release.version is None:
+                raise ClientGenerationError(f"{label} has no deployed version")
+            if kind is ResourceKind.Asgi:
+                contract = asgi_client_contract()
+            elif release.spec.client_contract is None:
+                stale.append(f"{label}@v{release.version}")
+                continue
+            else:
+                try:
+                    contract = ClientContract.model_validate(release.spec.client_contract)
+                except ValidationError as exc:
+                    msg = f"{label} has an invalid client contract: {exc}"
+                    raise ClientGenerationError(msg) from exc
+            resources.append(
+                ResourceManifest.model_validate(
+                    {
+                        "app": app,
+                        "name": workload.name,
+                        "kind": kind,
+                        "deployment_id": workload.id,
+                        "deployment_version": release.version,
+                        "release_id": release.id,
+                        "client_contract": contract,
+                        **_http_manifest(detail, kind, label),
+                    }
+                )
+            )
+        if page.next_cursor is None:
+            break
+        cursor = page.next_cursor
+    if stale:
+        raise ClientGenerationError(
+            f"client manifest for app {app!r} has callable deployments without typed "
+            f"contracts: {', '.join(stale)}. Redeploy these resources with the current SDK "
+            "and then run `lazycloud app export` again."
+        )
+    if not resources:
+        msg = (
+            f"app {app!r} has no deployed functions, endpoints or ASGI apps "
+            f"in workspace {workspace!r}"
+        )
+        raise ClientGenerationError(msg)
+    for resource in resources:
+        _require_json_contract(resource.client_contract, resource.name)
+    return sorted(resources, key=lambda item: (item.name, item.kind.value))
+
+
+def _http_manifest(detail: WorkloadDetail, kind: ResourceKind, label: str) -> dict[str, object]:
+    """Where an HTTP workload answers and how to call it; nothing for a function."""
+    if kind is ResourceKind.Function:
+        return {}
+    if detail.http is None:
+        raise ClientGenerationError(f"{label} has no HTTP address")
+    spec = detail.release.spec
+    return {
+        "url": detail.http.url,
+        "methods": tuple(method.value for method in spec.http.methods) if spec.http else (),
+        "authorized": spec.authorized is not False,
+        "timeout_seconds": spec.timeout_seconds,
+    }
+
+
+def _openapi_document(
+    resource: ResourceManifest,
+    *,
+    file: Path | None,
+    path: str | None,
+    endpoint: str,
+    workspace: str,
+) -> dict[str, JsonValue] | None:
+    """An ASGI app's OpenAPI 3 document: the given file, or fetched from the app.
+
+    Without an explicit path, an app that answers 404 at /openapi.json has no
+    schema and exports with `request()` only.
+    """
+    if file is not None:
+        document = parse_json_object(file.read_text(encoding="utf-8"))
+    else:
+        schema_path = path or "/openapi.json"
+        if not schema_path.startswith("/") or schema_path.startswith("//"):
+            raise ClientGenerationError("OpenAPI paths must be relative to the ASGI app")
+        handle = handle_from_manifest(resource, endpoint=endpoint, workspace=workspace)
+        if not isinstance(handle, ASGIHandle):
+            raise ClientGenerationError("ASGI manifest did not produce an HTTP handle")
+        try:
+            response = handle.request(method="GET", path=schema_path)
+            if not 200 <= response.status_code < 300:
+                raise http_api_error_from_body(
+                    response.status_code, response.content.decode("utf-8", errors="replace")
+                )
+            document = validate_json_object(response.json())
+        except HttpApiError as exc:
+            if exc.status_code == 404 and path is None:
+                return None
+            raise ClientGenerationError(
+                f"OpenAPI discovery failed for {resource.name}: {exc.detail or exc}"
+            ) from exc
+        except ValueError as exc:
+            msg = f"OpenAPI discovery failed for {resource.name}: {exc}"
+            raise ClientGenerationError(msg) from exc
+    if not str(document.get("openapi", "")).startswith("3.") or not isinstance(
+        document.get("paths"), dict
+    ):
+        raise ClientGenerationError(f"{resource.name} requires an OpenAPI 3 document")
+    return document
 
 
 def _write_version_package(
     path: Path,
-    resources: list[ClientManifestResource],
+    resources: list[ResourceManifest],
     *,
     endpoint: str,
     workspace: str,
@@ -194,8 +296,8 @@ def _write_version_package(
         "from pydantic import Field as _Field",
         "from pydantic import JsonValue as _JsonValue",
         "from pydantic import TypeAdapter as _TypeAdapter",
-        "from shared.http.errors import http_api_error_from_body as _http_api_error_from_body",
-        "from lazycloud.abstractions.endpoint import EndpointResponse as _EndpointResponse",
+        "from lazycloud.exceptions import http_api_error_from_body as _http_api_error_from_body",
+        "from lazycloud.abstractions.http_calls import EndpointResponse as _EndpointResponse",
         "from lazycloud.client_handles import (",
         "    ASGIHandle as _ASGIHandle,",
         "    EndpointHandle as _EndpointHandle,",
@@ -209,14 +311,12 @@ def _write_version_package(
         "",
     ]
     for index, resource in enumerate(resources):
-        symbol = symbols[index]
         lines.extend(
             _resource_wrapper_lines(
-                resource, symbol=symbol, index=index, openapi=openapi.get(resource.name)
+                resource, symbol=symbols[index], index=index, openapi=openapi.get(resource.name)
             )
         )
-    exported = [*symbols]
-    lines.extend(["", f"__all__ = {json.dumps(exported, indent=4)}", ""])
+    lines.extend(["", f"__all__ = {json.dumps(symbols, indent=4)}", ""])
     source = "\n".join(lines)
     compile(source, str(path / "__init__.py"), "exec")
     (path / "__init__.py").write_text(source, encoding="utf-8")
@@ -253,24 +353,6 @@ def _manifest_version(resources: list[dict[str, JsonValue]]) -> str:
     return hashlib.sha256(raw).hexdigest()[:12]
 
 
-def _validate_typed_resources(app: str, resources: list[ClientManifestResource]) -> None:
-    for resource in resources:
-        if resource.client_contract is not None:
-            _require_json_contract(resource.client_contract, resource.name)
-    stale = [resource for resource in resources if resource.client_contract is None]
-    if not stale:
-        return
-    details = ", ".join(
-        f"{resource.kind.value}:{resource.name}@v{resource.deployment_version}"
-        for resource in stale
-    )
-    raise ClientGenerationError(
-        f"client manifest for app {app!r} has callable deployments without typed "
-        f"contracts: {details}. Redeploy these resources with the current SDK "
-        "and then run `lazycloud app export` again."
-    )
-
-
 def _require_json_contract(contract: ClientContract, name: str) -> None:
     errors = contract.json_export_errors()
     if errors:
@@ -280,7 +362,7 @@ def _require_json_contract(contract: ClientContract, name: str) -> None:
         )
 
 
-def _resource_symbols(resources: list[ClientManifestResource]) -> list[str]:
+def _resource_symbols(resources: list[ResourceManifest]) -> list[str]:
     used: set[str] = set()
     symbols: list[str] = []
     for resource in resources:
@@ -297,32 +379,26 @@ def _resource_symbols(resources: list[ClientManifestResource]) -> list[str]:
     return symbols
 
 
-def _resource_symbol(resource: ClientManifestResource) -> ExportedResource:
+def _exported_resource(resource: ResourceManifest) -> ExportedResource:
     return {
         "name": resource.name,
         "kind": resource.kind.value,
         "deployment_version": resource.deployment_version,
-        "invoke_url": resource.invoke_url,
+        "release_id": str(resource.release_id),
     }
 
 
 def _resource_wrapper_lines(
-    resource: ClientManifestResource,
+    resource: ResourceManifest,
     *,
     symbol: str,
     index: int,
     openapi: dict[str, JsonValue] | None = None,
 ) -> list[str]:
     class_name = _private_class_name(symbol, resource.kind)
-    lines: list[str] = []
     contract = resource.client_contract
-    if contract is None:
-        raise ValueError(
-            f"{resource.kind.value}:{resource.name}@v{resource.deployment_version} "
-            "is missing a client contract"
-        )
     schema_context = _contract_schema_context(contract, symbol=symbol)
-    lines.extend(_contract_model_lines(schema_context))
+    lines = _contract_model_lines(schema_context)
     routes = _openapi_routes(openapi) if openapi is not None else []
     route_contexts = [
         _contract_schema_context(route.contract, symbol=f"{symbol}_{route.name}")
@@ -342,32 +418,22 @@ def _resource_wrapper_lines(
             ],
             "",
             "    def __init__(self) -> None:",
-            f"        handle = _handle_from_manifest(_MANIFEST[{index}])",
+            "        handle = _handle_from_manifest(",
+            f"            _MANIFEST[{index}], endpoint=_ENDPOINT, workspace=_WORKSPACE",
+            "        )",
             f"        if not isinstance(handle, {_handle_type(resource.kind)}):",
             "            raise TypeError('client manifest handle kind mismatch')",
-            "        self._handle = handle._bind_control(endpoint=_ENDPOINT, workspace=_WORKSPACE)",
+            "        self._handle = handle",
             "",
         ]
     )
-    lines.extend(
-        _contract_operation_lines(
-            resource,
-            contract=contract,
-            context=schema_context,
-        )
-    )
+    lines.extend(_contract_operation_lines(resource, contract=contract, context=schema_context))
     for route, context in zip(routes, route_contexts, strict=True):
         for public_name, private_name in context.public_aliases:
             lines.append(f"    {route.name}_{public_name} = {private_name}")
         lines.extend(_openapi_method_lines(route, context))
     lines.extend(["", f"{symbol} = {class_name}()", ""])
     return lines
-
-
-@dataclass(frozen=True, slots=True)
-class _GeneratedSchemaModel:
-    class_name: str
-    schema: Mapping[str, JsonValue]
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,46 +469,44 @@ def _openapi_reference(value: JsonValue, document: dict[str, JsonValue]) -> dict
 
 
 def _openapi_schema(schema: JsonValue, document: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """An OpenAPI schema as JSON Schema: allOf merged, component refs as $defs."""
+
+    def merge_all_of(value: dict[str, JsonValue], parts: list[JsonValue]) -> dict[str, JsonValue]:
+        merged = {key: item for key, item in value.items() if key != "allOf"}
+        for part in parts:
+            for key, item in _openapi_reference(part, document).items():
+                if key == "properties":
+                    merged[key] = {
+                        **_openapi_object(merged.get(key, {}), "properties"),
+                        **_openapi_object(item, "properties"),
+                    }
+                elif key == "required" and isinstance(item, list):
+                    previous = merged.get(key, [])
+                    if not isinstance(previous, list):
+                        raise ClientGenerationError("OpenAPI required must be an array")
+                    merged[key] = [*previous, *item]
+                elif key in merged and merged[key] != item and key not in {"description", "title"}:
+                    raise ClientGenerationError(f"conflicting OpenAPI allOf field: {key}")
+                else:
+                    merged[key] = item
+        return merged
+
     def rewrite(value: JsonValue) -> JsonValue:
-        if isinstance(value, dict):
-            if isinstance(parts := value.get("allOf"), list):
-                merged = {key: item for key, item in value.items() if key != "allOf"}
-                for part in parts:
-                    resolved = _openapi_reference(part, document)
-                    for key, item in resolved.items():
-                        if key == "properties":
-                            merged[key] = {
-                                **_openapi_object(merged.get(key, {}), "properties"),
-                                **_openapi_object(item, "properties"),
-                            }
-                        elif key == "required" and isinstance(item, list):
-                            previous = merged.get(key, [])
-                            if not isinstance(previous, list):
-                                raise ClientGenerationError("OpenAPI required must be an array")
-                            merged[key] = [*previous, *item]
-                        elif (
-                            key in merged
-                            and merged[key] != item
-                            and key not in {"description", "title"}
-                        ):
-                            raise ClientGenerationError(f"conflicting OpenAPI allOf field: {key}")
-                        else:
-                            merged[key] = item
-                value = merged
-            result = {key: rewrite(item) for key, item in value.items()}
-            reference = result.get("$ref")
-            if isinstance(reference, str):
-                if not reference.startswith("#/components/schemas/"):
-                    raise ClientGenerationError(
-                        f"unsupported OpenAPI schema reference: {reference}"
-                    )
-                result["$ref"] = reference.replace("#/components/schemas/", "#/$defs/", 1)
-            if result.pop("nullable", False) is True:
-                return {"anyOf": [result, {"type": "null"}]}
-            return result
         if isinstance(value, list):
             return [rewrite(item) for item in value]
-        return value
+        if not isinstance(value, dict):
+            return value
+        if isinstance(parts := value.get("allOf"), list):
+            value = merge_all_of(value, parts)
+        result = {key: rewrite(item) for key, item in value.items()}
+        reference = result.get("$ref")
+        if isinstance(reference, str):
+            if not reference.startswith("#/components/schemas/"):
+                raise ClientGenerationError(f"unsupported OpenAPI schema reference: {reference}")
+            result["$ref"] = reference.replace("#/components/schemas/", "#/$defs/", 1)
+        if result.pop("nullable", False) is True:
+            return {"anyOf": [result, {"type": "null"}]}
+        return result
 
     result = _openapi_object(rewrite(schema), "schema")
     components = _openapi_object(document.get("components", {}), "components")
@@ -450,7 +514,12 @@ def _openapi_schema(schema: JsonValue, document: dict[str, JsonValue]) -> dict[s
     return result
 
 
+def _optional(schema: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {"anyOf": [schema, {"type": "null"}], "$defs": schema.get("$defs", {})}
+
+
 def _openapi_routes(document: dict[str, JsonValue]) -> list[_OpenApiRoute]:
+    """A typed operation per path and method; its operationId names the method."""
     routes: list[_OpenApiRoute] = []
     used = {"request", "async_request", "_handle"}
     for path, path_value in _openapi_object(document.get("paths"), "paths").items():
@@ -463,96 +532,8 @@ def _openapi_routes(document: dict[str, JsonValue]) -> list[_OpenApiRoute]:
             if name in used or f"async_{name}" in used:
                 raise ClientGenerationError(f"duplicate OpenAPI operation name: {name}")
             used.update((name, f"async_{name}"))
-            parameters: list[ClientParameter] = []
-            locations: dict[str, str] = {}
-            named: dict[tuple[str, str], dict[str, JsonValue]] = {}
-            for source in (item, operation):
-                raw_parameters = source.get("parameters", [])
-                if not isinstance(raw_parameters, list):
-                    raise ClientGenerationError(f"OpenAPI parameters for {name} must be an array")
-                for raw in raw_parameters:
-                    parameter = _openapi_reference(raw, document)
-                    named[str(parameter.get("name")), str(parameter.get("in"))] = parameter
-            symbols: set[str] = set()
-            for (parameter_name, location), parameter in named.items():
-                if location not in {"path", "query", "header"}:
-                    raise ClientGenerationError(
-                        f"{name}: unsupported parameter location {location}"
-                    )
-                symbol = _python_name(parameter_name)
-                if symbol in symbols or symbol in {"self", "body"}:
-                    raise ClientGenerationError(
-                        f"{name}: conflicting parameter name {parameter_name}"
-                    )
-                symbols.add(symbol)
-                schema: dict[str, JsonValue] = _openapi_schema(
-                    parameter.get("schema", {}), document
-                )
-                required = location == "path" or parameter.get("required") is True
-                if not required:
-                    schema = {"anyOf": [schema, {"type": "null"}], "$defs": schema.get("$defs", {})}
-                parameters.append(
-                    ClientParameter(
-                        name=parameter_name,
-                        json_schema=schema,
-                        required=required,
-                        default_repr="None" if not required else "",
-                        parameter_kind="keyword_only",
-                    )
-                )
-                locations[parameter_name] = location
-            request_body = operation.get("requestBody")
-            if request_body is not None:
-                body = _openapi_reference(request_body, document)
-                content = _openapi_object(body.get("content"), "request content")
-                if "application/json" not in content:
-                    raise ClientGenerationError(
-                        f"{name}: typed request bodies require application/json"
-                    )
-                schema = _openapi_schema(
-                    _openapi_object(content["application/json"], "JSON body").get("schema", {}),
-                    document,
-                )
-                required = body.get("required") is True
-                if not required:
-                    schema = {"anyOf": [schema, {"type": "null"}], "$defs": schema.get("$defs", {})}
-                parameters.append(
-                    ClientParameter(
-                        name="body",
-                        json_schema=schema,
-                        required=required,
-                        default_repr="" if required else "None",
-                        parameter_kind="keyword_only",
-                    )
-                )
-                locations["body"] = "body"
-            responses = _openapi_object(operation.get("responses", {}), "responses")
-            schemas: list[dict[str, JsonValue]] = []
-            raw_response = False
-            for status, response_value in responses.items():
-                if not status.startswith("2"):
-                    continue
-                response = _openapi_reference(response_value, document)
-                content = _openapi_object(response.get("content", {}), "response content")
-                if "application/json" in content:
-                    schemas.append(
-                        _openapi_schema(
-                            _openapi_object(content["application/json"], "JSON response").get(
-                                "schema", {}
-                            ),
-                            document,
-                        )
-                    )
-                elif not content:
-                    schemas.append({"type": "null"})
-                else:
-                    raw_response = True
-            return_schema: dict[str, JsonValue] = {}
-            if len(schemas) == 1:
-                return_schema = schemas[0]
-            elif schemas:
-                return_schema["anyOf"] = list(schemas)
-                return_schema["$defs"] = schemas[0].get("$defs", {})
+            parameters, locations = _openapi_parameters(name, item, operation, document)
+            return_schema, raw_response = _openapi_return(operation, document)
             routes.append(
                 _OpenApiRoute(
                     name=name,
@@ -570,6 +551,93 @@ def _openapi_routes(document: dict[str, JsonValue]) -> list[_OpenApiRoute]:
                 )
             )
     return routes
+
+
+def _openapi_parameters(
+    name: str,
+    path_item: dict[str, JsonValue],
+    operation: dict[str, JsonValue],
+    document: dict[str, JsonValue],
+) -> tuple[list[ClientParameter], dict[str, str]]:
+    """An operation's keyword parameters and where each goes: path, query, header or body."""
+    parameters: list[ClientParameter] = []
+    locations: dict[str, str] = {}
+    named: dict[tuple[str, str], dict[str, JsonValue]] = {}
+    for source in (path_item, operation):
+        raw_parameters = source.get("parameters", [])
+        if not isinstance(raw_parameters, list):
+            raise ClientGenerationError(f"OpenAPI parameters for {name} must be an array")
+        for raw in raw_parameters:
+            parameter = _openapi_reference(raw, document)
+            named[str(parameter.get("name")), str(parameter.get("in"))] = parameter
+    symbols: set[str] = set()
+    for (parameter_name, location), parameter in named.items():
+        if location not in {"path", "query", "header"}:
+            raise ClientGenerationError(f"{name}: unsupported parameter location {location}")
+        symbol = _python_name(parameter_name)
+        if symbol in symbols or symbol in {"self", "body"}:
+            raise ClientGenerationError(f"{name}: conflicting parameter name {parameter_name}")
+        symbols.add(symbol)
+        schema = _openapi_schema(parameter.get("schema", {}), document)
+        required = location == "path" or parameter.get("required") is True
+        parameters.append(
+            ClientParameter(
+                name=parameter_name,
+                json_schema=schema if required else _optional(schema),
+                required=required,
+                default_repr="" if required else "None",
+                parameter_kind="keyword_only",
+            )
+        )
+        locations[parameter_name] = location
+    request_body = operation.get("requestBody")
+    if request_body is not None:
+        body = _openapi_reference(request_body, document)
+        content = _openapi_object(body.get("content"), "request content")
+        if "application/json" not in content:
+            raise ClientGenerationError(f"{name}: typed request bodies require application/json")
+        schema = _openapi_schema(
+            _openapi_object(content["application/json"], "JSON body").get("schema", {}),
+            document,
+        )
+        required = body.get("required") is True
+        parameters.append(
+            ClientParameter(
+                name="body",
+                json_schema=schema if required else _optional(schema),
+                required=required,
+                default_repr="" if required else "None",
+                parameter_kind="keyword_only",
+            )
+        )
+        locations["body"] = "body"
+    return parameters, locations
+
+
+def _openapi_return(
+    operation: dict[str, JsonValue], document: dict[str, JsonValue]
+) -> tuple[dict[str, JsonValue], bool]:
+    """The JSON schema of an operation's 2xx bodies, and whether one is not JSON."""
+    responses = _openapi_object(operation.get("responses", {}), "responses")
+    schemas: list[dict[str, JsonValue]] = []
+    raw_response = False
+    for status, response_value in responses.items():
+        if not status.startswith("2"):
+            continue
+        response = _openapi_reference(response_value, document)
+        content = _openapi_object(response.get("content", {}), "response content")
+        if "application/json" in content:
+            json_content = _openapi_object(content["application/json"], "JSON response")
+            schemas.append(_openapi_schema(json_content.get("schema", {}), document))
+        elif not content:
+            schemas.append({"type": "null"})
+        else:
+            raw_response = True
+    if len(schemas) == 1:
+        return schemas[0], raw_response
+    if schemas:
+        return {"anyOf": list(schemas), "$defs": schemas[0].get("$defs", {})}, raw_response
+    return {}, raw_response
 
 
 def _openapi_method_lines(route: _OpenApiRoute, context: _SchemaContext) -> list[str]:
@@ -614,14 +682,17 @@ def _openapi_method_lines(route: _OpenApiRoute, context: _SchemaContext) -> list
                 f"    {'async ' if asynchronous else ''}def {name}"
                 f"(self{signature}) -> {annotation}:",
                 *_return_endpoint_call_lines(
-                    call,
-                    annotation,
-                    await_call=asynchronous,
-                    raw_response=route.raw_response,
+                    call, annotation, await_call=asynchronous, raw_response=route.raw_response
                 ),
             ]
         )
     return lines
+
+
+@dataclass(frozen=True, slots=True)
+class _GeneratedSchemaModel:
+    class_name: str
+    schema: Mapping[str, JsonValue]
 
 
 @dataclass(frozen=True, slots=True)
@@ -633,11 +704,7 @@ class _SchemaContext:
     public_aliases: list[tuple[str, str]]
 
 
-def _contract_schema_context(
-    contract: ClientContract,
-    *,
-    symbol: str,
-) -> _SchemaContext:
+def _contract_schema_context(contract: ClientContract, *, symbol: str) -> _SchemaContext:
     _require_json_contract(contract, symbol)
     used: set[str] = set()
     prefix = _python_class_name(symbol)
@@ -665,12 +732,7 @@ def _contract_schema_context(
     def register(schema: Mapping[str, JsonValue], fallback: str) -> None:
         key = _schema_key(schema)
         class_name = (
-            _schema_model_name(
-                schema,
-                prefix=prefix,
-                fallback=fallback,
-                used=used,
-            )
+            _schema_model_name(schema, prefix=prefix, fallback=fallback, used=used)
             if key not in schema_names
             else None
         )
@@ -711,9 +773,7 @@ def _schema_key(schema: Mapping[str, JsonValue]) -> str:
     )
 
 
-def _contract_model_lines(
-    context: _SchemaContext,
-) -> list[str]:
+def _contract_model_lines(context: _SchemaContext) -> list[str]:
     lines: list[str] = []
     for model in context.models:
         properties = _schema_properties(model.schema)
@@ -801,9 +861,7 @@ def _unique_aliases(aliases: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return selected
 
 
-def _schema_properties(
-    schema: Mapping[str, JsonValue],
-) -> dict[str, dict[str, JsonValue]]:
+def _schema_properties(schema: Mapping[str, JsonValue]) -> dict[str, dict[str, JsonValue]]:
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         return {}
@@ -817,12 +875,7 @@ def _schema_required(schema: Mapping[str, JsonValue]) -> set[str]:
     return {str(item) for item in required}
 
 
-def _model_field_default(
-    name: str,
-    schema: Mapping[str, JsonValue],
-    *,
-    required: bool,
-) -> str:
+def _model_field_default(name: str, schema: Mapping[str, JsonValue], *, required: bool) -> str:
     field_name = _python_name(name)
     alias = "" if field_name == name else f", alias={name!r}"
     if "default" in schema:
@@ -833,15 +886,15 @@ def _model_field_default(
 
 
 def _contract_operation_lines(
-    resource: ClientManifestResource,
+    resource: ResourceManifest,
     *,
     contract: ClientContract,
     context: _SchemaContext,
 ) -> list[str]:
     operation = contract.operation
     parameters = operation.parameters
-    if resource.kind is DeploymentKind.Function:
-        signature = _contract_signature(parameters, context)
+    signature = _contract_signature(parameters, context)
+    if resource.kind is ResourceKind.Function:
         annotation = (
             _annotation_from_json_schema(operation.return_schema, context)
             if operation.return_schema
@@ -864,34 +917,23 @@ def _contract_operation_lines(
                 ]
             )
         return lines
-    if resource.kind in {DeploymentKind.Endpoint, DeploymentKind.Asgi}:
-        return _endpoint_operation_lines(resource, contract=contract, context=context)
-    raise ClientGenerationError(f"unsupported callable kind: {resource.kind.value}")
-
-
-def _endpoint_operation_lines(
-    resource: ClientManifestResource,
-    *,
-    contract: ClientContract,
-    context: _SchemaContext,
-) -> list[str]:
-    method_name = contract.operation.name.value
-    parameters = contract.operation.parameters
-    signature = _contract_signature(parameters, context)
-    return_annotation = _contract_return_annotation(resource, contract, context)
-    sync_call = _contract_call(resource, method_name, parameters)
-    async_call = _contract_call(
-        resource,
-        method_name,
-        parameters,
-        handle_method=f"async_{method_name}",
+    # An endpoint's typed return validates its JSON body; an ASGI app's
+    # generic request returns the response itself.
+    annotation = (
+        _annotation_from_json_schema(operation.return_schema, context)
+        if resource.kind is ResourceKind.Endpoint and operation.return_schema
+        else "_EndpointResponse"
     )
     return [
-        f"    def {method_name}(self{signature}) -> {return_annotation}:",
-        *_return_endpoint_call_lines(sync_call, return_annotation, await_call=False),
+        f"    def request(self{signature}) -> {annotation}:",
+        *_return_endpoint_call_lines(
+            _contract_call(resource, "request", parameters), annotation, await_call=False
+        ),
         "",
-        f"    async def async_{method_name}(self{signature}) -> {return_annotation}:",
-        *_return_endpoint_call_lines(async_call, return_annotation, await_call=True),
+        f"    async def async_request(self{signature}) -> {annotation}:",
+        *_return_endpoint_call_lines(
+            _contract_call(resource, "async_request", parameters), annotation, await_call=True
+        ),
     ]
 
 
@@ -902,6 +944,7 @@ def _return_endpoint_call_lines(
     await_call: bool,
     raw_response: bool = False,
 ) -> list[str]:
+    """Return the response, or raise for a non-2xx one and validate its JSON body."""
     if return_annotation == "_EndpointResponse":
         return [f"        return {'await ' if await_call else ''}{call}"]
     lines = [
@@ -932,10 +975,7 @@ def _return_endpoint_call_lines(
     return lines
 
 
-def _contract_signature(
-    parameters: list[ClientParameter],
-    context: _SchemaContext,
-) -> str:
+def _contract_signature(parameters: list[ClientParameter], context: _SchemaContext) -> str:
     if not parameters:
         return ""
     rendered = [
@@ -967,22 +1007,13 @@ def _contract_signature(
 
 
 def _contract_call(
-    resource: ClientManifestResource,
-    method_name: str,
-    parameters: list[ClientParameter],
-    *,
-    handle_method: str | None = None,
+    resource: ResourceManifest, handle_method: str, parameters: list[ClientParameter]
 ) -> str:
-    selected_handle_method = handle_method or method_name
-    if resource.kind is DeploymentKind.Asgi:
-        if not parameters:
-            return f"self._handle.{selected_handle_method}()"
-        call_arguments = ", ".join(
+    if resource.kind is ResourceKind.Asgi:
+        arguments = ", ".join(
             f"{parameter.name}={_python_name(parameter.name)}" for parameter in parameters
         )
-        return f"self._handle.{selected_handle_method}({call_arguments})"
-    if not parameters:
-        return f"self._handle.{selected_handle_method}()"
+        return f"self._handle.{handle_method}({arguments})"
     positional: list[str] = []
     keywords: list[str] = []
     for parameter in parameters:
@@ -998,27 +1029,10 @@ def _contract_call(
                 keywords.append(f"{parameter.name!r}: {name}")
     if keywords:
         positional.append(f"**{{{', '.join(keywords)}}}")
-    return f"self._handle.{selected_handle_method}({', '.join(positional)})"
+    return f"self._handle.{handle_method}({', '.join(positional)})"
 
 
-def _contract_return_annotation(
-    resource: ClientManifestResource,
-    contract: ClientContract,
-    context: _SchemaContext,
-) -> str:
-    if resource.kind is DeploymentKind.Asgi:
-        return "_EndpointResponse"
-    if resource.kind is DeploymentKind.Endpoint:
-        if not contract.operation.return_schema:
-            return "_EndpointResponse"
-        return _annotation_from_json_schema(contract.operation.return_schema, context)
-    raise ClientGenerationError(f"unsupported HTTP callable kind: {resource.kind.value}")
-
-
-def _annotation_from_json_schema(
-    schema: JsonValue,
-    context: _SchemaContext,
-) -> str:
+def _annotation_from_json_schema(schema: JsonValue, context: _SchemaContext) -> str:
     schema = validate_json_object(schema)
     if not schema:
         return "_JsonValue"
@@ -1092,7 +1106,7 @@ def _annotation_from_json_schema(
 def _unique_annotations(values: Iterable[str]) -> list[str]:
     rendered: list[str] = []
     for value in values:
-        if isinstance(value, str) and value not in rendered:
+        if value not in rendered:
             rendered.append(value)
     return rendered
 
@@ -1103,7 +1117,7 @@ def _default_suffix(required: bool, default: JsonValue) -> str:
     return f" = {default!r}"
 
 
-def _private_class_name(symbol: str, kind: DeploymentKind) -> str:
+def _private_class_name(symbol: str, kind: ResourceKind) -> str:
     return f"_{_python_class_name(symbol)}{_python_class_name(kind.value)}"
 
 
@@ -1122,18 +1136,18 @@ def _python_name(value: str) -> str:
     return normalized
 
 
-def _handle_type(kind: DeploymentKind) -> str:
-    if kind is DeploymentKind.Function:
+def _handle_type(kind: ResourceKind) -> str:
+    if kind is ResourceKind.Function:
         return "_FunctionHandle"
-    if kind is DeploymentKind.Endpoint:
+    if kind is ResourceKind.Endpoint:
         return "_EndpointHandle"
-    if kind is DeploymentKind.Asgi:
+    if kind is ResourceKind.Asgi:
         return "_ASGIHandle"
-    raise ValueError(f"unsupported typed client resource kind: {kind.value}")
+    assert_never(kind)
 
 
 def _read_lock(output: Path) -> dict[str, JsonValue]:
-    path = output / "lazycloud-clients.lock.json"
+    path = output / _LOCK_FILE
     if not path.exists():
         return {}
     return parse_json_object(path.read_text(encoding="utf-8"))
@@ -1141,7 +1155,7 @@ def _read_lock(output: Path) -> dict[str, JsonValue]:
 
 def _write_lock(output: Path, lock: dict[str, JsonValue]) -> None:
     output.mkdir(parents=True, exist_ok=True)
-    (output / "lazycloud-clients.lock.json").write_text(
+    (output / _LOCK_FILE).write_text(
         json.dumps(lock, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
@@ -1150,5 +1164,6 @@ def _write_lock(output: Path, lock: dict[str, JsonValue]) -> None:
 __all__ = [
     "CLIENT_PACKAGE_ROOT",
     "ClientGenerationError",
+    "ClientPackageExport",
     "write_client_package",
 ]

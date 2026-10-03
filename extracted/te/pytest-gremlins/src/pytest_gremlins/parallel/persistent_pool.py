@@ -41,10 +41,18 @@ from typing import (
 if TYPE_CHECKING:
     import multiprocessing
 
-from pytest_gremlins.parallel.lightweight import build_lightweight_command
+from pytest_gremlins.parallel.exit_codes import (
+    COLLECTION_KILLING_TEST,
+    GREMLIN_COLLECTION_FAILED_EXIT_CODE,
+)
+from pytest_gremlins.parallel.lightweight import (
+    build_lightweight_command,
+    describe_runner_error,
+)
 from pytest_gremlins.parallel.pool import WorkerResult
 from pytest_gremlins.parallel.pool_config import PoolConfig
 from pytest_gremlins.reporting.results import GremlinResultStatus
+from pytest_gremlins.xdist_options import env_without_xdist_addopts
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +100,7 @@ def _run_gremlin_batch(  # pragma: no cover
     for gremlin_id in gremlin_ids:
         start_time = time.monotonic()
 
-        env = os.environ.copy()
-        env.update(env_vars)
+        env = env_without_xdist_addopts({**os.environ, **env_vars})
         env['ACTIVE_GREMLIN'] = gremlin_id
         env['GREMLIN_ROOTDIR'] = rootdir
 
@@ -131,11 +138,19 @@ def _run_gremlin_batch(  # pragma: no cover
                         execution_time_ms=execution_time_ms,
                     )
                 )
+            elif result.returncode == GREMLIN_COLLECTION_FAILED_EXIT_CODE:
+                # The mutant stopped the suite from loading - the suite caught it
+                results.append(
+                    WorkerResult(
+                        gremlin_id=gremlin_id,
+                        status=GremlinResultStatus.ZAPPED,
+                        killing_test=COLLECTION_KILLING_TEST,
+                        execution_time_ms=execution_time_ms,
+                    )
+                )
             else:
                 # Other non-zero exit codes indicate errors
-                error_output = ''
-                if result.stderr:
-                    error_output = result.stderr.decode(errors='replace')[:2000]
+                error_output = describe_runner_error(result.returncode, result.stderr)
                 results.append(
                     WorkerResult(
                         gremlin_id=gremlin_id,

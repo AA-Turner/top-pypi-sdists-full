@@ -622,7 +622,7 @@ def test_no_legacy_crawl_models_remain() -> None:
 
     These 17 tables were the SECOND crawl store — a full parallel copy of the
     canonical `web.*` schema (two site tables, two run tables, two page stores,
-    two link tables, two queues, two schedule tables). They were graveyarded on
+    two link tables, two queues, two schedule tables). They were deprecated on
     2026-08-09 after the canonical crawler reached parity.
 
     `db/generate.py` writes `models_scraper.py` from the live database, so this
@@ -669,7 +669,7 @@ def test_no_legacy_crawl_tools_remain() -> None:
     list is a separate surface, and it outlived them. `crawl_start` /
     `crawl_status` / `crawl_pages` / `crawl_cancel` sat in `ALL_TOOLS` — and
     therefore in the MCP server's advertised tool list — for a full day after
-    the `scraper.crawl_*` world was graveyarded, addressing a `run_id` that was
+    the `scraper.crawl_*` world was deprecated, addressing a `run_id` that was
     a `scraper.crawl_runs.id`, resolving host `_ext` handlers no host had wired
     since `aidream/services/scraper/` was deleted. Every call raised, and the
     descriptors made a retired schema look live to the next agent and to any
@@ -699,6 +699,6 @@ def test_no_legacy_crawl_tools_remain() -> None:
     ]
     assert not revived, (
         f"legacy crawl tool descriptors are back in ALL_TOOLS: {revived}. They "
-        "address the graveyarded scraper.crawl_runs world and have no executor. "
+        "address the deprecated scraper.crawl_runs world and have no executor. "
         "A real crawl tool must target web.crawl_session."
     )

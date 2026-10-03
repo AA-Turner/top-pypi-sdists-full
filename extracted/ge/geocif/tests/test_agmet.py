@@ -172,31 +172,59 @@ class TestAgmetPlotter(unittest.TestCase):
         out_path = Path(self.tmpdir) / "plots" / "test_no_pct.png"
         self.assertTrue(out_path.exists())
 
-    def test_build_gefs_dataframe(self):
-        """_build_gefs_dataframe should return a DataFrame with correct date range."""
+    @staticmethod
+    def _gefs_plotter(start, end, gefs):
+        """Bare AgmetPlotter whose current season runs start..end with a chirps_gefs column."""
         from geocif.agmet.plot import AgmetPlotter
+
+        idx = pd.date_range(start, end, freq="D")
+        plotter = AgmetPlotter.__new__(AgmetPlotter)
+        plotter.df_current = pd.DataFrame(
+            {"chirps_gefs": pd.Series(gefs, dtype=float).reindex(idx)}, index=idx
+        )
+        return plotter
+
+    def test_gefs_forecast_kept_when_window_runs_past_harvest(self):
+        """Indiana soybean, 2026-10-02: the season ends Oct 14, inside the
+        16-day window, and the old fixed-length builder dropped the forecast."""
         import datetime
 
-        date1 = datetime.date(2025, 3, 1)
-        date2 = datetime.date(2025, 3, 10)
-        values = np.arange(10, dtype=float)
+        days = pd.date_range("2026-10-03", "2026-10-11", freq="D")
+        plotter = self._gefs_plotter(
+            "2026-05-01", "2026-10-14", dict(zip(days, np.arange(1.0, 10.0)))
+        )
+        gefs = plotter._gefs_series(datetime.date(2026, 10, 2), datetime.date(2026, 10, 17))
+        self.assertIsNotNone(gefs)
+        self.assertEqual(list(gefs.index), list(days))
+        self.assertEqual(gefs.tolist(), list(np.arange(1.0, 10.0)))
 
-        result = AgmetPlotter._build_gefs_dataframe(date1, date2, values)
-        self.assertIsNotNone(result)
-        self.assertEqual(len(result), 10)
-        self.assertIn("val", result.columns)
-
-    def test_build_gefs_dataframe_mismatch(self):
-        """_build_gefs_dataframe should return None on length mismatch."""
-        from geocif.agmet.plot import AgmetPlotter
+    def test_gefs_cumsum_is_finite_when_forecast_starts_after_today(self):
+        """Leading days without a forecast made the cumulative line all NaN."""
         import datetime
 
-        date1 = datetime.date(2025, 3, 1)
-        date2 = datetime.date(2025, 3, 10)
-        values = np.arange(5, dtype=float)  # too short
+        plotter = self._gefs_plotter(
+            "2026-04-15", "2026-11-01",
+            {pd.Timestamp("2026-10-03"): 2.0, pd.Timestamp("2026-10-05"): 3.0},
+        )
+        gefs = plotter._gefs_series(datetime.date(2026, 10, 2), datetime.date(2026, 10, 17))
+        self.assertEqual(gefs.cumsum().tolist(), [2.0, 2.0, 5.0])
 
-        result = AgmetPlotter._build_gefs_dataframe(date1, date2, values)
-        self.assertIsNone(result)
+    def test_gefs_none_without_forecast(self):
+        import datetime
+
+        plotter = self._gefs_plotter("2026-04-15", "2026-11-01", {})
+        self.assertIsNone(
+            plotter._gefs_series(datetime.date(2026, 10, 2), datetime.date(2026, 10, 17))
+        )
+
+    def test_gefs_drops_feb_29(self):
+        import datetime
+
+        days = pd.date_range("2028-02-27", "2028-03-02", freq="D")
+        plotter = self._gefs_plotter("2027-11-01", "2028-05-01", dict.fromkeys(days, 1.0))
+        gefs = plotter._gefs_series(datetime.date(2028, 2, 27), datetime.date(2028, 3, 2))
+        self.assertNotIn(pd.Timestamp("2028-02-29"), gefs.index)
+        self.assertEqual(len(gefs), 4)
 
 
 class TestExpandEoPlot(unittest.TestCase):
@@ -224,6 +252,31 @@ class TestExpandEoPlot(unittest.TestCase):
         result = AgmetGeo._expand_eo_plot(["cpc_tmax", "cpc_tmin"])
         self.assertIn("cpc_tmax", result)
         self.assertNotIn("cpc_tmin", result)
+
+
+class TestDistrictColumns(unittest.TestCase):
+    """geoagmet._district_columns: the column list averaged into district plots."""
+
+    def test_chirps_gefs_listed_once_when_eo_model_has_it(self):
+        """2026-10-02 Indiana district plots: a doubled chirps_gefs column made
+        the plotter drop the CHIRPS-GEFS forecast on every district plot."""
+        from geocif.agmet.geoagmet import _district_columns
+
+        eo_model = ["ndvi", "chirps", "chirps_gefs"]
+        available = eo_model + ["month", "day", "yield", "region"]
+        cols = _district_columns(eo_model, available, with_forecast=True)
+        self.assertEqual(cols.count("chirps_gefs"), 1)
+        self.assertEqual(cols, ["ndvi", "chirps", "chirps_gefs", "month", "day", "yield"])
+
+        # Forecast still aggregated in season when eo_model lacks it.
+        cols = _district_columns(["ndvi", "chirps"], available, with_forecast=True)
+        self.assertIn("chirps_gefs", cols)
+
+    def test_missing_columns_skipped(self):
+        from geocif.agmet.geoagmet import _district_columns
+
+        cols = _district_columns(["ndvi", "esi_4wk"], ["ndvi", "month", "day"], with_forecast=False)
+        self.assertEqual(cols, ["ndvi", "month", "day"])
 
 
 class TestProductionShareComputation(unittest.TestCase):

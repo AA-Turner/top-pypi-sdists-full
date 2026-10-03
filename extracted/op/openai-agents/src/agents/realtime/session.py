@@ -24,6 +24,7 @@ from ..agent import Agent
 from ..exceptions import (
     ModelBehaviorError,
     ToolInputGuardrailTripwireTriggered,
+    ToolOutputGuardrailTripwireTriggered,
     UserError,
     _clear_data_redacted_error_traceback,
     _detach_data_redacted_error_traceback,
@@ -42,7 +43,7 @@ from ..run_config import ToolErrorFormatterArgs
 from ..run_context import RunContextWrapper, TContext
 from ..tool import DEFAULT_APPROVAL_REJECTION_MESSAGE, FunctionTool, Tool, invoke_function_tool
 from ..tool_context import ToolContext
-from ..tool_guardrails import ToolInputGuardrailData
+from ..tool_guardrails import ToolInputGuardrailData, ToolOutputGuardrailData
 from ..util._approvals import evaluate_function_tool_approval
 from ..util._asyncio_tasks import gather_with_cancel
 from ._tool_filtering import filter_enabled_tools
@@ -313,7 +314,9 @@ class RealtimeSession(RealtimeModelListener):
     async def __aiter__(self) -> AsyncIterator[RealtimeSessionEvent]:
         """Iterate over events from the session."""
         while True:
-            if (self._closed or self._model_stream_ended) and self._event_queue.empty():
+            if (
+                self._closing or self._closed or self._model_stream_ended
+            ) and self._event_queue.empty():
                 return
 
             # Check if there's a stored exception to raise
@@ -337,6 +340,9 @@ class RealtimeSession(RealtimeModelListener):
             finally:
                 self._event_iterator_waiters -= 1
             if event is _REALTIME_SESSION_CLOSED_SENTINEL:
+                if self._event_iterator_waiters:
+                    # A resumed consumer may get here before an already-woken queue reader.
+                    self._event_queue.put_nowait(event)
                 return
             yield cast(RealtimeSessionEvent, event)
 
@@ -356,6 +362,8 @@ class RealtimeSession(RealtimeModelListener):
 
         if cleanup_task is None:
             self._closing = True
+            # Event delivery has stopped, even if transport cleanup must later be retried.
+            self._wake_event_iterators()
             cleanup_task = asyncio.create_task(
                 self._cleanup(),
                 name="agents-realtime-session-cleanup",
@@ -612,6 +620,11 @@ class RealtimeSession(RealtimeModelListener):
                 event.response_id is None or event.response_id == self._active_output_response_id
             )
             if is_active_response_ended:
+                # A handoff inside the response has already moved _current_agent to the
+                # new agent, so the agent that produced this turn is the one captured at
+                # turn_started, the same snapshot the output guardrails use.
+                ended_agent = self._active_output_response_agent or self._current_agent
+
                 # Clear guardrail state for next turn.
                 self._item_transcripts.clear()
                 self._item_guardrail_run_counts.clear()
@@ -621,7 +634,7 @@ class RealtimeSession(RealtimeModelListener):
 
                 await self._put_event(
                     RealtimeAgentEndEvent(
-                        agent=self._current_agent,
+                        agent=ended_agent,
                         info=self._event_info,
                     )
                 )
@@ -817,6 +830,30 @@ class RealtimeSession(RealtimeModelListener):
                 return gr_out.behavior["message"]
         return None
 
+    async def _run_tool_output_guardrails(
+        self,
+        *,
+        tool: FunctionTool,
+        tool_context: ToolContext[Any],
+        agent: RealtimeAgent,
+        output: Any,
+    ) -> Any:
+        """Check the result before caching or publishing a function tool output."""
+        guardrails = tool.tool_output_guardrails
+        if not guardrails:
+            return output
+        for guardrail in guardrails:
+            gr_out = await guardrail.run(
+                ToolOutputGuardrailData(
+                    context=tool_context, agent=cast(Agent[Any], agent), output=output
+                )
+            )
+            if gr_out.behavior["type"] == "raise_exception":
+                raise ToolOutputGuardrailTripwireTriggered(guardrail=guardrail, output=gr_out)
+            if gr_out.behavior["type"] == "reject_content":
+                return gr_out.behavior["message"]
+        return output
+
     def _build_realtime_tool_output(
         self,
         *,
@@ -846,10 +883,12 @@ class RealtimeSession(RealtimeModelListener):
         agent: RealtimeAgent,
     ) -> None:
         """Send a rejection response back to the model and emit an end event."""
+        approval_item = self._build_tool_approval_item(tool, event, agent)
         rejection_message = await self._resolve_approval_rejection_message(
             tool=tool,
             call_id=event.call_id,
-            tool_call=self._build_tool_approval_item(tool, event, agent).raw_item,
+            tool_call=approval_item.raw_item,
+            approval_item=approval_item,
         )
         await self._send_tool_output_completion(
             _PendingToolOutput(
@@ -911,12 +950,14 @@ class RealtimeSession(RealtimeModelListener):
         tool: FunctionTool,
         call_id: str,
         tool_call: Any | None = None,
+        approval_item: ToolApprovalItem | None = None,
     ) -> str:
         """Resolve model-visible output text for approval rejections."""
         explicit_message = self._context_wrapper.get_rejection_message(
             tool.name,
             call_id,
             tool_lookup_key=get_function_tool_lookup_key_for_tool(tool),
+            existing_pending=approval_item,
         )
         if explicit_message is not None:
             return explicit_message
@@ -1239,6 +1280,15 @@ class RealtimeSession(RealtimeModelListener):
                     function_tool=func_tool,
                     context=tool_context,
                     arguments=event.arguments,
+                )
+                if self._closing or self._closed:
+                    return
+
+                result = await self._run_tool_output_guardrails(
+                    tool=func_tool,
+                    tool_context=tool_context,
+                    agent=agent,
+                    output=result,
                 )
                 if self._closing or self._closed:
                     return
@@ -1747,7 +1797,7 @@ class RealtimeSession(RealtimeModelListener):
             else:
                 await self._model.send_event_if(
                     feedback_event,
-                    lambda: (output_response_generation == self._latest_output_response_generation),
+                    lambda: output_response_generation == self._latest_output_response_generation,
                 )
 
             return True
@@ -1924,11 +1974,7 @@ class RealtimeSession(RealtimeModelListener):
             self._put_event_nowait(
                 RealtimeError(
                     info=self._event_info,
-                    error={
-                        "message": (
-                            f"Tool output send failed; cached output will be retried: {exception}"
-                        )
-                    },
+                    error={"message": "Tool output send failed; cached output will be retried"},
                 )
             )
             return
@@ -1941,7 +1987,7 @@ class RealtimeSession(RealtimeModelListener):
         self._put_event_nowait(
             RealtimeError(
                 info=self._event_info,
-                error={"message": f"Tool call task failed: {exception}"},
+                error={"message": "Tool call task failed"},
             )
         )
 

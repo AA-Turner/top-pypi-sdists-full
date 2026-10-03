@@ -63,7 +63,7 @@ from probe.cli.capabilities import (
 )
 from probe.cli.versions import VersionStatus
 from probe.cli.versions import overall as overall_version_status
-from probe.cli.capture import OffMode, clear_killswitch, turn_off
+from probe.cli.capture import AWAITING_CONFIRMATION, OffMode, clear_killswitch, turn_off
 
 #: How long the whole apply phase may spend before it stops STARTING new work.
 #: Not a kill switch: a `claude plugin install` cut off mid-write is how a
@@ -116,11 +116,13 @@ FRESH_DEFAULTS: dict[Capability, bool] = {
 #: "Claude Code": a two-way ternary is silently correct only while there are
 #: exactly two sources, and pi's addition is what made that stop being true.
 #: Look a source up here (via `agent_label`) instead of adding another branch.
-AGENT_LABELS = {
-    "claude_code": "Claude Code",
-    "codex": "Codex",
-    "pi": "pi",
-}
+def _installable_rows():
+    from probe.harness import get_registry
+
+    return get_registry().installable()
+
+
+AGENT_LABELS = {h.id: h.label for h in _installable_rows()}
 
 #: The sources that install through a plugin MARKETPLACE (`plugin_cli.py`'s
 #: `install`/`marketplace update`/`marketplace add`) rather than pi's
@@ -135,7 +137,7 @@ AGENT_LABELS = {
 #: comes from `detectable_sources()` below, which DOES include pi when its
 #: binary is found -- see that function's docstring for the history this one
 #: used to carry.
-MARKETPLACE_AGENT_SOURCES: tuple[str, ...] = ("claude_code", "codex")
+MARKETPLACE_AGENT_SOURCES: tuple[str, ...] = tuple(h.id for h in _installable_rows() if h.family == "hook-plugin")
 
 #: Every source `install_plugin`/`uninstall_plugin`/`apply_capture` know how
 #: to install or remove something for -- but not through one shared
@@ -159,7 +161,7 @@ MARKETPLACE_AGENT_SOURCES: tuple[str, ...] = ("claude_code", "codex")
 #: `authorize`) does not depend on this tuple; it is keyed off
 #: `capture_sources`/`captures`, not this list. NOT the set step 1's picker
 #: offers -- see `MARKETPLACE_AGENT_SOURCES` above for that narrower one.
-INSTALLABLE_AGENT_SOURCES: tuple[str, ...] = ("claude_code", "codex", "pi")
+INSTALLABLE_AGENT_SOURCES: tuple[str, ...] = tuple(h.id for h in _installable_rows())
 
 
 #: The pi `--help` "coding" sniff, MOVED to `pi_config` and re-exported here
@@ -239,12 +241,15 @@ def agent_label(sources: tuple[str, ...] | list[str] | str) -> str:
 
 def instruction_files(sources: tuple[str, ...] | list[str] | str) -> str:
     """Name the real global instruction files for the selected agents."""
+    from probe.harness import get_registry
+
     normalized = (sources,) if isinstance(sources, str) else tuple(sources)
-    names = []
-    if "claude_code" in normalized:
-        names.append("CLAUDE.md")
-    if "codex" in normalized:
-        names.append("AGENTS.md")
+    names: list[str] = []
+    for source in normalized:
+        harness = get_registry().find(source)
+        name = (harness.instructions or {}).get("global") if harness else None
+        if name and name not in names:
+            names.append(name)
     return " + ".join(names) or "agent instructions"
 
 
@@ -1941,13 +1946,11 @@ COMPANION_GRANT = "companion"
 
 
 #: Where the wizard asks whether this team may use the daemon at all: the
-#: server answers with the model routes' own doors (paid plans only).
+#: server answers with the model routes' own gateway door (every plan may).
 DAEMON_AVAILABILITY_PATH = "/v1/companion/availability"
 #: What the tracking row says under a NO, by the server's reason code. The
 #: server's own sentence is written for a refusal; the row wants a short line.
-DAEMON_PAID_ONLY_NOTE = "Daemon recording is on paid plans."
 DAEMON_UNAVAILABLE_NOTES = {
-    "companion_paid_plan_required": DAEMON_PAID_ONLY_NOTE,
     "companion_disabled": "Daemon recording is not enabled for this team.",
 }
 #: A NO with a reason this CLI does not know yet (a newer server).
@@ -1966,10 +1969,8 @@ def daemon_availability(base_url: str | None = None) -> "tuple[bool | None, str 
     at most `DAEMON_AVAILABILITY_BUDGET_S` of wall clock however the network
     stalls. `base_url` is the API the wizard is pointed at (`--base-url`).
 
-    Only a NO hides the daemon. An unknown answer keeps offering it: the
-    daemon key's own grant still refuses a free team, with a sentence the CLI
-    prints, so guessing "no" would only take the daemon away from a paid team
-    whose network blinked."""
+    Only a NO hides the daemon. An unknown answer keeps offering it: guessing
+    "no" would only take the daemon away from a team whose network blinked."""
     import threading
 
     try:
@@ -2051,12 +2052,12 @@ def blocked_by_missing_grants(
 def has_source_capture_grant(source: str, tokens: Iterable[TokenSource]) -> bool:
     """Whether capture has a credential that can belong to this agent.
 
-    pi can discover Claude's shared config token, but source-bound grants are
-    rejected when used for another agent's sessions. Wizard-paired pi credentials
-    live in its own token file; an inherited config token needs its own pairing.
+    `capture_token_sources` already returns only the agent's own sources: the
+    shared CLI config token counts for Claude Code alone (it is Claude Code's
+    capture token; the server refuses it on every other agent's route).
     """
-    held = set(tokens)
-    return bool(held) and not (source == "pi" and held == {TokenSource.PROBE_CONFIG})
+    del source  # each agent's sources are already its own
+    return bool(set(tokens))
 
 
 def needs_authorization(caps: Capabilities, selection: Selection) -> list[str]:
@@ -2185,21 +2186,18 @@ def authorize(
     try:
         if defer_capture_sources is not None:
             deferred = set(defer_capture_sources) & captures.keys()
-            if "claude_code" in captures:
-                # Claude's credential also becomes pi's fallback through the
-                # shared CLI config. Keep previously unpaired consumers off,
-                # even if the initial sign-in did not select them explicitly.
-                deferred.update(
-                    source
-                    for source in AGENT_LABELS
-                    if source != "codex" and not capture_token_sources(source)
-                )
+            if "claude_code" in captures and not capture_token_sources("claude_code"):
+                # The new Claude Code token lands in the shared CLI config, which
+                # Claude Code's hooks read. Keep it off until the install is
+                # confirmed, even if this sign-in did not select it explicitly.
+                # No other agent reads that token, so no other agent is deferred.
+                deferred.add("claude_code")
             for deferred_source in sorted(deferred):
                 state_dir = tap_plugin_dir(deferred_source)
                 state_dir.mkdir(parents=True, exist_ok=True)
                 marker = state_dir / ".disabled"
                 if not marker.exists():
-                    marker.write_text("Awaiting confirmation in the Probe install wizard.\n")
+                    marker.write_text(AWAITING_CONFIRMATION)
         # The markers precede every credential write: an installed hook must
         # never observe a new capture token before the install was confirmed.
         save_context(updates)
@@ -2258,11 +2256,9 @@ def authorize(
     # Every captured source EXCEPT claude_code needs its token written
     # straight into its own tap plugin dir: claude_code alone can fall back to
     # the probe CLI's config.json `ingest_token` (set above), and every other
-    # tap-capturing source is excluded from that fallback by
-    # tap/config.py::load_token() (codex explicitly; see
-    # capabilities.capture_token_sources for why pi is NOT excluded there but
-    # still gets a `.token` file here regardless -- writing one is always
-    # correct, it is just not the ONLY path for pi the way it is for codex).
+    # source is excluded from that fallback (tap/config.py::load_token(),
+    # capabilities.consumes_cli_capture_token), so its `.token` file is its
+    # ONLY path.
     # A loop over `captures`, not a per-source branch: that is what silently
     # left pi's token nowhere on disk once pi became a real capture source --
     # see AGENT_LABELS' docstring for the same failure mode in the
@@ -2318,6 +2314,15 @@ def authorize(
     return by_grant, messages
 
 
+def leftover_team_note(caps: Capabilities) -> bool:
+    """A team-note block with no pointer beside it: what an opt-out left before
+    the opt-out removed both. `agent_rules_installed` reads only the pointer,
+    so without this an explicit `--no-agent-rules` found nothing to change."""
+    return not caps.agent_rules_installed and agent_rules.has_block(
+        agent_rules.memory_path(caps.agent_source), agent_rules.NOTE_BLOCK
+    )
+
+
 def plan(caps: Capabilities, selection: Selection) -> list[str]:
     """A human-readable diff of what this run will change. Printed before
     anything is touched, so `--yes` in CI still leaves an audit trail."""
@@ -2343,6 +2348,8 @@ def plan(caps: Capabilities, selection: Selection) -> list[str]:
             # and a POINTER_VERSION bump could never reach a machine at all.
             if capability is Capability.AGENT_RULES and want and caps.agent_rules_stale:
                 steps.append(f"refresh {PLAN_LABELS[capability]}")
+            elif capability is Capability.AGENT_RULES and not want and leftover_team_note(caps):
+                steps.append(f"disable {PLAN_LABELS[capability]}")
             continue
         label = PLAN_LABELS[capability]
         if not want:
@@ -2477,9 +2484,12 @@ def daemon_records(source: str | None = None) -> bool:
 #: How the "Who records" row names its two positions.
 RECORDER_WORDS: dict[str, str] = {"agent": "the agent", "daemon": "the daemon"}
 
-#: The coding agents with a daemon profile: the two with a plugin marketplace.
-#: pi's lean package is T11 (daemon reads plan); until then it has no row.
-RECORDER_SOURCES: tuple[str, ...] = MARKETPLACE_AGENT_SOURCES
+#: The coding agents with a daemon profile: every registry row that names how
+#: it gets one (`lean_profile`: a second plugin for Claude Code and Codex, the
+#: package's settings entry for pi).
+RECORDER_SOURCES: tuple[str, ...] = tuple(h.id for h in _installable_rows() if h.lean_profile)
+#: A harness whose daemon profile is its package's settings entry (pi).
+LEAN_SETTINGS_FILTER = "settings-filter"
 
 
 def live_daemon_sessions() -> int:
@@ -2527,7 +2537,136 @@ def _forget_recorder(source: str) -> list[str]:
     return []
 
 
-def apply_recorder(caps: Capabilities, value: str, *, base_url: str) -> list[str]:
+def _instruction_file_lock(path):
+    """The lock the team-note sync holds while it reads and writes `path`.
+
+    The wizard's own writes take it too: otherwise a sync that read the pointer
+    as present could write the note back the moment after an opt-out removed
+    both, and report nothing.
+    """
+    from probe.cli.team_note_file import instruction_lock_path
+    from probe.sdk.durable import file_lock
+
+    return file_lock(instruction_lock_path(path))
+
+
+def apply_recorder_rules(source: str, value: str, rules: bool | None = None) -> list[str]:
+    """The instruction block of `value`'s profile, for ONE agent's file.
+
+    An existing block is swapped and an absent one stays absent. Absent IS the
+    opt-out (`--no-agent-rules` leaves no other trace), so writing the daemon's
+    blurb unasked put Probe back in the global CLAUDE.md / AGENTS.md of a machine
+    that had declined it -- a customer's, on 2026-10-02. `rules` is
+    `--agent-rules/--no-agent-rules` passed beside `--who-records`: True writes
+    the profile's block, False removes every Probe block.
+    """
+    from probe.sdk import session_marker
+
+    path = agent_rules.memory_path(source)
+    profile = (
+        agent_rules.Profile.DAEMON if value == session_marker.RECORDER_DAEMON else agent_rules.Profile.AGENT
+    )
+    try:
+        with _instruction_file_lock(path):
+            if rules is None and not agent_rules.is_installed(path):
+                return []  # opted out, and no flag says otherwise
+            if rules is not False:
+                agent_rules.install(path, block=agent_rules.render_block(profile=profile))
+            elif agent_rules.remove_all(path):
+                return [f"Removed the Probe block from {short_path(path)}."]
+    except agent_rules.DamagedBlock as exc:
+        return [f"! left {short_path(path)} alone: {exc}"]
+    except (OSError, UnicodeDecodeError) as exc:
+        return [f"! could not update {short_path(path)}: {exc}"]
+    return []
+
+
+@dataclass
+class _Ready:
+    ok: bool
+    lines: list[str]
+
+
+def needs_capture_pairing(source: str) -> bool:
+    """A settings-entry daemon profile (pi) whose agent holds no capture token
+    of its own yet: the switch pairs it first (`pair_capture`), OUTSIDE the
+    switch's spinner, because the approval prints a link to open."""
+    from probe.harness import get_registry
+
+    harness = get_registry().get(source)
+    return harness.lean_profile == LEAN_SETTINGS_FILTER and not capture_token_sources(source)
+
+
+def pair_capture(source: str, *, base_url: str, open_browser: bool = True) -> list[str]:
+    """One browser approval for this agent's capture grant alone (nothing else
+    is re-minted). The person chose the daemon, which records from capture, so
+    a leftover sign-in marker in the agent's folder goes too."""
+    from probe.cli.capabilities import agent_target
+    from probe.cli.capture import clear_stray_pi_killswitch
+
+    label = agent_label(source)
+    lines = [f"Pairing {label}'s session capture (the daemon records from it)."]
+    try:
+        _grants, messages = authorize(
+            ["capture"], base_url=base_url, capture_sources=[source], open_browser=open_browser
+        )
+        lines.extend(messages)
+    except Exception as exc:  # noqa: BLE001 - every failure reads as "not paired" in apply_recorder
+        lines.append(f"! pairing {label}'s capture did not finish: {exc}")
+        return lines
+    if capture_token_sources(source):
+        with agent_target(source):
+            clear_stray_pi_killswitch()
+        lines.append(f"{label} capture paired.")
+    return lines
+
+
+def daemon_package_ready(source: str) -> _Ready:
+    """A settings-entry daemon profile's package (pi's) is new enough to run the
+    daemon profile (`pi_config.DAEMON_MIN_PACKAGE_VERSION`), updating it first
+    (`pi update <source>`) when it is not. An older extension ignores the
+    profile and would connect the Probe MCP in a daemon session.
+
+    The wizard asks this BEFORE pairing (`pair_capture`): pairing mints the
+    agent's own capture token, and a switch that then stopped here would leave
+    the agent capturing on agent, which it did not do before.
+    """
+    from probe.cli import pi_config
+
+    label = agent_label(source)
+    lines: list[str] = []
+    minimum = pi_config.DAEMON_MIN_PACKAGE_VERSION
+    want = ".".join(str(part) for part in minimum)
+    version = pi_config.installed_package_version()
+    if version is None or version < minimum:
+        updated = pi_config.update_package()
+        version = pi_config.installed_package_version()
+        if version is None or version < minimum:
+            have = ".".join(str(part) for part in version) if version else "unknown"
+            why = "" if updated.ok else f" ({updated.detail})"
+            return _Ready(False, [*lines, f"! {label} stays on agent: its Probe package is {have}, the daemon needs "
+                                  f"{want} or newer{why}. Run `pi update {pi_config.MIRROR_GIT_SOURCE}`, "
+                                  "then switch Who records again."])
+        lines.append(f"{label}'s Probe package updated to {'.'.join(str(part) for part in version)}.")
+    return _Ready(True, lines)
+
+
+def _settings_profile_ready(source: str, label: str, *, base_url: str) -> _Ready:
+    """What a settings-entry daemon profile (pi) needs before it can switch.
+
+    1. The agent's own capture token. The extension starts capture only when
+       the agent is paired, and only capture starts the daemon. Since D3 a
+       machine signed in for Claude Code holds none for pi; the wizard pairs it
+       first (`pair_capture`), and a pairing that did not finish stops here.
+    2. A package new enough to run the daemon profile (`daemon_package_ready`).
+    """
+    if not capture_token_sources(source):
+        return _Ready(False, [f"! {label} stays on agent: its session capture is not paired "
+                              f"(`probe wizard` › Install Probe › {label} pairs it)."])
+    return daemon_package_ready(source)
+
+
+def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool | None = None) -> list[str]:
     """Move ONE coding agent to a "Who records" profile (daemon reads).
 
     `daemon`: the Probe daemon records and reads for this agent. Its key first
@@ -2545,10 +2684,13 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str) -> list[str
     from probe.sdk import session_marker
     from probe.sdk.config import ConfigUnreadable
 
+    from probe.harness import get_registry
+
     source = caps.agent_source
     label = agent_label(source)
     if source not in RECORDER_SOURCES:
         return [f"! {label} has no daemon profile yet; left as it is."]
+    by_settings = get_registry().get(source).lean_profile == LEAN_SETTINGS_FILTER
     daemon = value == session_marker.RECORDER_DAEMON
     retry = {"left": 1}
 
@@ -2577,17 +2719,34 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str) -> list[str
             result = install_plugin(tap, source=source, on_retry=_may_retry)
             if not result.ok:
                 return [*lines, f"! could not install {tap} for {label}: {result.detail}", stopped]
+        if by_settings:
+            # The daemon starts only where capture starts (the extension spawns
+            # the tap, the tap spawns the daemon), and capture needs the agent's
+            # OWN token: nothing falls back to Claude Code's (D3).
+            ready = _settings_profile_ready(source, label, base_url=base_url)
+            lines.extend(ready.lines)
+            if not ready.ok:
+                return [*lines, stopped]
         want, drop = DAEMON_PLUGIN_NAME, TRACKING_PLUGIN_NAME
     else:
         want, drop = TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME
-    result = install_plugin(want, source=source, on_retry=_may_retry)
-    if not result.ok:
-        return [*lines, f"! could not install {want} for {label}: {result.detail}", stopped]
+    if by_settings:
+        from probe.cli import pi_config
+
+        result = pi_config.set_profile(daemon)
+        if not result.ok:
+            return [*lines, f"! could not switch {label}'s Probe package to the {value} profile: {result.detail}",
+                    stopped]
+    else:
+        result = install_plugin(want, source=source, on_retry=_may_retry)
+        if not result.ok:
+            return [*lines, f"! could not install {want} for {label}: {result.detail}", stopped]
     try:
         session_marker.write_recorder(source, value)
     except (OSError, ValueError, ConfigUnreadable) as exc:
-        return [*lines, f"! could not record who records in {label}: {exc}",
-                f"  {want} is installed beside {drop}. Switch Who records again."]
+        beside = (f"  {label}'s Probe package is already on the {value} profile." if by_settings
+                  else f"  {want} is installed beside {drop}.")
+        return [*lines, f"! could not record who records in {label}: {exc}", f"{beside} Switch Who records again."]
     lines.append(f"Who records in {label} → {RECORDER_WORDS[value]}")
     if source in reasoning_summaries.SOURCES:
         # The daemon reads the agent's reasoning only where the agent writes its
@@ -2597,19 +2756,7 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str) -> list[str
             reasoning_summaries.on_for_daemon(source) if daemon else reasoning_summaries.undo_for_agent(source)
         )
 
-    # The instruction block of the new profile. The daemon profile's blurb is
-    # how the agent learns `probe ask`, so it is written; back on the agent
-    # profile an existing block is swapped, and a machine that opted out of the
-    # block stays opted out.
-    path = agent_rules.memory_path(source)
-    profile = agent_rules.Profile.DAEMON if daemon else agent_rules.Profile.AGENT
-    try:
-        if daemon or agent_rules.is_installed(path):
-            agent_rules.install(path, block=agent_rules.render_block(profile=profile))
-    except agent_rules.DamagedBlock as exc:
-        lines.append(f"! left {short_path(path)} alone: {exc}")
-    except (OSError, UnicodeDecodeError) as exc:
-        lines.append(f"! could not update {short_path(path)}: {exc}")
+    lines.extend(apply_recorder_rules(source, value, rules))
 
     # The new-session default is MACHINE-wide, so the move to the daemon leaves it
     # alone: the lean plugin starts an `on` session in `daemon` itself, and an
@@ -2659,7 +2806,7 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str) -> list[str
     from probe.cli.capabilities import installed_plugins
 
     now = installed_plugins(source=source)
-    if drop in now.names or not now.verified:
+    if not by_settings and (drop in now.names or not now.verified):
         removal = uninstall_plugin(drop, source=source)
         if not removal.ok:
             lines.append(f"! could not remove {drop} for {label}: {removal.detail}")
@@ -3009,6 +3156,13 @@ def seed_team_note_block() -> list[str]:
     return []
 
 
+def _current_harness():
+    """The registry row of the agent this wizard run configures."""
+    from probe.harness import get_registry
+
+    return get_registry().get(agent_source())
+
+
 def apply_agent_rules(want: bool, *, stale: bool = False) -> list[str]:
     """Write or drop the selected agent's global instruction pointer.
 
@@ -3024,19 +3178,17 @@ def apply_agent_rules(want: bool, *, stale: bool = False) -> list[str]:
     # (`probe statusline uninstall` restores whatever was there), and it can ONLY
     # happen on the machine: `statusLine` is a key in the researcher's own
     # settings, so no release can put the segment there.
-    extra = apply_statusline() if want else []
-    # Seeded HERE, not on the first session, because the harness reads the
-    # instruction file before any hook of ours runs -- a block written by the
-    # first session's sync only reaches the second one.
-    if want:
-        extra = extra + seed_team_note_block()
+    # Only for a harness that has Probe's status line (Claude Code): on a pi or
+    # Codex run this used to write Claude Code's settings.json.
+    extra = apply_statusline() if want and _current_harness().statusline else []
     try:
-        if want:
-            # The block of this agent's profile: a re-run must not swap the
-            # daemon profile's blurb for the agent profile's section.
-            changed = agent_rules.install(path, block=agent_rules.render_block(profile=agent_profile()))
-        else:
-            changed = agent_rules.remove(path)
+        with _instruction_file_lock(path):
+            if want:
+                # The block of this agent's profile: a re-run must not swap the
+                # daemon profile's blurb for the agent profile's section.
+                changed = agent_rules.install(path, block=agent_rules.render_block(profile=agent_profile()))
+            else:
+                changed = agent_rules.remove_all(path)
     except agent_rules.DamagedBlock as exc:
         return [
             f"! Left {path} alone: {exc}.",
@@ -3048,6 +3200,13 @@ def apply_agent_rules(want: bool, *, stale: bool = False) -> list[str]:
         # whole wizard down with a traceback, mid-install. "Nothing else was
         # affected" is only true because the write is atomic.
         return [f"Could not update {path}: {exc}. Nothing else was affected."]
+
+    # Seeded HERE, not on the first session, because the harness reads the
+    # instruction file before any hook of ours runs -- a block written by the
+    # first session's sync only reaches the second one. AFTER the pointer: the
+    # note renders only into a file that carries it (`render_blocks`).
+    if want:
+        extra = extra + seed_team_note_block()
 
     if not want:
         return [f"Removed the Probe block from your global {path.name}."] if changed else []
@@ -3289,7 +3448,7 @@ def confirm_sign_out(account: "str | None" = None):
     )
 
 
-def action_choices() -> list:
+def action_choices(caps_by_source: "dict | None" = None) -> list:
     """The top-level menu: headings lead groups, blank rows separate options.
 
     Each title stays next to its description. A single blank row separates
@@ -3305,7 +3464,11 @@ def action_choices() -> list:
     # The Defaults row wears the machine's CURRENT state, read fresh each time
     # the menu is drawn -- the menu comes back after every action, so a change
     # made through the row shows on the row.
-    copy: dict = {**ACTION_COPY, Action.RECORDER: recorder_row(), Action.DEFAULTS: tracking_default_row()}
+    copy: dict = {
+        **ACTION_COPY,
+        Action.RECORDER: recorder_row(caps_by_source=caps_by_source),
+        Action.DEFAULTS: tracking_default_row(),
+    }
     # A blank before EVERY group, the first one included. It was skipped at the
     # top on the theory that a leading gap reads as "after the question" rather
     # than "between groups" -- which is exactly what it should read as. Without
@@ -3336,13 +3499,14 @@ def action_choices() -> list:
 
 
 def run_action_menu(caps: Capabilities | dict[str, Capabilities]):
-    """The top-level menu. Returns None (quit), tui.BACK, an Action, a
-    `DefaultChoice` when the Defaults row was switched in place and saved, or a
-    `RecorderChoice` the moment the Who records row is switched."""
+    """The top-level menu. Returns None (quit), tui.BACK, an Action, or a
+    `RecorderChoice` the moment the Who records row is switched. The Defaults
+    row saves itself on each `←`/`→` press (`_DefaultSwitch`) and answers
+    nothing."""
 
     from probe.cli import import_jobs_ui, tui
 
-    choices = action_choices()
+    choices = action_choices(caps if isinstance(caps, dict) else None)
 
     from probe.cli import doctor as doctor_impl  # noqa: F401
 
@@ -3438,13 +3602,14 @@ class _RecorderSwitch:
 
 
 class _DefaultSwitch:
-    """`←`/`→` on the main menu's Defaults row: walk the default for new
-    sessions right there, and save it with Enter.
+    """`←`/`→` on the main menu's Defaults row: switch the default for new
+    sessions right there. Each press SAVES it -- a local config write, like the
+    Who records row beside it, which applies on press too. It used to wait for
+    Enter, and a researcher who switched it and moved on lost the change
+    without a word (2026-10-02). Enter on the row is the ordinary menu answer,
+    `Action.DEFAULTS`, which opens the picker.
 
-    Nothing is written while the arrows move it -- the row says "not saved
-    yet". Moving the cursor off the row puts it back. Enter on an UNMOVED row
-    is the ordinary menu answer, `Action.DEFAULTS`, which opens the picker;
-    Enter on a moved one answers `DefaultChoice(state)`.
+    A write that fails puts the row back on what is saved and says why under it.
 
     The walk is the switch, `session_marker.SWITCH_STATES`: on / read / off.
     Whether the daemon records is the "Who records" setting, never a position
@@ -3462,6 +3627,8 @@ class _DefaultSwitch:
         self.order = cycling_settings()[Setting.TRACKING_DEFAULT]
         self.question = None
         self.control = None
+        #: The failure line of the last save, shown under the row until the next.
+        self.error: str | None = None
 
     def on_row(self) -> bool:
         try:
@@ -3474,20 +3641,31 @@ class _DefaultSwitch:
 
         if value is not Action.DEFAULTS or self.held or self.row is None:
             return None
-        return "← → switch · enter save" if self.shown != self.saved else "← → switch"
+        return "← → switch"
 
     def repaint(self) -> None:
         from probe.cli import tui
 
-        title, detail = tracking_default_row(self.shown, saved=self.saved)
+        title, detail = tracking_default_row(self.shown)
+        if self.error:
+            detail = (*detail, self.error)
         body = tui.body_indent()
         self.question._probe_retitle(
             self.row, "\n".join([title, *(f"{body}  {line}" for line in detail)])
         )
 
     def step(self, delta: int) -> None:
-        self.shown = self.order[(self.order.index(self.shown) + delta) % len(self.order)]
-        self.repaint()
+        wanted = self.order[(self.order.index(self.shown) + delta) % len(self.order)]
+        lines = apply_settings({Setting.TRACKING_DEFAULT: wanted})
+        failed = next((line for line in lines if reports_failure(line)), None)
+        if failed is None:
+            self.saved = self.shown = wanted
+            self.error = None
+        else:
+            self.shown = self.saved
+            self.error = failed
+        if self.question is not None:
+            self.repaint()
 
     def wire(self, question) -> None:
         from probe.cli import tui
@@ -3502,7 +3680,6 @@ class _DefaultSwitch:
             from prompt_toolkit.filters import Condition
 
             on_row = Condition(self.on_row)
-            moved = Condition(lambda: self.on_row() and self.shown != self.saved)
             bindings = question.application.key_bindings
 
             @bindings.add("right", eager=True, filter=on_row)
@@ -3512,21 +3689,6 @@ class _DefaultSwitch:
             @bindings.add("left", eager=True, filter=on_row)
             def _(event) -> None:  # pragma: no cover - requires a live terminal
                 self.step(-1)
-
-            # Registered after questionary's Enter, so it wins -- but only
-            # while the row has moved; an unmoved row answers as any row does.
-            @bindings.add("c-m", eager=True, filter=moved)
-            def _(event) -> None:  # pragma: no cover - requires a live terminal
-                self.control.is_answered = True
-                event.app.exit(result=DefaultChoice(self.shown))
-
-            def settle(_app) -> None:
-                # Walked away from a moved row: it goes back to what is saved.
-                if self.shown != self.saved and not self.on_row():
-                    self.shown = self.saved
-                    self.repaint()
-
-            question.application.before_render += settle
         except Exception:  # noqa: BLE001 - the menu without the switch still works
             pass
 
@@ -4008,6 +4170,7 @@ class Setting(StrEnum):
     TRACKING_DEFAULT = "tracking_default"
     RECORDER_CLAUDE_CODE = "recorder_claude_code"
     RECORDER_CODEX = "recorder_codex"
+    RECORDER_PI = "recorder_pi"
     REASONING_SUMMARIES = "reasoning_summaries"
 
 
@@ -4015,11 +4178,12 @@ class Setting(StrEnum):
 #: profile, and the agent each drives. Like the capability rows they apply
 #: through their own machinery (`apply_recorder`: plugins, the daemon's key,
 #: the instruction block), never `apply_settings`. Shown wherever the server
-#: does not say the daemon is closed to this team (paid plans), and always where
-#: the daemon already records.
+#: does not say the daemon is closed to this team, and always where the daemon
+#: already records.
 RECORDER_SETTINGS: dict["Setting", str] = {
     Setting.RECORDER_CLAUDE_CODE: "claude_code",
     Setting.RECORDER_CODEX: "codex",
+    Setting.RECORDER_PI: "pi",
 }
 
 
@@ -4051,7 +4215,7 @@ DAEMON_GROUPS: tuple[tuple[str, tuple[Setting, ...]], ...] = (
 #: of the registry -- read by `read_settings`, written by `apply_settings` --
 #: so `grouped_settings` counts them as placed rather than as missing.
 MENU_SETTINGS: frozenset[Setting] = frozenset(
-    {Setting.TRACKING_DEFAULT, Setting.RECORDER_CLAUDE_CODE, Setting.RECORDER_CODEX}
+    {Setting.TRACKING_DEFAULT, Setting.RECORDER_CLAUDE_CODE, Setting.RECORDER_CODEX, Setting.RECORDER_PI}
 )
 
 #: Row copy, `MENU_COPY`-shaped (title, detail lines) so `_bind_menu_keys` can
@@ -4075,6 +4239,7 @@ SETTINGS_COPY: dict[Setting, tuple[str, tuple[str, ...]]] = {
     ),
     Setting.RECORDER_CLAUDE_CODE: ("Who records in Claude Code", ("",)),
     Setting.RECORDER_CODEX: ("Who records in Codex", ("",)),
+    Setting.RECORDER_PI: ("Who records in pi", ("",)),
     # One setting per coding agent, written for the daemon into each agent's
     # own config (`reasoning_summaries`): it changes what the user sees too,
     # so the row says so.
@@ -4132,6 +4297,7 @@ SETTINGS_STATE_COPY: dict[Setting, dict[str, tuple[str, ...]]] = {
     },
     Setting.RECORDER_CLAUDE_CODE: _RECORDER_STATE_COPY,
     Setting.RECORDER_CODEX: _RECORDER_STATE_COPY,
+    Setting.RECORDER_PI: _RECORDER_STATE_COPY,
 }
 
 
@@ -4501,9 +4667,11 @@ def run_settings_menu(
     Automatic updates, and -- when offered -- the "Who records" rows, which
     CYCLE rather than tick (`agent` <-> `daemon`, one state per press). Nothing
     is written while you press -- `→` on the `Set settings ›` band is the
-    commit, and `←`/Escape leaves with nothing changed. Returns None (quit),
-    tui.BACK, or {Setting: bool | state}: the DRAWN rows as the user left them,
-    a bool per checkbox and a STATE NAME per cycling row.
+    commit, and so is LEAVING: `←`/Escape after a change applies it too. They
+    used to drop it without a word, and a researcher who switched a row and
+    backed out found it reverted (2026-10-02). Returns None (quit), tui.BACK
+    (left with nothing changed), or {Setting: bool | state}: the DRAWN rows as
+    the user left them, a bool per checkbox and a STATE NAME per cycling row.
 
     `current` comes from the CALLER's read, never one of our own, so the boxes
     and the diff computed against what comes back are the same fact -- see
@@ -4574,6 +4742,13 @@ def run_settings_menu(
         qmark=tui.qmark(),
         pointer=tui.pointer(),
     )
+    # What the rows held when `←`/Escape left the screen, so leaving can keep it.
+    left_with: dict = {}
+
+    def keep_on_back(ctrl) -> None:
+        left_with["selected"] = list(getattr(ctrl, "selected_options", None) or [])
+        left_with["cycle"] = dict(getattr(ctrl, "probe_cycle", None) or {})
+
     control = _bind_menu_keys(
         question,
         rows,
@@ -4582,6 +4757,7 @@ def run_settings_menu(
         state_copy=state_copy,
         cycles=cycles,
         cycle_state=cycle_state,
+        on_back=keep_on_back,
     )
     if control is None:
         # Unwirable -- same posture as the capability picker: strip the band
@@ -4600,24 +4776,36 @@ def run_settings_menu(
     else:
         dress_band(question, control)
 
+    def answer(chosen: set, landed: dict) -> dict:
+        # The cycling rows answer from `probe_cycle`, which is the only place
+        # their third state can be written down. `control` is None only on the
+        # unwired fallback, where questionary drew its own two-state box --
+        # there the row answers from the box, meaning exactly what that boolean
+        # has always meant (`setting_state`), rather than inventing a state
+        # nobody could see.
+        return {
+            setting: (
+                landed.get(setting, cycle_value(setting, setting in chosen))
+                if setting in cycles
+                else setting in chosen
+            )
+            for setting in rows
+        }
+
     picked = tui.ask(question, height=tui.content_height(message, choices, instruction=instruction))
+    if picked is tui.BACK and left_with:
+        # Left with `←`/Escape: what was switched is kept, like `→` would.
+        # Unchanged rows are still "nothing changed".
+        kept = answer(set(left_with["selected"]), left_with["cycle"])
+        drawn = {
+            setting: cycle_value(setting, current[setting]) if setting in cycles else bool(current[setting])
+            for setting in rows
+        }
+        return kept if kept != drawn else tui.BACK
     if picked is None or picked is tui.BACK:
         return picked
-    chosen = set(picked)
-    # The cycling rows answer from `probe_cycle`, which is the only place their
-    # third state can be written down. `control` is None only on the unwired
-    # fallback, where questionary drew its own two-state box -- there the row
-    # answers from the box, meaning exactly what that boolean has always meant
-    # (`setting_state`), rather than inventing a state nobody could see.
     landed = dict(getattr(control, "probe_cycle", None) or {}) if control is not None else {}
-    return {
-        setting: (
-            landed.get(setting, cycle_value(setting, setting in chosen))
-            if setting in cycles
-            else setting in chosen
-        )
-        for setting in rows
-    }
+    return answer(set(picked), landed)
 
 
 #: What the Defaults row says under its state while an environment variable
@@ -4625,20 +4813,13 @@ def run_settings_menu(
 #: config value the variable then overrides, so the row says where to go.
 DEFAULT_ENV_LOCKED_NOTE = "Locked by an environment variable."
 
-#: What the Defaults row says once `←`/`→` have moved it off the saved state:
-#: nothing is written until Enter, and walking away puts it back.
-DEFAULT_UNSAVED_NOTE = "Not saved: enter saves, moving away keeps {saved}."
 
-
-def tracking_default_row(
-    state: "str | None" = None, *, saved: "str | None" = None
-) -> tuple[str, tuple[str, ...]]:
+def tracking_default_row(state: "str | None" = None) -> tuple[str, tuple[str, ...]]:
     """The main menu's Defaults row: the setting's name, a state's word, and
     what that word means.
 
     `state` is what the row SHOWS -- the machine's default when not given, or
-    where `←`/`→` have walked it (`run_action_menu`); `saved` is the machine's
-    default, so a row walked away from it can say it is not saved yet. The
+    where `←`/`→` have switched (and saved) it (`run_action_menu`). The
     chevrons round the word are the sign that the arrows move it; a row an
     environment variable holds down has none, because they would not.
 
@@ -4653,15 +4834,12 @@ def tracking_default_row(
     held = session_marker.state_env_override() is not None
     here = setting_state(session_marker.default_session_state())
     state = setting_state(state) if state is not None else here
-    saved = setting_state(saved) if saved is not None else here
     name = SETTINGS_COPY[Setting.TRACKING_DEFAULT][0]
     word = session_marker.state_label(state)
     title = f"{name} — {word}" if held else f"{name}  ‹ {word} ›"
     detail = tuple(line for line in SETTINGS_STATE_COPY[Setting.TRACKING_DEFAULT][state] if line)
     if held:
         detail = (*detail, DEFAULT_ENV_LOCKED_NOTE)
-    elif state != saved:
-        detail = (*detail, DEFAULT_UNSAVED_NOTE.format(saved=session_marker.state_label(saved)))
     return title, detail
 
 
@@ -4689,11 +4867,37 @@ def machine_recorder() -> str:
     return session_marker.RECORDER_DAEMON if daemon else session_marker.RECORDER_AGENT
 
 
-def recorder_row(value: "str | None" = None) -> tuple[str, tuple[str, ...]]:
+def recorder_row(
+    value: "str | None" = None, caps_by_source: "dict | None" = None
+) -> tuple[str, tuple[str, ...]]:
     """The main menu's Who records row, wearing `value` (the machine's when not
-    given) between the chevrons that say `←`/`→` move it."""
+    given) between the chevrons that say `←`/`→` move it.
+
+    On a machine on the daemon, a set-up agent still recording itself is named
+    under it: the row read "daemon" while pi recorded itself (2026-10-02), and
+    the Enter that moves it was nowhere on screen. Same set-up test as that
+    Enter (`_run_recorder_action`): in `caps_by_source` and `configured`."""
+    from probe.sdk import session_marker
+
     value = value or machine_recorder()
-    return f"{RECORDER_ROW_TITLE}  ‹ {value} ›", RECORDER_ROW_COPY[value]
+    copy = RECORDER_ROW_COPY[value]
+    if value == session_marker.RECORDER_DAEMON and caps_by_source:
+        behind = [
+            source
+            for source in RECORDER_SOURCES
+            if source in caps_by_source
+            and getattr(caps_by_source[source], "configured", False)
+            and session_marker.recorder(source) != session_marker.RECORDER_DAEMON
+        ]
+        if behind:
+            who = agent_label(tuple(behind))
+            line = (
+                f"{who} still records itself: Enter moves it to the daemon."
+                if len(behind) == 1
+                else f"{who} still record themselves: Enter moves them to the daemon."
+            )
+            copy = (*copy, line)
+    return f"{RECORDER_ROW_TITLE}  ‹ {value} ›", copy
 
 
 @dataclass(frozen=True)
@@ -4706,8 +4910,9 @@ class RecorderChoice:
 
 @dataclass(frozen=True)
 class DefaultChoice:
-    """The main menu's answer when its Defaults row was switched in place
-    (`←`/`→`) and saved with Enter: the state to save, no picker needed."""
+    """A Defaults state to save with no picker. The menu row used to answer it
+    on Enter; the row saves on each press now, and `_run_defaults_action`
+    still takes one through `chosen=`."""
 
     state: str
 
@@ -4722,8 +4927,9 @@ def run_defaults_menu(current: "bool | str"):
 
     The settings screen's shape and keys, as a RADIO: one row per state, each
     carrying that state's disclosure, the current one ticked. Enter (or space)
-    ticks the row under the cursor, `→` -- or Enter on `Set default ›` --
-    saves the ticked one, and `←`/Escape leave with nothing changed. The
+    ticks the row under the cursor, and `→` -- or Enter on `Set default ›` --
+    saves the ticked one. LEAVING saves it too: `←`/Escape after ticking
+    another state keeps it, where it used to be dropped (2026-10-02). The
     cursor opens on the band like every step, so Enter straight away saves
     what is already saved: nothing.
 
@@ -4776,15 +4982,18 @@ def run_defaults_menu(current: "bool | str"):
         qmark=tui.qmark(),
         pointer=tui.pointer(),
     )
+    ticked = lambda control: next(  # noqa: E731 - one expression, used twice
+        (value for value in control.selected_options if value in rows), current
+    )
+    left_on: dict = {}
     control = _bind_menu_keys(
         question,
         rows,
         copy=copy,
         indent=indent,
         exclusive=True,
-        on_leave=lambda control: next(
-            (value for value in control.selected_options if value in rows), current
-        ),
+        on_leave=ticked,
+        on_back=lambda control: left_on.update(state=ticked(control)),
     )
     if control is None:
         # Unwirable: no band (nothing would be listening for it) and no radio
@@ -4813,9 +5022,13 @@ def run_defaults_menu(current: "bool | str"):
         )
     else:
         dress_band(question, control)
-    return tui.ask(
+    picked = tui.ask(
         question, height=tui.content_height(message, choices, instruction=instruction)
     )
+    if picked is tui.BACK and left_on.get("state", current) != current:
+        # Left with `←`/Escape after ticking another state: keep it.
+        return left_on["state"]
+    return picked
 
 
 def locally_paired_capture(sources: tuple[str, ...] | list[str] | str) -> list[str]:
@@ -5365,7 +5578,9 @@ def remove_everything(caps: Capabilities) -> list[str]:
     if caps.agent_source in reasoning_summaries.SOURCES:
         messages.extend(reasoning_summaries.undo_for_agent(caps.agent_source))
 
-    if caps.agent_source == "claude_code":
+    from probe.harness import get_registry
+
+    if get_registry().get(caps.agent_source).statusline:
         messages.extend(remove_statusline())
 
     # The MCP entry we may have written into the user's own config.toml is not

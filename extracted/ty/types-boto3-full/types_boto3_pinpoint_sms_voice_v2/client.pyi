@@ -1008,8 +1008,8 @@ class PinpointSMSVoiceV2Client(BaseClient):
         self, **kwargs: Unpack[ListAvailablePhoneNumbersRequestTypeDef]
     ) -> ListAvailablePhoneNumbersResultTypeDef:
         """
-        Search available phone numbers from aggregator inventory, optionally filtered
-        by pattern.
+        Retrieves a list of phone numbers that are available to request, based on the
+        country, capabilities, and number type that you specify.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/list_available_phone_numbers.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pinpoint_sms_voice_v2/client/#list_available_phone_numbers)

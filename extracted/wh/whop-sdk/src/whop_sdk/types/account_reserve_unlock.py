@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .account_reserve_unlock_type import AccountReserveUnlockType
 
 
 class AccountReserveUnlock(UniversalBaseModel):
@@ -12,6 +13,7 @@ class AccountReserveUnlock(UniversalBaseModel):
     Amount unlocking that day across every reason, in native units, as a decimal string.
     """
 
+    by_type: typing.List[AccountReserveUnlockType]
     date: str = pydantic.Field()
     """
     The day this money unlocks, as an ISO 8601 date.

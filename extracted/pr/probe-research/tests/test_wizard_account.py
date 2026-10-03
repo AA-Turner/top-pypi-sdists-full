@@ -531,14 +531,17 @@ def test_prepare_install_grants_all_agents_once_before_enabling_capture(prepared
     assert len(prepared_device) == 1
 
 
-def test_prepared_claude_capture_cannot_enable_pis_shared_fallback(prepared_device):
+def test_a_claude_sign_in_leaves_pis_capture_folder_alone(prepared_device):
+    """D3: pi never reads Claude Code's capture token, so a Claude Code sign-in
+    has no reason to write a consent marker into pi's folder -- that marker,
+    never removed, is what silently kept pi capture (and the daemon) off."""
     result = setup.sign_in(
         base_url="https://api.test", sources=("claude_code",), prepare_install=True
     )
 
     assert result.ok
     assert prepared_device[0]["capture_source"] == "claude_code"
-    assert (setup.tap_plugin_dir("pi") / ".disabled").exists()
+    assert not (setup.tap_plugin_dir("pi") / ".disabled").exists()
     assert not (setup.tap_plugin_dir("pi") / ".token").exists()
     assert not (setup.tap_plugin_dir("codex") / ".disabled").exists()
 
@@ -850,7 +853,7 @@ def test_the_wizard_does_not_ask_which_agent_before_an_account_action(monkeypatc
     from probe.cli import doctor as doctor_impl
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(logged_in_as="old@prbe.ai"))
     monkeypatch.setattr(
         setup, "run_agent_menu", lambda defaults, action=None: pytest.fail("no agent question here")

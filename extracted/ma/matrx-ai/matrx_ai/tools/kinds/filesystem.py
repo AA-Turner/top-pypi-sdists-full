@@ -31,6 +31,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 @kind(
     "file_read_result",
+    disposition="envelope",
     label="File Read Result",
     family="filesystem",
     example={
@@ -58,6 +59,7 @@ class FileReadResult(KindModel):
 
 @kind(
     "file_write_result",
+    disposition="receipt",
     label="File Write Result",
     family="filesystem",
     example={"path": "notes/todo.md", "bytes_written": 24, "mode": "write"},
@@ -76,6 +78,7 @@ class FileWriteResult(KindModel):
 
 @kind(
     "directory_entry",
+    disposition="record",
     label="Directory Entry",
     family="filesystem",
     example={
@@ -102,6 +105,7 @@ class DirectoryEntry(KindModel):
 
 @kind(
     "directory_listing",
+    disposition="record",
     label="Directory Listing",
     family="filesystem",
     example={
@@ -128,6 +132,7 @@ class DirectoryListing(KindModel):
 
 @kind(
     "file_search_match",
+    disposition="record",
     label="File Search Match",
     family="filesystem",
     example={"path": "notes/todo.md", "matches": ["- ship the tools sweep"]},
@@ -148,6 +153,7 @@ class FileSearchMatch(KindModel):
 
 @kind(
     "file_search_results",
+    disposition="record",
     label="File Search Results",
     family="filesystem",
     example={
@@ -170,6 +176,7 @@ class FileSearchResults(KindModel):
 
 @kind(
     "file_edit_applied",
+    disposition="receipt",
     label="Applied File Edit",
     family="filesystem",
     example={"edit_index": 0, "mode": "replace", "delta_chars": -12},
@@ -190,6 +197,7 @@ class FileEditApplied(KindModel):
 
 @kind(
     "file_edit_failure",
+    disposition="record",
     label="Failed File Edit",
     family="filesystem",
     example={
@@ -207,6 +215,7 @@ class FileEditFailure(KindModel):
 
 @kind(
     "file_patch_result",
+    disposition="receipt",
     label="File Patch Result",
     family="filesystem",
     example={
@@ -235,6 +244,7 @@ class FilePatchResult(KindModel):
 
 @kind(
     "file_edit_result",
+    disposition="record",
     label="File Edit Result",
     family="filesystem",
     example={
@@ -260,6 +270,7 @@ class FileEditResult(KindModel):
 
 @kind(
     "directory_create_result",
+    disposition="receipt",
     label="Directory Create Result",
     family="filesystem",
     example={"created": "notes/2026"},

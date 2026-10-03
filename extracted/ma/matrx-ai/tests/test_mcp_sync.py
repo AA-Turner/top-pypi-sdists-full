@@ -107,7 +107,7 @@ def _rpc_call_index(connection: _RecordingConnection) -> int:
 def _assert_rpc_has_named_actor_gucs(connection: _RecordingConnection) -> int:
     rpc_index = _rpc_call_index(connection)
     assert connection.calls[rpc_index - 3 : rpc_index] == [
-        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "code")),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "system")),
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
         ("execute", "SELECT set_config($1, $2, true)", ("app.actor_agent", "")),
     ], (
@@ -257,14 +257,14 @@ async def test_catalog_reconciliation_restores_outer_actor_declaration(
     monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
     monkeypatch.setattr(mcp_sync, "_stamp_synced", fake_stamp)
 
-    async with declared_actor("human", "outer"):
+    async with declared_actor("user", "outer"):
         result = await mcp_sync.sync_server("public-docs", force=True)
         assert result.error is None
         assert current_actor() is not None
-        assert current_actor().tier == "human"
+        assert current_actor().tier == "user"
         assert current_actor().system == "outer"
         assert declared_actor_gucs() == {
-            "app.actor_tier": "human",
+            "app.actor_tier": "user",
             "app.actor_system": "outer",
             "app.actor_agent": "",
         }

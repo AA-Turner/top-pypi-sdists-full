@@ -13,7 +13,7 @@ implementations that ship INSIDE matrx-ai, and a package never imports aidream
 must be importable by the code that returns the shape, so it lives here.
 
 Ledger: ``aidream/docs/workflow/KIND_TOOL_LEDGER.md``.
-Authority: ``common-docs/systems/content-ir-system/KINDS_EVERYWHERE_PLAN.md`` §10d-C.
+Authority: ``common-docs/systems/architecture/content-ir/FEATURE.md`` §10d-C.
 """
 
 

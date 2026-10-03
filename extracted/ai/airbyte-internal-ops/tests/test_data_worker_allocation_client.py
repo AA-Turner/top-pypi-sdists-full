@@ -115,6 +115,51 @@ def test_mutation_transport_failure_is_a_plain_api_error(
     assert not isinstance(caught.value, dwa.DataWorkerAllocationResponseError)
 
 
+@pytest.mark.parametrize(
+    ("region", "expected"),
+    [
+        pytest.param(
+            None,
+            {"organization_id": ORG, "amount": 1.5, "dataplane_group_id": None},
+            id="default",
+        ),
+        pytest.param(
+            "region-1",
+            {"organization_id": ORG, "amount": 1.5, "dataplane_group_id": "region-1"},
+            id="region",
+        ),
+    ],
+)
+def test_add_capacity_sends_region_or_null(
+    monkeypatch: pytest.MonkeyPatch,
+    region: str | None,
+    expected: dict[str, object],
+) -> None:
+    sent: dict[str, object] = {}
+    body = (
+        b'{"organization_id":"' + ORG.encode() + b'",'
+        b'"total_allocated_capacity":2.0,"allocations":[]}'
+    )
+
+    def capture(url, json, **_k):
+        sent["url"] = url
+        sent["json"] = json
+        return _response(200, body)
+
+    monkeypatch.setattr(dwa.requests, "post", capture)
+
+    dwa.add_data_worker_capacity(
+        ORG,
+        1.5,
+        config_api_root=ROOT,
+        bearer_token="t",
+        dataplane_group_id=region,
+    )
+
+    assert sent["url"] == f"{ROOT}/data_worker_allocation/add_capacity"
+    assert sent["json"] == expected
+
+
 def test_remove_capacity_sends_region_and_amount(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

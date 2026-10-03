@@ -42,6 +42,8 @@ pub enum Mode {
 struct Fds {
     buffered: File,
     direct: Option<File>,
+    /// On overlayfs (a container's root): the file reports no page cache of its own.
+    overlay: bool,
 }
 
 pub struct Source {
@@ -54,9 +56,11 @@ pub struct Source {
 }
 
 /// Whether the page cache holds every page of `[off, off+len)`, from `cachestat(2)`: a pure
-/// query (unlike an `RWF_NOWAIT` read, which starts readahead on a miss). `None` where the
-/// kernel lacks it (< 6.5): the caller treats the range as cold.
-fn cached(f: &File, off: u64, len: u64) -> Option<bool> {
+/// query (unlike an `RWF_NOWAIT` read, which starts readahead on a miss). Where that cannot
+/// answer, the pages are counted through a mapping: a kernel without it (< 6.5), a container
+/// whose seccomp filter refuses it, and overlayfs (a container's root), whose files report no
+/// pages of their own.
+fn cached(f: &Fds, off: u64, len: u64) -> bool {
     #[repr(C)]
     struct Range {
         off: u64,
@@ -75,12 +79,40 @@ fn cached(f: &File, off: u64, len: u64) -> Option<bool> {
     let r = Range { off, len };
     let mut st = Stat::default();
     // SAFETY: the documented cachestat ABI; both structs outlive the call.
-    let rc = unsafe { libc::syscall(SYS_CACHESTAT, f.as_raw_fd(), &r, &mut st, 0) };
-    if rc != 0 {
-        return None;
-    }
+    let rc = unsafe { libc::syscall(SYS_CACHESTAT, f.buffered.as_raw_fd(), &r, &mut st, 0) };
     let page = 4096u64;
-    Some(st.nr_cache >= (off + len).div_ceil(page) - off / page)
+    if rc == 0 && st.nr_cache >= (off + len).div_ceil(page) - off / page {
+        return true;
+    }
+    (rc != 0 || f.overlay) && resident(&f.buffered, off, len)
+}
+
+fn overlay(f: &File) -> bool {
+    const OVERLAYFS_SUPER_MAGIC: i64 = 0x794c7630;
+    // SAFETY: out-param of the right type on our own descriptor.
+    let mut fs: libc::statfs = unsafe { std::mem::zeroed() };
+    #[allow(clippy::unnecessary_cast)] // f_type is not an i64 on every target
+    let magic = unsafe { libc::fstatfs(f.as_raw_fd(), &mut fs) == 0 }.then_some(fs.f_type as i64);
+    magic == Some(OVERLAYFS_SUPER_MAGIC)
+}
+
+/// Every page of `[off, off+len)` is in core, by `mincore(2)` over a mapping (never faults).
+fn resident(f: &File, off: u64, len: u64) -> bool {
+    let start = off - off % 4096;
+    let n = (off + len - start) as usize;
+    if n == 0 {
+        return true;
+    }
+    // SAFETY: a read-only shared mapping of our descriptor, unmapped below.
+    let p = unsafe { libc::mmap(std::ptr::null_mut(), n, libc::PROT_READ, libc::MAP_SHARED, f.as_raw_fd(), start as libc::off_t) };
+    if p == libc::MAP_FAILED {
+        return false;
+    }
+    let mut pages = vec![0u8; n.div_ceil(4096)];
+    // SAFETY: the vector holds one byte per page of the mapping.
+    let ok = unsafe { libc::mincore(p, n, pages.as_mut_ptr()) } == 0 && pages.iter().all(|b| b & 1 == 1);
+    unsafe { libc::munmap(p, n) };
+    ok
 }
 
 impl Source {
@@ -138,7 +170,7 @@ impl Source {
         } else {
             None
         };
-        let f = Arc::new(Fds { buffered, direct });
+        let f = Arc::new(Fds { overlay: overlay(&buffered), buffered, direct });
         self.fds.lock().unwrap().insert(obj.sha256.clone(), f.clone());
         Ok(f)
     }
@@ -169,7 +201,7 @@ impl Source {
         let end = o.off + item.len;
         let aligned = (dst as u64).wrapping_sub(o.off).is_multiple_of(a) && (end.is_multiple_of(a) || item.part_end);
         let direct = match (mode, &fds.direct) {
-            (Mode::Cache, Some(f)) if aligned && !cached(&fds.buffered, o.off, item.len).unwrap_or(false) => f,
+            (Mode::Cache, Some(f)) if aligned && !cached(&fds, o.off, item.len) => f,
             _ => {
                 read::read_into(lease, o, buf)?;
                 let t = if mode == Mode::Buffered { &tally.buffered_bytes } else { &tally.cached_bytes };
@@ -278,10 +310,16 @@ impl Readers {
         self.q.1.notify_one();
     }
 
-    /// Finish queued jobs, then stop the threads.
-    pub fn shutdown(&self) {
+    /// Let the threads exit once the queue is empty; waits for nothing (the caller may be one
+    /// of them).
+    pub fn stop(&self) {
         self.q.0.lock().unwrap().stop = true;
         self.q.1.notify_all();
+    }
+
+    /// Finish queued jobs, then stop the threads.
+    pub fn shutdown(&self) {
+        self.stop();
         for t in self.threads.lock().unwrap().drain(..) {
             let _ = t.join();
         }

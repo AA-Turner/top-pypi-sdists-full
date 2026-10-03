@@ -1,5 +1,8 @@
 //! Per-call cryptographic identities; no buffered userspace RNG state or IDs.
-use rand::{RngCore, rngs::OsRng};
+use rand::{
+    TryRng,
+    rngs::{SysError, SysRng},
+};
 
 const ALPHABET: &[u8; 62] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 const MAX_COMPONENT_SIZE: usize = 1024;
@@ -22,11 +25,11 @@ impl RandomUserId {
         Ok(Self { prefix, length })
     }
 
-    pub fn generate(&self) -> Result<String, rand::Error> {
-        self.generate_with_rng(&mut OsRng)
+    pub fn generate(&self) -> Result<String, SysError> {
+        self.generate_with_rng(&mut SysRng)
     }
 
-    fn generate_with_rng(&self, rng: &mut impl RngCore) -> Result<String, rand::Error> {
+    fn generate_with_rng<R: TryRng>(&self, rng: &mut R) -> Result<String, R::Error> {
         let mut output = String::with_capacity(self.prefix.len() + 1 + self.length);
         output.push_str(&self.prefix);
         if !self.prefix.is_empty() {
@@ -54,27 +57,22 @@ impl RandomUserId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::num::NonZeroU32;
 
     struct FixedEntropy {
         fail: bool,
     }
 
-    impl RngCore for FixedEntropy {
-        fn next_u32(&mut self) -> u32 {
+    impl TryRng for FixedEntropy {
+        type Error = std::io::Error;
+        fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
             unreachable!()
         }
-        fn next_u64(&mut self) -> u64 {
+        fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
             unreachable!()
         }
-        fn fill_bytes(&mut self, _: &mut [u8]) {
-            unreachable!()
-        }
-        fn try_fill_bytes(&mut self, bytes: &mut [u8]) -> Result<(), rand::Error> {
+        fn try_fill_bytes(&mut self, bytes: &mut [u8]) -> Result<(), Self::Error> {
             if self.fail {
-                return Err(rand::Error::from(
-                    NonZeroU32::new(rand::Error::CUSTOM_START).unwrap(),
-                ));
+                return Err(std::io::Error::other("entropy unavailable"));
             }
             let input = [
                 248, 249, 250, 251, 252, 253, 254, 255, 0, 61, 62, 123, 124, 185, 186, 247,

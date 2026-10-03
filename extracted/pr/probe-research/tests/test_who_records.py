@@ -360,6 +360,42 @@ def test_back_to_the_agent_keeps_the_default_another_agent_still_needs(isolate, 
     assert not agent_rules.is_installed(agent_rules.memory_path("claude_code")), "an opted-out file stays opted out"
 
 
+def test_moving_to_the_daemon_keeps_an_opted_out_file_opted_out(isolate, monkeypatch):
+    """A customer passed `--no-agent-rules`, switched to the daemon, and found
+    Probe's block in their global CLAUDE.md (2026-10-02): the move wrote the
+    daemon's blurb whether or not a block was there. Absent is the opt-out."""
+    Calls(monkeypatch)
+    path = agent_rules.memory_path("claude_code")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# my own rules\n", encoding="utf-8")
+    caps = Capabilities(agent_source="claude_code", tracking_plugin_installed=True, capture_plugin_installed=True)
+    lines = wizard.apply_recorder(caps, session_marker.RECORDER_DAEMON, base_url="https://api.test")
+    assert session_marker.recorder("claude_code") == session_marker.RECORDER_DAEMON
+    assert path.read_text(encoding="utf-8") == "# my own rules\n"
+    assert not [line for line in lines if line.startswith("!")]
+
+
+def test_no_agent_rules_beside_who_records_drops_both_blocks(isolate, monkeypatch):
+    """`--who-records daemon --no-agent-rules`: the flag was accepted and
+    ignored. Now it is the opt-out, team-note block included."""
+    Calls(monkeypatch)
+    path = _claude_md(isolate)
+    agent_rules.install(path, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+    caps = Capabilities(agent_source="claude_code", tracking_plugin_installed=True, capture_plugin_installed=True)
+    wizard.apply_recorder(caps, session_marker.RECORDER_DAEMON, base_url="https://api.test", rules=False)
+    text = path.read_text(encoding="utf-8")
+    assert agent_rules.BEGIN_MARKER not in text and agent_rules.NOTE_BLOCK.begin not in text
+    assert session_marker.recorder("claude_code") == session_marker.RECORDER_DAEMON
+
+
+def test_agent_rules_beside_who_records_writes_the_daemon_block(isolate, monkeypatch):
+    Calls(monkeypatch)
+    caps = Capabilities(agent_source="claude_code", tracking_plugin_installed=True, capture_plugin_installed=True)
+    wizard.apply_recorder(caps, session_marker.RECORDER_DAEMON, base_url="https://api.test", rules=True)
+    path = agent_rules.memory_path("claude_code")
+    assert agent_rules.installed_profile(path) is agent_rules.Profile.DAEMON
+
+
 # ---------------------------------------------------------------------------
 # The row: Defaults › Who records on the main menu, ONE value for the machine,
 # switched with ←/→ and applied at once (Richard 2026-09-29).
@@ -395,7 +431,8 @@ class _Tel:
 
 
 def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=None, tel=None, stuck=(),
-              yes=False, libraries="test", signed_in=True, refused=False):
+              yes=False, libraries="test", signed_in=True, refused=False, caps=None, agent_rules=None,
+              rules_seen=None):
     import contextlib
 
     from probe.cli import daemon_cli, tui
@@ -427,7 +464,9 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
     monkeypatch.setattr(wizard, "daemon_availability",
                         lambda base_url=None: events.append(("ask", None)) or (offered, None))
 
-    def apply(caps, value, *, base_url):
+    def apply(caps, value, *, base_url, rules=None):
+        if rules_seen is not None:
+            rules_seen.append(rules)
         applied.append((caps.agent_source, value))
         if caps.agent_source in stuck:
             return [f"! could not install for {caps.agent_source}"]
@@ -435,11 +474,16 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
         return [f"moved {caps.agent_source}"]
 
     monkeypatch.setattr(wizard, "apply_recorder", apply)
+    # pi's pre-flight (package check, then its capture pairing) is
+    # test_pi_daemon_profile.py's; here it is ready and paired.
+    monkeypatch.setattr(wizard, "daemon_package_ready", lambda source: wizard._Ready(True, []))
+    monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: [])
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: pages.append(1) or page)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: refused)
-    caps = {"claude_code": Capabilities(), "codex": Capabilities(agent_source="codex")}
+    caps = caps or {"claude_code": Capabilities(), "codex": Capabilities(agent_source="codex")}
     lines = cli_main._run_recorder_action(
-        yes=yes, caps_by_source=caps, base_now="https://api.test", chosen=chosen, telemetry=tel
+        yes=yes, caps_by_source=caps, base_now="https://api.test", chosen=chosen, telemetry=tel,
+        agent_rules=agent_rules,
     )
     return applied, pages, lines
 
@@ -520,7 +564,7 @@ def test_the_check_and_the_move_show_the_spinner_never_a_blank_screen(isolate, m
         ("spin", "Checking the Probe daemon is open to your team"),
         ("ask", None),
         ("done", "Checking the Probe daemon is open to your team"),
-    ], "the paid-plan answer is awaited under the spinner"
+    ], "the server's answer is awaited under the spinner"
     assert spins[3][0] == "spin" and "daemon" in spins[3][1], "and so are the plugin moves"
 
 
@@ -744,6 +788,98 @@ def test_enter_on_the_daemon_row_installs_missing_libraries(isolate, monkeypatch
     assert installed["version"] == "2.51"
 
 
+def test_the_agent_rules_flag_reaches_the_switch(isolate, monkeypatch):
+    seen: list = []
+    _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, agent_rules=False, rules_seen=seen)
+    assert seen == [False, False]
+    seen.clear()
+    _recorder(monkeypatch, chosen=session_marker.RECORDER_AGENT, yes=True, rules_seen=seen)
+    assert seen == [None, None], "no flag: each file keeps what it has"
+
+
+def test_no_agent_rules_cleans_a_machine_already_on_the_daemon(isolate, monkeypatch):
+    """The customer's way out: already on the daemon, with the block the switch
+    wrote, `--who-records daemon --no-agent-rules` moved nothing and so applied
+    nothing. The flag now reaches agents that are already there."""
+    for source in ("claude_code", "codex"):
+        session_marker.write_recorder(source, session_marker.RECORDER_DAEMON)
+    path = agent_rules.memory_path("claude_code")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# mine\n", encoding="utf-8")
+    agent_rules.install(path, block=agent_rules.render_block(profile=agent_rules.Profile.DAEMON))
+    agent_rules.install(path, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+    applied, _pages, lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, agent_rules=False
+    )
+    assert applied == [], "nothing to move"
+    assert path.read_text(encoding="utf-8") == "# mine\n"
+    assert lines[0].startswith("Removed the Probe block from") and lines[-1].startswith("Who records: already daemon")
+    assert not agent_rules.memory_path("codex").exists(), "a file that never existed is not created"
+
+
+def test_the_wizard_hands_the_agent_rules_flag_to_the_recorder_action(isolate, monkeypatch):
+    cli_main = importlib.import_module("probe.cli.main")
+    seen = {}
+    monkeypatch.setattr(cli_main, "_run_recorder_action", lambda **kw: seen.update(kw) or [])
+    cli_main._run_wizard_action(
+        importlib.import_module("probe.cli.actions").Action.RECORDER,
+        caps=Capabilities(), base_now="https://api.test", yes=True, tracking=None, capture=None,
+        auto_update=None, agent_rules=False, uninstall=False, configured=True, recorder="daemon",
+    )
+    assert seen["agent_rules"] is False and seen["chosen"] == "daemon"
+
+
+def test_pi_moves_with_the_switch_now_that_it_has_a_daemon_profile(isolate, monkeypatch):
+    """A customer with pi switched to the daemon and got lines for Claude Code
+    and Codex only (2026-10-02): pi had no daemon profile. It has one now (its
+    package's settings entry), so the switch moves it with the others."""
+    pi = Capabilities(agent_source="pi", tracking_plugin_installed=True)
+    caps = {"claude_code": Capabilities(), "codex": Capabilities(agent_source="codex"), "pi": pi}
+    applied, _pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, caps=caps)
+    assert applied == [("claude_code", "daemon"), ("codex", "daemon"), ("pi", "daemon")]
+    assert not [line for line in lines if "keeps recording itself" in line]
+
+
+def test_pi_is_not_named_when_it_is_not_set_up_or_the_switch_is_back_to_the_agent(isolate, monkeypatch):
+    unset = {"claude_code": Capabilities(), "pi": Capabilities(agent_source="pi")}
+    _applied, _pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, caps=unset)
+    assert not [line for line in lines if line.startswith("pi ")], "a pi binary nobody connected records nothing"
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
+    pi = {"claude_code": Capabilities(), "pi": Capabilities(agent_source="pi", tracking_plugin_installed=True)}
+    _applied, _pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_AGENT, yes=True, caps=pi)
+    assert not [line for line in lines if line.startswith("pi ")]
+
+
+def test_the_cleanup_runs_even_when_the_daemon_is_closed_to_the_team(isolate, monkeypatch):
+    """The cleanup is a local edit: it must not wait on the server's yes, the
+    daemon's key or a sign-in."""
+    for source in ("claude_code", "codex"):
+        session_marker.write_recorder(source, session_marker.RECORDER_DAEMON)
+    path = agent_rules.memory_path("claude_code")
+    agent_rules.install(path, block=agent_rules.render_block(profile=agent_rules.Profile.DAEMON))
+    _applied, _pages, lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, agent_rules=False, offered=False
+    )
+    assert not agent_rules.is_installed(path)
+    assert lines[0].startswith("Removed the Probe block from") and lines[-1] == "Who records did not change."
+
+    agent_rules.install(path, block=agent_rules.render_block(profile=agent_rules.Profile.DAEMON))
+    _applied, _pages, lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, yes=True, agent_rules=False, signed_in=False
+    )
+    assert not agent_rules.is_installed(path)
+    assert lines[-1] == "Who records did not change."
+
+
+def test_a_switch_leaves_an_undecodable_file_alone_without_a_warning(isolate, monkeypatch):
+    """No flag and no block: nothing to do, so nothing to fail at either."""
+    path = agent_rules.memory_path("claude_code")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes("# Caf\xe9\n".encode("latin-1"))
+    assert wizard.apply_recorder_rules("claude_code", session_marker.RECORDER_AGENT) == []
+    assert path.read_bytes() == "# Caf\xe9\n".encode("latin-1")
+
+
 def test_who_records_with_a_sign_in_flag_is_refused(isolate, monkeypatch):
     cli_main = importlib.import_module("probe.cli.main")
 
@@ -760,7 +896,7 @@ def test_who_records_with_a_sign_in_flag_is_refused(isolate, monkeypatch):
 def test_a_team_the_daemon_is_closed_to_is_told_and_nothing_moves(isolate, monkeypatch):
     applied, pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, offered=False)
     assert applied == [] and pages == []
-    assert lines == [wizard.DAEMON_PAID_ONLY_NOTE, "Nothing changed."]
+    assert lines == [wizard.DAEMON_UNAVAILABLE_NOTE, "Nothing changed."]
 
 
 def test_enter_on_the_row_opens_the_daemons_page_only_when_it_records(isolate, monkeypatch):
@@ -846,3 +982,38 @@ def test_session_track_from_a_terminal_honours_the_sessions_profile(isolate, mon
 
     result = CliRunner().invoke(app, ["session", "track", "--session", sid])
     assert session_marker.session_state(sid) == session_marker.STATE_DAEMON, result.output
+
+
+def test_the_who_records_row_names_an_agent_still_recording_itself(isolate):
+    """The row read "daemon" while pi recorded itself (2026-10-02), and the
+    Enter that moves it was nowhere on screen."""
+    from types import SimpleNamespace
+
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
+    caps = {"claude_code": SimpleNamespace(configured=True), "pi": SimpleNamespace(configured=True)}
+
+    title, copy = wizard.recorder_row(caps_by_source=caps)
+
+    assert "‹ daemon ›" in title
+    assert copy[-1] == "pi still records itself: Enter moves it to the daemon."
+    session_marker.write_recorder("pi", session_marker.RECORDER_AGENT)
+    two = {**caps, "codex": SimpleNamespace(configured=True)}
+    _, copy = wizard.recorder_row(caps_by_source=two)
+    assert copy[-1] == "Codex and pi still record themselves: Enter moves them to the daemon."
+    # Not set up: not named.
+    _, copy = wizard.recorder_row(caps_by_source={**caps, "pi": SimpleNamespace(configured=False)})
+    assert not any("still records itself" in line for line in copy)
+
+
+def test_the_main_menu_hands_its_agents_to_the_who_records_row(monkeypatch):
+    seen = []
+
+    def choices(caps_by_source=None):
+        seen.append(caps_by_source)
+        raise RuntimeError("stop after building the rows")
+
+    monkeypatch.setattr(wizard, "action_choices", choices)
+    caps = {"pi": Capabilities()}
+    with pytest.raises(RuntimeError):
+        wizard.run_action_menu(caps)
+    assert seen == [caps]

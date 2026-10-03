@@ -15,7 +15,7 @@ from pathlib import Path
 
 AGENT = Path(__file__).resolve().parents[1]
 TAP = AGENT / "plugins" / "probe-research-tap"
-TS = AGENT / "plugins" / "probe-research-pi" / "src" / "turnSignal.ts"
+TS = AGENT / "plugins" / "probe-research-pi" / "src" / "core" / "turnSignal.ts"
 
 
 def _ts_string(name: str) -> str:

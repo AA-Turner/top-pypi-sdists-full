@@ -24,6 +24,10 @@ from exp.common.models import (
     ToolCall,
     Usage,
 )
+from exp.common.models.usage_observability import (
+    fold_openai_shaped_reasoning,
+    unreported_token_details,
+)
 from exp.runtime.gateway.images_contracts import ImagesRequest
 from exp.runtime.models.providers.async_transport import (
     AsyncJsonHttpTransport,
@@ -57,6 +61,10 @@ from exp.runtime.models.providers.hunyuan import is_hunyuan_base_url
 from exp.runtime.models.providers.instruction_turns import (
     fold_instruction_turns_after_the_first,
     fold_trailing_instruction_turns,
+)
+from exp.runtime.models.providers.openrouter_routing import (
+    OPENROUTER_PROVIDER_ID,
+    openrouter_cache_writes_within_reads,
 )
 from exp.runtime.models.providers.reasoning_compat import (
     openai_reasoning_effort,
@@ -299,7 +307,13 @@ def openai_compatible_response(
         output=output,
         configured_model=configured_model,
         served_model_id=payload.get("model"),
-        usage=_usage(payload),
+        usage=_usage(
+            payload,
+            cache_writes_within_reads=(
+                configured_model.provider == OPENROUTER_PROVIDER_ID
+                and openrouter_cache_writes_within_reads(configured_model.model_id)
+            ),
+        ),
         latency_seconds=latency_seconds,
         hit_length_limit=choice.get("finish_reason") == "length",
     )
@@ -740,25 +754,58 @@ def _array_or_empty(message: JsonObject) -> list[JsonValue]:
     return require_array(value, "choices[0].message.tool_calls")
 
 
-def _usage(payload: JsonObject) -> Usage | None:
+def _usage(payload: JsonObject, *, cache_writes_within_reads: bool) -> Usage | None:
     """Read optional OpenAI-compatible token usage without inventing absent measurements."""
     value = payload.get("usage")
     if value is None:
         return None
     usage = require_object(value, "usage")
+    try:
+        unknown = unreported_token_details(usage)
+    except ValueError as error:
+        raise OpenAICompatibleResponseError(str(error)) from error
     prompt_tokens = require_integer(usage.get("prompt_tokens"), "usage.prompt_tokens")
     completion_tokens = require_integer(usage.get("completion_tokens"), "usage.completion_tokens")
-    details_value = usage.get("prompt_tokens_details")
-    cached_input_tokens = None
-    if details_value is not None:
-        details = require_object(details_value, "usage.prompt_tokens_details")
-        cached_input_tokens = require_integer(
-            details.get("cached_tokens"), "usage.prompt_tokens_details.cached_tokens"
+
+    def detail(group: str, field: str) -> int | None:
+        """Preserve a reported token subset without treating omission as zero."""
+        if field in unknown:
+            return None
+        raw = usage.get(group)
+        if raw is None:
+            return None
+        value = require_object(raw, f"usage.{group}").get(field)
+        return None if value is None else require_integer(value, f"usage.{group}.{field}")
+
+    reasoning = detail("completion_tokens_details", "reasoning_tokens")
+    raw_total = usage.get("total_tokens")
+    total = None if raw_total is None else require_integer(raw_total, "usage.total_tokens")
+    try:
+        completion_tokens = fold_openai_shaped_reasoning(
+            prompt_tokens, completion_tokens, reasoning, total
         )
+    except ValueError as error:
+        raise OpenAICompatibleResponseError(str(error)) from error
+    tier = payload.get("service_tier")
+    cached = detail("prompt_tokens_details", "cached_tokens")
+    written = detail("prompt_tokens_details", "cache_write_tokens")
+    if (
+        cache_writes_within_reads
+        and cached is not None
+        and written is not None
+        and written <= cached
+    ):
+        # Match the native normalizer's disjoint contract. This provider's
+        # authored write rate includes the read charge on the written tokens.
+        cached -= written
     return Usage(
         input_tokens=prompt_tokens,
         output_tokens=completion_tokens,
-        cached_input_tokens=cached_input_tokens,
+        cached_input_tokens=cached,
+        cache_write_input_tokens=written,
+        cache_write_1h_input_tokens=detail("prompt_tokens_details", "cache_write_1h_tokens"),
+        reasoning_tokens=reasoning,
+        service_tier=None if tier is None else require_string(tier, "service_tier"),
     )
 
 

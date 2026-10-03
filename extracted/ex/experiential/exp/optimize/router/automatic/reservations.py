@@ -531,6 +531,7 @@ def completion_reservation_from_catalog(
     try:
         return completion_cost_reservation(
             model=model,
+            token_prices=catalog.models[alias].token_prices,
             input_usd_per_million_tokens=input_price,
             output_usd_per_million_tokens=output_price,
             cached_input_usd_per_million_tokens=cached_input_price,
@@ -616,6 +617,7 @@ def judge_completion_reservation(
     try:
         return completion_cost_reservation(
             model=judge,
+            token_prices=catalog.models[judge_alias].token_prices,
             input_usd_per_million_tokens=input_price,
             output_usd_per_million_tokens=output_price,
             cached_input_usd_per_million_tokens=cached_input_price,
@@ -745,6 +747,17 @@ def plan_automatic_router_cost(
         problems.append("automatic cost plan lacks a request reservation for a candidate")
     if any(value is None for value in (router, query, world_request, judge_request)):
         problems.append("automatic cost plan has incomplete provider reservations")
+    completion_requests = [
+        *((item.candidate_alias, item.request) for item in candidates),
+        ("world model", world_request),
+        ("judge", judge_request),
+    ]
+    for label, request in completion_requests:
+        if request is not None and not request.maximum_is_upper_bound():
+            problems.append(
+                f"{label} has an incomplete token tariff; a finite router allowance "
+                "requires every reachable price dimension"
+            )
     if problems:
         raise ValueError("automatic router cost plan failed:\n- " + "\n- ".join(problems))
     assert router is not None and query is not None

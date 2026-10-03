@@ -42,6 +42,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "doppler/pn/pn_core.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -56,7 +58,9 @@ extern "C"
     WFM_SEQ_LITERAL = 0, /**< a 0/1 array the caller owns                  */
     WFM_SEQ_PN      = 1, /**< dp_pn_create()   — m-sequence, one LFSR         */
     WFM_SEQ_GOLD    = 2, /**< dp_gold_create() — two LFSRs, a Gold family     */
-    WFM_SEQ_DOTTED  = 3  /**< alternating 1010…; a line at Rs/2 to settle on */
+    WFM_SEQ_DOTTED  = 3, /**< alternating 1010…; a line at Rs/2 to settle on */
+    WFM_SEQ_DATA    = 4  /**< `data:LEN`: LEN bits per frame from the frame's
+                              data source; it has no bits of its own      */
   } wfm_seq_kind_t;
 
   /**
@@ -530,9 +534,34 @@ extern "C"
    * @param max_out  capacity; 0 is returned if @p s->len exceeds it.
    * @return bits written, or 0 if the sequence is unbuildable (a LITERAL
    *         with no array, a length past @p max_out, a generator that
-   *         refused its own parameters).
+   *         refused its own parameters) or has no bits of its own
+   *         (@ref WFM_SEQ_DATA, whose bits are its data source's).
    */
   size_t dp_wfm_seq_bits (const wfm_seq_t *s, uint8_t *out, size_t max_out);
+
+  /**
+   * @brief The PN generator a @ref WFM_SEQ_PN sequence names, at its first
+   * bit. NULL if it names none.
+   *
+   * The ONE resolution of a PN sequence's defaults: a zero `poly` is the
+   * maximal-length polynomial for its register (and a register that has none
+   * is refused), and a zero `seed` is 1. @ref dp_wfm_seq_bits renders a
+   * field through it, and a `pn:0` data source keeps one running across
+   * frames, so a stream's chunk `k` is bits `[k LEN, (k+1) LEN)` of the very
+   * sequence its Field names.
+   *
+   * @param s  a sequence of kind @ref WFM_SEQ_PN; any other kind is NULL.
+   * @return a generator the caller frees with `dp_pn_destroy()`, or NULL.
+   *
+   * @code
+   * wfm_seq_t      q = { .kind = WFM_SEQ_PN, .len = 31, .reg_bits = 5 };
+   * dp_pn_state_t *p = dp_wfm_seq_pn_create (&q);
+   * uint8_t        b[31];
+   * dp_pn_generate (p, 31, b, 31);   // one period of the 5-bit m-sequence
+   * dp_pn_destroy (p);
+   * @endcode
+   */
+  dp_pn_state_t *dp_wfm_seq_pn_create (const wfm_seq_t *s);
 
   /**
    * @brief Write a field's bits: its sequence once, then repeated. Returns
@@ -550,7 +579,8 @@ extern "C"
    * @param out      receives `f->seq.len * reps` bits, one per byte.
    * @param max_out  capacity of @p out in bits.
    * @return bits written, or 0 if the field is derived, empty, larger than
-   *         @p max_out, or its sequence cannot be built. On 0, @p out may
+   *         @p max_out, a data field (its bits are its data source's), or
+   *         its sequence cannot be built. On 0, @p out may
    *         have been partly written.
    *
    * @code
@@ -596,9 +626,10 @@ extern "C"
    * filtered, because a typo that quietly shortens a sync word syncs to
    * nothing and fails nowhere.
    *
-   * `data:LEN` is part of the grammar but not yet of this parser: it names a
-   * payload drawn from a data source, which a `wfm_seq_t` cannot carry
-   * until that source exists. It is refused, by name.
+   * `data:LEN` parses to a @ref WFM_SEQ_DATA field: LEN bits per frame,
+   * drawn from the frame's data source, so the description knows its
+   * length and never its bits. `LEN` must be > 0 and nothing may follow
+   * it (docs/design/payload-data-source.md).
    *
    * @param spec   NUL-terminated text.
    * @param field  receives the field: `name` empty, `derived_by` 0, `reps`
@@ -693,13 +724,15 @@ extern "C"
    * @param out      receives the bits, one per byte; NULL to size.
    * @param max_out  capacity of @p out in bits; ignored when @p out is NULL.
    * @param why      optional; as @ref dp_wfm_field_parse, plus "the output
-   *                 is smaller than the field".
+   *                 is smaller than the field" and, for `data:LEN`, that
+   *                 its bits come from the frame's data source.
    * @return the field's length in bits (repetitions included), or 0 on a
    *         refusal. A Field is never empty, so 0 is unambiguous. **Every
-   *         text the grammar accepts renders**: the parser refuses what a
-   *         generator could not build (a 1-bit register with no POLY, a
-   *         number wider than REG), so the sizing call's answer is what the
-   *         rendering call writes, given room.
+   *         text the grammar accepts renders, except `data:LEN`**, which
+   *         has no bits of its own and is refused, sizing or rendering: the
+   *         parser refuses what a generator could not build (a 1-bit
+   *         register with no POLY, a number wider than REG), so the sizing
+   *         call's answer is what the rendering call writes, given room.
    *
    * @code
    * uint8_t b[124];
@@ -733,6 +766,46 @@ extern "C"
                              size_t max_out);
 
   /**
+   * @brief @ref dp_wfm_frame_assemble, with a data field's bits supplied.
+   *
+   * A @ref WFM_SEQ_DATA field has no bits of its own: they are one chunk of
+   * the frame's data source, drawn per frame (wfm/wfm_data.h). This writes
+   * @p data at the data field's offset and then runs every stage, so a
+   * stage covering the payload -- a CRC, an outer code -- covers THIS
+   * frame's chunk. @ref dp_wfm_frame_assemble is this with @p data NULL.
+   *
+   * @param d        the description; at most one data field (the layout
+   *                 refuses two).
+   * @param ops      as @ref dp_wfm_frame_assemble.
+   * @param data     the data field's bits, `LEN * REPS` of them, one per
+   *                 byte, as `dp_wfm_data_next()` writes them; ignored when
+   *                 @p d has no data field, and required when it has one.
+   * @param out      as @ref dp_wfm_frame_assemble.
+   * @param max_out  as @ref dp_wfm_frame_assemble.
+   * @return the bits written, or 0 as @ref dp_wfm_frame_assemble, and also
+   *         when @p d has a data field and @p data is NULL.
+   *
+   * @code
+   * const wfm_seq_t  data = { .kind = WFM_SEQ_DATA, .len = 24 };
+   * wfm_frame_desc_t d;
+   * dp_wfm_frame_fixed (&d, NULL, 0, NULL, &data, 1); // [data:24 | crc16]
+   * uint8_t chunk[24] = { 1, 0, 1, 1 }, frame[40];
+   * // the chunk at the data field's offset, then a CRC-16 over it
+   * if (dp_wfm_frame_assemble_data (&d, NULL, chunk, frame, sizeof frame)
+   *         != 40
+   *     || frame[0] != 1 || frame[1] != 0)
+   *   return 1;
+   * // with no chunk, the data field is refused, as by dp_wfm_frame_assemble
+   * if (dp_wfm_frame_assemble_data (&d, NULL, NULL, frame, sizeof frame) != 0)
+   *   return 1;
+   * @endcode
+   */
+  size_t dp_wfm_frame_assemble_data (const wfm_frame_desc_t *d,
+                                     const wfm_frame_ops_t *ops,
+                                     const uint8_t *data, uint8_t *out,
+                                     size_t max_out);
+
+  /**
    * @brief Derive every field offset, every stage span and both lengths.
    *
    * The one operation both shipped framers already have, widened: this is
@@ -763,12 +836,17 @@ extern "C"
    * reach the state at all, since @ref dp_wfm_frame_add_stage wires the
    * producer from the cover it is given.
    *
+   * A frame draws from ONE data source, so it carries at most one
+   * @ref WFM_SEQ_DATA field; a second is refused. The data field's length
+   * counts like any other, so a frame's geometry is known before its data
+   * is.
+   *
    * @param d    the description.
    * @param out  receives the layout.
    * @return 0, or -1 if @p d or @p out is NULL, a count or a cover runs
-   *         past its array, a derived field names no producing stage, or an
+   *         past its array, a derived field names no producing stage, an
    *         emitting stage covers less than the whole frame or is not the
-   *         only one.
+   *         only one, or the frame has two data fields.
    */
   int dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
                              wfm_frame_desc_layout_t *out);
@@ -875,6 +953,63 @@ extern "C"
                               const uint8_t *acq_code, size_t acq_len,
                               size_t acq_reps, const uint8_t *data_code,
                               size_t data_len, uint8_t *out, size_t max_out);
+
+  /**
+   * @brief A DSSS burst over a data chunk: assemble, spread.
+   *
+   * This is to @ref dp_wfm_dsss_desc_chips what @ref
+   * dp_wfm_frame_assemble_data is to @ref dp_wfm_frame_assemble -- the same
+   * burst as @ref dp_wfm_dsss_desc_chips, with the description's
+   * `data:LEN` field filled from @p data rather than refused. A data source
+   * on a dsss source builds one burst per chunk through this, at each burst
+   * boundary (payload-data-source.md). @ref dp_wfm_dsss_desc_chips is this
+   * with @p data NULL, so there is one spreader.
+   *
+   * @param d         description of the spread frame.
+   * @param ops       kernels beyond the built-in CRC; may be NULL.
+   * @param data      the `data:LEN` field's bits (0/1), one per byte, as
+   *                  many as the layout gives the field; NULL when the
+   *                  description has no data field.
+   * @param acq_code  preamble chips (0/1); NULL when there is no preamble.
+   * @param acq_len   preamble length in chips.
+   * @param acq_reps  preamble repetitions.
+   * @param data_code spreading code (0/1), length @p data_len.
+   * @param data_len  chips per frame bit.
+   * @param out       receives the burst, one chip per byte.
+   * @param max_out   capacity of @p out; must be at least
+   *                  @ref dp_wfm_dsss_desc_nchips.
+   * @return chips written, or 0 if the geometry is refused, a stage has no
+   *         kernel, a data field has no @p data, or @p max_out is too small.
+   *
+   * @code
+   * #include <doppler/wfm/wfm_frame.h>
+   *
+   * int
+   * main (void)
+   * {
+   *   wfm_frame_desc_t d;
+   *   const wfm_seq_t  data = { .kind = WFM_SEQ_DATA, .len = 2 };
+   *   dp_wfm_frame_fixed (&d, NULL, 0, NULL, &data, 0); // [data:2]
+   *   const uint8_t chunk[2] = { 0, 1 }, code[3] = { 1, 1, 0 };
+   *   uint8_t       out[6];
+   *   // each data bit spreads the code: 0 sends it, 1 inverts it
+   *   if (dp_wfm_dsss_desc_chips_data (&d, NULL, chunk, NULL, 0, 0, code, 3,
+   *                                    out, sizeof out)
+   *           != 6
+   *       || out[0] != 1 || out[2] != 0 || out[3] != 0 || out[5] != 1)
+   *     return 1;
+   *   // with no chunk, the data field is refused
+   *   return dp_wfm_dsss_desc_chips_data (&d, NULL, NULL, NULL, 0, 0, code, 3,
+   *                                       out, sizeof out)
+   *          != 0;
+   * }
+   * @endcode
+   */
+  size_t dp_wfm_dsss_desc_chips_data (
+      const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
+      const uint8_t *data, const uint8_t *acq_code, size_t acq_len,
+      size_t acq_reps, const uint8_t *data_code, size_t data_len, uint8_t *out,
+      size_t max_out);
 
   /**
    * @brief Undo a description's stages over a received frame, and report.

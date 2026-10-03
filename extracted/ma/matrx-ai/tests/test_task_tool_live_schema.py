@@ -1,7 +1,7 @@
-"""The `task` tool works against the LIVE workspace.tasks shape — every action.
+"""The `task` tool works against the LIVE projects.tasks shape — every action.
 
 Verifier, 2026-09-26: the tool failed on every action with the ORM refusing
-``Unknown field(s) on Tasks: ['is_public', 'user_id']``. workspace.tasks is a
+``Unknown field(s) on Tasks: ['is_public', 'user_id']``. projects.tasks is a
 canonical entity now: the owner is ``created_by``, the web lane is
 ``published_to_web`` and the list filter ``shown_to``, it is soft-deleted through ``deleted_at``,
 and ``organization_id`` is NOT NULL. The old tests mocked ``create_item`` with a
@@ -27,7 +27,7 @@ from matrx_ai.tools.models import ToolContext
 ORG = "5b0e4a51-8d2f-4c52-9d0a-2f3c1e7a9b10"  # the clinic's organization
 PERSON = "0f6c2a3e-1b4d-4e5f-8a9b-7c6d5e4f3a21"  # the front-desk coordinator
 
-# workspace.tasks, live (information_schema.columns, 2026-09-26; T-13 words 2026-09-28 —
+# projects.tasks, live (information_schema.columns, 2026-09-26; T-13 words 2026-09-28 —
 # the retiring row column is left out so a writer that still names it is refused).
 LIVE_TASK_COLUMNS = frozenset(
     {
@@ -64,7 +64,7 @@ class _Row:
 
 
 class FakeTasksTable:
-    """An in-memory workspace.tasks that answers like the ORM — including its refusals."""
+    """An in-memory projects.tasks that answers like the ORM — including its refusals."""
 
     def __init__(self) -> None:
         self.rows: dict[str, dict[str, Any]] = {}

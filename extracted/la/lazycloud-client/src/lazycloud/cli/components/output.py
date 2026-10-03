@@ -1,4 +1,4 @@
-"""Single output owner for the ``lazycloud`` and ``lazycloud-admin`` commands.
+"""Single output owner for the ``lazycloud`` command.
 
 Decorative output uses the shared terminal consoles.
 Machine-readable payloads go through ``print_payload``,
@@ -18,9 +18,9 @@ from typing import IO, Any
 import typer
 from pydantic import JsonValue
 from rich.console import RenderableType
-from shared.events import Event
-from shared.serialization import to_json_value
 
+from lazycloud._shared.events import Event
+from lazycloud._shared.serialization import to_json_value
 from lazycloud._terminal.cards import empty_state, result_card
 from lazycloud._terminal.streams import console, error_console
 from lazycloud.cli.components.tables import resource_table

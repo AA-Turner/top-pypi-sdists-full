@@ -6,6 +6,7 @@ Preserves ALL content types and metadata from all providers
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import threading
 from contextvars import ContextVar
 from copy import copy
@@ -848,6 +849,260 @@ async def _catalog_cost_of(usage: Any) -> float:
     return float(cost or 0.0)
 
 
+def _remember_passing_wire(profile: Any) -> None:
+    try:
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+        from matrx_ai.providers.setting_rejection import remember_passing_wire
+
+        state = try_get_execution_state()
+        if state is not None and state.snapshot_payload is not None:
+            remember_passing_wire(
+                str(getattr(profile, "vendor", "unknown")),
+                getattr(profile, "model_name", None),
+                state.snapshot_payload,
+            )
+    except Exception:  # noqa: BLE001 — bookkeeping never touches the answer
+        pass
+
+
+def _streamed_text_length() -> int | None:
+    """Characters of visible answer streamed to the person in this turn so far.
+
+    ``None`` when there is no person-facing stream (no context / no emitter /
+    an emitter without a turn buffer) — then nothing can have reached a person.
+    """
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        emitter = getattr(ctx, "emitter", None) if ctx is not None else None
+        getter = getattr(emitter, "get_turn_text", None)
+        if getter is None:
+            return None
+        return len(getter() or "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _config_as_sent(config: Any, repair: Any) -> Any:
+    sent = copy(config)
+    try:
+        setattr(sent, repair.config_attr, repair.old_value)
+    except Exception:  # noqa: BLE001
+        pass
+    return sent
+
+
+#: Settings-translation I2 (the live settings probe): a call made to ASK the
+#: provider whether one translated value is accepted must see the provider's own
+#: answer, never a repaired retry — a healed probe would read as "accepted" while
+#: the cell under test is wrong. While set, a settings rejection is filed exactly
+#: as R2 files one it does not retry (``self_healed`` false) with this value as
+#: ``not_retried_reason``, and the rejection propagates to the caller.
+_SELF_HEAL_SUPPRESSED: ContextVar[str | None] = ContextVar(
+    "matrx_settings_self_heal_suppressed", default=None
+)
+
+
+@contextlib.contextmanager
+def settings_self_heal_suppressed(reason: str = "live_probe"):
+    """No in-line settings repair for calls made inside this block (see above)."""
+    token = _SELF_HEAL_SUPPRESSED.set(reason)
+    try:
+        yield
+    finally:
+        _SELF_HEAL_SUPPRESSED.reset(token)
+
+
+class _SettingsSelfHeal:
+    """Settings-translation R2: ONE mechanical repair per provider call.
+
+    Rules (each pinned by tests/test_setting_self_heal.py):
+      * only a failure classified ``invalid_setting`` that NAMES its field;
+      * exactly ``REPAIRS_PER_CALL`` (1) repair — a second rejection is the
+        person's honest error, never a third attempt;
+      * pre-stream only — if any answer text reached the person, no retry, and
+        the record says ``output_already_streamed``;
+      * the K10 record files ONCE, after the outcome: ``self_healed`` true/false,
+        the repair (a K9 Adjustment, provenance ``computed``) or the reason none.
+    """
+
+    def __init__(self, *, provider: str, profile: Any, config: Any, modality: str | None = None) -> None:
+        self.provider = provider
+        self.modality = modality
+        self.profile = profile
+        self.config = config
+        self.repairs_used = 0
+        self.first_exc: BaseException | None = None
+        self.first_info: Any = None
+        self.first_ctx: dict[str, Any] = {}
+        self.repair: Any = None
+
+    def _failure_context(self) -> dict[str, Any]:
+        """What the FAILED attempt sent, captured before a retry overwrites it."""
+        try:
+            from matrx_ai.providers.failure_report import _ambient_setting_context
+            from matrx_ai.providers.outbound_params import last_outbound_adjustments
+
+            ctx = {k: v for k, v in _ambient_setting_context().items() if v is not None}
+            ctx.pop("config", None)  # the wire config below is the call's own
+            adjustments = last_outbound_adjustments(getattr(self.profile, "model_name", None))
+            if adjustments is not None:
+                ctx["adjustments"] = adjustments
+            return ctx
+        except Exception:  # noqa: BLE001
+            return {}
+
+    def _identity(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "model": getattr(self.profile, "model_name", None),
+            "route": "providers/dispatch",
+            "setting_context": {
+                "profile": self.profile,
+                "config": self.config,
+                "modality": self.modality,
+            },
+        }
+
+    async def _file(
+        self,
+        exc: BaseException,
+        info: Any,
+        outcome: dict[str, Any],
+        failure_ctx: dict[str, Any] | None = None,
+    ) -> None:
+        from matrx_ai.providers.failure_report import report_setting_rejection
+
+        ident = self._identity()
+        ident["setting_context"] = {**ident["setting_context"], **(failure_ctx or {})}
+        await report_setting_rejection(
+            exc,
+            info,
+            provider=ident["provider"],
+            model=ident["model"],
+            route=ident["route"],
+            payload=outcome,
+            setting_context=ident["setting_context"],
+        )
+
+    async def succeeded(self) -> None:
+        if self.repair is None or self.first_exc is None:
+            return
+        from matrx_ai.providers.outbound_params import send_client_warning
+        from matrx_ai.providers.setting_rejection import SELF_HEALED_KEY, repair_warning
+
+        send_client_warning(
+            repair_warning(
+                self.repair, provider=self.provider, model=getattr(self.profile, "model_name", None)
+            ),
+            name="setting_repaired_warning",
+        )
+        vcprint(
+            f"[dispatch] {self.provider} settings rejection self-healed: "
+            f"{self.repair.canonical_key} {self.repair.action} "
+            f"{self.repair.old_value!r} -> {self.repair.new_value!r}",
+            color="yellow",
+        )
+        await self._file(
+            self.first_exc,
+            self.first_info,
+            {
+                SELF_HEALED_KEY: True,
+                "repair": self.repair.as_record(),
+                "retry": {"outcome": "succeeded"},
+                # The accepted retry writes the success snapshot; the failure
+                # snapshot id pre-allocated for this call is never written.
+                "request_snapshot_id": None,
+            },
+            self.first_ctx,
+        )
+
+    async def handle_failure(self, exc: BaseException, *, streamed_before: int | None) -> bool:
+        """True when the call should be sent again (repair applied). Never raises."""
+        try:
+            return await self._handle(exc, streamed_before=streamed_before)
+        except Exception as bug:  # noqa: BLE001 — the self-heal never replaces the provider's error
+            vcprint(f"[dispatch] settings self-heal failed internally: {bug!r}", color="red")
+            return False
+
+    async def _handle(self, exc: BaseException, *, streamed_before: int | None) -> bool:
+        from matrx_ai.providers.failure_report import classify_for_report
+        from matrx_ai.providers.setting_rejection import (
+            REPAIRS_PER_CALL,
+            SELF_HEALED_KEY,
+            SETTING_REJECTION_ERROR_TYPE,
+            apply_setting_repair,
+            load_parameter_facts,
+            plan_setting_repair,
+        )
+
+        info = classify_for_report(exc, self.provider)
+        is_setting = info is not None and info.error_type == SETTING_REJECTION_ERROR_TYPE
+
+        if self.repair is not None:
+            # The repaired call failed too. The FIRST rejection's record says so,
+            # then this failure takes the normal door (deduped when it is the
+            # same refused field) and propagates: no third attempt, ever.
+            await self._file(
+                self.first_exc,  # type: ignore[arg-type]
+                self.first_info,
+                {
+                    SELF_HEALED_KEY: False,
+                    "repair": self.repair.as_record(),
+                    "retry": {
+                        "outcome": "rejected_again" if is_setting else "failed",
+                        "error_type": getattr(info, "error_type", None),
+                    },
+                },
+                self.first_ctx,
+            )
+            if is_setting:
+                # Same refused field + request: deduped into the record above.
+                await self._file(exc, info, {SELF_HEALED_KEY: False, "not_retried_reason": "repair_budget_spent"})
+            # A non-settings failure was already reported by _dispatch_admitted.
+            return False
+
+        if not is_setting:
+            return False
+
+        reason: str | None = None
+        streamed_after = _streamed_text_length()
+        if _SELF_HEAL_SUPPRESSED.get():
+            reason = _SELF_HEAL_SUPPRESSED.get()
+        elif self.repairs_used >= REPAIRS_PER_CALL:
+            reason = "repair_budget_spent"
+        elif streamed_before is not None and streamed_after is not None and streamed_after > streamed_before:
+            reason = "output_already_streamed"
+        plan = None
+        if reason is None:
+            plan = plan_setting_repair(
+                info,
+                profile=self.profile,
+                config=self.config,
+                facts=await load_parameter_facts(self.profile),
+            )
+            if plan.repair is None:
+                reason = plan.reason
+            elif not apply_setting_repair(self.config, plan.repair):
+                reason = "config_cannot_express_repair"
+        if reason is not None:
+            await self._file(
+                exc, info, {SELF_HEALED_KEY: False, "not_retried_reason": reason}, self._failure_context()
+            )
+            return False
+
+        self.repairs_used += 1
+        self.repair = plan.repair  # type: ignore[union-attr]
+        self.first_exc = exc
+        self.first_info = info
+        self.first_ctx = self._failure_context()
+        # The record reads the canonical value from a config: give it the
+        # values as SENT, not the repaired wire config.
+        self.first_ctx["config"] = _config_as_sent(self.config, self.repair)
+        return True
+
+
 class UnifiedAIClient:
     """Unified client for all AI providers.
 
@@ -1336,6 +1591,7 @@ class UnifiedAIClient:
                         lambda: instance.execute(wire_config, profile, debug),
                         profile=profile,
                         provider_client=instance,
+                        config=wire_config,
                     ),
                     profile,
                     config,
@@ -1362,6 +1618,7 @@ class UnifiedAIClient:
                     lambda: provider_client.execute(wire_config, profile, debug),
                     profile=profile,
                     provider_client=provider_client,
+                    config=wire_config,
                 ),
                 profile,
                 config,
@@ -1376,6 +1633,7 @@ class UnifiedAIClient:
         profile: Any,
         provider_client: Any | None = None,
         transient_retries: int = 0,
+        config: Any = None,
     ) -> Any:
         """Run one provider dispatch under the LAYER 2 billing net.
 
@@ -1404,17 +1662,46 @@ class UnifiedAIClient:
         active_pools = _ACTIVE_DISPATCH_POOLS.get()
         if holder in active_pools:
             return await dispatch()
+        # THE GUEST AI ALLOWANCE — before the admission slot, before any spend.
+        # A signed-out visitor's free AI actions are counted here, once per
+        # carried request_id, because every paid call passes this seam; a
+        # used-up guest is refused with GuestAIAllowanceUsedError (a caller
+        # refusal: never retried, rerouted or filed as a provider failure).
+        # Signed-in callers return immediately. See providers/guest_ai_allowance.py.
+        from matrx_ai.providers.guest_ai_allowance import admit_guest_ai_action
+
+        await admit_guest_ai_action()
         provider = str(getattr(profile, "vendor", "unknown"))
         attempt = 0
+        # THE SETTINGS SELF-HEAL (settings-translation R2) — one attempt kind of
+        # this loop, beside the transient retry. A classified settings rejection
+        # that names its field is repaired mechanically on the per-call wire
+        # config and sent ONCE more; its K10 record is filed here, after the
+        # outcome is known (``self_healed``). See ``_settings_self_heal``.
+        heal = _SettingsSelfHeal(
+            provider=provider,
+            profile=profile,
+            config=config,
+            modality=str(getattr(provider_client, "modality", None) or "text"),
+        )
         while True:
             pools_token = _ACTIVE_DISPATCH_POOLS.set(active_pools | {holder})
+            streamed_before = _streamed_text_length()
             try:
                 # Each attempt is a whole dispatch: its own admission slot, its
                 # own failure report, its own LAYER 2 verdict.
-                return await UnifiedAIClient._dispatch_admitted(
-                    dispatch, profile=profile, provider_client=provider_client
+                result = await UnifiedAIClient._dispatch_admitted(
+                    dispatch,
+                    profile=profile,
+                    provider_client=provider_client,
+                    config=config,
+                    defer_setting_rejection=True,
                 )
+                await heal.succeeded()
+                return result
             except Exception as exc:
+                if await heal.handle_failure(exc, streamed_before=streamed_before):
+                    continue  # repaired: send once more, now, no backoff
                 info = (
                     transient_unbilled_failure(exc, provider)
                     if attempt < transient_retries
@@ -1439,6 +1726,8 @@ class UnifiedAIClient:
         *,
         profile: Any,
         provider_client: Any | None,
+        config: Any = None,
+        defer_setting_rejection: bool = False,
     ) -> Any:
         from matrx_ai.providers.admission import admit_provider_call
         from matrx_ai.providers.keys import prepare_provider_clients
@@ -1467,6 +1756,10 @@ class UnifiedAIClient:
             try:
                 result = await dispatch()
                 succeeded = True
+                # The wire shape this model ACCEPTED — the comparison point an
+                # opaque settings rejection (Google "invalid argument") names
+                # its suspect params against. Cheap, in-process, never raises.
+                _remember_passing_wire(profile)
                 if getattr(result, "messages", None) is None:
                     # An STT transcript, an embedding vector, decision answers,
                     # rerank scores: not an answer to a declared contract, so
@@ -1524,6 +1817,10 @@ class UnifiedAIClient:
                     provider=str(getattr(profile, "vendor", "unknown")),
                     model=getattr(profile, "model_name", None),
                     route="providers/dispatch",
+                    profile=profile,
+                    config=config,
+                    modality=str(getattr(provider_client, "modality", None) or "text"),
+                    defer_setting_rejection=defer_setting_rejection,
                 )
                 raise
             finally:
@@ -1728,7 +2025,15 @@ class UnifiedAIClient:
 
         text = self._last_user_text(config)
 
-        result = await extract_spans(model_name, text, labels, threshold=threshold)
+        # The run's CLASS (user pin or reroute pin) picks the offering, never
+        # the preferred class behind the agent's back.
+        result = await extract_spans(
+            model_name,
+            text,
+            labels,
+            threshold=threshold,
+            offering_id=getattr(config, "routing_offering_id", None),
+        )
 
         entities: dict[str, list[dict[str, Any]]] = {}
         for span in result.spans:

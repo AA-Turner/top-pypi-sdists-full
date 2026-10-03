@@ -35,8 +35,8 @@ async def test_crm_writes_are_refused(monkeypatch, table):
 
 
 async def test_ordinary_schema_still_writable(monkeypatch):
-    schema, name, err_type, err_msg = await _resolve(monkeypatch, "workspace.tasks")
-    assert (schema, name) == ("workspace", "tasks")
+    schema, name, err_type, err_msg = await _resolve(monkeypatch, "projects.tasks")
+    assert (schema, name) == ("projects", "tasks")
     assert err_type is None and err_msg is None
 
 

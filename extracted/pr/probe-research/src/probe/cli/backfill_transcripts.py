@@ -48,18 +48,20 @@ PI = "pi"
 #: and answers 403 for the other, which the tap's classifier treats as a
 #: permanent drop -- so posting a Codex rollout to the Claude Code door does not
 #: fail loudly, it fails silently. The mapping is data, not a branch, to keep
-#: that impossible. Mirrors tap/sources.py's per-source `webhook_path` --
-#: reimplemented rather than imported, because the tap plugin and this CLI are
-#: separate distributions (see tap_core/__init__.py's module docstring). A
-#: source present in that registry but missing here is a live bug: `discover()`
+#: that impossible. Built from the harness registry's `route`, the same row
+#: tap/sources.py builds its `webhook_path` from (each distribution reads its
+#: own copy of the registry). A source present there but missing here was a
+#: live bug once: `discover()`
 #: happily finds and queues that agent's transcripts, and `upload_session`
 #: KeyErrors on the very first one it tries to send -- see
 #: test_ingest_path_and_sanitizer_cover_every_tap_capture_source.
-INGEST_PATH = {
-    CLAUDE: "/ingest/v1/sessions/claude-code",
-    CODEX: "/ingest/v1/sessions/codex",
-    PI: "/ingest/v1/sessions/pi",
-}
+def _captured_rows():
+    from probe.harness import get_registry
+
+    return get_registry().captured()
+
+
+INGEST_PATH = {h.id: f"/ingest/v1/sessions/{h.route}" for h in _captured_rows()}
 
 #: Claude Code writes tool OUTPUT twice: once as a `tool_result` block inside
 #: `message.content`, which the sanitizer compacts to a byte count, and once as
@@ -93,10 +95,10 @@ def _import_sanitizer(inner):
     return sanitize_for_import
 
 
+#: The sanitizer modules a registry row can name (`capture.sanitizer`).
+_SANITIZER_MODULES = {"sanitize": sanitize, "codex_sanitize": codex_sanitize, "pi_sanitize": pi_sanitize}
 SANITIZER = {
-    CLAUDE: _import_sanitizer(sanitize.sanitize_event),
-    CODEX: _import_sanitizer(codex_sanitize.sanitize_event),
-    PI: _import_sanitizer(pi_sanitize.sanitize_event),
+    h.id: _import_sanitizer(_SANITIZER_MODULES[h.capture.sanitizer].sanitize_event) for h in _captured_rows()
 }
 
 #: How many bytes one line may be read into memory at a time. A transcript can

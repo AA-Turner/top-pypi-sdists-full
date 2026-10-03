@@ -12,6 +12,7 @@ from airbyte_ops_mcp.cloud_admin.models import (
     DataplaneGroupList,
     DataWorkerAllocation,
     DataWorkerAllocationList,
+    OrganizationInfo,
 )
 
 from airbyte_ops_webapp.auth import mock_session
@@ -83,6 +84,34 @@ def test_allocation_rows_carry_region_names(mock_authenticated: None) -> None:
 
     names = [row["dataplane_group_name"] for row in lookup.allocations["allocations"]]
     assert names == ["US", "EU"]
+
+
+@pytest.mark.parametrize(
+    ("region_id", "region_name", "expected_text"),
+    [
+        pytest.param("", "Default region", "the default region", id="default"),
+        pytest.param("dataplane-group-eu-west-1", "EU", "EU", id="region"),
+    ],
+)
+def test_mock_add_capacity_names_the_region(
+    monkeypatch: pytest.MonkeyPatch,
+    region_id: str,
+    region_name: str,
+    expected_text: str,
+) -> None:
+    monkeypatch.setattr(mcp_tools, "auth_available", lambda *_: True)
+    monkeypatch.setattr(mcp_tools, "mock_only_enabled", lambda: True)
+
+    result = add_capacity(
+        "demo-org",
+        "2.5",
+        organization_name="Acme",
+        dataplane_group_id=region_id,
+        region_name=region_name,
+    )
+
+    assert result.success
+    assert expected_text in result.message
 
 
 def test_zero_capacity_regions_are_hidden(monkeypatch) -> None:
@@ -273,6 +302,47 @@ def test_remove_capacity_sends_region_to_the_api(monkeypatch) -> None:
     assert "EU" in result.message
 
 
+@pytest.mark.parametrize(
+    ("region_id", "region_name", "expected_id", "expected_text"),
+    [
+        pytest.param("", "Default region", None, "the default region", id="default"),
+        pytest.param("region-9", "EU", "region-9", "EU", id="region"),
+    ],
+)
+def test_add_capacity_sends_region_only_when_given(
+    monkeypatch,
+    region_id: str,
+    region_name: str,
+    expected_id: str | None,
+    expected_text: str,
+) -> None:
+    """A blank region lets the platform pick the default one."""
+    seen: dict[str, object] = {}
+
+    def fake_add(**kwargs):
+        seen.update(kwargs)
+        return DataWorkerAllocationList(
+            organization_id="org-1",
+            total_allocated_capacity=1.0,
+            allocations=[],
+        )
+
+    monkeypatch.setattr(mcp_tools, "add_data_worker_capacity", fake_add)
+    monkeypatch.setattr(mcp_tools, "auth_available", lambda *_: True)
+    monkeypatch.setattr(mcp_tools, "mock_only_enabled", lambda: False)
+    monkeypatch.setattr(
+        mcp_tools, "list_dataplane_groups", lambda **_: DataplaneGroupList()
+    )
+
+    result = mcp_tools.add_capacity(
+        "org-1", "2.5", dataplane_group_id=region_id, region_name=region_name
+    )
+
+    assert result.success is True
+    assert seen["dataplane_group_id"] == expected_id
+    assert expected_text in result.message
+
+
 @pytest.mark.parametrize("tool", ["add", "remove"])
 def test_unreadable_response_still_reports_success(monkeypatch, tool: str) -> None:
     """A committed change must never be reported as failed."""
@@ -378,3 +448,75 @@ def test_row_remove_button_records_region_and_opens_dialog() -> None:
 
     # No Select: the renderer won't expand a ForEach into SelectOption children.
     assert not [node for node in nodes if type(node).__name__ == "Select"]
+
+
+def test_add_region_picker_lists_default_and_org_regions() -> None:
+    """The picker offers the default region plus every region the org can use."""
+
+    def is_pick(node) -> bool:
+        return any(
+            getattr(action, "key", None) == "add_dataplane_group_id"
+            for action in (getattr(node, "on_click", None) or [])
+        )
+
+    nodes = list(_walk(data_worker_allocation().view))
+    popover = next(
+        node
+        for node in nodes
+        if type(node).__name__ == "Popover" and any(map(is_pick, _walk(node)))
+    )
+    picker_nodes = list(_walk(popover))
+    picks = [node for node in picker_nodes if is_pick(node)]
+
+    assert len(picks) == 2
+    assert picks[0].label == "Default region"
+    loop = next(node for node in picker_nodes if type(node).__name__ == "ForEach")
+    assert "dataplane_groups" in str(loop.model_dump(by_alias=True))
+
+
+def test_lookup_resets_the_add_region() -> None:
+    """A region from the last org must not carry over to the next one."""
+    keys = _state_keys(helpers.lookup_success_actions())
+
+    assert "add_dataplane_group_id" in keys
+    assert "add_dataplane_group_name" in keys
+    assert "dataplane_groups" in keys
+
+
+def test_lookup_returns_regions_the_org_holds_nothing_in(monkeypatch) -> None:
+    """The picker must offer regions with no capacity yet."""
+    monkeypatch.setattr(mcp_tools, "auth_available", lambda *_: True)
+    monkeypatch.setattr(mcp_tools, "mock_only_enabled", lambda: False)
+    monkeypatch.setattr(
+        mcp_tools, "_resolve_org_id", lambda *_a, **_k: ("org-1", "Org 1", None)
+    )
+    monkeypatch.setattr(
+        mcp_tools,
+        "get_organization_info",
+        lambda **_: OrganizationInfo(organizationId="org-1", organizationName="Org 1"),
+    )
+    monkeypatch.setattr(
+        mcp_tools,
+        "list_data_worker_allocations",
+        lambda **_: DataWorkerAllocationList(
+            organization_id="org-1",
+            total_allocated_capacity=1.0,
+            allocations=[
+                DataWorkerAllocation(dataplane_group_id="us", allocated_capacity=1.0)
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        mcp_tools,
+        "list_dataplane_groups",
+        lambda **_: DataplaneGroupList(
+            dataplane_groups=[
+                DataplaneGroup(dataplane_group_id="us", name="US"),
+                DataplaneGroup(dataplane_group_id="eu", name="EU"),
+            ]
+        ),
+    )
+
+    result = lookup_allocations("org-1")
+
+    assert [group["name"] for group in result.dataplane_groups] == ["US", "EU"]

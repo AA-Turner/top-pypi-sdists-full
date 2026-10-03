@@ -1,14 +1,13 @@
 import os
 import sys
 import platform
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from typing import List, Tuple, Final
 import subprocess
 import concurrent.futures
 import threading
 import time
-
 
 #: Peak resident set of one host-compiler pass over the templated similarity headers, and of one `cicc` pass
 #: over the same headers with the CUDA kernels on top. The CUDA figure is the one that matters: four
@@ -500,6 +499,11 @@ def is_64bit_arm() -> bool:
     return (arch in ("arm64", "aarch64")) and (sys.maxsize > 2**32)
 
 
+def is_64bit_riscv() -> bool:
+    arch = platform.machine().lower()
+    return arch.startswith("riscv64") and (sys.maxsize > 2**32)
+
+
 def is_big_endian() -> bool:
     return sys.byteorder == "big"
 
@@ -542,6 +546,11 @@ def linux_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[Tu
         ("SZ_USE_SVE", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_SVE2", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_SVE2AES", "1" if is_64bit_arm() else "0"),
+        # The RVV kernels carry their own `target("arch=+v")`, so the tier turns on without
+        # moving the baseline `-march` off `rv64gc`. Left to the `types.h` auto-detect it would
+        # stay off, since that needs `__riscv_vector`, which only a vector baseline defines -
+        # which is why every RISC-V wheel shipped so far has been scalar.
+        ("SZ_USE_RVV", os.environ.get("SZ_USE_RVV") or ("1" if is_64bit_riscv() else "0")),
     ]
 
     return compile_args, link_args, macros_args
@@ -760,7 +769,8 @@ if sz_target == "stringzilla":
                 "python/stringzilla/utf8_uncased_fold.c",
                 "python/stringzilla/utf8_uncased.c",
                 "python/stringzilla/utf8_norm.c",
-            ] + STRINGZILLA_CORE_SOURCES,
+            ]
+            + STRINGZILLA_CORE_SOURCES,
             include_dirs=["include", "c/stringzilla"],
             extra_compile_args=compile_args,
             extra_link_args=link_args,
@@ -909,7 +919,7 @@ setup(
     include_dirs=[],
     setup_requires=[],
     ext_modules=ext_modules,
-    packages=find_packages(),
+    packages=[],
     entry_points=entry_points,
     cmdclass=command_class,
     install_requires=install_requires,

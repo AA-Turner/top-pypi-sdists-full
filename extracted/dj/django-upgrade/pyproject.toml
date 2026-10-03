@@ -4,7 +4,7 @@ requires = ["uv-build>=0.12.1,<0.13"]
 
 [project]
 name = "django-upgrade"
-version = "1.32.0"
+version = "1.33.0"
 description = "Automatically upgrade your Django project code."
 readme = "README.rst"
 keywords = ["Django"]
@@ -108,13 +108,13 @@ allow_untyped_defs = true
 strict = true
 
 [tool.coverage.run]
-branch = true
-data_file = ".coverage/cov"
-parallel = true
 source = [
     "django_upgrade",
     "tests",
 ]
+branch = true
+data_file = ".coverage/cov"
+parallel = true
 
 [tool.coverage.paths]
 source = [
@@ -123,9 +123,9 @@ source = [
 ]
 
 [tool.coverage.report]
-show_missing = true
 skip_covered = true
 skip_empty = true
+show_missing = true
 
 [tool.rstcheck]
 report_level = "ERROR"

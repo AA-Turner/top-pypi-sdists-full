@@ -1,8 +1,6 @@
 import base64
 import datetime
 from typing import Any
-from typing import Dict
-from typing import Optional
 
 
 def parse_publish_time(publish_time: str) -> datetime.datetime:
@@ -20,9 +18,9 @@ class SubscriberMessage:
     def __init__(
         self, ack_id: str, message_id: str,
         publish_time: 'datetime.datetime',
-        data: Optional[bytes],
-        attributes: Optional[Dict[str, Any]],
-        delivery_attempt: Optional[int] = None,
+        data: bytes | None,
+        attributes: dict[str, Any] | None,
+        delivery_attempt: int | None = None,
     ):
         self.ack_id = ack_id
         self.message_id = message_id
@@ -31,9 +29,11 @@ class SubscriberMessage:
         self.attributes = attributes
         self.delivery_attempt = delivery_attempt
 
+        self.force_ack_nack: bool | None = None
+
     @staticmethod
     def from_repr(
-        received_message: Dict[str, Any],
+        received_message: dict[str, Any],
     ) -> 'SubscriberMessage':
         ack_id = received_message['ackId']
         message_id = received_message['message']['messageId']
@@ -51,8 +51,8 @@ class SubscriberMessage:
             delivery_attempt=delivery_attempt,
         )
 
-    def to_repr(self) -> Dict[str, Any]:
-        r: Dict[str, Any] = {
+    def to_repr(self) -> dict[str, Any]:
+        r: dict[str, Any] = {
             'ackId': self.ack_id,
             'message': {
                 'messageId': self.message_id,
@@ -68,3 +68,24 @@ class SubscriberMessage:
         if self.delivery_attempt is not None:
             r['deliveryAttempt'] = self.delivery_attempt
         return r
+
+    def ack(self) -> None:
+        """
+        Forcibly mark a message as acked.
+
+        By default, we only ack a message if the callback returns without
+        raising an exception. If this method has been called on the Message, we
+        will instead ack it regardless of exception status.
+        """
+        self.force_ack_nack = True
+
+    def nack(self) -> None:
+        """
+        Forcibly mark a message as nacked.
+
+        By default, we only nack a message if the callback raises an exception.
+        If this method has been called on the Message, we will instead nack it
+        regardless of exception status, ie. including if it completes
+        successfully.
+        """
+        self.force_ack_nack = False

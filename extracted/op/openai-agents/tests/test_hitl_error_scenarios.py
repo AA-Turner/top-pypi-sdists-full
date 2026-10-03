@@ -1247,7 +1247,7 @@ async def test_resume_rebuilds_function_runs_from_pending_approvals() -> None:
     """Resuming with only pending approvals should reconstruct and run function calls."""
 
     @function_tool(needs_approval=True)
-    def approve_me(reason: Optional[str] = None) -> str:  # noqa: UP007
+    def approve_me(reason: Optional[str] = None) -> str:  # noqa: UP045
         return f"approved:{reason}" if reason else "approved"
 
     model, agent = make_model_and_agent(tools=[approve_me])
@@ -1446,8 +1446,9 @@ async def test_resume_honors_permanent_namespaced_function_approval_with_new_cal
         tools=[lookup_account],
     )[0]
     context_wrapper = make_context_wrapper()
+    agent = Agent(name="billing-agent")
     approved_item = ToolApprovalItem(
-        agent=Agent(name="billing-agent"),
+        agent=agent,
         raw_item=make_function_tool_call(
             "lookup_account",
             call_id="approved-call",
@@ -1493,7 +1494,7 @@ async def test_resume_honors_permanent_namespaced_function_approval_with_new_cal
         record_rejection=_record_rejection,
         pending_interruption_adder=pending.append,
         pending_item_builder=lambda run: ToolApprovalItem(
-            agent=Agent(name="billing-agent"),
+            agent=agent,
             raw_item=run.tool_call,
             tool_name=run.function_tool.name,
             tool_namespace="billing",
@@ -2414,7 +2415,7 @@ async def test_resume_rebuilds_function_runs_from_object_approvals() -> None:
     """Rebuild should handle ResponseFunctionToolCall approval items."""
 
     @function_tool(needs_approval=True)
-    def approve_me(reason: Optional[str] = None) -> str:  # noqa: UP007
+    def approve_me(reason: Optional[str] = None) -> str:  # noqa: UP045
         return f"approved:{reason}" if reason else "approved"
 
     model, agent = make_model_and_agent(tools=[approve_me])
@@ -2466,8 +2467,8 @@ async def test_resume_rebuilds_function_runs_from_object_approvals() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resume_rebuilds_local_mcp_function_runs_from_approvals() -> None:
-    """Rebuild should resolve approved MCP-backed function tools from agent.mcp_servers."""
+async def test_resume_rejects_local_mcp_approval_without_recipient_binding() -> None:
+    """Approval metadata alone cannot establish the original MCP recipient."""
 
     server = FakeMCPServer(require_approval="always")
     server.add_tool("add", {"type": "object", "properties": {}})
@@ -2496,28 +2497,20 @@ async def test_resume_rebuilds_local_mcp_function_runs_from_approvals() -> None:
         interruptions=[],
     )
 
-    result = await _resolve_interrupted_turn(
-        agent=agent,
-        original_input="resume approvals",
-        original_pre_step_items=[],
-        new_response=ModelResponse(output=[], usage=Usage(), response_id="resp"),
-        processed_response=processed_response,
-        hooks=RunHooks(),
-        context_wrapper=context_wrapper,
-        run_config=RunConfig(),
-        run_state=run_state,
-    )
+    with pytest.raises(UserError, match="missing or different recipient binding"):
+        await _resolve_interrupted_turn(
+            agent=agent,
+            original_input="resume approvals",
+            original_pre_step_items=[],
+            new_response=ModelResponse(output=[], usage=Usage(), response_id="resp"),
+            processed_response=processed_response,
+            hooks=RunHooks(),
+            context_wrapper=context_wrapper,
+            run_config=RunConfig(),
+            run_state=run_state,
+        )
 
-    assert not isinstance(result.next_step, NextStepInterruption)
-    assert server.tool_calls == ["add"]
-    executed_call_ids = {
-        extract_tool_call_id(item.raw_item)
-        for item in result.new_step_items
-        if isinstance(item, ToolCallOutputItem)
-    }
-    assert "call-mcp-rebuild" in executed_call_ids, (
-        "Approved local MCP tool should be rebuilt and executed from pending approvals"
-    )
+    assert server.tool_calls == []
 
 
 @pytest.mark.asyncio

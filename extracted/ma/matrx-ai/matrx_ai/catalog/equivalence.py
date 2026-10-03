@@ -373,4 +373,36 @@ def nearest_equivalent(
     return None
 
 
-__all__ = ["ORDERED_SCALES", "nearest_equivalent"]
+def nearest_accepted(
+    key: str,
+    value: Any,
+    accepts: Iterable[Any],
+    order: Iterable[Any] = (),
+    *,
+    genders: dict[str, str] | None = None,
+) -> Any:
+    """K6 ``accepts`` enforcement: the nearest value a rule ACCEPTS.
+
+    Numbers resolve by distance (ties toward the larger — never silently do
+    less than asked); everything else goes through the setting's own metric
+    (``nearest_equivalent``). ``None`` = no honest nearest; the caller drops
+    loudly."""
+    pool = list(accepts)
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        numbers = [c for c in pool if isinstance(c, int | float) and not isinstance(c, bool)]
+        if not numbers:
+            return None
+        return min(numbers, key=lambda c: (abs(c - value), -c))
+    if isinstance(value, bool):
+        return None
+    nearest = nearest_equivalent(key, value, pool, order, genders=genders)
+    if nearest is None:
+        return None
+    # nearest_equivalent speaks strings; hand back the accepted value itself.
+    for candidate in pool:
+        if str(candidate) == nearest:
+            return candidate
+    return nearest
+
+
+__all__ = ["ORDERED_SCALES", "nearest_accepted", "nearest_equivalent"]

@@ -372,6 +372,7 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
             else "none — Who records in the wizard (switch it to the daemon, or Enter on it) approves one",
         )
     )
+    rows.extend(_who_records_rows())
     for source in reasoning_summaries.SOURCES:
         if session_marker.recorder(source) == session_marker.RECORDER_DAEMON:
             label = reasoning_summaries.LABELS[source]
@@ -404,6 +405,47 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
     errors_seen = daemon_error_lines()
     for index, line in enumerate(errors_seen):
         rows.append(_row("Recent errors" if index == 0 else "", line[:200]))
+    return rows
+
+
+def _who_records_rows() -> list[str]:
+    """One "Who records" row per coding agent set up here, and for an agent whose
+    daemon profile is its package's settings entry (pi), the package's version
+    against the floor the daemon needs and whether a project overrides it."""
+    from pathlib import Path
+
+    from probe.cli import pi_config
+    from probe.cli import setup as wizard
+    from probe.harness import get_registry
+    from probe.sdk import session_marker
+
+    daemon = session_marker.RECORDER_DAEMON
+    machine_daemon = any(session_marker.recorder(s) == daemon for s in wizard.RECORDER_SOURCES)
+    rows: list[str] = []
+    for harness in get_registry().installable():
+        if harness.id not in wizard.RECORDER_SOURCES:
+            continue
+        by_settings = harness.lean_profile == wizard.LEAN_SETTINGS_FILTER
+        profile = pi_config.entry_profile() if by_settings else None
+        if by_settings and profile is None:
+            continue  # pi is not set up here: nothing records for it
+        who = session_marker.recorder(harness.id)
+        value = wizard.RECORDER_WORDS.get(who, who)
+        if profile is not None and profile != who:
+            value += f" (but its Probe package is on the {profile} profile: switch Who records again)"
+        if machine_daemon and who != daemon:
+            value += " — can use the daemon now: `probe wizard` › Who records, Enter"
+        rows.append(_row(f"Who records ({harness.label})", value))
+        if not by_settings or not (who == daemon or machine_daemon):
+            continue
+        version = pi_config.installed_package_version()
+        floor = ".".join(str(part) for part in pi_config.DAEMON_MIN_PACKAGE_VERSION)
+        have = ".".join(str(part) for part in version) if version else "unknown"
+        ready = version is not None and version >= pi_config.DAEMON_MIN_PACKAGE_VERSION
+        rows.append(_row(f"{harness.label} Probe package", have if ready else f"{have} (the daemon needs {floor}+)"))
+        merged = pi_config.merged_package_entry(cwd=Path.cwd())
+        if who == daemon and merged.installed and merged.scope == "project":
+            rows.append(_row("", f"this folder's .pi/settings.json overrides {harness.label}'s Probe package"))
     return rows
 
 

@@ -141,7 +141,7 @@ async def test_instance_create_declares_the_agent_tool_actor(
         async def create_item(self, **payload: Any) -> Any:
             actor = current_actor()
             assert actor is not None
-            assert actor.tier == "ai"
+            assert actor.tier == "agent"
             assert actor.system == "tool:instance_create"
             return SimpleNamespace(id=uuid4())
 

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
 from copy import deepcopy
-from typing import Annotated, Protocol, TypeVar
+from typing import Annotated, Protocol
 
 import typer
-from shared.client_version import observe_client_versions, release_is_newer
 
+from lazycloud._shared.client_version import observe_client_versions, release_is_newer
 from lazycloud._terminal.streams import error_console, json_output_active, set_json_output
 from lazycloud.cli.apps import app_app
 from lazycloud.cli.artifacts import artifact_app
@@ -24,37 +23,27 @@ from lazycloud.cli.examples import example_app
 from lazycloud.cli.execution import deploy, deployment_app, run, shell
 from lazycloud.cli.identity import login, profile_app, token_app
 from lazycloud.cli.logs import logs
+from lazycloud.cli.requests import requests_app
 from lazycloud.cli.resources import (
     cloud_app,
     compute_app,
     container_app,
     machine_app,
-    task_app,
 )
 from lazycloud.cli.secrets import secret_app
 from lazycloud.cli.serve import serve
 from lazycloud.cli.ssh import ssh, ssh_cert, ssh_config, ssh_proxy
+from lazycloud.cli.tasks import task_app
 from lazycloud.cli.update import update
 from lazycloud.cli.volumes import volume_app, volume_cp, volume_ls, volume_mv, volume_rm
 from lazycloud.cli.workspaces import workspace_app
 from lazycloud.self_update import installed_version
 
 _GLOBAL_FLAGS = ("--json", "--debug")
-_RegistryValue = TypeVar("_RegistryValue")
-
-
-class PublicCliExtension(Protocol):
-    """Register commands on one freshly built public CLI."""
-
-    def __call__(self, registry: PublicCliRegistry, /) -> None: ...
 
 
 class CliRootRegistrar(Protocol):
     def __call__(self, application: typer.Typer, /) -> None: ...
-
-
-class CliGroupExtension(Protocol):
-    def __call__(self, group: typer.Typer, /) -> None: ...
 
 
 class PublicCliRegistry:
@@ -70,37 +59,10 @@ class PublicCliRegistry:
             raise ValueError(f"root command {name!r} is already registered")
         self._root_commands[name] = registrar
 
-    def remove_root_command(self, name: str) -> None:
-        if name not in self._root_commands:
-            raise ValueError(f"root command {name!r} is not registered")
-        del self._root_commands[name]
-
     def add_group(self, name: str, template: typer.Typer) -> None:
         if name in self._groups:
             raise ValueError(f"command group {name!r} is already registered")
         self._groups[name] = deepcopy(template)
-
-    def replace_group(self, name: str, template: typer.Typer) -> None:
-        if name not in self._groups:
-            raise ValueError(f"command group {name!r} is not registered")
-        self._groups[name] = deepcopy(template)
-
-    def extend_group(self, name: str, extension: CliGroupExtension) -> None:
-        try:
-            group = self._groups[name]
-        except KeyError as exc:
-            raise ValueError(f"command group {name!r} is not registered") from exc
-        extension(group)
-
-    def order_root_commands(self, names: Sequence[str]) -> None:
-        self._root_commands = _ordered_registry(
-            self._root_commands,
-            names,
-            label="root commands",
-        )
-
-    def order_groups(self, names: Sequence[str]) -> None:
-        self._groups = _ordered_registry(self._groups, names, label="command groups")
 
     def compose(self) -> None:
         for registrar in self._root_commands.values():
@@ -109,30 +71,10 @@ class PublicCliRegistry:
             self._application.add_typer(group, name=name)
 
 
-def _ordered_registry(
-    registry: dict[str, _RegistryValue],
-    names: Sequence[str],
-    *,
-    label: str,
-) -> dict[str, _RegistryValue]:
-    ordered_names = tuple(names)
-    if len(set(ordered_names)) != len(ordered_names):
-        raise ValueError(f"{label} order contains duplicate names")
-    if set(ordered_names) != set(registry):
-        missing = sorted(set(registry) - set(ordered_names))
-        unknown = sorted(set(ordered_names) - set(registry))
-        raise ValueError(f"{label} order mismatch: missing={missing}, unknown={unknown}")
-    return {name: registry[name] for name in ordered_names}
-
-
-def build_public_cli(
-    extensions: Sequence[PublicCliExtension] = (),
-    *,
-    help: str = "Deploy, run, and manage workloads on lazycloud.",
-) -> typer.Typer:
-    """Build an isolated public command tree and apply this build's extensions."""
+def build_public_cli() -> typer.Typer:
+    """Build an isolated public command tree."""
     application = typer.Typer(
-        help=help,
+        help="Deploy, run, and manage workloads on lazycloud.",
         context_settings={"help_option_names": ["-h", "--help"]},
         no_args_is_help=True,
         rich_markup_mode="rich",
@@ -141,8 +83,6 @@ def build_public_cli(
     registry = PublicCliRegistry(application)
     _register_public_commands(registry)
     _register_public_groups(registry)
-    for extension in extensions:
-        extension(registry)
     registry.compose()
     return application
 
@@ -286,16 +226,16 @@ def _register_login(application: typer.Typer) -> None:
     application.command("login", help="Authenticate the CLI profile.")(login)
 
 
+def _register_logs(application: typer.Typer) -> None:
+    application.command("logs", help="Inspect task and container logs.")(logs)
+
+
 def _register_update(application: typer.Typer) -> None:
     application.command("update", help="Upgrade the installed lazycloud client.")(update)
 
 
 def _register_dev(application: typer.Typer) -> None:
     application.command("dev", help="Run local development helpers.")(dev)
-
-
-def _register_logs(application: typer.Typer) -> None:
-    application.command("logs", help="Inspect task and container logs.")(logs)
 
 
 def _register_volume_ls(application: typer.Typer) -> None:
@@ -324,6 +264,7 @@ def _register_public_groups(registry: PublicCliRegistry) -> None:
     registry.add_group("machine", machine_app)
     registry.add_group("secret", secret_app)
     registry.add_group("domain", domain_app)
+    registry.add_group("requests", requests_app)
     registry.add_group("volume", volume_app)
     registry.add_group("disk", disk_app)
     registry.add_group("artifact", artifact_app)

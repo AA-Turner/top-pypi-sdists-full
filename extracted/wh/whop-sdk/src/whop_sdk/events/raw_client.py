@@ -297,7 +297,7 @@ class RawEventsClient:
             When the event occurred. Defaults to now.
 
         plan_id : typing.Optional[str]
-            The plan associated with the event.
+            The variant associated with the event.
 
         product_id : typing.Optional[str]
             The product associated with the event.
@@ -494,7 +494,7 @@ class RawEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PixelValidation]:
         """
-        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page.
+        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page. `affiliate_tracking_detected` reports an affiliate tracking SDK found on the page. Supported platforms: Everflow.
 
         Parameters
         ----------
@@ -853,7 +853,7 @@ class AsyncRawEventsClient:
             When the event occurred. Defaults to now.
 
         plan_id : typing.Optional[str]
-            The plan associated with the event.
+            The variant associated with the event.
 
         product_id : typing.Optional[str]
             The product associated with the event.
@@ -1053,7 +1053,7 @@ class AsyncRawEventsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PixelValidation]:
         """
-        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page.
+        Checks whether the Whop pixel is installed for an account. Recent pixel events count as proof on their own, so an account that has sent data lately comes back installed without a `url`. Pass a `url` and events from that page settle it; conversion events are also read across the hostname because they commonly fire on a later confirmation page. If the requested page hasn't sent any events lately, it is fetched and read for the pixel and conversion events wired on it. `installed` is only true when the pixel was actually seen — in the account's events or in the page. `affiliate_tracking_detected` reports an affiliate tracking SDK found on the page. Supported platforms: Everflow.
 
         Parameters
         ----------

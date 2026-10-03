@@ -90,6 +90,7 @@ if typing.TYPE_CHECKING:
         PostPayoutMethodCreatedPayloadDataQuoteInstantUnavailableReason,
     )
     from .post_payout_method_created_payload_data_quote_standard import PostPayoutMethodCreatedPayloadDataQuoteStandard
+    from .post_payout_method_created_payload_data_recipient import PostPayoutMethodCreatedPayloadDataRecipient
     from .post_payout_method_created_payload_data_status import PostPayoutMethodCreatedPayloadDataStatus
     from .post_payout_method_created_payload_data_supported_payout_method import (
         PostPayoutMethodCreatedPayloadDataSupportedPayoutMethod,
@@ -149,6 +150,8 @@ if typing.TYPE_CHECKING:
     from .retrieve_payouts_response_source import RetrievePayoutsResponseSource
     from .retrieve_payouts_response_speed import RetrievePayoutsResponseSpeed
     from .retrieve_payouts_response_status import RetrievePayoutsResponseStatus
+    from .retrieve_payouts_response_timeline_item import RetrievePayoutsResponseTimelineItem
+    from .retrieve_payouts_response_timeline_item_status import RetrievePayoutsResponseTimelineItemStatus
 _dynamic_imports: typing.Dict[str, str] = {
     "CancelPayoutsResponse": ".cancel_payouts_response",
     "CancelPayoutsResponseFailure": ".cancel_payouts_response_failure",
@@ -212,6 +215,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPayoutMethodCreatedPayloadDataQuoteInstant": ".post_payout_method_created_payload_data_quote_instant",
     "PostPayoutMethodCreatedPayloadDataQuoteInstantUnavailableReason": ".post_payout_method_created_payload_data_quote_instant_unavailable_reason",
     "PostPayoutMethodCreatedPayloadDataQuoteStandard": ".post_payout_method_created_payload_data_quote_standard",
+    "PostPayoutMethodCreatedPayloadDataRecipient": ".post_payout_method_created_payload_data_recipient",
     "PostPayoutMethodCreatedPayloadDataStatus": ".post_payout_method_created_payload_data_status",
     "PostPayoutMethodCreatedPayloadDataSupportedPayoutMethod": ".post_payout_method_created_payload_data_supported_payout_method",
     "PostPayoutMethodCreatedPayloadDataSupportedPayoutMethodDeliveryType": ".post_payout_method_created_payload_data_supported_payout_method_delivery_type",
@@ -253,6 +257,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RetrievePayoutsResponseSource": ".retrieve_payouts_response_source",
     "RetrievePayoutsResponseSpeed": ".retrieve_payouts_response_speed",
     "RetrievePayoutsResponseStatus": ".retrieve_payouts_response_status",
+    "RetrievePayoutsResponseTimelineItem": ".retrieve_payouts_response_timeline_item",
+    "RetrievePayoutsResponseTimelineItemStatus": ".retrieve_payouts_response_timeline_item_status",
 }
 
 
@@ -340,6 +346,7 @@ __all__ = [
     "PostPayoutMethodCreatedPayloadDataQuoteInstant",
     "PostPayoutMethodCreatedPayloadDataQuoteInstantUnavailableReason",
     "PostPayoutMethodCreatedPayloadDataQuoteStandard",
+    "PostPayoutMethodCreatedPayloadDataRecipient",
     "PostPayoutMethodCreatedPayloadDataStatus",
     "PostPayoutMethodCreatedPayloadDataSupportedPayoutMethod",
     "PostPayoutMethodCreatedPayloadDataSupportedPayoutMethodDeliveryType",
@@ -381,4 +388,6 @@ __all__ = [
     "RetrievePayoutsResponseSource",
     "RetrievePayoutsResponseSpeed",
     "RetrievePayoutsResponseStatus",
+    "RetrievePayoutsResponseTimelineItem",
+    "RetrievePayoutsResponseTimelineItemStatus",
 ]

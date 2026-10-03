@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import inspect
 import json
-import os
-import threading
 import types
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -23,8 +21,10 @@ from typing import (
 )
 
 from pydantic import JsonValue
-from shared.autoscaling import Autoscaler
-from shared.deployment_records import (
+
+from lazycloud._invocation import encode_arguments, prepare_arguments, serialize_result
+from lazycloud._shared.autoscaling import Autoscaler
+from lazycloud._shared.deployment_records import (
     DEFAULT_DISK,
     DEFAULT_HTTP_CPU,
     DEFAULT_HTTP_MEMORY,
@@ -35,26 +35,23 @@ from shared.deployment_records import (
     Resources,
     VolumeMount,
 )
-from shared.deployments import DEFAULT_ENDPOINT_METHODS, DeploymentKind
-from shared.execution_entry import record_execution_entry
-from shared.function_payloads import FunctionPayloadEncoding
-from shared.gpu import GpuInput, gpu_preference
-from shared.http.endpoints import StartEndpointServeResponse
-from shared.http.errors import HttpTransportError
-from shared.placement import ProductRegion
-from shared.serialization import to_json_value
-from shared.tasks import RetryPolicy, TaskPolicy
-
-from lazycloud._invocation import encode_arguments, prepare_arguments, serialize_result
+from lazycloud._shared.deployments import DEFAULT_ENDPOINT_METHODS, DeploymentKind
+from lazycloud._shared.function_payloads import FunctionPayloadEncoding
+from lazycloud._shared.gpu import GpuInput, gpu_preference
+from lazycloud._shared.placement import ProductRegion
+from lazycloud._shared.serialization import to_json_value
+from lazycloud._shared.tasks import RetryPolicy, TaskPolicy
 from lazycloud.abstractions.function import FunctionOperationError
-from lazycloud.abstractions.image import Image
-from lazycloud.abstractions.invocation import (
+from lazycloud.abstractions.http_calls import (
+    EndpointResponse,
     InvocationOptions,
-    InvocationTarget,
-    InvocationTargetError,
     InvocationTargetName,
-    resolve_invocation_target,
+    http_workload_spec,
+    resolve_url,
+    send_request,
+    unsupported_http_options,
 )
+from lazycloud.abstractions.image import Image
 from lazycloud.abstractions.metadata import (
     LifecycleHookInput,
     MachineInput,
@@ -71,21 +68,15 @@ from lazycloud.client_contracts import (
     schema_from_contract_parameters,
     schema_from_contract_return,
 )
-from lazycloud.control import ControlClientConfig, resolve_control_client_config
 from lazycloud.env import is_local
-from lazycloud.json_contracts import parse_json_value
+from lazycloud.exceptions import UnsupportedFeatureError
 from lazycloud.references import dotted_reference
 from lazycloud.terminal import Terminal
 
 if TYPE_CHECKING:
-    from shared.http.gateway import DeployStubResponse
-    from shared.http_transport import HttpChannel
-
-    from lazycloud.abstractions.serve import ServeGatewayClient, ServeResourceClient
+    from lazycloud.abstractions.image import ImageBuildResult
     from lazycloud.abstractions.shell import ShellSession
-    from lazycloud.session.deployment import DeploymentControlClient
-    from lazycloud.session.preparation import DeploymentPreparation
-
+    from lazycloud.contracts.api import Deployment, Preview, WorkloadSpec
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -183,50 +174,6 @@ class ASGIOptions(TypedDict, total=False):
     machine: MachineInput
 
 
-@dataclass(frozen=True, slots=True)
-class EndpointResponse:
-    status_code: int
-    headers: Mapping[str, list[str]]
-    content: bytes
-    url: str
-
-    @property
-    def text(self) -> str:
-        return self.content.decode("utf-8")
-
-    def json(self) -> JsonValue:
-        return parse_json_value(self.text)
-
-
-@dataclass
-class _InvocationChannel:
-    _config: ControlClientConfig | None = field(default=None, repr=False)
-    _channel: HttpChannel | None = field(default=None, repr=False)
-    _pid: int = field(default_factory=os.getpid)
-    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
-
-    def __reduce__(self) -> tuple[type[_InvocationChannel], tuple[()]]:
-        return type(self), ()
-
-    def get(self, config: ControlClientConfig) -> HttpChannel:
-        from shared.http_transport import HttpChannel
-
-        if self._pid != os.getpid():
-            # A parent thread may have held the lock when the process forked.
-            self._lock = threading.Lock()
-            self._channel = None
-            self._pid = os.getpid()
-        with self._lock:
-            if self._channel is None or self._config != config:
-                self._channel = HttpChannel(
-                    endpoint=config.endpoint,
-                    token=config.token,
-                    timeout_seconds=config.timeout_seconds,
-                )
-                self._config = config
-            return self._channel
-
-
 @dataclass
 class Endpoint(Generic[P, R]):
     func: Callable[P, R]
@@ -266,22 +213,7 @@ class Endpoint(Generic[P, R]):
     availability_zone: str = ""
     machine: MachineInput = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    stub_id: str = field(default="", init=False)
-    deployment_client: DeploymentControlClient | None = field(
-        default=None,
-        init=False,
-        repr=False,
-    )
-    endpoint: str | None = field(default=None, init=False)
-    token: str | None = field(default=None, init=False, repr=False)
-    timeout: float = field(default=10.0, init=False)
     terminal: Terminal | None = field(default=None, init=False, repr=False)
-    sync_local_dir: str | None = field(default=None, init=False)
-    gateway_client: ServeGatewayClient | None = field(default=None, init=False, repr=False)
-    resource_client: ServeResourceClient | None = field(default=None, init=False, repr=False)
-    _invocation_channel: _InvocationChannel = field(
-        default_factory=_InvocationChannel, init=False, repr=False
-    )
     _handler_reference_override: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -311,8 +243,6 @@ class Endpoint(Generic[P, R]):
         prepared_args, prepared_kwargs = prepare_arguments(
             self.func, args, kwargs, self.inputs, encoding=encoding
         )
-        if not inspect.iscoroutinefunction(self.func):
-            record_execution_entry()
         return serialize_result(
             self.func, self.func(*prepared_args, **prepared_kwargs), self.outputs
         )
@@ -381,40 +311,65 @@ class Endpoint(Generic[P, R]):
         )
         return spec
 
+    def effective_timeout_seconds(self) -> int | None:
+        return _effective_timeout_seconds(self.task_policy, self.timeout_seconds)
+
+    def unsupported_options(self) -> list[str]:
+        """Declared options the platform cannot run yet, by name."""
+        return unsupported_http_options(self)
+
+    def require_supported(self) -> None:
+        unsupported = self.unsupported_options()
+        if unsupported:
+            raise UnsupportedFeatureError(f"endpoint {self.resource_name}", unsupported)
+
+    def handler_reference(self) -> str:
+        """The `module:qualname` the runner imports."""
+        return self._handler_reference()
+
+    def workload_spec(
+        self, *, handler: str, source_sha256: str, image: ImageBuildResult
+    ) -> WorkloadSpec:
+        """The API definition of this endpoint for an uploaded source and a ready image."""
+        self.require_supported()
+        policy = retry_policy_config(
+            self.retry_policy, retries=self.retries, retry_delay_seconds=self.retry_delay_seconds
+        )
+        return http_workload_spec(
+            self,
+            kind="endpoint",
+            handler=handler,
+            source_sha256=source_sha256,
+            image=image,
+            concurrency=self.concurrency,
+            keep_warm=self.keep_warm,
+            max_pending_tasks=self.max_pending_tasks,
+            retry_policy=policy or RetryPolicy(max_attempts=1),
+            route=self.route,
+            methods=list(self.methods),
+        )
+
     def deploy(
-        self,
-        *,
-        workspace: str | None = None,
-        source_root: str | Path | None = None,
-        _preparation: DeploymentPreparation | None = None,
-    ) -> DeployStubResponse:
-        return _deploy_endpoint(
-            self,
-            workspace=workspace,
-            source_root=source_root,
-            preparation=_preparation,
-        )
+        self, *, workspace: str | None = None, source_root: str | Path | None = None
+    ) -> Deployment:
+        """Deploy this endpoint into its app without touching the app's other workloads."""
+        return _deploy_http(self, workspace=workspace, source_root=source_root)
 
-    def serve(self, timeout: int = 0, *, sync_dir: str | None = None) -> StartEndpointServeResponse:
-        return _serve_endpoint(
+    def serve(self, timeout: int = 0, *, sync_dir: str | None = None) -> Preview:
+        """Run a preview container that follows the working tree until Ctrl+C."""
+        from lazycloud.abstractions.serve import serve_workload
+
+        return serve_workload(
             self,
+            kind="endpoint",
+            authorized=self.authorized is not False,
             timeout=timeout,
-            workspace=None,
-            sync_dir=sync_dir or self.sync_local_dir or ".",
-            label="endpoint",
+            sync_dir=sync_dir or ".",
         )
 
-    def request(
-        self,
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ) -> EndpointResponse:
-        return _request_function_endpoint(
-            self,
-            args=args,
-            kwargs=kwargs,
-            options=InvocationOptions(),
-        )
+    def request(self, *args: P.args, **kwargs: P.kwargs) -> EndpointResponse:
+        """Call the running preview or the deployment with these arguments as JSON."""
+        return self.target().request(*args, **kwargs)
 
     def target(
         self,
@@ -423,6 +378,7 @@ class Endpoint(Generic[P, R]):
         deployment_name: str | None = None,
         deployment_version: int | None = None,
     ) -> EndpointInvocation[P, R]:
+        """Choose where `request` goes: a preview, the deployment, or a version."""
         return EndpointInvocation(
             owner=self,
             options=InvocationOptions(
@@ -439,26 +395,14 @@ class Endpoint(Generic[P, R]):
         container_id: str | None = None,
         sync_dir: str | None = None,
     ) -> ShellSession:
-        return _shell_endpoint(
-            self,
-            workspace=workspace,
-            container_id=container_id,
-            sync_dir=sync_dir,
-            label="endpoint",
-        )
+        """Open a shell container of this endpoint's working-tree release, or `container_id`."""
+        return _shell_http(self, workspace=workspace, container_id=container_id, sync_dir=sync_dir)
 
     def set_handler(self, handler: str) -> None:
         self._handler_reference_override = handler
 
     def _handler_reference(self) -> str:
         return self._handler_reference_override or dotted_reference(self.func)
-
-    def _config(self) -> ControlClientConfig:
-        return resolve_control_client_config(
-            endpoint=self.endpoint,
-            token=self.token,
-            timeout_seconds=self.timeout,
-        )
 
 
 @dataclass(frozen=True)
@@ -467,12 +411,67 @@ class EndpointInvocation(Generic[P, R]):
     options: InvocationOptions
 
     def request(self, *args: P.args, **kwargs: P.kwargs) -> EndpointResponse:
-        return _request_function_endpoint(
-            self.owner,
-            args=args,
-            kwargs=kwargs,
-            options=self.options,
+        owner = self.owner
+        url, token, timeout = resolve_url(owner, kind="endpoint", options=self.options)
+        encoded_args, encoded_kwargs = encode_arguments(owner.func, args, kwargs, owner.inputs)
+        payload: dict[str, JsonValue] = {
+            "args": [to_json_value(arg) for arg in encoded_args],
+            "kwargs": {key: to_json_value(value) for key, value in encoded_kwargs.items()},
+        }
+        return send_request(
+            url,
+            method=_request_method(owner.methods),
+            json_body=payload,
+            token=token,
+            timeout_seconds=timeout,
         )
+
+
+def _request_method(methods: list[str]) -> str:
+    selected = [method.strip().upper() for method in methods if method.strip()]
+    if "POST" in selected:
+        return "POST"
+    return selected[0] if selected else "POST"
+
+
+def _deploy_http(
+    owner: Endpoint[..., Any] | ASGI, *, workspace: str | None, source_root: str | Path | None
+) -> Deployment:
+    from lazycloud.control import api_client, require_workspace, resolve_control_client_config
+    from lazycloud.session.deployment import AppFunctions, deploy_functions
+
+    config = resolve_control_client_config(workspace=workspace, timeout_seconds=60)
+    return deploy_functions(
+        [AppFunctions(app=owner._app_slug, functions=(owner,))],  # type: ignore[arg-type]
+        client=api_client(config),
+        workspace=require_workspace(config),
+        source_root=source_root,
+        terminal=owner.terminal,
+    )[0]
+
+
+def _shell_http(
+    owner: Endpoint[..., Any] | ASGI,
+    *,
+    workspace: str | None,
+    container_id: str | None,
+    sync_dir: str | None,
+) -> ShellSession:
+    from lazycloud.abstractions.shell import Shell
+    from lazycloud.control import api_client, require_workspace, resolve_control_client_config
+    from lazycloud.session.deployment import prepare_release
+
+    config = resolve_control_client_config(workspace=workspace, timeout_seconds=60)
+    shell = Shell(workspace=workspace)
+    if container_id:
+        return shell.create_existing(container_id, sync_dir=sync_dir)
+    release = prepare_release(
+        owner,  # type: ignore[arg-type]
+        client=api_client(config),
+        workspace=require_workspace(config),
+        terminal=owner.terminal,
+    )
+    return shell.create_standalone(str(release.id), sync_dir=sync_dir)
 
 
 @overload
@@ -678,22 +677,7 @@ class ASGI:
     region: str | None = None
     availability_zone: str = ""
     machine: MachineInput = None
-    deployment_client: DeploymentControlClient | None = field(
-        default=None,
-        init=False,
-        repr=False,
-    )
-    endpoint: str | None = field(default=None, init=False)
-    token: str | None = field(default=None, init=False, repr=False)
-    timeout: float = field(default=10.0, init=False)
-    stub_id: str = field(default="", init=False)
     terminal: Terminal | None = field(default=None, init=False, repr=False)
-    sync_local_dir: str | None = field(default=None, init=False)
-    gateway_client: ServeGatewayClient | None = field(default=None, init=False, repr=False)
-    resource_client: ServeResourceClient | None = field(default=None, init=False, repr=False)
-    _invocation_channel: _InvocationChannel = field(
-        default_factory=_InvocationChannel, init=False, repr=False
-    )
     _handler_reference_target: Callable[..., Any] | None = field(
         default=None,
         init=False,
@@ -754,27 +738,60 @@ class ASGI:
             client_contract=asgi_client_contract(),
         )
 
-    def deploy(
-        self,
-        *,
-        workspace: str | None = None,
-        source_root: str | Path | None = None,
-        _preparation: DeploymentPreparation | None = None,
-    ) -> DeployStubResponse:
-        return _deploy_endpoint(
+    @property
+    def resource_name(self) -> str:
+        return self.name
+
+    _http_kind = "asgi"
+
+    def effective_timeout_seconds(self) -> int | None:
+        return _effective_timeout_seconds(self.task_policy, self.timeout_seconds)
+
+    def unsupported_options(self) -> list[str]:
+        """Declared options the platform cannot run yet, by name."""
+        return unsupported_http_options(self)
+
+    def require_supported(self) -> None:
+        unsupported = self.unsupported_options()
+        if unsupported:
+            raise UnsupportedFeatureError(f"{self._http_kind} {self.name}", unsupported)
+
+    def handler_reference(self) -> str:
+        """The `module:qualname` the runner imports."""
+        return self._handler_reference()
+
+    def workload_spec(
+        self, *, handler: str, source_sha256: str, image: ImageBuildResult
+    ) -> WorkloadSpec:
+        """The API definition of this app for an uploaded source and a ready image."""
+        self.require_supported()
+        return http_workload_spec(
             self,
-            workspace=workspace,
-            source_root=source_root,
-            preparation=_preparation,
+            kind=self._http_kind,
+            handler=handler,
+            source_sha256=source_sha256,
+            image=image,
+            concurrency=self.concurrent_requests,
+            keep_warm=self.keep_warm_seconds,
+            max_pending_tasks=self.max_pending_tasks,
         )
 
-    def serve(self, timeout: int = 0, *, sync_dir: str | None = None) -> StartEndpointServeResponse:
-        return _serve_endpoint(
+    def deploy(
+        self, *, workspace: str | None = None, source_root: str | Path | None = None
+    ) -> Deployment:
+        """Deploy this app into its LazyCloud app without touching other workloads."""
+        return _deploy_http(self, workspace=workspace, source_root=source_root)
+
+    def serve(self, timeout: int = 0, *, sync_dir: str | None = None) -> Preview:
+        """Run a preview container that follows the working tree until Ctrl+C."""
+        from lazycloud.abstractions.serve import serve_workload
+
+        return serve_workload(
             self,
+            kind=self._http_kind,
+            authorized=self.authorized is not False,
             timeout=timeout,
-            workspace=None,
-            sync_dir=sync_dir or self.sync_local_dir or ".",
-            label="ASGI app",
+            sync_dir=sync_dir or ".",
         )
 
     def request(
@@ -790,19 +807,26 @@ class ASGI:
         deployment_name: str | None = None,
         deployment_version: int | None = None,
     ) -> EndpointResponse:
-        return _request_http_endpoint(
+        """Send one request to a route of the running preview or the deployment."""
+        url, token, timeout = resolve_url(
             self,
+            kind=self._http_kind,
+            options=InvocationOptions(
+                target=target,
+                deployment_name=deployment_name,
+                deployment_version=deployment_version,
+            ),
+        )
+        return send_request(
+            url,
             method=method,
             path=path,
             json_body=json,
             data=data,
             headers=headers,
             params=params,
-            options=InvocationOptions(
-                target=target,
-                deployment_name=deployment_name,
-                deployment_version=deployment_version,
-            ),
+            token=token,
+            timeout_seconds=timeout,
         )
 
     def shell(
@@ -812,13 +836,8 @@ class ASGI:
         container_id: str | None = None,
         sync_dir: str | None = None,
     ) -> ShellSession:
-        return _shell_endpoint(
-            self,
-            workspace=workspace,
-            container_id=container_id,
-            sync_dir=sync_dir,
-            label="ASGI app",
-        )
+        """Open a shell container of this app's working-tree release, or `container_id`."""
+        return _shell_http(self, workspace=workspace, container_id=container_id, sync_dir=sync_dir)
 
     def set_handler(self, handler: str) -> None:
         self._handler_reference_override = handler
@@ -829,13 +848,6 @@ class ASGI:
         target = self._handler_reference_target or self.app
         return dotted_reference(target)
 
-    def _config(self) -> ControlClientConfig:
-        return resolve_control_client_config(
-            endpoint=self.endpoint,
-            token=self.token,
-            timeout_seconds=self.timeout,
-        )
-
 
 @dataclass
 class RealtimeASGI(ASGI):
@@ -844,6 +856,8 @@ class RealtimeASGI(ASGI):
         self._handler_reference_target = source_handler
         self.app = _RealtimeWebSocketApp(source_handler)
         update_wrapper(self, source_handler)
+
+    _http_kind = "realtime"
 
     def spec(self) -> DeploymentSpec:
         spec = super().spec()
@@ -1061,303 +1075,6 @@ def _callable_accepts_args(value: Callable[..., Any], count: int) -> bool:
         }:
             positional += 1
     return positional >= count
-
-
-def _request_function_endpoint(
-    owner: Endpoint[..., Any],
-    *,
-    args: tuple[Any, ...],
-    kwargs: Mapping[str, Any],
-    options: InvocationOptions,
-) -> EndpointResponse:
-    encoded_args, encoded_kwargs = encode_arguments(owner.func, args, kwargs, owner.inputs)
-    payload = _endpoint_request_payload(args=encoded_args, kwargs=encoded_kwargs)
-    return _request_http_endpoint(
-        owner,
-        method=_endpoint_request_method(owner),
-        path="",
-        json_body=payload,
-        data=None,
-        headers=None,
-        params=None,
-        options=options,
-    )
-
-
-def _request_http_endpoint(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    method: str,
-    path: str,
-    json_body: object | None,
-    data: bytes | str | None,
-    headers: Mapping[str, str] | None,
-    params: Mapping[str, object] | Iterable[tuple[str, object]] | None,
-    options: InvocationOptions,
-) -> EndpointResponse:
-    from lazycloud.http_transport import request_raw, workload_http_timeout_seconds
-
-    config = owner._config()
-    spec = owner.spec()
-    resolved = _resolve_endpoint_invocation_target(
-        owner,
-        spec=spec,
-        config=config,
-        options=options,
-    )
-    try:
-        response = request_raw(
-            resolved.url,
-            method=method,
-            path=path,
-            json_body=json_body,
-            data=data,
-            headers=headers,
-            params=params,
-            token=config.token,
-            timeout_seconds=workload_http_timeout_seconds(
-                spec.kind, spec.resources.timeout_seconds
-            ),
-        )
-    except (HttpTransportError, ValueError) as exc:
-        raise EndpointOperationError(str(exc)) from exc
-    return EndpointResponse(
-        status_code=response.status_code,
-        headers=response.headers,
-        content=response.content,
-        url=response.final_url,
-    )
-
-
-def _resolve_endpoint_invocation_target(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    spec: DeploymentSpec,
-    config: ControlClientConfig,
-    options: InvocationOptions,
-) -> InvocationTarget:
-    from lazycloud.clients.gateway.control import GatewayControlClient
-    from lazycloud.clients.resource.control import ResourceControlClient
-
-    preview_client = owner.resource_client
-    if preview_client is None and options.target != "deployed" and is_local():
-        preview_client = ResourceControlClient(
-            channel=owner._invocation_channel.get(config), workspace=config.workspace
-        )
-    deployment_client = owner.deployment_client
-    if deployment_client is None and options.target != "served":
-        deployment_client = GatewayControlClient(
-            channel=owner._invocation_channel.get(config), workspace=config.workspace
-        )
-    try:
-        return resolve_invocation_target(
-            kind=spec.kind,
-            name=spec.name,
-            app=owner._app_slug,
-            config=config,
-            deployment_client=deployment_client,
-            preview_client=preview_client,
-            target=options.target,
-            deployment_name=options.deployment_name,
-            deployment_version=options.deployment_version,
-        )
-    except InvocationTargetError as exc:
-        raise EndpointOperationError(str(exc)) from exc
-
-
-def _endpoint_request_payload(
-    *,
-    args: tuple[Any, ...],
-    kwargs: Mapping[str, Any],
-) -> dict[str, JsonValue]:
-    return {
-        "args": [to_json_value(arg) for arg in args],
-        "kwargs": {key: to_json_value(value) for key, value in kwargs.items()},
-    }
-
-
-def _endpoint_request_method(owner: Endpoint[..., Any] | ASGI) -> str:
-    if not isinstance(owner, Endpoint):
-        return "POST"
-    methods = [method.strip().upper() for method in owner.methods if method.strip()]
-    if "POST" in methods:
-        return "POST"
-    return methods[0] if methods else "POST"
-
-
-def _deploy_endpoint(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    workspace: str | None,
-    source_root: str | Path | None = None,
-    preparation: DeploymentPreparation | None = None,
-) -> DeployStubResponse:
-    from lazycloud.session.deployment import DeploymentClient
-
-    try:
-        response = DeploymentClient(
-            client=owner.deployment_client,
-            workspace=workspace,
-            endpoint=owner.endpoint,
-            token=owner.token,
-            timeout_seconds=owner.timeout,
-            sync_source=True,
-            terminal=owner.terminal,
-            preparation=preparation,
-        ).create(
-            owner.spec(),
-            workspace=workspace,
-            image=owner.image,
-            source_root=source_root,
-        )
-    except RuntimeError as exc:
-        raise EndpointOperationError(str(exc)) from exc
-    owner.stub_id = response.stub_id or owner.stub_id
-    return response
-
-
-def _prepare_endpoint(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    workspace: str | None,
-    label: str,
-    source_root: str | None = None,
-) -> str:
-    from lazycloud.session.deployment import DeploymentClient
-
-    try:
-        response = DeploymentClient(
-            client=owner.deployment_client,
-            workspace=workspace,
-            endpoint=owner.endpoint,
-            token=owner.token,
-            timeout_seconds=owner.timeout,
-            sync_source=True,
-            terminal=owner.terminal,
-        ).prepare(
-            owner.spec(),
-            workspace=workspace,
-            image=owner.image,
-            source_root=source_root,
-        )
-    except RuntimeError as exc:
-        raise EndpointOperationError(str(exc)) from exc
-    if not response.stub_id:
-        msg = f"deployment prepare did not return a {label} stub_id"
-        raise EndpointOperationError(msg)
-    owner.stub_id = response.stub_id
-    return owner.stub_id
-
-
-def _serve_endpoint(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    timeout: int,
-    workspace: str | None,
-    sync_dir: str | None,
-    label: str,
-) -> StartEndpointServeResponse:
-    from lazycloud.abstractions.serve import (
-        ServePreviewSession,
-        resolve_serve_url,
-        write_serve_preview,
-    )
-    from lazycloud.clients.endpoint.control import EndpointControlClient
-    from lazycloud.clients.gateway.control import GatewayControlClient
-    from lazycloud.clients.resource.control import ResourceControlClient
-
-    terminal = owner.terminal or Terminal()
-    owner.terminal = terminal
-    source_root = sync_dir or None
-    stub_id = owner.stub_id
-    if not stub_id:
-        stub_id = _prepare_endpoint(
-            owner,
-            workspace=workspace,
-            label=label,
-            source_root=source_root,
-        )
-    config = owner._config()
-    gateway_client = owner.gateway_client or GatewayControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        workspace=config.workspace,
-        timeout_seconds=config.timeout_seconds,
-    )
-    resource_client = owner.resource_client or ResourceControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        workspace=config.workspace,
-        timeout_seconds=config.timeout_seconds,
-    )
-    response = EndpointControlClient.from_endpoint(
-        config.endpoint,
-        token=config.token,
-        workspace=config.workspace,
-        timeout_seconds=config.timeout_seconds,
-    ).start_serve(stub_id, timeout=timeout)
-    selected_container_id = response.container_id
-    if not selected_container_id:
-        raise EndpointOperationError(f"serve did not return a {label} container_id")
-    try:
-        serve_url = resolve_serve_url(
-            gateway_client,
-            stub_id=stub_id,
-            container_id=selected_container_id,
-            workspace=workspace,
-            external_url=config.endpoint,
-        )
-        spec = owner.spec()
-        preview_record = write_serve_preview(
-            kind=spec.kind,
-            name=spec.name,
-            app=owner._app_slug,
-            workspace=config.workspace,
-            endpoint=config.endpoint,
-            stub_id=stub_id,
-            container_id=selected_container_id,
-            url=serve_url.url,
-        )
-    except BaseException:
-        resource_client.stop_container(response.container_id)
-        raise
-    ServePreviewSession(
-        stub_id=stub_id,
-        container_id=selected_container_id,
-        url=serve_url.url,
-        gateway_client=gateway_client,
-        resource_client=resource_client,
-        terminal=terminal,
-        sync_dir=sync_dir,
-        token=owner.token,
-        authorized=owner.authorized is not False,
-        preview_record=preview_record,
-    ).run()
-    return response
-
-
-def _shell_endpoint(
-    owner: Endpoint[..., Any] | ASGI,
-    *,
-    workspace: str | None,
-    container_id: str | None,
-    sync_dir: str | None,
-    label: str,
-) -> ShellSession:
-    from lazycloud.abstractions.shell import Shell
-
-    shell = Shell(
-        workspace=workspace,
-        endpoint=owner.endpoint,
-        token=owner.token,
-        timeout_seconds=owner.timeout,
-    )
-    if container_id:
-        return shell.create_existing(container_id, sync_dir=sync_dir)
-    return shell.create_standalone(
-        owner.stub_id or _prepare_endpoint(owner, workspace=workspace, label=label),
-        sync_dir=sync_dir,
-    )
 
 
 def _effective_timeout_seconds(

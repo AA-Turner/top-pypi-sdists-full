@@ -24,6 +24,7 @@ _FAMILY = "tooling"
 
 @kind(
     "chrome_tools_load_result",
+    disposition="record",
     label="Chrome Tools Loaded",
     family=_FAMILY,
     example={
@@ -59,6 +60,7 @@ class ChromeToolsLoadResult(KindModel):
 
 @kind(
     "desktop_tools_load_result",
+    disposition="record",
     label="Desktop Tools Queued",
     family=_FAMILY,
     example={

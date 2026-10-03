@@ -11,8 +11,12 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
+from ..errors.forbidden_error import ForbiddenError
+from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..types.domain import Domain
+from ..types.domain_list_item import DomainListItem
 from ..types.v1error_response import V1ErrorResponse
 from .types.list_domains_request_direction import ListDomainsRequestDirection
 from .types.list_domains_request_order import ListDomainsRequestOrder
@@ -40,10 +44,14 @@ class RawDomainsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[Domain, ListDomainsResponse]:
+    ) -> SyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists the caller's domain claims and assignments. Filter by account, app, or lifecycle status.
+        Lists your domains. Filter by account, app, or status.
+
+        Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
         Parameters
         ----------
@@ -74,12 +82,18 @@ class RawDomainsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        search : typing.Optional[str]
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+
+        tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SyncPager[Domain, ListDomainsResponse]
+        SyncPager[DomainListItem, ListDomainsResponse]
             Domain list
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -96,6 +110,8 @@ class RawDomainsClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "search": search,
+                "tlds": tlds,
             },
             request_options=request_options,
         )
@@ -124,9 +140,44 @@ class RawDomainsClient:
                         after=_parsed_next,
                         last=last,
                         before=before,
+                        search=search,
+                        tlds=tlds,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -147,7 +198,7 @@ class RawDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Domain]:
         """
-        Creates an unverified claim and returns DNS instructions. A claim does not reserve the hostname globally. Publish its unique TXT record; ownership verification, DNS checks, and certificate provisioning run automatically. Unverified claims are deleted after 48 hours.
+        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
 
         Parameters
         ----------
@@ -223,12 +274,14 @@ class RawDomainsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Domain]:
         """
-        Retrieves the claim, app assignment, DNS instructions, and the latest hostname and certificate state. For domains still connecting, needing attention, or being deleted, requests an immediate background check.
+        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+
+        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -254,6 +307,28 @@ class RawDomainsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -265,12 +340,12 @@ class RawDomainsClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Domain]:
         """
-        Stops resolving the domain to its app and queues Cloudflare cleanup. The response is deleting; retrieve the resource until it is removed.
+        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -319,7 +394,7 @@ class RawDomainsClient:
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         app_id : typing.Optional[str]
             App ID, prefixed app_. Must belong to the same account.
@@ -385,10 +460,14 @@ class AsyncRawDomainsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[Domain, ListDomainsResponse]:
+    ) -> AsyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists the caller's domain claims and assignments. Filter by account, app, or lifecycle status.
+        Lists your domains. Filter by account, app, or status.
+
+        Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
         Parameters
         ----------
@@ -419,12 +498,18 @@ class AsyncRawDomainsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        search : typing.Optional[str]
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+
+        tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncPager[Domain, ListDomainsResponse]
+        AsyncPager[DomainListItem, ListDomainsResponse]
             Domain list
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -441,6 +526,8 @@ class AsyncRawDomainsClient:
                 "after": after,
                 "last": last,
                 "before": before,
+                "search": search,
+                "tlds": tlds,
             },
             request_options=request_options,
         )
@@ -471,10 +558,45 @@ class AsyncRawDomainsClient:
                             after=_parsed_next,
                             last=last,
                             before=before,
+                            search=search,
+                            tlds=tlds,
                             request_options=request_options,
                         )
 
                 return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -495,7 +617,7 @@ class AsyncRawDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Domain]:
         """
-        Creates an unverified claim and returns DNS instructions. A claim does not reserve the hostname globally. Publish its unique TXT record; ownership verification, DNS checks, and certificate provisioning run automatically. Unverified claims are deleted after 48 hours.
+        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
 
         Parameters
         ----------
@@ -573,12 +695,14 @@ class AsyncRawDomainsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Domain]:
         """
-        Retrieves the claim, app assignment, DNS instructions, and the latest hostname and certificate state. For domains still connecting, needing attention, or being deleted, requests an immediate background check.
+        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+
+        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -604,6 +728,28 @@ class AsyncRawDomainsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -617,12 +763,12 @@ class AsyncRawDomainsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Domain]:
         """
-        Stops resolving the domain to its app and queues Cloudflare cleanup. The response is deleting; retrieve the resource until it is removed.
+        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -671,7 +817,7 @@ class AsyncRawDomainsClient:
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         app_id : typing.Optional[str]
             App ID, prefixed app_. Must belong to the same account.

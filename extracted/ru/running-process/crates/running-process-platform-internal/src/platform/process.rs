@@ -1,16 +1,18 @@
 //! Process spawning, containment, inspection, termination, and stdio.
 
 pub use crate::{
-    assign_child_to_windows_job, cancel_capture_reader, canonical_environment_pairs,
-    capture_reader_done, compat_shell_command, configure_exact_trace, configure_process_command,
-    configure_process_command_for_bounded_owner_death, configure_sync_contained_command,
-    configure_sync_daemon_command, configure_sync_daemon_command_with_inheritance,
-    configure_trampoline_command, current_executable_build_id, exact_trace_capability, exit_code,
-    monitor_console_windows, parent_has_console, prepare_capture_reader, set_process_name,
-    shell_command, soft_terminate_process_group, spawn_sync, spawn_sync_daemon,
-    spawn_sync_daemon_with_inheritance, start_descendant_monitor, start_exact_trace,
-    sync_child_native_handle, trampoline_exit_code, unix_mark_extra_fds_close_on_exec,
-    CaptureCancellation, TracedChild, WindowsJobHandle,
+    apply_process_priority, assign_child_to_windows_job, cancel_capture_reader,
+    canonical_environment_pairs, capture_reader_done, compat_shell_command, configure_exact_trace,
+    configure_process_command, configure_process_command_for_bounded_owner_death,
+    configure_sync_contained_command, configure_sync_daemon_command,
+    configure_sync_daemon_command_with_inheritance, configure_trampoline_command,
+    current_executable_build_id, exact_trace_capability, exit_code, exit_signal,
+    monitor_console_windows, parent_has_console, prepare_capture_reader, send_interrupt,
+    set_process_name, shell_command, soft_terminate_process_group, spawn_sync, spawn_sync_daemon,
+    spawn_sync_daemon_with_inheritance, start_attached_descendant_monitor,
+    start_descendant_monitor, start_exact_trace, sync_child_native_handle, trampoline_exit_code,
+    unix_mark_extra_fds_close_on_exec, CaptureCancellation, PlatformCaptureReaders,
+    PlatformStdChild, TracedChild, WindowsJobHandle,
 };
 
 #[cfg(feature = "async-process")]
@@ -466,10 +468,11 @@ pub struct ObserverBackend {
     pub backend: &'static str,
     pub reason: &'static str,
 }
-pub use crate::platform_imp::observer_backend;
-pub use crate::platform_imp::read_process_argv;
-pub use crate::platform_imp::read_process_cmdline;
-pub use crate::platform_imp::read_process_file_handles;
+pub use crate::{
+    process_observer_backend as observer_backend, process_read_argv as read_process_argv,
+    process_read_cmdline as read_process_cmdline,
+    process_read_file_handles as read_process_file_handles,
+};
 
 /// Platform-neutral Unix signal selectors used by the compatibility facade.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -605,8 +608,8 @@ impl std::error::Error for ProcessInspectError {
 }
 
 pub use crate::{
-    process_executable_path as executable_path, process_force_kill as force_kill,
-    process_same_executable_path as same_executable_path,
+    process_executable_path as executable_path, process_fault_code_name as fault_code_name,
+    process_force_kill as force_kill, process_same_executable_path as same_executable_path,
     process_signal_terminate as signal_terminate, ProcessLiveness,
 };
 
@@ -675,3 +678,138 @@ pub use crate::{
     process_can_replace_current_image as can_replace_current_image,
     process_replace_current_image as replace_current_image,
 };
+
+/// Object format of an image the host loader has mapped into this process.
+///
+/// The facade reports which format the loader hands out; reading the image's
+/// headers and sections is the caller's job. No object-file parsing lives
+/// here (#974): that is format code, not host selection.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum LoadedImageFormat {
+    /// A PE image whose headers are mapped at [`LoadedImage::header_address`].
+    Pe,
+    /// An ELF object described by [`LoadedImage::mapped_ranges`] and
+    /// [`LoadedImage::elf_load_bias`].
+    Elf,
+    /// A Mach-O image whose `mach_header` is at
+    /// [`LoadedImage::header_address`].
+    MachO,
+}
+
+/// One native image mapped into the current process, as the loader reports it.
+///
+/// These are raw host facts in the loader's own order. A field a host does not
+/// report is zero, empty or `None` rather than guessed.
+#[derive(Clone, Debug)]
+pub struct LoadedImage {
+    /// Object format, which selects how the caller reads the mapped headers.
+    pub format: LoadedImageFormat,
+    /// Address of the mapped image header (PE image base, Mach-O
+    /// `mach_header`). Zero for ELF, which reports mapped ranges instead.
+    pub header_address: u64,
+    /// Mapped image size the loader reports (PE `SizeOfImage`); zero elsewhere.
+    pub image_size: u64,
+    /// dyld's virtual-memory slide for a Mach-O image; zero elsewhere.
+    pub slide: i64,
+    /// Path of the image on disk, when the loader reports one.
+    pub path: Option<String>,
+    /// File-backed mappings of this image, sorted by start address (ELF).
+    pub mapped_ranges: Vec<std::ops::Range<u64>>,
+    /// The subset of `mapped_ranges` whose protection permits execution (ELF).
+    pub executable_ranges: Vec<std::ops::Range<u64>>,
+    /// `dl_iterate_phdr` load bias of the loaded object overlapping
+    /// `mapped_ranges`, when that object carries a GNU build id (ELF).
+    pub elf_load_bias: Option<u64>,
+    /// GNU build id read from that loaded object's mapped `PT_NOTE` (ELF).
+    pub build_id: Option<Vec<u8>>,
+    /// Identity of the file backing the mapping, re-checked on reopen. Read
+    /// only by hosts whose loader reports one.
+    #[allow(dead_code)]
+    pub(crate) backing_file: Option<LoadedImageBackingFile>,
+}
+
+/// Device and inode recorded for a file-backed mapping.
+///
+/// Only a host whose loader reports one constructs it; elsewhere the field
+/// stays `None`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) struct LoadedImageBackingFile {
+    pub(crate) device_major: u64,
+    pub(crate) device_minor: u64,
+    pub(crate) inode: String,
+}
+
+/// Enumerate the native images mapped into this process, and reopen the file
+/// behind one of them.
+///
+/// `open_loaded_image_file` returns `None` rather than a different file: where
+/// the host recorded which file backs the mapping (device and inode on Linux),
+/// a path that now names something else is refused, because reading it would
+/// pair the loaded image with another build's metadata.
+pub use crate::{
+    process_loaded_images as loaded_images,
+    process_open_loaded_image_file as open_loaded_image_file,
+};
+
+#[cfg(test)]
+mod loaded_image_tests {
+    /// A function whose address must fall inside an image the loader reports.
+    #[inline(never)]
+    fn landmark() -> u64 {
+        std::hint::black_box(0x0974_0004_u64)
+    }
+
+    #[test]
+    fn the_image_holding_this_code_is_reported_with_the_hosts_format() {
+        let address = landmark as fn() -> u64 as usize as u64;
+        assert_eq!(landmark(), 0x0974_0004);
+        let images = super::loaded_images().expect("enumerate loaded images");
+        assert!(!images.is_empty(), "the loader reported no images");
+        let expected = match std::env::consts::OS {
+            "windows" => super::LoadedImageFormat::Pe,
+            "macos" => super::LoadedImageFormat::MachO,
+            _ => super::LoadedImageFormat::Elf,
+        };
+        assert!(images.iter().all(|image| image.format == expected));
+        // PE and ELF report the covered range; dyld reports only the header,
+        // so a Mach-O owner is the nearest header at or below the address.
+        let owner = images
+            .iter()
+            .find(|image| {
+                image
+                    .mapped_ranges
+                    .iter()
+                    .any(|range| range.contains(&address))
+                    || (image.header_address..image.header_address.saturating_add(image.image_size))
+                        .contains(&address)
+            })
+            .or_else(|| {
+                images
+                    .iter()
+                    .filter(|image| image.format == super::LoadedImageFormat::MachO)
+                    .filter(|image| image.header_address <= address)
+                    .max_by_key(|image| image.header_address)
+            });
+        let owner = owner.unwrap_or_else(|| panic!("no loaded image covers {address:#x}"));
+        assert!(owner.path.is_some(), "owning image reported no path");
+        assert!(
+            super::open_loaded_image_file(owner).is_some(),
+            "the file behind the owning image could not be reopened: {:?}",
+            owner.path
+        );
+    }
+}
+
+#[cfg(test)]
+mod exit_signal_tests {
+    /// A process that exits on its own carries no terminating signal, on
+    /// every host.
+    #[test]
+    fn a_normal_exit_reports_no_signal() {
+        let status = std::process::ExitStatus::default();
+        assert!(status.success());
+        assert_eq!(super::exit_signal(&status), None);
+    }
+}

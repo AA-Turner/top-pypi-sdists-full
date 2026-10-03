@@ -108,6 +108,7 @@ class MemoryLLMAdapter:
         messages: list[dict[str, Any]],
         model: Optional[str] = None,
         variables: Optional[dict[str, Any]] = None,
+        offering_id: str | None = None,
     ) -> str:
         from matrx_ai.code_call_mandate_keys import MEMORY_REFLECTOR_MANDATE
 
@@ -117,6 +118,7 @@ class MemoryLLMAdapter:
         return await self._invoke(
             mandate_key=mandate_key,
             model=model,
+            offering_id=offering_id,
             messages=messages,
             variables=variables,
             event_type=event_type,
@@ -130,6 +132,7 @@ class MemoryLLMAdapter:
         messages: list[dict[str, Any]],
         variables: Optional[dict[str, Any]],
         event_type: str,
+        offering_id: str | None = None,
     ) -> str:
         # Deferred imports avoid pulling the full provider stack at module load
         # time (important because the memory package must remain usable even
@@ -156,8 +159,11 @@ class MemoryLLMAdapter:
         config = held_request_config(held, extra_turns=turns)
         if model:
             config.model = model
-            # The Holder's class pin belongs to the Holder's model only.
-            config.offering_id = held.pick_offering(model)
+            # The caller's class rides with the caller's model; the Holder's
+            # class pin belongs to the Holder's model only.
+            config.offering_id = held.pick_offering(
+                model, offering_id, where=f"memory.{event_type}"
+            )
         config.store = False
         model = config.model
         request = AIMatrixRequest(

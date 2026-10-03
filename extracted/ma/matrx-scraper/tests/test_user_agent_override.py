@@ -22,6 +22,7 @@ import asyncio
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from fixture_origins import allow_fixture_origins
 import pytest
 
 from matrx_scraper.browser_pool import (
@@ -63,7 +64,7 @@ class _RecordingHandler(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def ua_server():
+def ua_server(monkeypatch: pytest.MonkeyPatch):
     """A real local HTTP server that reports the UA header it was sent."""
 
     class Handler(_RecordingHandler):
@@ -73,6 +74,8 @@ def ua_server():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     host, port = server.server_address
+    # The address check refuses loopback; let exactly this fixture through.
+    allow_fixture_origins(monkeypatch, f"http://{host}:{port}")
     try:
         yield f"http://{host}:{port}/", Handler.received
     finally:
@@ -237,7 +240,9 @@ def test_http_fetch_blank_override_never_sends_an_empty_ua(ua_server, blank: str
     assert received == [profile["headers"]["User-Agent"]]
 
 
-def test_http_fetch_keeps_the_rest_of_the_profile_headers(ua_server) -> None:
+def test_http_fetch_keeps_the_rest_of_the_profile_headers(
+    ua_server, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The override changes WHO we say we are, not the whole request."""
     url, _ = ua_server
     captured: dict[str, str] = {}
@@ -251,6 +256,7 @@ def test_http_fetch_keeps_the_rest_of_the_profile_headers(ua_server) -> None:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     host, port = server.server_address
+    allow_fixture_origins(monkeypatch, f"http://{host}:{port}")
     try:
         asyncio.run(
             fetch(

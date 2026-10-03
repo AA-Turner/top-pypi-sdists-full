@@ -97,10 +97,18 @@ def test_the_daemon_plugin_moves_with_probe_research() -> None:
         assert actual == expected, (
             f"{manifest.relative_to(_ROOT)} is {actual!r} but probe-research is {expected!r}.\n{_REMEDY}"
         )
-    workflow = (_ROOT.parent / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    # release.yml bumps through tools/release_bump.py, whose list comes from the
+    # harness registry; tests/test_release_bump.py pins that list.
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("_sync_release_bump", _ROOT / "tools" / "release_bump.py")
+    release_bump = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = release_bump
+    spec.loader.exec_module(release_bump)
     for rel in (".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
         path = f"agent/plugins/probe-research-daemon/{rel}"
-        assert workflow.count(path) == 2, f"release.yml must bump AND commit {path}"
+        assert path in release_bump.plugin_manifests(), f"release.yml must bump {path}"
 
 
 def test_manifest_cli_latest_matches_pyproject() -> None:

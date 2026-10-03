@@ -16,7 +16,7 @@ from lxml.html import HtmlElement
 
 # own
 from .baseline import baseline, html2txt
-from .deduplication import content_fingerprint, duplicate_test
+from .deduplication import LRUCache, content_fingerprint, duplicate_test
 from .external import compare_extraction, justext_rescue
 from .htmlprocessing import (
     build_html_output,
@@ -29,13 +29,14 @@ from .metadata import Document, extract_metadata
 from .settings import DEFAULT_CONFIG, Extractor, use_config
 from .utils import (
     LANGID_FLAG,
+    HtmlInput,
     check_html_lang,
     language_filter,
     load_html,
     normalize_unicode,
 )
-from .xml import build_json_output, control_xml_output, xmltocsv, xmltotxt
-from .xpaths import REMOVE_COMMENTS_XPATH
+from .xml import build_json_output, control_xml_output, delete_element, keeps_empty, xmltocsv, xmltotxt
+from .xpaths import REMOVE_APPENDED_ARTICLES_XPATH, REMOVE_COMMENTS_XPATH, REMOVE_SHARE_WIDGETS_XPATH
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ ESCALATION_ACCEPT_RATIO = 1.5  # accept the retry if it is this much longer
 ESCALATION_JUSTEXT_RATIO = 2.0
 
 TXT_FORMATS = {"markdown", "txt"}
+_YAML_FIELDS = "title author url hostname description sitename date categories tags fingerprint id license".split()
 
 # Metadata is emitted as a YAML-style Markdown header; values such as a title
 # containing ": " (or a leading indicator, or a reserved word) otherwise produce
@@ -81,11 +83,8 @@ def determine_returnstring(document: Document, options: Extractor) -> str:
     if "xml" in options.format:
         # last cleaning
         for element in document.body.iter("*"):
-            if element.tag != "graphic" and len(element) == 0 and not element.text and not element.tail:
-                parent = element.getparent()
-                # do not remove elements inside <code> to preserve formatting
-                if parent is not None and parent.tag != "code":
-                    parent.remove(element)
+            if len(element) == 0 and not element.text and not element.tail and not keeps_empty(element):
+                delete_element(element, keep_tail=False)
         # build output tree
         returnstring = control_xml_output(document, options)
     # CSV
@@ -99,32 +98,15 @@ def determine_returnstring(document: Document, options: Extractor) -> str:
         returnstring = build_html_output(document, options.with_metadata)
     # Markdown and TXT
     else:
+        header = ""
         if options.with_metadata:
-            header = "---\n"
-            for attr in (
-                "title",
-                "author",
-                "url",
-                "hostname",
-                "description",
-                "sitename",
-                "date",
-                "categories",
-                "tags",
-                "fingerprint",
-                "id",
-                "license",
-            ):
-                value = getattr(document, attr)
-                if value:
-                    # quote scalar strings when needed; categories/tags are lists
-                    # rendered as their (already valid) flow-sequence repr
-                    if isinstance(value, str):
-                        value = _yaml_scalar(value)
-                    header += f"{attr}: {value}\n"
-            header += "---\n"
-        else:
-            header = ""
+            # categories/tags are lists, their repr is a valid flow sequence
+            fields = "".join(
+                f"{attr}: {_yaml_scalar(value) if isinstance(value, str) else value}\n"
+                for attr in _YAML_FIELDS
+                if (value := getattr(document, attr))
+            )
+            header = f"---\n{fields}---\n"
         returnstring = f"{header}{xmltotxt(document.body, options.formatting)}"
         if document.commentsbody is not None:
             returnstring = f"{returnstring}\n{xmltotxt(document.commentsbody, options.formatting)}".strip()
@@ -162,25 +144,29 @@ def _prepare_tree(tree: HtmlElement, options: Extractor, url: str | None) -> tup
     return cleaned, backup
 
 
-def _recall_retry(esc_tree: HtmlElement, r_options: Extractor, url: str | None) -> tuple[_Element, str, int]:
+def _extract_and_compare(
+    cleaned_tree: HtmlElement, cleaned_tree_backup: HtmlElement, tree: HtmlElement, options: Extractor
+) -> tuple[_Element, str]:
+    "Cascade stages 1-2: main extractor, then the external comparison unless in fast mode."
+    postbody, temp_text = extract_content(cleaned_tree, options)
+    if not options.fast:
+        postbody, temp_text = compare_extraction(cleaned_tree_backup, copy(tree), postbody, temp_text, options)
+    return postbody, temp_text
+
+
+def _recall_retry(esc_tree: HtmlElement, r_options: Extractor, url: str | None) -> tuple[_Element, str]:
     """Stage-4 retry: re-run cascade stages 1-2 in recall mode on the escalation input
     (arrives comment-pruned, or intact on a thread-forum where posts are content).
     Deliberately no comment capture, no baseline (it already ran on the full page; on a
     comment-pruned tree it only yields an indistinguishable boilerplate dump), no escalation."""
-    cleaned_tree, cleaned_tree_backup = _prepare_tree(esc_tree, r_options, url)
-    postbody, temp_text, len_text = extract_content(cleaned_tree, r_options)
-    if not r_options.fast:
-        postbody, temp_text, len_text = compare_extraction(
-            cleaned_tree_backup, copy(esc_tree), postbody, temp_text, len_text, r_options
-        )
-    return postbody, temp_text, len_text
+    return _extract_and_compare(*_prepare_tree(esc_tree, r_options, url), esc_tree, r_options)
 
 
 def trafilatura_sequence(
     tree: HtmlElement,
     options: Extractor,
     url: str | None = None,
-) -> tuple[_Element, str, int, _Element, str, int]:
+) -> tuple[_Element, str, _Element, str]:
     """Prepare the raw tree (cleaning, tag conversion, comment handling), then execute the
     standard cascade of extractors used by Trafilatura, each stage only engaging if the
     previous one under-delivered:
@@ -190,77 +176,70 @@ def trafilatura_sequence(
     4. recall escalation, if the result still covers little of the page: stages 1-2 re-run
        in recall mode (_recall_retry), plus a justext candidate tried alongside (a different
        algorithm, not just stricter rules, so it reaches content the rule-based retry cannot)
-    Returns the body triple and the comments triple.
+    Returns the body and comments elements with their text.
 
-    Internal helper: its signature and 6-tuple return are not a stable API — call
+    Internal helper: its signature and 4-tuple return are not a stable API — call
     ``bare_extraction``/``extract`` instead.
     """
     is_forum = _forum_thread_page(tree)
-    # comments off: prune on the raw tree so all stages inherit it (only precision did before)
+    # raw-tree prune so the external extractors inherit it too: readability would otherwise
+    # pick the longest appended article over the real one
+    tree = prune_unwanted_nodes(tree, REMOVE_APPENDED_ARTICLES_XPATH + REMOVE_SHARE_WIDGETS_XPATH)
+    # comments off: prune the raw tree so all stages inherit it
     if not options.comments and (options.focus == "precision" or not is_forum):
-        tree = prune_unwanted_nodes(copy(tree), REMOVE_COMMENTS_XPATH)
+        tree = prune_unwanted_nodes(tree, REMOVE_COMMENTS_XPATH)
     cleaned_tree, cleaned_tree_backup = _prepare_tree(tree, options, url)
 
-    commentsbody, temp_comments, len_comments = Element("body"), "", 0
+    commentsbody, temp_comments = Element("body"), ""
     forum_posts = None
     if options.comments:
-        commentsbody, temp_comments, len_comments, cleaned_tree = extract_comments(cleaned_tree, options)
-        if len_comments > 0 and is_forum:
+        commentsbody, temp_comments, cleaned_tree = extract_comments(cleaned_tree, options)
+        if temp_comments and is_forum:
             # thread-forum: the "comments" are the posts -> route into the body (backup predates
             # capture); keep the capture aside, salvaged below if the cascade drops the posts
             forum_posts = commentsbody
-            commentsbody, temp_comments, len_comments = Element("body"), "", 0
+            commentsbody, temp_comments = Element("body"), ""
             cleaned_tree = convert_tags(copy(cleaned_tree_backup), options, url)
     if options.focus == "precision" and not is_forum:
         # NOT redundant with the raw-tree prune above: this runs POST-conversion, where
         # <ul id="comments"> has become <list ...> and now matches the xpath's self::list
         cleaned_tree = prune_unwanted_nodes(cleaned_tree, REMOVE_COMMENTS_XPATH)
 
-    # 1. Trafilatura's main extractor
-    postbody, temp_text, len_text = extract_content(cleaned_tree, options)
+    postbody, temp_text = _extract_and_compare(cleaned_tree, cleaned_tree_backup, tree, options)
 
-    # 2. comparison with external extractors
-    if not options.fast:
-        postbody, temp_text, len_text = compare_extraction(
-            cleaned_tree_backup,
-            copy(tree),  # lxml copy() is already a deep, independent copy
-            postbody,
-            temp_text,
-            len_text,
-            options,
-        )
-
-    # 3. rescue: baseline on the original tree
-    if len_text < options.min_extracted_size and options.focus != "precision":
-        postbody, temp_text, len_text = baseline(tree)  # baseline copies element inputs
-        LOGGER.debug("non-clean extracted length: %s (extraction)", len_text)
-        forum_posts = None  # the dump saw the whole page: missing posts are boilerplate, not lost
+    # 3. rescue: baseline on the original tree, accepted only if it adds text (#896)
+    if len(temp_text) < options.min_extracted_size and options.focus != "precision":
+        b_body, b_text, b_len = baseline(tree)  # baseline copies element inputs
+        LOGGER.debug("non-clean extracted length: %s (extraction)", b_len)
+        if b_len > len(temp_text):
+            postbody, temp_text = b_body, b_text
+            forum_posts = None  # the dump saw the whole page: missing posts are boilerplate, not lost
 
     # 4. recall escalation: a short extraction covering little of the page suggests
     # under-extraction (non-article layout) — retry in recall mode, keep if clearly bigger.
     # NOTE: the page measure html2txt(tree) is coupled to BASIC_CLEAN_XPATH — see settings.py.
     if (
         options.focus == "balanced"
-        and 0 < len_text < ESCALATION_MAX_LENGTH
-        and len_text < ESCALATION_PAGE_SHARE * len(html2txt(tree))
+        and 0 < len(temp_text) < ESCALATION_MAX_LENGTH
+        and len(temp_text) < ESCALATION_PAGE_SHARE * len(html2txt(tree))
     ):
         # a copy so a shared Extractor never leaks the "recall" focus back to the caller
         r_options = copy(options)
         r_options.focus = "recall"
-        # strip comments from the escalation input (dup risk if captured, reader comments if not);
-        # keep them on a thread-forum, where the retry rescues the posts
-        esc_tree = tree if is_forum else prune_unwanted_nodes(copy(tree), REMOVE_COMMENTS_XPATH)
-        r_len = 0
+        # strip comments from the escalation input (dup risk if captured, reader comments if not),
+        # except on a thread-forum where the retry rescues the posts. Comments off: already pruned
+        esc_tree = tree if is_forum or not options.comments else prune_unwanted_nodes(copy(tree), REMOVE_COMMENTS_XPATH)
+        r_text = ""
         try:
-            r_body, r_text, r_len = _recall_retry(esc_tree, r_options, url)
+            r_body, r_text = _recall_retry(esc_tree, r_options, url)
         except Exception as err:  # pragma: no cover
             LOGGER.warning("recall retry failed: %s %s", err, url)
         # justext reaches div-buried content the rule retry misses (gated: ungated regressed
         # own-fallback). No region scoping of its own -> esc_tree is comment-pruned above
-        j_len = 0
+        j_text = ""
         if not options.fast:
             try:
-                j_body, j_text, j_len = justext_rescue(copy(esc_tree), options)
+                j_body, j_text = justext_rescue(copy(esc_tree), options)
             except Exception as err:  # pragma: no cover
                 LOGGER.warning("justext candidate failed: %s %s", err, url)
 
@@ -268,10 +247,11 @@ def trafilatura_sequence(
         # former internal baseline used to displace such outputs). cookie/consent banners justext
         # could pick up are pruned from its input in basic_cleaning. An accepted candidate saw the
         # full page, so its exclusions are deliberate -> drop the forum-post salvage.
+        len_text, r_len, j_len = len(temp_text), len(r_text), len(j_text)
         if j_len > r_len and j_len > ESCALATION_JUSTEXT_RATIO * len_text:
-            postbody, temp_text, len_text, forum_posts = j_body, j_text, j_len, None
+            postbody, temp_text, forum_posts = j_body, j_text, None
         elif r_len >= options.min_extracted_size and r_len > ESCALATION_ACCEPT_RATIO * len_text:
-            postbody, temp_text, len_text, forum_posts = r_body, r_text, r_len, None
+            postbody, temp_text, forum_posts = r_body, r_text, None
 
     if forum_posts is not None:
         # a gate (escalation length, precision) blocked the cascade from restoring the posts:
@@ -282,13 +262,12 @@ def trafilatura_sequence(
             LOGGER.debug("thread-forum salvage: %s captured posts appended to the body", len(salvaged))
             postbody.extend(salvaged)
             temp_text = " ".join(postbody.itertext()).strip()
-            len_text = len(temp_text)
 
-    return postbody, temp_text, len_text, commentsbody, temp_comments, len_comments
+    return postbody, temp_text, commentsbody, temp_comments
 
 
 def bare_extraction(
-    filecontent: Any,
+    filecontent: HtmlInput,
     url: str | None = None,
     fast: bool = False,
     no_fallback: bool = False,
@@ -301,7 +280,7 @@ def bare_extraction(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
@@ -328,11 +307,12 @@ def bare_extraction(
             Other values: "csv", "html", "json", "markdown", "txt", "xml", and "xmltei".
         target_language: Define a language to discard invalid documents (ISO 639-1 format).
         include_tables: Take into account information within the HTML <table> element.
-        include_images: Take images into account (experimental).
+        include_images: Take images into account.
         include_formatting: Keep structural elements related to formatting
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
-        include_links: Keep links along with their targets (experimental).
+        include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         with_metadata: Extract metadata fields and add them to the output.
         only_with_metadata: Only keep documents featuring all essential metadata
@@ -390,10 +370,12 @@ def bare_extraction(
 
     try:
         # load the HTML tree
-        tree = load_html(filecontent)
+        tree = load_html(filecontent, options.max_file_size)
         if tree is None:
             LOGGER.error("empty HTML tree: %s", url)
             raise ValueError
+        if tree is filecontent:
+            tree = copy(tree)
 
         # quick and dirty HTML lang check
         if options.lang and (options.fast or not LANGID_FLAG):
@@ -431,9 +413,8 @@ def bare_extraction(
                 prune_xpath = [prune_xpath]
             tree = prune_unwanted_nodes(tree, [XPath(x) for x in prune_xpath])
 
-        postbody, temp_text, len_text, commentsbody, temp_comments, len_comments = trafilatura_sequence(
-            tree, options, options.url or document.url
-        )
+        postbody, temp_text, commentsbody, temp_comments = trafilatura_sequence(tree, options, options.url or document.url)
+        len_text, len_comments = len(temp_text), len(temp_comments)
 
         # tree size sanity check
         if options.max_tree_size:
@@ -450,8 +431,6 @@ def bare_extraction(
                 )
                 raise ValueError
         # size checks
-        if options.comments and len_comments < options.min_extracted_comm_size:
-            LOGGER.debug("not enough comments: %s", options.source)
         if len_text < options.min_output_size and len_comments < options.min_output_comm_size:
             LOGGER.debug(
                 "text and comments not long enough: %s %s %s",
@@ -492,7 +471,7 @@ def bare_extraction(
 
 
 def extract(
-    filecontent: Any,
+    filecontent: HtmlInput,
     url: str | None = None,
     record_id: str | None = None,
     fast: bool = False,
@@ -507,7 +486,7 @@ def extract(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
@@ -536,11 +515,12 @@ def extract(
         tei_validation: Validate the XML-TEI output with respect to the TEI standard.
         target_language: Define a language to discard invalid documents (ISO 639-1 format).
         include_tables: Take into account information within the HTML <table> element.
-        include_images: Take images into account (experimental).
+        include_images: Take images into account.
         include_formatting: Keep structural elements related to formatting
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
-        include_links: Keep links along with their targets (experimental).
+        include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         with_metadata: Extract metadata fields and add them to the output.
         only_with_metadata: Only keep documents featuring all essential metadata
@@ -557,39 +537,13 @@ def extract(
         A string in the desired format or None.
 
     """
-    document = _internal_extraction(
-        filecontent=filecontent,
-        url=url,
-        record_id=record_id,
-        fast=fast,
-        no_fallback=no_fallback,
-        favor_precision=favor_precision,
-        favor_recall=favor_recall,
-        include_comments=include_comments,
-        output_format=output_format,
-        tei_validation=tei_validation,
-        target_language=target_language,
-        include_tables=include_tables,
-        include_images=include_images,
-        include_formatting=include_formatting,
-        include_links=include_links,
-        deduplicate=deduplicate,
-        date_extraction_params=date_extraction_params,
-        with_metadata=with_metadata,
-        only_with_metadata=only_with_metadata,
-        max_tree_size=max_tree_size,
-        url_blacklist=url_blacklist,
-        author_blacklist=author_blacklist,
-        settingsfile=settingsfile,
-        prune_xpath=prune_xpath,
-        config=config,
-        options=options,
-    )
+    # must stay the first statement: a signature drift raises TypeError
+    document = _internal_extraction(**locals())
     return document.text if document is not None else None
 
 
 def extract_with_metadata(
-    filecontent: Any,
+    filecontent: HtmlInput,
     url: str | None = None,
     record_id: str | None = None,
     fast: bool = False,
@@ -603,7 +557,7 @@ def extract_with_metadata(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     url_blacklist: set[str] | None = None,
     author_blacklist: set[str] | None = None,
@@ -629,11 +583,12 @@ def extract_with_metadata(
         tei_validation: Validate the XML-TEI output with respect to the TEI standard.
         target_language: Define a language to discard invalid documents (ISO 639-1 format).
         include_tables: Take into account information within the HTML <table> element.
-        include_images: Take images into account (experimental).
+        include_images: Take images into account.
         include_formatting: Keep structural elements related to formatting
             (kept in XML, rendered as markdown for text formats; ignored for JSON).
-        include_links: Keep links along with their targets (experimental).
+        include_links: Keep links along with their targets.
         deduplicate: Remove duplicate segments and documents.
+            Accepts an LRUCache instance as dedicated, scoped cache.
         date_extraction_params: Provide extraction parameters to htmldate as dict().
         url_blacklist: Provide a blacklist of URLs as set() to filter out documents.
         author_blacklist: Provide a blacklist of Author Names as set() to filter out authors.
@@ -646,32 +601,7 @@ def extract_with_metadata(
     Returns:
         Document metadata with content string in the desired format or None.
     """
-    return _internal_extraction(
-        filecontent=filecontent,
-        url=url,
-        record_id=record_id,
-        fast=fast,
-        favor_precision=favor_precision,
-        favor_recall=favor_recall,
-        include_comments=include_comments,
-        output_format=output_format,
-        tei_validation=tei_validation,
-        target_language=target_language,
-        include_tables=include_tables,
-        include_images=include_images,
-        include_formatting=include_formatting,
-        include_links=include_links,
-        deduplicate=deduplicate,
-        date_extraction_params=date_extraction_params,
-        with_metadata=True,
-        only_with_metadata=False,
-        url_blacklist=url_blacklist,
-        author_blacklist=author_blacklist,
-        settingsfile=settingsfile,
-        prune_xpath=prune_xpath,
-        config=config,
-        options=options,
-    )
+    return _internal_extraction(**locals(), with_metadata=True)
 
 
 def _check_deprecation(
@@ -701,7 +631,7 @@ def _check_deprecation(
 
 
 def _internal_extraction(
-    filecontent: Any,
+    filecontent: HtmlInput,
     url: str | None = None,
     record_id: str | None = None,
     fast: bool = False,
@@ -716,7 +646,7 @@ def _internal_extraction(
     include_images: bool = False,
     include_formatting: bool | None = None,
     include_links: bool = False,
-    deduplicate: bool = False,
+    deduplicate: bool | LRUCache = False,
     date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
@@ -774,7 +704,8 @@ def _internal_extraction(
     if not document or not isinstance(document, Document):
         return None
 
-    if options.format not in TXT_FORMATS:
+    # TXT formats only output the ID and fingerprint in their metadata header
+    if options.format not in TXT_FORMATS or options.with_metadata:
         # control output
         if options.format == "python":
             raise ValueError("'python' format only usable in bare_extraction() function")
@@ -784,6 +715,5 @@ def _internal_extraction(
         if document.raw_text is not None:
             document.fingerprint = content_fingerprint(str(document.title) + " " + str(document.raw_text))
 
-    # return
     document.text = determine_returnstring(document, options)
     return document

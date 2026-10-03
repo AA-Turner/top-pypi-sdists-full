@@ -1,14 +1,63 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 import click
 
+from tinybird.datafile.common import PipeNodeTypes
+from tinybird.datafile.parse_pipe import parse_pipe
 from tinybird.tb.client import AuthNoTokenException, TinyB
 from tinybird.tb.modules.datafile.format_datasource import format_datasource
 from tinybird.tb.modules.datafile.format_pipe import format_pipe
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 PULL_EXISTING_FILE_MAX_DEPTH = 5
+
+DEMOTABLE_NODE_TYPES = {
+    PipeNodeTypes.DATA_SINK: ("sink_pipes", "Sink"),
+    PipeNodeTypes.COPY: ("copy_pipes", "Copy"),
+}
+
+
+def _parse_created_at(value: Any) -> datetime:
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return datetime.min
+
+
+def pipes_over_node_type_limit(pipes: list[dict[str, Any]], node_type: str, limit: Optional[int]) -> set[str]:
+    if limit is None:
+        return set()
+
+    matching_pipes = [p for p in pipes if p.get("type") == node_type]
+    if len(matching_pipes) <= limit:
+        return set()
+
+    matching_pipes.sort(key=lambda p: _parse_created_at(p.get("created_at")))
+    return {p["name"] for p in matching_pipes[limit:]}
+
+
+def pipes_over_plan_limits(pipes: list[dict[str, Any]], limits: dict[str, Any]) -> dict[str, str]:
+    demoted: dict[str, str] = {}
+    for node_type, (limits_key, _label) in DEMOTABLE_NODE_TYPES.items():
+        limit = limits.get(limits_key, {}).get("max")
+        for name in pipes_over_node_type_limit(pipes, node_type, limit):
+            demoted[name] = node_type
+    return demoted
+
+
+def demote_pipe_content(name: str, content: str, node_type: str) -> str:
+    datafile = parse_pipe(name, content=content, replace_includes=False).datafile
+    demoted = False
+    for node in datafile.nodes:
+        if (node.get("type") or "").lower() == node_type:
+            node.pop("type", None)
+            demoted = True
+
+    if not demoted:
+        return content
+    return format_pipe(name, datafile=datafile)
 
 
 def folder_pull(
@@ -61,6 +110,7 @@ def folder_pull(
         get_resource_function: str,
         progress_bar: bool = False,
         fmt: bool = False,
+        demoted_pipe_types: Optional[dict[str, str]] = None,
     ) -> list[Path]:
         def write_resource(k: dict[str, Any]) -> Optional[Path]:
             name = f"{k['name']}.{extension}"
@@ -73,8 +123,19 @@ def folder_pull(
                 else:
                     resource = getattr(client, get_resource_function)(k["name"])
                 resource_to_write = resource
+                resource_type = k.get("type")
 
-                if fmt:
+                demoted_node_type = demoted_pipe_types.get(k["name"]) if demoted_pipe_types else None
+                if demoted_node_type:
+                    resource_to_write = demote_pipe_content(name, resource, demoted_node_type)
+                    resource_type = None
+                    label = DEMOTABLE_NODE_TYPES[demoted_node_type][1]
+                    warnings.append(
+                        f"{label} pipe '{k['name']}' exceeds the {demoted_node_type} pipe limit of your current "
+                        f"plan and was pulled as a plain pipe without its {demoted_node_type} configuration. "
+                        "Upgrade your plan and reconfigure it to restore it."
+                    )
+                elif fmt:
                     if extension == "datasource":
                         resource_to_write = format_datasource(name, content=resource)
                     elif extension == "pipe":
@@ -85,7 +146,7 @@ def folder_pull(
                     dest_folder = Path(folder) / "vendor" / k["name"].split(".", 1)[0]
                     name = f"{k['name'].split('.', 1)[1]}.{extension}"
 
-                file_folder = get_file_folder(extension, k.get("type"))
+                file_folder = get_file_folder(extension, resource_type)
                 f = Path(dest_folder) / file_folder if file_folder is not None else Path(dest_folder)
 
                 existing_file = find_existing_resource_file(Path(dest_folder), name)
@@ -128,6 +189,14 @@ def folder_pull(
         pipes = client.pipes()
         connections = client.connections()
 
+        demoted_pipe_types: dict[str, str] = {}
+        if not only_vendored:
+            try:
+                limits = client.workspace_info().get("limits", {})
+            except Exception:
+                limits = {}
+            demoted_pipe_types = pipes_over_plan_limits(pipes, limits)
+
         if only_vendored:
             written_files = write_files(
                 resources=[ds for ds in datasources if "shared_from" in ds],
@@ -154,6 +223,7 @@ def folder_pull(
                     get_resource_function="pipe_file",
                     progress_bar=progress_bar,
                     fmt=fmt,
+                    demoted_pipe_types=demoted_pipe_types,
                 )
             )
             written_files.extend(

@@ -37,7 +37,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import CallToolResult, TextContent
 from pydantic_core import to_jsonable_python
 from mcp.server.transport_security import TransportSecuritySettings
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 
 from .. import __version__
 from ..client_headers import (
@@ -56,10 +56,12 @@ from . import accounting, continuation
 from ._generated.sql import QUERY_SQL_DESCRIPTION, SQL_ARG_DOC, TABLES_ARG_DOC
 from .budget import Budget, InvalidBudget, TokenizerUnavailable, count_tokens, serialize
 from .contract import (
+    BrowseMode,
     CollapseMode,
     MetricMode,
     PaperExpansion,
     PaperMode,
+    SeriesSmoothing,
     ToolCorpus,
     View,
 )
@@ -351,17 +353,30 @@ _BR_STATUS_DOC = """Filter runs by status: `created` (never started), `running` 
 
 _BR_TAGS_DOC = """Filter runs by tag; repeatable, and a run must carry ALL of them. An empty filtered result never proves absence - list without it to check what exists."""
 
-_BR_REF_DOC = """Where to look, UUID only (slugs go to `entity`). Omit -> every project, flat (children carry `parent_project_id`). `project:<id>` -> its experiments, direct runs and subprojects. `experiment:<id>` -> its runs."""
+_BR_REF_DOC = """Where to look, UUID only (slugs go to `entity`). Omit -> every project, flat (children carry `parent_project_id`). `project:<id>` -> its experiments, direct runs and subprojects. `experiment:<id>` -> its runs. mode=runs: `project:<id>` or `experiment:<id>` narrows the run list."""
 
 _BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is rejected."""
 
-_BR_LIMIT_DOC = """Per level, not per response."""
+_BR_LIMIT_DOC = """tree: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
+
+_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's."""
+
+_BR_ACTIVE_DOC = """mode=runs only: just the runs live right now (status running AND a fresh heartbeat)."""
+
+_BR_QUERY_DOC = """mode=notes only: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note."""
+
+def _none_as_empty(value: Any) -> Any:
+    """An explicit `null` for a string filter whose absent value is ""."""
+    return "" if value is None else value
+
+
+_BR_PREFIX_DOC = """mode=files only: a FOLDER path -- everything inside it, at any depth. Not a match on the file's name: `checkpoints` finds checkpoints/step-2000.pt, `checkpoints/step` finds nothing."""
 
 _RESP_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. Raise it for a read you intend to walk in full."""
 
 _RESP_CURSOR_DOC = """Continue a response that has a `next_cursor`: pass it back, with the SAME other arguments."""
 
-_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `ref`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`."""
+_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `ref`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`. mode=files: whose files to list (omit for the team's Shared folder)."""
 
 _BR_CURSOR_DOC = """Continue the top-level listing from a prior response's `next_cursor`."""
 
@@ -400,6 +415,8 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   requirement    versions: ">=2"-style; versions are ints, not semver.
   compare_to     code on a run: `run:<ref>` to diff against.
   depth          lineage on a run: walk upstream N hops (1-5).
+  trial          diff on a run: which trial's filesystem changes (required).
+  path_prefix    diff on a run: narrow to one subtree.
   field          record: a dotted field ("metadata.summary"), or a path list."""
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
@@ -407,6 +424,15 @@ _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default
 _CURSOR_DOC = (
     """Continue a read that has a `next_cursor`: pass it back, with the SAME `ref` and `view`."""
 )
+
+# -- metrics(mode="series") parameter documentation (schema channel) ----------
+_MT_RUN_IDS_DOC = """series only: the runs to compare, 1-50 run UUIDs (`run:<uuid>` as browse returns it is accepted; slugs are not)."""
+
+_MT_KEYS_DOC = """series only: the metric keys, 1-200. Every kind and dimension variant of each key comes back as its own row."""
+
+_MT_SMOOTHING_DOC = """series only: adds a `smoothed` value to each point; the raw `value` is unchanged."""
+
+_MT_MAX_POINTS_DOC = """series only: points per series, 2-100000 (default 100). Above the series' length it returns every point; `read_provenance` on a row says when one was sampled."""
 
 _VERBOSE_DOC = """Include the envelope bookkeeping responses omit by default (`schema_version`, `as_of`, `scope`, capability flags, a complete `completeness`, a null `next_cursor`) -- a debugging aid."""
 
@@ -486,13 +512,12 @@ _SK_WORKSPACE_DOC = """Scope BOTH channels server-side to one workspace."""
 
 _SK_COLLAPSE_DOC = """Dedupe: one row per experiment (the default). Pass null to keep every hit."""
 
-# Deliberately short. It rides `input_schema`, which a client passes verbatim,
-# and every argument description competes with the curation rule on `top_k`.
+# Deliberately short. It rides `input_schema`, which a client passes verbatim.
+# The engine stopped topping answers up from the raw pool on 2026-10-02, so the
+# flag has nothing left to switch off; it stays bound so old calls still work.
 _SK_CURATED_DOC = (
-    "Return only the passages the search agent SELECTED. By default the answer is topped up to "
-    "a fixed count from the raw retrieval pool, and that top-up is most of what you get - so "
-    "most results were never chosen by anything that read them. Use it for a specific question "
-    'rather than "what do we know about X". Default false.'
+    "No effect: answers are never topped up from the raw retrieval pool any more. "
+    "Kept so existing calls still work."
 )
 
 _SK_CURSOR_DOC = """Continue a prior search from its `next_cursor`."""
@@ -758,6 +783,100 @@ prompt.
 """
 
 
+# -- browse: one tool, five listings ------------------------------------------
+#
+# The flat modes were added beside the tree rather than as tools of their own,
+# for the reason `metrics` holds its grains: "list what exists" is the concept
+# and WHICH list is an argument. That makes browse's schema a UNION of every
+# mode's arguments, and a union validated as a union accepts `query` on the tree
+# -- which no route reads, so the agent would get the whole tree back as an
+# answer to a search. (Not hypothetical: a lazy-loading agent once believed
+# browse took `query`, which is why `_RetiringMCP` refuses undeclared names.)
+# So, as for metrics: REFUSE, NEVER DROP, checked against what the chosen mode
+# RETURNS, in the caller's own argument names.
+#
+# The cursor is every mode's (delivery owns it) and is not listed. `limit` is
+# every mode's too, with a mode-specific meaning the schema states.
+_BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
+    BrowseMode.TREE: frozenset(
+        {
+            "ref",
+            "depth",
+            "status",
+            "tags",
+            "workspace_id",
+            "limit",
+            "runs_cursor",
+            "subprojects_cursor",
+        }
+    ),
+    # `status` and `tags` are the runs list's own server filters, so they mean
+    # the same here as on the tree's run level. `workspace_id` is NOT: GET
+    # /v1/runs has no workspace filter, and accepting it would list every run.
+    BrowseMode.RUNS: frozenset({"ref", "status", "tags", "active", "limit"}),
+    # GET /v1/workspaces takes no parameters; `limit` pages the delivered list.
+    BrowseMode.WORKSPACES: frozenset({"limit"}),
+    # No `ref`: the catalog's parent branch is the dashboard explorer's lazy tree
+    # (the NOTED CHILDREN of an entity, not its note), and the route refuses a
+    # parent beside a query. An entity's own note is `entity(view="notes")`.
+    BrowseMode.NOTES: frozenset({"query", "limit"}),
+    # `workspace_id` names whose files; absent is the Shared folder. A run's,
+    # experiment's or project's files are `entity(view="artifacts")`.
+    BrowseMode.FILES: frozenset({"workspace_id", "prefix", "limit"}),
+}
+
+#: Browse arguments whose DEFAULT is not None. Supplied means "differs from the
+#: default", since the wire cannot tell an explicit default from an absent one,
+#: and an explicit default is a no-op in every mode.
+_BROWSE_DEFAULTS: dict[str, Any] = {"depth": 1, "limit": 10}
+
+
+def _browse_arg_is_neutral(name: str, value: Any) -> bool:
+    """Whether an argument asks for nothing: absent, its default, or the empty
+    form of its type -- `active=false`, `tags=[]`, `query=""`. Each is the same
+    request as leaving it out, so refusing one would refuse a correct call.
+    Spelled out with `is`, because `0 == False` would make `depth=0` vanish."""
+    if value is None or value is False or value == "" or value == []:
+        return True
+    return name in _BROWSE_DEFAULTS and value == _BROWSE_DEFAULTS[name]
+
+
+def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
+    """Refuse an argument the chosen browse mode does not read.
+
+    Raises ``ToolError`` naming the mode(s) that DO read it, because the usual
+    cause is the right filter on the wrong listing."""
+    allowed = _BROWSE_MODE_ARGS[mode]
+    supplied = {name for name, value in args.items() if not _browse_arg_is_neutral(name, value)}
+    unsupported = sorted(supplied - allowed)
+    if not unsupported:
+        return
+    detail = "; ".join(
+        f"{name} (read by mode={' or '.join(modes)})" if modes else f"{name} (read by no mode)"
+        for name, modes in (
+            (
+                name,
+                sorted(m.value for m, ok in _BROWSE_MODE_ARGS.items() if name in ok and m != mode),
+            )
+            for name in unsupported
+        )
+    )
+    hints = []
+    if "query" in unsupported:
+        hints.append("To search across everything, use search_knowledge.")
+    if mode == BrowseMode.FILES and "ref" in unsupported:
+        hints.append(
+            'A run\'s, experiment\'s or project\'s own files are entity(view="artifacts").'
+        )
+    raise ToolError(
+        f"browse: mode={mode.value} does not read {', '.join(unsupported)} -- {detail}. "
+        + " ".join(hints)
+        + (" " if hints else "")
+        + "Re-issue the call in the mode that reads it; passing it here would return a "
+        "listing that ignored it."
+    )
+
+
 # -- read_metrics: one concept, three grains ---------------------------------
 #
 # `get_metrics_grouped`, `get_run_coordinates` and `export_metric_points` were
@@ -811,6 +930,13 @@ _METRIC_MODE_ARGS: dict[MetricMode, frozenset[str]] = {
     MetricMode.POINTS: frozenset(
         {"run_id", "key", "kind", "step_from", "step_to", "after_id", "limit"}
     ),
+    # PLURAL where the other three are singular, because it is the one grain
+    # that is not one run: `run_ids` + `keys`, never `run_id` + `key`. No `kind`
+    # either -- the series route has no top-level kind filter and would DROP it
+    # (its body model ignores unknown fields); each row says its kind instead.
+    MetricMode.SERIES: frozenset(
+        {"run_ids", "keys", "step_from", "step_to", "smoothing", "max_points"}
+    ),
 }
 
 #: What each mode cannot run without. `key` is the one that varies, and it varies
@@ -822,6 +948,7 @@ _METRIC_MODE_REQUIRED: dict[MetricMode, frozenset[str]] = {
     MetricMode.GROUPED: frozenset({"run_id", "key"}),
     MetricMode.COORDINATES: frozenset({"run_id"}),
     MetricMode.POINTS: frozenset({"run_id"}),
+    MetricMode.SERIES: frozenset({"run_ids", "keys"}),
 }
 
 #: Arguments whose TYPE a naive arity check cannot police. A `str` is a
@@ -838,8 +965,20 @@ _METRIC_MODE_REQUIRED: dict[MetricMode, frozenset[str]] = {
 #: caller later) gets the same refusal as the wire does, rather than a str
 #: silently reaching the route. Tested directly for that reason; a test that
 #: drove it through the tool would be scoring pydantic, not this.
-_METRIC_SEQUENCE_ARGS = frozenset({"by"})
+_METRIC_SEQUENCE_ARGS = frozenset({"by", "run_ids", "keys"})
 _METRIC_MAPPING_ARGS = frozenset({"where"})
+
+#: The series route's own list bounds (`MAX_RUN_IDS_PER_QUERY`,
+#: `MAX_SERIES_PER_QUERY`), checked here so the refusal names the argument the
+#: caller wrote instead of relaying a body 422.
+_METRIC_SEQUENCE_MAX = {"run_ids": 50, "keys": 200}
+
+#: Delivery state the series route reads beside the caller's arguments: which
+#: series the page starts at (the native cursor) and the budget it fits to.
+#: Underscored because they are never caller arguments and must not collide
+#: with one -- `_metric_args_for_mode` has already validated those.
+_SERIES_OFFSET = "_series_offset"
+_SERIES_BUDGET = "_series_budget"
 
 
 def _metric_route_grouped(s: ResearchReadService, a: dict[str, Any]) -> dict:
@@ -873,6 +1012,19 @@ def _metric_route_points(s: ResearchReadService, a: dict[str, Any]) -> dict:
     )
 
 
+def _metric_route_series(s: ResearchReadService, a: dict[str, Any]) -> dict:
+    return s.metrics_series(
+        a["run_ids"],
+        a["keys"],
+        step_from=a.get("step_from"),
+        step_to=a.get("step_to"),
+        smoothing=a.get("smoothing"),
+        max_points=a.get("max_points"),
+        offset=a.get(_SERIES_OFFSET, 0),
+        token_budget=a.get(_SERIES_BUDGET, 2000),
+    )
+
+
 #: Mode -> the read it actually performs. These are REAL service methods, not a
 #: synthesised `read(mode)` seam, so swapping two entries changes which data
 #: comes back and a behavioural test has to notice -- verified by mutation, not
@@ -881,6 +1033,7 @@ _METRIC_ROUTES: dict[MetricMode, Callable[[ResearchReadService, dict[str, Any]],
     MetricMode.GROUPED: _metric_route_grouped,
     MetricMode.COORDINATES: _metric_route_coordinates,
     MetricMode.POINTS: _metric_route_points,
+    MetricMode.SERIES: _metric_route_series,
 }
 
 
@@ -942,14 +1095,21 @@ def _metric_args_for_mode(mode: MetricMode, args: dict[str, Any]) -> dict[str, A
     for name in sorted(_METRIC_SEQUENCE_ARGS & set(supplied)):
         value = supplied[name]
         if isinstance(value, str) or not isinstance(value, (list, tuple)):
+            noun = "coordinate axes" if name == "by" else "strings"
             raise ToolError(
-                f"read_metrics: {name} must be a list of coordinate axes, not "
-                f"{type(value).__name__} — {name}=[{value!r}] for a single axis. "
+                f"read_metrics: {name} must be a list of {noun}, not "
+                f"{type(value).__name__} — {name}=[{value!r}] for a single one. "
                 "A bare string is a sequence of CHARACTERS and would be read as "
-                "one axis per letter."
+                "one entry per letter."
             )
         if not all(isinstance(item, str) for item in value):
             raise ToolError(f"read_metrics: every entry in {name} must be a string")
+        bound = _METRIC_SEQUENCE_MAX.get(name)
+        if bound is not None and not 1 <= len(value) <= bound:
+            raise ToolError(
+                f"read_metrics: {name} takes 1 to {bound} entries, got {len(value)} -- "
+                "split a larger comparison into several reads"
+            )
 
     for name in sorted(_METRIC_MAPPING_ARGS & set(supplied)):
         if not isinstance(supplied[name], dict):
@@ -1181,11 +1341,27 @@ def create_server(
     @mcp.tool()
     @_tool
     def browse(
+        mode: Annotated[BrowseMode, Field(description=_BR_MODE_DOC)] = BrowseMode.TREE,
         ref: Annotated[str | None, Field(description=_BR_REF_DOC)] = None,
         depth: Annotated[int, Field(description=_BR_DEPTH_DOC)] = 1,
         status: Annotated[str | None, Field(description=_BR_STATUS_DOC)] = None,
         tags: Annotated[list[str] | None, Field(description=_BR_TAGS_DOC)] = None,
+        active: Annotated[bool | None, Field(description=_BR_ACTIVE_DOC)] = None,
         workspace_id: Annotated[str | None, Field(description=_BR_WORKSPACE_DOC)] = None,
+        # PLAIN `str`, with "" meaning absent -- never `str | None`. FastMCP
+        # JSON-parses a string argument whose annotation is anything but `str`:
+        # `query="null"` arrived as None and slipped past the tree's refusal, and
+        # `query="[1e-4, 3e-4]"` -- a learning-rate pair, a fine thing to search
+        # notes for -- arrived as a list and was refused.
+        # An explicit JSON `null` still means absent: the BeforeValidator maps it
+        # to "" before the `str` check, while the annotation stays plain `str`
+        # so the "null"-STRING trap above stays closed.
+        query: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=200, description=_BR_QUERY_DOC)
+        ] = "",
+        prefix: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(description=_BR_PREFIX_DOC)
+        ] = "",
         limit: Annotated[int, Field(description=_BR_LIMIT_DOC)] = 10,
         cursor: Annotated[str | None, Field(description=_BR_CURSOR_DOC)] = None,
         runs_cursor: Annotated[str | None, Field(description=_BR_SIDE_CURSOR_DOC)] = None,
@@ -1199,21 +1375,59 @@ def create_server(
 
         Runs can start with no project and be filed later: at the lab root (no `ref`), `unfiled` lists yours that are not filed yet.
 
+        ### `mode`:
+        1. `tree` (default) - projects -> experiments -> runs, walked with `ref`/`depth`
+        2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment. Unfiled runs are in browse with no `ref`
+        3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
+        4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search_knowledge ranks by meaning instead)
+        5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
+
+        Each mode REFUSES arguments it does not read.
+
         FYI:
         `completeness.missing` tells what the returned response doesn't cover (absent: nothing) - make sure to read it to be knowledgeable of whats missing.
         One page is not the whole tree: on `next_cursor`, page on or search before concluding absence. An absent key means "nothing here", never "unknown". `available_views` appears once on the response, keyed by kind.
         """
+        _browse_args_for_mode(
+            BrowseMode(mode),
+            {
+                "ref": ref,
+                "depth": depth,
+                "status": status,
+                "tags": tags,
+                "active": active,
+                "workspace_id": workspace_id,
+                "query": query,
+                "prefix": prefix,
+                "limit": limit,
+                "runs_cursor": runs_cursor,
+                "subprojects_cursor": subprojects_cursor,
+            },
+        )
         with svc() as s:
-            return s.browse_research(
+            if mode == BrowseMode.TREE:
+                return s.browse_research(
+                    scope=ref,
+                    depth=depth,
+                    status=status,
+                    tags=tags,
+                    workspace_id=workspace_id,
+                    limit=limit,
+                    cursor=cursor,
+                    runs_cursor=runs_cursor,
+                    subprojects_cursor=subprojects_cursor,
+                )
+            return s.browse_list(
+                BrowseMode(mode),
                 scope=ref,
-                depth=depth,
                 status=status,
                 tags=tags,
+                active=active,
+                query=query or None,
+                prefix=prefix or None,
                 workspace_id=workspace_id,
                 limit=limit,
                 cursor=cursor,
-                runs_cursor=runs_cursor,
-                subprojects_cursor=subprojects_cursor,
             )
 
     @mcp.tool()
@@ -1239,7 +1453,9 @@ def create_server(
         verbose: bool = False,
         cursor: Annotated[str | None, Field(description=_SK_CURSOR_DOC)] = None,
         exclude_session: Annotated[str | None, Field(description=_SK_EXCLUDE_DOC)] = None,
-        curated_only: Annotated[bool, Field(description=_SK_CURATED_DOC)] = False,
+        curated_only: Annotated[
+            bool, Field(deprecated=True, description=_SK_CURATED_DOC)
+        ] = False,
         corpora: Annotated[
             list[str] | None,
             Field(
@@ -1262,13 +1478,11 @@ def create_server(
         3. `top_k` - (default 8) your recall dial, a TOTAL across channels - raise it
            before concluding the lab has nothing
         4. `collapse` - (default one row per experiment) pass null to keep every hit
-        5. `curated_only` - (default off) only the passages the search agent picked,
-           instead of topping up from the raw pool
-        6. `project_id` - (optional) scope both channels to one project
-        7. `workspace_id` - (optional) scope both channels to one workspace
-        8. `exclude_session` - (optional) your own session id, so a search cannot
+        5. `project_id` - (optional) scope both channels to one project
+        6. `workspace_id` - (optional) scope both channels to one workspace
+        7. `exclude_session` - (optional) your own session id, so a search cannot
            return the conversation making it - usually unnecessary
-        9. `verbose` - (default off) bool to include the response bookkeeping
+        8. `verbose` - (default off) bool to include the response bookkeeping
            (schema_version, as_of, scope, capability flags, a complete
            completeness, a null next_cursor) - a debugging aid
 
@@ -1346,10 +1560,10 @@ def create_server(
 
         ### TOOL SPECIFIC PARAMETERS:
 
-        1. `refs` - the address (slug or uuid) of the entity you're referring to
-        2. `view` -  what kind of read to do: each view returns different data - `card` (the default) lists the views this entity supports - most views are self explanatory except the 4 explained below.
-        3. `view_options` - (optional) per-view options - see VIEW OPTION DESCRIPTIONS below
-        4. `verbose` - (default off) include the response bookkeeping - a debugging aid
+        1. `refs` - the entity's address (slug or uuid)
+        2. `view` - what to read: `card` (the default) lists this entity's views; most are self explanatory, 4 are explained below.
+        3. `view_options` - (optional) per-view options, listed below
+        4. `verbose` - (default off) response bookkeeping, for debugging
 
         ### VIEW DESCRIPTIONS:
         1. `trajectory` = the spans themselves (ask a TRIAL for one trial/rollout's whole subtree)
@@ -1358,12 +1572,13 @@ def create_server(
         4. `record` = the raw source record, any kind, pageable
 
         ### VIEW OPTION DESCRIPTIONS:
-        1. `grep` = transcript only: literal, case-insensitive search; not combinable with `start_line`
+        1. `grep` = transcript only: literal, case-insensitive; not with `start_line`
         2. `context_lines` = transcript only: lines around each grep hit (max 20)
         3. `start_line` = transcript only: begin a plain read at line N, continue with `cursor`
-        4. `field` = record only: one dotted field ("metadata.summary"), or a path list for keys with literal dots
+        4. `field` = record only: one dotted field ("metadata.summary"), or a path list for dotted keys
         5. `requirement` = versions only: ">=2"-style; versions are monotonic ints, not semver
         6. `compare_to` = code on a run only: `run:<ref>` to diff against
+        7. `trial` = diff on a run only (required): which trial; `path_prefix` narrows
 
         ### CONSTRUCTED FORMS:
         - `artifact:<name>` for the shared-registry reuse check
@@ -1421,21 +1636,26 @@ def create_server(
         # read to `_batch`, one ref at a time.
         return {"rows": [continuation.batch_row(*pair) for pair in read], "missing": missing}
 
-    def _read_metrics(mode: MetricMode, **args: Any) -> dict:
+    def _read_metrics(
+        mode: MetricMode, delivery: dict[str, Any] | None = None, **args: Any
+    ) -> dict:
         """The one implementation behind `read_metrics` and its three aliases.
 
         Shared deliberately: an alias that re-implemented its own dispatch could
         drift from the mode it is supposed to be a synonym for, and the drift
-        would be invisible -- both spellings return a plausible payload."""
+        would be invisible -- both spellings return a plausible payload.
+
+        `delivery` is position/budget state a route reads beside the caller's
+        arguments (only `series` uses it). It joins AFTER validation, so it can
+        never be mistaken for, or refused as, an argument the caller wrote."""
         supplied = _metric_args_for_mode(mode, args)
         with svc() as s:
-            return _METRIC_ROUTES[mode](s, supplied)
+            return _METRIC_ROUTES[mode](s, {**supplied, **(delivery or {})})
 
     @mcp.tool()
     @_tool
     def metrics(
-        run_id: str,
-        # Typed as the enum so the three grains reach the caller as SCHEMA (an
+        # Typed as the enum so the grains reach the caller as SCHEMA (an
         # `enum` in $defs), not as prose only this docstring carries -- the same
         # reason `search_in` above is typed. A misspelled mode is then refused
         # before the request is built, and pydantic's rejection names every
@@ -1446,6 +1666,10 @@ def create_server(
         # as "the tool ignored your argument" seen from the other side: a
         # confident answer at a grain nobody asked for. Naming it costs one word.
         mode: MetricMode,
+        # Optional in the SCHEMA only since `series` (which reads `run_ids`):
+        # the three single-run grains still require it, through
+        # `_METRIC_MODE_REQUIRED`, with a refusal that names the mode.
+        run_id: str | None = None,
         key: str | None = None,
         kind: str | None = None,
         agg: str | None = None,
@@ -1457,22 +1681,34 @@ def create_server(
         after_id: int | None = None,
         limit: int | None = None,
         max_rows: int | None = None,
+        run_ids: Annotated[
+            list[str] | None, Field(min_length=1, max_length=50, description=_MT_RUN_IDS_DOC)
+        ] = None,
+        keys: Annotated[
+            list[str] | None, Field(min_length=1, max_length=200, description=_MT_KEYS_DOC)
+        ] = None,
+        smoothing: Annotated[SeriesSmoothing | None, Field(description=_MT_SMOOTHING_DOC)] = None,
+        max_points: Annotated[
+            int | None, Field(ge=2, le=100_000, description=_MT_MAX_POINTS_DOC)
+        ] = None,
         token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
         cursor: str | None = None,
     ) -> dict:
-        """Read ONE run's metrics at the GRAIN you need.
+        """Read metrics at the GRAIN you need: one run (`run_id`), or several runs compared (`series`).
 
         ### `mode`:
 
         1.`coordinates` - the run's axis catalog (rank/split/seed...). Call FIRST when you do not know the axes. `run_id` only.
         2.`grouped` - reduce ONE metric server-side. "loss per rank": key="loss", by=["rank"]. Never average raw points yourself.
         3.`points` - raw points, one bounded page -- the drill-down when an aggregate looks wrong.
+        4.`series` - several runs x keys in ONE read, to compare curves: run_ids=[...], keys=["loss"]. One row per series; points are arrays in `point_fields` order, downsampled to `max_points` per series (default 100, endpoints and extremes kept). A series is never split: one too big for `token_budget` is refused with `min_token_budget`.
 
         ### Arguments for each `mode`:
 
-        `coordinates` - nothing beyond run_id
-        `grouped` - key (required), kind, agg, by, where, step_bucket, step_from, step_to, max_rows
-        `points` - key, kind, step_from, step_to, after_id, limit
+        `coordinates` - run_id only
+        `grouped` - run_id, key (both required), kind, agg, by, where, step_bucket, step_from, step_to, max_rows
+        `points` - run_id (required), key, kind, step_from, step_to, after_id, limit
+        `series` - run_ids, keys (both required), step_from, step_to, smoothing, max_points
 
         ### TRAPS:
 
@@ -1486,6 +1722,7 @@ def create_server(
         `where` is type-exact: {"rank": 1} matches int 1, never "1". An
         unknown axis in `by`/`where` errors rather than returning empty.
         """
+        series_offset = 0
         if cursor is not None:
             if not cursor.isascii() or not cursor.isdecimal() or len(cursor) > 19:
                 raise ValueError("Invalid metrics cursor; restart the read.")
@@ -1496,10 +1733,19 @@ def create_server(
                 step_from = position
             elif mode == MetricMode.POINTS:
                 after_id = position
+            elif mode == MetricMode.SERIES:
+                # The index of the next series row. Not a backend position: the
+                # series read is one call, and the cursor walks its rows.
+                series_offset = position
             else:
                 raise ValueError("The coordinate catalog has no native cursor; restart the read.")
         return _read_metrics(
             mode,
+            delivery=(
+                {_SERIES_OFFSET: series_offset, _SERIES_BUDGET: token_budget}
+                if mode == MetricMode.SERIES
+                else None
+            ),
             run_id=run_id,
             key=key,
             kind=kind,
@@ -1512,6 +1758,10 @@ def create_server(
             after_id=after_id,
             limit=limit,
             max_rows=max_rows,
+            run_ids=run_ids,
+            keys=keys,
+            smoothing=smoothing,
+            max_points=max_points,
         )
 
     # Read-only SQL. The description, both argument docs and the limits are

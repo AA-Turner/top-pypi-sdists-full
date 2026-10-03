@@ -176,6 +176,7 @@ def member_docs(text: str, struct: str) -> dict[str, dict]:
             "end": close,
             "col": col,
             "form": form,
+            "decl": m.group(0).strip(),
         }
     return out
 
@@ -296,6 +297,13 @@ def surface_rows(man: dict) -> list[dict]:
                         f"{NAMES_H.relative_to(ROOT)}"
                     )
                 vkind, choices = "WFM_SV_CHOICE", tables[en]
+            elif f.get("surface") == "bespoke":
+                # A row whose VALUE each face reads with its own code (the
+                # frame description: --frame FILE, a scene's "frame" object,
+                # an owned pointer in Python). The row still names it, so
+                # help, the schema and every exclusion derive from it; the
+                # generic readers and writers skip it.
+                vkind, choices = "WFM_SV_BESPOKE", None
             elif f.get("c_ptr"):
                 # A `wfm_seq_t` reached through `<member>.bits`: a Field.
                 vkind, choices = "WFM_SV_FIELD", None
@@ -318,6 +326,7 @@ def surface_rows(man: dict) -> list[dict]:
                     "CLI range kind; wfmgen ranges source doubles and "
                     "segment sizes only"
                 )
+            rows.extend(_surface_only(kind, f))
             rows.append(
                 {
                     "owner": kind,
@@ -340,10 +349,186 @@ def surface_rows(man: dict) -> list[dict]:
                     "section": f.get("help_section"),
                     "default": f.get("default"),
                     "values": values_of.get(en) if en else None,
+                    "exclusive": list(f.get("exclusive", [])),
                 }
             )
     _resolve_when(rows)
     return rows
+
+
+def _surface_only(kind: str, f: dict) -> list[dict]:
+    """The SURFACE-ONLY rows a field's exclusions declare: `row = {...}`.
+
+    A surface-only row has a C member and every face but Python, and no jm
+    field -- a file path, which no jm composer type carries and which the
+    Python face deliberately lacks (`--data-from-file`, payload-data-source
+    .md section 4.9). It is declared inside the ONE exclusion that is its
+    reason to exist, beside the field it excludes, because jm does not read
+    inside `exclusive`: a table of its own would cost a jm diagnostic on
+    every apply. It is bespoke -- each face reads its value with its own
+    code -- and its doc is its member's header comment, like every row's.
+    `surface_only_errors` checks it against the struct both ways.
+    """
+    out = []
+    for e in f.get("exclusive", []):
+        r = e.get("row")
+        if r is None:
+            continue
+        if not r.get("member"):
+            raise SystemExit(
+                f"{kind}.{f['name']}: the surface-only row {e.get('with')!r} "
+                "needs `member`"
+            )
+        out.append(
+            {
+                "owner": kind,
+                "name": e["with"],
+                "member": r["member"],
+                "field_reps": None,
+                "cli": r.get("cli"),
+                "json": r.get("json"),
+                "json_required": False,
+                "json_omit": None,
+                "json_bool": False,
+                "json_when": None,
+                "json_schema": {},
+                "json_range": None,
+                "kind": "WFM_SV_BESPOKE",
+                "choices": None,
+                "range_bit": None,
+                "unit_interval": False,
+                "metavar": r.get("metavar"),
+                "section": r.get("help_section"),
+                "default": None,
+                "values": None,
+                "exclusive": [],
+                "surface_only": True,
+            }
+        )
+    return out
+
+
+def surface_only_errors(man: dict, header_text: str) -> list[str]:
+    """A surface-only row against its struct, BOTH ways.
+
+    Forward: its `member` is a documented member of the struct, so the row
+    reaches real storage and has the doc every row takes from the header.
+    Backward: a `const char *` member -- the one C type a surface-only row
+    exists for -- has a row, so a path member cannot be added that no face
+    can set.
+    """
+    bad = []
+    rows = [r for r in surface_rows(man) if r.get("surface_only")]
+    for kind, struct in STRUCTS.items():
+        docs = member_docs(header_text, struct)
+        mine = {r["member"] for r in rows if r["owner"] == kind}
+        for r in rows:
+            if r["owner"] == kind and r["member"] not in docs:
+                bad.append(
+                    f"{kind}.{r['name']}: surface-only row's member "
+                    f"{r['member']!r} is not a documented member of {struct}"
+                )
+        for name, d in docs.items():
+            if re.match(r"const\s+char\s*\*", d["decl"]) and name not in mine:
+                bad.append(
+                    f"{struct}.{name}: a `const char *` member with no "
+                    "surface-only row, so no face can set it; declare one in "
+                    "the exclusion that is its reason to exist"
+                )
+    return bad
+
+
+#: The kinds a struct can hold as "unset" (an empty sequence, a NULL
+#: pointer, no symbols), so the object face can tell a pair was both GIVEN.
+#: A number has no unset value -- its default is a value -- so an exclusion
+#: over one could be refused on the CLI and in a scene but never on the
+#: object, and the generator refuses to declare it.
+_SETTABLE = ("WFM_SV_FIELD", "WFM_SV_BESPOKE", "WFM_SV_SYMBOLS")
+
+
+def _both(r: dict, other: dict, key: str, fmt: str, why: str) -> str | None:
+    """One face's reason: its two spellings, then the reason. None when the
+    face spells only one of the pair, so it has nothing to refuse."""
+    if not (r[key] and other[key]):
+        return None
+    return (
+        f"{fmt.format(r[key])} and {fmt.format(other[key])} "
+        f"cannot both be given: {why}"
+    )
+
+
+def exclusions(rows: list[dict]) -> list[dict]:
+    """Every `exclusive = [{ with = "<field>", why = "<reason>" }]` pair.
+
+    ONE declaration, on either field of the pair. Each face refuses from
+    the row it generates -- the CLI (both flags given), the JSON reader
+    (both keys present), the object face (both members set, at
+    dp_wfm_source_error) -- and help, the schema and the reference say so.
+    The reason is written once; the generator spells it per face, as a
+    literal, so every `why` points at static text (error-convention.md).
+    """
+    by = {(r["owner"], r["name"]): r for r in rows}
+    out: list[dict] = []
+    for r in rows:
+        for e in r["exclusive"]:
+            other = by.get((r["owner"], e.get("with")))
+            if other is None:
+                raise SystemExit(
+                    f"{r['owner']}.{r['name']}: exclusive with "
+                    f"{e.get('with')!r}, which is not a surface row of the "
+                    "same struct"
+                )
+            if not e.get("why"):
+                raise SystemExit(
+                    f"{r['owner']}.{r['name']}: an exclusion needs `why`"
+                )
+            for x in (r, other):
+                if x["kind"] not in _SETTABLE:
+                    raise SystemExit(
+                        f"{x['owner']}.{x['name']}: a {x['kind']} row has no "
+                        "unset value, so the object face could not refuse "
+                        "the pair; an exclusion is between rows of kind "
+                        + ", ".join(_SETTABLE)
+                    )
+            if any(
+                {x["a"], x["b"]} == {r["name"], other["name"]} for x in out
+            ):
+                raise SystemExit(
+                    f"{r['owner']}.{r['name']}/{other['name']}: the exclusion "
+                    "is declared twice; declare it on one field"
+                )
+            why = e["why"]
+            out.append(
+                {
+                    "owner": r["owner"],
+                    "a": r["name"],
+                    "b": other["name"],
+                    "cli_why": _both(r, other, "cli", "{}", why),
+                    "json_why": _both(r, other, "json", '"{}"', why),
+                    "obj_why": (
+                        f"a source's {r['member']} and {other['member']} "
+                        f"cannot both be set: {why}"
+                    ),
+                    "why": why,
+                }
+            )
+    return out
+
+
+def _excluded_by(r: dict, excl: list[dict]) -> list[dict]:
+    """The rows `r` may not sit beside."""
+    return [
+        e
+        for e in excl
+        if e["owner"] == r["owner"] and r["name"] in (e["a"], e["b"])
+    ]
+
+
+def _other(r: dict, e: dict, rows: list[dict]) -> dict:
+    name = e["b"] if e["a"] == r["name"] else e["a"]
+    return next(
+        x for x in rows if x["owner"] == r["owner"] and x["name"] == name
+    )
 
 
 def _resolve_when(rows: list[dict]) -> None:
@@ -398,10 +583,13 @@ def help_lines(row: dict, doc: str) -> list[str]:
     mv = row["metavar"]
     if row["range_bit"]:
         mv = f"{mv}[:{mv}]"
-    head = f"  {row['cli']} {mv}"
+    head = f"  {row['cli']} {mv}" if mv else f"  {row['cli']}"
     text = first_sentence(doc)
     if row["values"]:
         text += " One of: " + " | ".join(row["values"]) + "."
+    others = [o["cli"] for o in row.get("not_with", []) if o["cli"]]
+    if others:
+        text += " Not with " + ", ".join(others) + "."
     if row["default"] is not None:
         # A no-break space: the wrap may not split "(default" from its
         # value, and textwrap does not count U+00A0 as a place to break.
@@ -438,13 +626,18 @@ def render_help(rows: list[dict]) -> list[str]:
         for kind, struct in STRUCTS.items()
     }
     sections: dict[str, list[str]] = {}
+    excl = exclusions(rows)
+    for r in rows:
+        r["not_with"] = [_other(r, e, rows) for e in _excluded_by(r, excl)]
     # Segment rows first: --fs and --count lead the signal section.
     cli_rows = [r for r in rows if r["cli"]]
     for r in sorted(cli_rows, key=lambda r: r["owner"] != "segment"):
-        if not r["section"] or not r["metavar"]:
+        # A bool row is a switch on the command line (wfmgen.c: OPT_SET),
+        # so it takes no value and has no metavar; every other row does.
+        if not r["section"] or (not r["metavar"] and not r["json_bool"]):
             raise SystemExit(
                 f"{r['owner']}.{r['name']}: a `cli` row needs `metavar` and "
-                "`help_section`"
+                "`help_section` (a json_type bool row, a switch, no metavar)"
             )
         doc = docs[r["owner"]].get(r["member"], {}).get("doc")
         if not doc:
@@ -553,6 +746,15 @@ def row_schema(r: dict, doc: str) -> dict:
     return prop
 
 
+#: The schema keys their owner writes by hand, per object: every OTHER key
+#: on these objects is a surface row's, generated -- and removed with it.
+HAND_OWNED = {
+    "source": {"symbols", "crc"},
+    "inline_segment": {"symbols", "crc"},
+    "sum_segment": {"sum"},
+}
+
+
 def render_schema() -> str:
     """docs/schema/wfmgen.schema.json with every table row's property
     generated, and every other key -- the frame, the payload, the codes --
@@ -567,8 +769,23 @@ def render_schema() -> str:
     defs = schema["$defs"]
     text = COMPOSE_H.read_text(encoding="utf-8")
     docs = {k: member_docs(text, st) for k, st in STRUCTS.items()}
-    for r in surface_rows(man):
+    rows = surface_rows(man)
+    for r in rows:
         if not r["json"]:
+            continue
+        if r["kind"] == "WFM_SV_BESPOKE":
+            # Its shape is its owner's (a frame is a whole object); the
+            # table only checks the key is there to be excluded against.
+            if (
+                r["json"]
+                not in defs[
+                    "source" if r["owner"] == "source" else "inline_segment"
+                ]["properties"]
+            ):
+                raise SystemExit(
+                    f"{r['owner']}.{r['name']}: a bespoke row's key "
+                    f"{r['json']!r} is not in {SCHEMA.relative_to(ROOT)}"
+                )
             continue
         key, doc = r["json"], docs[r["owner"]][r["member"]]["doc"]
         if r["owner"] == "source":
@@ -581,6 +798,46 @@ def render_schema() -> str:
             defs["sum_segment"]["properties"][key] = {
                 "$ref": f"#/$defs/inline_segment/properties/{key}"
             }
+    # A key no row owns and no owner declared is a row that was DELETED:
+    # its property goes with it, both directions from one table. Without
+    # this a retired key (doppler#1718's "payload") stayed in the schema,
+    # documented and accepted, after every face refused it.
+    owned = {
+        "source": {
+            r["json"] for r in rows if r["json"] and r["owner"] == "source"
+        },
+        "inline_segment": {r["json"] for r in rows if r["json"]},
+        "sum_segment": {
+            r["json"] for r in rows if r["json"] and r["owner"] != "source"
+        },
+    }
+    for name, keys in owned.items():
+        props = defs[name]["properties"]
+        for key in [k for k in props if k not in keys | HAND_OWNED[name]]:
+            del props[key]
+    # Each exclusion, as "not both keys": on every object a source's keys
+    # appear in (a source, and the inline one-source segment).
+    targets = {
+        "source": ("source", "inline_segment"),
+        "segment": ("inline_segment", "sum_segment"),
+    }
+    for name in {n for t in targets.values() for n in t}:
+        defs[name].pop("allOf", None)
+    for e in exclusions(rows):
+        if not e["json_why"]:
+            continue
+        ja, jb = (
+            next(
+                r["json"]
+                for r in rows
+                if r["owner"] == e["owner"] and r["name"] == n
+            )
+            for n in (e["a"], e["b"])
+        )
+        for name in targets[e["owner"]]:
+            defs[name].setdefault("allOf", []).append(
+                {"not": {"required": [ja, jb]}, "description": e["json_why"]}
+            )
     # A $defs entry only the table rows referred to is gone with them.
     body = json.dumps(schema)
     for name in list(defs):
@@ -593,7 +850,28 @@ def render_schema() -> str:
 
 
 def _md(text: str) -> str:
+    """A table cell the generator wrote as markdown (a type's link): only
+    the cell separator is escaped, so its own links stay links."""
     return text.replace("|", "\\|")
+
+
+def _md_prose(text: str) -> str:
+    """A table cell of PROSE -- a field's doc, from its header comment.
+
+    Prose is literal: `[preamble x reps | sync | data:LEN | crc]` is frame
+    notation, not a link, and left bare markdown reads it as an unresolved
+    link reference (zensical --strict refused #1721 for exactly that). So
+    `[` and `]` are escaped outside code spans -- inside one they are
+    already literal -- and `|` everywhere, which a table cell needs even in
+    a code span. Fixed here, where every doc reaches the page, so no field
+    doc with brackets can break the build again.
+    """
+    out = []
+    for i, part in enumerate(text.split("`")):
+        if i % 2 == 0:  # outside a code span
+            part = part.replace("[", "\\[").replace("]", "\\]")
+        out.append(part.replace("|", "\\|"))
+    return "`".join(out)
 
 
 def render_reference() -> str:
@@ -633,6 +911,7 @@ def render_reference() -> str:
     ]
     titles = {"source": "Source fields", "segment": "Segment fields"}
     rows = surface_rows(man)
+    excl = exclusions(rows)
     for owner in ("segment", "source"):
         out += [
             "",
@@ -654,17 +933,28 @@ def render_reference() -> str:
                 typ = (
                     "[Field](../../design/frame-description.md#f1-the-grammar)"
                 )
+            elif r.get("surface_only"):
+                typ = "path"  # a file, or - for stdin
+            elif r["kind"] == "WFM_SV_BESPOKE":
+                typ = (
+                    "[frame description](waveforms.md#coded-frames-frame-file)"
+                )
             else:
                 typ = "integer"
             if r["range_bit"]:
                 typ += ", or a range"
-            cli = f"`{r['cli']} {r['metavar']}`" if r["cli"] else "—"
+            # A switch (a json_type bool row) takes no value on the CLI.
+            spell = f"{r['cli']} {r['metavar']}" if r["metavar"] else r["cli"]
+            cli = f"`{spell}`" if r["cli"] else "—"
             js = f"`{r['json']}`" if r["json"] else "—"
             dflt = f"`{r['default']}`" if r["default"] is not None else "—"
             doc = docs[owner][r["member"]]["doc"]
+            for e in _excluded_by(r, excl):
+                o = _other(r, e, rows)
+                doc += f" Not with `{o['name']}`: {e['why']}."
             out.append(
                 f"| `{r['name']}` | {cli} | {js} | {_md(typ)} | {dflt} | "
-                f"{_md(doc)} |"
+                f"{_md_prose(doc)} |"
             )
     return "\n".join(out) + "\n"
 
@@ -710,6 +1000,8 @@ def render_surface() -> str:
         "  WFM_SV_CHOICE,  /* an int index into `choices` */",
         "  WFM_SV_SYMBOLS, /* float _Complex *, its count at `len_off` */",
         "  WFM_SV_FIELD,   /* a wfm_seq_t, as a Field (wfm_frame.h) */",
+        "  WFM_SV_BESPOKE, /* a pointer each face reads with its own code;",
+        "                     the generic readers and writers skip it */",
         "} wfm_sv_kind_t;",
         "",
         "typedef struct",
@@ -792,9 +1084,183 @@ def render_surface() -> str:
         out += [f"    {x}," for x in fields]
         out.append("  },")
     out += ["};", ""]
+    out += render_exclusive(rows)
+    out += render_reps(rows)
     out += render_help(rows)
+    out += render_json_keys(json.loads(render_schema()))
     out.append("#endif /* WFM_SURFACE_H */")
     return "\n".join(out) + "\n"
+
+
+#: Every object a scene is made of, in the order the reader meets them:
+#: (C level name, path to its `properties` in the schema). The reader
+#: refuses a key that is not in its level's table, and the table IS the
+#: schema's properties -- one declaration, both directions (doppler#1153,
+#: where a top-level "fs" was dropped in silence and every segment ran at
+#: fs = 1).
+JSON_LEVELS = (
+    ("ROOT", ()),
+    ("INLINE_SEGMENT", ("$defs", "inline_segment")),
+    ("SUM_SEGMENT", ("$defs", "sum_segment")),
+    ("SOURCE", ("$defs", "source")),
+    ("FRAME", ("$defs", "frame_desc")),
+    ("FIELD", ("$defs", "frame_desc", "properties", "fields", "items")),
+    ("STAGE", ("$defs", "frame_desc", "properties", "stages", "items")),
+)
+
+
+def render_json_keys(schema: dict) -> list[str]:
+    """`WFM_JSON_KEYS[]`: the keys each scene object takes, from the schema.
+
+    The schema says `additionalProperties: false` on every one of these
+    objects; this is what makes the reader agree. A level whose object
+    stops refusing extra keys is a schema change the reader cannot honour,
+    so it fails here rather than generating an open level.
+    """
+    out = [
+        "/* The keys each object of a scene takes, generated from the "
+        "schema's",
+        "   `properties` (docs/schema/wfmgen.schema.json). The reader "
+        "refuses any",
+        "   other key by name: the schema and the reader are one table "
+        "(#1153). */",
+        "typedef enum",
+        "{",
+    ]
+    out += [f"  WFM_JSON_{name}," for name, _ in JSON_LEVELS]
+    out += ["  WFM_JSON_N_LEVELS", "} wfm_json_level_t;", ""]
+    for name, path in JSON_LEVELS:
+        obj = schema
+        for k in path:
+            obj = obj[k]
+        if obj.get("additionalProperties") is not False:
+            raise SystemExit(
+                f"gen_wfm_defaults: schema object {'/'.join(path) or '$'} "
+                "does not set additionalProperties: false, so the reader "
+                "cannot refuse an unknown key there"
+            )
+        keys = sorted(obj["properties"])
+        out.append(f"static const char *const WFM_JSON_KEYS_{name}[] = {{")
+        out += [f"  {_c_lit(k)}," for k in keys]
+        out += ["  NULL", "};", ""]
+    out.append(
+        "static const char *const *const WFM_JSON_KEYS[WFM_JSON_N_LEVELS] = {"
+    )
+    out += [f"  WFM_JSON_KEYS_{name}," for name, _ in JSON_LEVELS]
+    out += ["};", ""]
+    return out
+
+
+def _c_lit(text: str | None) -> str:
+    if text is None:
+        return "NULL"
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _c_field(name: str, text: str | None) -> list[str]:
+    """`    <name> = "<text>",`, the literal split into adjacent pieces so no
+    line passes 79 columns (the header is generated, not clang-formatted)."""
+    if text is None:
+        return [f"    {name} = NULL,"]
+    pieces = textwrap.wrap(
+        text, width=54, drop_whitespace=False, break_on_hyphens=False
+    )
+    lines = [f"    {name} = {_c_lit(pieces[0])}"]
+    lines += [f"        {_c_lit(p)}" for p in pieces[1:]]
+    lines[-1] += ","
+    return lines
+
+
+def render_exclusive(rows: list[dict]) -> list[str]:
+    """`WFM_SURFACE_EXCLUSIVE[]`: the pairs no face may take together.
+
+    One declaration per pair (the manifest's `exclusive`), each reason a
+    literal per face so a `why` never points at a formatted buffer.
+    """
+    out = [
+        "/* Two rows no face takes together, and the reason, spelled for each",
+        "   face that can be given both: the CLI (both flags), a scene (both",
+        "   keys), the object (both members set). NULL: that face cannot",
+        "   carry one of the two, so it has nothing to refuse. */",
+        "typedef struct",
+        "{",
+        "  int         a, b; /* WFM_SURFACE_<owner>_<name> */",
+        "  const char *cli_why;",
+        "  const char *json_why;",
+        "  const char *obj_why;",
+        "} wfm_surface_exclusive_t;",
+        "",
+    ]
+    excl = exclusions(rows)
+    out.append(f"#define WFM_SURFACE_N_EXCLUSIVE {len(excl)}")
+    # C has no empty array: with no pair declared, one zeroed entry that
+    # WFM_SURFACE_N_EXCLUSIVE (0) keeps every loop from reading.
+    out += [
+        "static const wfm_surface_exclusive_t",
+        f"    WFM_SURFACE_EXCLUSIVE[{max(len(excl), 1)}] = {{",
+    ]
+    if not excl:
+        out.append("  { 0 },")
+    for e in excl:
+        o = e["owner"]
+        out += [
+            "  {",
+            f"    .a = WFM_SURFACE_{o}_{e['a']},",
+            f"    .b = WFM_SURFACE_{o}_{e['b']},",
+        ]
+        for k in ("cli_why", "json_why", "obj_why"):
+            out += _c_field(f".{k}", e[k])
+        out.append("  },")
+    out += [
+        "};",
+        "",
+        "/* Whether a row's member holds a value: the object face's",
+        '   "given". Only the kinds an exclusion may name (the generator',
+        "   refuses any other) have an unset value to test for. */",
+        "static inline int",
+        "wfm_surface_row_is_set (const wfm_surface_row_t *r,",
+        "                        const void              *base)",
+        "{",
+        "  const char *m = (const char *)base + r->off;",
+        "  switch (r->kind)",
+        "    {",
+        "    case WFM_SV_FIELD:",
+        "      return ((const wfm_seq_t *)m)->len != 0;",
+        "    case WFM_SV_BESPOKE:",
+        "      return *(const void *const *)m != NULL;",
+        "    case WFM_SV_SYMBOLS:",
+        "      return *(const size_t *)((const char *)base + r->len_off)",
+        "             != 0;",
+        "    default:",
+        "      return 0;",
+        "    }",
+        "}",
+        "",
+    ]
+    return out
+
+
+def render_reps(rows: list[dict]) -> list[str]:
+    """The one reason a Field that does not repeat refuses `*REPS`, per face.
+
+    Which field repeats is the manifest's `field_reps`; the sentence names
+    it from there, so the CLI and a scene cannot say it two ways.
+    """
+    reps = [r for r in rows if r["field_reps"]]
+    if not reps:
+        return []
+    cli = ", ".join(r["cli"] for r in reps if r["cli"])
+    js = ", ".join(f'"{r["json"]}"' for r in reps if r["json"])
+    return [
+        "/* A Field row with no repetition count refuses *REPS: only the",
+        "   rows with `field_reps` repeat (a preamble). One reason per face.",
+        "*/",
+        "#define WFM_SURFACE_REPS_WHY_CLI \\",
+        f"  {_c_lit(f'only {cli} repeats (a preamble): drop the *REPS')}",
+        "#define WFM_SURFACE_REPS_WHY_JSON \\",
+        f"  {_c_lit(f'only {js} repeats (a preamble): drop the *REPS')}",
+        "",
+    ]
 
 
 def main() -> int:
@@ -819,6 +1285,15 @@ def main() -> int:
         )
         for d in drift:
             print("  " + d, file=sys.stderr)
+        return 1
+
+    only = surface_only_errors(
+        tomllib.loads(MANIFEST.read_text(encoding="utf-8")),
+        COMPOSE_H.read_text(encoding="utf-8"),
+    )
+    if only:
+        for d in only:
+            print(f"gen_wfm_defaults: {d}", file=sys.stderr)
         return 1
 
     splice = help_splice_errors(

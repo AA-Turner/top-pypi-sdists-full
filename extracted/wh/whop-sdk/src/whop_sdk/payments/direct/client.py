@@ -5,10 +5,11 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.payment import Payment
+from ...types.payment_input_line_items_item import PaymentInputLineItemsItem
+from ...types.payment_input_plan import PaymentInputPlan
 from .raw_client import AsyncRawDirectClient, RawDirectClient
 from .types.create_direct_request_billing_details import CreateDirectRequestBillingDetails
 from .types.create_direct_request_payment_method import CreateDirectRequestPaymentMethod
-from .types.create_direct_request_plan import CreateDirectRequestPlan
 from .types.create_direct_request_setup_future_usage import CreateDirectRequestSetupFutureUsage
 
 # this is used as the default value for optional parameters
@@ -33,35 +34,42 @@ class DirectClient:
     def create(
         self,
         *,
-        account_id: str,
         billing_details: CreateDirectRequestBillingDetails,
         payment_method: CreateDirectRequestPaymentMethod,
+        account_id: str,
+        affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         member_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         off_session: typing.Optional[bool] = OMIT,
-        plan: typing.Optional[CreateDirectRequestPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
-        promo_code_id: typing.Optional[str] = OMIT,
+        quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         setup_future_usage: typing.Optional[CreateDirectRequestSetupFutureUsage] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
+        line_items: typing.Optional[typing.Sequence[PaymentInputLineItemsItem]] = OMIT,
+        plan: typing.Optional[PaymentInputPlan] = OMIT,
+        plan_id: typing.Optional[str] = OMIT,
+        promo_code: typing.Optional[str] = OMIT,
+        promo_code_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Payment:
         """
-        Charges a buyer for a plan from card details the caller holds itself, for integrators whose own systems are PCI compliant. Card details are accepted only on the vault host, where the card is tokenized before it reaches Whop; the official SDKs route this operation there, and raw card details sent to the regular host are refused. (Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.) Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and what the buyer must still do, such as 3D Secure.
+        Charges a buyer for a variant from card details the caller holds itself, for integrators whose own systems are PCI compliant. Card details are accepted only on the vault host, where the card is tokenized before it reaches Whop; the official SDKs route this operation there, and raw card details sent to the regular host are refused. (Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.) Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and what the buyer must still do, such as 3D Secure.
 
         Parameters
         ----------
-        account_id : str
-            The account to charge for, prefixed `biz_`.
-
         billing_details : CreateDirectRequestBillingDetails
             The buyer's billing details.
 
         payment_method : CreateDirectRequestPaymentMethod
             The payment method to charge, as the raw details the caller holds. Raw details are accepted only on the vault host, where Whop's vault tokenizes them in transit; the official SDKs route this operation there. Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.
+
+        account_id : str
+            The account the purchase belongs to, prefixed `biz_`.
+
+        affiliate_code : typing.Optional[str]
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
@@ -78,14 +86,8 @@ class DirectClient:
         off_session : typing.Optional[bool]
             Whether the charge is merchant-initiated, with the buyer not present. Defaults to false. When true, `payment_method.card.network_transaction_id` is required: a merchant-initiated charge on a card Whop has not charged before carries the id of the card's prior customer-initiated transaction. No 3D Secure step is offered: an issuer that requires the buyer to authenticate declines the charge, and the payment fails with that reason so the card can be charged again with the buyer present. A declined card is not saved.
 
-        plan : typing.Optional[CreateDirectRequestPlan]
-            Find or create a plan for this payment. Mutually exclusive with `plan_id` and `line_items`. Creating a plan requires plan:create; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The plan to charge for, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan`.
-
-        promo_code_id : typing.Optional[str]
-            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the plan.
+        quote_id : typing.Optional[str]
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters.
@@ -95,6 +97,21 @@ class DirectClient:
 
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+
+        line_items : typing.Optional[typing.Sequence[PaymentInputLineItemsItem]]
+            What the buyer is purchasing. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency.
+
+        plan : typing.Optional[PaymentInputPlan]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        plan_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
+
+        promo_code : typing.Optional[str]
+            The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`.
+
+        promo_code_id : typing.Optional[str]
+            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -114,7 +131,7 @@ class DirectClient:
         )
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -134,20 +151,24 @@ class DirectClient:
         )
         """
         _response = self._raw_client.create(
-            account_id=account_id,
             billing_details=billing_details,
             payment_method=payment_method,
+            account_id=account_id,
+            affiliate_code=affiliate_code,
             auto_capture_after_minutes=auto_capture_after_minutes,
             capture=capture,
             member_id=member_id,
             metadata=metadata,
             off_session=off_session,
-            plan=plan,
-            plan_id=plan_id,
-            promo_code_id=promo_code_id,
+            quote_id=quote_id,
             return_url=return_url,
             setup_future_usage=setup_future_usage,
             statement_descriptor=statement_descriptor,
+            line_items=line_items,
+            plan=plan,
+            plan_id=plan_id,
+            promo_code=promo_code,
+            promo_code_id=promo_code_id,
             request_options=request_options,
         )
         return _response.data
@@ -171,35 +192,42 @@ class AsyncDirectClient:
     async def create(
         self,
         *,
-        account_id: str,
         billing_details: CreateDirectRequestBillingDetails,
         payment_method: CreateDirectRequestPaymentMethod,
+        account_id: str,
+        affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         member_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
         off_session: typing.Optional[bool] = OMIT,
-        plan: typing.Optional[CreateDirectRequestPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
-        promo_code_id: typing.Optional[str] = OMIT,
+        quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         setup_future_usage: typing.Optional[CreateDirectRequestSetupFutureUsage] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
+        line_items: typing.Optional[typing.Sequence[PaymentInputLineItemsItem]] = OMIT,
+        plan: typing.Optional[PaymentInputPlan] = OMIT,
+        plan_id: typing.Optional[str] = OMIT,
+        promo_code: typing.Optional[str] = OMIT,
+        promo_code_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Payment:
         """
-        Charges a buyer for a plan from card details the caller holds itself, for integrators whose own systems are PCI compliant. Card details are accepted only on the vault host, where the card is tokenized before it reaches Whop; the official SDKs route this operation there, and raw card details sent to the regular host are refused. (Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.) Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and what the buyer must still do, such as 3D Secure.
+        Charges a buyer for a variant from card details the caller holds itself, for integrators whose own systems are PCI compliant. Card details are accepted only on the vault host, where the card is tokenized before it reaches Whop; the official SDKs route this operation there, and raw card details sent to the regular host are refused. (Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.) Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and what the buyer must still do, such as 3D Secure.
 
         Parameters
         ----------
-        account_id : str
-            The account to charge for, prefixed `biz_`.
-
         billing_details : CreateDirectRequestBillingDetails
             The buyer's billing details.
 
         payment_method : CreateDirectRequestPaymentMethod
             The payment method to charge, as the raw details the caller holds. Raw details are accepted only on the vault host, where Whop's vault tokenizes them in transit; the official SDKs route this operation there. Whop's own clients, which tokenize with the Basis Theory SDK, send the resulting token intent id to the regular host.
+
+        account_id : str
+            The account the purchase belongs to, prefixed `biz_`.
+
+        affiliate_code : typing.Optional[str]
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
@@ -216,14 +244,8 @@ class AsyncDirectClient:
         off_session : typing.Optional[bool]
             Whether the charge is merchant-initiated, with the buyer not present. Defaults to false. When true, `payment_method.card.network_transaction_id` is required: a merchant-initiated charge on a card Whop has not charged before carries the id of the card's prior customer-initiated transaction. No 3D Secure step is offered: an issuer that requires the buyer to authenticate declines the charge, and the payment fails with that reason so the card can be charged again with the buyer present. A declined card is not saved.
 
-        plan : typing.Optional[CreateDirectRequestPlan]
-            Find or create a plan for this payment. Mutually exclusive with `plan_id` and `line_items`. Creating a plan requires plan:create; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The plan to charge for, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan`.
-
-        promo_code_id : typing.Optional[str]
-            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the plan.
+        quote_id : typing.Optional[str]
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters.
@@ -233,6 +255,21 @@ class AsyncDirectClient:
 
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+
+        line_items : typing.Optional[typing.Sequence[PaymentInputLineItemsItem]]
+            What the buyer is purchasing. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency.
+
+        plan : typing.Optional[PaymentInputPlan]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        plan_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
+
+        promo_code : typing.Optional[str]
+            The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`.
+
+        promo_code_id : typing.Optional[str]
+            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -254,7 +291,7 @@ class AsyncDirectClient:
         )
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -280,20 +317,24 @@ class AsyncDirectClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            account_id=account_id,
             billing_details=billing_details,
             payment_method=payment_method,
+            account_id=account_id,
+            affiliate_code=affiliate_code,
             auto_capture_after_minutes=auto_capture_after_minutes,
             capture=capture,
             member_id=member_id,
             metadata=metadata,
             off_session=off_session,
-            plan=plan,
-            plan_id=plan_id,
-            promo_code_id=promo_code_id,
+            quote_id=quote_id,
             return_url=return_url,
             setup_future_usage=setup_future_usage,
             statement_descriptor=statement_descriptor,
+            line_items=line_items,
+            plan=plan,
+            plan_id=plan_id,
+            promo_code=promo_code,
+            promo_code_id=promo_code_id,
             request_options=request_options,
         )
         return _response.data

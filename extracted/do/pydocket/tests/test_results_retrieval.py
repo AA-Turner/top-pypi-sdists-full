@@ -1,8 +1,10 @@
 """Tests for result retrieval, waiting, TTL, and concurrent operations."""
 
 import asyncio
+from contextlib import aclosing
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from typing import Any, Awaitable, Callable
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -29,6 +31,32 @@ async def test_get_result_waits_for_completion(docket: Docket, worker: Worker):
     assert result == result_value
 
     await worker_task
+
+
+async def test_get_result_when_task_finishes_while_subscribing(
+    docket: Docket, worker: Worker, monkeypatch: pytest.MonkeyPatch
+):
+    """Test that get_result returns when the task finishes right after subscribe() reads its state."""
+
+    async def returns_value() -> int:
+        return 42
+
+    docket.register(returns_value)
+    execution = await docket.add(returns_value)()
+
+    # get_result() waits on subscribe(), which calls sync() to read the task's
+    # state.  This wrapper restores the real sync(), does that read, and then
+    # runs the worker, so the task finishes right after the read.  Timing alone
+    # cannot put the finish there on every run.
+    async def sync_then_finish_task() -> None:
+        monkeypatch.undo()
+        await execution.sync()
+        await worker.run_until_finished()
+
+    monkeypatch.setattr(execution, "sync", sync_then_finish_task)
+
+    result = await execution.get_result(timeout=timedelta(seconds=5))
+    assert result == 42
 
 
 async def test_get_result_timeout(docket: Docket, worker: Worker):
@@ -118,6 +146,49 @@ async def test_get_result_on_already_failed_task(docket: Docket, worker: Worker)
     # get_result should raise immediately
     with pytest.raises(ValueError):
         await execution.get_result()
+
+
+async def first_state(execution: Execution) -> str:
+    """Return the state in the first event that ``subscribe()`` yields."""
+    async with aclosing(execution.subscribe()) as events:
+        event = await anext(events)
+    assert event["type"] == "state"
+    return event["state"]
+
+
+@pytest.mark.parametrize(
+    "read, expected",
+    [
+        pytest.param(Execution.get_result, 42, id="get_result"),
+        pytest.param(first_state, ExecutionState.COMPLETED, id="subscribe"),
+    ],
+)
+async def test_reading_a_finished_task_opens_no_pubsub_connection(
+    docket: Docket,
+    worker: Worker,
+    monkeypatch: pytest.MonkeyPatch,
+    read: Callable[[Execution], Awaitable[Any]],
+    expected: Any,
+):
+    """Test that get_result() and subscribe() read a finished task without pub/sub.
+
+    Each pub/sub connection is one more Redis connection, from a pool that the
+    URL's ``max_connections`` can fill.  A finished task needs no real-time
+    updates, so reading it must not open a connection or fail when the pool is
+    full.
+    """
+
+    async def returns_value() -> int:
+        return 42
+
+    docket.register(returns_value)
+    execution = await docket.add(returns_value)()
+    await worker.run_until_finished()
+
+    pubsub = Mock(wraps=docket._pubsub)  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setattr(docket, "_pubsub", pubsub)
+    assert await read(execution) == expected
+    pubsub.assert_not_called()
 
 
 async def test_get_result_with_expired_timeout(docket: Docket):

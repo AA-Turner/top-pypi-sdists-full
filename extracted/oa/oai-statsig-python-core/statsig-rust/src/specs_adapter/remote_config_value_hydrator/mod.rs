@@ -27,7 +27,8 @@ use telemetry::{HydrationOutcome, HydrationResult};
 
 pub(crate) use download::DOWNLOAD_CONCURRENCY;
 pub(crate) use protobuf::{
-    ProtobufHydrationSession, protobuf_top_level_has_hydrated_sidecar_provenance,
+    ProtobufHydrationSession, VerifiedRemoteValues,
+    protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
     rewrite_top_level_envelope,
 };

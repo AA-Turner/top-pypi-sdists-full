@@ -56,7 +56,7 @@ def test_artifact_ref_resolves_by_name(service, client, tmp_path):
 
     assert out["data"]["entity_type"] == "artifact"
     assert out["data"]["entity"]["id"] == shared["id"]
-    assert out["data"]["available_views"] == ["card", "lineage", "record", "versions"]
+    assert out["data"]["available_views"] == ["card", "lineage", "record", "sessions", "versions"]
 
 
 def test_a_root_level_name_resolves(service, client, tmp_path, app):
@@ -285,7 +285,7 @@ def test_an_unsupported_view_on_an_artifact_names_what_is_supported(service, cli
     from probe.mcp.contract import VIEW_PURPOSE, View
 
     listed = [ln for ln in text.splitlines() if ln.startswith("  ")]
-    assert [ln.split()[0] for ln in listed] == ["card", "lineage", "record", "versions"]
+    assert [ln.split()[0] for ln in listed] == ["card", "lineage", "record", "sessions", "versions"]
     for ln in listed:
         assert VIEW_PURPOSE[View(ln.split()[0])] in ln, ln
 

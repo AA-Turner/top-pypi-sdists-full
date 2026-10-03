@@ -2,12 +2,9 @@ import csv
 import sys
 import agilicus
 import click
-import dateparser
 import datetime
 
 from typing import Any, Dict
-
-from . import context
 
 search_direction_values = ["forwards", "backwards"]
 page_sort_order_values = ["asc", "desc"]
@@ -98,6 +95,8 @@ def update_org_from_input_or_ctx(params, *args, **kwargs):
 
 def get_org_from_input_or_ctx(ctx, org_id=None, **kwargs):
     if org_id is None:
+        from . import context  # deferred: breaks the context<->tokens cycle
+
         token = context.get_token(ctx)
         org_id = context.get_org_id(ctx, token)
 
@@ -110,6 +109,8 @@ def get_org_from_input_or_ctx(ctx, org_id=None, **kwargs):
 
 def get_user_id_from_input_or_ctx(ctx, user_id=None, **kwargs):
     if user_id is None:
+        from . import context  # deferred: breaks the context<->tokens cycle
+
         token = context.get_token(ctx)
         user_id = context.get_user_id(ctx, token)
 
@@ -223,6 +224,8 @@ class HumanReadableDateType(click.ParamType):
         if isinstance(value, datetime.datetime):
             return value
         try:
+            import dateparser  # deferred: only needed for human-readable CLI dates
+
             result = dateparser.parse(value, settings=self.settings)
         except Exception as exc:
             print(f"failed to parse: {exc}")

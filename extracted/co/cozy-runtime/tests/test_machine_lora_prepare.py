@@ -150,6 +150,7 @@ def test_captured_child_stack_builds_real_cpu_native_view_and_exact_census(tmp_p
         (selected,) = machine_model_defaults.select(
             worker, "owner", call, target, {}, model_choices=choices
         )
+        notes: list[str] = []
         prepared = machine_model_overrides.apply(
             worker,
             selected,
@@ -158,9 +159,15 @@ def test_captured_child_stack_builds_real_cpu_native_view_and_exact_census(tmp_p
             hub="",
             owner="proof",
             credentials={},
-            note=lambda *_: None,
+            note=lambda line, *_: notes.append(line),
             check=lambda: None,
         )
+        # Every applied adapter is recorded: ref, manifest digest, strength and target.
+        assert notes == [
+            f"adapter_0: proof/first {first.manifest.digest} scale 0.5 on transformer",
+            f"adapter_1: proof/second {second.manifest.digest} scale -0.25 on transformer",
+            "preparing model adapters",
+        ]
         same = machine_model_overrides.apply(
             worker,
             selected,
@@ -221,7 +228,7 @@ def test_captured_child_stack_builds_real_cpu_native_view_and_exact_census(tmp_p
             custody="canonical",
             encoded_leaves=False,
         )["ok"]
-        assert worker.gpu.view() == {"leases": {}, "grants": {}, "waiting": {}}
+        assert worker.stages.view() == {"leases": {}, "waiting": {}, "holders": {}, "demands": {}}
         assert not __import__("torch").cuda.is_initialized()
     finally:
         worker.shutdown()
@@ -300,7 +307,12 @@ def test_provider_adapter_acquisition_keeps_recognizable_token_transient(
                 ]
             )
             assert len(graph.layers) == 1 and graph.layers[0].strength == 0.5
-            assert worker.gpu.view() == {"leases": {}, "grants": {}, "waiting": {}}
+            assert worker.stages.view() == {
+                "leases": {},
+                "waiting": {},
+                "holders": {},
+                "demands": {},
+            }
     finally:
         worker.shutdown()
     for path in tmp_path.rglob("*"):

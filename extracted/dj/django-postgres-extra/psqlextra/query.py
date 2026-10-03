@@ -41,6 +41,14 @@ else:
     QuerySetBase = QuerySet
 
 
+def peek_iterator(iterable):
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return list(chain([first], iterable))
+
+
 class PostgresQuerySet(QuerySetBase, Generic[TModel]):
     """Adds support for PostgreSQL specifics."""
 
@@ -65,9 +73,9 @@ class PostgresQuerySet(QuerySetBase, Generic[TModel]):
         name of an existing field on the model as the alias name. This
         version of the function does allow that.
 
-        This is done by temporarily renaming the fields in order to avoid the
-        check for conflicts that the base class does.
-        We rename all fields instead of the ones that already exist because
+        This is done by temporarily renaming the fields in order to
+        avoid the check for conflicts that the base class does. We
+        rename all fields instead of the ones that already exist because
         the annotations are stored in an OrderedDict. Renaming only the
         conflicts will mess up the order.
         """
@@ -174,11 +182,12 @@ class PostgresQuerySet(QuerySetBase, Generic[TModel]):
             A list of either the dicts of the rows inserted, including the pk or
             the models of the rows inserted with defaults for any fields not specified
         """
+        if rows is None:
+            return []
 
-        def is_empty(r):
-            return all([False for _ in r])
+        rows = peek_iterator(iter(rows))
 
-        if not rows or is_empty(rows):
+        if not rows:
             return []
 
         if not self.conflict_target and not self.conflict_action:
@@ -527,19 +536,22 @@ class PostgresQuerySet(QuerySetBase, Generic[TModel]):
         compiler = query.get_compiler(using)
         return compiler
 
-    def _is_magical_field(self, model_instance, field, is_insert: bool):
-        """Verifies whether this field is gonna modify something on its own.
-
-        "Magical" means that a field modifies the field value
-        during the pre_save.
+    def _pre_save_field(
+        self,
+        model_instance: models.Model,
+        field: models.Field,
+        *,
+        is_insert: bool
+    ):
+        """Pre-saves the model and gets whether the :see:pre_save method makes
+        any modifications to the field value.
 
         Arguments:
             model_instance:
                 The model instance the field is defined on.
 
             field:
-                The field to get of whether the field is
-                magical.
+                The field to pre-save.
 
             is_insert:
                 Pretend whether this is an insert?
@@ -585,11 +597,12 @@ class PostgresQuerySet(QuerySetBase, Generic[TModel]):
         and include them in the list of insert/update fields.
         """
 
-        model_instance = self.model(**kwargs)
         insert_fields = []
         update_values = {}
 
-        for field in model_instance._meta.local_concrete_fields:
+        insert_model_instance = self.model(**kwargs)
+        update_model_instance = self.model(**kwargs)
+        for field in insert_model_instance._meta.local_concrete_fields:
             has_default = field.default != NOT_PROVIDED
             if field.name in kwargs or field.column in kwargs:
                 insert_fields.append(field)
@@ -607,10 +620,14 @@ class PostgresQuerySet(QuerySetBase, Generic[TModel]):
                 update_values[field.name] = ExcludedCol(field)
                 continue
 
-            if self._is_magical_field(model_instance, field, is_insert=True):
+            if self._pre_save_field(
+                insert_model_instance, field, is_insert=True
+            ):
                 insert_fields.append(field)
 
-            if self._is_magical_field(model_instance, field, is_insert=False):
+            if self._pre_save_field(
+                update_model_instance, field, is_insert=False
+            ):
                 update_values[field.name] = ExcludedCol(field)
 
         return insert_fields, update_values

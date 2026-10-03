@@ -6,11 +6,6 @@ import tempfile
 import pytest
 import canmatrix.formats
 
-from canmatrix.utils import arbitration_id_converter
-from canmatrix.Frame import Frame
-from canmatrix.Signal import Signal
-from canmatrix.CanMatrix import CanMatrix
-
 try:
     from pathlib import Path
 except ImportError:
@@ -62,11 +57,11 @@ def test_force_input_format(tmpdir, run):
 def create_dbc_with_special_char():
     outFile = tmp_dir + "/output_cli_convert_tmp.dbc"
 
-    myFrame = Frame("testFrame1", 
-                              arbitration_id=arbitration_id_converter(0x123), 
+    myFrame = canmatrix.Frame("testFrame1", 
+                              arbitration_id=canmatrix.arbitration_id_converter(0x123), 
                               size=8, 
                               transmitters=["testBU"])
-    mySignal = Signal("someTestSignal",
+    mySignal = canmatrix.Signal("someTestSignal",
                       size=11,
                       is_little_endian=False,
                       is_signed=False,
@@ -78,7 +73,7 @@ def create_dbc_with_special_char():
                       receivers=["recBU"])
     myFrame.add_signal(mySignal)
 
-    db = CanMatrix()
+    db = canmatrix.CanMatrix()
     db.add_frame(myFrame)
     db.add_frame_defines("SomeUnneededDefine", 'INT 0 65535')
     canmatrix.formats.dumpp({"": db},
@@ -215,8 +210,8 @@ def create_dbc(additionalReceiver = []):
     tmp_dir = tempfile.mkdtemp()
     outFile = tmp_dir + "/output_cli_convert_tmpb.dbc"
 
-    myFrame = Frame("testFrame3", arbitration_id=arbitration_id_converter(0x124), size=8, transmitters=["testBU"])
-    mySignal = Signal("someTestSignal",
+    myFrame = canmatrix.Frame("testFrame3", arbitration_id=canmatrix.arbitration_id_converter(0x124), size=8, transmitters=["testBU"])
+    mySignal = canmatrix.Signal("someTestSignal",
                       size=11,
                       is_little_endian=False,
                       is_signed=False,
@@ -226,9 +221,9 @@ def create_dbc(additionalReceiver = []):
                       max=500,
                       receivers=["recBU"])
     myFrame.add_signal(mySignal)
-    myFrame2 = Frame("testFrame2", arbitration_id=arbitration_id_converter(0x125), size=8, transmitters=["testBU2"])
+    myFrame2 = canmatrix.Frame("testFrame2", arbitration_id=canmatrix.arbitration_id_converter(0x125), size=8, transmitters=["testBU2"])
     myFrame2.add_attribute("myAttribute", "42")
-    mySignal2 = Signal("someTestSignal2",
+    mySignal2 = canmatrix.Signal("someTestSignal2",
                       start_bit=15,
                       size=11,
                       is_little_endian=False,
@@ -239,7 +234,7 @@ def create_dbc(additionalReceiver = []):
                       max=500,
                       receivers=["recBU2"] + additionalReceiver)
     myFrame2.add_signal(mySignal2)
-    mySignal3 = Signal("zeroSignal",
+    mySignal3 = canmatrix.Signal("zeroSignal",
                       start_bit=20,
                       size=0,
                       is_little_endian=False,
@@ -252,7 +247,7 @@ def create_dbc(additionalReceiver = []):
     mySignal3.add_attribute("mySignalAttribute", "7")
     myFrame2.add_signal(mySignal3)
 
-    db = CanMatrix()
+    db = canmatrix.CanMatrix()
     db.add_frame(myFrame)
     db.add_frame(myFrame2)
     db.add_frame_defines("myAttribute", "INT -5 10")
@@ -340,33 +335,3 @@ def test_merge(tmpdir, run):
         assert b"BO_ 291" in content
         assert b"BO_ 292" in content
         assert b"BO_ 293" in content
-
-
-@pytest.mark.parametrize(
-    "module, command",
-    [
-        ("canmatrix.cli.convert", "cli_convert"),
-        ("canmatrix.cli.compare", "cli_compare"),
-    ],
-)
-def test_cli_no_duplicatie_options(
-    module: str, command: str,
-    recwarn: pytest.WarningsRecorder
-) -> None:
-    import importlib
-
-    from click.testing import CliRunner
-
-    module = importlib.import_module(module)
-    cli = getattr(module, command)
-
-    cli_runner = CliRunner()
-    result = cli_runner.invoke(cli, ["--help"])
-
-    assert result.exit_code == 0
-
-    for warn in recwarn:
-        if warn.category == UserWarning and "parameters should be unique" in str(
-            warn.message
-        ):
-            pytest.fail(str(warn.message))

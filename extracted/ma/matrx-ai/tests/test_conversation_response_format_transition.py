@@ -165,7 +165,8 @@ async def test_explicit_turn_schema_override_wins_after_structured_answer(monkey
 
 @pytest.mark.asyncio
 async def test_null_turn_override_does_not_block_default_relaxation(monkeypatch) -> None:
-    override = LLMParams(response_format=None)
+    # An UNSENT response_format is not an explicit choice: the default relaxes.
+    override = LLMParams(temperature=0.5)
 
     resolved = await _resolve(
         monkeypatch,
@@ -174,6 +175,21 @@ async def test_null_turn_override_does_not_block_default_relaxation(monkeypatch)
     )
 
     assert resolved.response_format == {"type": "text"}
+
+
+@pytest.mark.asyncio
+async def test_explicit_null_turn_override_unsets_the_format(monkeypatch) -> None:
+    # An EXPLICIT null is "not set" for this turn (F-a): no structured format
+    # goes out at all — the model's own default (free text) applies.
+    override = LLMParams.model_validate_json('{"response_format": null}')
+
+    resolved = await _resolve(
+        monkeypatch,
+        _config(_assistant('{"answer":"generated result"}')),
+        overrides=override,
+    )
+
+    assert resolved.response_format is None
 
 
 @pytest.mark.asyncio

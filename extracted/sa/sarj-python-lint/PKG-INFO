@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sarj-python-lint
-Version: 1.14.1
+Version: 1.16.4
 Summary: Custom Python lint rules — AST-based, pre-commit-friendly, hypermodern defaults
 Project-URL: Homepage, https://code-standards.sarj.ai/rules/python/
 Project-URL: Documentation, https://code-standards.sarj.ai/rules/python/

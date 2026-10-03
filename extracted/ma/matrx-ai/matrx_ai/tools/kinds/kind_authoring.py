@@ -85,6 +85,7 @@ class KindSurfaceSummary(KindSubModel):
 
 @kind(
     "kind_definition_detail",
+    disposition="record",
     label="Kind Definition",
     family="kind_authoring",
     example={
@@ -153,6 +154,7 @@ class ComponentAuthoringBundle(KindSubModel):
 
 @kind(
     "kind_create_result",
+    disposition="receipt",
     label="Kind Created",
     family="kind_authoring",
     example={
@@ -229,6 +231,7 @@ class StrandedExample(KindSubModel):
 
 @kind(
     "kind_schema_update_result",
+    disposition="receipt",
     label="Kind Schema Updated",
     family="kind_authoring",
     example={
@@ -256,6 +259,7 @@ class KindSchemaUpdateResult(KindModel):
 
 @kind(
     "kind_example_result",
+    disposition="record",
     label="Kind Example Added",
     family="kind_authoring",
     example={
@@ -279,6 +283,7 @@ class KindExampleResult(KindModel):
 
 @kind(
     "kind_skill_result",
+    disposition="receipt",
     label="Kind Skill Created",
     family="kind_authoring",
     example={
@@ -302,6 +307,7 @@ class KindSkillResult(KindModel):
 
 @kind(
     "kind_content_block_result",
+    disposition="receipt",
     label="Kind Content Block Created",
     family="kind_authoring",
     example={
@@ -325,6 +331,7 @@ class KindContentBlockResult(KindModel):
 
 @kind(
     "kind_activation_result",
+    disposition="record",
     label="Kind Activation",
     family="kind_authoring",
     example={

@@ -212,10 +212,12 @@ async def run_agent_assignment_batch(
         payload["is_version"] = agent_is_version
         payload["max_iterations"] = limit.value
         if agent_mandate_overrides:
-            payload["config_overrides"] = {
-                **agent_mandate_overrides,
-                **(payload.get("config_overrides") or {}),
-            }
+            from matrx_ai.config.llm_params import merge_llm_overrides
+
+            # The one merge: a class pin never rides onto another model.
+            payload["config_overrides"] = merge_llm_overrides(
+                agent_mandate_overrides, payload.get("config_overrides")
+            )
         payload["conversation_id"] = conversation_id
         exists = conversation_exists(conversation_id)
         if inspect.isawaitable(exists):

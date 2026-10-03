@@ -305,7 +305,8 @@ class MapHistoryRow(KindSubModel):
     attachments: Attachments | None = None
     changed_at: str | None = None
     changed_by: str | None = None
-    #: user | agent | code — the actor tier the change was made under.
+    #: user | agent | system — the actor tier the change was made under (a change recorded
+    #: before DD-064 may still carry the retired spelling human | ai | code).
     changed_by_tier: str | None = None
 
 
@@ -469,6 +470,7 @@ class KeptFacetValue(KindSubModel):
 
 @kind(
     "topical_map_result",
+    disposition="record",
     label="Topical Map Result",
     family="seo",
     example={

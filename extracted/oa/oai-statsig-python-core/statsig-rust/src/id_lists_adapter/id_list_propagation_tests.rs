@@ -377,9 +377,10 @@ async fn id_list_propagation_replay_cannot_invent_contiguous_coverage() {
     fixture.set("users", "A", 2, 0, "+a\n", Some(old));
     fixture.adapter.sync_id_lists().await.unwrap();
     assert!(fixture.metrics().is_empty());
-    // Preserve the existing cursor behavior: replay counts bytes again. Telemetry must not.
-    assert_eq!(fixture.store.load_data().id_lists["users"].metadata.size, 6);
-    fixture.set("users", "A", 1, 6, "+p\n", Some(new));
+    // Full replay installs the byte count once. A later response that skips
+    // bytes must still not invent contiguous coverage for telemetry.
+    assert_eq!(fixture.store.load_data().id_lists["users"].metadata.size, 3);
+    fixture.set("users", "A", 2, 6, "+p\n", Some(new));
     fixture.adapter.sync_id_lists().await.unwrap();
     assert!(
         fixture.metrics().is_empty(),
@@ -390,7 +391,7 @@ async fn id_list_propagation_replay_cannot_invent_contiguous_coverage() {
             .ids
             .contains("p")
     );
-    assert_eq!(fixture.ranges(), ["bytes=0-", "bytes=0-", "bytes=6-"]);
+    assert_eq!(fixture.ranges(), ["bytes=0-", "bytes=0-", "bytes=3-"]);
 }
 
 #[tokio::test]

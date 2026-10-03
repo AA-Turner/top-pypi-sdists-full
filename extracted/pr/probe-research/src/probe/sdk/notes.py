@@ -241,3 +241,37 @@ def read_advisory(response: object, *, version: object = None) -> str | None:
         f"{where} · {percent}% full ({used:,} of {limit:,} characters) — "
         f"{NOTES_READ_ADVISORY_ACTION}, and tighten what you can verify; {tail}."
     )
+
+
+# ---------------------------------------------------------------- text-only writes
+#
+# `probe notes append` and `probe notes edit` change a note without a file: the
+# text arrives as an argument. The server dropped its own append and span edit
+# in 0.388.0.0 (a note is a FILE there), so these two compute the new document
+# here and send it as a whole-document replace pinned to the version they read,
+# the same `base_version` contract `notes push` uses. A 409 means someone wrote
+# in between: the caller re-reads and applies the change again.
+
+
+def append_to_document(document: str, chunk: str) -> str:
+    """`document` with `chunk` after a blank line, the old server append's rule.
+
+    Notes are one markdown document, and two paragraphs joined by a single
+    newline render as ONE paragraph. So add however many newlines it takes to
+    reach a blank line: none for an empty document or one already ending in a
+    blank line, one after a trailing newline, two otherwise.
+    """
+    if not document or document.endswith("\n\n"):
+        separator = ""
+    elif document.endswith("\n"):
+        separator = "\n"
+    else:
+        separator = "\n\n"
+    return document + separator + chunk
+
+
+def edit_match_count(document: str, old_text: str) -> int:
+    """How many times `old_text` occurs in `document`, counted the way the old
+    span edit counted: exact substring, NON-overlapping, no normalisation. An
+    edit runs only when this is exactly 1, so its replacement is unambiguous."""
+    return document.count(old_text)

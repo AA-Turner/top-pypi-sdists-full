@@ -215,6 +215,7 @@ def resolve_control_bindings(
                     canonical_value=requested,
                     sent_value=fallback if fallback_params is not None else None,
                     expected=False,
+                    provenance="computed",  # K9: a validation fallback decided
                     reason=(
                         f"'{key}'={requested!r} (from variable '{var_name}') is not a "
                         f"value this setting accepts ({exc.errors()[0].get('msg', 'invalid')}) — "

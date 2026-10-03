@@ -24,6 +24,35 @@ pub fn user_state_dir(product: &str) -> PathBuf {
     user_runtime_dir(product)
 }
 
+/// Directory for `product`'s persistent state, derived from the environment
+/// alone: `LOCALAPPDATA`, then `C:\ProgramData`.
+///
+/// Unlike [`user_state_dir`] this never asks the known-folder API, so the
+/// location is exactly what the environment says. That is the documented
+/// contract of the probe worker's symbol cache (#974), and a caller that
+/// publishes such a contract needs a primitive that keeps it.
+pub fn user_state_dir_from_environment(product: &str) -> PathBuf {
+    state_dir_from_environment_in(crate::env_vars::LOCALAPPDATA.os(), product)
+}
+
+/// The base directory for per-user persistent state, derived from the
+/// environment alone: `LOCALAPPDATA`.
+///
+/// `None` when it is unset; the caller picks its own fallback and its own leaf
+/// beneath the base.
+pub fn state_home_from_environment() -> Option<PathBuf> {
+    crate::env_vars::LOCALAPPDATA.os().map(PathBuf::from)
+}
+
+fn state_dir_from_environment_in(
+    local_app_data: Option<std::ffi::OsString>,
+    product: &str,
+) -> PathBuf {
+    local_app_data
+        .map_or_else(|| PathBuf::from(r"C:\ProgramData"), PathBuf::from)
+        .join(product)
+}
+
 /// Root under which `product` keeps per-run scratch data.
 pub fn user_run_data_root(product: &str) -> PathBuf {
     user_runtime_dir(product)
@@ -282,4 +311,52 @@ pub fn create_private_file(path: &Path) -> io::Result<File> {
         .write(true)
         .create_new(true)
         .open(path)
+}
+
+/// Open `path` for reading without following a link at its final component.
+///
+/// `FILE_FLAG_OPEN_REPARSE_POINT` opens a symlink or junction itself rather
+/// than its target, so the handle is always the named object. Windows does
+/// not refuse the open; check the handle with [`is_link_handle`].
+pub fn open_read_no_follow(path: &Path) -> io::Result<File> {
+    use std::os::windows::fs::OpenOptionsExt as _;
+
+    const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+}
+
+/// Whether metadata of an [`open_read_no_follow`] handle names a reparse
+/// point (symlink, junction) rather than an ordinary object.
+pub fn is_link_handle(metadata: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt as _;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(test)]
+mod state_dir_from_environment_tests {
+    use std::path::PathBuf;
+
+    /// #975: the state base is `LOCALAPPDATA` as given, with no fallback.
+    #[test]
+    fn state_home_is_local_app_data_verbatim() {
+        assert_eq!(
+            crate::env_vars::LOCALAPPDATA.os().map(PathBuf::from),
+            super::state_home_from_environment()
+        );
+    }
+
+    #[test]
+    fn state_dir_from_environment_prefers_local_app_data_then_program_data() {
+        use super::state_dir_from_environment_in as dir;
+        assert_eq!(
+            dir(Some(r"D:\Users\u\AppData\Local".into()), "rp"),
+            PathBuf::from(r"D:\Users\u\AppData\Local\rp")
+        );
+        assert_eq!(dir(None, "rp"), PathBuf::from(r"C:\ProgramData\rp"));
+    }
 }

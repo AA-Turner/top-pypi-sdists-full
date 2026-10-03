@@ -310,12 +310,15 @@ class ModelGenerator:
             # Build a synthetic schema-like object with combined properties
 
             class Dummy:
-                pass
+                properties: Any
+                required: Any
+                additionalProperties: Any
             dummy = Dummy()
-            setattr(dummy, "properties", props)
-            setattr(dummy, "required", list(required))
+            dummy.properties = props
+            dummy.required = list(required)
             if additional_schema is not None:
-                setattr(dummy, "additionalProperties", additional_schema)
+                dummy.additionalProperties = additional_schema
+
             result = self._object_schema_to_model(dummy, class_name)
             result = _wrap_nullable(result)
             self._schema_cache[cache_key] = result
@@ -383,7 +386,7 @@ class ModelGenerator:
         """Write all collected models to file-like f in declaration order."""
         if not self._models:
             return
-        for name, lines in self._models.items():
+        for _name, lines in self._models.items():
             for line in lines:
                 f.write(line + "\n")
             f.write("\n\n")
@@ -543,12 +546,12 @@ class Command(BaseCommand):
             # Python Imports
             f.write("from datetime import date, datetime\n")
             f.write("from enum import Enum\n")
-            f.write("from httpx import Response\n")
             f.write("from typing import Annotated, Any, Literal, overload\n")
             f.write("from uuid import UUID\n\n")
+            f.write("from httpx2 import Response\n")
             f.write("from pydantic import BaseModel, Field\n\n")
             f.write("from esi.models import Token\n")
-            f.write("from esi.openapi_clients import EsiOperation\n\n\n")
+            f.write("from esi.openapi_clients import EsiOperation\n\n")
 
             operation_classes = {}
             # Attempt to get OpenAPI components for $ref resolution

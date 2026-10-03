@@ -3280,6 +3280,43 @@ def discover_workspaces(home: Path | None = None) -> list[dict]:
 # ── Sync: session events (full content, encrypted) ────────────────────────────
 
 
+def _openclaw_sessions_dir(paths: dict | None = None, state: dict | None = None) -> str:
+    """The directory to read OpenClaw ``<sid>.jsonl`` transcripts from.
+
+    Normally ``~/.openclaw/agents/main/sessions``. OpenClaw 2026.9.x moved
+    live transcripts into SQLite and leaves that directory empty, so when it
+    holds no live transcript and the SQLite store exists we return the JSONL
+    mirror ``clawmetry/openclaw_sqlite.py`` maintains instead.
+
+    With ``state`` the mirror is first brought up to date (daemon sync
+    passes); without it this is a cheap path lookup. With ``paths`` the
+    result is also written to ``paths["sessions_dir"]`` so every consumer of
+    the detected paths follows. Never raises.
+    """
+    legacy = ""
+    if isinstance(paths, dict):
+        legacy = paths.get("_legacy_sessions_dir") or paths.get("sessions_dir") or ""
+    if not legacy:
+        legacy = os.path.join(_get_openclaw_dir(), "agents", "main", "sessions")
+    result = str(legacy)
+    try:
+        from clawmetry import openclaw_sqlite as _ocs
+        if _ocs.has_transcript_store(_get_openclaw_dir()) and not _list_session_jsonls(legacy):
+            if state is not None:
+                mirror = _ocs.sync_mirror(_get_openclaw_dir(), state)
+            else:
+                _m = _ocs.mirror_sessions_dir()
+                mirror = str(_m) if _m.is_dir() else None
+            if mirror:
+                result = mirror
+    except Exception as _e:
+        log.debug("openclaw sqlite mirror unavailable: %s", _e)
+    if isinstance(paths, dict):
+        paths.setdefault("_legacy_sessions_dir", str(legacy))
+        paths["sessions_dir"] = result
+    return result
+
+
 def _list_session_jsonls(sessions_dir) -> list[str]:
     """Return all session transcript paths in sessions_dir.
 
@@ -3335,7 +3372,7 @@ def sync_sessions(config: dict, state: dict, paths: dict) -> int:
     if not _sync_allowed():
         return 0
     _record_sync_progress("sessions", 0)
-    sessions_dir = paths["sessions_dir"]
+    sessions_dir = _openclaw_sessions_dir(paths, state)
     api_key = config["api_key"]
     enc_key = config.get("encryption_key")
     node_id = config["node_id"]
@@ -3366,10 +3403,9 @@ def sync_sessions(config: dict, state: dict, paths: dict) -> int:
     # Sort newest-first so recent sessions sync before old ones
     jsonl_files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
 
-    # OpenClaw 2026.9.x+ migrated live session transcripts from .jsonl files
-    # to state/openclaw.sqlite.  When the sessions dir is empty but the SQLite
-    # store exists, emit a single WARNING per restart so the frozen-timestamps
-    # symptom is immediately diagnosable from sync.log.  (#6173)
+    # OpenClaw 2026.9.x+ keeps live transcripts in SQLite; _openclaw_sessions_dir
+    # above mirrors them back to .jsonl. Still nothing to read while the state
+    # DB exists means the mirror could not be built -- say so once. (#6173)
     if not jsonl_files and _openclaw_state_sqlite().exists():
         _warn_sqlite_migration_once()
 
@@ -5171,7 +5207,7 @@ def sync_sessions_recent(
     _record_sync_progress("sessions_recent", 0)
     from datetime import timedelta
 
-    sessions_dir = paths["sessions_dir"]
+    sessions_dir = _openclaw_sessions_dir(paths, state)
     api_key = config["api_key"]
     enc_key = config.get("encryption_key")
     node_id = config["node_id"]
@@ -6427,9 +6463,7 @@ def sync_openclaw_claude_sessions_via_index(
 
     node_id = (config or {}).get("node_id") or "local"
     paths = paths or {}
-    sessions_dir = paths.get("sessions_dir") or os.path.join(
-        _get_openclaw_dir(), "agents", "main", "sessions",
-    )
+    sessions_dir = _openclaw_sessions_dir(paths)
     bindings = _walk_openclaw_session_bindings(sessions_dir)
     if not bindings:
         return 0, set()
@@ -12707,21 +12741,19 @@ _SQLITE_MIGRATION_WARNED: bool = False
 
 
 def _warn_sqlite_migration_once() -> None:
-    """Emit a one-time WARNING when OpenClaw's session store has migrated to
-    SQLite (2026.9.x+) but ClawMetry's filesystem adapter still expects .jsonl
-    files.  The warning is throttled to once per daemon restart so it appears
-    clearly in sync.log without filling it.  (#6173)"""
+    """Emit a one-time WARNING when OpenClaw's state DB exists but there are
+    no transcripts to read from either store (.jsonl files, or the 2026.9.x+
+    SQLite store mirrored by ``clawmetry/openclaw_sqlite.py``).  Throttled to
+    once per daemon restart.  (#6173)"""
     global _SQLITE_MIGRATION_WARNED
     if _SQLITE_MIGRATION_WARNED:
         return
     _SQLITE_MIGRATION_WARNED = True
     log.warning(
-        "openclaw: no .jsonl session files found in sessions_dir, but "
-        "state/openclaw.sqlite exists.  OpenClaw 2026.9.x+ stores live "
-        "session transcripts in SQLite rather than .jsonl files.  "
-        "ClawMetry cannot yet read from this store, so OpenClaw activity "
-        "timestamps will remain frozen until SQLite ingestion is added.  "
-        "Tracking in https://github.com/vivekchand/clawmetry/issues/6173"
+        "openclaw: no session transcripts found. state/openclaw.sqlite "
+        "exists but neither .jsonl files nor a readable "
+        "agents/main/agent/openclaw-agent.sqlite transcript store were "
+        "found, so OpenClaw sessions will not appear until one is written."
     )
 
 
@@ -14125,7 +14157,7 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
     try:
         Path.home()
         sessions_candidates = [
-            Path(_get_openclaw_dir()) / "agents" / "main" / "sessions",
+            Path(_openclaw_sessions_dir(state=state)),
             Path("/data/agents/main/sessions"),
         ]
         sessions_dir = next((p for p in sessions_candidates if p.exists()), None)
@@ -14709,7 +14741,7 @@ def _latest_session_id(workspace: str | None = None) -> str | None:
     None when no session transcripts exist (bootstrap captured before any
     session, which is the normal first-boot case)."""
     candidates: list[Path] = [
-        Path(_get_openclaw_dir()) / "agents" / "main" / "sessions",
+        Path(_openclaw_sessions_dir()),
     ]
     if workspace:
         try:
@@ -15256,7 +15288,7 @@ def _openclaw_spawned_claude_ids() -> set:
     avoid double-counting the same session. Cheap (one JSON read); never raises.
     """
     out: set = set()
-    idx = os.path.join(_get_openclaw_dir(), "agents", "main", "sessions", "sessions.json")
+    idx = os.path.join(_openclaw_sessions_dir(), "sessions.json")
     try:
         if not os.path.isfile(idx):
             return out
@@ -15688,6 +15720,39 @@ def _harvest_delegated_agent_ids(events) -> list:
         log.debug("delegated agent harvest failed", exc_info=True)
         return []
     return out
+
+
+def _ingest_family_replay_events(store, adapter, native_id: str,
+                                 ns_id: str, runtime: str) -> int:
+    """Write an adapter's canonical replay stream for one session (#4813).
+
+    Only adapters that implement ``iter_replay_events`` take part; the
+    rows are re-homed from the adapter's native session id onto the
+    namespaced ``<runtime>:<id>`` the sessions table uses, which is the id
+    the replay-tree endpoint is asked for. Best-effort: a mapper or store
+    failure is logged and never blocks the session ingest, and the
+    high-water mark is not involved (a grown transcript re-yields the same
+    span ids, which the store upserts). Returns the rows written.
+    """
+    mapper = getattr(adapter, "iter_replay_events", None)
+    if not callable(mapper):
+        return 0
+    try:
+        rows = []
+        for ev in mapper(native_id):
+            if not isinstance(ev, dict):
+                continue
+            if ev.get("session_id") in (None, "", native_id):
+                ev = dict(ev)
+                ev["session_id"] = ns_id
+            rows.append(ev)
+        if not rows:
+            return 0
+        return int(store.ingest_replay_events(rows) or 0)
+    except Exception as exc:
+        log.debug("family replay ingest failed (%s/%s): %s",
+                  runtime, ns_id, exc)
+        return 0
 
 
 def _session_tool_health(events) -> dict:
@@ -16590,6 +16655,16 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     # No event rows (e.g. an empty/metadata-only session): still
                     # mark it seen so we don't re-scan it every cycle forever.
                     _evt_hw[ns_id] = _activity + "@@" + _ingest_rev
+                # Replay stream (#4813): adapters with iter_replay_events
+                # feed the replay_events table for this session. Independent
+                # of the event rows above so an empty transcript read still
+                # gets its replay, and never touches the high-water mark.
+                try:
+                    _ingest_family_replay_events(
+                        store, adapter, s.id, ns_id, runtime)
+                except Exception as _re:
+                    log.debug("family replay ingest skipped (%s): %s",
+                              ns_id, _re)
                 # Agent Graph spans (WS-A): reconstruct runtime-stamped spans
                 # from the SAME normalized events already in hand so the
                 # Agent Graph shows real runtimes + main→child edges instead
@@ -19664,7 +19739,7 @@ def _build_brain_data():
         import collections
 
         home = str(Path.home())
-        session_dir = os.path.join(_get_openclaw_dir(), "agents", "main", "sessions")
+        session_dir = _openclaw_sessions_dir()
         if not os.path.isdir(session_dir):
             return {"stats": {}, "calls": []}
 
@@ -20066,6 +20141,24 @@ def _build_tool_catalog_slice(limit: int = 5000, top: int = 60) -> dict:
     return out
 
 
+def _context_econ_compaction_snapshot(compactions):
+    """Bound compaction metadata while retaining measured versus unknown values."""
+    return [
+        {
+            "session_id": c.get("session_id"),
+            "ts": c.get("ts"),
+            "trigger": c.get("trigger"),
+            "tokens_before": c.get("tokens_before"),
+            "tokens_after": c.get("tokens_after"),
+            "reclaimed": c.get("reclaimed"),
+            "measurement_status": c.get("measurement_status"),
+            "from_hook": c.get("from_hook"),
+            "summary": str(c.get("summary") or "")[:280],
+        }
+        for c in (compactions or [])[:80]
+    ]
+
+
 def _session_chips_from_utilization(utilization):
     """Distinct-session chips from a utilization series, most-recent first, each
     ``{session_id, peak_pct, ts}``. Mirrors the route builder in
@@ -20182,7 +20275,7 @@ def _build_tool_stats():
         import collections, glob
 
         home = str(Path.home())
-        session_dir = os.path.join(_get_openclaw_dir(), "agents", "main", "sessions")
+        session_dir = _openclaw_sessions_dir()
         if not os.path.isdir(session_dir):
             return {}
 
@@ -20391,7 +20484,7 @@ def _build_channel_data(config):
         str(Path.home())
         today = datetime.now().strftime("%Y-%m-%d")
         gw_log = os.path.join(_get_openclaw_dir(), "logs", "gateway.log")
-        session_dir = os.path.join(_get_openclaw_dir(), "agents", "main", "sessions")
+        session_dir = _openclaw_sessions_dir()
         channels = {}
 
         known_channels = {
@@ -24105,20 +24198,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
                 util_limit=400, compaction_limit=80,
             ) or {}
             _ce_comps = _ce.get("compactions") or []
-            context_economics_slice["compactions"] = [
-                {
-                    "session_id":    c.get("session_id"),
-                    "ts":            c.get("ts"),
-                    "trigger":       c.get("trigger"),
-                    "tokens_before": c.get("tokens_before"),
-                    "tokens_after":  c.get("tokens_after"),
-                    "reclaimed":     c.get("reclaimed"),
-                    "from_hook":     c.get("from_hook"),
-                    # short prefix only — never the full compaction summary
-                    "summary":       (str(c.get("summary") or "")[:280]),
-                }
-                for c in _ce_comps[:80]
-            ]
+            context_economics_slice["compactions"] = _context_econ_compaction_snapshot(_ce_comps)
             context_economics_slice["overflow_sessions"] = (
                 _ce.get("overflow_sessions") or []
             )[:50]

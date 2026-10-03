@@ -4,14 +4,14 @@ Preserves ALL content types and metadata from all providers
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Literal
 
 from matrx_utils import vcprint
 from pydantic import BaseModel, TypeAdapter
 
 from matrx_ai.instructions.core import SystemInstruction
-from matrx_ai.instructions.pattern_parser import resolve_matrx_patterns
+from matrx_ai.instructions.pattern_parser import expand_matrx_patterns
 
 from .dictionary_config import DictionaryConfig
 from .enums import Role
@@ -131,6 +131,12 @@ _OVERRIDE_NORMALIZERS: dict[str, Callable[[object], object]] = {
 }
 
 
+#: Keys an explicit null override never unsets: ``model`` has no "not set"
+#: (a run always names one), ``offering_id`` has its own pin rule above, and
+#: ``stream`` is transport, not a model setting.
+_NEVER_UNSET_BY_NULL = frozenset({"model", "offering_id", "stream"})
+
+
 #: The one-line stamp that makes the omission notice idempotent: `replace_variables`
 #: runs more than once on a config that is reused across turns, and the notice must be
 #: appended once, not once per pass.
@@ -164,6 +170,10 @@ class UnifiedConfig:
     # marks this true as soon as its first completed turn persists; every later
     # per-turn addition must use a user message instead.
     system_prompt_frozen: bool = False
+    # Where the server-shaped pieces (content blocks, ``<<MATRX>>`` expansions) sit inside the
+    # frozen prompt — recorded when it is frozen, carried every later turn in the conversation's
+    # config, sliced back out by the host's receipt and viewer (``SystemInstruction.frozen_spans``).
+    system_prompt_spans: list[dict[str, Any]] | None = None
     stream: bool = False
 
     # The CANONICAL matrx model name (ai.model_definition.name), stamped by
@@ -562,11 +572,22 @@ class UnifiedConfig:
         return TTSVoiceConfig.from_config(self)
 
     def _resolve_message_patterns(self) -> None:
-        """Resolve <<MATRX>> data-fetch patterns in all TextContent across messages."""
+        """Resolve <<MATRX>> data-fetch patterns in all TextContent across messages.
+
+        Each expansion is recorded on ``matrx_message_expansions`` (raw pattern → the text the
+        model reads in its place): the pattern is gone from the message once resolved, so this
+        is the only place a host's context viewer can learn what was fetched."""
+        recorded = self.__dict__.setdefault("_matrx_message_expansions", [])
         for message in self.messages:
             for content in message.content:
                 if isinstance(content, TextContent) and content.text:
-                    content.text = resolve_matrx_patterns(content.text)
+                    content.text, pairs = expand_matrx_patterns(content.text)
+                    recorded.extend(pairs)
+
+    @property
+    def matrx_message_expansions(self) -> list[tuple[str, str]]:
+        """Every <<MATRX>> pattern resolved in this config's messages and its replacement."""
+        return list(self.__dict__.get("_matrx_message_expansions") or ())
 
     @staticmethod
     def _normalize_system_instruction(
@@ -698,6 +719,11 @@ class UnifiedConfig:
             messages=parsed_messages,
             system_instruction=system_instruction,
             system_prompt_frozen=bool(data.get("system_prompt_frozen", False)),
+            system_prompt_spans=(
+                data.get("system_prompt_spans")
+                if isinstance(data.get("system_prompt_spans"), list)
+                else None
+            ),
             stream=data.get("stream", False),
             max_output_tokens=data.get("max_output_tokens"),
             temperature=data.get("temperature"),
@@ -934,6 +960,15 @@ class UnifiedConfig:
             config["skill_injected_tool_ids"] = self.skill_injected_tool_ids
         if self.system_prompt_frozen:
             config["system_prompt_frozen"] = True
+        # The frozen prompt's spans: recorded from the first render that freezes it (and pinned
+        # on this object, so a repeat persist of the same turn writes the same spans), carried
+        # unchanged on every later turn — whose prompt reloads with no pieces to locate.
+        if not self.system_prompt_spans and isinstance(self.system_instruction, SystemInstruction):
+            spans = self.system_instruction.frozen_spans(system_instruction_storage or "")
+            if spans:
+                self.system_prompt_spans = spans
+        if self.system_prompt_spans:
+            config["system_prompt_spans"] = self.system_prompt_spans
         if self.tool_choice is not None:
             config["tool_choice"] = self.tool_choice
         if not self.parallel_tool_calls:
@@ -1143,8 +1178,10 @@ class UnifiedConfig:
     def apply_overrides(self, overrides: LLMParams) -> None:
         """Apply typed config overrides from the API layer.
 
-        Only fields explicitly set (non-None) in `overrides` are applied.
-        Unknown fields are impossible because LLMParams uses extra="forbid".
+        Three states per field: absent = inherit; a value = apply it; an
+        EXPLICIT null (in ``model_fields_set``) = unset the stored setting so the
+        model default applies. Unknown fields are impossible because LLMParams
+        uses extra="forbid".
 
         Complex fields are re-normalized into the runtime shapes ``UnifiedConfig``
         and downstream translators expect (dict response_format, ``CustomTool``
@@ -1166,6 +1203,14 @@ class UnifiedConfig:
         for key in LLMParams.model_fields:
             value = getattr(overrides, key)
             if value is None:
+                # THREE STATES (settings-translation F-a): absent = inherit the
+                # stored value; a value (incl. "none"/False = off) = set it; an
+                # EXPLICIT null (present in ``model_fields_set``) = "not set" —
+                # the stored key is removed so the model's own default applies.
+                # A default-None field the caller never sent is NOT in
+                # ``model_fields_set`` and keeps inheriting.
+                if key in fields_set and key not in _NEVER_UNSET_BY_NULL:
+                    self._unset_setting(key)
                 continue
             if not hasattr(self, key):
                 continue
@@ -1174,9 +1219,27 @@ class UnifiedConfig:
                 value = normalizer(value)
             setattr(self, key, value)
 
+    def _unset_setting(self, key: str) -> None:
+        """Return one stored setting to "not set" — its declared field default.
+
+        A field with no default (``model``) is never unset this way.
+        """
+        spec = _CONFIG_FIELDS.get(key)
+        if spec is None:
+            return
+        if spec.default is not MISSING:
+            setattr(self, key, spec.default)
+        elif spec.default_factory is not MISSING:
+            setattr(self, key, spec.default_factory())
+
     def get_last_output(self) -> str:
         """Get the output of the last assistant message."""
         return self.messages.get_last_output()
+
+
+#: UnifiedConfig's dataclass fields by name — the "not set" value an explicit
+#: null override restores (see ``UnifiedConfig._unset_setting``).
+_CONFIG_FIELDS = {spec.name: spec for spec in fields(UnifiedConfig)}
 
 
 @dataclass

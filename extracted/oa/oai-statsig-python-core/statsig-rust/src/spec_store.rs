@@ -3,8 +3,9 @@ use async_trait::async_trait;
 use chrono::Utc;
 use parking_lot::{Mutex, MutexGuard};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -29,8 +30,8 @@ use crate::specs_adapter::remote_config_value_hydrator::RemoteConfigValueHydrato
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_compression::{ProtoCompression, is_compressed_protobuf_response};
 use crate::specs_response::proto_specs::{
-    ProtobufHydrationContext, ProtobufUpdate, SpecsFieldChecksums,
-    deserialize_protobuf_for_store_with_hydration_and_checksums,
+    ProtobufHydrationContext, ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums,
+    VerifiedRemoteConfigValues, deserialize_protobuf_for_store_with_hydration_and_checksums,
     deserialize_protobuf_for_store_with_options,
 };
 use crate::specs_response::spec_types::{
@@ -73,6 +74,9 @@ pub struct SpecStoreData {
     // Reused as the starting point for delta telemetry so unchanged maps can use native cloning.
     spec_decode_stats: SpecDecodeStats,
     field_checksums: SpecsFieldChecksums,
+    // Verification provenance follows the snapshot's publication and lifetime.
+    // Values share their parsed representation; no resident raw blob cache.
+    verified_remote_values: Arc<VerifiedRemoteConfigValues>,
 }
 
 #[derive(Clone, Default)]
@@ -196,6 +200,7 @@ pub struct SpecStore {
 
     data_store_keys: DataStoreCacheKeys,
     data_store: Option<Arc<dyn DataStoreTrait>>,
+    data_store_write_claimed: Arc<AtomicBool>,
     statsig_runtime: Arc<StatsigRuntime>,
     ops_stats: Arc<OpsStatsForInstance>,
     global_configs: Option<Arc<GlobalConfigs>>,
@@ -264,12 +269,14 @@ impl SpecStore {
                 sync_cursor: ConfigSyncCursor::default(),
                 spec_decode_stats: SpecDecodeStats::default(),
                 field_checksums: SpecsFieldChecksums::default(),
+                verified_remote_values: Arc::new(VerifiedRemoteConfigValues::new()),
             }),
             update_lock: Mutex::new(()),
             id_list_propagation: Mutex::new(HashMap::new()),
             config_updates: Arc::new(crate::ConfigUpdates::default()),
             event_emitter,
             data_store,
+            data_store_write_claimed: Arc::new(AtomicBool::new(false)),
             statsig_runtime,
             ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             global_configs: (!session_options.config_only_mode)
@@ -420,6 +427,7 @@ enum PrepResult {
         response_format: SpecsFormat,
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
+        verified_remote_values: VerifiedRemoteConfigValues,
     },
     CursorOnly {
         lcut: u64,
@@ -504,12 +512,15 @@ impl SpecStore {
         let capture_hydrated_data_store_bytes = self
             .writable_data_store_for_update(&specs_update.source, &specs_update.data)
             .is_some();
-        let (protobuf_update, spec_decode_stats, hydrated_data_store_bytes) =
+        let (protobuf_update, spec_decode_stats, hydrated_data_store_bytes, verified_remote_values) =
             match deserialize_protobuf_for_store_with_hydration_and_checksums(
                 &self.ops_stats,
-                parse_base.snapshot.as_ref(),
-                parse_base.spec_decode_stats,
-                &parse_base.field_checksums,
+                ProtobufStoreParseBase {
+                    specs: parse_base.snapshot.as_ref(),
+                    decode_stats: parse_base.spec_decode_stats,
+                    field_checksums: &parse_base.field_checksums,
+                    verified_remote_values: &parse_base.verified_remote_values,
+                },
                 next_values.as_mut(),
                 &mut specs_update.data,
                 ProtobufHydrationContext {
@@ -567,6 +578,7 @@ impl SpecStore {
                         response_format: SpecsFormat::Protobuf,
                         is_delta,
                         spec_decode_stats,
+                        verified_remote_values,
                     }
                 } else {
                     PrepResult::NoUpdates
@@ -626,6 +638,7 @@ impl SpecStore {
                 response_format,
                 is_delta,
                 spec_decode_stats,
+                verified_remote_values,
             } => {
                 Self::validate_scoped_expected_metadata(
                     specs_update,
@@ -638,6 +651,7 @@ impl SpecStore {
                     specs_update,
                     is_delta,
                     spec_decode_stats,
+                    verified_remote_values,
                 )?;
                 Ok(LockedSetValuesResult::Applied(
                     response_format,
@@ -881,6 +895,7 @@ impl SpecStore {
                         response_format,
                         is_delta,
                         spec_decode_stats,
+                        verified_remote_values: VerifiedRemoteConfigValues::new(),
                     });
                 }
 
@@ -928,6 +943,7 @@ impl SpecStore {
         specs_update: &SpecsUpdate,
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
+        verified_remote_values: VerifiedRemoteConfigValues,
     ) -> Result<ApplyResult, StatsigErr> {
         // DANGER: try_update_global_configs contains its own locks
         self.try_update_global_configs(&next_values, is_delta);
@@ -995,6 +1011,7 @@ impl SpecStore {
             sync_cursor,
             spec_decode_stats,
             field_checksums,
+            verified_remote_values: Arc::new(verified_remote_values),
         });
 
         Ok(ApplyResult {
@@ -1203,10 +1220,11 @@ impl SpecStore {
         if source != &SpecsSource::Network || data.get_header_ref("x-deltas-used").is_some() {
             return None;
         }
-
-        self.data_store
-            .as_ref()
-            .filter(|data_store| !data_store.is_read_only())
+        self.data_store.as_ref().filter(|data_store| {
+            !(data_store.is_read_only()
+                || (data_store.write_once()
+                    && self.data_store_write_claimed.load(Ordering::Acquire)))
+        })
     }
 
     fn try_update_data_store(
@@ -1217,9 +1235,24 @@ impl SpecStore {
         checksum: Option<String>,
         proto_compression: Option<ProtoCompression>,
     ) {
-        let data_store = match self.writable_data_store_for_update(source, &data) {
-            Some(data_store) => data_store.clone(),
-            None => return,
+        let Some(data_store) = self.writable_data_store_for_update(source, &data) else {
+            return;
+        };
+        let pending_publication = if data_store.write_once() {
+            if self
+                .data_store_write_claimed
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+            {
+                return;
+            }
+            Some(Arc::clone(&self.data_store_write_claimed))
+        } else {
+            None
+        };
+        let mut write = DataStoreWrite {
+            data_store: Arc::clone(data_store),
+            pending_publication,
         };
 
         let data_store_key = match proto_compression {
@@ -1231,37 +1264,51 @@ impl SpecStore {
 
         let spawn_result = self.statsig_runtime.spawn(
             "spec_store_update_data_store",
-            move |_shutdown_notif| async move {
-                let data_bytes = if is_protobuf {
-                    match data.take_data_store_protobuf_bytes() {
-                        Some(bytes) => bytes,
-                        None => match data.read_to_bytes() {
-                            Ok(bytes) => bytes,
-                            Err(e) => {
-                                log_e!(TAG, "Failed to read data as bytes: {}", e);
-                                return;
-                            }
-                        },
-                    }
-                } else {
-                    match data.read_to_bytes() {
+            move |shutdown_notify| async move {
+                let data_bytes = match data.take_data_store_protobuf_bytes() {
+                    Some(bytes) if is_protobuf => bytes,
+                    _ => match data.read_to_bytes() {
                         Ok(bytes) => bytes,
                         Err(e) => {
                             log_e!(TAG, "Failed to read data as bytes: {}", e);
                             return;
                         }
-                    }
+                    },
                 };
 
-                write_specs_to_data_store(
-                    data_store,
-                    data_store_key,
-                    data_bytes,
-                    checksum,
-                    now,
-                    is_protobuf,
-                )
-                .await;
+                drop(data);
+
+                // Retry the prepared snapshot directly: unchanged responses can be skipped
+                // before this path, and later responses need no additional cache payload.
+                let publish = async {
+                    loop {
+                        match write_specs_to_data_store(
+                            write.data_store.as_ref(),
+                            &data_store_key,
+                            &data_bytes,
+                            checksum.as_deref(),
+                            now,
+                            is_protobuf,
+                        )
+                        .await
+                        {
+                            DataStoreWriteOutcome::Published => {
+                                write.pending_publication.take();
+                                return;
+                            }
+                            DataStoreWriteOutcome::UnsupportedPayload => return,
+                            DataStoreWriteOutcome::Failed => {}
+                        }
+                        if write.pending_publication.is_none() {
+                            return;
+                        }
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                };
+                tokio::select! {
+                    _ = shutdown_notify.notified() => {},
+                    _ = publish => {},
+                }
             },
         );
 
@@ -1347,19 +1394,44 @@ fn build_auto_capture_settings_projection(
     (value, hashing::hash_one(serialized.as_bytes()))
 }
 
-async fn write_specs_to_data_store(
+struct DataStoreWrite {
     data_store: Arc<dyn DataStoreTrait>,
-    data_store_key: String,
-    data_bytes: Vec<u8>,
-    checksum: Option<String>,
+    // Claimed before scheduling; successful publication leaves it claimed.
+    pending_publication: Option<Arc<AtomicBool>>,
+}
+
+impl Drop for DataStoreWrite {
+    fn drop(&mut self) {
+        if let Some(claimed) = &self.pending_publication {
+            claimed.store(false, Ordering::Release);
+        }
+    }
+}
+
+enum DataStoreWriteOutcome {
+    Published,
+    Failed,
+    UnsupportedPayload,
+}
+
+async fn write_specs_to_data_store(
+    data_store: &dyn DataStoreTrait,
+    data_store_key: &str,
+    data_bytes: &[u8],
+    checksum: Option<&str>,
     now: u64,
     is_protobuf: bool,
-) {
+) -> DataStoreWriteOutcome {
     match data_store
-        .set_bytes(&data_store_key, &data_bytes, Some(now), checksum)
+        .set_bytes(
+            data_store_key,
+            data_bytes,
+            Some(now),
+            checksum.map(str::to_owned),
+        )
         .await
     {
-        Ok(()) => return,
+        Ok(()) => return DataStoreWriteOutcome::Published,
         Err(e @ StatsigErr::BytesNotImplemented) if is_protobuf => {
             if data_store
                 .support_polling_updates_for(RequestPath::RulesetsV2)
@@ -1371,7 +1443,7 @@ async fn write_specs_to_data_store(
                     e
                 );
             }
-            return;
+            return DataStoreWriteOutcome::UnsupportedPayload;
         }
         Err(e @ StatsigErr::BytesNotImplemented) => {
             log_w!(
@@ -1382,11 +1454,11 @@ async fn write_specs_to_data_store(
         }
         Err(e) => {
             log_w!(TAG, "Failed to write specs to data store as bytes: {}", e);
-            return;
+            return DataStoreWriteOutcome::Failed;
         }
     }
 
-    let data_string = match String::from_utf8(data_bytes) {
+    let data_string = match std::str::from_utf8(data_bytes) {
         Ok(s) => s,
         Err(e) => {
             log_w!(
@@ -1394,15 +1466,16 @@ async fn write_specs_to_data_store(
                 "Skipping data store string write because payload is not valid UTF-8: {}",
                 e
             );
-            return;
+            return DataStoreWriteOutcome::UnsupportedPayload;
         }
     };
 
-    if let Err(e) = data_store
-        .set(&data_store_key, &data_string, Some(now))
-        .await
-    {
-        log_w!(TAG, "Failed to write specs to data store as string: {}", e);
+    match data_store.set(data_store_key, data_string, Some(now)).await {
+        Ok(()) => DataStoreWriteOutcome::Published,
+        Err(e) => {
+            log_w!(TAG, "Failed to write specs to data store as string: {}", e);
+            DataStoreWriteOutcome::Failed
+        }
     }
 }
 
@@ -1736,12 +1809,16 @@ mod tests {
     use std::sync::{Arc, OnceLock};
     use std::time::{Duration, Instant};
 
-    struct CacheCapabilityDataStore(bool);
+    struct CacheCapabilityDataStore(bool, bool);
 
     #[async_trait]
     impl DataStoreTrait for CacheCapabilityDataStore {
         fn is_read_only(&self) -> bool {
             self.0
+        }
+
+        fn write_once(&self) -> bool {
+            self.1
         }
 
         async fn initialize(&self) -> Result<(), StatsigErr> {
@@ -1780,10 +1857,17 @@ mod tests {
                 "true".to_string(),
             )])),
         );
-        for read_only in [None, Some(false), Some(true)] {
+        for (read_only, write_once) in [
+            (None, false),
+            (Some(false), false),
+            (Some(true), false),
+            (Some(false), true),
+            (Some(true), true),
+        ] {
             let options = StatsigOptions {
                 data_store: read_only.map(|read_only| {
-                    Arc::new(CacheCapabilityDataStore(read_only)) as Arc<dyn DataStoreTrait>
+                    Arc::new(CacheCapabilityDataStore(read_only, write_once))
+                        as Arc<dyn DataStoreTrait>
                 }),
                 ..StatsigOptions::default()
             };
@@ -1814,6 +1898,26 @@ mod tests {
                         &full_data
                     )
                     .is_none()
+            );
+            store
+                .data_store_write_claimed
+                .store(true, std::sync::atomic::Ordering::Release);
+            assert_eq!(
+                store
+                    .writable_data_store_for_update(&SpecsSource::Network, &full_data)
+                    .is_some(),
+                read_only == Some(false) && !write_once,
+                "an in-flight publication must disable capture and writes only for opted-in stores",
+            );
+            store
+                .data_store_write_claimed
+                .store(false, std::sync::atomic::Ordering::Release);
+            assert_eq!(
+                store
+                    .writable_data_store_for_update(&SpecsSource::Network, &full_data)
+                    .is_some(),
+                read_only == Some(false),
+                "abandoning publication must leave writes available",
             );
         }
     }
@@ -2174,6 +2278,7 @@ mod tests {
             sync_cursor: ConfigSyncCursor::default(),
             spec_decode_stats: SpecDecodeStats::default(),
             field_checksums: Default::default(),
+            verified_remote_values: Arc::new(Default::default()),
         };
         let hashing = HashUtil::new();
 

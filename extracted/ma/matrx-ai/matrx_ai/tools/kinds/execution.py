@@ -36,6 +36,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "shell_execution",
+    disposition="record",
     label="Shell Execution",
     family="tool_execution",
     example={
@@ -84,6 +85,7 @@ class ShellExecution(KindModel):
 
 @kind(
     "calculation_result",
+    disposition="record",
     label="Calculation Result",
     family="tool_execution",
     example={"expression": "sqrt(144) + 2**3", "result": "20.0"},

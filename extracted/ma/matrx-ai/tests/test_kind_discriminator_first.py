@@ -11,7 +11,7 @@ Property order cannot live in the registry: ``emitted_json_schema`` is ``jsonb``
 and Postgres normalises key order on write. So it is reconstructed at the wire,
 beside the strict/portable adaptation this binder already performs.
 
-Contract: ``common-docs/systems/content-ir-system/STREAMING_PARTIAL_KINDS.md`` §6.
+Contract: ``common-docs/systems/architecture/content-ir/FEATURE.md`` §6.
 """
 
 from __future__ import annotations

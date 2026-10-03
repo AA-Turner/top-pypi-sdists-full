@@ -155,7 +155,7 @@ expect_exit(2 --type symbols --symbols-file)        # missing value
 
 # 14. Continuous async DSSS (--symbol-rate): a finite --count generates, and a
 #     --record → --from-file replay is byte-identical, for each data source
-#     (default PRBS and --data none code-only). The data code is a 0/1 string;
+#     (default PRBS and --code-only). The data code is a 0/1 string;
 #     symbol_rate independent of the chip clock is the asynchronicity.
 set(DC "1111100110101001000101111")   # 25-chip data code (arbitrary)
 run(--type dsss --data-code ${DC} --symbol-rate 2700 --sps 2 --fs 6138000
@@ -166,13 +166,27 @@ file(MD5 wg_cont_b.cf32 cb)
 if(NOT ca STREQUAL cb)
     message(FATAL_ERROR "continuous DSSS --from-file replay differs (prbs)")
 endif()
-run(--type dsss --data-code ${DC} --symbol-rate 2700 --data none --sps 2
+run(--type dsss --data-code ${DC} --symbol-rate 2700 --code-only --sps 2
     --fs 6138000 --count 4096 --record wg_cono.json -o wg_cono_a.cf32)
 run(--from-file wg_cono.json -o wg_cono_b.cf32)
 file(MD5 wg_cono_a.cf32 na)
 file(MD5 wg_cono_b.cf32 nb)
 if(NOT na STREQUAL nb)
     message(FATAL_ERROR "continuous DSSS --from-file replay differs (none)")
+endif()
+# Frozen as MD5 goldens, rendered from main (d8f132fc) BEFORE #1619 F6a
+# moved code-only DSSS off `--data none` onto its own flag: the seeded
+# default and code-only must stay byte-identical across that change of
+# spelling (the #853 reviewer's condition on it).
+set(WG_CONT_PRBS_GOLDEN "b79a5a35832044c39de575465b6bbb81")
+set(WG_CONT_NONE_GOLDEN "090153f8140845efefd31f97bf05bb16")
+if(NOT ca STREQUAL WG_CONT_PRBS_GOLDEN)
+    message(FATAL_ERROR "continuous DSSS seeded default drifted: got ${ca}, "
+                        "want ${WG_CONT_PRBS_GOLDEN}")
+endif()
+if(NOT na STREQUAL WG_CONT_NONE_GOLDEN)
+    message(FATAL_ERROR "continuous DSSS code-only drifted: got ${na}, "
+                        "want ${WG_CONT_NONE_GOLDEN}")
 endif()
 # PRBS and code-only must differ (data modulation is present in one, not both).
 if(ca STREQUAL na)
@@ -185,7 +199,7 @@ endif()
 run(--type dsss --data-code ${DC} --symbol-rate 2700 --sps 2 --fs 6138000
     --count 512 --file-type sigmf -o wg_cont_cap)
 expect_contains(wg_cont_cap.sigmf-meta "\"wfmgen:symbol_rate\":2700")
-run(--type dsss --data-code ${DC} --symbol-rate 2700 --data none --sps 2
+run(--type dsss --data-code ${DC} --symbol-rate 2700 --code-only --sps 2
     --fs 6138000 --count 512 --file-type sigmf -o wg_cono_cap)
 expect_contains(wg_cono_cap.sigmf-meta "\"wfmgen:data\":\"none\"")
 
@@ -194,11 +208,133 @@ expect_contains(wg_cono_cap.sigmf-meta "\"wfmgen:data\":\"none\"")
 #     and --continuous with SigMF (the sidecar can't be written for an unbounded
 #     stream).
 expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --acq-code ${DC})
-expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --data none --bits 1011)
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --code-only --data 1011)
 expect_exit(2 --type dsss --symbol-rate 2700 --sps 2)   # no --data-code
 expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 0)
 expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --sps 2 --fs 6138000
     --continuous --file-type sigmf -o wg_bad_cont)
+
+# 17. #1619 F6a, a data source: every refusal a face can decide before the
+#     first sample exits 2. `--data` is the Field grammar only, so the old
+#     `--data none|prbs` is refused naming its fix; the pair is one
+#     exclusion; a finite source sets the run's length, so --count beside it
+#     is refused; stdin (`-`) needs --fill and cannot be repeated.
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --data none)
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --data prbs)
+expect_exit(2 --type bpsk --data 0xABCD --data-from-file wg_none.bin)
+expect_exit(2 --type bpsk --data 0xABCD --data-len 8 --count 64)
+expect_exit(2 --type bpsk --data-from-file - --data-len 8)
+expect_exit(2 --type bpsk --data-from-file - --data-len 8 --fill 0 --repeat)
+expect_exit(2 --type bpsk --data 0xABC --data-len 8)  # 12 bits, no --fill
+
+# 18. #1719, a data source on a dsss BURST: a burst per chunk, so "AB" in
+#     8-bit chunks is two bursts of 4 + (8 + 16) * 4 = 100 chips, whether the
+#     bits come as a Field or from a file.
+file(WRITE wg_ab.bin "AB")
+run(--type dsss --acq-code 0x9 --data-code 0xd --data 0x4142 --data-len 8
+    --sps 1 -o wg_dsss_field.cf32)
+run(--type dsss --acq-code 0x9 --data-code 0xd --data-from-file wg_ab.bin
+    --data-len 8 --sps 1 -o wg_dsss_file.cf32)
+expect_size(wg_dsss_field.cf32 1600)
+file(MD5 wg_dsss_field.cf32 dsf)
+file(MD5 wg_dsss_file.cf32 dsg)
+if(NOT dsf STREQUAL dsg)
+    message(FATAL_ERROR "a dsss burst over a file differs from the Field")
+endif()
+
+# 18b. #1718, a carried frame of FIXED bits is a finite source of one frame,
+#     sent once: its run is derived (4 bits, 4 samples at sps 1), and a
+#     --count beside it is refused, naming --repeats.
+file(WRITE wg_fixed.frame.json "{\"fields\":[{\"name\":\"a\",\"spec\":\"1010\"}]}")
+run(--type bits --frame wg_fixed.frame.json --sps 1 -o wg_fixed.cf32)
+expect_size(wg_fixed.cf32 32)
+expect_exit(2 --type bits --frame wg_fixed.frame.json --count 64)
+
+# 19. #1719, CONTINUOUS dsss over a data source: one bit per data symbol, no
+#     frame. 16 bits at 6138000 / 2 / 2700 = 1136.67 chips a symbol is
+#     ceil(16 * 1136.67) = 18187 chips, 2 samples each -- derived, with no
+#     --count -- and a file gives the same as the Field. What only a frame
+#     means is refused: --data-len, --fill, and --realtime over stdin.
+run(--type dsss --data-code ${DC} --symbol-rate 2700 --sps 2 --fs 6138000
+    --data 0x4142 -o wg_cont_field.cf32)
+run(--type dsss --data-code ${DC} --symbol-rate 2700 --sps 2 --fs 6138000
+    --data-from-file wg_ab.bin -o wg_cont_file.cf32)
+expect_size(wg_cont_field.cf32 290992)
+file(MD5 wg_cont_field.cf32 cnf)
+file(MD5 wg_cont_file.cf32 cng)
+if(NOT cnf STREQUAL cng)
+    message(FATAL_ERROR "continuous dsss over a file differs from the Field")
+endif()
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --sps 2
+    --fs 6138000 --data 0x4142 --data-len 8)
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --sps 2
+    --fs 6138000 --data 0x4142 --fill 0)
+expect_exit(2 --type dsss --data-code ${DC} --symbol-rate 2700 --sps 2
+    --fs 6138000 --data-from-file - --realtime)
+
+# 20. doppler#1153: a scene's top-level "fs" is not a key -- fs is per
+#     segment -- and it used to be dropped in silence, leaving every segment
+#     at fs = 1, so --realtime paced this 7 ms scene for two hours. It is
+#     refused by name now, and the same scene with fs where it belongs
+#     finishes under --realtime: 4096 + 1024 off + 2048 = 7168 samples,
+#     8 bytes each. The TIMEOUT is the regression: a hang fails it.
+set(_seg_fs "")
+set(_top_fs "\"fs\": 1000000.0, ")
+foreach(_where top seg)
+    if(_where STREQUAL "seg")
+        set(_seg_fs "\"fs\": 1000000.0, ")
+        set(_top_fs "")
+    endif()
+    file(WRITE wg_rt_${_where}.json "{${_top_fs}\"segments\": [
+  {${_seg_fs}\"num_samples\": 4096, \"off_samples\": 1024,
+   \"sum\": [{\"type\": \"bpsk\", \"sps\": 4, \"snr\": 10.0}]},
+  {${_seg_fs}\"num_samples\": 2048,
+   \"sum\": [{\"type\": \"tone\", \"freq\": 100000.0}]}]}
+")
+endforeach()
+execute_process(COMMAND ${EXE} --from-file wg_rt_top.json --realtime
+                -o wg_rt_top.cf32
+                RESULT_VARIABLE rc ERROR_VARIABLE err TIMEOUT 20)
+if(NOT rc EQUAL 2 OR NOT err MATCHES "set segments\\[\\]\\.fs")
+    message(FATAL_ERROR "a top-level fs: exit ${rc}, '${err}' -- expected "
+                        "exit 2 naming segments[].fs")
+endif()
+execute_process(COMMAND ${EXE} --from-file wg_rt_seg.json --realtime
+                -o wg_rt_seg.cf32
+                RESULT_VARIABLE rc TIMEOUT 20)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "a finite scene under --realtime: exit '${rc}' "
+                        "(a hang reads as a timeout) -- expected 0")
+endif()
+expect_size(wg_rt_seg.cf32 57344)
+
+# 21. doppler#1733: a scene whose segments differ in fs is legal, and each
+#     output either says so honestly or refuses. BLUE states one rate (one
+#     xdelta), so attached and detached both refuse, naming the two rates;
+#     SigMF leaves core:sample_rate out; raw states none and is written.
+file(WRITE wg_mixed.json "{\"segments\": [
+  {\"fs\": 6000000.0, \"num_samples\": 600,
+   \"sum\": [{\"type\": \"tone\", \"freq\": 1000.0}]},
+  {\"fs\": 2000000.0, \"num_samples\": 400,
+   \"sum\": [{\"type\": \"tone\", \"freq\": 1000.0}]}]}
+")
+foreach(_detached "" "--detached")
+    execute_process(COMMAND ${EXE} --from-file wg_mixed.json
+                    --file-type blue ${_detached} -o wg_mixed_blue
+                    RESULT_VARIABLE rc ERROR_VARIABLE err)
+    if(NOT rc EQUAL 2 OR NOT err MATCHES "different fs \\(6e\\+06, 2e\\+06\\)")
+        message(FATAL_ERROR "a mixed-fs scene as BLUE ${_detached}: exit "
+                            "${rc}, '${err}' -- expected 2, naming both")
+    endif()
+endforeach()
+run(--from-file wg_mixed.json --file-type sigmf -o wg_mixed)
+file(READ wg_mixed.sigmf-meta _meta)
+string(FIND "${_meta}" "core:sample_rate" _at)
+if(NOT _at EQUAL -1)
+    message(FATAL_ERROR "a mixed-fs scene's SigMF states a sample rate")
+endif()
+run(--from-file wg_mixed.json -o wg_mixed.cf32)
+expect_size(wg_mixed.cf32 8000)
 
 sweep_scratch()
 message(STATUS "wfmgen_cli: OK")

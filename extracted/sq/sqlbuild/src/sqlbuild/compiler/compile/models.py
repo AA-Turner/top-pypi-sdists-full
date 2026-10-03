@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any, overload
 
 from sqlbuild.compiler.auditing.models import MeasurementContract, MeasurementThresholds
 from sqlbuild.compiler.auditing.types import AuditEvaluationMode, AuditSeverity
-from sqlbuild.compiler.compile.constants import DEFAULT_SQL_TEST_MODE
+from sqlbuild.compiler.compile.constants import DEFAULT_SQL_TEST_MODE, MACRO_CONTEXT_PARAMETER_NAME
 from sqlbuild.compiler.compile.exceptions import CompileInputError
 from sqlbuild.compiler.compile.types import (
     AttachedAuditTargetKind,
@@ -61,7 +63,7 @@ from sqlbuild.compiler.scopes.models import (
     UsageRecord,
     VisibilityRecord,
 )
-from sqlbuild.compiler.sql_analysis.models import SqlBindingDiagnostic
+from sqlbuild.compiler.sql_analysis.models import SqlBindingDiagnostic, SqlLexicalSyntax
 from sqlbuild.spec.contracts.models import (
     DefaultsConfig,
     LocalConfig,
@@ -233,6 +235,20 @@ class LoadedMacro:
     raw_source: str
     function: Callable[..., object]
     dependencies: tuple[DeclarationIdentity, ...] = field(default_factory=tuple)
+
+    @cached_property
+    def injects_context(self) -> bool:
+        """Whether the first positional parameter receives the injected macro context."""
+
+        parameters: tuple[inspect.Parameter, ...] = tuple(
+            inspect.signature(self.function).parameters.values()
+        )
+        return bool(
+            parameters
+            and parameters[0].kind
+            in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
+            and parameters[0].name == MACRO_CONTEXT_PARAMETER_NAME
+        )
 
 
 @dataclass(frozen=True)
@@ -439,6 +455,7 @@ class CompileAdapterContext:
     value_renderer: TypedSqlValueRenderer
     collection_rendering: CollectionRendering
     python_functions_inherit_default_namespace: bool
+    sql_lexical_syntax: SqlLexicalSyntax
 
 
 @dataclass(frozen=True)
@@ -454,6 +471,7 @@ class ModelInputBuildContext:
     loaded_macros: dict[str, LoadedMacro]
     value_renderer: TypedSqlValueRenderer
     collection_rendering: CollectionRendering
+    sql_lexical_syntax: SqlLexicalSyntax
     public_enums: dict[str, EnumDeclaration] = field(default_factory=dict)
     public_constants: dict[str, ConstantDeclaration] = field(default_factory=dict)
     public_model_schemas: dict[str, ModelSchemaDeclaration] = field(default_factory=dict)
@@ -734,6 +752,7 @@ class CompileModelInput:
     schema_entry: SchemaModelEntry | None = None
     schema_file: DiscoveredSchemaFile | None = None
     sql_validation_enabled: bool = False
+    rejected_sql_analysis_opt_out: SourceLocation | None = None
     enum_declarations: tuple[EnumDeclaration, ...] = field(default_factory=tuple)
     constant_declarations: tuple[ConstantDeclaration, ...] = field(default_factory=tuple)
     enum_columns: dict[str, EnumDeclaration] = field(default_factory=dict)
@@ -845,12 +864,14 @@ class CompileProjectInputs:
     project_config: ProjectConfig
     local_config: LocalConfig
     discovered_inputs: DiscoveredProjectInputs
+    sql_lexical_syntax: SqlLexicalSyntax
     run_id: str = ""
     effective_target_name: str | None = None
     effective_target: TargetConfig | None = None
     compile_cache_dir: Path | None = None
     effective_connection: dict[str, object] = field(default_factory=dict)
     effective_settings: SettingsConfig = field(default_factory=SettingsConfig)
+    no_sql_validation: bool = False
     effective_vars: dict[str, object] = field(default_factory=dict)
     macro_context: MacroContext | None = field(default=None, repr=False, compare=False)
     loaded_macros: dict[str, LoadedMacro] = field(default_factory=dict)
@@ -910,6 +931,7 @@ class CompiledModel:
     binding_validated: bool = False
     dynamic_column_contract: DynamicColumnContractProof | None = None
     unchecked_output_columns: frozenset[str] = frozenset()
+    rejected_sql_analysis_opt_out: SourceLocation | None = None
 
 
 @dataclass(frozen=True)
@@ -1045,6 +1067,7 @@ class CompiledProject:
     effective_target_database: str | None = None
     effective_target_schema: str | None = None
     sql_analysis_dialect: str | None = None
+    sql_lexical_syntax: SqlLexicalSyntax = field(default_factory=SqlLexicalSyntax)
     compile_cache_dir: Path | None = None
     settings: SettingsConfig = field(default_factory=SettingsConfig)
     scenario: ScenarioConfig = field(default_factory=ScenarioConfig)
@@ -1130,6 +1153,7 @@ class CompileModelSqlTestInputPayload:
     expected_model_names: tuple[str, ...] = field(default_factory=tuple)
     assertion_ctes: tuple[CompileSqlTestCte, ...] = field(default_factory=tuple)
     assertion_names: tuple[str, ...] = field(default_factory=tuple)
+    assertion_target_model_names: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -1540,3 +1564,16 @@ class ModelHeaderColumnCache:
 
     def put(self, cached: CachedModelHeaderColumns) -> None:
         self._values[id(cached.raw_columns)] = cached
+
+
+@dataclass(frozen=True)
+class SqlAnalysisOptOutRequest:
+    """One model's opt-out, with what is needed to prove its SQL parses."""
+
+    model_file: DiscoveredSqlModelFile
+    config: CompileModelConfig
+    settings: SettingsConfig
+    no_sql_validation: bool
+    query_sql: str
+    placeholders: dict[str, str] | None
+    project_config_path: Path

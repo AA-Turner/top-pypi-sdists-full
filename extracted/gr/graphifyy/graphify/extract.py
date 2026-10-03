@@ -1266,7 +1266,12 @@ _TS_CONFIG = LanguageConfig(
         "enum_declaration",        # named enums
         "type_alias_declaration",  # named type aliases
     }),
-    function_types=frozenset({"function_declaration", "generator_function_declaration", "method_definition", "method_signature"}),
+    # `abstract_method_signature`: an abstract class's method is a contract
+    # declaration exactly like an `interface`'s `method_signature` (already
+    # captured) — a subclass must implement it. Without it the abstract method
+    # was dropped, so the base of an `abstract class` sat in the graph with only
+    # its concrete methods and no node for the overridden contract.
+    function_types=frozenset({"function_declaration", "generator_function_declaration", "method_definition", "method_signature", "abstract_method_signature"}),
     import_types=frozenset({"import_statement", "export_statement"}),
     call_types=frozenset({"call_expression", "new_expression"}),
     call_function_field="function",
@@ -1449,7 +1454,13 @@ _SCALA_CONFIG = LanguageConfig(
     # cases, so it needs a node and a body walk like the others (its cases are
     # emitted by _scala_extra_walk, the parity of Java #1719 / Kotlin #1738).
     class_types=frozenset({"class_definition", "object_definition", "trait_definition", "enum_definition"}),
-    function_types=frozenset({"function_definition"}),
+    # `function_declaration` is a bodyless `def area: Double` — a deferred
+    # (abstract) method. In a `trait` or `abstract class` it is the contract a
+    # subclass must implement, exactly like Java/C#/TS abstract methods. Only
+    # `function_definition` (a `def` WITH a body) was a function type, so every
+    # abstract member was dropped: a pure-interface trait had no method nodes at
+    # all, and a concrete method calling a deferred one had no target to link to.
+    function_types=frozenset({"function_definition", "function_declaration"}),
     import_types=frozenset({"import_declaration"}),
     call_types=frozenset({"call_expression"}),
     call_function_field="",
@@ -1529,7 +1540,11 @@ _LUA_CONFIG = LanguageConfig(
     call_types=frozenset({"function_call"}),
     call_function_field="name",
     call_accessor_node_types=frozenset({"method_index_expression"}),
-    call_accessor_field="name",
+    # A colon call `obj:method()` parses as a method_index_expression whose callee
+    # lives in the `method` field and whose receiver lives in the `table` field —
+    # not the `name`/`object` fields the dot-access languages use (#3991).
+    call_accessor_field="method",
+    call_accessor_object_field="table",
     name_fallback_child_types=("identifier", "method_index_expression"),
     body_fallback_child_types=("block",),
     function_boundary_types=frozenset({"function_declaration"}),
@@ -6767,6 +6782,7 @@ _DISPATCH: dict[str, Any] = {
     ".v": extract_verilog,
     ".sv": extract_verilog,
     ".svh": extract_verilog,
+    ".vh": extract_verilog,
     ".sql": extract_sql,
     ".md": extract_markdown,
     ".mdx": extract_markdown,
@@ -8315,6 +8331,14 @@ def extract(
         nid_to_file_nid[n["id"]] = _file_node_id(sf_rel)
 
     existing_pairs = {(e["source"], e["target"]) for e in all_edges}
+    # nid -> label, so a resolved Rust call target can be told apart from a
+    # constructor: a function/method node is labelled `name()` / `.name()`, a
+    # data definition (struct/enum/trait) carries the bare name. A cross-file
+    # `Foo(x)` onto a bare-name node constructs a value; it is not a function
+    # call and must not count as one.
+    nid_to_label: dict[str, str] = {
+        n["id"]: str(n.get("label", "")) for n in resolution_nodes if n.get("id")
+    }
     # Call-like pairs only, for the indirect_call dedup: an `imports` edge from a
     # file to the symbol it imports is EXPECTED and must not suppress an
     # indirect_call to that same symbol (JS/TS named imports create such an edge).
@@ -8327,6 +8351,13 @@ def extract(
     # of these files with no import evidence is gated below (#1659).
     _JS_TS_CALL_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
     _go_module_cache: dict[Path, str | None] = {}
+    # Enum members (`case_of`) and fields/properties (`defines`) are never what a
+    # C# `new X()` constructs. Same exclusion the C# type-definition index uses
+    # (#3815); without it a `new List<T>()` binds to an enum member named `List`.
+    _member_nids = {
+        e.get("target") for e in all_edges if e.get("relation") in ("case_of", "defines")
+    }
+    _csharp_stub_resolver: CsharpNameResolver | None = None  # built on first use
     for rc in all_raw_calls:
         if rc.get("_ambiguous_python_import"):
             continue
@@ -8375,6 +8406,28 @@ def extract(
             candidates = global_label_to_nids_ci.get(callee.lower(), [])
         if not candidates:
             continue
+        if rc.get("csharp_new"):
+            candidates = [c for c in candidates if c not in _member_nids]
+            if not candidates:
+                continue
+        # A call rescued from an annotation stub (#3888): the caller's own file
+        # names this type without defining it, and before the rescue the call
+        # got no edge at all. A same-named class elsewhere is only the target
+        # with evidence: an import (checked below) or, for C#, the namespace /
+        # `using` scope. `new List<int>()` under `using System.Collections.Generic`
+        # must not bind to an unrelated `Other.List`.
+        stub_scope_hit = False
+        if rc.get("via_stub") and rc.get("lang") == "csharp":
+            if _csharp_stub_resolver is None:
+                _csharp_stub_resolver = CsharpNameResolver(all_nodes, all_edges)
+            caller_node = _csharp_stub_resolver.node_by_id.get(rc.get("caller_nid", ""))
+            scoped = (
+                _csharp_stub_resolver.resolve_label(callee, caller_node, str(rc.get("source_file", "")))
+                if caller_node is not None else None
+            )
+            if scoped in candidates:
+                candidates = [scoped]
+                stub_scope_hit = True
         # Cross-language guard: never bind a call to a definition in a different
         # language family. Name-only matching was resolving a TSX callback passed
         # by name to a same-named Kotlin method in the Android half of the repo
@@ -8515,6 +8568,8 @@ def extract(
         # (INFERRED, callable-target-gated) and independent of import evidence.
         if not has_import_evidence and str(rc.get("source_file", "")).endswith(_JS_TS_CALL_SUFFIXES):
             continue
+        if rc.get("via_stub") and not (has_import_evidence or stub_scope_hit):
+            continue
         if tgt != caller and (caller, tgt) not in existing_pairs:
             existing_pairs.add((caller, tgt))
             # Promote to EXTRACTED when there's a direct import edge from the
@@ -8528,11 +8583,17 @@ def extract(
                 # 0.85 rather than 0.8 — the rubric's INFERRED set is discrete
                 # and does not contain 0.8 (#2813).
                 confidence_score = 0.85
+            _tgt_label = nid_to_label.get(tgt, "")
+            is_rust_constructor = bool(
+                str(rc.get("source_file", "")).endswith(".rs")
+                and _tgt_label
+                and not _tgt_label.endswith(")")
+            )
             all_edges.append({
                 "source": caller,
                 "target": tgt,
-                "relation": "calls",
-                "context": "call",
+                "relation": "references" if is_rust_constructor else "calls",
+                "context": "constructor" if is_rust_constructor else "call",
                 "confidence": confidence,
                 "confidence_score": confidence_score,
                 "source_file": rc.get("source_file", ""),

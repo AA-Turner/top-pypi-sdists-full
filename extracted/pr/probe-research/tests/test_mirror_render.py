@@ -266,11 +266,27 @@ def test_tap_manifest_version_mismatch_aborts(tmp_path):
                     ],
                 },
             ),
-            "codex marketplace plugin sources",
+            "Codex marketplace plugin sources",
         ),
         (
             lambda a: (a / ".agents" / "plugins" / "marketplace.json").write_text("{oops"),
             "not valid JSON",
+        ),
+        (
+            # Codex reads {"source": "local", "path": ...}; a bare string would
+            # publish a manifest it cannot install from.
+            lambda a: _write_json(
+                a / ".agents" / "plugins" / "marketplace.json",
+                {
+                    "name": "x",
+                    "plugins": [
+                        {"name": "probe-research", "source": "./plugins/probe-research"},
+                        {"name": "probe-research-daemon", "source": "./plugins/probe-research-daemon"},
+                        {"name": "probe-research-tap", "source": "./plugins/probe-research-tap"},
+                    ],
+                },
+            ),
+            "source dir",
         ),
     ],
 )

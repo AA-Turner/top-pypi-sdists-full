@@ -10,6 +10,7 @@ All three are server-side matrx_ai tools. ``git_ingest`` depends on the optional
 ``gitingest`` package (install ``matrx-ai[code-ingest]``) and is imported lazily so
 the module loads fine when it's absent. The other two use ``httpx`` (a core dep).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,7 +20,9 @@ import time
 from typing import Any
 
 import httpx
+from matrx_utils.outbound_guard import OutboundUrlRefused, public_only_client
 
+from matrx_ai.tools._sandbox_proxy import get_active_sandbox
 from matrx_ai.tools.arg_models.code_ingest_args import (
     GitIngestArgs,
     LlmsTxtFetchArgs,
@@ -59,10 +62,48 @@ def _looks_remote(source: str) -> bool:
     )
 
 
+def _names_a_repository(source: str) -> bool:
+    """A source that names a repository by URL, never a folder (no filesystem lookup)."""
+    s = source.strip().lower()
+    return s.startswith(
+        ("http://", "https://", "git@", "ssh://", "git://", "github.com/", "gitlab.com/")
+    )
+
+
+def _ingest(source: str, **kwargs: Any) -> tuple[str, str, str]:
+    """gitingest's ingest, looked up at call time (tests and the optional extra both rely on it)."""
+    from gitingest import ingest
+
+    return ingest(source, **kwargs)
+
+
 async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = GitIngestArgs(**args)
     stream = ToolStreamManager(ctx.emitter, ctx.call_id, "git_ingest")
+
+    # A turn bound to a box (a cloud sandbox or the person's computer): this tool runs on the
+    # SERVER, so a local path would name the server's disk, never the box's. A repository URL is
+    # fine; a folder on the box is read with the box's own tools.
+    if get_active_sandbox() is not None and not _names_a_repository(parsed.source):
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="local_path_on_bound_box",
+                message=(
+                    f"git_ingest runs on the server and cannot see {parsed.source!r} on the attached "
+                    "computer or sandbox. It takes a repository URL."
+                ),
+                suggested_action=(
+                    "For a folder on the attached machine use fs_list and fs_search, then fs_read, "
+                    "or shell_execute (git ls-files, git log)."
+                ),
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="git_ingest",
+            call_id=ctx.call_id,
+        )
 
     remote = _looks_remote(parsed.source)
     if remote and shutil.which("git") is None:
@@ -83,7 +124,7 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     try:
-        from gitingest import ingest
+        import gitingest  # noqa: F401 — the optional extra must be installed; _ingest calls it
     except ImportError as exc:
         return ToolResult(
             success=False,
@@ -100,15 +141,13 @@ async def git_ingest(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     try:
-        await stream.progress(
-            f"Ingesting {'remote ' if remote else ''}{parsed.source[:80]}..."
-        )
+        await stream.progress(f"Ingesting {'remote ' if remote else ''}{parsed.source[:80]}...")
         # Despite its name, gitingest.ingest_async performs its recursive file
         # walk and content assembly synchronously. Running it on the API loop can
         # freeze every request for large repositories, so keep the entire
         # third-party ingestion lifecycle on a worker thread.
         summary, tree, content = await asyncio.to_thread(
-            ingest,
+            _ingest,
             parsed.source,
             max_file_size=parsed.max_file_size,
             include_patterns=set(parsed.include) if parsed.include else None,
@@ -211,7 +250,11 @@ def _parse_llms_txt(text: str) -> dict[str, Any]:
         m = link_re.match(line)
         if m and current is not None:
             current["links"].append(
-                {"title": m.group(1).strip(), "url": m.group(2).strip(), "notes": m.group(3).strip() or None}
+                {
+                    "title": m.group(1).strip(),
+                    "url": m.group(2).strip(),
+                    "notes": m.group(3).strip() or None,
+                }
             )
 
     return {"title": title, "summary": summary, "sections": sections}
@@ -225,10 +268,12 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     # Direct httpx is correct here: llms.txt is a plain-text docs standard at a
     # well-known path the agent named — not a user cloud-file (MediaRef), so it
-    # does not go through FileManager.resolve_media_async.
+    # does not go through FileManager.resolve_media_async. The MODEL names the
+    # host, so the guarded client refuses any address inside our network (every
+    # redirect hop too) and connects to the IP it checked.
     try:
         await stream.progress(f"Fetching {target}")
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
+        async with public_only_client(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
             resp = await client.get(target, headers={"User-Agent": _USER_AGENT})
 
         if resp.status_code == 404:
@@ -256,9 +301,13 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         truncated = total > parsed.max_chars
         body = text[: parsed.max_chars] if truncated else text
         note = (
-            f"Text truncated to {parsed.max_chars} of {total} chars. "
-            f"Set `full=false` for the shorter index, or raise max_chars."
-        ) if truncated else None
+            (
+                f"Text truncated to {parsed.max_chars} of {total} chars. "
+                f"Set `full=false` for the shorter index, or raise max_chars."
+            )
+            if truncated
+            else None
+        )
         return ToolResult(
             success=True,
             output=LlmsTxtDocument(
@@ -269,6 +318,21 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 truncated=truncated,
                 note=note,
                 parsed=_parse_llms_txt(body),
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="llms_txt_fetch",
+            call_id=ctx.call_id,
+        )
+    except OutboundUrlRefused as exc:
+        return ToolResult(
+            success=False,
+            error=ToolError.from_exception(
+                exc,
+                error_type="not_allowed",
+                message=str(exc),
+                is_retryable=False,
+                suggested_action="Use the public web address of the site's docs.",
             ),
             started_at=started_at,
             completed_at=time.time(),
@@ -291,7 +355,9 @@ async def llms_txt_fetch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
-async def _fetch_pypi(client: httpx.AsyncClient, name: str, include_readme: bool, max_chars: int) -> dict[str, Any]:
+async def _fetch_pypi(
+    client: httpx.AsyncClient, name: str, include_readme: bool, max_chars: int
+) -> dict[str, Any]:
     resp = await client.get(
         f"https://pypi.org/pypi/{name}/json", headers={"User-Agent": _USER_AGENT}
     )
@@ -316,7 +382,9 @@ async def _fetch_pypi(client: httpx.AsyncClient, name: str, include_readme: bool
     return out
 
 
-async def _fetch_npm(client: httpx.AsyncClient, name: str, include_readme: bool, max_chars: int) -> dict[str, Any]:
+async def _fetch_npm(
+    client: httpx.AsyncClient, name: str, include_readme: bool, max_chars: int
+) -> dict[str, Any]:
     resp = await client.get(
         f"https://registry.npmjs.org/{name}", headers={"User-Agent": _USER_AGENT}
     )
@@ -352,7 +420,9 @@ async def package_info(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         await stream.progress(f"Looking up {parsed.ecosystem}:{parsed.name}")
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
             if parsed.ecosystem == "pypi":
-                out = await _fetch_pypi(client, parsed.name, parsed.include_readme, parsed.max_chars)
+                out = await _fetch_pypi(
+                    client, parsed.name, parsed.include_readme, parsed.max_chars
+                )
             else:
                 out = await _fetch_npm(client, parsed.name, parsed.include_readme, parsed.max_chars)
 

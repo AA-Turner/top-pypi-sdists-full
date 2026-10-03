@@ -327,16 +327,21 @@ class GroupCommitAttemptLedger:
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Durably terminalize accepted work that never reached dispatch.
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Return the no-effects certificate only after the terminal write commits.
 
         Args:
             authorization: Frozen authority identifying the accepted request.
             failure: Sanitized pre-dispatch terminal failure.
+            certify_no_effects: Trusted admission attestation; omitted callers cannot certify.
         """
-        await self._submit(
+        return await self._submit(
             lambda connection: self.core.apply_finish_request(
-                connection, authorization=authorization, failure=failure
+                connection,
+                authorization=authorization,
+                failure=failure,
+                certify_no_effects=certify_no_effects,
             )
         )
 
@@ -736,16 +741,21 @@ class SyncGroupCommitLedger:
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Durably terminalize accepted work that never reached dispatch.
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Return the no-effects certificate only after the terminal write commits.
 
         Args:
             authorization: Frozen authority identifying the accepted request.
             failure: Sanitized pre-dispatch terminal failure.
+            certify_no_effects: Trusted admission attestation; omitted callers cannot certify.
         """
-        self._writer.submit_blocking(
+        return self._writer.submit_blocking(
             lambda connection: self._writer.core.apply_finish_request(
-                connection, authorization=authorization, failure=failure
+                connection,
+                authorization=authorization,
+                failure=failure,
+                certify_no_effects=certify_no_effects,
             )
         )
 

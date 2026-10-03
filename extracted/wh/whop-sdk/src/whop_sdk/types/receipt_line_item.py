@@ -10,27 +10,27 @@ from .money import Money
 class ReceiptLineItem(UniversalBaseModel):
     id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Line item ID, prefixed `li_`. Null when the payment predates item snapshots and the item is read from the payment's plan.
+    Line item ID, prefixed `li_`. Null when the payment predates item snapshots and the item is read from the payment's variant.
     """
 
     label: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The item's name as shown at checkout — the product title, else the plan title.
+    The item's name as shown at checkout — the product title, else the variant title.
     """
 
     plan_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The plan bought, prefixed `plan_`. Null when the plan has since been deleted.
+    The variant bought, prefixed `plan_`. Null when the variant has since been deleted.
     """
 
     plan_title: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The plan's current title, or `null` when the plan has been deleted or has no title.
+    The variant's current title, or `null` when the variant has been deleted or has no title.
     """
 
     product_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The product the plan belongs to, prefixed `prod_`. On a payment that predates item snapshots this falls back to the plan's product, so it can be set where the parent's own `product_id` is null. Null for a plan with no product.
+    The product the variant belongs to, prefixed `prod_`. On a payment that predates item snapshots this falls back to the variant's product, so it can be set where the parent's own `product_id` is null. Null for a variant with no product.
     """
 
     product_title: typing.Optional[str] = pydantic.Field(default=None)
@@ -41,6 +41,11 @@ class ReceiptLineItem(UniversalBaseModel):
     quantity: float = pydantic.Field()
     """
     How many units were bought.
+    """
+
+    sku: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The variant's stock keeping unit, free text set by the seller (e.g. `TSHIRT-LARGE-BLUE`). Accounts with billing-reason SKU suffixes enabled receive it stamped with why the charge happened: `-S` for a first subscription charge, `-R` for a renewal, `-C` for a one-time purchase, `-U` when the payment's own metadata carries `upsell: true`, `-F` when nothing was charged. Other billing reasons carry the bare SKU. `null` when the variant has no SKU or has been deleted.
     """
 
     subtotal: typing.Optional[Money] = pydantic.Field(default=None)

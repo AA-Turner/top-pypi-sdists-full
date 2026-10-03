@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import enum
+import ipaddress
 import json
 import logging
 import os
@@ -11,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit
 
 import bs4
 import httpx
@@ -19,6 +20,14 @@ from dotenv import load_dotenv
 from httpx import Timeout
 from playwright.async_api import async_playwright
 from selectolax.parser import HTMLParser
+
+from matrx_utils.outbound_guard import (
+    NUMERIC_HOST_SENTENCE,
+    OutboundHostUnresolved,
+    OutboundUrlRefused,
+    resolve_public_address,
+    resolve_public_address_sync,
+)
 
 from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.user_agents import normalize_user_agent
@@ -33,14 +42,42 @@ logger = logging.getLogger(__name__)
 # Use the SYNC Session on a worker thread — AsyncSession.__aexit__ calls
 # curl_multi_cleanup on the event loop and has stalled aidream-api (~1s+).
 try:
-    from curl_cffi import CurlInfo
+    from curl_cffi import CurlInfo, CurlOpt
     from curl_cffi.requests import Session as CurlCffiSession
 
     CURL_CFFI_AVAILABLE = True
 except ImportError:
     CurlInfo = None  # type: ignore[misc, assignment]
+    CurlOpt = None  # type: ignore[misc, assignment]
     CurlCffiSession = None  # type: ignore[misc, assignment]
     CURL_CFFI_AVAILABLE = False
+
+
+def _curl_pin_options(url: str, *, direct: bool) -> dict[Any, Any]:
+    """Check one hop; on a direct connection return the curl option that pins it."""
+    try:
+        # allow_http=True: crawling http sites is this engine's job.
+        ip = resolve_public_address_sync(url, allow_http=True)
+    except OutboundHostUnresolved:
+        if direct:
+            raise
+        return {}
+    if not direct or CurlOpt is None:
+        return {}
+    parts = urlsplit(url)
+    # curl treats a literal-IP host as the address itself and never consults
+    # CURLOPT_RESOLVE. The guard admits only CANONICAL literals, so a literal
+    # here must equal the checked IP — anything else is refused, never sent.
+    literal = (parts.hostname or "").strip("[]")
+    try:
+        is_literal = bool(ipaddress.ip_address(literal))
+    except ValueError:
+        is_literal = False
+    if is_literal and ipaddress.ip_address(literal) != ipaddress.ip_address(ip):
+        raise OutboundUrlRefused(NUMERIC_HOST_SENTENCE)
+    port = parts.port or (443 if (parts.scheme or "").lower() == "https" else 80)
+    pinned = f"[{ip}]" if ":" in ip else ip
+    return {CurlOpt.RESOLVE: [f"{parts.hostname}:{port}:{pinned}"]}
 
 
 def _curl_cffi_get_sync(
@@ -72,6 +109,14 @@ def _curl_cffi_get_sync(
         max_redirects = 10
         redirect_loop = False
         for redirect_count in range(max_redirects + 1):
+            # EVERY hop is checked before it is requested. On a direct
+            # connection the hop is also PINNED: CURLOPT_RESOLVE makes curl
+            # connect to the exact IP the check approved, so a host whose DNS
+            # answers public then private (rebinding) cannot land inside our
+            # network. Through a proxy the proxy resolves the name, so the
+            # check still runs (a refusal is final) but there is nothing of
+            # ours to pin; a name only the proxy can resolve is let through.
+            session.curl_options = _curl_pin_options(current_url, direct=proxy is None)
             resp = session.get(
                 current_url,
                 headers=headers,
@@ -263,6 +308,10 @@ class FailureReason(enum.StrEnum):
     REDIRECT_LOOP = "redirect_loop"
     REQUEST_ERROR = "request_error"
     PROXY_ERROR = "proxy_error"
+    #: The address (or a redirect hop) resolves inside a private or internal
+    #: network. WE refused it before sending anything; no retry, proxy, direct
+    #: fallback or browser changes that.
+    ADDRESS_REFUSED = "address_refused"
 
 
 class ProxyConfigurationError(RuntimeError):
@@ -469,6 +518,8 @@ def primary_failure_reason(fatal_reasons: list[dict]) -> FailureReason:
     and the crawler's browser escalation, which keys on that label, skipped the
     one fetch that recovers a challenge page.
     """
+    if any(FailureReason.ADDRESS_REFUSED in reason for reason in fatal_reasons):
+        return FailureReason.ADDRESS_REFUSED
     for preferred in CHALLENGE_FAILURE_REASONS:
         if any(preferred in reason for reason in fatal_reasons):
             return preferred
@@ -791,6 +842,48 @@ class Response:
         return d
 
 
+def _unresolved_text(exc: OutboundHostUnresolved) -> str:
+    """The sentence plus the resolver's own words, which `unreachable` reads to
+    tell a person the name does not exist (never a bare "request_error")."""
+    cause = exc.__cause__
+    return f"{exc} ({cause})" if cause is not None else str(exc)
+
+
+async def _check_proxied_hop(request: httpx.Request) -> None:
+    try:
+        await resolve_public_address(str(request.url), allow_http=True)
+    except OutboundHostUnresolved:
+        return  # the proxy resolves the name; nothing of ours is reached
+    # OutboundUrlRefused propagates: the hop is never sent.
+
+
+def address_refused_response(
+    url: str,
+    request_type: RequestType,
+    sentence: str,
+    *,
+    reason: FailureReason = FailureReason.ADDRESS_REFUSED,
+    proxy_used: bool = False,
+) -> Response:
+    """The response for an address WE refused before sending anything."""
+    logger.warning("scraper REFUSED %s: %s", redact_url_secrets(url), sentence)
+    return Response(
+        request_url=url,
+        proxy_used=proxy_used,
+        request_type=request_type,
+        content_type=ContentType.OTHER,
+        extension="",
+        content_type_raw="",
+        response_url=url,
+        response_headers={},
+        status_code=0,
+        content="",
+        failed=True,
+        failed_primary_reason=reason,
+        failed_reasons=[{reason: sentence}],
+    )
+
+
 async def fetch(
     url: str,
     request_type: RequestType = RequestType.NORMAL,
@@ -832,6 +925,21 @@ async def fetch(
     cms_other = []
     firewall = Firewall.NONE
 
+    # THE ADDRESS GATE — first, before anything parses the URL (a malformed
+    # host must be a refusal with a sentence, never an exception from a helper),
+    # before any engine, proxied or direct, and so before every direct fallback
+    # (they all come back through here). allow_http=True: crawling http sites
+    # is this engine's job.
+    try:
+        await resolve_public_address(url, allow_http=True)
+    except OutboundHostUnresolved as exc:
+        if proxy is None:
+            return address_refused_response(
+                url, request_type, _unresolved_text(exc), reason=FailureReason.REQUEST_ERROR
+            )
+    except OutboundUrlRefused as exc:
+        return address_refused_response(url, request_type, str(exc), proxy_used=proxy_used)
+
     url_hint = detect_content_type_from_url(url)
     is_likely_binary = url_hint in BINARY_CONTENT_TYPES
 
@@ -854,6 +962,11 @@ async def fetch(
                     page = await browser_context.new_page()
                 else:
                     page = await browser.new_page()
+                # Every request the page makes (navigation, each redirect hop,
+                # every subresource) is checked; a non-public one is aborted.
+                from matrx_scraper.ai_browser.url_guard import install_egress_guard
+
+                await install_egress_guard(page.context)
                 resp = await page.goto(url)
                 content = await page.content()
                 title = await page.title()
@@ -945,9 +1058,19 @@ async def fetch(
                 timeout_config = Timeout(15.0, connect=60.0)
                 client_kwargs = {"timeout": timeout_config, "headers": request_headers}
                 if proxy:
+                    # Through a proxy: every hop (httpx follows redirects
+                    # inside send) is re-checked by the request hook; the
+                    # proxy, not us, resolves the name.
                     client_kwargs["proxy"] = proxy
+                    client_kwargs["event_hooks"] = {"request": [_check_proxied_hop]}
+                    http_client = httpx.AsyncClient(**client_kwargs)
+                else:
+                    # Direct: every hop checked AND pinned to the checked IP.
+                    from matrx_utils.outbound_guard import public_only_client
 
-                async with httpx.AsyncClient(**client_kwargs) as client:
+                    http_client = public_only_client(allow_http=True, **client_kwargs)
+
+                async with http_client as client:
                     # Sent as a STREAM purely to time the first byte: `send`
                     # returns the moment the response headers land, so the
                     # elapsed time to that point IS the TTFB (redirect hops
@@ -995,10 +1118,15 @@ async def fetch(
 
     except Exception as e:
         failed = True
-        error_text = str(e)
-        if proxy and any(err in error_text for err in ROTATE_PROXY_ERRORS):
-            failed_reasons.append({FailureReason.PROXY_ERROR: error_text})
-        failed_reasons.append({FailureReason.REQUEST_ERROR: error_text})
+        error_text = _unresolved_text(e) if isinstance(e, OutboundHostUnresolved) else str(e)
+        if isinstance(e, OutboundUrlRefused) and not isinstance(e, OutboundHostUnresolved):
+            # A redirect hop resolved inside our network: refused, not an error
+            # anyone can retry their way past.
+            failed_reasons.append({FailureReason.ADDRESS_REFUSED: error_text})
+        else:
+            if proxy and any(err in error_text for err in ROTATE_PROXY_ERRORS):
+                failed_reasons.append({FailureReason.PROXY_ERROR: error_text})
+            failed_reasons.append({FailureReason.REQUEST_ERROR: error_text})
         content = ""
         title = None
         response_url = url
@@ -1245,6 +1373,15 @@ async def fetch_normally_with_proxy(
     from matrx_utils import capture_error, vcprint
 
     from matrx_scraper import proxy_health
+
+    # Refused up front, so a refused address never touches the pool, its
+    # health counters, or a direct fallback.
+    try:
+        await resolve_public_address(url, allow_http=True)
+    except OutboundHostUnresolved:
+        pass  # the proxy may resolve it; fetch() refuses it on any direct path
+    except OutboundUrlRefused as exc:
+        return address_refused_response(url, RequestType.NORMAL, str(exc))
 
     proxies = _configured_proxies()
     if not proxies:

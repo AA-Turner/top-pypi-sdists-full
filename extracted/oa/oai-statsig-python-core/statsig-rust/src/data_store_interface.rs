@@ -95,6 +95,13 @@ pub trait DataStoreTrait: Send + Sync {
         false
     }
 
+    /// Publish one config-spec snapshot successfully per SDK instance, retrying
+    /// failed writes with the same prepared payload.
+    /// Later responses skip cache preparation and writes. ID-list writes are unaffected.
+    fn write_once(&self) -> bool {
+        false
+    }
+
     async fn initialize(&self) -> Result<(), StatsigErr>;
     async fn shutdown(&self) -> Result<(), StatsigErr>;
     async fn get(&self, key: &str) -> Result<DataStoreResponse, StatsigErr>;

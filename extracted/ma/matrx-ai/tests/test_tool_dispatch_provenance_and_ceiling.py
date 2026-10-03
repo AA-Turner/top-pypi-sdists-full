@@ -40,6 +40,7 @@ from typing import Any
 
 import pytest
 from matrx_orm import (
+    canonical_actor_tier,
     configure_session_context,
     current_actor,
     declared_actor,
@@ -75,15 +76,18 @@ def _would_the_database_refuse(gucs: dict[str, str]) -> bool:
     """``platform._stamp_actor_tier()``'s refusal clause, transcribed from
     ``db/migrations/wf_051_dd131_an_agent_names_its_system.sql``:
 
-        IF tier IN ('ai', 'code') AND sys IS NULL THEN RAISE EXCEPTION …
+        IF tier IN ('agent', 'system') AND sys IS NULL THEN RAISE EXCEPTION …
+
+    (the tier read through ``platform.canonical_actor_tier`` since DD-064, so a
+    retired spelling is judged as its new word)
 
     An unset GUC and an empty-string GUC are both NULL to
     ``platform.actor_system()``; a declaration that never reached the transaction
-    is the ``code`` default.
+    is the ``system`` default.
     """
-    tier = gucs.get("app.actor_tier") or "code"
+    tier = canonical_actor_tier(gucs.get("app.actor_tier") or "") or "system"
     system = (gucs.get("app.actor_system") or "").strip() or None
-    return tier in ("ai", "code") and system is None
+    return tier in ("agent", "system") and system is None
 
 
 async def _write_an_agent_definition(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -164,10 +168,10 @@ def _ctx() -> ToolContext:
 def test_the_predicate_can_fail_it_is_the_live_failure() -> None:
     """The forcing half: an undeclared write is what the database refuses."""
     assert _would_the_database_refuse({}) is True
-    assert _would_the_database_refuse({"app.actor_tier": "code"}) is True
-    assert _would_the_database_refuse({"app.actor_tier": "ai", "app.actor_system": ""}) is True
+    assert _would_the_database_refuse({"app.actor_tier": "system"}) is True
+    assert _would_the_database_refuse({"app.actor_tier": "agent", "app.actor_system": ""}) is True
     # A person's write is exempt on purpose (the chair's DD-131 ruling).
-    assert _would_the_database_refuse({"app.actor_tier": "human"}) is False
+    assert _would_the_database_refuse({"app.actor_tier": "user"}) is False
 
 
 @pytest.mark.asyncio
@@ -188,7 +192,7 @@ async def test_dispatch_declares_the_tool_as_the_actor_system() -> None:
 
     assert isinstance(result, ToolResult)
     assert result.success, result.error
-    assert result.output["actor_tier"] == "ai"
+    assert result.output["actor_tier"] == "agent"
     assert result.output["actor_system"] == "tool:workflow_plan"
     assert current_actor() is None, "the declaration must not outlive the tool call"
 
@@ -207,7 +211,7 @@ async def test_a_tool_that_knows_a_better_system_name_still_wins() -> None:
     """Innermost declaration first — the nested per-tool declarations stay valid."""
 
     async def writes_under_its_own_name(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        async with declared_actor("ai", "tool:instance_create"):
+        async with declared_actor("agent", "tool:instance_create"):
             return await _write_an_agent_definition(args, ctx)
 
     result = await _executor()._dispatch(

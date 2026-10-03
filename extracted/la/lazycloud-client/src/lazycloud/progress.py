@@ -7,17 +7,18 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from shared.http.task_progress import (
-    PENDING_NOTICE_DELAY_SECONDS,
-    TaskPendingProgress,
-    TaskPendingReason,
-)
-from shared.timestamps import utc_now
+from lazycloud._shared.timestamps import utc_now
 
 if TYPE_CHECKING:
+    from lazycloud.contracts.api import TaskPendingProgress, TaskPendingReason
     from lazycloud.terminal import Terminal, TerminalStep
 
-PendingProgressCallback = Callable[[str, TaskPendingProgress | None], None]
+# A task queued for less than this shows no pending card; most start sooner.
+PENDING_NOTICE_DELAY_SECONDS = 5
+
+# Every lazycloud import, the runner's included, loads this module, so the API
+# models it names load only when something uses them.
+PendingProgressCallback = Callable[[str, "TaskPendingProgress | None"], None]
 _callback: ContextVar[PendingProgressCallback | None] = ContextVar("pending_progress", default=None)
 
 
@@ -33,6 +34,11 @@ def progress(callback: PendingProgressCallback) -> Iterator[None]:
         yield
     finally:
         _callback.reset(token)
+
+
+def progress_observed() -> bool:
+    """Whether a `progress` callback listens in this context."""
+    return _callback.get() is not None
 
 
 @dataclass
@@ -67,4 +73,10 @@ class PendingProgressReporter:
             self.terminal.pending_progress(task_id, pending)
 
 
-__all__ = ["PendingProgressCallback", "TaskPendingProgress", "TaskPendingReason", "progress"]
+__all__ = [
+    "PENDING_NOTICE_DELAY_SECONDS",
+    "PendingProgressCallback",
+    "PendingProgressReporter",
+    "progress",
+    "progress_observed",
+]

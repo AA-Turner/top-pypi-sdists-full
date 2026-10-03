@@ -68,7 +68,8 @@ Four independent checks; all must be satisfied for success:
    (advisory / shadow / not in the old ``ci-summary`` ``needs``). This sweep is
    what makes the poller *stricter* than the old gate: any failed ``ci.yml`` job
    not on the allowlist fails the summary, even one the old ``needs`` loop never
-   listed. Failed ``Tests (Split …)`` splits are caught here too.
+   listed. Failed ``Tests (Split …)`` splits are caught here too. Non-exempt
+   running rows hold the verdict PENDING and are re-polled until completed.
 
 The strict + skippable gates together are the **completeness anchor**: requiring
 them present+good proves the whole substantive matrix actually ran and passed,
@@ -185,6 +186,7 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     "Compliance Sweep",  # compliance-sweep — needs occ-preflight, no if:
     "Core-Only Install Gate",  # core-only-install — needs occ-preflight, no if:
     "Customer Clean-Install Delegate Gate",  # customer-clean-install (OMN-16200) — needs occ-preflight, if: always()
+    "Sibling Release Compatibility Gate (OMN-20381)",  # sibling-release-compat (OMN-20381) — needs occ-preflight, if: always()
     # contract-compliance — its ``if:`` is
     # ``occ-preflight.result == 'success' && (pull_request||merge_group||push)``;
     # the event clause is always true (those are the only triggers), so it never
@@ -254,6 +256,9 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     # OMN-20298: shape-gate detectors never wait on the preflight. Unconditional in
     # ci.yml (no needs/if:), so a skipped/cancelled conclusion fails closed here.
     "Shape-Gate Independence (OMN-20298)",
+    # OMN-20287: direct model calls stay in delegation nodes; baseline only shrinks.
+    # Unconditional in ci.yml, so skipped/cancelled conclusions fail closed here.
+    "Direct Model Call Gate (OMN-20287)",
     # OMN-18868: the wire-compatibility gate — replays every changed wire
     # payload through the LAST RELEASED consumer's own model and refuses the
     # pull request on that model's own refusal. THIS LINE IS THE ENFORCEMENT,
@@ -320,6 +325,12 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     # default-deny sweep, and this row makes a skipped or absent conclusion fail
     # closed too. Unconditional in ci.yml (no needs/if), so a skip is anomalous.
     "Canonical File Shape (OMN-20304)",  # canonical-file-shape
+    # OMN-18010: release staleness moved from OCC under retirement plan S8,
+    # option (b) of addendum section 11 question 2 (B3). Registered on the
+    # same terms: a FAILURE already fails CI Summary through the default-deny
+    # sweep, and this row makes a skipped or absent conclusion fail closed too.
+    # Unconditional in ci.yml (no needs/if), so a skip is anomalous.
+    "Release Staleness (OMN-18010)",  # release-staleness
 )
 
 # Skippable aggregate gates: present + completed + success OR skipped.
@@ -531,6 +542,19 @@ EXPECTED_EXTERNAL_CONTEXTS: tuple[str, ...] = (
     "call-reject-skip-token / occ-preflight / eligibility",
     "call-reject-skip-token / scan / reject-skip-gate-token",
     "contract-validation",
+    # OMN-19451 (delegation-health-check.yml): the delegation-health check on
+    # runtime PRs, calling the omnibase_infra reusable pinned by commit. A
+    # runtime-affecting PR is red while the delegation regression nightly or the
+    # M4 C17 verdict is red, unless it carries a `delegation-fix-forward:OMN-<n>`
+    # label. Standalone and unconditional on pull_request and merge_group -- no
+    # `branches:`, no `paths:`, no job-level `if:`, no `needs:` -- so it cannot be
+    # legitimately absent. A single caller job with no `name:` over a called job
+    # named "Delegation Health Check", so the check-run reads
+    # "<caller job id> / <called job name>". Registered here for the reason the
+    # Git env scrub gate entry above records: a context missing from this tuple is
+    # silently unenforced, and there is no shadow or advisory state (operator
+    # ruling 2026-09-29T12:02:35Z).
+    "delegation-health-check / Delegation Health Check",
     "deploy-gate / deploy-gate",
     "dispatcher-route-coverage",
     "fsm-handler-drift",
@@ -983,7 +1007,8 @@ def evaluate(
         )
     )
 
-    # (4) Default-deny sweep over every OTHER present+completed job. Failed
+    # (4) Default-deny sweep over every OTHER present job: fail completed
+    #     refusals and WAIT for running rows (PENDING, re-polled). Failed
     #     "Tests (Split N/M)" splits are caught here (they are not gate_names
     #     and not allowlisted).
     sweep_failures = sorted(
@@ -995,6 +1020,15 @@ def evaluate(
         and j.status == "completed"
         and name not in provisional_names
         and j.conclusion not in GOOD_CONCLUSIONS
+    )
+    sweep_running = sorted(
+        j.name
+        for name, j in latest.items()
+        if name != self_name
+        and name not in gate_names
+        and not _is_allowlisted(name, allowlist)
+        and j.status != "completed"
+        and name not in provisional_names
     )
 
     # (3) Test-matrix completeness (dynamic split jobs).
@@ -1022,6 +1056,7 @@ def evaluate(
             matrix_state,
             docs_only=docs_only,
             relaxed=relaxed,
+            sweep_running=sweep_running,
             provisional_own_cancellations=provisional_own_cancellations,
         )
 
@@ -1030,6 +1065,7 @@ def evaluate(
         return EXIT_FAILURE, _rep("FAILURE")
     if (
         gate_missing_or_pending
+        or sweep_running
         or matrix_state == "pending"
         or provisional_own_cancellations
     ):
@@ -1050,6 +1086,7 @@ def _report(
     *,
     docs_only: bool = False,
     relaxed: frozenset[str] = frozenset(),
+    sweep_running: list[str] | None = None,
     provisional_own_cancellations: list[str] | None = None,
 ) -> str:
     lines = [f"CI Summary verdict: {verdict}", f"  jobs observed: {len(latest)}"]
@@ -1096,6 +1133,11 @@ def _report(
         lines.append(f"  skippable-gate failures: {', '.join(skippable_failures)}")
     if sweep_failures:
         lines.append(f"  default-deny sweep failures: {', '.join(sweep_failures)}")
+    if sweep_running:
+        lines.append(
+            "  default-deny sweep rows still running (PENDING, re-polled): "
+            + ", ".join(sweep_running)
+        )
     if gate_missing_or_pending:
         lines.append(f"  gates missing/pending: {', '.join(gate_missing_or_pending)}")
     if provisional_own_cancellations:

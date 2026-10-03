@@ -1371,6 +1371,12 @@ def replay(
                     client,
                     experiment_id,
                     replayed_trace_ids,
+                    labels={
+                        local_id: _replay_label(server_item, attempt)
+                        for local_id, (server_item, attempt) in zip(
+                            replayed_trace_ids, work_items
+                        )
+                    },
                 )
             )
         except Exception as cause:
@@ -1716,6 +1722,7 @@ def _wait_for_replay_persistence(
     experiment_id: str,
     replayed_trace_ids: list[str],
     timeout: float | None = None,
+    labels: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Block until the server has persisted every replay trace this run queued.
 
@@ -1730,7 +1737,8 @@ def _wait_for_replay_persistence(
     the client-side replay trace id. It comes off the OTLP ingest response
     during the flush, or, for a trace that had to be polled for, off the status
     answer that found it. Empty when the server predates that field or nothing
-    was delivered.
+    was delivered. A trace the server never confirms within the deadline is
+    logged as a warning and left out of the result; it never raises.
     """
     if timeout is None:
         timeout = _REPLAY_PERSISTENCE_TIMEOUT_SECONDS
@@ -1785,19 +1793,29 @@ def _wait_for_replay_persistence(
             break
         time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
 
-    cause = (
-        ""
-        if flushed
-        else (
-            " Delivery was also not confirmed before the flush deadline, so the "
-            "spans likely never reached the server."
+    for trace_id in sorted(missing):
+        logger.warning(
+            _unconfirmed_replay_warning(
+                (labels or {}).get(trace_id, trace_id), timeout, flushed
+            )
         )
+    return read_back_trace_ids
+
+
+def _unconfirmed_replay_warning(label: str, seconds: float, flushed: bool) -> str:
+    return (
+        f"[bitfab] replay {label} could not confirm all spans reached Bitfab "
+        f"within {seconds:g}s. The run continues; Bitfab will show this replay as "
+        "capture incomplete."
+        + ("" if flushed else " Some spans likely never left this process.")
     )
-    raise RuntimeError(
-        "Replay traces were not fully persisted before the delivery deadline "
-        f"(experiment {experiment_id}, missing {len(missing)} of "
-        f"{len(expected_span_counts)} trace(s)).{cause}"
+
+
+def _replay_label(server_item: dict[str, Any], attempt: int) -> str:
+    original_trace_id = server_item.get("originalTraceId") or server_item.get(
+        "sourceTraceId"
     )
+    return f"{original_trace_id}#{attempt}"
 
 
 def execute_replay_item(
@@ -1860,7 +1878,11 @@ def execute_replay_item(
         # child that could not confirm must not take the other N-1 with it.
         try:
             delivered = _wait_for_replay_persistence(
-                client, experiment_id, [replayed_trace_id], delivery_timeout
+                client,
+                experiment_id,
+                [replayed_trace_id],
+                delivery_timeout,
+                labels={replayed_trace_id: _replay_label(server_item, attempt)},
             )
         except Exception as cause:
             logger.warning(

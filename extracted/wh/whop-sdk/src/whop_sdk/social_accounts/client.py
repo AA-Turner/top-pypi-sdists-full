@@ -18,8 +18,11 @@ from .types.list_social_accounts_request_direction import ListSocialAccountsRequ
 from .types.list_social_accounts_request_order import ListSocialAccountsRequestOrder
 from .types.list_social_accounts_request_platform import ListSocialAccountsRequestPlatform
 from .types.list_social_accounts_request_scopes_item import ListSocialAccountsRequestScopesItem
+from .types.list_social_accounts_request_trust_level import ListSocialAccountsRequestTrustLevel
 from .types.list_social_accounts_response import ListSocialAccountsResponse
+from .types.partners_social_accounts_response import PartnersSocialAccountsResponse
 from .types.posts_social_accounts_response import PostsSocialAccountsResponse
+from .types.remove_partner_social_accounts_response import RemovePartnerSocialAccountsResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -46,6 +49,7 @@ class SocialAccountsClient:
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         platform: typing.Optional[ListSocialAccountsRequestPlatform] = None,
+        trust_level: typing.Optional[ListSocialAccountsRequestTrustLevel] = None,
         verified: typing.Optional[bool] = None,
         scopes: typing.Optional[
             typing.Union[ListSocialAccountsRequestScopesItem, typing.Sequence[ListSocialAccountsRequestScopesItem]]
@@ -71,6 +75,9 @@ class SocialAccountsClient:
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
             Only return social accounts for the platform that is specified.
+
+        trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
+            Only return social accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
 
         verified : typing.Optional[bool]
             Only return social accounts that are verified on the platform.
@@ -109,7 +116,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -124,6 +131,7 @@ class SocialAccountsClient:
             account_id=account_id,
             user_id=user_id,
             platform=platform,
+            trust_level=trust_level,
             verified=verified,
             scopes=scopes,
             first=first,
@@ -166,7 +174,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -187,21 +195,21 @@ class SocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConnectSocialAccountsResponse:
         """
-        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn connects the authenticated user’s profile and must be completed in a browser signed in as that same Whop user.
+        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn supports personal profiles only, with scopes omitted. TikTok connects the authenticated user’s profile when scopes are omitted or company advertising assets with advertise. Meta Business and Snapchat support advertising connections only and require advertise. Personal profile connections must be completed in a browser signed in as the initiating Whop user.
 
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, or `linkedin` to connect the authenticated user’s LinkedIn profile.
+            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, or `youtube` to connect their YouTube channel.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Any `http` or `https` URL. If the connection fails, the user is redirected with a `social_account_error` query param.
 
         account_id : typing.Optional[str]
-            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for LinkedIn connections.
+            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
 
         scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            Capabilities to grant for the connected social account. `advertise` is required for `meta_business`, `tiktok`, and `snapchat` connections — it is not conditional on whether you intend to run ads, and omitting it fails the request. Omit scopes for LinkedIn connections.
+            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin` and `youtube`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -216,7 +224,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -269,7 +277,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -307,7 +315,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -317,6 +325,160 @@ class SocialAccountsClient:
         )
         """
         _response = self._raw_client.lead_forms(id, account_id=account_id, request_options=request_options)
+        return _response.data
+
+    def partners(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[SocialAccount, PartnersSocialAccountsResponse]:
+        """
+        Lists the creators an Instagram account runs partnership ads with, and where each creator's permission stands.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[SocialAccount, PartnersSocialAccountsResponse]
+            partners listed
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        response = client.social_accounts.partners(
+            id="id",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.partners(
+            id, account_id=account_id, first=first, after=after, request_options=request_options
+        )
+
+    def add_partner(
+        self,
+        id: str,
+        *,
+        username: str,
+        account_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SocialAccount:
+        """
+        Invites an Instagram creator to run partnership ads with an Instagram account. The creator approves the invitation in the Instagram app, and `partnership_status` stays `pending` until they do; [refresh](/api-reference/beta/social-accounts/refresh) the partner to pick up their answer.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        username : str
+            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SocialAccount
+            creator invited
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.social_accounts.add_partner(
+            id="id",
+            username="@luverahealth",
+        )
+        """
+        _response = self._raw_client.add_partner(
+            id, username=username, account_id=account_id, request_options=request_options
+        )
+        return _response.data
+
+    def remove_partner(
+        self,
+        id: str,
+        partner_id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> RemovePartnerSocialAccountsResponse:
+        """
+        Revokes a creator's permission to run partnership ads with an Instagram account. Every account that advertises as the Instagram account loses the partner, since the permission belongs to the Instagram account.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partner runs partnership ads with.
+
+        partner_id : str
+            The partner creator's social account (a sacc_ identifier).
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RemovePartnerSocialAccountsResponse
+            partner removed
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.social_accounts.remove_partner(
+            id="id",
+            partner_id="partner_id",
+        )
+        """
+        _response = self._raw_client.remove_partner(
+            id, partner_id, account_id=account_id, request_options=request_options
+        )
         return _response.data
 
     def posts(
@@ -362,7 +524,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -411,7 +573,7 @@ class SocialAccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -444,6 +606,7 @@ class AsyncSocialAccountsClient:
         account_id: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         platform: typing.Optional[ListSocialAccountsRequestPlatform] = None,
+        trust_level: typing.Optional[ListSocialAccountsRequestTrustLevel] = None,
         verified: typing.Optional[bool] = None,
         scopes: typing.Optional[
             typing.Union[ListSocialAccountsRequestScopesItem, typing.Sequence[ListSocialAccountsRequestScopesItem]]
@@ -469,6 +632,9 @@ class AsyncSocialAccountsClient:
 
         platform : typing.Optional[ListSocialAccountsRequestPlatform]
             Only return social accounts for the platform that is specified.
+
+        trust_level : typing.Optional[ListSocialAccountsRequestTrustLevel]
+            Only return social accounts linked with this trust level, such as `oauth` for accounts connected through OAuth.
 
         verified : typing.Optional[bool]
             Only return social accounts that are verified on the platform.
@@ -509,7 +675,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -531,6 +697,7 @@ class AsyncSocialAccountsClient:
             account_id=account_id,
             user_id=user_id,
             platform=platform,
+            trust_level=trust_level,
             verified=verified,
             scopes=scopes,
             first=first,
@@ -575,7 +742,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -604,21 +771,21 @@ class AsyncSocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConnectSocialAccountsResponse:
         """
-        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn connects the authenticated user’s profile and must be completed in a browser signed in as that same Whop user.
+        Starts an OAuth connection flow and returns an authorize_url where the user can connect a social account. LinkedIn supports personal profiles only, with scopes omitted. TikTok connects the authenticated user’s profile when scopes are omitted or company advertising assets with advertise. Meta Business and Snapchat support advertising connections only and require advertise. Personal profile connections must be completed in a browser signed in as the initiating Whop user.
 
         Parameters
         ----------
         platform : ConnectSocialAccountsRequestPlatform
-            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, or `linkedin` to connect the authenticated user’s LinkedIn profile.
+            The platform to connect the social account on. Use `meta_business` to connect Meta Business assets, which is how Facebook Pages and Instagram accounts are connected — there is no separate `instagram` value. Use `tiktok` for TikTok accounts, `snapchat` for Snapchat Public Profiles, `linkedin` to connect the authenticated user’s LinkedIn profile, or `youtube` to connect their YouTube channel.
 
         redirect_url : str
             Where to send the user once they finish connecting their accounts. Any `http` or `https` URL. If the connection fails, the user is redirected with a `social_account_error` query param.
 
         account_id : typing.Optional[str]
-            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for LinkedIn connections.
+            The Account (biz_ identifier) to connect the social account for. An account-scoped API key may omit this to default to its own account. Omit for user profile connections.
 
         scopes : typing.Optional[typing.Sequence[ConnectSocialAccountsRequestScopesItem]]
-            Capabilities to grant for the connected social account. `advertise` is required for `meta_business`, `tiktok`, and `snapchat` connections — it is not conditional on whether you intend to run ads, and omitting it fails the request. Omit scopes for LinkedIn connections.
+            The connection purpose. For `meta_business` and `snapchat`, `advertise` is required and connects company advertising assets. For `linkedin` and `youtube`, omit scopes to connect the authenticated user’s profile; advertising is not supported. For `tiktok`, omit scopes to connect the authenticated user’s profile, or pass `advertise` to connect company advertising assets. Profile connections still request the platform permissions needed to read the profile.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -635,7 +802,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -696,7 +863,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -744,7 +911,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -760,6 +927,185 @@ class AsyncSocialAccountsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.lead_forms(id, account_id=account_id, request_options=request_options)
+        return _response.data
+
+    async def partners(
+        self,
+        id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[SocialAccount, PartnersSocialAccountsResponse]:
+        """
+        Lists the creators an Instagram account runs partnership ads with, and where each creator's permission stands.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[SocialAccount, PartnersSocialAccountsResponse]
+            partners listed
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            response = await client.social_accounts.partners(
+                id="id",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.partners(
+            id, account_id=account_id, first=first, after=after, request_options=request_options
+        )
+
+    async def add_partner(
+        self,
+        id: str,
+        *,
+        username: str,
+        account_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SocialAccount:
+        """
+        Invites an Instagram creator to run partnership ads with an Instagram account. The creator approves the invitation in the Instagram app, and `partnership_status` stays `pending` until they do; [refresh](/api-reference/beta/social-accounts/refresh) the partner to pick up their answer.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partners run partnership ads with.
+
+        username : str
+            The creator's Instagram username, with or without the leading `@`. The creator needs a professional (Business or Creator) Instagram account.
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SocialAccount
+            creator invited
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.social_accounts.add_partner(
+                id="id",
+                username="@luverahealth",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.add_partner(
+            id, username=username, account_id=account_id, request_options=request_options
+        )
+        return _response.data
+
+    async def remove_partner(
+        self,
+        id: str,
+        partner_id: str,
+        *,
+        account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> RemovePartnerSocialAccountsResponse:
+        """
+        Revokes a creator's permission to run partnership ads with an Instagram account. Every account that advertises as the Instagram account loses the partner, since the permission belongs to the Instagram account.
+
+        Parameters
+        ----------
+        id : str
+            The Instagram account (a sacc_ identifier) the partner runs partnership ads with.
+
+        partner_id : str
+            The partner creator's social account (a sacc_ identifier).
+
+        account_id : typing.Optional[str]
+            The Account (biz_ identifier) that advertises as the Instagram account. An account-scoped API key may omit this to default to its own account.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RemovePartnerSocialAccountsResponse
+            partner removed
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.social_accounts.remove_partner(
+                id="id",
+                partner_id="partner_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.remove_partner(
+            id, partner_id, account_id=account_id, request_options=request_options
+        )
         return _response.data
 
     async def posts(
@@ -807,7 +1153,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -865,7 +1211,7 @@ class AsyncSocialAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

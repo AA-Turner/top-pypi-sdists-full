@@ -305,7 +305,19 @@ class LimiXYieldRegressor:
                 f"limix: fit saw {self.n_features_in_} features, predict got "
                 f"{X_num.shape[1]}"
             )
-        preds = self._predictor.predict(
-            self.X_train_, self.y_train_, X_num, task_type="Regression"
-        )
+        # LimiX fits sklearn encoders INSIDE predict (in-context), and
+        # sklearn's transform_output is process-global: with "pandas" set
+        # (importing geocif.experiments does that) its encoder output is
+        # renamed to the wrong column count and predict dies with "Length
+        # mismatch: Expected axis has N elements, new values have 1".
+        import sklearn
+
+        previous = sklearn.get_config()["transform_output"]
+        sklearn.set_config(transform_output="default")
+        try:
+            preds = self._predictor.predict(
+                self.X_train_, self.y_train_, X_num, task_type="Regression"
+            )
+        finally:
+            sklearn.set_config(transform_output=previous)
         return np.asarray(preds, dtype="float64").ravel()

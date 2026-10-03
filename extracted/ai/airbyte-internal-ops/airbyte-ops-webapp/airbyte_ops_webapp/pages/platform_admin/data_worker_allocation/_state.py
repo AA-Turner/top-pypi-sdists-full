@@ -31,6 +31,15 @@ class AllocationItem(BaseModel):
     allocated_capacity: float = 0.0
 
 
+class DataplaneGroupItem(BaseModel):
+    """A region the organization can add capacity to."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dataplane_group_id: str = ""
+    name: str = ""
+
+
 class AllocationsPlaceholder(BaseModel):
     """Data Worker allocation placeholder."""
 
@@ -60,6 +69,7 @@ class LookupAllocationsResult(BaseModel):
 
     org_info: dict[str, object] | None = None
     allocations: dict[str, object] | None = None
+    dataplane_groups: list[dict[str, object]] = Field(default_factory=list)
     resolved_org_label: str = ""
     org_loaded: bool = False
     lookup_error: str = ""
@@ -87,14 +97,18 @@ class DataWorkerAllocationPageState(OpsPageState, OrgLookupModalState):
     org_query: str = ""
     org_info: OrgInfo = Field(default_factory=OrgInfo)
     allocations: AllocationsPlaceholder = Field(default_factory=AllocationsPlaceholder)
+    # All regions the org can use, including ones it holds nothing in.
+    dataplane_groups: list[DataplaneGroupItem] = Field(default_factory=list)
     resolved_org_label: str = ""
     org_loaded: bool = False
     lookup_error: str = ""
     add_amount: str = ""
     add_confirm_open: bool = False
+    # Region picked in the Add Capacity card; blank sends no region, so the platform uses the default.
+    add_dataplane_group_id: str = ""
+    add_dataplane_group_name: str = "Default region"
     remove_amount: str = ""
-    # Set by the Remove button on a region's row. Adding needs no region
-    # because the platform always adds to the default one.
+    # Set by the Remove button on a region's row.
     remove_dataplane_group_id: str = ""
     # Kept so the dialog can name the region instead of showing a UUID.
     remove_dataplane_group_name: str = ""

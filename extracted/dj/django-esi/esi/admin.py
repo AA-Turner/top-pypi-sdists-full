@@ -1,8 +1,14 @@
+__lazy_modules__ = ["django.db.models"]  # py3,15
+
+from typing import TYPE_CHECKING
+
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.db.models import QuerySet
 
 from .models import CallbackRedirect, Scope, Token
+
+if TYPE_CHECKING:  # py3.14
+    from django.db.models import QuerySet
 
 admin.site.register(CallbackRedirect)
 
@@ -14,7 +20,7 @@ class ScopeAdmin(admin.ModelAdmin):
 
 @admin.register(Token)
 class TokenAdmin(admin.ModelAdmin):
-    def get_queryset(self, request) -> QuerySet["Token"]:
+    def get_queryset(self, request) -> "QuerySet[Token]":
         qs = super().get_queryset(request)
         return qs.select_related('user').prefetch_related('scopes')
 

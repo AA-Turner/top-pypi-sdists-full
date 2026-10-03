@@ -47,6 +47,7 @@ import yaml
 
 from ouroboros.backends import get_backend_capability
 from ouroboros.config.model_selection import (
+    backend_model_selection,
     pin_models_enabled,
     resolve_consensus_roster,
     resolve_role_model,
@@ -55,8 +56,8 @@ from ouroboros.config.models import (  # noqa: E402
     CredentialsConfig,
     OuroborosConfig,
     RuntimeControlsConfig,
+    fresh_config_data,
     get_config_dir,
-    get_default_config,
     get_default_credentials,
 )
 from ouroboros.config.telemetry_env import telemetry_opt_out_in_env
@@ -285,8 +286,7 @@ def create_default_config(
             )
 
     # Create config.yaml
-    default_config = get_default_config()
-    config_dict = _model_to_yaml_dict(default_config)
+    config_dict = fresh_config_data()
     with config_path.open("w", encoding="utf-8") as f:
         yaml.dump(
             config_dict,
@@ -758,8 +758,16 @@ def get_agent_reasoning_effort() -> str | None:
         return None
 
 
-def get_execution_model() -> str | None:
-    """Return the pinned Execute model, or None when models resolve automatically."""
+def get_execution_model(runtime_backend: str | None = None) -> str | None:
+    """Return the pinned Execute model, or None when models resolve automatically.
+
+    A non-auto ``models.default`` / ``OUROBOROS_MODEL``, or a configured Execute model
+    on an explicit backend, is a pin, so tier routing never overrides it."""
+    chosen = resolve_role_model("execute", backend=runtime_backend)
+    if chosen.source == "configured" and (
+        chosen.model != "default" or backend_model_selection(runtime_backend) == "explicit"
+    ):
+        return chosen.model
     if not pin_models_enabled():
         return None
     resolved = resolve_role_model("execute", backend=None, pinned=True)

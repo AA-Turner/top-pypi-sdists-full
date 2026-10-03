@@ -201,9 +201,20 @@ for event in HOOK_EVENTS:
 
 # process-wide default registry lives in laya.hooks (not the top level)
 for helper in ("default_hooks", "set_default_hooks", "add_default_hook", "clear_default_hooks",
-               "compose_hooks"):
+               "compose_hooks", "validate_timeout"):
     check_true("laya.hooks/%s exists" % helper, callable(getattr(__import__("laya.hooks", fromlist=[helper]), helper, None)))
 check_true("defaults/not exported at top level", not hasattr(laya, "set_default_hooks"))
+
+from laya.hooks import validate_timeout  # noqa: E402
+
+check("validate_timeout/None", validate_timeout(None), None)
+check("validate_timeout/positive float", validate_timeout(1.5), 1.5)
+for bad in (0, -1, float("nan"), float("inf"), float("-inf")):
+    try:
+        validate_timeout(bad)
+        FAIL.append("validate_timeout/%r accepted; want ValueError" % (bad,))
+    except ValueError:
+        PASS.append("validate_timeout/%r rejected" % (bad,))
 
 # --------------------------------------------------------------- class defaults
 for label, cls in (("Agent", Agent), ("Router", Router), ("ONNXAgent", ONNXAgent)):
@@ -221,6 +232,21 @@ for label, cls in (("Agent", Agent), ("ONNXAgent", ONNXAgent)):
 for label, cls in (("Agent", Agent), ("Router", Router), ("ONNXAgent", ONNXAgent)):
     for method in ("add_hook", "remove_hook", "hooks_installed"):
         check_true("%s/%s exists" % (label, method), callable(getattr(cls, method, None)))
+
+
+class _ApiProbeHook(BaseHook):
+    pass
+
+
+for label, cls in (("Agent", Agent), ("Router", Router), ("ONNXAgent", ONNXAgent)):
+    reg = cls.__new__(cls)
+    reg.hooks = ()
+    h1, h2 = _ApiProbeHook(), _ApiProbeHook()
+    with reg.hooks_installed([h1, h2]):
+        check("%s/hooks_installed accepts a list" % label, tuple(reg.hooks), (h1, h2))
+    check("%s/hooks_installed restores hooks after list block" % label, tuple(reg.hooks), ())
+    with reg.hooks_installed((h1,), h2):
+        check("%s/hooks_installed accepts mixed sequence and vararg" % label, tuple(reg.hooks), (h1, h2))
 
 # The LangChain runnables batch: laya.integrations.langchain's own suite checks what
 # batch() returns, so these lines pin only the caller-visible shape. A rename, or losing

@@ -12,15 +12,6 @@ if typing.TYPE_CHECKING:
     from .create_direct_request_payment_method_card import CreateDirectRequestPaymentMethodCard
     from .create_direct_request_payment_method_card_details import CreateDirectRequestPaymentMethodCardDetails
     from .create_direct_request_payment_method_type import CreateDirectRequestPaymentMethodType
-    from .create_direct_request_plan import CreateDirectRequestPlan
-    from .create_direct_request_plan_currency import CreateDirectRequestPlanCurrency
-    from .create_direct_request_plan_plan_type import CreateDirectRequestPlanPlanType
-    from .create_direct_request_plan_product import CreateDirectRequestPlanProduct
-    from .create_direct_request_plan_product_global_affiliate_status import (
-        CreateDirectRequestPlanProductGlobalAffiliateStatus,
-    )
-    from .create_direct_request_plan_product_visibility import CreateDirectRequestPlanProductVisibility
-    from .create_direct_request_plan_visibility import CreateDirectRequestPlanVisibility
     from .create_direct_request_setup_future_usage import CreateDirectRequestSetupFutureUsage
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateDirectRequestBillingDetails": ".create_direct_request_billing_details",
@@ -29,13 +20,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateDirectRequestPaymentMethodCard": ".create_direct_request_payment_method_card",
     "CreateDirectRequestPaymentMethodCardDetails": ".create_direct_request_payment_method_card_details",
     "CreateDirectRequestPaymentMethodType": ".create_direct_request_payment_method_type",
-    "CreateDirectRequestPlan": ".create_direct_request_plan",
-    "CreateDirectRequestPlanCurrency": ".create_direct_request_plan_currency",
-    "CreateDirectRequestPlanPlanType": ".create_direct_request_plan_plan_type",
-    "CreateDirectRequestPlanProduct": ".create_direct_request_plan_product",
-    "CreateDirectRequestPlanProductGlobalAffiliateStatus": ".create_direct_request_plan_product_global_affiliate_status",
-    "CreateDirectRequestPlanProductVisibility": ".create_direct_request_plan_product_visibility",
-    "CreateDirectRequestPlanVisibility": ".create_direct_request_plan_visibility",
     "CreateDirectRequestSetupFutureUsage": ".create_direct_request_setup_future_usage",
 }
 
@@ -68,12 +52,5 @@ __all__ = [
     "CreateDirectRequestPaymentMethodCard",
     "CreateDirectRequestPaymentMethodCardDetails",
     "CreateDirectRequestPaymentMethodType",
-    "CreateDirectRequestPlan",
-    "CreateDirectRequestPlanCurrency",
-    "CreateDirectRequestPlanPlanType",
-    "CreateDirectRequestPlanProduct",
-    "CreateDirectRequestPlanProductGlobalAffiliateStatus",
-    "CreateDirectRequestPlanProductVisibility",
-    "CreateDirectRequestPlanVisibility",
     "CreateDirectRequestSetupFutureUsage",
 ]

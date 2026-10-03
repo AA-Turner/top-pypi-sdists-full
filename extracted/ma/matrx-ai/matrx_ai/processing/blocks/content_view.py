@@ -1,7 +1,7 @@
 """``content_from_text`` — an agent's final text as a LIST OF KIND INSTANCES.
 
 The agent output contract (plan of record
-``common-docs/systems/content-ir-system/KINDS_EVERYWHERE_PLAN.md`` §6, designed
+``common-docs/systems/architecture/content-ir/FEATURE.md`` §6, designed
 with Arman 2026-08-20): a message's content is ALWAYS a list of typed
 instances, one element in the simple case — Anthropic's own content-block
 model, applied to our kinds. This module produces that list from a COMPLETE

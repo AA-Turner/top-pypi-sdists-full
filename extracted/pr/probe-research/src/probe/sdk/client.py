@@ -6437,9 +6437,15 @@ class Client:
         name: str | None = None,
         description: str | None = None,
         notes: str | None = None,
+        status: str | None = None,
         authored_by: str | None = None,
     ) -> dict:
         """PATCH /v1/runs/{id} — amend a run's authored fields.
+
+        ``status`` CORRECTS the run's recorded status and sends nothing else: no
+        ``ended_at``, no ``started_at``, no ``write_epoch``, so the run's start,
+        end and duration stay exactly as recorded. Closing a run you are running
+        is ``Run.finish`` (``probe run end``), which stamps the end time.
 
         0220: a run carries no authored document -- see ``update_project`` and
         ``update_experiment``, whose ``document`` is the Overview page's marked
@@ -6461,11 +6467,12 @@ class Client:
                 "name": name,
                 "description": description,
                 "notes": notes,
+                "status": status,
             }.items()
             if value is not None
         }
         if not body:
-            raise ValueError("update_run needs at least one of name/description/notes")
+            raise ValueError("update_run needs at least one of name/description/notes/status")
         # AFTER the emptiness check, deliberately. `authored_by` declares who
         # wrote the OTHER fields; on its own it declares authorship of nothing,
         # and letting it satisfy "at least one field to set" would turn a
@@ -6475,8 +6482,17 @@ class Client:
         self._warn_if_notes_dropped(notes, row, "runs")
         return row
 
-    def run_bundle(self, run_id: str) -> dict:
-        return self.transport.get(f"/v1/runs/{run_id}/bundle")
+    def run_bundle(self, run_id: str, *, source_read_contract: str | None = None) -> dict:
+        """GET /v1/runs/{id}/bundle. A SOURCE-BACKED run (a W&B mirror, say)
+        answers 422 `unsupported_source_query` unless the caller names the
+        coverage read contract: its metric catalog carries the provider's
+        coverage receipts, which an older client would render as exact. Pass
+        ``source_read_contract=SOURCE_READ_CONTRACT`` where the caller reads
+        those receipts (or ignores the catalog); the default sends nothing."""
+        params = (
+            {"source_read_contract": source_read_contract} if source_read_contract else None
+        )
+        return self.transport.get(f"/v1/runs/{run_id}/bundle", params=params)
 
     def run_reproduce(self, run_id: str) -> dict:
         """GET /v1/runs/{id}/reproduce — the server-assembled reproduction record:
@@ -6727,9 +6743,21 @@ class Client:
         """Every live view on a run, with its spec and provenance."""
         return self.transport.get(f"/v1/runs/{run_id}/views")
 
-    def update_view(self, view_id: str, *, name: str | None = None, spec: Any = None) -> dict:
+    def update_view(
+        self,
+        view_id: str,
+        *,
+        name: str | None = None,
+        spec: Any = None,
+        expected_updated_at: str | None = None,
+    ) -> dict:
         """Rename a view and/or replace its expression. Omitted fields are left
-        alone — this is a PATCH, not a whole-row write."""
+        alone — this is a PATCH, not a whole-row write.
+
+        ``spec`` REPLACES the stored expression whole. ``expected_updated_at``
+        is the view's ``updated_at`` as you read it: the server then refuses
+        (409, carrying the current name, spec and ``updated_at``) instead of
+        overwriting an edit made since. Omitted, the write is unconditional."""
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -6737,6 +6765,9 @@ class Client:
             body["spec"] = _view_spec(spec)
         if not body:
             raise ValueError("update_view needs a name or a spec to change")
+        # AFTER the emptiness check: a precondition alone changes nothing.
+        if expected_updated_at is not None:
+            body["expected_updated_at"] = expected_updated_at
         return self.transport.patch(
             f"/v1/views/{view_id}",
             MetricViewPatch(**body).model_dump(mode="json", exclude_none=True),
@@ -8504,6 +8535,46 @@ class Client:
             {"body": body, "base_version": base_version},
             strict=True,
             sync=True,
+        )
+
+    def append_team_note(self, text: str) -> dict:
+        """Add a paragraph at the end of the team note, merged by the SERVER.
+
+        For a caller with no team-note file: the server reads, appends after a
+        blank line and stores under its own row lock, so nothing a teammate
+        wrote is lost and no version is needed. A caller that HAS the file
+        edits it and syncs (`sync_team_note`) instead.
+
+        Returns `{state, version, remaining_chars}`. A 422 names the cap or the
+        conflict-marker lines; a 409 carrying `retryable: true` means another
+        write landed at the same moment and nothing was stored.
+        """
+        # strict + sync: never journaled. A refusal replayed later is the same
+        # refusal, and a queued write would hand back None instead of the
+        # version the caller reports.
+        return self.write(
+            "POST",
+            "/v1/team-note/apply/paragraph",
+            {"text": text},
+            strict=True,
+            sync=True,
+            raise_permanent=True,
+        )
+
+    def edit_team_note(self, old_text: str, new_text: str) -> dict:
+        """Replace one exact piece of the team note, matched by the SERVER.
+
+        `old_text` must occur exactly once; otherwise nothing is written and the
+        409's detail carries `match_count`. `new_text=""` deletes it. Same
+        return shape and other refusals as `append_team_note`.
+        """
+        return self.write(
+            "POST",
+            "/v1/team-note/apply/span",
+            {"old_text": old_text, "new_text": new_text},
+            strict=True,
+            sync=True,
+            raise_permanent=True,
         )
 
     def list_team_note_versions(

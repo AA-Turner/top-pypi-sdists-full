@@ -1495,6 +1495,16 @@ def openapi_spec() -> dict:
                 "responses": {"200": {"description": "text/html"}},
             }
         },
+        "/reports": {
+            "get": {
+                "summary": (
+                    "Generic report renderer (#3473): catalogue-driven params "
+                    "form, table, and ECharts chart over GET /api/report + "
+                    "GET /api/report/{id} — no per-report markup."
+                ),
+                "responses": {"200": {"description": "text/html"}},
+            }
+        },
         "/api/board": {
             "get": {
                 "summary": "Recent board state: active assignments + last 20 completed",
@@ -1804,6 +1814,59 @@ def openapi_spec() -> dict:
                             "Unknown parameter / bad parameter value / "
                             "unknown format / format=xlsx without the "
                             "reports-xlsx extra installed"
+                        )
+                    },
+                    "404": {"description": "Unknown report id"},
+                },
+            }
+        },
+        "/api/report/{report_id}/public": {
+            "get": {
+                "summary": (
+                    "#3474: a redacted, self-contained export of a report "
+                    "for sharing OUTSIDE the fleet. Every repo not in "
+                    "coordinator.yml's reporting.public.allowlist_repos is "
+                    "aggregated into one 'private repo' row — no name, "
+                    "issue number or title. Refused with 400 when the "
+                    "report carries a cost figure but no cost-basis/"
+                    "coverage note survives redaction."
+                ),
+                "parameters": [
+                    _dashboard_path_param("report_id", "report id from the catalogue"),
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "enum": ["html", "csv"]},
+                        "description": (
+                            "Absent/`html` returns a self-contained static "
+                            "page (data inlined; a declared chart renders "
+                            "via a pinned ECharts CDN script). `csv` "
+                            "returns the identical redacted rows as "
+                            "text/csv. Both ship a Content-Disposition "
+                            "filename."
+                        ),
+                    },
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "text/html": {
+                                "schema": {"type": "string"},
+                                "description": "`?format=html` (default).",
+                            },
+                            "text/csv": {
+                                "schema": {"type": "string"},
+                                "description": "`?format=csv`.",
+                            },
+                        },
+                    },
+                    "400": {
+                        "description": (
+                            "Unknown parameter / bad parameter value / "
+                            "unknown format / an unstated cost basis "
+                            "refused the export"
                         )
                     },
                     "404": {"description": "Unknown report id"},
@@ -2931,6 +2994,19 @@ def build_app(
             headers={WEBAPP_BUNDLE_HEADER: WEBAPP_BUNDLE_MISSING},
         )
 
+    async def reports_page(request: Request) -> HTMLResponse:  # noqa: ARG001 — Starlette handler signature
+        """GET /reports — the generic report renderer (#3473).
+
+        A static, build-free page (``coord/dashboard/reports.html``) that
+        draws the catalogue + charts/tables entirely from ``GET /api/report``
+        and ``GET /api/report/{id}`` — never a per-report branch here, and
+        never part of the ``webapp_dist`` bundle (#2009 removed that build
+        step; this page must not bring one back). Read fresh on every
+        request, same stance as ``legacy_index_html`` above, so an edit to
+        the file is visible without restarting a long-lived ``coord web``.
+        """
+        return HTMLResponse((DASHBOARD_DIR / "reports.html").read_text())
+
     async def api_board(request: Request) -> JSONResponse:
         board = _read_board()
         from dataclasses import asdict
@@ -3698,6 +3774,82 @@ def build_app(
             result.to_dict() if isinstance(result, _reports.ReportResult) else result
         )
 
+    async def api_report_export_public(request: Request) -> Response:
+        """GET /api/report/{report_id}/public?format=html|csv&... — a
+        redacted, self-contained export for sharing OUTSIDE the fleet
+        (#3474): the dashboard's ``/reports`` "Share" affordance and
+        ``coord report export --public`` both end up describing the exact
+        same redaction, since both go through
+        ``coord.reports.redact_report_for_public`` — never a second,
+        independently-drifting idea of what "public" means (#2096).
+
+        ``format`` defaults to ``html`` (the self-contained page: data
+        inlined, chart — if any — on a pinned ECharts CDN); ``csv`` returns
+        the identical redacted rows as a download. Every repo not in the
+        loaded ``coordinator.yml``'s ``reporting.public.allowlist_repos``
+        is aggregated into one ``"private repo"`` row with no name, issue
+        number or title. A cost-bearing report whose basis/coverage note
+        did not survive redaction is refused with 400 — "a public number
+        with no stated basis is not produced" (#3474).
+        """
+        from starlette.concurrency import run_in_threadpool  # noqa: PLC0415
+
+        from coord import reports as _reports  # noqa: PLC0415
+
+        report_id = request.path_params["report_id"]
+        params = dict(request.query_params)
+        fmt = (params.pop("format", "") or "html").strip().lower()
+        if fmt not in ("html", "csv"):
+            return JSONResponse(
+                {"error": f"unknown public export format {fmt!r} — allowed values: html, csv"},
+                status_code=400,
+            )
+        try:
+            if _fixture is not None:
+                raw_result = _fixture.report_result(report_id, params)
+            else:
+                raw_result = await run_in_threadpool(_reports.run_report, report_id, params)
+        except _reports.UnknownReportError as e:
+            return JSONResponse({"error": str(e)}, status_code=404)
+        except _reports.ReportError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+        except Exception as e:  # noqa: BLE001 — surface a clean 503 rather than a stack trace
+            return JSONResponse(
+                {"error": "report run failed", "detail": str(e)}, status_code=503
+            )
+
+        report_def = _reports.REPORTS.get(report_id)
+        # The app's own bound `config` (fixture or live — see `build_app`'s
+        # own docstring), never a second, independent `coordinator.yml`
+        # read off disk: fixture mode's "every read is answered from the
+        # fixture" promise has to hold for the redaction policy too, not
+        # just the report data being redacted.
+        allowed = frozenset(config.reporting.public.allowlist_repos)
+        redacted = await run_in_threadpool(
+            _reports.redact_report_for_public,
+            raw_result,
+            allowed_repos=allowed,
+            report=report_def,
+        )
+        try:
+            _reports.assert_public_export_allowed(redacted, report_id)
+        except _reports.PublicExportError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        if fmt == "csv":
+            body = await run_in_threadpool(_reports.result_to_csv, redacted)
+            filename = _reports.public_csv_filename(redacted)
+            media_type = "text/csv; charset=utf-8"
+        else:
+            body = await run_in_threadpool(_reports.result_to_public_html, redacted)
+            filename = _reports.public_html_filename(redacted)
+            media_type = "text/html; charset=utf-8"
+        return Response(
+            body,
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     async def api_approve(request: Request) -> JSONResponse:
         from coord.dispatch import (
             apply_liveness_reroute,
@@ -4177,6 +4329,19 @@ def build_app(
         ``dispatched_at`` is unconditionally stamped at dispatch time by
         every code path, so the bound holds even for a row whose
         ``finished_at`` never got recorded.
+
+        #1277: separately from the age-based cutoff above, a ``failed`` row
+        is also dropped (default view only — ``?include=all`` still returns
+        it) once ``PipelineView.superseded`` says a LATER work assignment
+        for the same ``(repo, issue)`` actually succeeded — a retry/fix/
+        rework attempt shipped the issue, so the earlier failed attempt is
+        pure historical noise, no matter how recent it was. This is
+        deliberately narrower than "the GitHub issue is closed": that would
+        also cover a failure resolved by hand with no coord-dispatched
+        retry, but checking it here would mean a live ``gh`` call on every
+        failed row of every ``/api/pipeline`` request — left as a follow-up
+        rather than risking the hot GET path on GitHub API latency/rate
+        limits (and `compute_pipeline`'s pure-computation contract above).
         """
         from dataclasses import asdict
 
@@ -4225,6 +4390,15 @@ def build_app(
                 ts = pv.finished_at if pv.finished_at is not None else a.dispatched_at
                 if ts is not None and ts < cutoff:
                     continue
+            # #1277: a `failed` row whose issue later shipped via a
+            # different (retry/fix/rework) assignment is pure historical
+            # noise on the default view — suppress it regardless of its own
+            # age (unlike the recency cutoff above, this doesn't depend on
+            # how recently the failure happened, only on whether a later
+            # attempt superseded it). `?include=all` still returns it — this
+            # is a display-layer filter, the DB row is untouched (#1041).
+            if cutoff is not None and pv.superseded:
+                continue
             rev_aid = review_by_work.get(a.assignment_id)
             if rev_aid:
                 found = (
@@ -5631,6 +5805,7 @@ def build_app(
 
     routes = [
         Route("/", index, methods=["GET"]),
+        Route("/reports", reports_page, methods=["GET"]),
         Route("/api/board", api_board, methods=["GET"]),
         Route("/api/machines", api_machines, methods=["GET"]),
         Route("/api/machines/health", api_machines_health, methods=["GET"]),
@@ -5642,6 +5817,11 @@ def build_app(
         Route("/api/drive-queue/action", api_drive_queue_action, methods=["POST"]),
         Route("/api/report", api_report_catalogue, methods=["GET"]),
         Route("/api/report/{report_id}", api_report_run, methods=["GET"]),
+        Route(
+            "/api/report/{report_id}/public",
+            api_report_export_public,
+            methods=["GET"],
+        ),
         Route("/api/approve", api_approve, methods=["POST"]),
         Route("/api/reject", api_reject, methods=["POST"]),
         Route("/api/diff/{id}", api_diff, methods=["GET"]),

@@ -884,6 +884,10 @@ class RenderReport:
     #: note: the two blocks share a file and a lock but not a lifecycle, and an
     #: operator asking "did the new guidance land?" is asking about this one.
     rules_refreshed: tuple[str, ...] = ()
+    #: Harnesses whose file carries no pointer block (the agent-rules opt-out),
+    #: so the note was not rendered there; `removed` also took an old note out.
+    opted_out: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -1387,6 +1391,8 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] = RENDER_SOUR
     pointer_only: list[str] = []
     failures: list[str] = []
     rules_refreshed: list[str] = []
+    opted_out: list[str] = []
+    removed: list[str] = []
     health: dict[str, dict[str, object]] = {}
 
     for source in sources:
@@ -1440,14 +1446,30 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] = RENDER_SOUR
                 # as a damaged team-note block, and must not stop the note from
                 # rendering. The two blocks have different markers, so one being
                 # unreadable says nothing about the other.
+                rules_state = agent_rules.POINTER_CURRENT
                 try:
-                    if agent_rules.refresh_pointer(instruction) == agent_rules.POINTER_REFRESHED:
+                    rules_state = agent_rules.refresh_pointer(instruction)
+                    if rules_state == agent_rules.POINTER_REFRESHED:
                         rules_refreshed.append(source)
                 except agent_rules.DamagedBlock as exc:
                     failures.append(
                         f"{source}: {instruction.name} has a damaged research-tracking block "
                         f"({exc}); left untouched"
                     )
+
+                # NO POINTER, NO NOTE. An absent pointer block is the opt-out
+                # (`--no-agent-rules`, or Settings unticked), and the note is a
+                # managed block in the same global file: rendering it anyway put
+                # Probe's text in the CLAUDE.md of a customer who had declined
+                # it (2026-10-02), and in an AGENTS.md for a Codex that machine
+                # never had. A note left from before the opt-out goes too. A
+                # DAMAGED pointer is still someone's opt-in, so it renders.
+                if rules_state == agent_rules.POINTER_ABSENT:
+                    if agent_rules.remove(instruction, spec=agent_rules.NOTE_BLOCK):
+                        removed.append(source)
+                    else:
+                        opted_out.append(source)
+                    continue
 
                 existing = ""
                 if instruction.exists():
@@ -1510,4 +1532,6 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] = RENDER_SOUR
         pointer_only=tuple(pointer_only),
         failures=tuple(failures),
         rules_refreshed=tuple(rules_refreshed),
+        opted_out=tuple(opted_out),
+        removed=tuple(removed),
     )

@@ -8,6 +8,12 @@ from .update_preferences_response_ads_agreement import UpdatePreferencesResponse
 from .update_preferences_response_ads_certifications_item import UpdatePreferencesResponseAdsCertificationsItem
 from .update_preferences_response_ads_payment_methods import UpdatePreferencesResponseAdsPaymentMethods
 from .update_preferences_response_ads_triple_whale_integration import UpdatePreferencesResponseAdsTripleWhaleIntegration
+from .update_preferences_response_economic_intelligence_offers_item import (
+    UpdatePreferencesResponseEconomicIntelligenceOffersItem,
+)
+from .update_preferences_response_subscription_failure_behavior import (
+    UpdatePreferencesResponseSubscriptionFailureBehavior,
+)
 
 
 class UpdatePreferencesResponse(UniversalBaseModel):
@@ -58,7 +64,29 @@ class UpdatePreferencesResponse(UniversalBaseModel):
 
     economic_intelligence: bool = pydantic.Field()
     """
-    Whether economic intelligence is enabled for the account.
+    Whether Economic Intelligence is on for the account. It turns off automatically at `economic_intelligence_ends_at`.
+    """
+
+    economic_intelligence_ends_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the account's committed Economic Intelligence period ends, as an ISO 8601 timestamp. Economic Intelligence can't be turned off before then. `null` when Economic Intelligence is off or has no end date.
+    """
+
+    economic_intelligence_fee_percentage: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Percentage of volume charged while Economic Intelligence is on, such as `1.5` for 1.5%. `null` when Economic Intelligence is off.
+    """
+
+    economic_intelligence_offers: typing.Optional[
+        typing.List[UpdatePreferencesResponseEconomicIntelligenceOffersItem]
+    ] = pydantic.Field(default=None)
+    """
+    Durations the account can choose from to turn on Economic Intelligence, each with its fee. `null` while Economic Intelligence is on or the account is still on the Economic Intelligence waitlist.
+    """
+
+    subscription_failure_behavior: UpdatePreferencesResponseSubscriptionFailureBehavior = pydantic.Field()
+    """
+    What happens to a subscription once every retry of a renewal payment has failed. `cancel` (the default) cancels it. `none` leaves it past due and keeps billing it each period; access follows the account's past-due access setting.
     """
 
     if IS_PYDANTIC_V2:

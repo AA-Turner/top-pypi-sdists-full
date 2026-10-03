@@ -16,6 +16,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "user_secret_receipt",
+    disposition="receipt",
     label="User Secret Receipt",
     family="user_secrets",
     example={

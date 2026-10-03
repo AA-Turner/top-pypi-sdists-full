@@ -64,7 +64,7 @@ class ExperimentPage(TypedDict):
 
 
 class ExperimentTotals(TypedDict):
-    """How the run's replays ended. ``total`` counts one replay per trace per attempt and the rest split it by outcome. ``traces`` counts distinct traces."""
+    """How the run's replays ended. ``total`` counts one replay per trace per attempt and the rest split it by outcome. ``traces`` counts distinct traces, and ``judging`` counts traces, replays or originals, with an assertion verdict still being judged."""
 
     total: int
     traces: int
@@ -75,6 +75,7 @@ class ExperimentTotals(TypedDict):
     errored: int
     withErrors: int
     ungradable: int
+    judging: int
     skipped: int
 
 

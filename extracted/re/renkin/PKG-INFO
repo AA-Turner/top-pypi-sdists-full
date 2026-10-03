@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: renkin
-Version: 1.0.13
+Version: 1.0.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -41,7 +41,7 @@ RENKIN has two complementary jobs:
 - **Plan:** search retrosynthetic routes from target SMILES to declared building blocks.
 - **Audit:** apply the same deterministic structural, stock, forward-replay, and provenance checks to routes from RENKIN, AiZynthFinder, Syntheseus, or SynPlanner.
 
-Current release: **v1.0.13**. Core chemistry is pure Rust; the project ships a CLI, Rust crate, Python package, MCP server, and browser WebAssembly module.
+Current release: **v1.0.14**. Core chemistry is pure Rust; the project ships a CLI, Rust crate, Python package, MCP server, and browser WebAssembly module.
 The default planner has 24 hand-crafted rules. Repository-backed runs use the
 402-compound stock file; WASM and installations without that file use a
 compiled-in 152-compound fallback. Supply stock explicitly when it matters.
@@ -101,7 +101,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
 
-For architecture and contribution rules, see [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), and the current [ROADMAP.md](ROADMAP.md). Full release history remains in [CHANGELOG.md](CHANGELOG.md).
+For contribution rules, see [CONTRIBUTING.md](CONTRIBUTING.md); for priorities, see [ROADMAP.md](ROADMAP.md). Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

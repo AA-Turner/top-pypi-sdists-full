@@ -63,6 +63,9 @@ from .literals import (
     ThreatActorType,
     ThreatSeverityType,
     ThreatStatusType,
+    TriggerEventType,
+    TriggerFilterMatchModeType,
+    TriggerFilterTypeType,
     ValidationModeType,
     ValidationStatusType,
     WebhookActionType,
@@ -95,7 +98,9 @@ __all__ = (
     "AzureDevOpsIntegrationInputTypeDef",
     "AzureDevOpsRepositoryMetadataTypeDef",
     "AzureDevOpsRepositoryResourceTypeDef",
+    "AzureDevOpsResourceCapabilitiesOutputTypeDef",
     "AzureDevOpsResourceCapabilitiesTypeDef",
+    "AzureDevOpsResourceCapabilitiesUnionTypeDef",
     "BatchCreateSecurityRequirementResultTypeDef",
     "BatchCreateSecurityRequirementsInputTypeDef",
     "BatchCreateSecurityRequirementsOutputTypeDef",
@@ -145,7 +150,9 @@ __all__ = (
     "BitbucketIntegrationInputTypeDef",
     "BitbucketRepositoryMetadataTypeDef",
     "BitbucketRepositoryResourceTypeDef",
+    "BitbucketResourceCapabilitiesOutputTypeDef",
     "BitbucketResourceCapabilitiesTypeDef",
+    "BitbucketResourceCapabilitiesUnionTypeDef",
     "BlobTypeDef",
     "CaCertificateSourceTypeDef",
     "CategoryTypeDef",
@@ -225,11 +232,15 @@ __all__ = (
     "GitHubIntegrationInputTypeDef",
     "GitHubRepositoryMetadataTypeDef",
     "GitHubRepositoryResourceTypeDef",
+    "GitHubResourceCapabilitiesOutputTypeDef",
     "GitHubResourceCapabilitiesTypeDef",
+    "GitHubResourceCapabilitiesUnionTypeDef",
     "GitLabIntegrationInputTypeDef",
     "GitLabRepositoryMetadataTypeDef",
     "GitLabRepositoryResourceTypeDef",
+    "GitLabResourceCapabilitiesOutputTypeDef",
     "GitLabResourceCapabilitiesTypeDef",
+    "GitLabResourceCapabilitiesUnionTypeDef",
     "HttpVerificationTypeDef",
     "IdCConfigurationTypeDef",
     "ImportSecurityRequirementsInputTypeDef",
@@ -333,7 +344,9 @@ __all__ = (
     "PrivateConnectionModeTypeDef",
     "PrivateConnectionSummaryTypeDef",
     "ProviderInputTypeDef",
+    "ProviderResourceCapabilitiesOutputTypeDef",
     "ProviderResourceCapabilitiesTypeDef",
+    "ProviderResourceCapabilitiesUnionTypeDef",
     "ReportDestinationTypeDef",
     "ReportFiltersOutputTypeDef",
     "ReportFiltersTypeDef",
@@ -373,6 +386,12 @@ __all__ = (
     "ThreatModelTypeDef",
     "ThreatSummaryTypeDef",
     "ThreatTypeDef",
+    "TriggerFilterGroupOutputTypeDef",
+    "TriggerFilterGroupTypeDef",
+    "TriggerFilterGroupUnionTypeDef",
+    "TriggerFilterOutputTypeDef",
+    "TriggerFilterTypeDef",
+    "TriggerFilterUnionTypeDef",
     "TrustedCaCertificateTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateAgentSpaceInputTypeDef",
@@ -502,10 +521,6 @@ class AzureDevOpsRepositoryResourceTypeDef(TypedDict):
     name: str
     organization: str
     project: NotRequired[str]
-
-class AzureDevOpsResourceCapabilitiesTypeDef(TypedDict):
-    leaveComments: NotRequired[bool]
-    remediateCode: NotRequired[bool]
 
 class BatchCreateSecurityRequirementResultTypeDef(TypedDict):
     packId: str
@@ -652,10 +667,6 @@ class BitbucketRepositoryMetadataTypeDef(TypedDict):
 class BitbucketRepositoryResourceTypeDef(TypedDict):
     name: str
     workspace: str
-
-class BitbucketResourceCapabilitiesTypeDef(TypedDict):
-    leaveComments: NotRequired[bool]
-    remediateCode: NotRequired[bool]
 
 class CaCertificateSourceTypeDef(TypedDict):
     inlinePem: NotRequired[str]
@@ -904,10 +915,6 @@ class GitHubRepositoryResourceTypeDef(TypedDict):
     name: str
     owner: str
 
-class GitHubResourceCapabilitiesTypeDef(TypedDict):
-    leaveComments: NotRequired[bool]
-    remediateCode: NotRequired[bool]
-
 class GitLabIntegrationInputTypeDef(TypedDict):
     accessToken: str
     tokenType: GitLabTokenTypeType
@@ -923,10 +930,6 @@ class GitLabRepositoryMetadataTypeDef(TypedDict):
 class GitLabRepositoryResourceTypeDef(TypedDict):
     name: str
     namespace: str
-
-class GitLabResourceCapabilitiesTypeDef(TypedDict):
-    leaveComments: NotRequired[bool]
-    remediateCode: NotRequired[bool]
 
 class HttpVerificationTypeDef(TypedDict):
     token: NotRequired[str]
@@ -1273,6 +1276,23 @@ class StopThreatModelJobInputTypeDef(TypedDict):
 class TagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+TriggerFilterOutputTypeDef = TypedDict(
+    "TriggerFilterOutputTypeDef",
+    {
+        "type": TriggerFilterTypeType,
+        "patterns": list[str],
+        "matchMode": NotRequired[TriggerFilterMatchModeType],
+    },
+)
+TriggerFilterTypeDef = TypedDict(
+    "TriggerFilterTypeDef",
+    {
+        "type": TriggerFilterTypeType,
+        "patterns": Sequence[str],
+        "matchMode": NotRequired[TriggerFilterMatchModeType],
+    },
+)
 
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -1822,13 +1842,6 @@ class IntegratedResourceTypeDef(TypedDict):
     confluenceDocument: NotRequired[ConfluenceDocumentResourceTypeDef]
     azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryResourceTypeDef]
 
-class ProviderResourceCapabilitiesTypeDef(TypedDict):
-    github: NotRequired[GitHubResourceCapabilitiesTypeDef]
-    gitlab: NotRequired[GitLabResourceCapabilitiesTypeDef]
-    bitbucket: NotRequired[BitbucketResourceCapabilitiesTypeDef]
-    confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
-    azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesTypeDef]
-
 class VerificationDetailsTypeDef(TypedDict):
     method: NotRequired[DomainVerificationMethodType]
     dnsTxt: NotRequired[DnsVerificationTypeDef]
@@ -2061,6 +2074,12 @@ class PrivateConnectionModeTypeDef(TypedDict):
 
 ReportFiltersUnionTypeDef = Union[ReportFiltersTypeDef, ReportFiltersOutputTypeDef]
 
+class TriggerFilterGroupOutputTypeDef(TypedDict):
+    events: NotRequired[list[TriggerEventType]]
+    filters: NotRequired[list[TriggerFilterOutputTypeDef]]
+
+TriggerFilterUnionTypeDef = Union[TriggerFilterTypeDef, TriggerFilterOutputTypeDef]
+
 class VerificationScriptTypeDef(TypedDict):
     scriptType: NotRequired[str]
     scriptUrl: NotRequired[str]
@@ -2219,15 +2238,6 @@ CreateIntegrationInputTypeDef = TypedDict(
     },
 )
 
-class IntegratedResourceInputItemTypeDef(TypedDict):
-    resource: IntegratedResourceTypeDef
-    capabilities: NotRequired[ProviderResourceCapabilitiesTypeDef]
-
-class IntegratedResourceSummaryTypeDef(TypedDict):
-    integrationId: str
-    resource: IntegratedResourceMetadataTypeDef
-    capabilities: NotRequired[ProviderResourceCapabilitiesTypeDef]
-
 class CreateTargetDomainOutputTypeDef(TypedDict):
     targetDomainId: str
     domainName: str
@@ -2320,6 +2330,30 @@ class CreatePrivateConnectionInputTypeDef(TypedDict):
     privateConnectionName: str
     mode: PrivateConnectionModeTypeDef
     tags: NotRequired[Mapping[str, str]]
+
+class AzureDevOpsResourceCapabilitiesOutputTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[list[TriggerFilterGroupOutputTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class BitbucketResourceCapabilitiesOutputTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[list[TriggerFilterGroupOutputTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class GitHubResourceCapabilitiesOutputTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[list[TriggerFilterGroupOutputTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class GitLabResourceCapabilitiesOutputTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[list[TriggerFilterGroupOutputTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class TriggerFilterGroupTypeDef(TypedDict):
+    events: NotRequired[Sequence[TriggerEventType]]
+    filters: NotRequired[Sequence[TriggerFilterUnionTypeDef]]
 
 class FindingTypeDef(TypedDict):
     findingId: str
@@ -2545,16 +2579,6 @@ class BatchGetThreatModelJobsOutputTypeDef(TypedDict):
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class UpdateIntegratedResourcesInputTypeDef(TypedDict):
-    agentSpaceId: str
-    integrationId: str
-    items: Sequence[IntegratedResourceInputItemTypeDef]
-
-class ListIntegratedResourcesOutputTypeDef(TypedDict):
-    integratedResourceSummaries: list[IntegratedResourceSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class BatchGetTargetDomainsOutputTypeDef(TypedDict):
     targetDomains: list[TargetDomainTypeDef]
     notFound: list[str]
@@ -2569,6 +2593,30 @@ class BatchGetPentestJobsOutputTypeDef(TypedDict):
     pentestJobs: list[PentestJobTypeDef]
     notFound: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ProviderResourceCapabilitiesOutputTypeDef(TypedDict):
+    github: NotRequired[GitHubResourceCapabilitiesOutputTypeDef]
+    gitlab: NotRequired[GitLabResourceCapabilitiesOutputTypeDef]
+    bitbucket: NotRequired[BitbucketResourceCapabilitiesOutputTypeDef]
+    confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesOutputTypeDef]
+
+class BitbucketResourceCapabilitiesTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class GitHubResourceCapabilitiesTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class GitLabResourceCapabilitiesTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+TriggerFilterGroupUnionTypeDef = Union[TriggerFilterGroupTypeDef, TriggerFilterGroupOutputTypeDef]
 
 class BatchGetFindingsOutputTypeDef(TypedDict):
     findings: list[FindingTypeDef]
@@ -2673,3 +2721,52 @@ class UpdateThreatModelInputTypeDef(TypedDict):
     serviceRole: NotRequired[str]
     logConfig: NotRequired[CloudWatchLogTypeDef]
     reportDestination: NotRequired[ReportDestinationTypeDef]
+
+class IntegratedResourceSummaryTypeDef(TypedDict):
+    integrationId: str
+    resource: IntegratedResourceMetadataTypeDef
+    capabilities: NotRequired[ProviderResourceCapabilitiesOutputTypeDef]
+
+BitbucketResourceCapabilitiesUnionTypeDef = Union[
+    BitbucketResourceCapabilitiesTypeDef, BitbucketResourceCapabilitiesOutputTypeDef
+]
+GitHubResourceCapabilitiesUnionTypeDef = Union[
+    GitHubResourceCapabilitiesTypeDef, GitHubResourceCapabilitiesOutputTypeDef
+]
+GitLabResourceCapabilitiesUnionTypeDef = Union[
+    GitLabResourceCapabilitiesTypeDef, GitLabResourceCapabilitiesOutputTypeDef
+]
+
+class AzureDevOpsResourceCapabilitiesTypeDef(TypedDict):
+    triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupUnionTypeDef]]
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
+
+class ListIntegratedResourcesOutputTypeDef(TypedDict):
+    integratedResourceSummaries: list[IntegratedResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+AzureDevOpsResourceCapabilitiesUnionTypeDef = Union[
+    AzureDevOpsResourceCapabilitiesTypeDef, AzureDevOpsResourceCapabilitiesOutputTypeDef
+]
+
+class ProviderResourceCapabilitiesTypeDef(TypedDict):
+    github: NotRequired[GitHubResourceCapabilitiesUnionTypeDef]
+    gitlab: NotRequired[GitLabResourceCapabilitiesUnionTypeDef]
+    bitbucket: NotRequired[BitbucketResourceCapabilitiesUnionTypeDef]
+    confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesUnionTypeDef]
+
+ProviderResourceCapabilitiesUnionTypeDef = Union[
+    ProviderResourceCapabilitiesTypeDef, ProviderResourceCapabilitiesOutputTypeDef
+]
+
+class IntegratedResourceInputItemTypeDef(TypedDict):
+    resource: IntegratedResourceTypeDef
+    capabilities: NotRequired[ProviderResourceCapabilitiesUnionTypeDef]
+
+class UpdateIntegratedResourcesInputTypeDef(TypedDict):
+    agentSpaceId: str
+    integrationId: str
+    items: Sequence[IntegratedResourceInputItemTypeDef]

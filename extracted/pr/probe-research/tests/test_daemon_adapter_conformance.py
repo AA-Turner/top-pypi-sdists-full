@@ -88,7 +88,7 @@ def test_the_capability_table_matches_what_the_adapter_does(harness):
         # Asking through the agent needs the one-line nudge at the next prompt.
         assert caps.inject_line
     # Daemon reads: a message after a tool call, and the wake, are hooks -- or,
-    # on pi, its extension (probe-research-pi/src/reads.ts).
+    # on pi, its extension (probe-research-pi/src/core/reads.ts).
     if caps.inject_tool or caps.wake:
         assert caps.hooks or harness == "pi"
     assert caps.instruction_files, "every harness names its instruction files"

@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from pydantic import BaseModel, Field
 
-from matrx_scraper.utils.url import validate_public_http_url
+from matrx_scraper.utils.url import public_http_client, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 _MAX_SITEMAP_BYTES = 20 * 1024 * 1024
@@ -226,7 +226,7 @@ async def crawl_sitemap_documents(
         if reason not in crawl.truncation_reasons:
             crawl.truncation_reasons.append(reason)
 
-    async with httpx.AsyncClient(
+    async with public_http_client(
         timeout=request_timeout,
         follow_redirects=False,
         headers={"User-Agent": user_agent},

@@ -9,7 +9,7 @@ end-to-end decision run through the agent builder (2026-09-20) persisted a
 correct answer that no renderer could recognise.
 
 THE __KIND LAW: the marker is part of the DATA, everywhere it is stored,
-passed or rendered — `common-docs/systems/content-ir-system/KINDS_EVERYWHERE_PLAN.md`.
+passed or rendered — `common-docs/systems/architecture/content-ir/FEATURE.md`.
 """
 
 from __future__ import annotations

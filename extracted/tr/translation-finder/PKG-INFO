@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translation-finder
-Version: 3.5.1
+Version: 3.6.0
 Summary: A translation file finder used in Weblate.
 Home-page: https://weblate.org/
 Download-URL: https://github.com/WeblateOrg/translation-finder
@@ -33,8 +33,7 @@ Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: charset-normalizer<4.0,>2.0
-Requires-Dist: ruamel.yaml>=0.19.1
-Requires-Dist: weblate-language-data>=2026.10
+Requires-Dist: weblate-language-data>=2026.11
 Dynamic: download-url
 Dynamic: license-file
 

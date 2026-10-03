@@ -39,7 +39,8 @@ class TestPostDataPlane(unittest.TestCase):
                 description = '',
                 infrastructure = 'AWS',
                 capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
-                    gen_ai_enabled = True, )
+                    gen_ai_enabled = True, 
+                    discovery_source_test = True, )
             )
         else:
             return PostDataPlane(

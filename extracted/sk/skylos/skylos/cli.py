@@ -962,15 +962,21 @@ def _skylos_console_theme():
     )
 
 
-def setup_logger(output_file=None, *, stderr=False):
+def setup_logger(output_file=None, *, stderr=False, log_to_stderr=False):
     console = Console(theme=_skylos_console_theme(), stderr=stderr)
+    # Machine-readable reports own stdout; a log line there corrupts them.
+    log_console = (
+        Console(theme=_skylos_console_theme(), stderr=True)
+        if log_to_stderr and not stderr
+        else console
+    )
 
     logger = logging.getLogger("skylos")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
     rich_handler = RichHandler(
-        console=console, show_time=False, show_path=False, markup=True
+        console=log_console, show_time=False, show_path=False, markup=True
     )
     rich_handler.setFormatter(CleanFormatter())
     logger.addHandler(rich_handler)
@@ -2342,6 +2348,12 @@ def _run_hook_command(argv):
     return run_hook_command(argv)
 
 
+def _run_done_command(argv):
+    from skylos.commands.done_cmd import run_done_command
+
+    return run_done_command(argv)
+
+
 def _run_preflight_command(argv):
     from skylos.commands.preflight_cmd import run_preflight_command
 
@@ -2492,11 +2504,12 @@ def _build_main_scan_context(args):
     _apply_selected_rule_analysis_flags(args)
 
     project_root = _resolve_main_project_root(args.path)
-    logger = (
-        setup_logger(stderr=True)
-        if getattr(args, "format", "rich") == "gitlab"
-        else setup_logger()
-    )
+    if getattr(args, "format", "rich") == "gitlab":
+        logger = setup_logger(stderr=True)
+    elif _is_main_machine_output(args):
+        logger = setup_logger(log_to_stderr=True)
+    else:
+        logger = setup_logger()
     console = logger.console
 
     if args.verbose:

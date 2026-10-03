@@ -36,12 +36,13 @@ from __future__ import annotations
 import hashlib
 import inspect
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from cozy_runtime.internal import kernel_cache, kernel_compile
+from cozy_runtime.internal.accel import readable
 from cozy_runtime.internal.encoding.leaves import PreQuantized
 
 try:
@@ -524,14 +525,36 @@ def build(
 
 
 @dataclass(frozen=True, slots=True)
+class _Launch:
+    """A compiled kernel's launch. Its tensor operands are read by pointer, so each has real
+    bytes behind it first (`accel.readable`): a norm scale read from a sibling module may be
+    a weight the plane has not mapped."""
+
+    kernel: Mapping[tuple[int, ...], Callable[..., object]]
+
+    def __getitem__(self, grid: tuple[int, ...]) -> Callable[..., None]:
+        launch = self.kernel[grid]
+
+        def run(*args: object) -> None:
+            at = [i for i, value in enumerate(args) if isinstance(value, torch.Tensor)]
+            with readable(*(args[i] for i in at)) as real:
+                operands = list(args)
+                for i, value in zip(at, real, strict=True):
+                    operands[i] = value
+                launch(*operands)
+
+        return run
+
+
+@dataclass(frozen=True, slots=True)
 class _Loaded:
     arch: int
     compiled: dict[str, Any]
 
-    def launch(self, kernel: str, **constexprs: int) -> Any:
+    def launch(self, kernel: str, **constexprs: int) -> _Launch:
         key = f"{kernel}[" + ",".join(f"{k}={v}" for k, v in constexprs.items()) + "]"
         try:
-            return self.compiled[key]
+            return _Launch(self.compiled[key])
         except KeyError:
             raise FusionUnavailable(
                 "fusion_kernels_absent",
@@ -543,25 +566,29 @@ class _Loaded:
 _LOADED: dict[int, _Loaded] = {}
 
 
-def _job(device: Any) -> tuple[kernel_cache.Store, kernel_compile.Job]:
-    _require_triton()
-    _require_torch()
+def _store() -> kernel_cache.Store:
     store = kernel_cache.configured()
     if store is None:
         raise FusionUnavailable(
             "fusion_kernels_absent", "no machine kernel store: this executor has no rooted worker"
         )
+    return store
+
+
+def _job(device: Any) -> tuple[kernel_cache.Store, kernel_compile.Job]:
+    _require_torch()
     major, minor = torch.cuda.get_device_capability(device)
-    return store, job(major * 10 + minor)
+    return _store(), job(major * 10 + minor)
 
 
-def expect(device: Any) -> str:
-    """Worker boot: submit this device's compile without waiting; the state's line."""
+def expect(arch: int) -> str:
+    """Submit `arch`'s compile without waiting, before any device exists: the state's line.
+    Keyed in the process that will load it (its Triton and cache directory), so an executor
+    submits its own at start."""
     try:
-        store, found = _job(device)
+        return kernel_compile.submit(_store(), job(arch)).line()
     except FusionUnavailable as exc:
         return f"{exc.code}: {exc}"
-    return kernel_compile.submit(store, found).line()
 
 
 def load(device: Any, *, wait: bool = False) -> _Loaded:

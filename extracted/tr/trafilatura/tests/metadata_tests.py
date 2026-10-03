@@ -5,9 +5,11 @@ Unit tests for the metadata parts.
 import logging
 import sys
 
+import pytest
 from lxml import html
 from lxml.etree import XPath
 
+from trafilatura.json_metadata import extract_json, extract_json_parse_error, process_parent
 from trafilatura.metadata import (
     JSON_MINIFY,
     Document,
@@ -19,10 +21,29 @@ from trafilatura.metadata import (
     extract_url,
     normalize_tags,
 )
-from trafilatura.json_metadata import extract_json, extract_json_parse_error, process_parent
 from trafilatura.settings import Extractor, use_config
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+
+def test_tags_with_complete_opengraph_metadata():
+    document = """<html><head>
+        <meta property="og:title" content="Example article"/>
+        <meta property="og:author" content="Jane Smith"/>
+        <meta property="og:url" content="https://example.org/post"/>
+        <meta property="og:description" content="Example description"/>
+        <meta property="og:site_name" content="Example News"/>
+        <meta property="og:image" content="https://example.org/image.jpg"/>
+        <meta name="keywords" content="science, research"/>
+        <meta property="article:tag" content="astronomy"/>
+        <meta name="twitter:title" content="Alternative title"/>
+        </head><body><article>Example article content.</article></body></html>"""
+
+    metadata = extract_metadata(document)
+    assert metadata.tags == ["science, research", "astronomy"]
+    assert metadata.title == "Example article"
+    assert metadata.author == "Jane Smith"
+    assert metadata.image == "https://example.org/image.jpg"
 
 
 def test_titles():
@@ -244,6 +265,21 @@ def test_url():
         )
         == "https://example.org/p"
     )
+    # malformed base skipped
+    assert (
+        extract_url(
+            html.fromstring(
+                '<html><head><link rel="canonical" href="/p"/><meta property="og:url" content="//[::1"/><meta name="twitter:url" content="https://example.org"/></head><body></body></html>'
+            )
+        )
+        == "https://example.org/p"
+    )
+    # protocol-relative canonical keeps its own host
+    for doc in (
+        '<html><head><link rel="canonical" href="//example.org/p"/></head><body></body></html>',
+        '<html><head><link rel="canonical" href="//example.org/p"/><meta property="og:image" content="https://cdn.example.net/i.png"/></head><body></body></html>',
+    ):
+        assert extract_url(html.fromstring(doc)) == "https://example.org/p"
 
 
 def test_description():
@@ -330,7 +366,8 @@ def test_meta():
     metadata = extract_metadata(
         '<html><head><meta property="og:title" content="T"/><meta property="og:author" content="A B"/><meta property="og:url" content="https://e.org"/><meta property="og:description" content="D"/><meta property="og:site_name" content="S"/><meta property="og:image" content="https://e.org/i.jpg"/></head><body/></html>'
     )
-    assert metadata.title == "T" and metadata.image == "https://e.org/i.jpg"
+    assert metadata.title == "T"
+    assert metadata.image == "https://e.org/i.jpg"
 
     metadata = extract_metadata(
         '<html><head><meta name="dc.title" content="Open Graph Title"/><meta name="dc.creator" content="Jenny Smith"/><meta name="dc.description" content="This is an Open Graph description"/></head><body></body></html>'
@@ -349,7 +386,8 @@ def test_meta():
     metadata = extract_metadata("<html><title></title></html>")
     assert metadata.sitename is None
     metadata = extract_metadata("<html><head><title>" + "AAA" * 10000 + "</title></head></html>")
-    assert metadata.title.endswith("…") and len(metadata.title) == 10000
+    assert metadata.title.endswith("…")
+    assert len(metadata.title) == 10000
     assert extract_metadata('<html><head><meta otherkey="example" content="Unknown text"/></head></html>').title is None
     assert extract_metadata("<html><head><title></title><title></title><title></title></head></html>").title is None
     assert extract_metadata('<html><body><script type="application/ld+json"></script></body></html>').title is None
@@ -481,6 +519,21 @@ def test_process_parent_keeps_good_sitename():
     assert metadata.sitename == "A Long Established Site Name"
 
 
+@pytest.mark.parametrize("rel", ["license noopener", "noopener license noreferrer", "LICENSE", "\tlicense\nnoopener"])
+def test_license_rel_tokens(rel):
+    metadata = extract_metadata(
+        f'<html><body><a href="https://example.org/terms" rel="{rel}">Publication terms</a></body></html>'
+    )
+    assert metadata.license == "Publication terms"
+
+
+def test_license_rel_requires_complete_token():
+    metadata = extract_metadata(
+        '<html><body><a href="https://example.org/terms" rel="not-license">Publication terms</a></body></html>'
+    )
+    assert metadata.license is None
+
+
 def test_license():
     """Test extraction of CC licenses"""
     # a rel
@@ -595,3 +648,24 @@ def test_document_as_dict():
     assert dict_["categories"] == ["Cat1", "Cat2"]
     assert dict_["license"] == "CC BY-SA 4.0"
     assert dict_["image"] == "https://example.org/example.jpg"
+
+
+def test_block_boundaries_not_fused():
+    "block children must not fuse on a minified page (GH #896); inline children must stay joined"
+    title = extract_metadata("<html><body><h1><div>Kicker</div><div>Main headline</div></h1></body></html>")
+    assert title.title == "Kicker Main headline"
+
+    cats = extract_metadata(
+        '<html><body><h1>T</h1><p class="entry-categories">'
+        '<a href="/category/local"><div>Local</div><div>News</div></a></p></body></html>'
+    )
+    assert cats.categories == ["Local News"]
+
+    lic = extract_metadata(
+        '<html><body><h1>T</h1><footer><a rel="license" href="/legal">'
+        "<div>Content</div><div>under our terms</div></a></footer></body></html>"
+    )
+    assert lic.license == "Content under our terms"
+
+    inline = extract_metadata("<html><body><h1>Hyper<span>link</span>ed</h1></body></html>")
+    assert inline.title == "Hyperlinked"

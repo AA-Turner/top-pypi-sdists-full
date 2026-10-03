@@ -1,0 +1,1 @@
+import{n as e}from"./splatFileLoader-CEivvs5D.js";export{e as gaussianSplattingPixelShaderWGSL};

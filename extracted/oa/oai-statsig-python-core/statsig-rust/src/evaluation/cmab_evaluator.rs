@@ -8,7 +8,7 @@ use crate::interned_string::InternedString;
 use crate::specs_response::cmab_types::{CMABConfig, CMABGroup, CMABGroupConfig};
 use crate::unwrap_or_return;
 use lazy_static::lazy_static;
-use rand::Rng;
+use rand::RngExt;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -200,7 +200,7 @@ fn get_passes_targeting<'a>(ctx: &mut EvaluatorContext<'a>, cmab: &'a CMABConfig
 
 fn get_shuffled_groups(cmab: &CMABConfig) -> Vec<&CMABGroup> {
     let mut groups = cmab.groups.iter().collect::<Vec<&CMABGroup>>();
-    let mut rng = rand::thread_rng();
+    let mut rng = crate::utils::random::rng();
     groups.shuffle(&mut rng);
     groups
 }
@@ -241,8 +241,8 @@ fn apply_sampling_group<'a>(
     }
 
     let mut sum: f64 = 0.0;
-    let mut rng = rand::thread_rng();
-    let value: f64 = rng.gen::<f64>();
+    let mut rng = crate::utils::random::rng();
+    let value: f64 = rng.random::<f64>();
     for group in &cmab.groups {
         let cur_count = match config.get(group.id.as_str()) {
             Some(config_for_group) => config_for_group.records + 1,
@@ -289,8 +289,8 @@ fn apply_best_group<'a>(
 
     // if we had no score for any group randomly select one
     if !has_score {
-        let mut rng = rand::thread_rng();
-        let random: f64 = rng.gen::<f64>();
+        let mut rng = crate::utils::random::rng();
+        let random: f64 = rng.random::<f64>();
         best_group = &cmab.groups[(random * cmab.groups.len() as f64).floor() as usize];
     }
     ctx.result.bool_value = true;

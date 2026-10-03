@@ -61,7 +61,7 @@ async def test_bare_name_resolving_into_platform_is_refused(monkeypatch):
     assert (schema, name, err_type) == (None, None, "permission")
 
 
-@pytest.mark.parametrize("table", ["ai.offering", "workspace.tasks", "seo.keyword"])
+@pytest.mark.parametrize("table", ["ai.offering", "projects.tasks", "seo.keyword"])
 async def test_app_schemas_stay_writable(monkeypatch, table):
     schema, name, err_type, _ = await _resolve(monkeypatch, table)
     assert err_type is None and schema is not None

@@ -50,7 +50,7 @@ marker is stripped on the way into a prompt (KINDS_EVERYWHERE_PLAN §4.2 door
 1). This module never renders a prompt and never sees a runtime value — it
 converts DECLARATIONS.
 
-Contract + binding model: ``common-docs/systems/content-ir-system/KINDS_EVERYWHERE_PLAN.md``
+Contract + binding model: ``common-docs/systems/architecture/content-ir/FEATURE.md``
 §10d-C; ledger: ``aidream/docs/workflow/KIND_AGENT_INPUT_LEDGER.md``.
 """
 

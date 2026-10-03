@@ -1,3 +1,9 @@
+// #1101: environment reads go through declared variables; see the
+// `running_process_env_direct` Dylint lint.
+#![cfg_attr(
+    dylint_lib = "running_process_env_literal",
+    deny(running_process_env_direct)
+)]
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
@@ -7,6 +13,7 @@ mod public_symbols;
 
 mod containment;
 mod debug_traces;
+mod env_vars;
 mod helpers;
 mod idle_detector;
 mod metrics;
@@ -32,7 +39,6 @@ pub(crate) use async_process::{
     AsyncOutputCursor, AsyncPseudoTerminalProcess, AsyncRunningProcess,
 };
 pub(crate) use containment::PyContainedProcessGroup;
-#[cfg(windows)]
 pub(crate) use debug_traces::native_test_hang_in_rust;
 pub(crate) use debug_traces::{
     monitor_console_windows, native_dump_rust_debug_traces, native_test_capture_rust_debug_trace,
@@ -125,7 +131,6 @@ fn _native(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         native_test_capture_rust_debug_trace,
         module
     )?)?;
-    #[cfg(windows)]
     module.add_function(wrap_pyfunction!(native_test_hang_in_rust, module)?)?;
     module.add_function(wrap_pyfunction!(native_probe_install, module)?)?;
     module.add_function(wrap_pyfunction!(native_probe_enable_faulthandler, module)?)?;

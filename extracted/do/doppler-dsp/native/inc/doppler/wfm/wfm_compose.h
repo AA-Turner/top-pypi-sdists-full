@@ -34,6 +34,7 @@
 #include "doppler/clib_common.h"
 #include "doppler/wfm_synth/wfm_synth_core.h"
 #include "doppler/wfm/wfm_frame.h" /* wfm_frame_desc_t — a source's frame, described */
+#include "doppler/wfm/wfm_data.h" /* a data:LEN payload's source */
 #include "doppler/doppler_channel/doppler_channel_core.h" /* a source's clock Doppler */
 
 #ifdef __cplusplus
@@ -214,18 +215,6 @@ typedef struct {
                           chunking of reads produce the same waveform;
                           generating one without it raises. Ignored by
                           non-chirp types. */
-    /* The payload, as a SEQUENCE like its three siblings below rather than
-       a bare array. A literal keeps its bits at `payload.bits`/`payload.len`
-       exactly as `bits`/`n_bits` did; a GENERATED payload (PN/Gold/Dotted)
-       carries its parameters instead, which is what lets a 100k-bit frame be
-       six numbers in a --record. The bridge used to flatten this to
-       WFM_SEQ_LITERAL on the way to the descriptor -- the same copy that
-       made the preamble's generated kinds unreachable (gh-762). */
-    wfm_seq_t payload; /* The payload bits: a Field on the command line and
-                          in a scene, an array in Python. For type=bits, the
-                          pattern, oversampled by sps and cycled to fill the
-                          request; for type=dsss, the payload bits of the
-                          burst frame. */
     int modulation;    /* Symbol mapping of a bits pattern. none: the
                           pattern shaped and output as-is (NRZ). bpsk: +/-1
                           symbols. qpsk: Gray-coded symbols from pairs of
@@ -297,19 +286,24 @@ typedef struct {
                                because its cache renders each source
                                independently and concurrently; compose() and
                                stream() honour both. */
-    /* The FRAME, as a description, when the source carries one -- the only
-       way a source says anything but the common frame: a coding stage, a
-       field of the caller's own bits at a position of their choosing, a
-       stage covering a span they name. `wfmgen --frame FILE` and a scene's
-       `frame` key both land here. When it is set it IS the frame, and the
-       common-frame fields below (acq_code/sync/crc/payload) do not frame
-       this source.
+    /* A frame DESCRIPTION, the whole frame: fields in wire order, and
+       stages that each name the span they cover (crc16, rs, randomise,
+       interleave, conv, or a kind of your own). It is the only way a source
+       says anything but the common frame: a coding stage, a field of the
+       caller's own bits at a position of their choosing, a stage covering a
+       span they name. `wfmgen --frame FILE`, a scene's
+       `frame` key and Python's `frame=` (a FrameDesc or a Frame) all land
+       here. When it is set it IS the frame, and the common-frame
+       fields below (acq_code/sync/crc/payload) do not frame this source.
+       NULL means the common frame, `[preamble x reps | sync | payload |
+       crc]`, which `dp_wfm_frame_fixed()` builds from the fields below.
 
-       Borrowed, never owned: the description points at the caller's
-       sequences exactly as `wfm_seq_t` is borrowed elsewhere here, so it
-       must outlive the source. NULL means the common frame,
-       `[preamble x reps | sync | payload | crc]`, which
-       `dp_wfm_frame_fixed()` builds from the fields below.
+       A C caller's description is borrowed, exactly as `wfm_seq_t` is
+       borrowed elsewhere here, so it must outlive the source. The composer
+       and a Python source hold their own copy (`dp_wfm_frame_copy()`), so
+       a later change to the FrameDesc does not reach them. On the Python
+       face `frame=` is an input: read it back from the composer's JSON
+       (its getter is jm's, pending removal: doppler#1694).
 
        KERNELS stay in C by design. A description names a stage's KIND; the
        code that runs it is a `wfm_frame_ops_t` entry, and a caller adding a
@@ -318,7 +312,7 @@ typedef struct {
     const wfm_frame_desc_t *frame;
 
     /* type=dsss: the two-code burst geometry (dp_wfm_dsss_desc_chips). The
-       payload bits ride the shared `bits` field above (alias "payload"). */
+       payload is a data source (`data` / `data_from_file`, below). */
     /* The three sequences a framed source carries. `wfm_seq_t` already names
        "a run of bits, however produced" -- LITERAL plus the generated PN /
        GOLD / DOTTED kinds and their parameters -- so carrying it here is
@@ -379,6 +373,44 @@ typedef struct {
                             data-modulated (the payload when supplied, else
                             the seeded PN). Ignored for burst dsss and
                             non-dsss types. */
+    /* The data source a frame's payload is drawn from, `data_len` bits per
+       frame (docs/design/payload-data-source.md; wfm/wfm_data.h is the one
+       table of what a source is). It is EITHER `data` (a Field, or a bit
+       array in Python) OR `data_from_file` (a file, or `-` for stdin):
+       one declaration makes the pair exclusive on every face. */
+    wfm_seq_t data;    /* A frame's payload drawn from a data source: a
+                          Field on the command line and in a scene, a bit
+                          array in Python. The source is split into
+                          data_len-bit frames, one chunk per frame, and its
+                          last chunk is padded from fill. For type=bits,
+                          bpsk/qpsk/pn framed, a dsss burst (one burst per
+                          frame), and continuous dsss (one bit per data
+                          symbol, no frame); not with data_from_file. */
+    size_t data_len;   /* Bits of the data source per frame: the data:LEN
+                          of the common frame [preamble x reps | sync |
+                          data:LEN | crc]. 0 takes a finite source whole, as
+                          one frame. A carried frame names its own data
+                          field, and this is then 0 or that field's LEN.
+                          Continuous dsss has no frame, and refuses it. */
+    wfm_seq_t fill;    /* The bits that pad a data source's last frame when
+                          it does not divide into data_len-bit frames, tiled
+                          from their first bit; stdin on a framed source
+                          always needs them. Without them such a source is
+                          refused before the first sample. A Field on the
+                          command line and in a scene, a bit array in
+                          Python. Continuous dsss has no frame to pad, and
+                          refuses it. */
+    const char *data_from_file; /* A data source read from a file of packed
+                          octets, MSB first, or `-` for stdin, instead of
+                          data. Not on the Python face: there a file is
+                          cvt.bytes_to_bin of its bytes, passed as data
+                          (payload-data-source.md section 4.9). Borrowed,
+                          so it must outlive the source. */
+    wfm_seq_t retired_bits; /* RETIRED (doppler#1718): nothing reads it but
+                          the refusal. A payload is drawn from a data
+                          source, so bits=, and its aliases payload= and
+                          pattern=, are refused naming data=; the CLI and a
+                          scene refuse --bits and "payload" the same way. */
 } wfm_source_t;
 
 /**
@@ -679,6 +711,29 @@ int dp_wfm_source_has_frame(const wfm_source_t *src);
 size_t dp_wfm_source_dsss_nchips(const wfm_source_t *src);
 
 /**
+ * @brief Chips per data symbol of a CONTINUOUS dsss source at @p fs.
+ *
+ * `sps` is samples per CHIP for dsss, so the chip rate is `fs / sps`, and
+ * the data clock is `symbol_rate`: their ratio, non-integer in general,
+ * which is the asynchronicity. It is the number the builder hands
+ * dp_wfm_synth_set_dsss_cont(), and the one dp_wfm_scene_error() holds to
+ * `>= 1` -- so the rule and the synth read the same value.
+ *
+ * @param src  the source.
+ * @param fs   its segment's sample rate, in Hz.
+ * @return chips per data symbol, or 0 for a source that is not continuous
+ *         dsss (or has no `sps`).
+ *
+ * @code
+ * wfm_source_t s = { .type = WFM_SYNTH_DSSS, .sps = 2,
+ *                    .symbol_rate = 1000.0 };
+ * if (dp_wfm_source_dsss_cps (&s, 1e6) != 500.0)   // 500 chips per symbol
+ *   return 1;
+ * @endcode
+ */
+double dp_wfm_source_dsss_cps(const wfm_source_t *src, double fs);
+
+/**
  * @brief NULL when this source's frame fields can be honoured; else why not.
  *
  * ONE rule, asked by all three faces — the wfmgen CLI before it generates, the
@@ -714,6 +769,19 @@ const char *dp_wfm_source_frame_error(const wfm_source_t *src);
  *   5-bit register is a register with no feedback: the seed, then zeros,
  *   a constant waveform that still looks like a PN source (doppler#1636).
  *   0 selects the maximal-length polynomial and always fits.
+ * - No two members the surface table declares exclusive may both be set
+ *   (`WFM_SURFACE_EXCLUSIVE`, wfm_surface.h): a carried `frame` is the whole
+ *   frame, so a `payload` beside it would be dropped (doppler#1683). The
+ *   CLI and a scene refuse the same pair first, naming their own spelling.
+ * - A dsss source has the codes it needs (doppler#1696): a burst whose
+ *   frame has bits to spread needs `data_code`
+ *   (dp_wfm_why_dsss_frame_no_data_code), a burst needs a preamble or a
+ *   frame (dp_wfm_why_dsss_empty), and a continuous stream needs
+ *   `data_code` (dp_wfm_why_dsss_cont_no_data_code). A preamble alone is a
+ *   valid burst: an acquisition stimulus.
+ *
+ * A rule that needs the segment's sample rate is not here -- a source does
+ * not carry it -- but in dp_wfm_scene_error(), which asks this first.
  *
  * @param src  The source.
  * @return NULL if there is nothing wrong, else a static message.
@@ -737,6 +805,48 @@ const char *dp_wfm_source_error(const wfm_source_t *src);
 extern const char dp_wfm_why_pn_poly[];
 
 /**
+ * @brief The reasons dp_wfm_source_error() gives a dsss source missing a
+ *        code (doppler#1696): a burst whose frame has no data_code to
+ *        spread it, a burst with neither a preamble nor a frame, and a
+ *        continuous stream with no data_code. Exported so a test or a face
+ *        can hold a refusal to its reason by identity.
+ */
+extern const char dp_wfm_why_dsss_frame_no_data_code[];
+/** @copydoc dp_wfm_why_dsss_frame_no_data_code */
+extern const char dp_wfm_why_dsss_empty[];
+/** @copydoc dp_wfm_why_dsss_frame_no_data_code */
+extern const char dp_wfm_why_dsss_cont_no_data_code[];
+
+/**
+ * @brief The reason dp_wfm_source_error() gives for `retired_bits` set:
+ *        Python's retired `bits=` (and `payload=`, `pattern=`), named once.
+ *        The CLI's and a scene's RETIRED tables say the same in their own
+ *        spelling (doppler#1718).
+ */
+extern const char dp_wfm_why_retired_bits[];
+
+/**
+ * @brief Why dp_wfm_source_to_synth() refused this source, or NULL.
+ *
+ * The standalone `Synth`'s reason channel (just-makeit's `bridge_error_fn`,
+ * which takes the bridge's own arguments): dp_wfm_scene_error() of a scene
+ * of one segment at @p fs, so a refused Synth raises the same sentence as
+ * every other face, including a rule that needs the rate. NULL leaves the
+ * binding's generic error, for a refusal that is not the source's.
+ *
+ * @param src  The source.
+ * @param fs   The sample rate the bridge was given.
+ * @return A static sentence, or NULL.
+ *
+ * @code
+ * wfm_source_t s = { .type = WFM_SYNTH_PN, .sps = 1, .pn_length = 5,
+ *                    .pn_poly = 0x40 };
+ * dp_wfm_source_to_synth_error (&s, 1e6);   // dp_wfm_why_pn_poly
+ * @endcode
+ */
+const char *dp_wfm_source_to_synth_error(const wfm_source_t *src, double fs);
+
+/**
  * @brief Attach an unspread source's bit pattern, framed or not.
  *
  * The `type=bits` counterpart of dp_wfm_source_attach_dsss(), and called from the
@@ -755,6 +865,153 @@ extern const char dp_wfm_why_pn_poly[];
  * @return 0 on success (or a non-bits/no-pattern no-op); -1 on failure.
  */
 int dp_wfm_source_attach_frame(dp_wfm_synth_state_t *syn, const wfm_source_t *src);
+
+/**
+ * @brief Drive a type=bits synth from a frame whose payload is a data source.
+ *
+ * The pull that replaces the cycle (docs/design/payload-data-source.md §7).
+ * Each frame is @p d assembled over the next chunk of @p src
+ * (dp_wfm_frame_assemble_data): the first now, and each one after at the
+ * previous frame's last bit, so every stage over the payload covers its own
+ * frame's chunk. Under @p pacing, a source with nothing yet sends an idle
+ * frame (dp_wfm_data_frame, the one rule). When @p src ends, the synth goes
+ * silent and dp_wfm_synth_data_ended() says so.
+ *
+ * @param syn         a synth created with type=bits.
+ * @param d           the frame; exactly one field is `data:LEN`, and LEN is
+ *                    the source's.
+ * @param ops         stage kernels, as dp_wfm_frame_assemble(); may be NULL.
+ * @param src         the data source; the synth OWNS it from here, success or
+ *                    not, and frees it with the synth.
+ * @param pacing      WFM_DATA_PACED for `--realtime`, else WFM_DATA_UNPACED.
+ * @param modulation  as dp_wfm_synth_set_bits().
+ * @return 0, or -1: not a bits synth, no data field in @p d, a frame that
+ *         does not assemble, or a source that failed its first read.
+ *
+ * @code
+ * wfm_frame_desc_t d;
+ * const wfm_seq_t  data = { .kind = WFM_SEQ_DATA, .len = 16 };
+ * dp_wfm_frame_fixed (&d, NULL, 0, NULL, &data, 1);        // [data:16 | crc]
+ * wfm_data_src_t *src = dp_wfm_data_create ("0x0123456789AB", NULL, 16, NULL,
+ *                                           NULL);
+ * dp_wfm_synth_state_t *s
+ *     = dp_wfm_synth_create (WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 8, 7, 0,
+ *                            0, 0.0);
+ * dp_wfm_synth_attach_data (s, &d, NULL, src, WFM_DATA_UNPACED, 1); // bpsk
+ * // three 32-bit frames, each over its own 16-bit chunk, then silence
+ * dp_wfm_synth_destroy (s);                 // frees src too
+ * @endcode
+ */
+int dp_wfm_synth_attach_data(dp_wfm_synth_state_t *syn, const wfm_frame_desc_t *d,
+                             const wfm_frame_ops_t *ops, wfm_data_src_t *src,
+                             wfm_data_pacing_t pacing, int modulation);
+
+/**
+ * @brief Pace a synth's data source: WFM_DATA_PACED for `--realtime`.
+ *
+ * A synth attached by dp_wfm_source_attach_frame() pulls UNPACED -- it
+ * waits for its data, as `cat` does. A paced caller (the composer under
+ * `--realtime`) sets this after the build, so a source with nothing yet
+ * sends an idle frame instead (dp_wfm_data_frame, the one rule). A synth
+ * with no data source ignores it.
+ *
+ * @code
+ * dp_wfm_synth_state_t *s = dp_wfm_synth_create (
+ *     WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+ * dp_wfm_synth_set_data_pacing (s, WFM_DATA_PACED); // no source: no-op
+ * dp_wfm_synth_destroy (s);
+ * @endcode
+ */
+void dp_wfm_synth_set_data_pacing(dp_wfm_synth_state_t *syn,
+                                  wfm_data_pacing_t pacing);
+
+/**
+ * @brief Why a scene cannot be composed, or NULL: the one validator.
+ *
+ * Every source's dp_wfm_source_error(), then what only the scene can say:
+ *
+ * - A continuous dsss source's chip rate `fs / sps`, at its segment's
+ *   `fs`, is at least its `symbol_rate` -- one chip per data symbol, the
+ *   synth's own floor (dp_wfm_source_dsss_cps()). The default `fs = 1.0`
+ *   with a `symbol_rate` in Hz is the case that finds it (doppler#1706);
+ *   the reason is dp_wfm_why_dsss_cont_rate.
+ * - A data STREAM (`--data-from-file -`) has no end to repeat, so
+ *   `repeat`, `continuous` and a segment's `repeats > 1` are refused, and
+ *   stdin feeds at most one source.
+ *
+ * dp_wfm_compose_create() refuses exactly these, and
+ * dp_wfm_compose_create_why() says which; a face calls this to say why.
+ *
+ * @return a static sentence naming the fault and its fix, or NULL.
+ */
+const char *dp_wfm_scene_error(const wfm_segment_t *segs, size_t n_segs,
+                               int repeat, int continuous);
+
+/**
+ * @brief The reason dp_wfm_scene_error() gives a continuous dsss source
+ *        whose chip rate is below its symbol rate -- exported so the wfmgen
+ *        CLI can name the values beside it, by identity.
+ */
+extern const char dp_wfm_why_dsss_cont_rate[];
+
+
+/**
+ * @brief Whether a source's data is a stream: `data_from_file` is `-`.
+ *
+ * A stream has no length up front and no end to repeat, so a scene refuses
+ * it with `repeat`, `continuous` or `repeats > 1`, Plan refuses it, and a
+ * segment carrying one runs until it ends (dp_wfm_scene_error()).
+ */
+int dp_wfm_source_data_is_stream(const wfm_source_t *src);
+
+/**
+ * @brief Samples the first @p frames frames of a source's data occupy; 0
+ *        with no data.
+ *
+ * The one length a run with a data source is measured in: a finite run is
+ * this over dp_wfm_source_data_frames(), and a stream ends at this over the
+ * frames it sent.
+ *
+ * - **A frame** (bits, bpsk/qpsk/pn): its output bits at the mapping's bits
+ *   per symbol (rounded up), times `sps`, per frame.
+ * - **A dsss burst**: its chips times `sps` (samples per chip), per burst.
+ * - **Continuous dsss** has no frame: a "frame" is one data bit, one per
+ *   data symbol, and the run is every chip of the first @p frames symbols
+ *   at `fs / sps / symbol_rate` chips per symbol -- not a whole number, so
+ *   not a product -- times `sps`.
+ *
+ * @param src     the source.
+ * @param fs      the segment's sample rate (only continuous dsss reads it).
+ * @param frames  frames (data bits, for continuous dsss) sent.
+ */
+uint64_t dp_wfm_source_data_samples(const wfm_source_t *src, double fs,
+                                    uint64_t frames);
+
+/**
+ * @brief Frames a FINITE data source makes, `ceil(bits / LEN)`; 0 for a
+ *        stream or none. On continuous dsss, which has no frame, its bits.
+ *
+ * Known before the first sample (a file's length from fstat), which is
+ * what lets a finite run's length be derived rather than given (§4.6).
+ *
+ * @code
+ * static const uint8_t bits[40] = { 1 };
+ * wfm_source_t src = { .type = WFM_SYNTH_BPSK, .sps = 4 };
+ * src.data      = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits,
+ *                              .len = 40 };
+ * src.data_len  = 16;
+ * src.fill      = (wfm_seq_t){ .kind = WFM_SEQ_DOTTED, .len = 2 };
+ * if (dp_wfm_source_data_frames (&src) != 3) // 40 bits in 16-bit frames
+ *   return 1;
+ * if (dp_wfm_source_data_samples (&src, 1e6, 3) != 3 * 16 * 4) // bpsk
+ *   return 1;
+ * @endcode
+ */
+uint64_t dp_wfm_source_data_frames(const wfm_source_t *src);
+
+/** @brief The data source a synth pulls from (dp_wfm_synth_attach_data), or
+ *  NULL: its stats are the run's truth for scoring. */
+const wfm_data_src_t *dp_wfm_synth_data_source(const dp_wfm_synth_state_t *syn);
 
 /**
  * @brief The synth type to create this source with.
@@ -891,6 +1148,41 @@ dp_wfm_compose_state_t *dp_wfm_compose_create(
     const wfm_segment_t *segs, size_t n_segs, int repeat, int continuous);
 
 /**
+ * @brief dp_wfm_compose_create(), able to say why the scene was refused.
+ *
+ * The scene is asked dp_wfm_scene_error() before anything is built, and its
+ * sentence is what @p why receives -- the same sentence the wfmgen CLI, a
+ * scene read by dp_wfm_compose_from_json_why() and the standalone `Synth`
+ * report, because it is the same validator. It is the create the generated
+ * `Composer([...])` calls (just-makeit's `create_why`), so a refused
+ * composer raises `ValueError(<the reason>)`.
+ *
+ * @param segs        as for dp_wfm_compose_create().
+ * @param n_segs      as for dp_wfm_compose_create().
+ * @param repeat      as for dp_wfm_compose_create().
+ * @param continuous  as for dp_wfm_compose_create().
+ * @param why         optional; receives a STATIC reason when the scene is
+ *                    refused, and is left as it was in every other case
+ *                    (success, bad arguments, an allocation or synth
+ *                    failure).
+ * @return Heap state, or NULL as for dp_wfm_compose_create().
+ *
+ * @code
+ * wfm_source_t  src = { .type = WFM_SYNTH_DSSS, .sps = 2 };   // no codes
+ * wfm_segment_t seg = { .sources = &src, .n_sources = 1, .fs = 1e6,
+ *                       .num_samples = 64 };
+ * const char   *why = NULL;
+ * dp_wfm_compose_state_t *c = dp_wfm_compose_create_why (&seg, 1, 0, 0, &why);
+ * if (c != NULL || why != dp_wfm_why_dsss_empty)   // refused, and says why
+ *   return 1;
+ * @endcode
+ */
+dp_wfm_compose_state_t *dp_wfm_compose_create_why(const wfm_segment_t *segs,
+                                                  size_t n_segs, int repeat,
+                                                  int continuous,
+                                                  const char **why);
+
+/**
  * @brief Choose how the seed advances on each repeat of a looped/continuous
  * stream (a `wfm_seed_advance_t`):
  *  - `WFM_SEED_ADVANCE_NONE` (default): byte-identical repeats.
@@ -906,6 +1198,16 @@ dp_wfm_compose_state_t *dp_wfm_compose_create(
  * @param mode   A wfm_seed_advance_t value.
  */
 void dp_wfm_compose_set_seed_advance(dp_wfm_compose_state_t *state, int mode);
+
+/**
+ * @brief Pace a composer's data sources: WFM_DATA_PACED under `--realtime`.
+ *
+ * Applied to every synth the composer builds from here on, so a data stream
+ * with nothing yet sends an idle frame of fill rather than waiting
+ * (dp_wfm_data_frame, the one rule). The default, WFM_DATA_UNPACED, waits.
+ */
+void dp_wfm_compose_set_data_pacing(dp_wfm_compose_state_t *state,
+                                    wfm_data_pacing_t pacing);
 
 /**
  * @brief The composer's current seed-advance mode (a `wfm_seed_advance_t`).
@@ -924,6 +1226,80 @@ int dp_wfm_compose_seed_advance(const dp_wfm_compose_state_t *state);
  */
 size_t dp_wfm_compose_execute(
     dp_wfm_compose_state_t *state, float _Complex *out, size_t max);
+
+/**
+ * @brief Emit up to `max` samples, all at ONE sample rate, and say which.
+ *
+ * dp_wfm_compose_execute() for an output that states a rate per block: it
+ * stops early where the next segment's `fs` differs from the samples
+ * already written, so every block it returns has one rate. A scene whose
+ * segments share an `fs` never stops early, and its samples are the same,
+ * byte for byte, as dp_wfm_compose_execute()'s. A short return therefore
+ * does NOT mean the scene finished; 0 does.
+ *
+ * @code
+ * wfm_source_t  src     = { .type = WFM_SYNTH_TONE, .snr = 100.0 };
+ * wfm_segment_t segs[2] = {
+ *   { .sources = &src, .n_sources = 1, .fs = 6e6, .num_samples = 8 },
+ *   { .sources = &src, .n_sources = 1, .fs = 2e6, .num_samples = 8 },
+ * };
+ * dp_wfm_compose_state_t *c = dp_wfm_compose_create (segs, 2, 0, 0);
+ * float _Complex buf[64];
+ * double         fs = 0.0;
+ * size_t a = dp_wfm_compose_execute_rate (c, buf, 64, &fs); // 8 at 6e6
+ * int    ok = a == 8 && fs == 6e6;
+ * size_t b = dp_wfm_compose_execute_rate (c, buf, 64, &fs); // 8 at 2e6
+ * ok = ok && b == 8 && fs == 2e6;
+ * ok = ok && dp_wfm_compose_execute_rate (c, buf, 64, &fs) == 0;
+ * dp_wfm_compose_destroy (c);
+ * return ok ? 0 : 1;
+ * @endcode
+ *
+ * @param state the composer.
+ * @param out   destination, `max` samples.
+ * @param max   capacity of @p out.
+ * @param fs    receives the rate of the samples written (left untouched
+ *              when none are).
+ * @return samples written; 0 when the scene has finished.
+ */
+size_t dp_wfm_compose_execute_rate(dp_wfm_compose_state_t *state,
+                                   float _Complex *out, size_t max,
+                                   double *fs);
+
+/**
+ * @brief The ONE answer to "what is this stream's sample rate": the `fs`
+ *        every segment shares, or 0.0 when they differ.
+ *
+ * `fs` is per segment, and a scene whose segments differ is legal: no
+ * single rate is true of it. 0.0 is the library's "not stated" (a Writer
+ * opened at `fs=0.0`, a SigMF document without `core:sample_rate`), so an
+ * output asks this and either states the rate it returns or, given 0.0,
+ * says nothing -- or refuses, if its format cannot say nothing (a BLUE
+ * header has one `xdelta`). Every output asks here rather than reading
+ * `segs[0].fs`, which is a rate only when they agree (doppler#1733).
+ *
+ * @code
+ * wfm_segment_t s[2] = { { .fs = 6e6 }, { .fs = 6e6 } };
+ * int ok = dp_wfm_scene_fs (s, 2) == 6e6;
+ * s[1].fs = 2e6;
+ * ok = ok && dp_wfm_scene_fs (s, 2) == 0.0 && dp_wfm_scene_fs (s, 0) == 0.0;
+ * return ok ? 0 : 1;
+ * @endcode
+ *
+ * @param segs   the segments; may be NULL when @p n_segs is 0.
+ * @param n_segs their count.
+ * @return the shared fs, or 0.0 when the segments differ or there are none.
+ */
+static inline double dp_wfm_scene_fs(const wfm_segment_t *segs,
+                                     size_t n_segs)
+{
+    if (!segs || n_segs == 0)
+        return 0.0;
+    for (size_t i = 1; i < n_segs; i++)
+        if (segs[i].fs != segs[0].fs)
+            return 0.0;
+    return segs[0].fs;
+}
 
 /** @brief Destroy a composer and its active synth. @param state May be NULL. */
 void dp_wfm_compose_destroy(dp_wfm_compose_state_t *state);
@@ -1038,6 +1414,102 @@ wfm_frame_desc_t *dp_wfm_frame_from_json(const char *json, const char **why);
 void dp_wfm_frame_free(wfm_frame_desc_t *d);
 
 /**
+ * @brief Refuse text for a source's bit field: an object takes bits.
+ *
+ * A composer source's bit fields (`payload`, `sync`, `acq_code`,
+ * `data_code`) take BITS on the Python face -- a `uint8` array, bytes or a
+ * sequence of 0/1 -- and module helpers make them from other forms:
+ * `field_bits(text)` for the Field grammar, `cvt.hex_to_bin`,
+ * `cvt.bytes_to_bin`. A `str` is refused rather than read, so the object
+ * has one shape and the Field grammar one door. The text faces (the CLI, a
+ * scene) keep reading a Field through dp_wfm_field_parse().
+ *
+ * It has the shape of dp_wfm_field_bits() because the binding calls it
+ * where that would be called (just-makeit's `coerce_str_fn`), and it always
+ * refuses: it returns 0 and sets @p why to its one static reason.
+ *
+ * @param text     ignored.
+ * @param out      never written.
+ * @param max_out  ignored.
+ * @param why      receives the static reason; may be NULL.
+ * @return 0, always.
+ *
+ * @code
+ * const char *why;
+ * size_t      n = dp_wfm_source_bits_refuse_text ("0101", NULL, 0, &why);
+ * // n == 0; why names field_bits()
+ * @endcode
+ */
+size_t dp_wfm_source_bits_refuse_text(const char *text, uint8_t *out,
+                                      size_t max_out, const char **why);
+
+/**
+ * @brief Refuse text for a source's `frame=`: it takes a description.
+ *
+ * The frame face of dp_wfm_source_bits_refuse_text(). A source's `frame=`
+ * takes a `FrameDesc` or a `Frame` on the Python face, and a `str` is
+ * refused rather than read as JSON; a description written as JSON is a
+ * scene's `"frame"` key, read by dp_wfm_frame_from_json(). It has the shape
+ * of that reader because the binding calls it where the reader would be
+ * called (just-makeit's owned-pointer `parse_fn` with `parse_why`).
+ *
+ * @param text  ignored.
+ * @param why   receives the static reason; may be NULL.
+ * @return NULL, always.
+ *
+ * @code
+ * const char *why;
+ * wfm_frame_desc_t *d = dp_wfm_frame_refuse_text ("{\"fields\": []}", &why);
+ * // d == NULL; why names FrameDesc
+ * @endcode
+ */
+wfm_frame_desc_t *dp_wfm_frame_refuse_text(const char *text, const char **why);
+
+/**
+ * @brief Write a description as its JSON frame object, the text
+ *        dp_wfm_frame_from_json() reads back.
+ *
+ * The same writer a scene's `"frame"` key uses, so the two cannot spell a
+ * description differently: a literal field is its Field text, a derived
+ * field its `bits` and `derived_by`, a stage its kind and cover.
+ *
+ * @param d  the description; NULL gives NULL.
+ * @return a NUL-terminated string the caller releases with free().
+ *
+ * @code
+ * wfm_frame_desc_t *d
+ *     = dp_wfm_frame_from_json ("{\"fields\": [{\"spec\": \"1010\"}]}", NULL);
+ * char *text = dp_wfm_frame_to_json (d);
+ * // text: {"fields":[{"spec":"0xa"}],"stages":[]}
+ * free (text);
+ * dp_wfm_frame_free (d);
+ * @endcode
+ */
+char *dp_wfm_frame_to_json(const wfm_frame_desc_t *d);
+
+/**
+ * @brief Deep-copy a description: the struct and each literal field's bits.
+ *
+ * A source borrows its description; a holder that must outlive the
+ * caller's (the composer, a Python `Synth`) takes a copy instead, and
+ * releases it with dp_wfm_frame_free(). A later change to the original,
+ * or freeing it, does not reach the copy.
+ *
+ * @param d  the description to copy; NULL gives NULL.
+ * @return the owned copy.
+ *
+ * @code
+ * wfm_frame_desc_t *a
+ *     = dp_wfm_frame_from_json ("{\"fields\": [{\"spec\": \"1010\"}]}", NULL);
+ * wfm_frame_desc_t *b = dp_wfm_frame_copy (a);
+ * dp_wfm_frame_free (a);   // b is unaffected
+ * // b->field[0].seq.len == 4
+ * dp_wfm_frame_free (b);
+ * @endcode
+ */
+wfm_frame_desc_t *dp_wfm_frame_copy(const wfm_frame_desc_t *d);
+
+/**
  * @brief Build a composer from a JSON spec string (for --from-file).
  * @return Composer state, or NULL on parse error / bad type / no segments.
  */
@@ -1070,6 +1542,33 @@ dp_wfm_compose_state_t *dp_wfm_compose_from_json_why(const char *json,
  * @brief Build a composer from a JSON spec file.
  * @return Composer state, or NULL on read/parse error.
  */
+/**
+ * @brief dp_wfm_compose_from_json_why(), reading a scene that lives in @p base.
+ *
+ * A source's relative `"data_from_file"` is the scene's: it resolves against
+ * @p base, the directory the scene was read from, so a scene and its data
+ * move together and replay from anywhere. NULL (as from_json_why passes)
+ * leaves a relative path relative to the caller's working directory.
+ *
+ * @param json  the scene's text.
+ * @param base  the scene's directory, or NULL.
+ * @param why   optional; receives a static reason for a refusal.
+ * @return the composer, or NULL.
+ *
+ * @code
+ * const char *why = NULL;
+ * dp_wfm_compose_state_t *c = dp_wfm_compose_from_json_at (
+ *     "{\"segments\":[{\"type\":\"tone\",\"num_samples\":8}]}", ".",
+ *     &why);
+ * if (!c)
+ *   return 1;
+ * dp_wfm_compose_destroy (c);
+ * @endcode
+ */
+dp_wfm_compose_state_t *dp_wfm_compose_from_json_at(const char *json,
+                                                    const char *base,
+                                                    const char **why);
+
 dp_wfm_compose_state_t *dp_wfm_compose_from_file(const char *path);
 
 /**

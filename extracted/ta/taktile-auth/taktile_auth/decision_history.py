@@ -192,3 +192,44 @@ def assert_any_readable(token: TaktileIdToken, *, organization_id: str, workspac
     to nothing is refused without being told whether the id exists.
     """
     authorize_environments(token, organization_id=organization_id, workspace_id=workspace_id)
+
+
+def environment_delete_permission(organization_id: str, workspace_id: str, environment: str) -> str:
+    return f"d:decision_history/{organization_id},{workspace_id},{environment}"
+
+
+def flat_delete_permission(organization_id: str, workspace_id: str) -> str:
+    return f"d:workspace_decision_history/{organization_id},{workspace_id}"
+
+
+def assert_deletable(
+    token: TaktileIdToken,
+    *,
+    organization_id: str,
+    workspace_id: str,
+    environments: t.Union[str, t.Iterable[str], None] = None,
+) -> None:
+    # no environments means every environment, unlike assert_all_readable
+    requested = _as_tuple(environments) or ALL_ENVIRONMENTS
+    if any(environment not in ALL_ENVIRONMENTS for environment in requested):
+        raise InsufficientRightsException("insufficient-rights-exception")
+    permissions = [
+        environment_delete_permission(organization_id, workspace_id, environment) for environment in requested
+    ]
+    if token.has_access(permissions):
+        return
+    token.assert_access_with_fallback(
+        permissions, fallback_permission=flat_delete_permission(organization_id, workspace_id)
+    )
+
+
+def assert_any_deletable(token: TaktileIdToken, *, organization_id: str, workspace_id: str) -> None:
+    token.assert_any_access(
+        [
+            *(
+                environment_delete_permission(organization_id, workspace_id, environment)
+                for environment in ALL_ENVIRONMENTS
+            ),
+            flat_delete_permission(organization_id, workspace_id),
+        ]
+    )

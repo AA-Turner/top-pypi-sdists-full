@@ -116,7 +116,7 @@ def test_upsert_merge_semantics(registry_dir: str):
                 "name": "USP_GET_REVENUE",
             }
         ),
-        planning=Planning(wave=2, topologicalRank=1, generatedBy="auto-planner-v1"),
+        planning=Planning(wave=2, waveRank=10, topologicalRank=1, generatedBy="auto-planner-v1"),
         files=Files(
             artifacts=ArtifactsEntry(path="artifacts/Sales/Procedures/usp_GetRevenue"),
         ),
@@ -144,7 +144,7 @@ def test_upsert_merge_semantics(registry_dir: str):
                 "name": "USP_GET_REVENUE_V2",
             }
         ),
-        planning=Planning(wave=3, topologicalRank=1, generatedBy="auto-planner-v1"),
+        planning=Planning(wave=3, waveRank=20, topologicalRank=1, generatedBy="auto-planner-v1"),
         issues=[
             Issue(code="SC0010", count=2),
         ],
@@ -166,6 +166,7 @@ def test_upsert_merge_semantics(registry_dir: str):
 
     # Planning should be updated by the upsert.
     assert loaded.planning.wave == 3
+    assert loaded.planning.waveRank == 20
 
     # Issues should be newly added by the upsert.
     assert loaded.issues is not None

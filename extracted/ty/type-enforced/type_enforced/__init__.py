@@ -10,7 +10,7 @@
 Fast where it counts, thorough where it matters. Runtime validation for Python type annotations. Zero dependencies and uncompromising performance.
 
 <p align="center">
-  <img src="static/te_logo_circle.svg" alt="type_enforced logo" width="400">
+  <img src="https://raw.githubusercontent.com/connor-makowski/type_enforced/refs/heads/main/static/te_logo_circle.svg" alt="type_enforced logo" width="400">
 </p>
 
 ---
@@ -96,14 +96,14 @@ Timings represent the added differential validation time (enforced call time min
 
 | Type                   |       Size       | type_enforced (sample=1) | Beartype (sample=1) | Typeguard (sample=1) | type_enforced (100%) | Pydantic (100%)  |  msgspec (100%)  |  cattrs (100%)   | Typeguard (100%) |
 | :--------------------- | :--------------: | :----------------------: | :-----------------: | :------------------: | :------------------: | :--------------: | :--------------: | :--------------: | :--------------: |
-| `int`                  |        —         |         10.5 ns          |      190.8 ns       |      1879.2 ns       |       10.6 ns        |     490.6 ns     |     264.4 ns     |     116.1 ns     |    1903.7 ns     |
-| `Union[int, float]`    |        —         |         14.6 ns          |      214.5 ns       |      3903.9 ns       |       13.3 ns        |     536.8 ns     |     400.0 ns     |     426.0 ns     |    3905.0 ns     |
-| `str`                  |        —         |         10.5 ns          |      198.2 ns       |      1885.0 ns       |       10.6 ns        |     489.1 ns     |     263.5 ns     |     119.1 ns     |    1910.0 ns     |
-| `list[int]`            |   1 000 items    |         17.4 ns          |      335.2 ns       |      3221.6 ns       |       455.0 ns       |    11312.0 ns    |    5169.1 ns     |    48737.6 ns    |   1052411.9 ns   |
-| `dict[str, int]`       |    1 000 keys    |         39.7 ns          |      350.6 ns       |      4496.5 ns       |      3084.8 ns       |    40401.9 ns    |    26886.3 ns    |    68340.9 ns    |   2086004.8 ns   |
-| `list[list[int]]`      |  10 x 100 items  |         20.5 ns          |      376.4 ns       |      4438.1 ns       |       363.7 ns       |    11703.8 ns    |    5985.2 ns     |    48919.3 ns    |   1062224.5 ns   |
-| `dict[str, list[int]]` |  10 x 100 items  |         42.4 ns          |      453.5 ns       |      5793.9 ns       |       412.2 ns       |    12182.7 ns    |    6494.8 ns     |    49395.8 ns    |   1072765.8 ns   |
-| `list[dict[str, int]]` |  10 x 100 items  |         42.6 ns          |      444.6 ns       |      5728.2 ns       |      3494.7 ns       |    39740.2 ns    |    26101.5 ns    |    66918.9 ns    |   2145857.3 ns   |
+| `int`                  |        —         |         10.6 ns          |      194.4 ns       |      1843.0 ns       |       10.5 ns        |     446.0 ns     |     291.2 ns     |     114.6 ns     |    1846.8 ns     |
+| `Union[int, float]`    |        —         |         16.1 ns          |      211.3 ns       |      3874.8 ns       |       16.2 ns        |     503.0 ns     |     437.4 ns     |     425.9 ns     |    3899.4 ns     |
+| `str`                  |        —         |         10.9 ns          |      196.0 ns       |      1868.1 ns       |       10.5 ns        |     440.6 ns     |     287.7 ns     |     119.3 ns     |    1865.4 ns     |
+| `list[int]`            |   1 000 items    |         27.6 ns          |      334.8 ns       |      3167.6 ns       |       462.4 ns       |    10991.3 ns    |    5067.3 ns     |    47633.3 ns    |   1044342.6 ns   |
+| `dict[str, int]`       |    1 000 keys    |         27.6 ns          |      340.4 ns       |      4447.4 ns       |      3087.4 ns       |    39815.9 ns    |    26384.5 ns    |    67925.4 ns    |   2044397.2 ns   |
+| `list[list[int]]`      |  10 x 100 items  |         25.2 ns          |      371.7 ns       |      4425.3 ns       |       374.9 ns       |    11485.1 ns    |    5893.3 ns     |    48306.4 ns    |   1044535.2 ns   |
+| `dict[str, list[int]]` |  10 x 100 items  |         32.3 ns          |      448.3 ns       |      5731.4 ns       |       408.0 ns       |    11898.6 ns    |    6348.2 ns     |    48556.2 ns    |   1060810.2 ns   |
+| `list[dict[str, int]]` |  10 x 100 items  |         33.4 ns          |      441.7 ns       |      5696.3 ns       |      3230.0 ns       |    38542.1 ns    |    25667.0 ns    |    66924.7 ns    |   2071112.0 ns   |
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to ~15x faster than Beartype**.
 
@@ -128,39 +128,41 @@ uv add type_enforced
 ### Requirements & Build Options
 - **Python 3.11+**
 - **Zero Runtime Dependencies**: Self-contained package with zero external runtime dependencies.
-- **C++ Acceleration**: If available, `type_enforced` leverages high-performance C++ validators via `nanobind`.
-- **Pure Python Fallback**: If compiling from source on a system without a C++ compiler, `type_enforced` automatically falls back to a pure-Python engine.
-- **Force Pure Python Fallback**: To explicitly skip C++ compilation and force pure Python mode:
+- **Pre-Built Binary Wheels**: Pre-compiled wheels with C++ acceleration are published on PyPI for standard platforms (Linux, macOS, Windows).
+- **Source Build & Automatic Fallback**: If installing from source (`pip install .` or `pip install --no-binary type_enforced type_enforced`), `type_enforced` attempts to compile C++ extension modules via `nanobind`. If a C++ compiler is not present or compilation fails, it automatically falls back to pure-Python mode without failing the installation.
+- **Force Pure-Python Mode (Skip C++ Build)**: To explicitly skip C++ compilation and install in pure-Python mode:
+    <details>
+    <summary>Expand to show details on how to force pure-Python mode</summary>
 
-  **`uv` (in `pyproject.toml`)**:
-  ```toml
-  [tool.uv]
-  no-binary-package = ["type-enforced"]
-  config-settings-package = { type-enforced = { "cmake.define.SKIP_CPP_BUILD" = "ON" } }
-  ```
+    **Environment Variable (CLI or CI)**:
+    ```bash
+    TYPE_ENFORCED_NO_BUILD=1 pip install type_enforced --no-binary type_enforced
+    ```
 
-  **`pip` (in `pyproject.toml` when building from source)**:
-  ```toml
-  [tool.scikit-build.cmake.define]
-  SKIP_CPP_BUILD = "ON"
-  ```
+    **`pip` CLI (PEP 517 Config Setting)**:
+    ```bash
+    pip install type_enforced --no-binary type_enforced -Cwheel.cmake=false
+    ```
 
-  **`pip` (in `requirements.txt`)**:
-  ```text
-  type_enforced --config-settings=cmake.define.SKIP_CPP_BUILD=ON --no-binary type_enforced
-  ```
+    **`uv` (in `pyproject.toml`)**:
+    ```toml
+    [tool.uv]
+    no-binary-package = ["type-enforced"]
+    config-settings-package = { type-enforced = { "wheel.cmake" = "false" } }
+    ```
 
-  **`pip` (CLI)**:
-  ```bash
-  pip install type_enforced --no-binary type_enforced -Ccmake.define.SKIP_CPP_BUILD=ON
-  ```
-  *(Or set `SKBUILD_CMAKE_ARGS="-DSKIP_CPP_BUILD=ON"` and `PIP_NO_BINARY="type_enforced"` in your environment)*
-- **Verify C++ Acceleration Status**: Check whether C++ acceleration is active in the current environment:
-  ```python
-  import type_enforced
+    **`pip` (in `requirements.txt`)**:
+    ```text
+    type_enforced --no-binary type_enforced --config-settings=wheel.cmake=false
+    ```
 
-  print(type_enforced.has_cpp())  # True if C++ acceleration is active, False for pure Python
-  ```
+    - **Verify C++ Acceleration Status**: Check whether C++ acceleration is active in the current environment:
+    ```python
+    import type_enforced
+
+    print(type_enforced.has_cpp())  # True if C++ acceleration is active, False for pure Python
+    ```
+    </details>
 
 <details>
 <summary>Legacy Python Compatibility</summary>

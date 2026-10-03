@@ -3,8 +3,8 @@ import os
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
-import httpx
-from httpx import HTTPStatusError, RequestError
+import httpx2
+from httpx2 import HTTPStatusError, RequestError
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -12,13 +12,10 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from esi import (
-    __esi_compatibility_date__, __title__, __url__, __version__, app_settings,
-)
+from esi import __url__, __version__, app_settings
 from esi.aiopenapi3.client import SpecCachingClient
 from esi.exceptions import (
-    ESIBucketLimitException, ESIErrorLimitException, HTTPClientError,
-    HTTPNotModified, HTTPServerError,
+    ESIBucketLimitException, ESIErrorLimitException, HTTPClientError, HTTPNotModified, HTTPServerError,
 )
 from esi.openapi_clients import ESIClientProvider
 from esi.rate_limiting import ESIRateLimits
@@ -360,17 +357,16 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         )
         self.assertEqual(esi._compatibility_date, ESIClientProvider._date_to_string(testdate))
 
-
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_ua(self, send: MagicMock):
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
                 "server_version": "1234",
                 "start_time": "2029-09-19T11:02:08Z"
             },
-            request=httpx.Request("GET", "test"),
+            request=httpx2.Request("GET", "test"),
         )
 
         status = self.esi.client.Status.GetStatus().result()
@@ -455,7 +451,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             )
             esi.client
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_no_bucket(self, send: MagicMock):
         self.esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -466,16 +462,16 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             spec_file=SPEC_PATH
         )
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json=[1, 2, 3, 4],
-            request=httpx.Request("GET", "test"),
+            request=httpx2.Request("GET", "test"),
         )
 
         types = self.esi.client.Universe.GetUniverseTypes().result()
         self.assertEqual(len(types), 4)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_etag_hit_cached(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 
@@ -483,7 +479,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -494,7 +490,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "etag": etag,
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -505,7 +501,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         with self.assertRaises(HTTPNotModified):
             self.esi.client.Status.GetStatus().result()
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_pages_etag_partial_hit_cached(self, send: MagicMock):
         self.esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -522,7 +518,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json=[
                 {
@@ -541,14 +537,14 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "expires": expires,
                 "x-pages": "5"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
         )
 
         # get one page only to have a single etag filled in
-        hit_1 = self.esi.client.Assets.GetCharactersCharacterIdAssets(
+        self.esi.client.Assets.GetCharactersCharacterIdAssets(
             character_id=123,
             token="FakeToken",
             page=1
@@ -563,7 +559,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         print(vars(send))
 
         self.assertEqual(len(assets), 5)
-        self.assertEqual(send.call_count, 5) # only hit esi for 5 pages, use cache for rest.
+        self.assertEqual(send.call_count, 5)  # only hit esi for 5 pages, use cache for rest.
 
         with self.assertRaises(HTTPNotModified):
             # now we have all the data and throw this error
@@ -572,7 +568,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 token="FakeToken"
             ).results()
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_etag_not_hit_cached(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 
@@ -580,7 +576,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -591,7 +587,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "etag": etag,
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -602,7 +598,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         result = self.esi.client.Status.GetStatus().result(use_etag=False)
         self.assertEqual(result.players, 1234)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_etag_stored_no_cached_data(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 
@@ -610,7 +606,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -621,7 +617,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "etag": etag,
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -631,7 +627,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
         self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._etag_key(), None))
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_etag_not_stored_cache_stored(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 
@@ -639,7 +635,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -650,7 +646,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "etag": etag,
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -660,14 +656,14 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._etag_key(), None))
         self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_cache_not_stored(self, send: MagicMock):
 
         expires = (
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -677,7 +673,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             headers={
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -688,14 +684,14 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
         self.assertEqual(send.call_count, 2)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_cache_stored(self, send: MagicMock):
 
         expires = (
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -705,7 +701,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             headers={
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -716,14 +712,14 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
         self.assertEqual(send.call_count, 1)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_no_cache(self, send: MagicMock):
 
         expires = (
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -733,7 +729,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             headers={
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -743,7 +739,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.esi.client.Status.GetStatus().result(use_cache=False)
         self.assertEqual(send.call_count, 2)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_force_refresh(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 
@@ -751,7 +747,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             timezone.now() + timedelta(minutes=5)
         ).strftime('%a, %d %b %Y %H:%M:%S %Z')
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -762,7 +758,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "etag": etag,
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -774,7 +770,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertEqual(result.players, 1234)
         self.assertEqual(send.call_count, 2)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_404(self, send: MagicMock):
         self.esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -785,7 +781,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             spec_file=SPEC_PATH
         )
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             404,
             json={
                 "error": "error"
@@ -794,7 +790,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "X-RateLimit-Reset": "15",
                 "X-RateLimit-Remaining": "0"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/universe/types"
             ),
@@ -803,7 +799,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         with self.assertRaises(HTTPClientError):
             self.esi.client.Universe.GetUniverseTypes().result()
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_420(self, send: MagicMock):
         self.esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -814,7 +810,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             spec_file=SPEC_PATH
         )
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             420,
             json={
                 "error": "error"
@@ -823,7 +819,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "X-RateLimit-Reset": "15",
                 "X-RateLimit-Remaining": "0"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/universe/types"
             ),
@@ -834,7 +830,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
 
         self.assertGreater(cache.get("esi_error_limit_reset"), 10)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_420_past(self, send: MagicMock):
         self.esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -845,7 +841,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             spec_file=SPEC_PATH
         )
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             420,
             json={
                 "error": "error"
@@ -853,7 +849,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             headers={
                 "X-RateLimit-Remaining": "0"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/universe/types"
             ),
@@ -864,9 +860,9 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
 
         self.assertIsNone(cache.get("esi_error_limit_reset"))
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_rate_bucket(self, send: MagicMock):
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json={
                 "players": 1234,
@@ -879,7 +875,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "x-ratelimit-remaining": "598",
                 "x-ratelimit-limit": "600/15m",
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/status"
             ),
@@ -890,9 +886,9 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
             598
         )
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_server_error(self, send: MagicMock):
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             520,
             json={
                 "error": "error"
@@ -903,7 +899,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
                 "x-ratelimit-remaining": "595",
                 "x-ratelimit-limit": "600/15m",
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/status"
             ),
@@ -949,7 +945,7 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         with self.assertRaises(ESIErrorLimitException):
             op.result()
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_load_sync(self, send: MagicMock):
         esi = ESIClientProvider(
             ua_appname=self.app_name,
@@ -967,13 +963,13 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         with open(SPEC_PATH) as f:
             spec = json.load(f)
 
-        send.return_value = httpx.Response(
+        send.return_value = httpx2.Response(
             200,
             json=spec,
             headers={
                 "expires": expires
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "test",
             ),
@@ -1025,7 +1021,7 @@ class TestTokenisedEndpoints(TestCase):
             self.user
         )
 
-        self.resp_note = httpx.Response(
+        self.resp_note = httpx2.Response(
             200,
             json=[{
                 "is_read": None,
@@ -1052,13 +1048,13 @@ class TestTokenisedEndpoints(TestCase):
                 "x-ratelimit-remaining": "595",
                 "x-ratelimit-limit": "600/15m",
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/characters/{character_id}/notifications"
             ),
         )
 
-        self.resp_asset = httpx.Response(
+        self.resp_asset = httpx2.Response(
             200,
             json=[
                 {
@@ -1076,7 +1072,7 @@ class TestTokenisedEndpoints(TestCase):
                     "is_singleton": False,
                     "item_id": 12345,
                     "location_flag": "Hangar",
-                    "location_id": 60003760 ,
+                    "location_id": 60003760,
                     "location_type": "station",
                     "quantity": 999,
                     "type_id": 11567
@@ -1087,13 +1083,13 @@ class TestTokenisedEndpoints(TestCase):
                 "x-esi-error-limit-reset": "60",
                 "x-pages": "5"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "/characters/{character_id}/notifications"
             ),
         )
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_no_token_provided(self, send: MagicMock):
         send.return_value = self.resp_note
         with self.assertRaises(ValueError):
@@ -1103,7 +1099,7 @@ class TestTokenisedEndpoints(TestCase):
         # Didn't hit ESI
         self.assertEqual(send.call_count, 0)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_good_token_provided(self, send: MagicMock):
         send.return_value = self.resp_note
         results = self.esi.client.Character.GetCharactersCharacterIdNotifications(
@@ -1113,7 +1109,7 @@ class TestTokenisedEndpoints(TestCase):
         self.assertEqual(send.call_count, 1)
         self.assertEqual(len(results), 2)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_bad_token_provided(self, send: MagicMock):
         send.return_value = self.resp_note
         with self.assertRaises(ValueError):
@@ -1124,7 +1120,7 @@ class TestTokenisedEndpoints(TestCase):
         # Didn't hit ESI
         self.assertEqual(send.call_count, 0)
 
-    @patch.object(httpx.Client, "send")
+    @patch.object(httpx2.Client, "send")
     def test_token_pages(self, send: MagicMock):
         send.return_value = self.resp_asset
         results = self.esi.client.Assets.GetCharactersCharacterIdAssets(
@@ -1133,6 +1129,7 @@ class TestTokenisedEndpoints(TestCase):
         ).results()
         self.assertEqual(send.call_count, 5)
         self.assertEqual(len(results), 10)
+
 
 class SpecCacheTests(TestCase):
     def setUp(self):
@@ -1144,14 +1141,14 @@ class SpecCacheTests(TestCase):
         with open(SPEC_PATH) as f:
             spec = json.load(f)
 
-        self.resp = httpx.Response(
+        self.resp = httpx2.Response(
             200,
             json=spec,
             headers={
                 "x-esi-error-limit-remain": "100",
                 "x-esi-error-limit-reset": "60"
             },
-            request=httpx.Request(
+            request=httpx2.Request(
                 "GET",
                 "https://esi.evetech.net/meta/openapi.json"
             ),
@@ -1180,10 +1177,10 @@ class SpecCacheTests(TestCase):
 
     def test_spec_contains_expected_elements_with_invalid_json(self):
         client = self._make_spec_cache_client()
-        response = httpx.Response(
+        response = httpx2.Response(
             200,
             content=b"not-json",
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
 
         self.assertFalse(client._spec_contains_expected_elements(response))
@@ -1204,14 +1201,14 @@ class SpecCacheTests(TestCase):
         self.assertIsNotNone(cached_response)
         self.assertEqual(cached_response.json()["openapi"], self.resp.json()["openapi"])
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_non_spec_requests_bypass_spec_cache(self, get: MagicMock):
         client = self._make_spec_cache_client()
         other_url = "https://example.com/status"
-        get.return_value = httpx.Response(
+        get.return_value = httpx2.Response(
             200,
             json={"ok": True},
-            request=httpx.Request("GET", other_url),
+            request=httpx2.Request("GET", other_url),
         )
 
         response = client.get(other_url)
@@ -1220,7 +1217,7 @@ class SpecCacheTests(TestCase):
         self.assertTrue(response.json()["ok"])
         self.assertIsNone(cache.get(client._get_api_cache_key(other_url)))
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_load_spec(self, get: MagicMock):
         get.return_value = self.resp
 
@@ -1258,7 +1255,7 @@ class SpecCacheTests(TestCase):
         esi4.client
         self.assertEqual(get.call_count, 2)
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_purge_cache_load_spec(self, get: MagicMock):
         get.return_value = self.resp
 
@@ -1272,32 +1269,32 @@ class SpecCacheTests(TestCase):
         esi2.client
         self.assertEqual(get.call_count, 2)
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_should_raise_for_rate_limited_spec_response(self, get: MagicMock):
         client = self._make_spec_cache_client()
         cache_key = client._get_api_cache_key(self.spec_url)
-        get.return_value = httpx.Response(
+        get.return_value = httpx2.Response(
             420,
             json={"error": "error limited"},
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
 
-        with self.assertRaises(httpx.HTTPStatusError):
+        with self.assertRaises(httpx2.HTTPStatusError):
             client.get(self.spec_url)
-        with self.assertRaises(httpx.HTTPStatusError):
+        with self.assertRaises(httpx2.HTTPStatusError):
             client.get(self.spec_url)
 
         self.assertEqual(get.call_count, 2)
         self.assertIsNone(cache.get(cache_key))
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_should_raise_for_invalid_spec_payload(self, get: MagicMock):
         client = self._make_spec_cache_client()
         cache_key = client._get_api_cache_key(self.spec_url)
-        get.return_value = httpx.Response(
+        get.return_value = httpx2.Response(
             200,
             json={"status": "maintenance"},
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
 
         with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
@@ -1308,18 +1305,18 @@ class SpecCacheTests(TestCase):
         self.assertEqual(get.call_count, 2)
         self.assertIsNone(cache.get(cache_key))
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_should_raise_for_partial_spec_payload_without_components(self, get: MagicMock):
         client = self._make_spec_cache_client()
         cache_key = client._get_api_cache_key(self.spec_url)
-        get.return_value = httpx.Response(
+        get.return_value = httpx2.Response(
             200,
             json={
                 "openapi": "3.0.0",
                 "info": {"title": "ESI", "version": "latest"},
                 "paths": {},
             },
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
 
         with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
@@ -1330,12 +1327,12 @@ class SpecCacheTests(TestCase):
         self.assertEqual(get.call_count, 2)
         self.assertIsNone(cache.get(cache_key))
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_should_purge_invalid_cached_spec_response(self, get: MagicMock):
-        invalid_response = httpx.Response(
+        invalid_response = httpx2.Response(
             200,
             json={"status": "maintenance"},
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
         valid_response = self.resp
 
@@ -1352,16 +1349,16 @@ class SpecCacheTests(TestCase):
         self.assertIsNotNone(cached_response)
         self.assertEqual(cached_response.json()["openapi"], valid_response.json()["openapi"])
 
-    @patch.object(httpx.Client, "get")
+    @patch.object(httpx2.Client, "get")
     def test_should_purge_partial_invalid_cached_spec_response(self, get: MagicMock):
-        invalid_response = httpx.Response(
+        invalid_response = httpx2.Response(
             200,
             json={
                 "openapi": "3.0.0",
                 "info": {"title": "ESI", "version": "latest"},
                 "paths": {},
             },
-            request=httpx.Request("GET", self.spec_url),
+            request=httpx2.Request("GET", self.spec_url),
         )
         valid_response = self.resp
 

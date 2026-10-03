@@ -1,3 +1,4 @@
+import html as _stdlib_html
 import os
 from typing import ClassVar
 
@@ -9,6 +10,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Inches, Pt, RGBColor
 from great_tables import GT
+from great_tables import html as _gt_html
 from IPython.display import display
 
 from .symbols import translate_symbols
@@ -157,7 +159,7 @@ class MTable:
 
     # Shared defaults (override per subclass if needed)
     DEFAULT_LABELS: ClassVar[dict[str, str]] = {}
-    
+
     # Simple default DOCX styling. Users can tweak this globally or per instance.
     DEFAULT_DOCX_STYLE: ClassVar[dict[str, object]] = {
         "font_name": "Times New Roman",
@@ -636,7 +638,7 @@ class MTable:
 
         # Load existing content (if any)
         if os.path.exists(file_name):
-            with open(file_name, "r", encoding="utf-8") as f:
+            with open(file_name, encoding="utf-8") as f:
                 content = f.read()
         else:
             content = ""
@@ -658,7 +660,11 @@ class MTable:
                             label_end += 1
                         figure_block = content[figure_start:label_end]
                         if "#table" in figure_block:
-                            content = content[:figure_start] + new_figure + content[label_end:]
+                            content = (
+                                content[:figure_start]
+                                + new_figure
+                                + content[label_end:]
+                            )
                             replaced = True
 
         if not replaced:
@@ -710,9 +716,7 @@ class MTable:
                     "Default path for tex has to be set if file_name is None"
                 )
             file_name = os.path.join(self.default_paths.get("tex", ""), label)
-        elif self.default_paths.get("tex") is not None and not os.path.isabs(
-            file_name
-        ):
+        elif self.default_paths.get("tex") is not None and not os.path.isabs(file_name):
             file_name = os.path.join(self.default_paths.get("tex", ""), file_name)
 
         root, ext = os.path.splitext(file_name)
@@ -735,7 +739,7 @@ class MTable:
 
         # Load existing content (if any)
         if os.path.exists(file_name):
-            with open(file_name, "r", encoding="utf-8") as f:
+            with open(file_name, encoding="utf-8") as f:
                 content = f.read()
         else:
             content = ""
@@ -1134,15 +1138,25 @@ class MTable:
         _tw = _normalize_width(s.get("tab_width"))
         use_tabularx = _tw is not None
 
-        # Replace newlines and wrap cells with makecell if needed
+        # Convert embedded line breaks into a LaTeX line break, wrapping in
+        # \makecell{} when needed: a bare \\ does not behave as a line break
+        # directly inside a tabular cell position (data cell, header/spanner
+        # multicolumn, or row label) without it.
+        def _wrap_linebreaks(text: str, align: str | None = None) -> str:
+            text = text.replace("\n", r"\\")
+            if r"\\" in text:
+                # Omit the [align] spec for makecell's own default (center) so
+                # data-cell output (the common case) is byte-identical to
+                # before this function gained an align parameter.
+                spec = f"[{align}]" if align else ""
+                return f"\\makecell{spec}{{{text}}}"
+            return text
+
         def _prep_cell(x):
             if isinstance(x, float) and np.isnan(x):
                 return ""
             if isinstance(x, str):
-                x = x.replace("\n", r"\\")
-                if r"\\" in x:
-                    return f"\\makecell{{{x}}}"
-                return x
+                return _wrap_linebreaks(x)
             return str(x)
 
         # Element-wise conversion; prefer DataFrame.map (pandas >= 2.1), fallback to applymap
@@ -1225,7 +1239,9 @@ class MTable:
                 cmid_ranges = []
                 left = stub_cols + 1
                 for cell, span in zip(row_cells, row_spans, strict=False):
-                    parts.append(f"\\multicolumn{{{span}}}{{c}}{{{cell}}}")
+                    parts.append(
+                        f"\\multicolumn{{{span}}}{{c}}{{{_wrap_linebreaks(cell)}}}"
+                    )
                     cmid_ranges.append((left, left + span - 1))
                     left += span
                 # Add the spanner row
@@ -1240,11 +1256,15 @@ class MTable:
                     header_lines.append(cmids)
             # Last level: the actual column names
             last_labels = [dfs.columns[i][-1] for i in range(len(dfs.columns))]
-            last_parts = [""] * stub_cols + [str(x) for x in last_labels]
+            last_parts = [""] * stub_cols + [
+                _wrap_linebreaks(str(x)) for x in last_labels
+            ]
             header_lines.append(" & ".join(last_parts) + r" \\")
         else:
             # Single-level columns: one header row with the column names
-            last_parts = [""] * stub_cols + [str(c) for c in dfs.columns]
+            last_parts = [""] * stub_cols + [
+                _wrap_linebreaks(str(c)) for c in dfs.columns
+            ]
             header_lines.append(" & ".join(last_parts) + r" \\")
 
         # Build body rows
@@ -1257,7 +1277,18 @@ class MTable:
             ):
                 if self.rgroup_display:
                     fmt = str(s.get("group_header_format", r"\emph{%s}"))
-                    body_lines.append((fmt % str(gname)) + r" \\")
+                    # Apply the format to each line separately and only then
+                    # join with \\: nesting \\ *inside* a group_header_format
+                    # like \emph{...} (i.e. formatting the joined text as one
+                    # unit) breaks makecell's line-splitting.
+                    gname_lines = str(gname).split("\n")
+                    gtext = r"\\".join(fmt % line for line in gname_lines)
+                    if len(gname_lines) > 1:
+                        # [l]: left-align lines relative to each other (matching
+                        # the stub column's own left alignment), rather than
+                        # makecell's own default of centering them on each other.
+                        gtext = f"\\makecell[l]{{{gtext}}}"
+                    body_lines.append(gtext + r" \\")
                     # Only add space after group header if data_addlinespace is set
                     if s.get("data_addlinespace") is not None:
                         body_lines.append(rf"\addlinespace[{s['data_addlinespace']}]")
@@ -1271,7 +1302,7 @@ class MTable:
                     if s.get("data_addlinespace") is not None and ridx > start:
                         body_lines.append(rf"\addlinespace[{s['data_addlinespace']}]")
 
-                    row_label = str(dfs.index[ridx])
+                    row_label = _wrap_linebreaks(str(dfs.index[ridx]), align="l")
                     vals = [dfs.iloc[ridx, j] for j in range(data_cols)]
                     row_parts = [row_label] + [str(v) for v in vals]
                     body_lines.append(" & ".join(row_parts) + r" \\")
@@ -1300,7 +1331,7 @@ class MTable:
                 elif s.get("data_addlinespace") is not None and ridx > 0:
                     body_lines.append(rf"\addlinespace[{s['data_addlinespace']}]")
 
-                row_label = str(dfs.index[ridx])
+                row_label = _wrap_linebreaks(str(dfs.index[ridx]), align="l")
                 vals = [dfs.iloc[ridx, j] for j in range(data_cols)]
                 row_parts = [row_label] + [str(v) for v in vals]
                 body_lines.append(" & ".join(row_parts) + r" \\")
@@ -1342,8 +1373,10 @@ class MTable:
             latex_res = (
                 "\\begin{threeparttable}\n"
                 + latex_res
-                + "\n\\noindent\\begin{minipage}{\\linewidth}\\smallskip" + notes_intro + "\n"
-                + self.notes
+                + "\n\\noindent\\begin{minipage}{\\linewidth}\\smallskip"
+                + notes_intro
+                + "\n"
+                + self.notes.replace("\n", r"\\")
                 + "\\end{minipage}\n"
                 + "\n\\end{threeparttable}"
             )
@@ -1382,7 +1415,7 @@ class MTable:
     def _escape_typst(self, text: str, escape_asterisks: bool = True) -> str:
         """
         Escape special characters for Typst syntax.
-        
+
         Parameters
         ----------
         text : str
@@ -1390,18 +1423,18 @@ class MTable:
         escape_asterisks : bool, default True
             Whether to escape asterisks (*, **, etc.). Set to False for header cells
             that intentionally use *text* for bold formatting.
-        
+
         Returns
         -------
         str
             Escaped text safe for Typst
         """
         text = str(text)
-        
+
         # Temporarily preserve actual newlines by replacing them with a placeholder
         newline_placeholder = "\x00NEWLINE\x00"
         text = text.replace("\n", newline_placeholder)
-        
+
         # Escape backslashes (must be first!)
         text = text.replace("\\", "\\\\")
         # Escape bracket characters that interfere with Typst table syntax
@@ -1413,14 +1446,15 @@ class MTable:
             # Only escape asterisks that are NOT already preceded by backslash
             # (to preserve intentional escapes like \* from user input)
             import re
-            text = re.sub(r'(?<!\\)\*', r'\\*', text)
+
+            text = re.sub(r"(?<!\\)\*", r"\\*", text)
         text = text.replace("<", "\\<")
         text = text.replace(">", "\\>")
         text = text.replace("_", "\\_")
-        
+
         # Restore actual newlines
         text = text.replace(newline_placeholder, "\n")
-        
+
         return text
 
     def _output_typst(
@@ -1430,7 +1464,7 @@ class MTable:
     ):
         """
         Generate Typst table code.
-        
+
         Tables are created using Typst's native table syntax with configurable styling.
         """
         # Make a copy of the DataFrame to avoid modifying the original
@@ -1467,6 +1501,19 @@ class MTable:
         data_cols = dfs.shape[1]
         total_cols = stub_cols + data_cols
 
+        # Escape content and convert embedded line breaks into Typst's native
+        # line-break syntax (" \ "), used for any text position: data cells,
+        # row labels, headers/spanners, row-group names, caption, and notes.
+        def _join_typst_lines(content: str, escape_asterisks: bool = True) -> str:
+            if "\n" in content:
+                lines_content = content.split("\n")
+                escaped_lines = [
+                    self._escape_typst(line.strip(), escape_asterisks=escape_asterisks)
+                    for line in lines_content
+                ]
+                return " \\ ".join(escaped_lines)
+            return self._escape_typst(content, escape_asterisks=escape_asterisks)
+
         # Helper to collapse repeated labels into spans (same as TeX logic)
         def _make_spanner_row(level_labels):
             cells = []
@@ -1488,12 +1535,12 @@ class MTable:
         # Build the table command with booktabs-style formatting
         lines = []
         lines.append("#table(")
-        
+
         # Build column alignment: first column left-aligned, data columns per style (default center)
         data_align = s.get("data_align", "center")
         align_specs = ["left"] * stub_cols + [data_align] * data_cols
         align_str = ", ".join(align_specs)
-        
+
         # Set column widths - first column auto-sizes to content, others use 1fr for equal distribution
         if s.get("first_col_width"):
             first_width = str(s["first_col_width"])
@@ -1501,10 +1548,10 @@ class MTable:
         else:
             # Default: first column auto-sizes to widest content, others share remaining space equally
             width_specs = ["auto"] + ["1fr"] * (total_cols - 1)
-        
+
         width_str = ", ".join(width_specs)
         lines.append(f"  columns: ({width_str}), align: ({align_str}),")
-        
+
         # Add column-gutter for spacing between column groups
         if isinstance(dfs.columns, pd.MultiIndex):
             # Create gutter pattern: 0.5em where second-level index changes, 0em elsewhere
@@ -1523,9 +1570,9 @@ class MTable:
                 gutter_specs.extend(["0em"] * (data_cols - 1))
             gutter_str = ", ".join(gutter_specs)
             lines.append(f"  column-gutter: ({gutter_str}),")
-        
-        lines.append(f"  stroke: none, row-gutter: 0.2em,")
-        lines.append(f"  table.hline(stroke: 0.08em),")
+
+        lines.append("  stroke: none, row-gutter: 0.2em,")
+        lines.append("  table.hline(stroke: 0.08em),")
 
         # Header rows with spanners (MultiIndex columns)
         if isinstance(dfs.columns, pd.MultiIndex):
@@ -1536,7 +1583,7 @@ class MTable:
 
                 row_parts: list[str] = ["[]"] * stub_cols
                 for cell_label, span in zip(row_cells, row_spans, strict=False):
-                    lbl = self._escape_typst(cell_label, escape_asterisks=False)
+                    lbl = _join_typst_lines(cell_label, escape_asterisks=False)
                     row_parts.append(f"[#table.cell(colspan: {span})[{lbl}]]")
                 lines.append("  " + ", ".join(row_parts) + ",")
 
@@ -1545,7 +1592,9 @@ class MTable:
                 start_col = 1  # First column (including stub)
                 for span in row_spans:
                     end_col = start_col + span
-                    lines.append(f"  table.hline(stroke: 0.03em, start: {start_col}, end: {end_col}),")
+                    lines.append(
+                        f"  table.hline(stroke: 0.03em, start: {start_col}, end: {end_col}),"
+                    )
                     start_col = end_col  # Next spanner starts where this one ends
 
             # Last level: the actual column names
@@ -1556,50 +1605,40 @@ class MTable:
         # Bottom header row (always present)
         last_parts: list[str] = ["[]"] * stub_cols
         for label in last_labels:
-            lbl = self._escape_typst(label, escape_asterisks=False)
+            lbl = _join_typst_lines(label, escape_asterisks=False)
             last_parts.append(f"[{lbl}]")
         lines.append("  " + ", ".join(last_parts) + ",")
 
         # Midrule after headers
-        lines.append(f"  table.hline(stroke: 0.05em),")
+        lines.append("  table.hline(stroke: 0.05em),")
 
         # Data rows (with optional row groups)
         def _row_line(cells_list: list[str]) -> str:
             return "  " + ", ".join(cells_list) + ","
-        
+
         def _format_typst_cell(content: str) -> str:
             """Format cell content for Typst, handling multi-line content."""
-            # ETable produces actual newline characters (\n as single char 0x0A)
-            if "\n" in content:
-                # Multi-line content: split by newline, escape each line, then format
-                lines_content = content.split("\n")
-                escaped_lines = [self._escape_typst(line.strip(), escape_asterisks=True) for line in lines_content if line.strip()]
-                # Use Typst's backslash syntax for line breaks within a cell
-                # Join lines with " \ " (backslash is Typst's line break operator)
-                formatted_content = " \\ ".join(escaped_lines)
-                return f"[{formatted_content}]"
-            else:
-                # Single-line content: escape and keep on one line
-                escaped_content = self._escape_typst(content, escape_asterisks=True)
-                return f"[{escaped_content}]"
+            return f"[{_join_typst_lines(content, escape_asterisks=True)}]"
 
         if row_groups_present:
             start = 0
-            for gi, (gname, glen) in enumerate(zip(row_groups, row_groups_len, strict=False)):
+            for gi, (gname, glen) in enumerate(
+                zip(row_groups, row_groups_len, strict=False)
+            ):
                 # Add top separator for row group (if not first group or if 't' in rgroup_sep)
                 if gi > 0 and "t" in self.rgroup_sep:
-                    lines.append(f"  table.hline(stroke: 0.03em),")
-                
+                    lines.append("  table.hline(stroke: 0.03em),")
+
                 if self.rgroup_display:
                     fmt = str(s.get("group_header_format", "%s"))
                     gtext = fmt % str(gname)
-                    gtext = self._escape_typst(gtext, escape_asterisks=False)
+                    gtext = _join_typst_lines(gtext, escape_asterisks=False)
                     # Use single cell spanning all columns to avoid line breaks in long headers
                     lines.append(f"  [#table.cell(colspan: {total_cols})[{gtext}]],")
 
                 # Add bottom separator for row group (if 'b' in rgroup_sep)
                 if "b" in self.rgroup_sep:
-                    lines.append(f"  table.hline(stroke: 0.03em),")
+                    lines.append("  table.hline(stroke: 0.03em),")
 
                 end = start + glen
                 for ridx in range(start, end):
@@ -1609,7 +1648,7 @@ class MTable:
                         cell_val = str(dfs.iloc[ridx, j])
                         row_parts.append(_format_typst_cell(cell_val))
                     lines.append(_row_line(row_parts))
-                
+
                 start = end
         else:
             for ridx in range(dfs.shape[0]):
@@ -1621,10 +1660,12 @@ class MTable:
                 lines.append(_row_line(row_parts))
 
         # Add bottom rule, then optional notes row below the rule, then close table
-        lines.append(f"  table.hline(stroke: 0.08em),")
+        lines.append("  table.hline(stroke: 0.08em),")
         if self.notes is not None:
-            notes_escaped = self._escape_typst(self.notes, escape_asterisks=True)
-            lines.append(f"  [#table.cell(colspan: {total_cols})[#text(size: {notes_fontsize})[{notes_escaped}]]],")
+            notes_escaped = _join_typst_lines(self.notes, escape_asterisks=True)
+            lines.append(
+                f"  [#table.cell(colspan: {total_cols})[#text(size: {notes_fontsize})[{notes_escaped}]]],"
+            )
         lines.append(")")
 
         typst_table = "\n".join(lines)
@@ -1635,17 +1676,19 @@ class MTable:
             caption_line = ""
             if self.caption is not None:
                 # Escape special characters in caption (but preserve * for bold formatting)
-                caption_escaped = self._escape_typst(self.caption, escape_asterisks=False)
+                caption_escaped = self._escape_typst(
+                    self.caption, escape_asterisks=False
+                )
                 caption_line = f", caption: [{caption_escaped}]"
-            
+
             label_line = ""
             if self.tab_label is not None:
                 label_line = f"\n<{self.tab_label}>"
-            
+
             # Wrap table in figure() context with caption and label
             # Syntax: #figure([content]{caption_line}){label_line}
             typst_table = f"#figure([\n{typst_table}\n]{caption_line}){label_line}"
-        
+
         # Apply symbol translation
         typst_table = self._translate_symbols(typst_table, "typst")
 
@@ -1663,8 +1706,35 @@ class MTable:
         if gt_style:
             s.update(gt_style)
 
-        # In all cells replace line breaks with <br>
-        dfs = dfs.replace(r"\n", "<br>", regex=True)
+        # HTML-escape user text line by line, then join the lines with our own
+        # <br> tags - so line breaks render while any markup in the text itself
+        # still shows up as plain text.
+        def _escape_br(text):
+            return "<br>".join(_stdlib_html.escape(line) for line in text.split("\n"))
+
+        def _br(x):
+            return _escape_br(x) if isinstance(x, str) else x
+
+        # Body cells, row labels and row-group names. great_tables < 1.0 does
+        # not escape these at all; >= 1.0 escapes them by default, which is
+        # undone further below via fmt_passthrough(escape=False). Either way the
+        # pre-escaped text renders the same.
+        dfs = dfs.map(_br) if hasattr(dfs, "map") else dfs.applymap(_br)  # type: ignore[attr-defined,operator]
+        if isinstance(dfs.index, pd.MultiIndex):
+            dfs.index = pd.MultiIndex.from_tuples(
+                [tuple(_br(v) for v in tup) for tup in dfs.index], names=dfs.index.names
+            )
+        else:
+            dfs.index = dfs.index.map(_br)
+
+        # title/subtitle, cols_label, tab_spanner, and tab_source_note
+        # HTML-escape plain strings in every great_tables version, so wrap the
+        # pre-escaped text in great_tables.html() so GT trusts it and doesn't
+        # re-escape our deliberately-inserted <br> tags.
+        def _gt_linebreak(text):
+            if text is None:
+                return None
+            return _gt_html(_escape_br(str(text)))
 
         # GT does not support MultiIndex columns, so we need to flatten the columns
         if isinstance(dfs.columns, pd.MultiIndex):
@@ -1684,6 +1754,11 @@ class MTable:
             dfcols = [(t[:-1] + (col_numbers[i],)) for i, t in enumerate(dfcols)]
         else:
             nlevels = 1
+            # GT also HTML-escapes a DataFrame's own default column names (not
+            # just explicit cols_label() calls), so a single-level header with
+            # an embedded line break needs the same treatment; capture the
+            # original names now, before reset_index() adds the stub column(s).
+            single_level_col_names = list(dfs.columns)
 
         # store row index and then reset to have the index as columns to be displayed in the table
         rowindex = dfs.index
@@ -1725,6 +1800,17 @@ class MTable:
         # Generate the table with GT
         gt = GT(dfs, auto_align=False)
 
+        # great_tables >= 1.0 HTML-escapes body cells, row labels and row-group
+        # names by default; ours are already escaped above, so pass them through
+        # as-is. Restricted to string cells, since passthrough would render NaN
+        # as "nan" instead of GT's default. Older versions lack fmt_passthrough
+        # and don't escape these cells, so nothing is needed there.
+        if hasattr(gt, "fmt_passthrough"):
+            for col in dfs.columns:
+                rows = [i for i, v in enumerate(dfs[col]) if isinstance(v, str)]
+                if rows:
+                    gt = gt.fmt_passthrough(columns=col, rows=rows, escape=False)
+
         # When caption is provided, add it to the table
         if self.caption is not None:
             gt = gt.tab_header(title=self.caption).tab_options(
@@ -1744,13 +1830,17 @@ class MTable:
                 for label, columns in col_spanners.items():
                     if label != "":
                         gt = gt.tab_spanner(
-                            label=label, columns=columns, level=nlevels - 1 - i
+                            label=_gt_linebreak(label),
+                            columns=columns,
+                            level=nlevels - 1 - i,
                         )
                 # Restore column names
-                gt = gt.cols_label(**col_dict)
+                gt = gt.cols_label(**{k: _gt_linebreak(v) for k, v in col_dict.items()})
+        else:
+            gt = gt.cols_label(**{c: _gt_linebreak(c) for c in single_level_col_names})
 
         # Customize the table layout using GT style defaults
-        gt = gt.tab_source_note(self.notes).tab_stub(
+        gt = gt.tab_source_note(_gt_linebreak(self.notes)).tab_stub(
             rowname_col=rowname_col, groupname_col=groupname_col
         )
 
@@ -1892,4 +1982,3 @@ class MTable:
             The output object returned by make().
         """
         return self.make(type=type, **kwargs)
-

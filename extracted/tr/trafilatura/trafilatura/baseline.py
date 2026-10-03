@@ -14,7 +14,7 @@ from lxml.etree import Element, SubElement, _Element
 from lxml.html import HtmlElement, fragment_fromstring
 
 from .settings import BASIC_CLEAN_XPATH, DEDUPE_SCAN_CAP, MIN_DUPLICATE_LENGTH
-from .utils import as_list, load_html, remove_control_characters, trim
+from .utils import HtmlInput, as_list, load_html, remove_control_characters, trim
 from .xml import delete_element
 
 # detection (not removal, unlike HTML_STRIP_TAGS): must not fire on comparison-operator prose
@@ -44,7 +44,10 @@ _DESCRIPTION_TYPES = ("Product", "VideoObject")
 # property names, quoted ones match @type values. "step" is deliberately not a hook
 # (too generic a substring); a schema.org HowTo carrying it is caught via its @type
 _JSON_HOOKS = (
-    _JSON_TEXT_KEYS + ("recipeInstructions", "acceptedAnswer") + tuple(f'"{t}"' for t in _DESCRIPTION_TYPES + ("HowTo",))
+    *_JSON_TEXT_KEYS,
+    "recipeInstructions",
+    "acceptedAnswer",
+    *tuple(f'"{t}"' for t in (*_DESCRIPTION_TYPES, "HowTo")),
 )
 _JSON_HOOKS_RE = re.compile("|".join(re.escape(hook) for hook in _JSON_HOOKS))
 # a strategy must accumulate more than this much text to be accepted (and a single
@@ -114,9 +117,8 @@ def _render_text(raw: str) -> str:
     # and lxml rejects them in .text assignments
     raw = remove_control_characters(unescape(raw))
     if _HTML_MARKUP.search(raw):
-        # fragment parse: load_html targets full documents and rejects fragments
         try:
-            return trim(fragment_fromstring(raw, create_parent="div").text_content())
+            return block_text(fragment_fromstring(raw, create_parent="div"))
         except Exception:  # pragma: no cover
             pass
     return trim(raw)
@@ -162,7 +164,7 @@ def _collect_json_content(tree: HtmlElement) -> tuple[list[str], list[str]]:
     return bodies, teasers
 
 
-def baseline(filecontent: Any) -> tuple[_Element, str, int]:
+def baseline(filecontent: HtmlInput) -> tuple[_Element, str, int]:
     """Use baseline extraction function targeting content in embedded JSON or text elements.
 
     Tries a series of sources and takes the first that yields enough text:
@@ -198,7 +200,7 @@ def baseline(filecontent: Any) -> tuple[_Element, str, int]:
     article_texts = [
         text
         for elem in tree.xpath(".//article[not(ancestor::article)]")
-        if len(text := trim(elem.text_content())) > _MIN_CONTENT_LENGTH
+        if len(text := block_text(elem)) > _MIN_CONTENT_LENGTH
     ]
     if article_texts:
         # never None: the longest article passes both its own length gate and the cutoff
@@ -208,7 +210,13 @@ def baseline(filecontent: Any) -> tuple[_Element, str, int]:
 
     # scrape from text paragraphs, dropping repeats: a nested element (e.g. <p> in
     # <blockquote>) duplicates part of its container's text, collected first in document order
-    paragraphs = (trim(element.text_content()) for element in tree.iter("blockquote", "code", "p", "pre", "q", "quote"))
+    # skip any element whose ancestor is already in the scraped set (handles <p><code>, <blockquote><p>, etc. - #849, #884)
+    scraped_tags = {"blockquote", "code", "p", "pre", "q", "quote"}
+    paragraphs = (
+        block_text(element)
+        for element in tree.iter("blockquote", "code", "p", "pre", "q", "quote")
+        if not any(anc.tag in scraped_tags for anc in element.iterancestors())
+    )
     if result := _attempt(paragraphs, dedupe=True):
         return result
 
@@ -268,7 +276,7 @@ _BLOCK_ELEMS = {
 }
 
 
-def html2txt(content: Any, clean: bool = True) -> str:
+def html2txt(content: HtmlInput, clean: bool = True) -> str:
     """Run basic html2txt on a document.
 
     Args:
@@ -291,11 +299,18 @@ def html2txt(content: Any, clean: bool = True) -> str:
         if not isinstance(content, HtmlElement):
             return ""
         body = tree
-    if clean:
-        body = basic_cleaning(body)
-    # space block boundaries so adjacent runs don't stick (minified pages). remove_control_characters
-    # guards the .text write against chars lxml rejects (short-circuits on printable; str input pre-cleaned)
-    for elem in body.iter(*_BLOCK_ELEMS):
+    return _spaced_text(basic_cleaning(body) if clean else body)
+
+
+def block_text(element: HtmlElement) -> str:
+    """text_content() alternative that preserves word boundaries at block tags (#896)."""
+    return _spaced_text(copy(element))
+
+
+def _spaced_text(element: HtmlElement) -> str:
+    "Collect the text, spacing block boundaries in place so adjacent runs don't stick (minified pages)."
+    # remove_control_characters guards the .text write against chars lxml rejects
+    for elem in element.iter(*_BLOCK_ELEMS):
         elem.text = f" {remove_control_characters(elem.text)}" if elem.text else " "
         elem.tail = f" {remove_control_characters(elem.tail)}" if elem.tail else " "
-    return " ".join(body.text_content().split())
+    return " ".join(element.text_content().split())

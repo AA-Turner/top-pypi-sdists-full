@@ -1,13 +1,17 @@
+from __future__ import annotations
+
+__lazy_modules__ = ["httpx2._types"]  # py3,15
+
 import datetime as dt
 import logging
 from hashlib import md5
+from typing import TYPE_CHECKING
 
-from httpx import URL, Client, Response
-from httpx._client import USE_CLIENT_DEFAULT, UseClientDefault
-from httpx._types import (
-    AuthTypes, CookieTypes, HeaderTypes, QueryParamTypes, RequestExtensions,
-    TimeoutTypes,
-)
+from httpx2 import URL, Client, Response
+from httpx2._client import USE_CLIENT_DEFAULT, UseClientDefault
+
+if TYPE_CHECKING:  # py3.14
+    from httpx2._types import AuthTypes, CookieTypes, HeaderTypes, QueryParamTypes, RequestExtensions, TimeoutTypes
 
 from django.core.cache import cache
 from django.utils import timezone

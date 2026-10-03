@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable, Iterator
+from functools import partial
+from itertools import islice
 from typing import Annotated
+from uuid import UUID
 
 import typer
-from shared.http.observability import LogObjectType, LogQueryRequest, LogRecord
 
 from lazycloud._terminal.cards import empty_state
 from lazycloud._terminal.streams import console
-from lazycloud.cli.components.context import current_workspace
-from lazycloud.cli.components.output import json_output_enabled, print_payload, write_stream
-from lazycloud.cli.control import observability_client
-from lazycloud.session.deployment import DeploymentClient
+from lazycloud.cli.components.output import (
+    json_output_enabled,
+    print_json_line,
+    print_payload,
+    write_stream,
+)
+from lazycloud.cli.control import api_session
+from lazycloud.contracts.api import LogEntry
+from lazycloud.session.deployment import resolve_deployment
+from lazycloud.session.task import follow_log_stream
 
 
 def logs(
@@ -39,74 +49,57 @@ def logs(
     ] = 0,
     workspace: Annotated[str | None, typer.Option("--workspace")] = None,
 ) -> None:
-    selected_workspace = current_workspace(workspace)
-    deployment_id = (
-        DeploymentClient(workspace=selected_workspace).get(deployment).id if deployment else None
-    )
-    object_id, object_type = _selected_log_target(
-        deployment_id=deployment_id,
-        task_id=task_id,
-        container_id=container_id,
-    )
-    request = LogQueryRequest(
-        workspace_id=selected_workspace,
-        object_id=object_id,
-        object_type=object_type,
-        limit=lines,
-    )
-    client = observability_client(workspace=workspace)
-    if follow:
-        for item in client.stream_logs(request, max_events=max_events):
-            _print_log_item(ctx, item, show_timestamp=show_timestamp)
-        return
-    response = client.logs(request)
-    if json_output_enabled(ctx):
-        print_payload(ctx, response.model_dump(mode="json"))
-        return
-    records = [_log_record_line(item) for item in response.data]
-    if not records:
-        console.print(empty_state("No log entries found."))
-        return
-    for timestamp, message in records:
-        line = f"[{timestamp}] {message}" if show_timestamp else message
-        write_stream(line if line.endswith("\n") else f"{line}\n")
-
-
-def _selected_log_target(
-    *,
-    deployment_id: str | None,
-    task_id: str | None,
-    container_id: str | None,
-) -> tuple[str, LogObjectType]:
-    selected = [
-        (deployment_id, LogObjectType.Deployment),
-        (task_id, LogObjectType.Task),
-        (container_id, LogObjectType.Container),
-    ]
-    present = [(object_id, object_type) for object_id, object_type in selected if object_id]
-    if len(present) != 1:
+    if sum(item is not None for item in (deployment, task_id, container_id)) != 1:
         msg = "supply exactly one of --deployment, --task-id, or --container-id"
         raise typer.BadParameter(msg)
-    object_id, object_type = present[0]
-    return object_id, object_type
-
-
-def _print_log_item(
-    ctx: typer.Context,
-    item: LogRecord,
-    *,
-    show_timestamp: bool,
-) -> None:
-    if json_output_enabled(ctx):
-        print_payload(ctx, item.model_dump(mode="json"))
+    client, selected_workspace = api_session(workspace=workspace)
+    open_stream: Callable[..., Iterator[LogEntry]]
+    if deployment is not None:
+        found = resolve_deployment(client, selected_workspace, deployment).deployment
+        open_stream = partial(
+            client.stream_workload_logs, selected_workspace, found.app, found.kind, found.name
+        )
+    elif task_id is not None:
+        open_stream = partial(
+            client.stream_task_logs, selected_workspace, _uuid(task_id, "--task-id")
+        )
+    else:
+        assert container_id is not None
+        open_stream = partial(
+            client.stream_container_logs, selected_workspace, _uuid(container_id, "--container-id")
+        )
+    if follow:
+        # A reopened stream continues after the last entry rather than the tail.
+        entries = follow_log_stream(
+            lambda after: open_stream(after=after, tail=None if after else lines, follow=True)
+        )
+        for entry in islice(entries, max_events or None):
+            if json_output_enabled(ctx):
+                print_json_line(entry.model_dump(mode="json"), file=sys.stdout)
+            else:
+                _write_entry(entry, show_timestamp=show_timestamp)
         return
-    timestamp, message = _log_record_line(item)
-    line = f"[{timestamp}] {message}" if show_timestamp else message
+    stored = list(open_stream(tail=lines))
+    if json_output_enabled(ctx):
+        print_payload(ctx, [entry.model_dump(mode="json") for entry in stored])
+        return
+    if not stored:
+        console.print(empty_state("No log entries found."))
+        return
+    for entry in stored:
+        _write_entry(entry, show_timestamp=show_timestamp)
+
+
+def _write_entry(entry: LogEntry, *, show_timestamp: bool) -> None:
+    line = f"[{entry.time.isoformat()}] {entry.data}" if show_timestamp else entry.data
     write_stream(line if line.endswith("\n") else f"{line}\n")
 
 
-def _log_record_line(item: LogRecord) -> tuple[str, str]:
-    return item.timestamp.isoformat(), item.message
+def _uuid(value: str, option: str) -> UUID:
+    try:
+        return UUID(value)
+    except ValueError:
+        raise typer.BadParameter(f"{option} must be an id, not {value!r}") from None
 
 
 __all__ = ["logs"]

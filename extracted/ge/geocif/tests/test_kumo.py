@@ -156,3 +156,22 @@ def test_real_sdm_regression_smoke():
     assert q.shape == (20, 3) and np.all(q[:, 0] <= q[:, 1]) and np.all(q[:, 1] <= q[:, 2])
     truth = y.iloc[100:].to_numpy()
     assert 1 - ((truth - q[:, 1]) ** 2).sum() / ((truth - truth.mean()) ** 2).sum() > 0.8
+
+
+def test_generator_follows_the_model_device(monkeypatch):
+    """A CPU generator on a CUDA model failed every fit on the first GPU run."""
+    import torch
+
+    seen = []
+
+    class _Gen:
+        def __init__(self, device="cpu"):
+            seen.append(device)
+
+        def manual_seed(self, seed):
+            return self
+
+    monkeypatch.setattr(torch, "Generator", _Gen)
+    kumo._generator("cuda:0", 3)
+    kumo._generator("cpu", 3)
+    assert seen == ["cuda", "cpu"]

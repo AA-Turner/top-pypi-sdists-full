@@ -13,6 +13,7 @@ import pytest
 import meshioplusplus
 from meshioplusplus import _core
 from meshioplusplus._pipeline import _EXCLUDED_OPS, _OP_TABLE
+from meshioplusplus._regions import Region
 
 from . import helpers
 
@@ -93,6 +94,58 @@ def test_run_pipeline_chains_and_reports(settings_env):
     out = meshioplusplus.read(settings_env["out"])
     assert "temperature:gradient" in out.cell_data
     assert "quality:scaled_jacobian" in out.cell_data
+
+
+def test_interface_operations_in_single_mesh_pipeline(tmp_path):
+    mesh = meshioplusplus.Mesh(
+        np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]],
+            dtype=float,
+        ),
+        [
+            (
+                "tetra",
+                np.array([[0, 1, 2, 3], [0, 2, 1, 4]], dtype=np.int64),
+            )
+        ],
+        regions=[
+            Region("upper", "cell", [0], dim=3),
+            Region("lower", "cell", [1], dim=3),
+            Region("cut", "side", [[0, 3]]),
+        ],
+    )
+    input_path = tmp_path / "parts.vtu"
+    meshioplusplus.write(input_path, mesh, compression=None)
+
+    cases = [
+        ({"Op": "RegionAdjacency", "Regions": ["upper", "lower"]}, "NumFacets", 1),
+        (
+            {"Op": "FindInterface", "RegionA": "upper", "RegionB": "lower"},
+            "NumPairs",
+            1,
+        ),
+        (
+            {"Op": "SplitInterface", "Region": "cut", "AddCohesive": True},
+            "NumCohesiveCells",
+            1,
+        ),
+    ]
+    for index, (operation, count_name, expected) in enumerate(cases):
+        settings = {
+            "Version": 1,
+            "Input": {"Path": str(input_path)},
+            "Operations": [operation],
+            "Output": {"Path": str(tmp_path / f"out_{index}.vtu")},
+        }
+        report = meshioplusplus.run_pipeline(settings)
+        assert report["steps"][0][count_name] == expected
+        if hasattr(_core, "run_pipeline_json"):
+            settings["Output"]["Path"] = str(tmp_path / f"out_cpp_{index}.vtu")
+            cpp_report = _core.run_pipeline_json(json.dumps(settings))
+            assert cpp_report["steps"][0][count_name] == expected
+            py_mesh = meshioplusplus.read(str(tmp_path / f"out_{index}.vtu"))
+            cpp_mesh = meshioplusplus.read(settings["Output"]["Path"])
+            assert meshioplusplus.meshes_equal(py_mesh, cpp_mesh)
 
 
 def test_refine_record_hierarchy_step(settings_env):
@@ -554,7 +607,7 @@ def test_transform_requires_exactly_one_source(settings_env):
     "mutate, match",
     [
         (lambda s: s.update(Bogus=1), "unknown key 'Bogus'"),
-        (lambda s: s.update(Version=2), "Version"),
+        (lambda s: s.update(Version=99), "Version"),
         (lambda s: s.pop("Input"), "Input is required"),
         (lambda s: s["Output"].pop("Path"), "Output.Path is required"),
         (

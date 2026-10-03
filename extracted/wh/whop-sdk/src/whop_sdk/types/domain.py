@@ -7,34 +7,36 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .domain_dns_record import DomainDnsRecord
 from .domain_dns_status import DomainDnsStatus
 from .domain_issue import DomainIssue
+from .domain_public_record import DomainPublicRecord
+from .domain_registration_quote import DomainRegistrationQuote
 from .domain_status import DomainStatus
 
 
 class Domain(UniversalBaseModel):
-    account_id: str = pydantic.Field()
+    account_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ID of the account claiming or owning this domain, prefixed `biz_`.
+    ID of the account claiming or owning this domain, prefixed `biz_`. `null` for a search result.
     """
 
-    app_id: str = pydantic.Field()
+    app_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ID of the app assigned to this domain, prefixed `app_`.
+    ID of the app assigned to this domain, prefixed `app_`. `null` for a search result.
     """
 
     certificate_status: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Cloudflare's latest certificate issuance status.
+    The latest issuance status of the domain's TLS certificate.
     """
 
-    created_at: str = pydantic.Field()
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the domain claim was created, as an ISO 8601 timestamp.
+    When the domain claim was created, as an ISO 8601 timestamp. `null` for a search result.
     """
 
     dns_records: typing.List[DomainDnsRecord]
-    dns_status: DomainDnsStatus = pydantic.Field()
+    dns_status: typing.Optional[DomainDnsStatus] = pydantic.Field(default=None)
     """
-    Result of the most recent DNS routing check. Ownership is verified separately.
+    Result of the most recent DNS routing check. Ownership is verified separately. `null` for a search result.
     """
 
     domain: str = pydantic.Field()
@@ -44,12 +46,12 @@ class Domain(UniversalBaseModel):
 
     hostname_status: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Cloudflare's latest hostname activation status.
+    The latest activation status of the hostname on Whop's network.
     """
 
-    id: str = pydantic.Field()
+    id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Domain ID, prefixed `dom_`.
+    Domain ID, prefixed `dom_`. `null` for a search result.
     """
 
     issues: typing.List[DomainIssue]
@@ -60,17 +62,27 @@ class Domain(UniversalBaseModel):
 
     metadata: typing.Dict[str, str] = pydantic.Field()
     """
-    Custom string keys and values attached to this domain.
+    Custom string keys and values attached to this domain. Empty for a search result.
     """
 
-    status: DomainStatus = pydantic.Field()
+    public_record: typing.Optional[DomainPublicRecord] = pydantic.Field(default=None)
     """
-    Domain lifecycle. Only active domains resolve to their app.
+    The domain's public registration record (RDAP), read when you retrieve it by hostname. `null` for your own domains, available domains, or a record that couldn't be read.
     """
 
-    updated_at: str = pydantic.Field()
+    registration_quote: typing.Optional[DomainRegistrationQuote] = pydantic.Field(default=None)
     """
-    When the domain was last updated, as an ISO 8601 timestamp.
+    Whether you can register the domain and what it costs. Set for search results and hostname lookups; `null` for your own domains.
+    """
+
+    status: typing.Optional[DomainStatus] = pydantic.Field(default=None)
+    """
+    Domain lifecycle. Only active domains resolve to their app. `null` for a search result.
+    """
+
+    updated_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the domain was last updated, as an ISO 8601 timestamp. `null` for a search result.
     """
 
     verification_expires_at: typing.Optional[str] = pydantic.Field(default=None)

@@ -613,7 +613,9 @@ def _validate_against_declared_schema(tool_def: ToolDefinition, args: dict[str, 
     except Exception:
         return None
     try:
-        schema = dict(tool_def._build_json_schema())
+        # The CONTRACT shape: an envelope row's call has already been unwrapped to
+        # the flat per-action form, which is what the full contract describes.
+        schema = dict(tool_def._build_json_schema(contract=True))
         # Extra top-level keys are the CLIENT's call (zod objects strip unknown
         # keys; the alias recovery upstream already canonicalised the known
         # ones). This check exists to catch constraint violations the client
@@ -1083,7 +1085,19 @@ class ToolExecutor:
         # the canonical shape. This is generic (not a `user`-tool special
         # case): it fires only when the published type.enum accepts the value
         # and the schema does not own an `action` field. Loud on every fire.
-        from matrx_ai.tools._dispatch_util import recover_action_type_alias
+        from matrx_ai.tools._dispatch_util import (
+            recover_action_type_alias,
+            unwrap_args_envelope,
+        )
+
+        # A lean dispatcher row (``$envelope``) shows the model only ``action`` +
+        # one arguments object; lift that object back into the flat call here, so
+        # the durable row, every guard and the declared-model validation below see
+        # exactly the shape a flat caller sends. A call that is already flat is
+        # unchanged. An envelope that cannot be lifted honestly is left in place
+        # and refused below with ``_envelope_problem`` — never silently chosen.
+        _envelope = tool_def.args_envelope
+        arguments, _envelope_problem = unwrap_args_envelope(arguments or {}, _envelope)
 
         _alias_recovered = recover_action_type_alias(arguments, tool_def.parameters)
         if _alias_recovered is not None:
@@ -1452,6 +1466,20 @@ class ToolExecutor:
                                 _msg = _retry_infer.error[:800]
                             else:
                                 _msg = format_args_error(_ve)[:800]
+                        if _envelope is not None:
+                            # The model was shown no per-action field names, so the
+                            # refusal carries them — a plain sentence, never a bare
+                            # pydantic location.
+                            from matrx_ai.tools._dispatch_util import (
+                                expected_fields_sentence,
+                            )
+
+                            _expected = expected_fields_sentence(
+                                arguments or {}, _declared.args_model, envelope=_envelope
+                            )
+                            _msg = " ".join(
+                                part for part in (_envelope_problem, _msg, _expected) if part
+                            )[:1200]
                         return await self._reject_invalid_arguments(
                             ctx=ctx,
                             tool_name=tool_name,
@@ -2728,7 +2756,7 @@ class ToolExecutor:
         🚨 AN AGENT-TIER WRITE NAMES ITSELF. A tool call IS an AI acting: the
         model chose the tool and the arguments. Nothing on this lane sets
         ``app.user_id`` (a durable/background run has no request identity at all),
-        so an undeclared write resolves to tier ``code`` with a NULL
+        so an undeclared write resolves to tier ``system`` with a NULL
         ``app.actor_system`` and ``wf_051``'s CHECK refuses it outright — live
         2026-09-12 23:24, the Masterwork Conductor's ``workflow_plan build_agent``
         could not change how a desk's Writer thinks, and the whole
@@ -2742,11 +2770,11 @@ class ToolExecutor:
         (``acting_as_user`` / ``rls_session`` refuse to nest) can only declare.
         A tool that knows a better system name nests its own declaration and
         wins (the ContextVar is innermost-first). Canonical account:
-        ``common-docs/systems/platform/provenance/FEATURE.md``.
+        ``common-docs/systems/architecture/provenance/FEATURE.md``.
         """
         from matrx_orm import declared_actor
 
-        async with declared_actor("ai", f"tool:{tool_def.name}"):
+        async with declared_actor("agent", f"tool:{tool_def.name}"):
             return await self._dispatch_declared(
                 tool_def,
                 args,

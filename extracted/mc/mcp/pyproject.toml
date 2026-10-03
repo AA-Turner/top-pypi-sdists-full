@@ -77,6 +77,7 @@ dev = [
     "strict-no-cover",
     "logfire>=3.0.0",
     "opentelemetry-sdk>=1.39.1",
+    "blockbuster>=1.5.27",
 ]
 docs = [
     # Zensical is the Material team's successor to MkDocs; it natively
@@ -130,7 +131,7 @@ dependencies = [
     # stderr (agronholm/anyio#816, fixed in 4.10).
     "anyio>=4.10; python_version >= '3.14'",
     "anyio>=4.9; python_version < '3.14'",
-    "httpx2>=2.5.0",
+    "httpx2>=2.10.0",
     "mcp-types=={{ version }}",
     "pydantic>=2.12.0",
     "starlette>=0.48.0; python_version >= '3.14'",
@@ -332,4 +333,5 @@ source = [
 
 [tool.inline-snapshot]
 default-flags = ["disable"]
+default-flags-tui = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"

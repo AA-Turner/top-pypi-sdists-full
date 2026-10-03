@@ -167,63 +167,6 @@ report_clip (double peak, double frac, int stype, double headroom,
   return clip_error ? 1 : 0;
 }
 
-/* Read a file's BYTES into a malloc'd 0/1 bit array, MSB first per byte;
- * *n gets the bit count (8 per byte). Returns NULL if the file cannot be
- * read, or if it is empty -- a payload of no bits is a usage error, not a
- * zero-length frame.
- *
- * Bytes, not text, and deliberately not both. `--bits` already takes a
- * Field -- 0/1, hex, or generated -- so a real binary file is the case with
- * no other route -- and it is the one the CCSDS example needs, which asks
- * for "a 223*I-octet Transfer Frame on disk". Sniffing the content to
- * accept either was considered and refused: a binary file whose bytes
- * happen to be all 0x30/0x31 would decode as the wrong thing, and an
- * ambiguous rule is the kind that surprises someone a year later.
- */
-static uint8_t *
-bits_from_file (const char *path, size_t *n)
-{
-  FILE *f = fopen (path, "rb");
-  if (!f)
-    return NULL;
-  if (fseek (f, 0, SEEK_END) != 0)
-    {
-      (void)fclose (f);
-      return NULL;
-    }
-  const long len = ftell (f);
-  if (len <= 0 || fseek (f, 0, SEEK_SET) != 0)
-    {
-      (void)fclose (f);
-      return NULL;
-    }
-  uint8_t *raw = malloc ((size_t)len);
-  if (!raw)
-    {
-      (void)fclose (f);
-      return NULL;
-    }
-  const size_t rd = fread (raw, 1, (size_t)len, f);
-  (void)fclose (f);
-  uint8_t *bits = malloc (rd * 8u ? rd * 8u : 1u);
-  if (!bits)
-    {
-      free (raw);
-      return NULL;
-    }
-  /* cvt's conversion, not a copy of it: a file's bits must unpack exactly
-     as the same octets do through doppler.cvt.bytes_to_bin. */
-  const size_t nb = dp_bytes_to_bin (raw, rd, bits, rd * 8u, DP_BITORDER_BIG);
-  free (raw);
-  if (nb == 0)
-    {
-      free (bits);
-      return NULL;
-    }
-  *n = nb;
-  return bits;
-}
-
 /* Read a whole file into a malloc'd NUL-terminated string (caller frees). */
 static char *
 slurp_file (const char *path)
@@ -338,47 +281,38 @@ static const char USAGE[]
       " density)\n"
       "\n"
       "PULSE SHAPING\n" WFM_SURFACE_HELP_PULSE "\n"
-      "BITS INPUT  (--type bits)\n"
-      "  --bits-file F   Binary file; bits consumed MSB-first per "
-      "byte\n" WFM_SURFACE_HELP_BITS "\n"
+      "DATA  (--type bits | bpsk | qpsk | pn | dsss)\n" WFM_SURFACE_HELP_BITS
+      "\n"
       "SYMBOLS INPUT  (--type symbols)\n" WFM_SURFACE_HELP_SYMBOLS
       "                  F is a raw cf32 file (interleaved float32 I,Q),\n"
       "                  one constellation point per sample.\n"
       "\n"
-      "FRAMING  (--type bits, and --type dsss below)\n"
-      "  --acq-code/--sync describe a FRAME:\n"
-      "      [preamble x REPS | sync | payload | CRC-16]\n"
-      "  and setting either one is what frames the waveform (--crc alone\n"
-      "  does not -- it defaults to crc16). For --type bits the payload is\n"
-      "  --bits or --bits-file and --modulation maps it to BPSK or QPSK;\n"
-      "  the frame then CYCLES to fill --count, so one description gives a\n"
-      "  multi-frame record. A frame needs a payload: for --type "
-      "bpsk/qpsk/pn\n"
-      "  give it as a generated Field over the waveform's own register,\n"
-      "  e.g. --bits pn:1024:15. Types with no bit stream (tone, noise,\n"
-      "  chirp, symbols) cannot be framed.\n"
+      "FRAMING  (--type bits | bpsk | qpsk | pn, and --type dsss below)\n"
+      "  A payload is a DATA SOURCE, sent as a sequence of frames:\n"
+      "      [preamble x REPS | sync | data:LEN | CRC-16]\n"
+      "  each carrying the next --data-len bits of --data or\n"
+      "  --data-from-file until the source ends, which ends the run.\n"
+      "  For --type bits --modulation maps the frames to BPSK or QPSK; the\n"
+      "  PN-sourced types map them as their names say. Types with no bit\n"
+      "  stream (tone, noise, chirp, symbols) cannot be framed.\n"
       "\n"
-      "CODED OR CUSTOM FRAMES  (--type bits | bpsk | qpsk | pn | dsss)\n"
-      "  --frame FILE    A frame DESCRIPTION: fields in wire order, and\n"
-      "                  stages that each name the span they cover --\n"
-      "                  crc16, rs, randomise, interleave, conv, or a kind\n"
-      "                  of your own. The only way to add a coding stage;\n"
-      "                  a CCSDS CADU is one such file. It is the whole\n"
-      "                  frame, payload included, so --sync, --crc, --bits\n"
-      "                  and an unspread --acq-code are refused beside it.\n"
-      "                  The form is a scene's \"frame\" key, and --record\n"
-      "                  stores it there. On --type dsss it is the SPREAD\n"
-      "                  frame: --acq-code stays the unspread preamble.\n"
+      "CODED OR CUSTOM FRAMES  (--type bits | bpsk | qpsk | pn | "
+      "dsss)\n" WFM_SURFACE_HELP_CODED
+      "  The only way to add a coding stage; a CCSDS CADU is one such file.\n"
+      "  It is the whole frame, so --sync, --crc and an unspread --acq-code\n"
+      "  are refused beside it too. FILE holds a scene's \"frame\" object,\n"
+      "  and --record stores it there. On --type dsss it is the SPREAD\n"
+      "  frame: --acq-code stays the unspread preamble.\n"
       "\n"
       "DSSS BURST  (--type dsss)\n"
-      "  One burst = an unmodulated repeated preamble (code A) followed by\n"
-      "  the frame [sync | payload | CRC-16], every frame bit spread by a\n"
-      "  second code B. The payload bits come from --bits or --bits-file;\n"
-      "  --sps is samples per CHIP; --count is derived (one\n"
-      "  burst = n_chips * sps samples) and ignored; --snr-mode esno is the\n"
+      "  One burst per frame of the data source: an unmodulated repeated\n"
+      "  preamble (code A), then the frame [sync | data:LEN | CRC-16],\n"
+      "  every frame bit spread by a second code B. --sps is samples per\n"
+      "  CHIP; the run is derived (n_chips * sps samples a burst, one burst\n"
+      "  with no data source) and --count ignored; --snr-mode esno is the\n"
       "  Es/N0 of the outer DATA symbol (code-B chips x sps "
       "samples).\n" WFM_SURFACE_HELP_DSSS_BURST "\n"
-      "FIELDS  (--acq-code / --sync / --data-code / --bits)\n"
+      "FIELDS  (--acq-code / --sync / --data-code / --data / --fill)\n"
       "  Each takes ONE Field -- literal bits or a generated sequence:\n"
       "    10110010                         literal bits (0 and 1 only)\n"
       "    0x1ACFFC1D                       literal hex, 4 bits a digit\n"
@@ -396,13 +330,12 @@ static const char USAGE[]
       "  chips/symbol -- the asynchronicity). No preamble/sync/CRC frame;\n"
       "  --count is honoured verbatim; --snr-mode esno is the Es/N0 of the\n"
       "  data symbol (fs/symbol_rate samples). Data source: default PRBS\n"
-      "  (seeded PN a receiver regenerates), --data none for code-only\n"
-      "  (the pure code), or --bits / --bits-file for a payload. Rejects\n"
-      "  the burst-frame flags (--acq-code/--sync/--crc/--frame) and --data\n"
-      "  with a payload. --data-code (above) is "
-      "required.\n" WFM_SURFACE_HELP_DSSS_CONT
-      "  --data D             none | prbs data source (default prbs)\n"
-      "\n"
+      "  (seeded PN a receiver regenerates), --code-only for the pure\n"
+      "  code, or --data / --data-from-file, one bit per data symbol (no\n"
+      "  frame, so --data-len and --fill are refused). Rejects the\n"
+      "  burst-frame flags (--acq-code/--sync/--crc/--frame) and --code-only\n"
+      "  with a data source. --data-code (above) is "
+      "required.\n" WFM_SURFACE_HELP_DSSS_CONT "\n"
       "CLOCK DOPPLER\n"
       "  Rescales the whole received time base, so the symbol and chip rates\n"
       "  move with the carrier -- what a real pass does, and what --freq\n"
@@ -483,14 +416,16 @@ static const char USAGE[]
 static void
 source_free (wfm_source_t *s)
 {
-  free ((void *)s->payload.bits);
   free (s->symbols);
   free ((void *)s->acq_code.bits);
   free ((void *)s->data_code.bits);
   free ((void *)s->sync.bits);
+  free ((void *)s->data.bits);
+  free ((void *)s->fill.bits);
+  s->data.bits = NULL;
+  s->fill.bits = NULL;
   /* Nulled individually, not chained: `symbols` is float _Complex * while the
      rest are uint8_t *, so a chain would be an incompatible assignment. */
-  s->payload.bits   = NULL;
   s->symbols        = NULL;
   s->acq_code.bits  = NULL;
   s->data_code.bits = NULL;
@@ -539,7 +474,6 @@ typedef struct
   double        headroom; /* dB of peak backoff; gain = 10^(-H/20) */
   double        fc;       /* centre frequency, SigMF metadata only */
   const char   *from_file;
-  const char   *frame_path; /* --frame FILE: a coded or custom frame */
   const char   *out_path;
   const char   *record_path;
   int           repeat, continuous, detached;
@@ -548,34 +482,38 @@ typedef struct
   int           clip_report, clip_error;
   int           headroom_set; /* explicit --headroom overrides a record */
   int           sample_type, file_type, endian;
-  int           data_flag_set; /* --data given (continuous dsss only) */
   /* Which surface rows were given, indexed WFM_SURFACE_<owner>_<name>.
      Presence matters where a value's default is not "absent": --crc
      defaults to crc16, so giving it is what frames a waveform, and a given
      --symbol-rate is refused at <= 0 where the default 0 means burst. */
   int surf_seen[WFM_SURFACE_N];
+  /* A BESPOKE row's raw value (--frame FILE), read by this face's own code
+     rather than the generic parse switch. */
+  const char *surf_text[WFM_SURFACE_N];
 } wfmgen_opts_t;
+
+/* --frame FILE: the source's frame row, a bespoke one. */
+#define FRAME_PATH(o) ((o)->surf_text[WFM_SURFACE_source_frame])
 
 /* How a flag's value is read. The enum type is used for `opt_t.kind` (rather
    than a plain int) so -Wswitch reports a kind added here with no arm in
    parse_args, instead of it silently falling through as a no-op. */
 enum opt_kind
 {
-  OPT_SET,       /* takes no value; the destination int becomes 1        */
-  OPT_STR,       /* the raw token, stored verbatim (NULL is tolerated)   */
-  OPT_CHOICE,    /* one name from `tbl`; the destination int gets its index */
-  OPT_DOUBLE,    /* strtod                                               */
-  OPT_INT,       /* strtol                                               */
-  OPT_SIZE,      /* strtoull -> size_t                                   */
-  OPT_U32,       /* strtoul  -> uint32_t                                 */
-  OPT_U64,       /* strtoull -> uint64_t                                 */
-  OPT_RANGE_D,   /* LO[:HI] -> double at off, hi at aux, bit in src.ranged */
-  OPT_RANGE_N,   /* LO[:HI] -> size_t at off, hi at aux, bit in seg.ranged */
-  OPT_BITS_FILE, /* a file whose BYTES are the bits, MSB first          */
-  OPT_SYMBOLS,   /* a raw cf32 file -> float _Complex * at off           */
-  OPT_FIELD,     /* a Field (wfm_frame.h) -> the wfm_seq_t at off; its
-                    *REPS to the size_t at aux, or refused when the row
-                    has no repetition count                             */
+  OPT_SET,     /* takes no value; the destination int becomes 1        */
+  OPT_STR,     /* the raw token, stored verbatim (NULL is tolerated)   */
+  OPT_CHOICE,  /* one name from `tbl`; the destination int gets its index */
+  OPT_DOUBLE,  /* strtod                                               */
+  OPT_INT,     /* strtol                                               */
+  OPT_SIZE,    /* strtoull -> size_t                                   */
+  OPT_U32,     /* strtoul  -> uint32_t                                 */
+  OPT_U64,     /* strtoull -> uint64_t                                 */
+  OPT_RANGE_D, /* LO[:HI] -> double at off, hi at aux, bit in src.ranged */
+  OPT_RANGE_N, /* LO[:HI] -> size_t at off, hi at aux, bit in seg.ranged */
+  OPT_SYMBOLS, /* a raw cf32 file -> float _Complex * at off           */
+  OPT_FIELD,   /* a Field (wfm_frame.h) -> the wfm_seq_t at off; its
+                  *REPS to the size_t at aux, or refused when the row
+                  has no repetition count                             */
 };
 
 /* One flag.
@@ -638,15 +576,6 @@ static const opt_t OPTS[] = {
     .kind = OPT_CHOICE,
     .off  = OFF (endian),
     CHOICES (ENDIAN_NAMES) },
-  { .name = "--bits-file", .kind = OPT_BITS_FILE, .off = OFF (src.payload) },
-  /* A frame as a DESCRIPTION: the only way to add a coding stage, and how a
-     CCSDS CADU is written. The common frame is --acq-code/--sync/--crc. */
-  { .name = "--frame", .kind = OPT_STR, .off = OFF (frame_path) },
-  { .name = "--data",
-    .kind = OPT_CHOICE,
-    .off  = OFF (src.dsss_code_only),
-    .seen = SEEN (data_flag_set),
-    CHOICES (DATA_SRC_NAMES) },
   { .name = "--fc", .kind = OPT_DOUBLE, .off = OFF (fc) },
   { .name = "--repeat", .kind = OPT_SET, .off = OFF (repeat) },
   { .name = "--continuous", .kind = OPT_SET, .off = OFF (continuous) },
@@ -685,7 +614,7 @@ static const opt_t OPTS[] = {
  * aliased (docs/design/frame-description.md F.3). A Field flag took over
  * every spelling of its field: the -hex and -gen forms, the separate
  * repetition count, and the payload's bound, which is exactly the PN
- * sequence `--bits pn:N:REG[:SEED[:POLY]]` names. */
+ * sequence `--data pn:N:REG[:SEED[:POLY]]` names. */
 typedef struct
 {
   const char *flag, *instead;
@@ -693,10 +622,16 @@ typedef struct
 } retired_t;
 
 static const retired_t RETIRED[] = {
-  { "--bits-hex", "--bits 0x<HEX>" },
-  { "--payload-gen", "--bits <FIELD>, e.g. --bits pn:1024:10" },
+/* The payload is a data source (doppler#1718): --data takes every Field
+   the payload's flags took, and --data-from-file a file. */
+#define DATA_SOURCE "a payload is drawn from a data source"
+  { "--bits", "--data <FIELD> --data-len <BITS>", DATA_SOURCE },
+  { "--bits-file", "--data-from-file <PATH> (- for stdin)", DATA_SOURCE },
+#undef DATA_SOURCE
+  { "--bits-hex", "--data 0x<HEX>" },
+  { "--payload-gen", "--data <FIELD>, e.g. --data pn:1024:10" },
   { "--payload-len",
-    "--bits pn:<N>:<pn-length>[:<seed>[:<poly>]] -- the same bits" },
+    "--data pn:<N>:<pn-length>[:<seed>[:<poly>]] -- the same bits" },
   { "--acq-code-hex", "--acq-code 0x<HEX>" },
   { "--acq-code-gen", "--acq-code <FIELD>, e.g. --acq-code pn:1023:10" },
   { "--acq-reps", "--acq-code '<FIELD>*<N>', e.g. --acq-code 'pn:31:5*4'" },
@@ -770,7 +705,9 @@ find_opt (const char *a, opt_t *out)
           out->kind = r->range_bit ? OPT_RANGE_N : OPT_SIZE;
           break;
         case WFM_SV_INT:
-          out->kind = OPT_INT;
+          /* A row the scene writes as true/false is a switch on the
+             command line too: --code-only, not --code-only 1. */
+          out->kind = r->json_bool ? OPT_SET : OPT_INT;
           break;
         case WFM_SV_U32:
           out->kind = OPT_U32;
@@ -791,13 +728,18 @@ find_opt (const char *a, opt_t *out)
           if (out->field_reps)
             out->aux = base + r->reps_off;
           break;
+        case WFM_SV_BESPOKE:
+          /* Kept as the raw token; the face reads it (load_frame). */
+          out->kind = OPT_STR;
+          out->off  = OFF (surf_text) + k * sizeof (const char *);
+          break;
         }
       return 1;
     }
   return 0;
 }
 
-/* A Field flag (--acq-code, --sync, --data-code, --bits): the text parsed by
+/* A Field flag (--acq-code, --sync, --data-code, --data): the text parsed by
  * the ONE reader of the grammar, dp_wfm_field_parse, into the source's
  * wfm_seq_t. A repeated flag replaces -- its literal array is freed, since
  * the source owns it. *REPS goes to the row's repetition count (`aux`) when
@@ -819,10 +761,8 @@ parse_field_into (const opt_t *opt, const char *a, const char *v,
   if (f.reps > 1 && !opt->field_reps)
     {
       free (owned);
-      (void)fprintf (stderr,
-                     "error: %s %s: only --acq-code repeats (a preamble); "
-                     "drop the *%zu\n",
-                     a, v, f.reps);
+      (void)fprintf (stderr, "error: %s %s: %s\n", a, v,
+                     WFM_SURFACE_REPS_WHY_CLI);
       return 2;
     }
   if (dst->kind == WFM_SEQ_LITERAL)
@@ -833,35 +773,11 @@ parse_field_into (const opt_t *opt, const char *a, const char *v,
   return 0;
 }
 
-/* --bits-file: a file whose BYTES are the payload's bits, MSB first. It
- * writes the WHOLE sequence -- kind as well as bits -- so it replaces a
- * generated --bits rather than leaving a stray array under it. Returns 0,
- * or 1 when the file cannot be read. */
-static int
-parse_bits_file (const char *a, const char *v, wfm_seq_t *dst)
-{
-  size_t   n    = 0;
-  uint8_t *bits = bits_from_file (v, &n);
-  if (!bits)
-    {
-      (void)fprintf (stderr, "error: %s cannot read %s, or it is empty\n", a,
-                     v);
-      return 1;
-    }
-  if (dst->kind == WFM_SEQ_LITERAL)
-    free ((void *)dst->bits);
-  memset (dst, 0, sizeof *dst);
-  dst->kind = WFM_SEQ_LITERAL;
-  dst->bits = bits;
-  dst->len  = n;
-  return 0;
-}
-
 /* Resolve argv into `o`. Returns 0, or the exit code of the first failure —
  * 2 for a usage error, 1 for an unreadable input file.
  *
  * It RETURNS rather than exiting because a half-parsed `o` can already own
- * heap (--bits and friends): the caller's `done:` path frees it on every
+ * heap (--data and friends): the caller's `done:` path frees it on every
  * exit, which is the fix for the five unix.Malloc leaks the old inline chain
  * carried past its 28 early returns.
  *
@@ -1022,14 +938,6 @@ parse_args (int argc, char *argv[], wfmgen_opts_t *o)
           }
           break;
 
-        case OPT_BITS_FILE:
-          {
-            int rc = parse_bits_file (a, v, (wfm_seq_t *)dst);
-            if (rc)
-              return rc;
-          }
-          break;
-
         case OPT_SYMBOLS:
           {
             float _Complex **p = (float _Complex **)dst;
@@ -1093,14 +1001,19 @@ drain_to_writer (const emit_ctx_t *e, dp_wfm_writer_state_t *w, int paced)
 {
   float _Complex buf[BLK];
   size_t n, total = 0;
-  while ((n = dp_wfm_compose_execute (e->comp, buf, BLK)) > 0)
+  double rate = e->fs;
+  /* By rate: a block never spans two, so a scene whose segments differ is
+     paced at each one's own (doppler#1733). A short block is a rate
+     change, not the end -- 0 is the end. */
+  while ((n = dp_wfm_compose_execute_rate (e->comp, buf, BLK, &rate)) > 0)
     {
       dp_wfm_writer_write (w, buf, n);
       total += n;
       if (paced && e->clk)
-        dp_sample_clock_pace (e->clk, n);
-      if (n < BLK)
-        break;
+        {
+          dp_sample_clock_set_rate (e->clk, rate);
+          dp_sample_clock_pace (e->clk, n);
+        }
       /* An interrupted capture must still be a VALID capture. The BLUE
          header carries the final sample count and is written by
          dp_wfm_writer_close, so leaving the loop is what lets the file be
@@ -1166,13 +1079,18 @@ emit_to_stream (const emit_ctx_t *e)
 
   float _Complex buf[BLK];
   size_t n;
-  while ((n = dp_wfm_compose_execute (e->comp, buf, BLK)) > 0)
+  double rate = e->fs;
+  /* Each frame header carries its own fs, so a scene whose segments
+     differ is described honestly: a block never spans two rates, and each
+     frame states its own (doppler#1733). 0 is the end. */
+  while ((n = dp_wfm_compose_execute_rate (e->comp, buf, BLK, &rate)) > 0)
     {
-      dp_wfm_stream_sink_send (sink, buf, n, e->fs, o->fc);
+      dp_wfm_stream_sink_send (sink, buf, n, rate, o->fc);
       if (e->clk)
-        dp_sample_clock_pace (e->clk, n);
-      if (n < BLK)
-        break;
+        {
+          dp_sample_clock_set_rate (e->clk, rate);
+          dp_sample_clock_pace (e->clk, n);
+        }
       if (dp_interrupted ())
         break;
     }
@@ -1460,11 +1378,10 @@ check_continuous_dsss (const wfmgen_opts_t *o)
     }
   if (o->src.symbol_rate <= 0.0)
     {
-      if (o->data_flag_set)
+      if (o->surf_seen[WFM_SURFACE_source_dsss_code_only])
         {
-          (void)fprintf (
-              stderr, "error: --data selects the continuous-dsss data source; "
-                      "it needs --symbol-rate\n");
+          (void)fprintf (stderr, "error: --code-only sends a continuous-dsss "
+                                 "code alone; it needs --symbol-rate\n");
           return 2;
         }
       return 0;
@@ -1492,11 +1409,34 @@ check_continuous_dsss (const wfmgen_opts_t *o)
                              "--symbol-rate\n");
       return 2;
     }
-  if (o->data_flag_set && o->src.payload.len)
+  return 0;
+}
+
+/* Two surface rows given together that no face takes together (the
+ * manifest's `exclusive`, rendered as WFM_SURFACE_EXCLUSIVE). A row is GIVEN
+ * when its flag was, or when another flag filled its member. Returns 0, or
+ * 2 having said why. */
+static int
+check_exclusive (const wfmgen_opts_t *o)
+{
+  for (size_t k = 0; k < WFM_SURFACE_N_EXCLUSIVE; k++)
     {
-      (void)fprintf (stderr,
-                     "error: --data and --bits both set the data; use one\n");
-      return 2;
+      const wfm_surface_exclusive_t *e       = &WFM_SURFACE_EXCLUSIVE[k];
+      const int                      ends[2] = { e->a, e->b };
+      int                            given   = 0;
+      for (int j = 0; j < 2; j++)
+        {
+          const wfm_surface_row_t *r    = &WFM_SURFACE[ends[j]];
+          const void              *base = r->owner == WFM_SURF_SOURCE
+                                              ? (const void *)&o->src
+                                              : (const void *)&o->seg;
+          given += o->surf_seen[ends[j]] || wfm_surface_row_is_set (r, base);
+        }
+      if (given == 2 && e->cli_why)
+        {
+          (void)fprintf (stderr, "error: %s\n", e->cli_why);
+          return 2;
+        }
     }
   return 0;
 }
@@ -1505,29 +1445,27 @@ check_continuous_dsss (const wfmgen_opts_t *o)
  *
  * The file holds what a scene's "frame" key holds, through the one reader
  * of that form (dp_wfm_frame_from_json). A carried description IS the frame,
- * so the flags that spell the common frame -- and the payload, which is one
- * of its fields -- are refused beside it rather than silently dropped. The
- * sync word and an unspread preamble are the bridge's refusal
- * (dp_wfm_source_frame_error), shared with every face; --crc and --bits are
- * this face's, because only here is it known they were GIVEN (crc defaults
- * to crc16). Returns 0, or the exit code. */
+ * so the flags that spell the common frame are refused beside it rather than
+ * silently dropped: the sync word and an unspread preamble by the bridge
+ * (dp_wfm_source_frame_error); --crc here,
+ * because only this face can tell it was GIVEN (crc defaults to crc16).
+ * Returns 0, or the exit code. */
 static int
 load_frame (wfmgen_opts_t *o)
 {
-  if (!o->frame_path)
+  if (!FRAME_PATH (o))
     return 0;
-  if (o->surf_seen[WFM_SURFACE_source_crc] || o->src.payload.len)
+  if (o->surf_seen[WFM_SURFACE_source_crc])
     {
       (void)fprintf (stderr, "error: --frame FILE is the whole frame: its CRC "
-                             "is a stage and its payload a field in the file, "
-                             "so --crc and --bits/--bits-file cannot sit "
+                             "is a stage in the file, so --crc cannot sit "
                              "beside it\n");
       return 2;
     }
-  char *text = slurp_file (o->frame_path);
+  char *text = slurp_file (FRAME_PATH (o));
   if (!text)
     {
-      (void)fprintf (stderr, "error: could not read %s\n", o->frame_path);
+      (void)fprintf (stderr, "error: could not read %s\n", FRAME_PATH (o));
       return 1;
     }
   const char *why = NULL;
@@ -1535,7 +1473,7 @@ load_frame (wfmgen_opts_t *o)
   free (text);
   if (!o->src.frame)
     {
-      (void)fprintf (stderr, "error: %s: %s\n", o->frame_path,
+      (void)fprintf (stderr, "error: %s: %s\n", FRAME_PATH (o),
                      why ? why : "not a frame description");
       return 2;
     }
@@ -1555,17 +1493,115 @@ load_frame (wfmgen_opts_t *o)
  * produces. Both refuse; only one of them tells you what to do instead.
  */
 static int
-check_source (const wfmgen_opts_t *o)
+check_source (wfmgen_opts_t *o)
 {
-  const char *why = dp_wfm_source_error (&o->src);
+  /* A data source sets the run's length (payload-data-source.md 4.6): a
+     finite one is its frames, so a --count beside it is refused by name
+     -- the one face that can tell a count given from its default -- and
+     an absent count is 0 (the composer derives it, or runs a stream until
+     it ends). A stream may take a --count as an upper bound. */
+  const int has_data = o->src.data.len || o->src.data_from_file;
+  /* A carried frame of fixed bits is a finite source too: one frame, sent
+     once (doppler#1718) -- more of it is --repeats, a gap after it
+     --off. */
+  const int finite = dp_wfm_source_data_frames (&o->src) > 0;
+  if (finite && o->surf_seen[WFM_SURFACE_segment_num_samples])
+    {
+      (void)fprintf (stderr,
+                     has_data ? "error: --count: a finite data source sets "
+                                "the run's length (its frames); drop "
+                                "--count\n"
+                              : "error: --count: a carried frame of fixed "
+                                "bits is sent once and sets the run's length "
+                                "(one frame); drop --count, and give "
+                                "--repeats for more\n");
+      return 2;
+    }
+  if ((has_data || finite) && !o->surf_seen[WFM_SURFACE_segment_num_samples])
+    o->seg.num_samples = 0;
+  if (has_data)
+    {
+      /* Paced, a pause in a pipe is an idle frame -- and continuous dsss
+         has no frame, so it has nothing to send while it waits: the output
+         would fall behind the clock it is paced to. */
+      if (o->realtime && o->src.type == WFM_SYNTH_DSSS
+          && o->src.symbol_rate > 0.0
+          && dp_wfm_source_data_is_stream (&o->src))
+        {
+          (void)fprintf (stderr,
+                         "error: --realtime: a continuous dsss source has "
+                         "no frame to send idle while stdin pauses: drop "
+                         "--realtime, or give a finite source\n");
+          return 2;
+        }
+    }
+  const char *why = dp_wfm_scene_error (&o->seg, 1, o->repeat, o->continuous);
   if (!why)
     return 0;
   if (why == dp_wfm_why_pn_poly)
     (void)fprintf (stderr, "error: --pn-poly 0x%llx, --pn-length %d: %s\n",
                    (unsigned long long)o->src.pn_poly, o->src.pn_length, why);
+  else if (why == dp_wfm_why_dsss_frame_no_data_code)
+    (void)fprintf (stderr, "error: --data-code: %s\n", why);
+  else if (why == dp_wfm_why_dsss_cont_rate)
+    (void)fprintf (stderr, "error: --symbol-rate %g, --fs %g, --sps %d: %s\n",
+                   o->src.symbol_rate, o->seg.fs, o->src.sps, why);
   else
     (void)fprintf (stderr, "error: %s\n", why);
   return 2;
+}
+
+/* An absolute form of @p path, malloc'd, or NULL. */
+static char *
+absolute_path (const char *path)
+{
+#ifdef _WIN32
+  return _fullpath (NULL, path, 0);
+#else
+  return realpath (path, NULL);
+#endif
+}
+
+/* The directory part of @p path, malloc'd: "." when it has none. */
+static char *
+dir_of (const char *path)
+{
+  const char  *slash = strrchr (path, '/');
+  const size_t n     = slash ? (size_t)(slash - path) : 0u;
+  char        *d     = dp_xmalloc (n + 2u);
+  if (!slash)
+    (void)strcpy (d, ".");
+  else if (n == 0)
+    (void)strcpy (d, "/");
+  else
+    {
+      memcpy (d, path, n);
+      d[n] = '\0';
+    }
+  return d;
+}
+
+/* A --record replays from its own directory: a scene's relative
+ * "data_from_file" resolves against the scene (dp_wfm_compose_from_json_at).
+ * So when the record is written anywhere but the working directory, a
+ * relative --data-from-file is made absolute before the run, and the source
+ * and its record name the same file. Beside the working directory -- the
+ * common case -- the path is kept as typed, so a record stays portable.
+ * Returns a malloc'd absolute path to use instead, or NULL to keep it. */
+static char *
+data_path_for_record (const wfmgen_opts_t *o)
+{
+  const char *p = o->src.data_from_file;
+  if (!p || !o->record_path || p[0] == '/' || strcmp (p, "-") == 0)
+    return NULL;
+  char     *rdir = dir_of (o->record_path);
+  char     *ra   = rdir ? absolute_path (rdir) : NULL;
+  char     *ca   = absolute_path (".");
+  const int same = ra && ca && strcmp (ra, ca) == 0;
+  free (rdir);
+  free (ra);
+  free (ca);
+  return same ? NULL : absolute_path (p);
 }
 
 /* `wfmgen json-template [FILE]` — emit a ready-to-edit example spec in the
@@ -1614,8 +1650,9 @@ static int
 wfmgen_run (int argc, char *argv[])
 {
   dp_wfm_compose_state_t *comp
-      = NULL; /* dp_wfm_compose_destroy tolerates NULL */
-  int rc = 0;
+      = NULL;            /* dp_wfm_compose_destroy tolerates NULL */
+  char *data_abs = NULL; /* an absolute --data-from-file, when one was made */
+  int   rc       = 0;
 
   /* --help / --version short-circuit before any spec is built, so they work
    * regardless of the other flags and never leak a partially-parsed source. */
@@ -1669,8 +1706,20 @@ wfmgen_run (int argc, char *argv[])
   rc = check_detached (&o);
   if (rc)
     goto done;
+  rc = check_exclusive (&o);
+  if (rc)
+    goto done;
 
-  if (o.frame_path && o.from_file)
+  if (o.surf_text[WFM_SURFACE_source_data_from_file] && o.from_file)
+    {
+      (void)fprintf (stderr, "error: --data-from-file names the data of a "
+                             "run built from flags; a --from-file scene "
+                             "carries its own, as a source's "
+                             "\"data_from_file\"\n");
+      rc = 2;
+      goto done;
+    }
+  if (FRAME_PATH (&o) && o.from_file)
     {
       (void)fprintf (stderr, "error: --frame describes the frame of a run "
                              "built from flags; a --from-file scene carries "
@@ -1695,8 +1744,10 @@ wfmgen_run (int argc, char *argv[])
       /* A refused FRAME is the one spec failure with a sentence behind it,
          so it exits here rather than falling through to the generic line
          below — two messages for one fault reads as two faults. */
-      const char *why = NULL;
-      comp            = dp_wfm_compose_from_json_why (spec, &why);
+      const char *why  = NULL;
+      char       *sdir = dir_of (o.from_file);
+      comp             = dp_wfm_compose_from_json_at (spec, sdir, &why);
+      free (sdir);
       if (!comp && why)
         {
           (void)fprintf (stderr, "error: %s\n", why);
@@ -1713,6 +1764,12 @@ wfmgen_run (int argc, char *argv[])
       rc = load_frame (&o);
       if (rc)
         goto done;
+      /* The surface-only --data-from-file row: its text is the path, read
+         by the data source when the synth is built (wfm/wfm_data.h). */
+      o.src.data_from_file = o.surf_text[WFM_SURFACE_source_data_from_file];
+      data_abs             = data_path_for_record (&o);
+      if (data_abs)
+        o.src.data_from_file = data_abs;
       rc = check_continuous_dsss (&o);
       if (rc)
         goto done;
@@ -1721,6 +1778,10 @@ wfmgen_run (int argc, char *argv[])
         goto done;
       comp = dp_wfm_compose_create (&o.seg, 1, o.repeat, o.continuous);
       dp_wfm_compose_set_seed_advance (comp, o.seed_advance);
+      /* Paced, a data stream with nothing yet sends an idle frame of fill
+         so the carrier and the frame timing never break (section 4.5). */
+      if (o.realtime)
+        dp_wfm_compose_set_data_pacing (comp, WFM_DATA_PACED);
     }
   if (!comp)
     {
@@ -1733,14 +1794,32 @@ wfmgen_run (int argc, char *argv[])
   size_t               n_segs = 0;
   int                  r = 0, c = 0;
   const wfm_segment_t *segs = dp_wfm_compose_segments (comp, &n_segs, &r, &c);
-  double               fs   = n_segs ? segs[0].fs : o.seg.fs;
+  /* The one answer for the whole stream: the shared fs, or 0.0 -- "not
+     stated" -- when segments differ, which SigMF says by omission and a
+     BLUE header cannot say at all (doppler#1733). */
+  double fs = n_segs ? dp_wfm_scene_fs (segs, n_segs) : o.seg.fs;
+  if (fs == 0.0 && n_segs && o.file_type == WFM_FT_BLUE
+      && !(o.out_path && !strncmp (o.out_path, "nats://", 7)))
+    {
+      size_t k = 1;
+      while (segs[k].fs == segs[0].fs)
+        k++;
+      (void)fprintf (stderr,
+                     "error: this scene's segments have different fs (%g, "
+                     "%g); a BLUE file states one sample rate -- write "
+                     "SigMF (--file-type sigmf), or give every segment one "
+                     "fs\n",
+                     segs[0].fs, segs[k].fs);
+      rc = 2;
+      goto done;
+    }
 
   /* Real-time pacing: throttle the emit loop to fs, mimicking a sample clock
      driving the output. Anchored once here so the schedule is drift-free; a
      NULL clk in the context below is what "not real-time" means downstream. */
   dp_sample_clock_t clk = { 0 }; /* the underrun report reads it either way */
   if (o.realtime)
-    dp_sample_clock_init (&clk, fs, o.realtime_resync);
+    dp_sample_clock_init (&clk, n_segs ? segs[0].fs : fs, o.realtime_resync);
 
   emit_ctx_t e = { .o       = &o,
                    .comp    = comp,
@@ -1773,6 +1852,7 @@ wfmgen_run (int argc, char *argv[])
 done:
   dp_wfm_compose_destroy (comp);
   source_free (&o.src);
+  free (data_abs);
   return rc;
 }
 

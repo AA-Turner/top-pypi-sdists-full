@@ -19,6 +19,56 @@
 
 #include "doppler/wfm/wfm_plan.h"
 
+#ifndef JM_ARRAY_ARG_DEFINED
+#define JM_ARRAY_ARG_DEFINED
+/* Convert a Python argument for an array parameter to an ndarray of
+ * `typenum` meeting `requirements` -- PyArray_FROM_OTF, less the two inputs
+ * it reads as text (gh-1700): a str is refused, never parsed as a number,
+ * and for a one-byte element type a byte buffer (bytes, bytearray,
+ * memoryview) is its bytes, one element per byte. `name` is the parameter,
+ * for the message, and `hint` (NULL for none) is appended to a str's
+ * refusal. Returns a new reference, or NULL with an exception. */
+static inline PyArrayObject *
+jm_array_arg_hint (PyObject *obj, int typenum, int requirements,
+                   const char *name, const char *hint)
+{
+  int one_byte = typenum == NPY_UINT8 || typenum == NPY_INT8;
+  if (PyUnicode_Check (obj) || (!one_byte && PyBytes_Check (obj)))
+    {
+      /* `hint` (gh-1756) says where text goes instead: a str only. */
+      int say = hint && PyUnicode_Check (obj);
+      PyErr_Format (PyExc_TypeError,
+                    "%s must be an array of numbers, not %.200s%s%s", name,
+                    Py_TYPE (obj)->tp_name, say ? ": " : "", say ? hint : "");
+      return NULL;
+    }
+  if (one_byte && !PyArray_Check (obj) && PyObject_CheckBuffer (obj))
+    {
+      PyObject *view = PyMemoryView_FromObject (obj);
+      if (!view)
+        return NULL;
+      if (PyMemoryView_GET_BUFFER (view)->itemsize == 1)
+        {
+          PyObject *raw = PyArray_FromBuffer (
+              view, PyArray_DescrFromType (typenum), -1, 0);
+          Py_DECREF (view);
+          if (!raw)
+            return NULL;
+          PyObject *arr = PyArray_FROM_OTF (raw, typenum, requirements);
+          Py_DECREF (raw);
+          return (PyArrayObject *)arr;
+        }
+      Py_DECREF (view);
+    }
+  return (PyArrayObject *)PyArray_FROM_OTF (obj, typenum, requirements);
+}
+static inline PyArrayObject *
+jm_array_arg (PyObject *obj, int typenum, int requirements, const char *name)
+{
+  return jm_array_arg_hint (obj, typenum, requirements, name, NULL);
+}
+#endif /* JM_ARRAY_ARG_DEFINED */
+
 /* String-enum tables — order is the C int (the [[enum]] SSOT). */
 static int
 _enum_index (const char *const *tab, const char *s)
@@ -73,7 +123,15 @@ Plan_render (PlanObject *self, PyObject *args)
       PyErr_SetString (PyExc_RuntimeError, "Plan is closed");
       return NULL;
     }
-  npy_intp  _n  = (npy_intp)dp_wfm_plan_len (self->h);
+  size_t _n_need = (size_t)(dp_wfm_plan_len (self->h));
+  if (_n_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "Plan.render: output of %zu elements is too large",
+                    _n_need);
+      return NULL;
+    }
+  npy_intp  _n  = (npy_intp)_n_need;
   PyObject *arr = PyArray_SimpleNew (1, &_n, NPY_COMPLEX64);
   if (!arr)
     return NULL;
@@ -98,7 +156,14 @@ Plan_at (PlanObject *self, PyObject *args)
       PyErr_SetString (PyExc_RuntimeError, "Plan is closed");
       return NULL;
     }
-  npy_intp  _n  = (npy_intp)dp_wfm_plan_len (self->h);
+  size_t _n_need = (size_t)(dp_wfm_plan_len (self->h));
+  if (_n_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "Plan.at: output of %zu elements is too large", _n_need);
+      return NULL;
+    }
+  npy_intp  _n  = (npy_intp)_n_need;
   PyObject *arr = PyArray_SimpleNew (1, &_n, NPY_COMPLEX64);
   if (!arr)
     return NULL;
@@ -109,6 +174,29 @@ Plan_at (PlanObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
   PyArray_DIMS ((PyArrayObject *)arr)[0] = (npy_intp)_got; /* trim */
   return arr;
+}
+
+static PyObject *
+Plan_check_snr (PlanObject *self, PyObject *args)
+{
+  (void)args;
+  if (self->closed)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "Plan is closed");
+      return NULL;
+    }
+  int _rc;
+  _rc = dp_wfm_plan_check_snr (self->h);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "this scene carries no noise, so the Plan has no noise "
+                    "floor for snr to move: give a source a finite snr "
+                    "(below 100 dB) and an snr_mode",
+                    (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -247,7 +335,8 @@ static PyMethodDef Plan_methods[] = {
     "segment-major, length = dp_wfm_plan_n_sources()). An empty object (or\n"
     "NULL) renders the baseline — bit-identical to\n"
     "`Composer(scene).compose()`. Writes up to `dp_wfm_plan_len(p)` samples\n"
-    "to `out`.\n"
+    "to `out`. An `\"snr\"` key on a Plan whose scene carries no noise is\n"
+    "refused (see dp_wfm_plan_check_snr()).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -257,7 +346,8 @@ static PyMethodDef Plan_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[Any]\n"
-    "    Samples actually written for this draw (<= dp_wfm_plan_len(p)).\n" },
+    "    Samples actually written for this draw (<= dp_wfm_plan_len(p)), or\n"
+    "    0 when refused, with `out` untouched.\n" },
   { "at", (PyCFunction)Plan_at, METH_VARARGS,
     "Scalar fast-path for the hot Monte-Carlo/SNR loop (no JSON parse).\n"
     "\n"
@@ -265,7 +355,8 @@ static PyMethodDef Plan_methods[] = {
     "writes up to `dp_wfm_plan_len(p)` samples. Equivalent to `render` with\n"
     "only `{\"snr\":snr,\"seed\":seed}` — `seed` is always an explicit "
     "override\n"
-    "here.\n"
+    "here, and so is `snr`: on a Plan whose scene carries no noise it is\n"
+    "refused (see dp_wfm_plan_check_snr()).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -277,7 +368,36 @@ static PyMethodDef Plan_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[Any]\n"
-    "    Samples actually written for this draw (<= dp_wfm_plan_len(p)).\n" },
+    "    Samples actually written for this draw (<= dp_wfm_plan_len(p)), or\n"
+    "    0 when refused, with `out` untouched.\n" },
+  { "check_snr", (PyCFunction)Plan_check_snr, METH_VARARGS,
+    "Whether an `snr` can be applied to this Plan.\n"
+    "\n"
+    "O(1): the answer is fixed at prepare time. A caller about to sweep SNR\n"
+    "checks it once; `dp_wfm_plan_at()` and `dp_wfm_plan_render()` apply the\n"
+    "same rule themselves.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``this scene carries no noise, so the Plan has no noise floor for\n"
+    "    snr to move: give a source a finite snr (below 100 dB) and an\n"
+    "    snr_mode``, with the return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import Composer, prepare\n"
+    ">>> clean = prepare(Composer(type=\"tone\", num_samples=64))\n"
+    ">>> clean.at(6.0)\n"
+    "Traceback (most recent call last):\n"
+    "    ...\n"
+    "ValueError: this scene carries no noise, so the Plan has no noise floor "
+    "for snr to move: give a source a finite snr (below 100 dB) and an "
+    "snr_mode (rc=-4)\n"
+    ">>> len(prepare(Composer(type=\"tone\", num_samples=64, "
+    "snr=10.0)).at(6.0))\n"
+    "64\n" },
   { "length", (PyCFunction)Plan_length, METH_VARARGS,
     "Worst-case materialized length in samples (every ranged gap at its\n"
     "`hi` bound) — the jm binding's out_len_fn / allocation capacity.\n"

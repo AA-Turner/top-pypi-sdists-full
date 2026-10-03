@@ -1744,3 +1744,7 @@ mod refresh_tests;
 #[cfg(all(test, feature = "custom_network_provider"))]
 #[path = "id_list_propagation_tests.rs"]
 mod propagation_tests;
+
+#[cfg(test)]
+#[path = "id_list_cursor_tests.rs"]
+mod cursor_tests;

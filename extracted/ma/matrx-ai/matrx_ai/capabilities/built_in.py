@@ -21,7 +21,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from matrx_ai.tools.specs import RegisteredToolSpec
+from matrx_ai.tools.specs import RegisteredToolSpec, ToolSpec
 
 from .models import Capability
 from .registry import register_capability
@@ -83,6 +83,54 @@ _SANDBOX_FS = Capability(
 )
 
 
+# The conversation is bound to the person's OWN computer running Matrx 2 (a ``local_machine``
+# sandbox binding): beyond the fs/shell hands sandbox-fs gives, desktop-only tools (one
+# desktop-protocol op each) run there. Armed by the server from the binding itself
+# (aidream tool_merge), never declared by a client, so a cloud sandbox never offers them.
+#: The desktop-only tools, in catalog order (TOOL_CATALOG in @ai-matrx/desktop-protocol).
+DESKTOP_DEVICE_TOOL_NAMES: tuple[str, ...] = (
+    "shell_job",
+    "desktop_process",
+    "desktop_apps",
+    "desktop_system",
+    "desktop_clipboard",
+    "desktop_screen",
+    "desktop_window",
+    "desktop_input",
+    "desktop_power",
+    "desktop_resources",
+    "fs_watch",
+    "desktop_transcribe",
+)
+
+
+def _registered_desktop_tools() -> tuple[ToolSpec, ...]:
+    """Each desktop tool whose registry row exists on this database. A tool whose row has not
+    landed yet is withheld (aidream tool_merge says so, loudly), never half-armed; the others
+    still ride the binding."""
+    from matrx_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry.get_instance()
+    return tuple(
+        RegisteredToolSpec(name=n) for n in DESKTOP_DEVICE_TOOL_NAMES if registry.get(n) is not None
+    )
+
+
+_DESKTOP_DEVICE = Capability(
+    name="desktop-device",
+    description=(
+        "The conversation is bound to the user's own computer running Matrx 2. Desktop-only "
+        "tools run on that computer: shell_job (background commands), desktop_process (processes "
+        "and ports; stop one), desktop_apps (open apps), desktop_system (facts, open links and "
+        "files, notify), desktop_clipboard, desktop_screen (see the screen), desktop_window, "
+        "desktop_input (keyboard and mouse), desktop_power, desktop_resources, fs_watch (folder "
+        "changes), desktop_transcribe (speech to text with local Whisper)."
+    ),
+    enabled_tools_factory=_registered_desktop_tools,
+    requires_auth=True,
+)
+
+
 # Platform-level skills capability. Every authenticated agent gets the unified
 # ``skill`` tool (action=list|get|search) unless the agent's
 # ``skill_config.disabled = true`` kill switch is set (honored at request prep
@@ -135,6 +183,7 @@ _AGENT_FS = Capability(
 
 def _register_built_ins() -> None:
     register_capability(_SANDBOX_FS)
+    register_capability(_DESKTOP_DEVICE)
     register_capability(_AGENT_FS)
     register_capability(_AGENT_SKILLS)
     # browser-dom — matrx-extend Chrome extension. The first multi-tool

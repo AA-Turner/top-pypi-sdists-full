@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from ._arch import GLOBAL_HOOK_POINTS, LAYER_HOOK_POINTS
+from .walk_modules import walk_modules
 
 LEVELS: dict[str, str] = {
     "full": "every hook point: the residual stream, attention and MLP internals, "
@@ -16,7 +17,7 @@ LEVELS: dict[str, str] = {
     "text": "generation, scoring and training, with no hook points",
 }
 
-LOADERS: tuple[str, ...] = ("mlx-vlm", "mlx-lm")
+LOADERS: tuple[str, ...] = ("mlx-vlm", "mlx-lm", "transformers")
 
 CORE_LAYER_POINTS: tuple[str, ...] = (
     "resid_pre", "attn_out", "mlp_out", "resid_post",
@@ -113,14 +114,41 @@ class Architecture:
         return tuple(dict.fromkeys(re.findall(r"\b([a-z_]+_out)\[i\]", self.residual_law_of(arch))))
 
 
-def refusal(config: Mapping[str, Any]) -> str | None:
-    from .architectures import ARCHITECTURES, for_type
+def walk_architectures(package: str) -> tuple[Architecture, ...]:
+    found = []
+    for mod in walk_modules(package):
+        arch = getattr(mod, "ARCH", None)
+        if arch is None:
+            raise ImportError(f"{mod.__name__} is under architectures/ and declares no ARCH")
+        if f"{package}.{arch.model_type}" != mod.__name__:
+            raise ImportError(
+                f"{mod.__name__} declares {arch.model_type!r}, which belongs at "
+                f"{package}.{arch.model_type}: an architecture's path is its model_type")
+        found.append(arch)
+    return tuple(sorted(found, key=lambda a: a.model_type))
+
+
+def refuse_head_weights(model_type: str) -> Callable[[Any, int, int], Any]:
+    def head_weights(model, layer: int, head: int):
+        raise NotImplementedError(
+            f"head_weights is not written for the {model_type} architecture: the static "
+            f"per-head readout (HeadSpec: W_Q, W_K, W_V, W_O, layer type, KV sharing) is "
+            f"written for gemma4 only; write {model_type}'s in "
+            f"mechbench_compute/architectures/{model_type}.py")
+
+    return head_weights
+
+
+def refusal(config: Mapping[str, Any],
+            architectures: Sequence[Architecture] | None = None) -> str | None:
+    if architectures is None:
+        from .architectures import ARCHITECTURES as architectures
 
     model_type = str(config.get("model_type") or "").lower()
-    arch = for_type(model_type)
+    arch = next((a for a in architectures if a.model_type == model_type), None)
     if arch is None:
         return (f"model_type {model_type!r} is not one compute loads; it loads "
-                f"{', '.join(a.model_type for a in ARCHITECTURES)}")
+                f"{', '.join(a.model_type for a in architectures)}")
     text = config.get("text_config")
     scopes = [config] + ([text] if isinstance(text, Mapping) else [])
     for r in arch.refused_when:
@@ -129,8 +157,8 @@ def refusal(config: Mapping[str, Any]) -> str | None:
     return None
 
 
-def local_architectures() -> list[dict[str, Any]]:
-    from .architectures import ARCHITECTURES
+def local_architectures(backend: str = "mlx") -> list[dict[str, Any]]:
+    from . import backends
 
     return [{
         "modelType": a.model_type,
@@ -147,7 +175,17 @@ def local_architectures() -> list[dict[str, Any]]:
         "absentWhen": [{"point": x.point, "configKey": x.config_key, "reason": x.reason}
                        for x in a.absent_when],
         "configDefaults": dict(a.config_defaults),
-    } for a in ARCHITECTURES]
+    } for a in backends.load_architectures(backends.find(backend))]
+
+
+def architecture_levels(accelerator: str | None = None) -> dict[str, str]:
+    from . import backends
+
+    levels: dict[str, str] = {}
+    for name in backends.advertise(accelerator)["backends"]:
+        for a in local_architectures(name):
+            levels.setdefault(a["modelType"], a["level"])
+    return levels
 
 
 def provider_models() -> list[dict[str, Any]]:

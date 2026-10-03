@@ -1,6 +1,6 @@
 [package]
 name = "pyproject-fmt"
-version = "2.29.4"
+version = "2.30.0"
 description = "Format pyproject.toml files"
 repository = "https://github.com/tox-dev/pyproject-fmt"
 license = "MIT"
@@ -30,7 +30,7 @@ regex = { version = "1.13.1" }
 # The registered SPDX identifiers and expression grammar, so a license string is only
 # rewritten once it is known to be an expression rather than free-form prose.
 spdx = { version = "0.13.5", default-features = false }
-pyo3 = { version = "0.29.2", features = ["generate-import-lib"] } # integration with Python
+pyo3 = { version = "0.29.3", features = ["generate-import-lib"] } # integration with Python
 lexical-sort = { version = "0.3.1" }
 
 [features]
@@ -44,5 +44,5 @@ default = ["extension-module", "abi3"]
 common = { path = "../common", features = ["python"] }
 indoc = { version = "2.0.7" }   # dedented test cases for literal strings
 insta = { version = "1.48.0", features = ["redactions"] } # snapshot testing
-pyo3 = { version = "0.29.2", features = ["auto-initialize"] }
-toml = "1.1.4"                  # an independent parser, to read back what the formatter wrote
+pyo3 = { version = "0.29.3", features = ["auto-initialize"] }
+toml = "1.1.6"                  # an independent parser, to read back what the formatter wrote

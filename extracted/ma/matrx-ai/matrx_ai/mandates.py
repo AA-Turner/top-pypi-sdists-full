@@ -675,21 +675,43 @@ class HeldCall:
     def pick_model(self, explicit: str | None = None) -> str:
         return explicit or self.model
 
-    def pick_offering(self, explicit_model: str | None = None) -> str | None:
+    def pick_offering(
+        self,
+        explicit_model: str | None = None,
+        explicit_offering: str | None = None,
+        *,
+        where: str = "held call",
+    ) -> str | None:
         """The class pin for a call whose model is ``pick_model(explicit_model)``.
 
-        The Holder's pin rides only when the call runs the Holder's OWN model;
-        an explicit request model that differs runs its preferred class."""
+        An EXPLICIT class (a workflow author's ``offering_id`` beside their own
+        ``model``) wins and runs; one with no explicit model, or one belonging
+        to another model, is dropped loudly
+        (:func:`matrx_ai.graph_nodes.class_pin.node_class_pin`). Otherwise the
+        Holder's pin rides only when the call runs the Holder's OWN model; an
+        explicit request model that differs runs its preferred class."""
+        if explicit_offering:
+            from matrx_ai.graph_nodes.class_pin import node_class_pin
+
+            pinned = node_class_pin(explicit_model, explicit_offering, where=where)
+            if pinned:
+                return pinned
         if not self.offering_id:
             return None
         if explicit_model and str(explicit_model) != str(self.model):
             return None
         return self.offering_id
 
-    def pin_for(self, explicit_model: str | None = None) -> dict[str, Any]:
+    def pin_for(
+        self,
+        explicit_model: str | None = None,
+        explicit_offering: str | None = None,
+        *,
+        where: str = "held call",
+    ) -> dict[str, Any]:
         """``{"offering_id": …}`` for a funnel call's kwargs, or ``{}`` — so a
         call that runs no pin passes exactly the kwargs it always passed."""
-        offering = self.pick_offering(explicit_model)
+        offering = self.pick_offering(explicit_model, explicit_offering, where=where)
         return {"offering_id": offering} if offering else {}
 
     def pick_temperature(self, explicit: float | None = None) -> float | None:
@@ -1241,15 +1263,15 @@ async def run_held_call(
     """
     import asyncio
 
-    from matrx_ai.graph_nodes.shared import normalize_completed
-    from matrx_ai.orchestrator.executor import execute_ai_request
-
     from matrx_connect.context.app_context import (
         clear_app_context,
         set_app_context,
         try_get_app_context,
     )
     from matrx_connect.emitters.console_emitter import ConsoleEmitter
+
+    from matrx_ai.graph_nodes.shared import normalize_completed
+    from matrx_ai.orchestrator.executor import execute_ai_request
 
     # A code call belongs to no listener: whatever stream the surrounding
     # request owns (a person's chat) must never receive this call's events.
@@ -1295,6 +1317,7 @@ async def run_held_pydantic(
     user: str | None = None,
     messages: list[dict[str, Any]] | None = None,
     model: str | None = None,
+    offering_id: str | None = None,
     max_tokens: int | None = None,
     temperature: float | None = None,
     unset_max_tokens: int = 8092,
@@ -1307,6 +1330,8 @@ async def run_held_pydantic(
 
     ``model`` / ``max_tokens`` / ``temperature`` are EXPLICIT caller overrides
     (a workflow author's field, an API request's field) and win only when set.
+    ``offering_id`` is the explicit model's chosen class: it runs only beside
+    an explicit ``model`` it belongs to, and is dropped loudly otherwise.
     ``system`` replaces the Holder's system text only when a site composes it
     FROM the Holder's (``held.system`` + an author's addendum). Everything
     else in ``funnel_kwargs`` passes to ``llm_messages_to_pydantic`` untouched.
@@ -1318,7 +1343,7 @@ async def run_held_pydantic(
     funnel = importlib.import_module("matrx_ai.graph_nodes._strict_json")
     common: dict[str, Any] = {
         "model": held.pick_model(model),
-        **held.pin_for(model),
+        **held.pin_for(model, offering_id, where=held.mandate_key),
         "system": held.system if system is None else system,
         "output_cls": output_cls,
         "max_tokens": held.pick_max_tokens(max_tokens, unset=unset_max_tokens),
@@ -1353,6 +1378,7 @@ async def run_held_text(
     *,
     user: str,
     model: str | None = None,
+    offering_id: str | None = None,
     max_tokens: int | None = None,
     temperature: float | None = None,
     unset_max_tokens: int = 8092,
@@ -1371,7 +1397,7 @@ async def run_held_text(
     try:
         result = await call(
             model=held.pick_model(model),
-            **held.pin_for(model),
+            **held.pin_for(model, offering_id, where=held.mandate_key),
             system=held.system if system is None else system,
             user=held.user_text(user),
             max_tokens=held.pick_max_tokens(max_tokens, unset=unset_max_tokens),

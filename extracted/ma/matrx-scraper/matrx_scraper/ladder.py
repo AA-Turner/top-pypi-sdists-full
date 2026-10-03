@@ -57,7 +57,7 @@ CLIENT_RUNGS: frozenset[str] = frozenset({"own_browser", "human_drive"})
 #: address, and it is optional in every sense (a host that has not wired it
 #: never records one). So it is an OPTIONAL entry: it may appear in a trail, it
 #: never changes which rung may follow, and a trail without it is complete.
-#: Contract: `common-docs/systems/platform/residential-egress/FEATURE.md`.
+#: Contract: `common-docs/systems/architecture/residential-egress/FEATURE.md`.
 RESIDENTIAL_RUNG = "residential"
 
 #: Entries a trail may carry that the ladder order does not reason about.

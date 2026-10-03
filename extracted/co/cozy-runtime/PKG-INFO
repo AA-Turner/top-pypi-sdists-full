@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cozy-runtime
-Version: 0.18.99
+Version: 0.18.102
 Summary: Cozy v2 worker runtime: author surface, worker, executor
 License-File: native/LICENSE
 License-File: native/NOTICE
@@ -12,10 +12,12 @@ Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24
 Requires-Dist: pillow>=12
 Requires-Dist: protobuf>=6.31
-Requires-Dist: tensorfs>=0.3.78
+Requires-Dist: tensorfs<0.4,>=0.3.90
 Provides-Extra: adapters
 Requires-Dist: peft<0.21,>=0.20; extra == 'adapters'
+Requires-Dist: tokenizers>=0.23.1; extra == 'adapters'
 Requires-Dist: torch>=2.13; extra == 'adapters'
+Requires-Dist: transformers>=5.16.1; extra == 'adapters'
 Provides-Extra: assessment
 Requires-Dist: cozy-eval>=0.7; extra == 'assessment'
 Provides-Extra: corpus
@@ -36,7 +38,7 @@ Requires-Dist: torch>=2.13; extra == 'minimax-h3'
 Requires-Dist: torchvision>=0.28; extra == 'minimax-h3'
 Requires-Dist: transformers>=5.16.1; extra == 'minimax-h3'
 Provides-Extra: model-execution
-Requires-Dist: tensorfs>=0.3.78; extra == 'model-execution'
+Requires-Dist: tensorfs<0.4,>=0.3.90; extra == 'model-execution'
 Provides-Extra: qwen-image21
 Requires-Dist: diffusers>=0.40.0; extra == 'qwen-image21'
 Requires-Dist: numpy>=1.26; extra == 'qwen-image21'

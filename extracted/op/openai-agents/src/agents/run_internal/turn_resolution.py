@@ -120,6 +120,7 @@ from ..util import _coro, _error_tracing
 from ..util._approvals import evaluate_needs_approval_setting
 from ..util._asyncio_tasks import gather_with_cancel
 from .agent_bindings import AgentBindings
+from .agent_tool_configuration import register_agent_tool_configuration
 from .error_handlers import (
     build_run_error_data,
     create_message_output_item,
@@ -578,6 +579,10 @@ async def execute_handoffs(
     actual_handoff = run_handoffs[0]
     with handoff_span(from_agent=public_agent.name) as span_handoff:
         handoff = actual_handoff.handoff
+        if handoff._agent_ref is not None:
+            target_agent = handoff._agent_ref()
+            if target_agent is not None:
+                register_agent_tool_configuration(target_agent)
         context_wrapper._mark_tool_invocation_executed(
             actual_handoff.tool_call,
             invocation_role="handoff",
@@ -585,6 +590,7 @@ async def execute_handoffs(
         new_agent: Agent[Any] = await handoff.on_invoke_handoff(
             context_wrapper, actual_handoff.tool_call.arguments
         )
+        register_agent_tool_configuration(new_agent)
         span_handoff.span_data.to_agent = new_agent.name
         if multiple_handoffs:
             requested_agents = [handoff.handoff.agent_name for handoff in run_handoffs]
@@ -775,7 +781,11 @@ async def check_for_final_output_from_tools(
     elif callable(agent.tool_use_behavior):
         result = agent.tool_use_behavior(context_wrapper, tool_results)
         if inspect.isawaitable(result):
-            return await result
+            result = await result
+        if not isinstance(result, ToolsToFinalOutputResult):
+            raise UserError(
+                "Agent tool_use_behavior callable must return ToolsToFinalOutputResult."
+            )
         return result
 
     logger.error("Invalid tool_use_behavior: %s", agent.tool_use_behavior)
@@ -1224,6 +1234,12 @@ async def resolve_interrupted_turn(
     ) -> None:
         if isinstance(call_id, str) and call_id in rejected_function_call_ids:
             return
+        approval_record = (
+            function_approval_items_by_call_id.get(call_id)
+            or approval_items_by_call_id.get(call_id)
+            if call_id
+            else None
+        )
         rejection_message = REJECTION_MESSAGE
         if call_id:
             tool_namespace = get_tool_call_namespace(tool_call)
@@ -1236,9 +1252,13 @@ async def resolve_interrupted_turn(
                 call_id=call_id,
                 tool_namespace=tool_namespace,
                 tool_lookup_key=get_function_tool_lookup_key_for_tool(function_tool),
-                existing_pending=(
-                    function_approval_items_by_call_id.get(call_id)
-                    or approval_items_by_call_id.get(call_id)
+                existing_pending=approval_record
+                or ToolApprovalItem(
+                    agent=public_agent,
+                    raw_item=tool_call,
+                    tool_name=function_tool.name,
+                    tool_namespace=tool_namespace,
+                    tool_lookup_key=get_function_tool_lookup_key_for_tool(function_tool),
                 ),
             )
         rejected_function_outputs.append(
@@ -1248,7 +1268,11 @@ async def resolve_interrupted_turn(
                 rejection_message=rejection_message,
                 output_json_schema=function_tool.output_json_schema,
                 scope_id=tool_state_scope_id,
-                tool_origin=get_function_tool_origin(function_tool),
+                tool_origin=(
+                    approval_record.tool_origin
+                    if approval_record is not None
+                    else get_function_tool_origin(function_tool)
+                ),
             )
         )
         if isinstance(call_id, str):
@@ -1357,6 +1381,9 @@ async def resolve_interrupted_turn(
             tool_type="shell",
             tool_name=run.shell_tool.name,
             call_id=call_id,
+            existing_pending=ToolApprovalItem(
+                agent=public_agent, raw_item=run.tool_call, tool_name=run.shell_tool.name
+            ),
         )
         return cast(
             RunItem,
@@ -1376,6 +1403,9 @@ async def resolve_interrupted_turn(
             tool_type="apply_patch",
             tool_name=run.apply_patch_tool.name,
             call_id=call_id,
+            existing_pending=ToolApprovalItem(
+                agent=public_agent, raw_item=run.tool_call, tool_name=run.apply_patch_tool.name
+            ),
         )
         return cast(
             RunItem,
@@ -1396,6 +1426,9 @@ async def resolve_interrupted_turn(
             tool_type="custom",
             tool_name=run.custom_tool.name,
             call_id=call_id,
+            existing_pending=ToolApprovalItem(
+                agent=public_agent, raw_item=run.tool_call, tool_name=run.custom_tool.name
+            ),
         )
         raw_item = {
             "type": "custom_tool_call_output",
@@ -1839,6 +1872,29 @@ async def resolve_interrupted_turn(
             processed_response=processed_response,
         )
 
+    if allow_legacy_name_agent_match:
+        # Before schema 1.7, duplicate-name owners could restore to a sibling.
+        # Honor the validated current decision, including a fresh sticky choice,
+        # without transferring its future scope to the reconciled owner.
+        for original, stable in validated_function_approval_items.items():
+            if original.agent is stable.agent:
+                continue
+            call_id = cast(ResponseFunctionToolCall, stable.raw_item).call_id
+            status = context_wrapper.get_approval_status(
+                original.tool_name or "",
+                call_id,
+                existing_pending=original,
+            )
+            if status is True:
+                context_wrapper.approve_tool(stable)
+            elif status is False:
+                context_wrapper.reject_tool(
+                    stable,
+                    rejection_message=context_wrapper.get_rejection_message(
+                        original.tool_name or "", call_id, existing_pending=original
+                    ),
+                )
+
     function_approval_items = list(validated_function_approval_items.values())
     function_approval_items_by_call_id = {
         cast(ResponseFunctionToolCall, approval.raw_item).call_id: approval
@@ -2160,8 +2216,26 @@ async def resolve_interrupted_turn(
             else True
         )
         stale_function = stale_functions.get(call_id)
+        original_binding = processed_response.mcp_tool_bindings.get(call_id)
         current_function = current_functions.get(call_id)
         if current_function is not None:
+            current_binding = current_function.function_tool._mcp_tool_binding
+            missing_mcp_binding = (
+                original_binding is None
+                and approval_record is not None
+                and approval_record.tool_origin is not None
+                and approval_record.tool_origin.type == ToolOriginType.MCP
+            )
+            # Rejected calls cannot execute. MCP approvals must not authorize a
+            # different MCP recipient or a local replacement's approval policy.
+            if approval_status is not False and (
+                missing_mcp_binding or original_binding != current_binding
+            ):
+                raise UserError(
+                    "Cannot resume a local MCP tool call with a missing or different recipient "
+                    "binding. Restore the original MCP server configuration and tool listing, "
+                    "or start a new run."
+                )
             reconciled_functions.append(_rebind_function_run(stale_function, current_function))
             continue
 
@@ -2180,6 +2254,11 @@ async def resolve_interrupted_turn(
                 ),
             )
         if current_handoff is not None and approval_status is True:
+            if original_binding is not None:
+                raise UserError(
+                    "Cannot resume a local MCP tool call as a handoff. Restore the original "
+                    "tool configuration, or start a new run."
+                )
             if stale_function is not None:
                 _reject_nested_replacement(stale_function)
             reconciled_handoffs.append(current_handoff)
@@ -2660,13 +2739,42 @@ async def resolve_interrupted_turn(
             )
         )
 
+    # Completed siblings are deliberately skipped during resumed execution, but their
+    # results still participate in the interrupted turn's final-output decision.
+    results_by_call_id = {
+        extract_tool_call_id(result.run_item.raw_item): result
+        for result in function_results
+        if result.run_item is not None
+    }
+    completed_outputs = {
+        item.call_id: item
+        for item in [*original_pre_step_items, *new_items]
+        if isinstance(item, ToolCallOutputItem)
+        and get_mapping_or_attr(item.raw_item, "type") == "function_call_output"
+    }
+    turn_function_results = []
+    for run in sorted(
+        selectable_function_runs,
+        key=lambda run: call_positions.get(run.tool_call.call_id, len(call_positions)),
+    ):
+        call_id = run.tool_call.call_id
+        result = results_by_call_id.get(call_id)
+        if result is not None:
+            turn_function_results.append(result)
+        elif (output_item := completed_outputs.get(call_id)) is not None:
+            turn_function_results.append(
+                FunctionToolResult(
+                    tool=run.function_tool, output=output_item.output, run_item=output_item
+                )
+            )
+
     tool_final_output = await _maybe_finalize_from_tool_results(
         public_agent=public_agent,
         original_input=original_input,
         new_response=new_response,
         pre_step_items=pre_step_items,
         new_step_items=new_items,
-        function_results=function_results,
+        function_results=turn_function_results,
         hooks=hooks,
         context_wrapper=context_wrapper,
         tool_input_guardrail_results=tool_input_guardrail_results,
@@ -3440,6 +3548,11 @@ def process_model_response(
         mcp_approval_requests=mcp_approval_requests,
         interruptions=[],
         function_tools_not_found=function_tools_not_found,
+        mcp_tool_bindings={
+            run.tool_call.call_id: binding
+            for run in functions
+            if (binding := run.function_tool._mcp_tool_binding) is not None
+        },
     )
 
 

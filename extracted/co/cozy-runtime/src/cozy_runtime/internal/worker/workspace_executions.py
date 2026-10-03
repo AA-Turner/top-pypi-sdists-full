@@ -65,6 +65,8 @@ MAX_PROGRESS_EVENTS = 256
 MAX_EVENT_BYTES = 64 << 10
 MAX_PAGE = 256
 MAX_PAGE_BYTES = 256 << 10
+#: the journal rows a boot prewarm reads for the last grants: its cost, not a history bound
+GRANT_TAIL = 1 << 14
 TERMINAL = frozenset({"succeeded", "failed", "paused", "canceled"})
 #: Accepted and not terminal: work this machine still owes.
 OPEN = "('queued','running','pausing','canceling')"
@@ -734,23 +736,92 @@ class Executions:
     def scheduling_root(self, owner: str, request: str) -> tuple[str, str]:
         """(root, parent): the original accepted ancestor orders descendants."""
         with self.workspace.locked() as db:
-            seen: list[str] = []
-            while request not in seen and len(seen) <= 32:
-                seen.append(request)
-                parent = db.execute(
-                    "SELECT parent_request FROM execution_calls WHERE owner=? AND child_request=?",
-                    (owner, request),
-                ).fetchone()
-                if parent is None:
-                    self._row(db, owner, request)
-                    return request, seen[1] if len(seen) > 1 else ""
-                request = parent[0]
+            return self._scheduling_root(db, owner, request)
+
+    def _scheduling_root(self, db: Journal, owner: str, request: str) -> tuple[str, str]:
+        seen: list[str] = []
+        while request not in seen and len(seen) <= 32:
+            seen.append(request)
+            parent = db.execute(
+                "SELECT parent_request FROM execution_calls WHERE owner=? AND child_request=?",
+                (owner, request),
+            ).fetchone()
+            if parent is None:
+                self._row(db, owner, request)
+                return request, seen[1] if len(seen) > 1 else ""
+            request = parent[0]
         raise WorkspaceRefusal("execution has no bounded scheduling ancestry")
+
+    def clock_root(self, owner: str, request: str, attempt: int) -> tuple[str, int, bool] | None:
+        """The run clock `request`'s attempt `attempt` joins, in one journal access: its root,
+        the root's attempt, and whether that attempt's clock already recorded. None when it
+        joins none: a terminal or superseded attempt, or a prior parent attempt's late
+        dispatch, which is not retry work."""
+        with self.workspace.locked() as db:
+            root, _ = self._scheduling_root(db, owner, request)
+            row = self._row(db, owner, root)
+            own = row if root == request else self._row(db, owner, request)
+            if row["state"] in TERMINAL or own["ordinal"] != attempt or own["state"] in TERMINAL:
+                return None
+            ancestor = request
+            while ancestor != root:
+                parent = db.execute(
+                    "SELECT c.parent_request,c.parent_ordinal,e.ordinal "
+                    "FROM execution_calls c JOIN executions e ON e.owner=c.owner "
+                    "AND e.request=c.parent_request WHERE c.owner=? AND c.child_request=?",
+                    (owner, ancestor),
+                ).fetchone()
+                if parent is None or parent[1] != parent[2]:
+                    return None
+                ancestor = parent[0]
+            recorded = db.execute(
+                "SELECT 1 FROM execution_events WHERE owner=? AND request=? "
+                "AND ordinal=? AND kind='run.timing' LIMIT 1",
+                (owner, root, row["ordinal"]),
+            ).fetchone()
+            return root, row["ordinal"], recorded is not None
 
     def record(self, owner: str, request: str, kind: str, document: Mapping[str, Json]) -> None:
         """Journal one bounded worker observation on an execution, terminal or not."""
         with self.workspace.locked() as db, transaction(db):
             self._event(db, self._row(db, owner, request), kind, canonical_json.encode(document))
+
+    def observe(
+        self,
+        owner: str,
+        events: Sequence[tuple[str, str, Mapping[str, Json]]],
+        *,
+        ordinal: int | None = None,
+        rooted: bool = False,
+    ) -> None:
+        """`record` for (request, kind, document) rows, in order, with the next journal access:
+        no commit on the caller's path, and every later access reads them first. `rooted`
+        journals each on its request's scheduling root. Rows for an execution that is gone,
+        or no longer at `ordinal`, are dropped."""
+        Workspace.owner(owner)
+        rows = [
+            (request, kind, canonical_json.encode(document)) for request, kind, document in events
+        ]
+        for request, _, raw in rows:
+            _id(request)
+            if len(raw) > MAX_EVENT_BYTES:
+                raise WorkspaceRefusal("execution event exceeds its metadata bound")
+        at_ms = self.clock_ms()
+
+        def write(db: Journal) -> None:
+            for request, kind, raw in rows:
+                if rooted:
+                    try:
+                        request, _ = self._scheduling_root(db, owner, request)
+                    except WorkspaceRefusal:
+                        continue
+                row = db.execute(
+                    "SELECT * FROM executions WHERE owner=? AND request=?", (owner, request)
+                ).fetchone()
+                if row is not None and ordinal in (None, row["ordinal"]):
+                    self._event(db, row, kind, raw, at_ms)
+
+        self.workspace.defer(write)
 
     def last_call_phase(self, owner: str, request: str, attempt: int) -> dict[str, Json] | None:
         """The latest observation of an inactive call, read only when its clock reopens."""
@@ -765,6 +836,37 @@ class Executions:
                 (owner, root, request, attempt),
             ).fetchone()
         return cast(dict[str, Json], canonical_json.decode(row[0])) if row is not None else None
+
+    def last_owner(self) -> str:
+        """The owner of the journal's newest row: whose calls a fresh boot prewarms before
+        any claim names its owner."""
+        with self.workspace.locked() as db:
+            row = db.execute(
+                "SELECT owner FROM execution_events "
+                "WHERE rowid = (SELECT MAX(rowid) FROM execution_events)"
+            ).fetchone()
+        return str(row[0]) if row is not None else ""
+
+    def last_grants(self, owner: str) -> list[tuple[str, tuple[int, ...]]]:
+        """GPU calls newest first, each with its GPU set: a call granted its turn (`gpu.grant`)
+        or prepared ahead of it (`stage.prepare`). Only the journal's newest `GRANT_TAIL` rows
+        are read, newest first by rowid (`+owner` keeps the owner index out of the plan), so a
+        long history costs nothing."""
+        with self.workspace.locked() as db:
+            rows = db.execute(
+                "SELECT json_extract(CAST(body AS TEXT),'$.key'), "
+                "json_extract(CAST(body AS TEXT),'$.ordinals') FROM execution_events "
+                "WHERE rowid > (SELECT MAX(rowid) FROM execution_events) - ? "
+                "AND +owner=? AND kind IN ('gpu.grant','stage.prepare') "
+                "ORDER BY rowid DESC LIMIT ?",
+                (GRANT_TAIL, owner, MAX_PAGE),
+            ).fetchall()
+        calls: dict[str, tuple[int, ...]] = {}
+        for key, ordinals in rows:
+            calls.setdefault(
+                str(key).rpartition("#")[0], msgspec.json.decode(ordinals, type=tuple[int, ...])
+            )
+        return list(calls.items())
 
     def active(self, owner: str) -> bool:
         with self.workspace.locked() as db:

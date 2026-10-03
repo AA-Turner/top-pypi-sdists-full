@@ -1,11 +1,10 @@
 import datetime
 import decimal
 import logging
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
+
+from dateutil.relativedelta import relativedelta
 
 
 log = logging.getLogger(__name__)
@@ -18,14 +17,14 @@ except AttributeError:
     class UTC(datetime.tzinfo):
         def utcoffset(
             self,
-            _dt: Optional[datetime.datetime],
+            _dt: datetime.datetime | None,
         ) -> datetime.timedelta:
             return datetime.timedelta(0)
 
-        def tzname(self, _dt: Optional[datetime.datetime]) -> str:
+        def tzname(self, _dt: datetime.datetime | None) -> str:
             return 'UTC'
 
-        def dst(self, _dt: Optional[datetime.datetime]) -> datetime.timedelta:
+        def dst(self, _dt: datetime.datetime | None) -> datetime.timedelta:
             return datetime.timedelta(0)
 
     utc = UTC()  # type: ignore[assignment]
@@ -57,7 +56,41 @@ def flatten(x: Any) -> Any:
     return x
 
 
-def parse(field: Dict[str, Any], value: Any) -> Any:
+def parse_interval(value: str | None) -> relativedelta | None:
+    # https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type
+    if value is None:
+        return None
+
+    # signs are always on the front-most item, apply them to every value
+    ymvalue, dvalue, hmsvalue = value.split()
+    yvalue, movalue = ymvalue.lstrip('-').split('-')
+    if ymvalue.startswith('-'):
+        yvalue = f'-{yvalue}'
+        movalue = f'-{movalue}'
+    hvalue, mivalue, smsvalue = hmsvalue.split(':')
+    # microseconds are optional
+    svalue, *msvalues = smsvalue.split('.')
+    msvalue = msvalues.pop().ljust(6, '0')[:6] if msvalues else '0'
+    if hvalue.startswith('-'):
+        mivalue = f'-{mivalue}'
+        svalue = f'-{svalue}'
+        msvalue = f'-{msvalue}'
+
+    # datetime.timedelta doesn't support years/months, since it does not
+    # attempt to be properly relative to a given timestamp and months can vary
+    # in their number of days
+    return relativedelta(
+        years=int(yvalue),
+        months=int(movalue),
+        days=int(dvalue),
+        hours=int(hvalue),
+        minutes=int(mivalue),
+        seconds=int(svalue),
+        microseconds=int(msvalue),
+    )
+
+
+def parse(field: dict[str, Any], value: Any) -> Any:
     """
     Parse a given field back to a Python object.
 
@@ -70,7 +103,7 @@ def parse(field: Dict[str, Any], value: Any) -> Any:
     * REPEATED fields are nested a biot differently than expected, so we need
       to flatten *first*, then convert.
 
-    `Field = Dict[str, Union[str, 'Field']]`, but wow is that difficult to
+    `Field = dict[str, str | 'Field']`, but wow is that difficult to
     represent in a backwards-enough compatible fashion.
     """
     try:
@@ -80,8 +113,10 @@ def parse(field: Dict[str, Any], value: Any) -> Any:
             ),
             'BOOLEAN': lambda x: x == 'true',
             'BYTES': bytes,
+            'DATE': datetime.date.fromisoformat,
             'FLOAT': float,
             'INTEGER': int,
+            'INTERVAL': parse_interval,
             'NUMERIC': lambda x: decimal.Decimal(
                 x, decimal.Context(prec=38),
             ),
@@ -93,7 +128,6 @@ def parse(field: Dict[str, Any], value: Any) -> Any:
         }[field['type']]
     except KeyError:
         # TODO: determine the proper methods for converting the following:
-        # DATE -> datetime?
         # DATETIME -> datetime?
         # GEOGRAPHY -> ??
         # TIME -> datetime?
@@ -126,7 +160,7 @@ def parse(field: Dict[str, Any], value: Any) -> Any:
     return convert(flatten(value))
 
 
-def query_response_to_dict(response: Dict[str, Any]) -> List[Dict[str, Any]]:
+def query_response_to_dict(response: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Convert a query response to a dictionary.
 

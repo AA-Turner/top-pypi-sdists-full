@@ -1,14 +1,8 @@
 import datetime
 import logging
 import re
-from typing import ClassVar
-
-from oauthlib.oauth2.rfc6749.errors import (
-    InvalidClientError, InvalidClientIdError, InvalidGrantError,
-    InvalidTokenError, MissingTokenError,
-)
-from requests.auth import HTTPBasicAuth
-from requests_oauthlib import OAuth2Session
+import warnings
+from typing import Any, ClassVar
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -16,12 +10,11 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from . import app_settings
-from .errors import (
-    IncompleteResponseError, NotRefreshableTokenError, TokenError,
-    TokenExpiredError, TokenInvalidError,
+from esi import app_settings, sso
+from esi.errors import (
+    IncompleteResponseError, NotRefreshableTokenError, SSOOAuthError, TokenError, TokenExpiredError, TokenInvalidError,
 )
-from .managers import TokenManager
+from esi.managers import TokenManager
 
 logger = logging.getLogger(__name__)
 
@@ -179,66 +172,65 @@ class Token(models.Model):
                 raise TokenExpiredError()
         return self.access_token
 
-    def refresh(
-        self, session: OAuth2Session = None, auth: HTTPBasicAuth = None
-    ) -> None:
+    def refresh(self, session: Any = None, auth: Any = None) -> None:
         """Refresh this token.
 
         Args:
-            session: session for refreshing token with
-            auth: ESI authentication
+            session: Deprecated, ignored. Refreshes use Django-ESI's own SSO client.
+            auth: Deprecated, ignored. Refreshes use ESI_SSO_CLIENT_ID and ESI_SSO_CLIENT_SECRET.
+
+        Raises:
+            TokenInvalidError: SSO rejected the refresh token, it should be deleted
+            NotRefreshableTokenError: This token has no refresh token
+            SSOUnavailableError: SSO unreachable or failing, the token should be kept
+            IncompleteResponseError: SSO response was unusable, the token should be kept
         """
+        if session is not None or auth is not None:
+            warnings.warn(
+                "Token.refresh() session and auth arguments are deprecated and ignored.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         logger.debug("Attempting refresh of %r", self)
-        if self.can_refresh:
-            if not session:
-                session = OAuth2Session(app_settings.ESI_SSO_CLIENT_ID)
-            if not auth:
-                auth = HTTPBasicAuth(
-                    app_settings.ESI_SSO_CLIENT_ID, app_settings.ESI_SSO_CLIENT_SECRET
-                )
-            try:
-                token = session.refresh_token(
-                    app_settings.ESI_TOKEN_URL,
-                    refresh_token=self.refresh_token,
-                    auth=auth
-                )
-                logger.debug("Retrieved new token from SSO servers.")
-                # logger.debug(token)
-                token_data = TokenManager.validate_access_token(token['access_token'])
+        if not self.can_refresh:
+            logger.debug("Not a refreshable token.")
+            raise NotRefreshableTokenError()
 
-                # TODO verify token properly
-                if token_data is not None:
-                    if self.character_owner_hash != token_data['owner']:
-                        logger.warning("Invalid Owner")
-                        raise InvalidTokenError("Ownership Changed! Revoke me!")
-
-                self.access_token = token['access_token']
-                self.refresh_token = token['refresh_token']
-                self.sso_version = 2  # we will never be ssov1 again
-                self.created = timezone.now()
-                self.save()
-                logger.debug("Successfully refreshed %r", self)
-            except (InvalidGrantError) as e:
+        try:
+            token = sso.refresh_token(self.refresh_token)
+        except SSOOAuthError as e:
+            if e.error == "invalid_grant":
                 # this token is gone forever
                 logger.error("Refresh impossible for %r: %r", self, e)
                 raise TokenInvalidError()
-            except (InvalidTokenError, InvalidClientIdError) as e:
-                # these may be recoverable?
+            if e.error == "invalid_token":
                 logger.warning("Refresh failed for %r: %r", self, e)
                 raise TokenInvalidError()
-            except MissingTokenError as e:
-                logger.info("Refresh failed for %r: %r", self, e)
-                raise IncompleteResponseError()
-            except InvalidClientError:
+            if e.error in ("invalid_client", "unauthorized_client"):
                 logger.debug(
                     "ESI client ID and secret rejected by remote. Cannot refresh."
                 )
                 raise ImproperlyConfigured(
                     'Verify ESI_SSO_CLIENT_ID and ESI_SSO_CLIENT_SECRET settings.'
                 )
-        else:
-            logger.debug("Not a refreshable token.")
-            raise NotRefreshableTokenError()
+            logger.warning("Refresh failed for %r: %r", self, e)
+            raise IncompleteResponseError()
+        logger.debug("Retrieved new token from SSO servers.")
+
+        token_data = TokenManager.validate_access_token(token['access_token'])
+
+        # TODO verify token properly
+        if token_data is not None:
+            if self.character_owner_hash != token_data['owner']:
+                logger.warning("Refresh failed for %r: Ownership changed", self)
+                raise TokenInvalidError()
+
+        self.access_token = token['access_token']
+        self.refresh_token = token['refresh_token']
+        self.sso_version = 2  # we will never be ssov1 again
+        self.created = timezone.now()
+        self.save()
+        logger.debug("Successfully refreshed %r", self)
 
     def refresh_or_delete(self) -> None:
         """Refresh this token or delete it if it can not be refreshed."""

@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from matrx_scraper.ai_browser.url_guard import install_egress_guard
 from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.screenshot_dimensions import png_dimensions
 from matrx_scraper.user_agents import normalize_user_agent
@@ -483,6 +484,9 @@ class PlaywrightBrowserPool:
                 context_kwargs["user_agent"] = user_agent
 
             context = await browser.new_context(**context_kwargs)
+            # Every request this context makes (navigation, each redirect hop,
+            # every subresource) is checked; a non-public one is aborted.
+            await install_egress_guard(context)
             page = await context.new_page()
 
             try:
@@ -576,6 +580,9 @@ class PlaywrightBrowserPool:
                 context_kwargs["proxy"] = playwright_proxy(proxy)
 
             context = await browser.new_context(**context_kwargs)
+            # Every request this context makes (navigation, each redirect hop,
+            # every subresource) is checked; a non-public one is aborted.
+            await install_egress_guard(context)
             page = await context.new_page()
             screenshots: list[CapturedScreenshot] = []
             screenshot_failures: list[ScreenshotCaptureFailure] = []
@@ -733,6 +740,9 @@ class PlaywrightBrowserPool:
                 if proxy:
                     context_kwargs["proxy"] = playwright_proxy(proxy)
                 context = await browser.new_context(**context_kwargs)
+                # Every request this context makes (navigation, each redirect hop,
+                # every subresource) is checked; a non-public one is aborted.
+                await install_egress_guard(context)
                 page = await context.new_page()
                 try:
                     await page.goto(url, timeout=timeout_ms, wait_until="commit")
@@ -830,6 +840,9 @@ class PlaywrightBrowserPool:
                 if proxy:
                     context_kwargs["proxy"] = playwright_proxy(proxy)
                 context = await browser.new_context(**context_kwargs)
+                # Every request this context makes (navigation, each redirect hop,
+                # every subresource) is checked; a non-public one is aborted.
+                await install_egress_guard(context)
                 try:
                     page = await context.new_page()
                     page.on(

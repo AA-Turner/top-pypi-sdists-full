@@ -350,6 +350,11 @@ def test_report_exit_code_zero_on_clean_repo(tmp_path: Path, spec_data: dict) ->
         # the ci_workflow_keywords (the ci.yml job id).
         "check-receipt-runtime-identity",
         "runtime-identity-validator",
+        # OMN-20304: canonical-file-shape ratchet, same two-entry shape.
+        "canonical-file-shape",
+        # OMN-20298: shape-gate independence guard, same two-entry shape.
+        "check-shape-gate-independence",
+        "shape-gate-independence",
     ]
     _write_precommit(tmp_path, pre_commit_ids)
 

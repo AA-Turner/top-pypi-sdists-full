@@ -62,7 +62,7 @@ def test_the_committed_fixtures_match_the_live_producer():
             "Then re-run apps/shared/content-ir-core: pnpm test, and "
             "matrx-frontend: pnpm test features/content-ir\n"
             "If the event SHAPE changed, reconcile the wire contract too: "
-            "common-docs/systems/content-ir-system/STREAMING_PARTIAL_KINDS.md"
+            "common-docs/systems/architecture/content-ir/FEATURE.md"
         )
 
 

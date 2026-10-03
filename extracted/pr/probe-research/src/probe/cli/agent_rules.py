@@ -58,13 +58,11 @@ person editing it. `probe/doctrine.py` keeps the destination VOCABULARY, which
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from probe._compat import StrEnum
-from probe.cli.pi_config import pi_agent_dir
 from probe.sdk.durable import write_text_atomic
 
 BEGIN_MARKER = "<!-- probe-research:begin (managed by `probe wizard`) -->"
@@ -223,22 +221,25 @@ def memory_path(source: str | None = None) -> Path:
     now -- this file used to carry that explanation itself, which is exactly
     the "logic in a third place" this factoring was meant to end.
     """
-    selected = (source or os.environ.get("PROBE_AGENT") or "claude_code").strip().lower()
-    if selected == "codex":
-        configured = os.environ.get("CODEX_HOME")
-        root = Path(configured).expanduser() if configured else Path.home() / ".codex"
-        return root / "AGENTS.md"
+    from probe.cli.capabilities import agent_source
+    from probe.harness import get_registry
 
-    if selected == "pi":
-        # Factored into pi_config.pi_agent_dir() -- this logic must not exist
-        # in a third place (agent/plugins/probe-research-pi/src/paths.ts's
-        # piAgentDir is the second). See that function's docstring for the
-        # PI_CODING_AGENT_DIR sourcing note this docstring used to carry.
-        return pi_agent_dir() / "AGENTS.md"
-
-    configured = os.environ.get("CLAUDE_CONFIG_DIR")
-    root = Path(configured).expanduser() if configured else Path.home() / ".claude"
-    return root / "CLAUDE.md"
+    if source is None:
+        # Nothing named: the environment decides, with agent_source()'s rules
+        # (unset -> the default; an unrecognized PROBE_AGENT warns and falls back).
+        selected = agent_source()
+    else:
+        harness = get_registry().find(source)
+        if harness is None:
+            # A named harness this CLI does not know is refused: resolving it to
+            # Claude Code's file would write (or remove) the managed block in
+            # the wrong agent's real instructions.
+            raise ValueError(f"no instruction file for coding agent {source!r}")
+        selected = harness.id
+    harness = get_registry().get(selected)
+    if not harness.instructions or harness.home_dir() is None:
+        raise ValueError(f"{harness.label} has no instruction file Probe manages")
+    return harness.home_dir() / harness.instructions["global"]
 
 
 def render_block(*, version: int = POINTER_VERSION, profile: Profile = Profile.AGENT) -> str:
@@ -642,10 +643,60 @@ def remove(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK) -> bool
     span = _find_block(original, spec)
     if span is None:
         return False
-    updated = (original[: span[0]].rstrip("\n") + "\n" + original[span[1] :].lstrip("\n")).lstrip(
-        "\n"
-    )
-    if updated.strip() == "":
-        updated = ""
+    write_text_atomic(path, _without(original, span))
+    return True
+
+
+def _without(text: str, span: tuple[int, int]) -> str:
+    """`text` with the block at `span` cut out, its surrounding blank lines
+    folded to one. A file whose only content was our block becomes empty."""
+    updated = (text[: span[0]].rstrip("\n") + "\n" + text[span[1] :].lstrip("\n")).lstrip("\n")
+    return "" if updated.strip() == "" else updated
+
+
+def remove_all(path: Path | None = None) -> bool:
+    """Drop EVERY block Probe manages in this file: the opt-out. True if it changed.
+
+    The team-note block is only ever rendered beside the pointer block
+    (`team_note_file.render_blocks`), so declining the rules declines both.
+    Removing the pointer alone left the note behind, and the next sync kept it
+    current in a file whose owner had said no.
+
+    ONE read, ONE write: a reader never sees the pointer gone and the note
+    still there. A damaged POINTER raises DamagedBlock with the file untouched,
+    as `remove` always has. A damaged NOTE does not stop the pointer going --
+    uninstall must still take out the rules that point at skills it removed --
+    and is left for the next sync, which reports it (`render_blocks`).
+    """
+    path = path or memory_path()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False
+    _find_block(text, POINTER_BLOCK)  # damaged: raise before any write
+    specs = [POINTER_BLOCK]
+    try:
+        _find_block(text, NOTE_BLOCK)
+        specs.append(NOTE_BLOCK)
+    except DamagedBlock:
+        pass
+    updated = text
+    for spec in specs:
+        # Found again in what is left: cutting one block moves the other.
+        span = _find_block(updated, spec)
+        if span is not None:
+            updated = _without(updated, span)
+    if updated == text:
+        return False
     write_text_atomic(path, updated)
     return True
+
+
+def has_block(path: Path, spec: BlockSpec) -> bool:
+    """Whether `spec`'s markers are in the file at all, damaged ones included.
+    An unreadable or missing file has none."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return spec.begin in text or spec.end in text

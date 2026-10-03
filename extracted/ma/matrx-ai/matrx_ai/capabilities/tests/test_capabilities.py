@@ -21,7 +21,7 @@ from matrx_ai.capabilities import (
     register_capability,
     resolve_client_capabilities,
 )
-from matrx_ai.capabilities.built_in import _register_built_ins
+from matrx_ai.capabilities.built_in import _SANDBOX_FS_TOOLS, _register_built_ins
 from matrx_ai.tools.specs import RegisteredToolSpec
 
 
@@ -101,7 +101,7 @@ class TestBuiltIns:
         # proxy when the capability is present.
         enabled = {t.name for t in cap.enabled_tools}
         assert {"fs_read", "fs_write", "shell_execute", "shell_python", "git_ingest"} <= enabled
-        assert len(cap.enabled_tools) == 10
+        assert len(cap.enabled_tools) == len(_SANDBOX_FS_TOOLS)  # the bundle is the list, not a count
 
 
 # ---------------------------------------------------------------------------

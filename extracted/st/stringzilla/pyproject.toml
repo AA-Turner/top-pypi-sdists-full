@@ -64,6 +64,21 @@ archs = ["all"]
 # https://cibuildwheel.readthedocs.io/en/stable/#what-does-it-do
 skip = ["*-macos*_universal2"]
 
+# Free-threaded 3.14 is on by default; PyPy, GraalPy and the end-of-life Pyodide target
+# are not, and stay off - which is what keeps `cp312-pyodide_wasm32` out of the matrix.
+# `cp315` is offered by default but the release jobs name their identifiers explicitly,
+# so nothing builds against a prerelease interpreter by accident.
+# https://cibuildwheel.readthedocs.io/en/stable/options/#enable
+enable = []
+
+# Forwarded from the job environment into the `manylinux`/`musllinux` container. Setting
+# `CIBW_ENVIRONMENT_LINUX` instead would replace the whole `environment` option, taking the
+# `SZ_IS_64BIT_*` overrides below with it - which is why the jobs pass these as plain
+# variables. `SZ_TARGET` selects the package, and the two `SZ_*` test knobs thin the fuzzing
+# on emulated runners.
+# https://cibuildwheel.readthedocs.io/en/stable/options/#environment-pass
+environment-pass = ["SZ_TARGET", "SZ_IS_QEMU_", "SZ_TESTS_MULTIPLIER"]
+
 [tool.cibuildwheel.linux]
 before-build = ["rm -rf {project}/build"]
 repair-wheel-command = "auditwheel repair --lib-sdir . -w {dest_dir} {wheel}"
@@ -82,16 +97,21 @@ musllinux-i686-image = "musllinux_1_2"
 musllinux-ppc64le-image = "musllinux_1_2"
 musllinux-s390x-image = "musllinux_1_2"
 musllinux-x86_64-image = "musllinux_1_2"
+# The riscv64 images `cibuildwheel` pins carry `patchelf` 0.17, which corrupts an extension
+# while rewriting its RPATH - the entry point lands below `.text` and the import dies with
+# SIGILL. `auditwheel repair` above does rewrite RPATHs, so this repository is exposed.
+# Dated tags hold the glibc 2.39 floor and the wheel tags, and only move `patchelf` to 0.19;
+# the named `manylinux_2_39` resolves back to the broken pin.
+manylinux-riscv64-image = "quay.io/pypa/manylinux_2_39_riscv64:2026.09.01-1"
+musllinux-riscv64-image = "quay.io/pypa/musllinux_1_2_riscv64:2026.09.01-1"
 
 # Different manylinux images use different package managers.
 # Try yum (CentOS/RHEL), dnf (Fedora), or apt-get (Debian/Ubuntu).
-before-all = [
-  """
+before-all = ["""
     (yum update -y && yum install -y glibc-devel wget python3-devel) || \
     (dnf update -y && dnf install -y glibc-devel wget python3-devel) || \
     (apt-get update && apt-get install -y libc6-dev wget python3-dev)
-    """,
-]
+    """]
 
 # With `musl` builds, we obviously don't need the `glibc` and can't use `yum`.
 # This may also be handy for using custom dependencies for different Python versions:
@@ -107,6 +127,44 @@ repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest
 
 [tool.cibuildwheel.windows]
 before-build = ["rd /s /q {project}\\build || echo Done"]
+# `cibuildwheel` 4 defaults this to `delvewheel repair`, where 3.x repaired nothing. The
+# serial extension links only the CRT, but the CUDA one links `cudart.lib`, and the toolkit
+# is on `PATH` in that job - so the new default would vendor `cudart64_12.dll` into the
+# wheel and shadow the user's own runtime. Empty keeps every Windows wheel byte-identical.
+repair-wheel-command = ""
+
+# RISC-V wheels have always shipped scalar code. `setup.py` forces `SZ_USE_*` for the x86 and
+# Arm tiers but names no others, so RVV falls to the `types.h` auto-detect, which needs
+# `__riscv_vector` from the baseline `-march` - and these images build at `rv64gc`. Turning the
+# tier on in `setup.py` keeps that baseline, because every kernel carries its own
+# `target("arch=+v")`; GCC ignores that pragma on RISC-V, so the toolchain moves to Clang,
+# which honours it and leaves the dispatch to `sz_capabilities` at runtime.
+[[tool.cibuildwheel.overrides]]
+before-all = "dnf install -y glibc-devel wget python3-devel clang lld"
+environment.CC = "clang"
+environment.CXX = "clang++"
+environment.LDFLAGS = "-fuse-ld=lld"
+inherit.environment = "append"
+select = "*-manylinux*_riscv64"
+
+# The musl leg keeps GCC, which ignores the pragma, so forcing the tier on there would fail
+# to compile rather than silently skip. Alpine's Clang cannot see the intrinsics behind the
+# pragma either, so this wheel stays scalar - shipping it is still better than dropping it.
+[[tool.cibuildwheel.overrides]]
+environment.SZ_USE_RVV = "0"
+inherit.environment = "append"
+select = "*-musllinux*_riscv64"
+
+# Pyodide cross-compiles from a Linux host, so `setup.py` takes its Linux branch and would
+# read the host's `platform.machine()` - forcing the x86 tiers on and pulling `immintrin.h`
+# into a wasm32 build. Pinning both arch flags off zeroes every x86 and Arm tier through
+# `is_64bit_x86()`/`is_64bit_arm()`, leaving `SZ_USE_V128` to the `__wasm_simd128__`
+# auto-detect, which follows whatever `-msimd128` Pyodide's own toolchain passes.
+[[tool.cibuildwheel.overrides]]
+environment.SZ_IS_64BIT_ARM_ = "0"
+environment.SZ_IS_64BIT_X86_ = "0"
+inherit.environment = "append"
+select = "*-pyodide*"
 
 # Detect x86 64-bit builds
 [[tool.cibuildwheel.overrides]]
@@ -166,8 +224,8 @@ select = "*-macos*_arm64"
 
 [tool.ruff]
 extend-select = [
-  "E", # pycodestyle errors
-  "F", # pyflakes
+    "E", # pycodestyle errors
+    "F", # pyflakes
 ]
 line-length = 120
 target-version = "py310"

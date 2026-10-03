@@ -452,6 +452,7 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class CarrierLookupRequestTypeDef(TypedDict):
     PhoneNumber: str
+    EnableCleansing: NotRequired[bool]
 
 class CarrierStatusInformationTypeDef(TypedDict):
     CarrierName: str
@@ -1199,6 +1200,7 @@ class CarrierLookupResultTypeDef(TypedDict):
     MNC: str
     Carrier: str
     PhoneNumberType: PhoneNumberTypeType
+    OriginalPhoneNumber: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRegistrationAssociationResultTypeDef(TypedDict):

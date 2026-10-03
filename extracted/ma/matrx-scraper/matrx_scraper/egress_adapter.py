@@ -2,7 +2,7 @@
 each TCP connection over one WebSocket to the AI Matrx gateway.
 
 Contract (the ONE source of truth for every repo):
-`common-docs/systems/platform/residential-egress/FEATURE.md` § "The consumer-side
+`common-docs/systems/architecture/residential-egress/FEATURE.md` § "The consumer-side
 adapter". The gateway, the device leg and the helper binary live in other repos;
 this module knows only two strings — a ticket and a consume URL — and turns them
 into something httpx and Playwright already know how to use::

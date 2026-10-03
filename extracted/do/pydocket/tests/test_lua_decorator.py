@@ -11,6 +11,8 @@ production wrapper relies on.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import pytest
 
 from docket import Docket
@@ -228,7 +230,7 @@ async def test_enqueue_shares_one_pipelined_round_trip() -> None:
     async with Docket(name="enqueue-evalsha", url="memory://enqueue-evalsha") as docket:
         async with docket.redis() as redis:
             await redis.script_load(_echo_bool.lua)
-            async with redis.pipeline() as pipeline:
+            async with redis.pipeline() as pipeline:  # pragma: no branch
                 _echo_bool.enqueue(pipeline, key=_k(docket, "k"), flag=True)
                 _echo_bool.enqueue(pipeline, key=_k(docket, "k"), flag=False)
                 assert await pipeline.execute() == [b"1", b"0"]
@@ -326,6 +328,26 @@ async def test_empty_variadic_emits_no_argv_entries(docket: Docket) -> None:
     assert result == 1
 
 
+@redis_script
+async def _echo_described_key(
+    redis: RedisClient,
+    *,
+    key: Key[Annotated[str, "metadata of its own"]],
+) -> bytes:
+    """
+    return KEYS[1]
+    """
+    ...
+
+
+async def test_marker_is_found_past_other_annotated_metadata(docket: Docket) -> None:
+    """A ``Key`` whose type carries its own ``Annotated`` metadata is still a key."""
+    async with docket.redis() as redis:
+        result = await _echo_described_key(redis, key=_k(docket, "described"))
+
+    assert result == _k(docket, "described").encode()
+
+
 @skip_memory
 @skip_cluster
 async def test_noscript_path_recovers_after_script_flush(  # pragma: no cover
@@ -362,9 +384,7 @@ def test_missing_docstring_is_rejected_at_decoration_time() -> None:
     with pytest.raises(TypeError, match="needs a Lua body"):
 
         @redis_script
-        async def no_doc(  # pyright: ignore[reportUnusedFunction]
-            redis: RedisClient, *, key: Key[str]
-        ) -> bytes: ...
+        async def no_doc(redis: RedisClient, *, key: Key[str]) -> bytes: ...
 
 
 def test_missing_redis_parameter_is_rejected_at_decoration_time() -> None:
@@ -373,7 +393,7 @@ def test_missing_redis_parameter_is_rejected_at_decoration_time() -> None:
         # so this invalid shape is now also a static error -- keep the runtime
         # check covered anyway.
         @redis_script  # pyright: ignore[reportArgumentType]
-        async def no_redis(*, key: Key[str]) -> bytes:  # pyright: ignore[reportUnusedFunction]
+        async def no_redis(*, key: Key[str]) -> bytes:
             """return 'x'"""
             ...
 
@@ -382,7 +402,7 @@ def test_untagged_parameter_is_rejected_at_decoration_time() -> None:
     with pytest.raises(TypeError, match="must be annotated as Key"):
 
         @redis_script
-        async def untagged(  # pyright: ignore[reportUnusedFunction]
+        async def untagged(
             redis: RedisClient,
             *,
             key: Key[str],
@@ -396,7 +416,7 @@ def test_missing_key_parameter_is_rejected_at_decoration_time() -> None:
     with pytest.raises(TypeError, match="at least one Key"):
 
         @redis_script
-        async def keyless(  # pyright: ignore[reportUnusedFunction]
+        async def keyless(
             redis: RedisClient,
             *,
             something: Arg[str],
@@ -464,7 +484,7 @@ def test_arg_after_args_is_rejected_at_decoration_time() -> None:
     with pytest.raises(TypeError, match="must be the last parameter"):
 
         @redis_script
-        async def trailing(  # pyright: ignore[reportUnusedFunction]
+        async def trailing(
             redis: RedisClient,
             *,
             key: Key[str],

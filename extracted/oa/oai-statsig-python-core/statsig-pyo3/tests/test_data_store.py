@@ -167,6 +167,16 @@ class FailingReadOnlyBytesDataStore(MockBytesDataStore):
         raise RuntimeError("Unable to determine datastore role")
 
 
+class WriteOnceBytesDataStore(MockBytesDataStore):
+    def write_once(self) -> bool:
+        return True
+
+
+class FailingWriteOnceBytesDataStore(MockBytesDataStore):
+    def write_once(self) -> bool:
+        raise RuntimeError("Unable to determine datastore write policy")
+
+
 @pytest.fixture
 def statsig_setup(httpserver: HTTPServer):
     data_store = MockDataStore(test_param="test_param")
@@ -199,10 +209,13 @@ def statsig_bytes_setup(httpserver: HTTPServer, request):
         "legacy": MockBytesDataStore,
         "read_only": ReadOnlyBytesDataStore,
         "error": FailingReadOnlyBytesDataStore,
+        "write_once": WriteOnceBytesDataStore,
+        "write_once_error": FailingWriteOnceBytesDataStore,
     }[mode]
     data_store = store_type(test_param="test_param")
     if mode == "legacy":
         del data_store.is_read_only_fn
+        del data_store.write_once_fn
 
     httpserver.expect_request(
         "/v2/download_config_specs"
@@ -296,8 +309,12 @@ def test_data_store_usage_get_bytes(statsig_bytes_setup):
     assert data_store.set_bytes_called_count > 0
 
 
-@pytest.mark.parametrize("statsig_bytes_setup", ["read_only", "error"], indirect=True)
-def test_read_only_data_store_retains_bootstrap_and_network_updates(statsig_bytes_setup):
+@pytest.mark.parametrize(
+    "statsig_bytes_setup",
+    ["read_only", "error", "write_once", "write_once_error"],
+    indirect=True,
+)
+def test_data_store_write_policy_retains_bootstrap_and_network_updates(statsig_bytes_setup):
     statsig, data_store, user = statsig_bytes_setup
     statsig.initialize().wait()
 
@@ -315,13 +332,22 @@ def test_read_only_data_store_retains_bootstrap_and_network_updates(statsig_byte
 
     assert gate.value is True
     assert gate.details.lcut == known_lcut + 10
-    assert data_store.set_bytes_called_count == 0
+    expected_writes = int(isinstance(
+        data_store, (WriteOnceBytesDataStore, FailingWriteOnceBytesDataStore)
+    ))
+    for _ in range(100):
+        if data_store.set_bytes_called_count == expected_writes:
+            break
+        sleep(0.05)
+    assert data_store.set_bytes_called_count == expected_writes
     assert data_store.set_called_count == 0
 
 
 def test_data_store_is_writable_by_default():
     assert DataStoreBase().is_read_only() is False
     assert DataStore().is_read_only() is False
+    assert DataStoreBase().write_once() is False
+    assert DataStore().write_once() is False
 
 
 def test_data_store_usage_get_bytes_request_has_since_time_after_initial_poll(statsig_bytes_setup):

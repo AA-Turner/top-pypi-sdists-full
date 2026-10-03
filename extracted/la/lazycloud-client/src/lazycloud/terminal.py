@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from threading import RLock
 from types import TracebackType
-from typing import TypeAlias
 
 from rich.console import Group, RenderableType
 from rich.live import Live
@@ -16,15 +15,15 @@ from rich.spinner import Spinner
 from rich.style import Style
 from rich.table import Table
 from rich.text import Text
-from shared.http.task_progress import TaskPendingProgress, TaskPendingReason
-from shared.timestamps import utc_now
 from typing_extensions import Self
 
+from lazycloud._shared.timestamps import utc_now
 from lazycloud._terminal import theme
 from lazycloud._terminal.cards import notice_card
+from lazycloud._terminal.formatting import short_id
 from lazycloud._terminal.streams import error_console, json_output_active
+from lazycloud.contracts.api import TaskPendingProgress, TaskPendingReason
 
-ProgressCallback: TypeAlias = Callable[[int], None]
 _output_enabled: ContextVar[bool | None] = ContextVar("lazycloud_output_enabled", default=None)
 
 
@@ -344,7 +343,7 @@ def _pending_card(task_id: str, pending: TaskPendingProgress) -> RenderableType:
     }[pending.reason]
     return notice_card(
         pending.message,
-        title=f"Task {task_id[:8]} · pending {elapsed}",
+        title=f"Task {short_id(task_id)} · pending {elapsed}",
         hint=hint,
         tone="warning"
         if pending.reason

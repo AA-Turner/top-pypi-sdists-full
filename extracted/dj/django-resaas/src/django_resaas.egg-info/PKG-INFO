@@ -1,33 +1,76 @@
 Metadata-Version: 2.4
 Name: django_resaas
-Version: 0.0.624
+Version: 0.0.631
 Summary: Django SAAS Framework
 Author-email: Dias Metano Salvador Chavana <metanochava@gmail.com>
-License: MIT License
+License: RESAAS Commercial License
         
-        Copyright (c) 2025 Metano Chavana
+        Copyright (c) 2025-2026 Dias Metano Salvador Chavana. All rights reserved.
         
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
+        This license applies to django_resaas ("the Software"), part of RESAAS. Versions of
+        the Software published before this license was introduced remain under the
+        license they were published with.
         
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
+        1. Ownership
+           The Software is licensed, not sold. All rights, title and interest in the
+           Software, including all intellectual property rights, remain with the
+           copyright holder.
         
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+        2. Grant
+           Subject to the terms of this license, you may download, install and use the
+           Software to build and run applications, only:
+           a) within the features, capacities and modules enabled for your installation
+              or tenant by the Software's entitlements mechanism; and
+           b) within the scope of any written license agreement entered into with the
+              copyright holder, which prevails over this license where they differ.
+           Any use beyond that requires a separate written license from the copyright
+           holder.
+        
+        3. Restrictions
+           Unless a written agreement with the copyright holder expressly allows it,
+           you may not:
+           a) copy, distribute, publish, sell, rent, lease, sublicense or otherwise make
+              the Software, or any modified version of it, available to third parties,
+              except as an integral part of an application you build with it and run
+              for your own users;
+           b) remove, disable, bypass or alter the entitlements, licensing or tenant
+              isolation mechanisms of the Software, or enable features, capacities or
+              modules that have not been granted to you;
+           c) offer the Software, or a product whose main value is the Software, as a
+              development framework, platform or service to third parties;
+           d) remove or alter any copyright, license or proprietary notice.
+        
+        4. Modifications
+           You may modify the Software only for your own use under section 2. Modified
+           versions remain subject to this license.
+        
+        5. Third-party components
+           Third-party components included with or required by the Software are
+           licensed under their own terms.
+        
+        6. Termination
+           This license terminates automatically if you breach any of its terms. On
+           termination you must stop using the Software and delete all copies in your
+           possession.
+        
+        7. No warranty
+           THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+           IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+           FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+        
+        8. Limitation of liability
+           TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE COPYRIGHT
+           HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+           ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+           WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.
+        
+        For commercial licensing, contact the copyright holder:
+        https://github.com/metanochava
         
 Project-URL: Homepage, https://github.com/metanochava/django_resaas
 Project-URL: Repository, https://github.com/metanochava/django_resaas
 Keywords: django,saas,framework
+Classifier: License :: Other/Proprietary License
 Classifier: Framework :: Django
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
@@ -50,7 +93,6 @@ Requires-Dist: python-dotenv
 Requires-Dist: django-cors-headers
 Requires-Dist: psycopg[binary]
 Requires-Dist: django-filter
-Requires-Dist: dotenv==0.9.9
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-django>=4.8; extra == "dev"
@@ -62,19 +104,19 @@ Dynamic: license-file
 
 # 🚀 django_resaas
 
-**The framework you've been missing for building multi-tenant SaaS apps in Django — without reinventing the wheel on every project.**
+**Full-stack framework for building secure, multi-tenant business applications with Django and Quasar** — this is the Django backend; [quasar_resaas](https://github.com/metanochava/quasar_resaas) is the frontend.
 
 [![PyPI](https://img.shields.io/badge/pypi-django__resaas-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/django_resaas/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Django](https://img.shields.io/badge/django-5.2-0C4B33?logo=django&logoColor=white)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: Commercial](https://img.shields.io/badge/license-commercial-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active%20development-orange)](https://github.com/metanochava/django_resaas)
 
 ---
 
-If you've ever built a SaaS API in Django, you know the drill: multi-tenancy, per-group and per-branch permissions, soft delete, file uploads, PDF generation, i18n, plan-based billing… all of it **again**, project after project.
+If you've ever built a SaaS API in Django, you know the drill: multi-tenancy, per-group and per-branch permissions, soft delete, file uploads, PDF generation, i18n, usage limits… all of it **again**, project after project.
 
-**django_resaas** solves that part once and for all. It's a framework built on top of Django + DRF that gives any application a production-ready foundation: multi-tenancy, RBAC, smart CRUD, dynamic search, per-client feature modules, and billing — so your team can focus on what actually matters: the business.
+**django_resaas** solves that part once and for all. It's a framework built on top of Django + DRF that gives any application a production-ready foundation: multi-tenancy, RBAC, smart CRUD, dynamic search, per-client feature modules and entitlements (features and usage limits) — so your team can focus on what actually matters: the business.
 
 ```bash
 pip install django_resaas
@@ -92,7 +134,7 @@ pip install django_resaas
 - [Multi-tenancy & RBAC](#-multi-tenancy--rbac)
 - [Soft delete](#-soft-delete)
 - [Automatic search & filters](#-automatic-search--filters)
-- [Per-client modules + billing](#-per-client-modules--billing)
+- [Per-client modules & entitlements](#-per-client-modules--entitlements)
 - [Middlewares](#-middlewares)
 - [Internationalization (i18n)](#-internationalization-i18n)
 - [CLI / management commands](#-cli--management-commands)
@@ -130,6 +172,7 @@ Every multi-tenant SaaS app ends up needing the same set of building blocks. `dj
 * 🔎 **Dynamic search** — automatic search across text fields and relations
 * ♻️ **Soft delete** — `delete()` / `restore()` / `hard_delete()` + dedicated managers
 * 🧩 **Per-client modules** — toggle features on/off per entity without a deploy (`App` + `EntityApp`)
+* 🎚️ **Entitlements** — features, capacities (quantitative limits) and modules per installation/tenant, behind a replaceable provider, enforced by the backend
 * 📎 **Files & PDF** — secure uploads, automatic metadata, PDF generation (WeasyPrint)
 * 🔑 **JWT auth + 2FA** — `simplejwt`, OTP (`pyotp`) and QR codes built in
 * 🌍 **Built-in i18n** — file-based translations (`pt-pt`, `en-us`, `es-es`, `fr-fr`) and database-backed
@@ -149,22 +192,26 @@ pip install -e .
 ```python
 # settings.py
 INSTALLED_APPS = [
+    "django_resaas.saas",           # the core
+    "django_resaas.notifications",  # email / SMS / WhatsApp outbox
+    "your_app",                     # your own modules
     ...
-    "django_resaas",
-    "hr",  # example module included
 ]
 
 MIDDLEWARE = [
     ...
-    "django_resaas.core.middleware.tenant.TenantContextMiddleware",
-    "django_resaas.core.middleware.front_end.FrontEndMiddleware",
+    "django_resaas.saas.core.middleware.file_access.FileAccessMiddleware",
+    "django_resaas.saas.core.middleware.tenant.TenantContextMiddleware",
 ]
 ```
 
+The complete, working settings (REST framework, JWT, CORS, `RESAAS_*`) are in
+[Installation](docs/getting-started/installation.md). Then:
+
 ```bash
-make migrate
-make superuser
-make run          # http://0.0.0.0:7002
+python manage.py migrate
+python manage.py create_root
+python manage.py runserver
 ```
 
 ---
@@ -172,18 +219,19 @@ make run          # http://0.0.0.0:7002
 ## 🧠 Architecture
 
 ```text
-User
- ↓
-Person
- ↓
-Employee (HR)
- ↓
+EntityType
+   ↓
 Entity (tenant)
- ↓
+   ↓
 Branch
- ↓
-Groups + Permissions
+   ↓
+Group ──→ Permission
+
+Person ──→ User ──→ BranchUserGroup (User + Branch + Group)
 ```
+
+Business modules (HR, Health, Sales, ...) are separate Django apps built on
+this core; the framework itself ships none.
 
 **Key concepts:**
 
@@ -193,6 +241,7 @@ Groups + Permissions
 | `Branch` | A unit/location within an `Entity` |
 | `Person` | Human data (name, email, contacts) |
 | `User` | Authentication |
+| `EntityType` | The kind of tenant; carries default groups and modules |
 | `BranchUserGroup` | Links `User` + `Branch` + `Group`, allowing multiple groups per branch |
 
 ---
@@ -203,11 +252,11 @@ Groups + Permissions
 
 ```python
 from django.db import models
-from django_resaas.core.base.models import BaseModel
+from django_resaas.saas.core.base.models import BaseModel
 
-class Employee(BaseModel):
-    person = models.ForeignKey("django_resaas.Person", on_delete=models.CASCADE)
-    role = models.CharField(max_length=100)
+class Product(BaseModel):
+    name = models.CharField(max_length=150)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
 ```
 
 `BaseModel` already ships `entity`, `branch`, `created_at`/`updated_at`, `created_by`/`updated_by` and soft delete.
@@ -215,24 +264,28 @@ class Employee(BaseModel):
 **Serializer**
 
 ```python
-from django_resaas.core.base.serializers import BaseSerializer
+from django_resaas.saas.core.base.serializers import BaseSerializer
 
-class EmployeeSerializer(BaseSerializer):
+class ProductSerializer(BaseSerializer):
     class Meta:
-        model = Employee
+        model = Product
         fields = "__all__"
 ```
 
 **View**
 
 ```python
-from django_resaas.core.base.views import BaseAPIView, registerView
+from django_resaas.saas.core.base.views import BaseAPIView, register_view
 
-@registerView(module="hr")
-class EmployeeView(BaseAPIView):
-    queryset = Employee.objects.all()
-    serializer_class = EmployeeSerializer
+@register_view("products", module="your_app")
+class ProductAPIView(BaseAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
 ```
+
+(`registerView` is the same decorator under its original name, still supported.)
+The module must be activated for the Entity (`App` + `EntityApp`) — see the
+[Quick start](docs/getting-started/quick-start.md).
 
 That's enough to automatically get: full CRUD, multi-tenant isolation, permissions, search, soft delete, restore, and protection based on the active module.
 
@@ -305,20 +358,20 @@ Model.all_objects        # everything
 ## 🔎 Automatic search & filters
 
 ```http
-GET /api/employees/?search=john
+GET /api/your_app/products/?search=john
 ```
 
 `BaseAPIView` automatically searches text fields and relations (`ForeignKey`), with no per-endpoint configuration required.
 
 ---
 
-## 🧩 Per-client modules
+## 🧩 Per-client modules & entitlements
 
 Each `Entity` only sees the modules it has activated:
 
 | Entity | Module | Status |
 |---|---|---|
-| Company A | HR | ✅ |
+| Company A | Sales | ✅ |
 | Company A | CRM | ❌ |
 
 Activation is a direct `App` ↔ `Entity` link via `EntityApp` (toggled with its `state` field):
@@ -327,10 +380,29 @@ Activation is a direct `App` ↔ `Entity` link via `EntityApp` (toggled with its
 EntityApp.objects.get_or_create(app=app, entity=entity, state='Active')
 ```
 
-> There is no plan-based billing layer yet (no `Plan`/`EntityPlan` model, no automatic
-> plan-to-module sync) - that's tracked under [Roadmap](#-roadmap). Module activation today is a
-> direct per-entity toggle, as used by `python manage.py create_root` (see
-> [`docs/development/management-commands.md`](docs/development/management-commands.md)).
+**Entitlements** add what the installation/tenant may use, on top of activation:
+features (`multi_entity`), capacities (quantitative limits such as `branches`) and
+allowed modules. They are off by default (nothing restricted), configured with
+`RESAAS_ENTITLEMENTS` or a custom provider, and always enforced by the backend:
+
+```python
+# illustrative values - RESAAS ships no plans or official limits
+RESAAS_ENTITLEMENTS = {"features": {"advanced_audit": True},
+                       "capacities": {"branches": 3, "users": 20}}
+```
+
+Entitlements sit between the tenant context and permissions — they never replace
+a permission:
+
+```text
+Authentication → Signed tenant context → Entitlements → Permissions → Object scope → Field authorization → Business operation
+```
+
+Installing the package does not mean unlimited use: what an installation may use
+follows the [license](LICENSE) and its entitlements. The framework knows
+capabilities only — commercial plans are mapped to them by a provider. There is no
+billing or payment layer. See
+[Entitlements](docs/security/entitlements.md).
 
 ---
 
@@ -349,7 +421,7 @@ EntityApp.objects.get_or_create(app=app, entity=entity, state='Active')
 Translations are resolved in cascade — database first, then each app's `lang/` files — with automatic caching:
 
 ```python
-from django_resaas.core.utils.translate import Translate
+from django_resaas.saas.core.utils.translate import Translate
 
 Translate.tdc(request, "Register")
 ```
@@ -390,14 +462,14 @@ python manage.py check_metano       # validates compliance with the MetanoStack 
 
 Full technical documentation lives in [`docs/`](docs/README.md):
 
-- [**FAQ / Getting started**](docs/faq.md) — installation and the practical "how do I...?" questions
+- [Installation](docs/getting-started/installation.md) · [Quick start](docs/getting-started/quick-start.md)
 - [Architecture](docs/architecture/overview.md) · [Multi-tenancy](docs/architecture/multi-tenancy.md) · [Request lifecycle](docs/architecture/request-lifecycle.md) · [Middleware](docs/architecture/middleware.md) · [View registry](docs/architecture/registry.md)
 - [Schema 1.0 contract](docs/api/schema-contract.md) · [Public API reference](docs/api/public-api-reference.md)
 - [BaseAPIView](docs/api/base-api-view.md) · [Search](docs/api/search.md) · [Filters & pagination](docs/api/filters-pagination.md)
-- [Permissions](docs/security/permissions.md)
+- [Permissions](docs/security/permissions.md) · [Field-level permissions](docs/security/field-permissions.md) · [Entitlements](docs/security/entitlements.md)
 - [Soft delete](docs/features/soft-delete.md) · [Files & PDF](docs/features/files-pdf.md)
-- [Creating a new resource](docs/development/creating-resource.md) · [Management commands](docs/development/management-commands.md)
-- [The hr app](docs/hr/overview.md)
+- [Creating a new resource](docs/development/creating-resource.md) · [Building a module](docs/development/building-a-module.md) · [Management commands](docs/development/management-commands.md)
+- [Upgrading (breaking changes)](docs/deployment/upgrading.md)
 - [Git Flow & releases](docs/deployment/releases.md)
 - [Troubleshooting](docs/troubleshooting/common-errors.md)
 
@@ -429,7 +501,10 @@ make check
 
 ## 📄 License
 
-Distributed under the [MIT](LICENSE) license.
+Distributed under the [RESAAS Commercial License](LICENSE). The package can be installed
+and used within the terms of that license and the entitlements enabled for your
+installation; anything beyond that needs a written license. Versions published
+before this license keep the license they were published with.
 
 ---
 

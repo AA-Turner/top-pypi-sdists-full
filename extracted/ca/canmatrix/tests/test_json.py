@@ -2,30 +2,27 @@
 
 import io
 import json
+
 import pytest
 
-from canmatrix.CanMatrix import CanMatrix
-from canmatrix.Frame import Frame
-from canmatrix.Signal import Signal
-from canmatrix.ArbitrationId import ArbitrationId
-from canmatrix.Define import Define
+import canmatrix.canmatrix
 import canmatrix.formats
 
 
 @pytest.fixture
 def default_matrix():
-    matrix = CanMatrix()
-    some_define = Define("INT 0 65535")
+    matrix = canmatrix.canmatrix.CanMatrix()
+    some_define = canmatrix.Define("INT 0 65535")
     matrix.add_value_table("Options", {0: "North", 1: "South", 2: "East", 3: "West"})
 
-    frame = Frame(name="test_frame", arbitration_id=10)
+    frame = canmatrix.canmatrix.Frame(name="test_frame", arbitration_id=10)
     frame.add_attribute("my_attribute1", "my_value1")
-    signal = Signal(name="test_signal", size=8)
+    signal = canmatrix.canmatrix.Signal(name="test_signal", size=8)
     signal.add_values(0xFF, "Init")
     signal.add_attribute("my_attribute2", "my_value2")
     frame.add_signal(signal)
 
-    signal = Signal(name="multi", multiplex=True, size=3, unit="attosecond")
+    signal = canmatrix.canmatrix.Signal(name="multi", multiplex=True, size=3, unit="attosecond")
     frame.add_signal(signal)
 
     matrix.add_frame(frame)
@@ -55,12 +52,12 @@ def test_export_additional_frame_info(default_matrix):
 
 
 def test_export_long_signal_names():
-    matrix = CanMatrix()
-    frame = Frame(name="test_frame", arbitration_id=10)
+    matrix = canmatrix.canmatrix.CanMatrix()
+    frame = canmatrix.canmatrix.Frame(name="test_frame", arbitration_id=10)
     matrix.add_frame(frame)
     long_signal_name = "FAILURE_ZELL_UNTERTEMPERATUR_ENTLADEN_ALARM_IDX_01"
     assert len(long_signal_name) > 32
-    signal = Signal(name=long_signal_name, size=8)
+    signal = canmatrix.canmatrix.Signal(name=long_signal_name, size=8)
     frame.add_signal(signal)
 
     out_file = io.BytesIO()
@@ -71,9 +68,9 @@ def test_export_long_signal_names():
 
 
 def test_export_min_max():
-    matrix = CanMatrix()
-    frame = Frame(name="test_frame", size=6, arbitration_id=10)
-    signal = Signal(name="someSigName", size=40, min=-5, max=42)
+    matrix = canmatrix.canmatrix.CanMatrix()
+    frame = canmatrix.canmatrix.Frame(name="test_frame", size=6, arbitration_id=10)
+    signal = canmatrix.Signal(name="someSigName", size=40, min=-5, max=42)
     frame.add_signal(signal)
     matrix.add_frame(frame)
     out_file = io.BytesIO()
@@ -201,9 +198,9 @@ def test_import_export_enums():
 
 
 def test_export_native():
-    matrix = CanMatrix()
-    frame = Frame(name="test_frame", size=6, arbitration_id=10)
-    signal = Signal(name="test_sig", size=40, is_float=True, min="-4.2", max=42, factor="0.123", offset=1)
+    matrix = canmatrix.canmatrix.CanMatrix()
+    frame = canmatrix.canmatrix.Frame(name="test_frame", size=6, arbitration_id=10)
+    signal = canmatrix.Signal(name="test_sig", size=40, is_float=True, min="-4.2", max=42, factor="0.123", offset=1)
     frame.add_signal(signal)
     matrix.add_frame(frame)
     out_file = io.BytesIO()
@@ -214,9 +211,9 @@ def test_export_native():
 
 
 def test_export_all_native():
-    matrix = CanMatrix()
-    frame = Frame(name="test_frame", size=6, arbitration_id=10)
-    signal = Signal(name="test_sig", size=40, is_float=True, min="-4.2", max=42, factor="0.123", offset=1)
+    matrix = canmatrix.canmatrix.CanMatrix()
+    frame = canmatrix.canmatrix.Frame(name="test_frame", size=6, arbitration_id=10)
+    signal = canmatrix.Signal(name="test_sig", size=40, is_float=True, min="-4.2", max=42, factor="0.123", offset=1)
     frame.add_signal(signal)
     matrix.add_frame(frame)
     out_file = io.BytesIO()
@@ -230,10 +227,10 @@ def test_export_all_native():
 
 
 def test_export_extended():
-    matrix = CanMatrix()
-    frame = Frame(name="test_frame", size=6, arbitration_id=ArbitrationId(extended=True, id=10))
+    matrix = canmatrix.canmatrix.CanMatrix()
+    frame = canmatrix.canmatrix.Frame(name="test_frame", size=6, arbitration_id=canmatrix.canmatrix.ArbitrationId(extended=True, id=10))
     frame.pgn=22
-    signal = Signal(name="someSigName", size=40)
+    signal = canmatrix.Signal(name="someSigName", size=40)
     frame.add_signal(signal)
     matrix.add_frame(frame)
     out_file = io.BytesIO()

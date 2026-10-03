@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simplejson
-Version: 4.1.2
+Version: 4.2.0
 Summary: Simple, fast, extensible JSON encoder/decoder for Python
 Home-page: https://github.com/simplejson/simplejson
 Author: Bob Ippolito
@@ -14,18 +14,18 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*, !=3.8.*
 License-File: LICENSE.txt
 Dynamic: author
 Dynamic: author-email
@@ -42,7 +42,7 @@ simplejson
 ----------
 
 simplejson is a simple, fast, complete, correct and extensible
-JSON <http://json.org> encoder and decoder for Python 3.8+
+JSON <http://json.org> encoder and decoder for Python 3.9+
 with legacy support for Python 2.7.  It is pure Python code
 with no dependencies, but includes an optional C extension
 for a serious speed boost.
@@ -53,7 +53,7 @@ https://simplejson.readthedocs.io/
 simplejson is the externally maintained development version of the
 json library included with Python (since 2.6). This version is tested
 with Python 3.14 (including free-threaded builds) and maintains
-backwards compatibility with Python 3.8+. A legacy Python 2.7 wheel
+backwards compatibility with Python 3.9+. A legacy Python 2.7 wheel
 is also published.
 
 The encoder can be specialized to provide serialization in any kind of

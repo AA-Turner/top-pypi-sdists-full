@@ -36,7 +36,13 @@ class RequirePreciseFactorySignature(ProjectRule):
         default_level=Severity.WARNING,
         summary="Keep fixed keyword factory calls behind a precise callable signature.",
         rationale="Callable[..., T] erases argument checking, so misspelled keywords and incompatible injected factories pass strict typing and can fail at runtime.",
-        remediation="Use an exact callable Protocol for substitutable factories. Use type[T] when this dependency genuinely requires a class, accounting for subclass constructor compatibility.",
+        remediation=(
+            "If factory substitution is unnecessary, call the existing constructor directly. Otherwise reuse an "
+            "existing precise callable contract; use type[T] when the dependency requires a class, accounting "
+            "for subclass constructor compatibility. Introduce a callable Protocol only when a substitutable "
+            "keyword factory actually needs a new contract; preserve the accepted keyword names instead of "
+            "replacing them with unchecked **kwargs."
+        ),
         category=RuleCategory.ARCHITECTURE,
         autofix=AutofixPolicy.NONE,
         limitations=(
@@ -106,7 +112,11 @@ class RequirePreciseFactorySignature(ProjectRule):
                         line=argument.lineno,
                         col=argument.col_offset + 1,
                         code=self.code,
-                        message=f"`{argument.arg}` is called with fixed keywords but Callable[..., T] erases its argument contract; use a precise callable signature.",
+                        message=(
+                            f"`{argument.arg}` is called with fixed keywords but Callable[..., T] erases its "
+                            "argument contract; remove unnecessary factory indirection or reuse a precise callable "
+                            "contract that preserves the accepted keywords."
+                        ),
                         severity=Severity.WARNING,
                     )
                 )
@@ -220,10 +230,28 @@ def _stable_class(tree: ast.Module, name: str) -> bool:
 
 
 def _captured_import_root(name: str, context: PythonFileContext) -> bool:
-    return any(
-        _binds_name(node, name)
-        for node in context.nodes(ast.MatchAs, ast.MatchStar, ast.MatchMapping, ast.ExceptHandler)
-    ) or any(node.target.id == name for node in context.nodes(ast.NamedExpr))
+    return (
+        any(
+            _binds_name(node, name)
+            for node in context.nodes(ast.MatchAs, ast.MatchStar, ast.MatchMapping, ast.ExceptHandler)
+        )
+        or any(node.target.id == name for node in context.nodes(ast.NamedExpr))
+        or _global_import_writer(name, context)
+    )
+
+
+def _global_import_writer(name: str, context: PythonFileContext) -> bool:
+    for declaration in context.nodes(ast.Global):
+        if name not in declaration.names:
+            continue
+        scope = context.parents.get(declaration)
+        while scope is not None and not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
+            scope = context.parents.get(scope)
+        if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+            _binds_name(node, name) for node in walk(scope)
+        ):
+            return True
+    return False
 
 
 def _binds_name(node: ast.AST, name: str) -> bool:

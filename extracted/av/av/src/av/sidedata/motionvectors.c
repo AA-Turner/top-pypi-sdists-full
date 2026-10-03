@@ -1571,11 +1571,10 @@ static const char* const __pyx_f[] = {
   "av/dictionary.pxd",
   "av/format.pxd",
   "av/container/core.pxd",
-  "av/index.pxd",
   "av/stream.pxd",
   "av/packet.pxd",
-  "av/sidedata/sidedata.pxd",
   "av/frame.pxd",
+  "av/sidedata/sidedata.pxd",
 };
 /* #### Code section: utility_code_proto_before_types ### */
 /* CriticalSectionsDefinition.proto (used by CriticalSections) */
@@ -1764,16 +1763,14 @@ struct __pyx_obj_2av_9container_7streams_StreamContainer;
 struct __pyx_obj_2av_10dictionary_Dictionary;
 struct __pyx_obj_2av_6format_ContainerFormat;
 struct __pyx_obj_2av_9container_4core_Container;
-struct __pyx_obj_2av_5index_IndexEntry;
-struct __pyx_obj_2av_5index_IndexEntries;
 struct __pyx_obj_2av_6stream_Stream;
 struct __pyx_obj_2av_6stream_DataStream;
 struct __pyx_obj_2av_6stream_AttachmentStream;
 struct __pyx_obj_2av_6packet_PacketSideData;
 struct __pyx_obj_2av_6packet_Packet;
+struct __pyx_obj_2av_5frame_Frame;
 struct __pyx_obj_2av_8sidedata_8sidedata_SideData;
 struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer;
-struct __pyx_obj_2av_5frame_Frame;
 struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors;
 struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVector;
 struct __pyx_obj_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__;
@@ -1858,7 +1855,7 @@ struct __pyx_t_2av_9container_4core_timeout_info {
 };
 struct __pyx_opt_args_2av_6stream_6Stream__assert_has_codec_context;
 
-/* "av/stream.pxd":26
+/* "av/stream.pxd":17
  *     cdef bint _is_open(self)
  *     cdef void _assert_open(self)
  *     cdef void _assert_has_codec_context(self, int err=*)             # <<<<<<<<<<<<<<
@@ -1871,9 +1868,9 @@ struct __pyx_opt_args_2av_6stream_6Stream__assert_has_codec_context {
 };
 struct __pyx_opt_args_2av_5frame_5Frame__copy_internal_attributes;
 
-/* "av/frame.pxd":13
+/* "av/frame.pxd":11
+ *     cdef lib.AVRational _time_base
  *     cdef void _rebase_time(self, lib.AVRational)
- *     cdef _SideDataContainer _side_data
  *     cdef void _copy_internal_attributes(self, Frame source, bint data_layout=?)             # <<<<<<<<<<<<<<
  *     cdef void _init_user_attributes(self)
 */
@@ -2095,40 +2092,12 @@ struct __pyx_obj_2av_9container_4core_Container {
 };
 
 
-/* "av/index.pxd":6
- * 
- * 
- * cdef class IndexEntry:             # <<<<<<<<<<<<<<
- *     cdef lib.AVIndexEntry entry
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
-*/
-struct __pyx_obj_2av_5index_IndexEntry {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtab;
-  struct AVIndexEntry entry;
-};
-
-
-/* "av/index.pxd":10
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
- * 
- * cdef class IndexEntries:             # <<<<<<<<<<<<<<
- *     cdef Stream stream
- *     cdef void _init(self, Stream stream)
-*/
-struct __pyx_obj_2av_5index_IndexEntries {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtab;
-  struct __pyx_obj_2av_6stream_Stream *stream;
-};
-
-
-/* "av/stream.pxd":10
+/* "av/stream.pxd":9
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
  *     cdef lib.AVStream *ptr
- * 
+ *     cdef readonly Container container
 */
 struct __pyx_obj_2av_6stream_Stream {
   PyObject_HEAD
@@ -2137,11 +2106,10 @@ struct __pyx_obj_2av_6stream_Stream {
   struct __pyx_obj_2av_9container_4core_Container *container;
   PyObject *metadata;
   struct __pyx_obj_2av_5codec_7context_CodecContext *codec_context;
-  struct __pyx_obj_2av_5index_IndexEntries *index_entries;
 };
 
 
-/* "av/stream.pxd":34
+/* "av/stream.pxd":25
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2153,7 +2121,7 @@ struct __pyx_obj_2av_6stream_DataStream {
 };
 
 
-/* "av/stream.pxd":37
+/* "av/stream.pxd":28
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2193,6 +2161,21 @@ struct __pyx_obj_2av_6packet_Packet {
 };
 
 
+/* "av/frame.pxd":6
+ * 
+ * 
+ * cdef class Frame:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVFrame *ptr
+ *     # We define our own time.
+*/
+struct __pyx_obj_2av_5frame_Frame {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5frame_Frame *__pyx_vtab;
+  struct AVFrame *ptr;
+  AVRational _time_base;
+};
+
+
 /* "av/sidedata/sidedata.pxd":8
  * 
  * 
@@ -2223,37 +2206,20 @@ struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer {
 };
 
 
-/* "av/frame.pxd":7
- * 
- * 
- * cdef class Frame:             # <<<<<<<<<<<<<<
- *     cdef lib.AVFrame *ptr
- *     # We define our own time.
-*/
-struct __pyx_obj_2av_5frame_Frame {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5frame_Frame *__pyx_vtab;
-  struct AVFrame *ptr;
-  AVRational _time_base;
-  struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer *_side_data;
-};
-
-
 /* "av/sidedata/motionvectors.pxd":7
  * 
  * 
  * cdef class MotionVectors(SideData):             # <<<<<<<<<<<<<<
- *     cdef dict _vectors
  *     cdef Py_ssize_t _len
+ * 
 */
 struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors {
   struct __pyx_obj_2av_8sidedata_8sidedata_SideData __pyx_base;
-  PyObject *_vectors;
   Py_ssize_t _len;
 };
 
 
-/* "av/sidedata/motionvectors.pxd":12
+/* "av/sidedata/motionvectors.pxd":11
  * 
  * 
  * cdef class MotionVector:             # <<<<<<<<<<<<<<
@@ -2267,8 +2233,8 @@ struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVector {
 };
 
 
-/* "av/sidedata/motionvectors.py":42
- *         return vector
+/* "av/sidedata/motionvectors.py":33
+ *         return MotionVector(_cinit_bypass_sentinel, self, index)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
  *         """Iterate over all motion vectors."""
@@ -2403,40 +2369,12 @@ struct __pyx_vtabstruct_2av_9container_4core_Container {
 static struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtabptr_2av_9container_4core_Container;
 
 
-/* "av/index.pxd":6
- * 
- * 
- * cdef class IndexEntry:             # <<<<<<<<<<<<<<
- *     cdef lib.AVIndexEntry entry
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
-*/
-
-struct __pyx_vtabstruct_2av_5index_IndexEntry {
-  void (*_init)(struct __pyx_obj_2av_5index_IndexEntry *, struct AVIndexEntry const *);
-};
-static struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtabptr_2av_5index_IndexEntry;
-
-
-/* "av/index.pxd":10
- *     cdef void _init(self, const lib.AVIndexEntry *ptr)
- * 
- * cdef class IndexEntries:             # <<<<<<<<<<<<<<
- *     cdef Stream stream
- *     cdef void _init(self, Stream stream)
-*/
-
-struct __pyx_vtabstruct_2av_5index_IndexEntries {
-  void (*_init)(struct __pyx_obj_2av_5index_IndexEntries *, struct __pyx_obj_2av_6stream_Stream *);
-};
-static struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtabptr_2av_5index_IndexEntries;
-
-
-/* "av/stream.pxd":10
+/* "av/stream.pxd":9
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
  *     cdef lib.AVStream *ptr
- * 
+ *     cdef readonly Container container
 */
 
 struct __pyx_vtabstruct_2av_6stream_Stream {
@@ -2450,7 +2388,7 @@ struct __pyx_vtabstruct_2av_6stream_Stream {
 static struct __pyx_vtabstruct_2av_6stream_Stream *__pyx_vtabptr_2av_6stream_Stream;
 
 
-/* "av/stream.pxd":34
+/* "av/stream.pxd":25
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2464,7 +2402,7 @@ struct __pyx_vtabstruct_2av_6stream_DataStream {
 static struct __pyx_vtabstruct_2av_6stream_DataStream *__pyx_vtabptr_2av_6stream_DataStream;
 
 
-/* "av/stream.pxd":37
+/* "av/stream.pxd":28
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2506,21 +2444,7 @@ struct __pyx_vtabstruct_2av_6packet_Packet {
 static struct __pyx_vtabstruct_2av_6packet_Packet *__pyx_vtabptr_2av_6packet_Packet;
 
 
-/* "av/sidedata/sidedata.pxd":8
- * 
- * 
- * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
- *     cdef Frame frame
- *     cdef lib.AVFrameSideData *ptr
-*/
-
-struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData {
-  struct __pyx_vtabstruct_2av_6buffer_Buffer __pyx_base;
-};
-static struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData *__pyx_vtabptr_2av_8sidedata_8sidedata_SideData;
-
-
-/* "av/frame.pxd":7
+/* "av/frame.pxd":6
  * 
  * 
  * cdef class Frame:             # <<<<<<<<<<<<<<
@@ -2534,6 +2458,20 @@ struct __pyx_vtabstruct_2av_5frame_Frame {
   void (*_init_user_attributes)(struct __pyx_obj_2av_5frame_Frame *);
 };
 static struct __pyx_vtabstruct_2av_5frame_Frame *__pyx_vtabptr_2av_5frame_Frame;
+
+
+/* "av/sidedata/sidedata.pxd":8
+ * 
+ * 
+ * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
+ *     cdef Frame frame
+ *     cdef lib.AVFrameSideData *ptr
+*/
+
+struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData {
+  struct __pyx_vtabstruct_2av_6buffer_Buffer __pyx_base;
+};
+static struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData *__pyx_vtabptr_2av_8sidedata_8sidedata_SideData;
 
 
 /* "av/sidedata/motionvectors.py":11
@@ -2890,7 +2828,7 @@ static PyObject*(*__Pyx_PyUnicode_Join)(PyObject** values, Py_ssize_t value_coun
 /* RaiseException */
 static void(*__Pyx_Raise)(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause); /*proto*/
 
-/* PyFrozenDict.proto (used by DictGetItem) */
+/* PyFrozenDict.proto (used by GetItemInt) */
 #if CYTHON_COMPILING_IN_LIMITED_API
 #define __Pyx_PyFrozenDict_TypePtr  ((PyTypeObject*) __pyx_mstate_global->__Pyx_PyFrozenDictType)
 #define __Pyx_PyFrozenDict_New(it)  __Pyx__PyFrozenDict_New(__pyx_mstate_global->__Pyx_PyFrozenDictType, it)
@@ -2936,36 +2874,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyFrozenDict_New(PyObject* it) {
 #define __Pyx_PyAnyDict_Check(obj)  PyDict_Check(obj)
 #define __Pyx_PyAnyDict_CheckExact(obj)  PyDict_CheckExact(obj)
 #endif
-
-/* DictGetItem.proto */
-#if !CYTHON_COMPILING_IN_PYPY
-static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
-#define __Pyx_PyObject_Dict_GetItem(obj, name)\
-    (likely(__Pyx_PyAnyDict_CheckExact(obj)) ?\
-     __Pyx_PyDict_GetItem(obj, name) : PyObject_GetItem(obj, name))
-#else
-#define __Pyx_PyDict_GetItem(d, key) PyObject_GetItem(d, key)
-#define __Pyx_PyObject_Dict_GetItem(obj, name)  PyObject_GetItem(obj, name)
-#endif
-
-/* GetTopmostException.proto (used by SaveResetException) */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
-#endif
-
-/* SaveResetException.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
-#else
-#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
-#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
-#endif
-
-/* PyKeyError_Check.proto */
-#define __Pyx_PyExc_KeyError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_KeyError)
 
 /* GetItemInt.proto */
 #define __Pyx_GetItemInt(o, i, type, is_signed, to_py_func, wraparound, boundscheck, has_gil, unsafe_shared)\
@@ -3281,6 +3189,22 @@ static PyTypeObject* __Pyx_FetchCommonTypeFromSpec(PyTypeObject *metaclass, PyOb
 static int __pyx_CommonTypesMetaclass_init(PyObject *module);
 #define __Pyx_CommonTypesMetaclass_USED
 
+/* GetTopmostException.proto (used by SaveResetException) */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
+#endif
+
+/* SaveResetException.proto (used by CoroutineBase) */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
+#else
+#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
+#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
+#endif
+
 /* SwapException.proto (used by CoroutineBase) */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_ExceptionSwap(type, value, tb)  __Pyx__ExceptionSwap(__pyx_tstate, type, value, tb)
@@ -3488,15 +3412,13 @@ static struct __pyx_obj_2av_10dictionary_Dictionary *(*__pyx_f_2av_10dictionary_
 
 /* Module declarations from "av.container.core" */
 
-/* Module declarations from "av.index" */
-
 /* Module declarations from "av.stream" */
 
 /* Module declarations from "av.packet" */
 
-/* Module declarations from "av.sidedata.sidedata" */
-
 /* Module declarations from "av.frame" */
+
+/* Module declarations from "av.sidedata.sidedata" */
 
 /* Module declarations from "cython" */
 
@@ -3624,16 +3546,14 @@ namespace {
     PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
     PyTypeObject *__pyx_ptype_2av_6format_ContainerFormat;
     PyTypeObject *__pyx_ptype_2av_9container_4core_Container;
-    PyTypeObject *__pyx_ptype_2av_5index_IndexEntry;
-    PyTypeObject *__pyx_ptype_2av_5index_IndexEntries;
     PyTypeObject *__pyx_ptype_2av_6stream_Stream;
     PyTypeObject *__pyx_ptype_2av_6stream_DataStream;
     PyTypeObject *__pyx_ptype_2av_6stream_AttachmentStream;
     PyTypeObject *__pyx_ptype_2av_6packet_PacketSideData;
     PyTypeObject *__pyx_ptype_2av_6packet_Packet;
+    PyTypeObject *__pyx_ptype_2av_5frame_Frame;
     PyTypeObject *__pyx_ptype_2av_8sidedata_8sidedata_SideData;
     PyTypeObject *__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer;
-    PyTypeObject *__pyx_ptype_2av_5frame_Frame;
     PyObject *__pyx_type_2av_8sidedata_13motionvectors_MotionVectors;
     PyObject *__pyx_type_2av_8sidedata_13motionvectors_MotionVector;
     PyObject *__pyx_type_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__;
@@ -3787,16 +3707,14 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4core_Container);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntry);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6packet_PacketSideData);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6packet_Packet);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_8sidedata_SideData);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVectors);
   Py_CLEAR(clear_module_state->__pyx_type_2av_8sidedata_13motionvectors_MotionVectors);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector);
@@ -3840,16 +3758,14 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4core_Container);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntry);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6packet_PacketSideData);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6packet_Packet);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_8sidedata_SideData);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5frame_Frame);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVectors);
   Py_VISIT(traverse_module_state->__pyx_type_2av_8sidedata_13motionvectors_MotionVectors);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector);
@@ -3877,7 +3793,7 @@ return 0;
  * class MotionVectors(SideData):
  *     def __init__(self, sentinel, frame: Frame, index: cython.int):             # <<<<<<<<<<<<<<
  *         SideData.__init__(self, sentinel, frame, index)
- *         self._vectors = {}
+ *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
 */
 
 /* Python wrapper */
@@ -3991,8 +3907,8 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors___init__(struc
  * class MotionVectors(SideData):
  *     def __init__(self, sentinel, frame: Frame, index: cython.int):
  *         SideData.__init__(self, sentinel, frame, index)             # <<<<<<<<<<<<<<
- *         self._vectors = {}
  *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
+ * 
 */
   __pyx_t_2 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata_SideData);
   __Pyx_INCREF(__pyx_t_2);
@@ -4012,21 +3928,6 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors___init__(struc
   /* "av/sidedata/motionvectors.py":14
  *     def __init__(self, sentinel, frame: Frame, index: cython.int):
  *         SideData.__init__(self, sentinel, frame, index)
- *         self._vectors = {}             # <<<<<<<<<<<<<<
- *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
- * 
-*/
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GIVEREF(__pyx_t_1);
-  __Pyx_GOTREF(__pyx_v_self->_vectors);
-  __Pyx_DECREF(__pyx_v_self->_vectors);
-  __pyx_v_self->_vectors = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-
-  /* "av/sidedata/motionvectors.py":15
- *         SideData.__init__(self, sentinel, frame, index)
- *         self._vectors = {}
  *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
@@ -4035,7 +3936,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors___init__(struc
 
   if (unlikely(__pyx_t_4 == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-    __PYX_ERR(0, 15, __pyx_L1_error)
+    __PYX_ERR(0, 14, __pyx_L1_error)
   }
   __pyx_v_self->_len = (__pyx_v_self->__pyx_base.ptr->size / __pyx_t_4);
 
@@ -4045,7 +3946,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors___init__(struc
  * class MotionVectors(SideData):
  *     def __init__(self, sentinel, frame: Frame, index: cython.int):             # <<<<<<<<<<<<<<
  *         SideData.__init__(self, sentinel, frame, index)
- *         self._vectors = {}
+ *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
 */
 
   /* function exit code */
@@ -4063,7 +3964,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors___init__(struc
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":17
+/* "av/sidedata/motionvectors.py":16
  *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -4101,30 +4002,30 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_2__repr_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/sidedata/motionvectors.py":19
+  /* "av/sidedata/motionvectors.py":18
  *     def __repr__(self):
  *         return (
  *             f"<av.sidedata.MotionVectors {self.ptr.size} bytes "             # <<<<<<<<<<<<<<
  *             f"of {len(self)} vectors at 0x{cython.cast(uintptr_t, self.ptr.data):0x}>"
  *         )
 */
-  __pyx_t_1 = __Pyx_PyUnicode_From_size_t(__pyx_v_self->__pyx_base.ptr->size, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_From_size_t(__pyx_v_self->__pyx_base.ptr->size, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "av/sidedata/motionvectors.py":20
+  /* "av/sidedata/motionvectors.py":19
  *         return (
  *             f"<av.sidedata.MotionVectors {self.ptr.size} bytes "
  *             f"of {len(self)} vectors at 0x{cython.cast(uintptr_t, self.ptr.data):0x}>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_2 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 20, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_2, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_2 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_2, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
 
-  __pyx_t_4 = __Pyx_PyLong_FromSize_t(((uintptr_t)__pyx_v_self->__pyx_base.ptr->data)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_FromSize_t(((uintptr_t)__pyx_v_self->__pyx_base.ptr->data)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_Format(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_0x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Format(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_0x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_6[0] = __pyx_mstate_global->__pyx_kp_u_av_sidedata_MotionVectors;
@@ -4135,7 +4036,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_2__repr_
   __pyx_t_6[5] = __pyx_t_5;
   __pyx_t_6[6] = __pyx_mstate_global->__pyx_kp_u_;
 
-  /* "av/sidedata/motionvectors.py":19
+  /* "av/sidedata/motionvectors.py":18
  *     def __repr__(self):
  *         return (
  *             f"<av.sidedata.MotionVectors {self.ptr.size} bytes "             # <<<<<<<<<<<<<<
@@ -4151,7 +4052,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_2__repr_
   __pyx_t_7 |= __Pyx_PyUnicode_KIND_04(__pyx_t_6[5]);
   #endif
   __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_6, 7, __pyx_t_2, __pyx_t_7);
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L1_error)
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4167,7 +4068,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_2__repr_
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":17
+  /* "av/sidedata/motionvectors.py":16
  *         self._len = self.ptr.size // cython.sizeof(lib.AVMotionVector)
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -4189,7 +4090,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_2__repr_
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":23
+/* "av/sidedata/motionvectors.py":22
  *         )
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -4215,7 +4116,7 @@ static Py_ssize_t __pyx_pw_2av_8sidedata_13motionvectors_13MotionVectors_5__len_
 static Py_ssize_t __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_4__len__(struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *__pyx_v_self) {
   Py_ssize_t __pyx_r;
 
-  /* "av/sidedata/motionvectors.py":24
+  /* "av/sidedata/motionvectors.py":23
  * 
  *     def __len__(self):
  *         return self._len             # <<<<<<<<<<<<<<
@@ -4228,7 +4129,7 @@ static Py_ssize_t __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_4__len_
   }
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":23
+  /* "av/sidedata/motionvectors.py":22
  *         )
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -4242,7 +4143,7 @@ static Py_ssize_t __pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_4__len_
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":26
+/* "av/sidedata/motionvectors.py":25
  *         return self._len
  * 
  *     def __getitem__(self, index: cython.Py_ssize_t):             # <<<<<<<<<<<<<<
@@ -4267,7 +4168,6 @@ static PyObject *__pyx_pw_2av_8sidedata_13motionvectors_13MotionVectors_7__getit
 }
 
 static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getitem__(struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *__pyx_v_self, Py_ssize_t __pyx_v_index) {
-  struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVector *__pyx_v_vector = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -4276,17 +4176,13 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
   size_t __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  int __pyx_t_10;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
 
-  /* "av/sidedata/motionvectors.py":27
+  /* "av/sidedata/motionvectors.py":26
  * 
  *     def __getitem__(self, index: cython.Py_ssize_t):
  *         if index < 0:             # <<<<<<<<<<<<<<
@@ -4298,7 +4194,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
   if (__pyx_t_1) {
 
 
-    /* "av/sidedata/motionvectors.py":28
+    /* "av/sidedata/motionvectors.py":27
  *     def __getitem__(self, index: cython.Py_ssize_t):
  *         if index < 0:
  *             index += self._len             # <<<<<<<<<<<<<<
@@ -4307,7 +4203,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
 */
     __pyx_v_index = (__pyx_v_index + __pyx_v_self->_len);
 
-    /* "av/sidedata/motionvectors.py":27
+    /* "av/sidedata/motionvectors.py":26
  * 
  *     def __getitem__(self, index: cython.Py_ssize_t):
  *         if index < 0:             # <<<<<<<<<<<<<<
@@ -4316,7 +4212,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
 */
   }
 
-  /* "av/sidedata/motionvectors.py":29
+  /* "av/sidedata/motionvectors.py":28
  *         if index < 0:
  *             index += self._len
  *         if index < 0 or index >= self._len:             # <<<<<<<<<<<<<<
@@ -4342,15 +4238,15 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "av/sidedata/motionvectors.py":30
+    /* "av/sidedata/motionvectors.py":29
  *             index += self._len
  *         if index < 0 or index >= self._len:
  *             raise IndexError(index)             # <<<<<<<<<<<<<<
  * 
- *         try:
+ *         return MotionVector(_cinit_bypass_sentinel, self, index)
 */
     __pyx_t_4 = NULL;
-    __pyx_t_5 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 30, __pyx_L1_error)
+    __pyx_t_5 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 29, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     {
@@ -4358,14 +4254,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_IndexError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 30, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 30, __pyx_L1_error)
+    __PYX_ERR(0, 29, __pyx_L1_error)
 
-    /* "av/sidedata/motionvectors.py":29
+    /* "av/sidedata/motionvectors.py":28
  *         if index < 0:
  *             index += self._len
  *         if index < 0 or index >= self._len:             # <<<<<<<<<<<<<<
@@ -4374,168 +4270,37 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
 */
   }
 
-  /* "av/sidedata/motionvectors.py":32
+  /* "av/sidedata/motionvectors.py":31
  *             raise IndexError(index)
  * 
- *         try:             # <<<<<<<<<<<<<<
- *             return self._vectors[index]
- *         except KeyError:
-*/
-  {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_7, &__pyx_t_8, &__pyx_t_9);
-    __Pyx_XGOTREF(__pyx_t_7);
-    __Pyx_XGOTREF(__pyx_t_8);
-    __Pyx_XGOTREF(__pyx_t_9);
-    /*try:*/ {
-
-      /* "av/sidedata/motionvectors.py":33
- * 
- *         try:
- *             return self._vectors[index]             # <<<<<<<<<<<<<<
- *         except KeyError:
- *             pass
-*/
-      if (unlikely(__pyx_v_self->_vectors == Py_None)) {
-        PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not subscriptable");
-        __PYX_ERR(0, 33, __pyx_L7_error)
-      }
-      __pyx_t_3 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L7_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = __Pyx_PyDict_GetItem(__pyx_v_self->_vectors, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 33, __pyx_L7_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      {
-        PyObject *__pyx_temp;
-        {
-          __pyx_temp = __pyx_r;
-          __pyx_r = __pyx_t_5;
-        }
-        __Pyx_XDECREF(__pyx_temp);
-      }
-      __pyx_t_5 = 0;
-      goto __pyx_L11_try_return;
-
-      /* "av/sidedata/motionvectors.py":32
- *             raise IndexError(index)
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             return self._vectors[index]
- *         except KeyError:
-*/
-    }
-    __pyx_L7_error:;
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-
-    /* "av/sidedata/motionvectors.py":34
- *         try:
- *             return self._vectors[index]
- *         except KeyError:             # <<<<<<<<<<<<<<
- *             pass
- * 
-*/
-    __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_KeyError))));
-    if (__pyx_t_10) {
-      __Pyx_ErrRestore(0,0,0);
-      goto __pyx_L8_exception_handled;
-    }
-    goto __pyx_L9_except_error;
-
-    /* "av/sidedata/motionvectors.py":32
- *             raise IndexError(index)
- * 
- *         try:             # <<<<<<<<<<<<<<
- *             return self._vectors[index]
- *         except KeyError:
-*/
-    __pyx_L9_except_error:;
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_XGIVEREF(__pyx_t_9);
-    __Pyx_ExceptionReset(__pyx_t_7, __pyx_t_8, __pyx_t_9);
-    goto __pyx_L1_error;
-    __pyx_L11_try_return:;
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_XGIVEREF(__pyx_t_9);
-    __Pyx_ExceptionReset(__pyx_t_7, __pyx_t_8, __pyx_t_9);
-    goto __pyx_L0;
-    __pyx_L8_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_7);
-    __Pyx_XGIVEREF(__pyx_t_8);
-    __Pyx_XGIVEREF(__pyx_t_9);
-    __Pyx_ExceptionReset(__pyx_t_7, __pyx_t_8, __pyx_t_9);
-  }
-
-  /* "av/sidedata/motionvectors.py":37
- *             pass
- * 
- *         vector = self._vectors[index] = MotionVector(             # <<<<<<<<<<<<<<
- *             _cinit_bypass_sentinel, self, index
- *         )
-*/
-  __pyx_t_3 = NULL;
-
-  /* "av/sidedata/motionvectors.py":38
- * 
- *         vector = self._vectors[index] = MotionVector(
- *             _cinit_bypass_sentinel, self, index             # <<<<<<<<<<<<<<
- *         )
- *         return vector
-*/
-  __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = 1;
-  {
-    PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_v_2av_8sidedata_13motionvectors__cinit_bypass_sentinel, ((PyObject *)__pyx_v_self), __pyx_t_4};
-    __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
-    __Pyx_GOTREF((PyObject *)__pyx_t_5);
-  }
-  __Pyx_INCREF(__pyx_t_5);
-  __pyx_v_vector = ((struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVector *)__pyx_t_5);
-
-  /* "av/sidedata/motionvectors.py":37
- *             pass
- * 
- *         vector = self._vectors[index] = MotionVector(             # <<<<<<<<<<<<<<
- *             _cinit_bypass_sentinel, self, index
- *         )
-*/
-  if (unlikely(__pyx_v_self->_vectors == Py_None)) {
-    PyErr_SetString(PyExc_TypeError, "\047NoneType\047 object is not subscriptable");
-    __PYX_ERR(0, 37, __pyx_L1_error)
-  }
-  __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (unlikely((PyDict_SetItem(__pyx_v_self->_vectors, __pyx_t_4, __pyx_t_5) < 0))) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_DECREF((PyObject *)__pyx_t_5); __pyx_t_5 = 0;
-
-  /* "av/sidedata/motionvectors.py":40
- *             _cinit_bypass_sentinel, self, index
- *         )
- *         return vector             # <<<<<<<<<<<<<<
+ *         return MotionVector(_cinit_bypass_sentinel, self, index)             # <<<<<<<<<<<<<<
  * 
  *     def __iter__(self):
 */
+  __pyx_t_5 = NULL;
+  __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_index); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_6 = 1;
+  {
+    PyObject *__pyx_callargs[4] = {__pyx_t_5, __pyx_v_2av_8sidedata_13motionvectors__cinit_bypass_sentinel, ((PyObject *)__pyx_v_self), __pyx_t_4};
+    __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
+    __Pyx_GOTREF((PyObject *)__pyx_t_3);
+  }
   {
     PyObject *__pyx_temp;
     {
       __pyx_temp = __pyx_r;
-      __Pyx_INCREF((PyObject *)__pyx_v_vector);
-      __pyx_r = ((PyObject *)__pyx_v_vector);
+      __pyx_r = ((PyObject *)__pyx_t_3);
     }
     __Pyx_XDECREF(__pyx_temp);
   }
+  __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":26
+  /* "av/sidedata/motionvectors.py":25
  *         return self._len
  * 
  *     def __getitem__(self, index: cython.Py_ssize_t):             # <<<<<<<<<<<<<<
@@ -4551,7 +4316,6 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
   __Pyx_AddTraceback("av.sidedata.motionvectors.MotionVectors.__getitem__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
-  __Pyx_XDECREF((PyObject *)__pyx_v_vector);
 
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
@@ -4559,8 +4323,8 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_6__getit
 }
 static PyObject *__pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "av/sidedata/motionvectors.py":42
- *         return vector
+/* "av/sidedata/motionvectors.py":33
+ *         return MotionVector(_cinit_bypass_sentinel, self, index)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
  *         """Iterate over all motion vectors."""
@@ -4598,7 +4362,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_8__iter_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 42, __pyx_L1_error)
+    __PYX_ERR(0, 33, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -4606,7 +4370,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_8__iter_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_iter, __pyx_mstate_global->__pyx_n_u_MotionVectors___iter, __pyx_mstate_global->__pyx_n_u_av_sidedata_motionvectors); if (unlikely(!gen)) __PYX_ERR(0, 42, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_iter, __pyx_mstate_global->__pyx_n_u_MotionVectors___iter, __pyx_mstate_global->__pyx_n_u_av_sidedata_motionvectors); if (unlikely(!gen)) __PYX_ERR(0, 33, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -4645,10 +4409,10 @@ static PyObject *__pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10genera
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started generator");
-    __PYX_ERR(0, 42, __pyx_L1_error)
+    __PYX_ERR(0, 33, __pyx_L1_error)
   }
 
-  /* "av/sidedata/motionvectors.py":44
+  /* "av/sidedata/motionvectors.py":35
  *     def __iter__(self):
  *         """Iterate over all motion vectors."""
  *         for i in range(self._len):             # <<<<<<<<<<<<<<
@@ -4662,14 +4426,14 @@ static PyObject *__pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10genera
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_cur_scope->__pyx_v_i = __pyx_t_3;
 
-    /* "av/sidedata/motionvectors.py":45
+    /* "av/sidedata/motionvectors.py":36
  *         """Iterate over all motion vectors."""
  *         for i in range(self._len):
  *             yield self[i]             # <<<<<<<<<<<<<<
  * 
  *     def to_ndarray(self):
 */
-    __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_cur_scope->__pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_cur_scope->__pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
@@ -4689,13 +4453,13 @@ static PyObject *__pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10genera
     __pyx_t_1 = __pyx_cur_scope->__pyx_t_0;
     __pyx_t_2 = __pyx_cur_scope->__pyx_t_1;
     __pyx_t_3 = __pyx_cur_scope->__pyx_t_2;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 45, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 36, __pyx_L1_error)
   }
 
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "av/sidedata/motionvectors.py":42
- *         return vector
+  /* "av/sidedata/motionvectors.py":33
+ *         return MotionVector(_cinit_bypass_sentinel, self, index)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
  *         """Iterate over all motion vectors."""
@@ -4722,7 +4486,7 @@ static PyObject *__pyx_gb_2av_8sidedata_13motionvectors_13MotionVectors_10genera
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":47
+/* "av/sidedata/motionvectors.py":38
  *             yield self[i]
  * 
  *     def to_ndarray(self):             # <<<<<<<<<<<<<<
@@ -4789,20 +4553,20 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_ndarray", 0);
 
-  /* "av/sidedata/motionvectors.py":53
+  /* "av/sidedata/motionvectors.py":44
  *         Returns a NumPy array with fields corresponding to the AVMotionVector structure.
  *         """
  *         import numpy as np             # <<<<<<<<<<<<<<
  * 
  *         return np.frombuffer(
 */
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_np = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/sidedata/motionvectors.py":55
+  /* "av/sidedata/motionvectors.py":46
  *         import numpy as np
  * 
  *         return np.frombuffer(             # <<<<<<<<<<<<<<
@@ -4812,7 +4576,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
   __pyx_t_3 = __pyx_v_np;
   __Pyx_INCREF(__pyx_t_3);
 
-  /* "av/sidedata/motionvectors.py":57
+  /* "av/sidedata/motionvectors.py":48
  *         return np.frombuffer(
  *             self,
  *             dtype=np.dtype(             # <<<<<<<<<<<<<<
@@ -4822,50 +4586,50 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
   __pyx_t_5 = __pyx_v_np;
   __Pyx_INCREF(__pyx_t_5);
 
-  /* "av/sidedata/motionvectors.py":58
+  /* "av/sidedata/motionvectors.py":49
  *             self,
  *             dtype=np.dtype(
  *                 [             # <<<<<<<<<<<<<<
  *                     ("source", "int32"),
  *                     ("w", "uint8"),
 */
-  __pyx_t_6 = PyList_New(11); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_6 = PyList_New(11); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_tuple[1]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_tuple[1]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_mstate_global->__pyx_tuple[2]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 1, __pyx_mstate_global->__pyx_tuple[2]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 2, __pyx_mstate_global->__pyx_tuple[3]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 2, __pyx_mstate_global->__pyx_tuple[3]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[4]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 3, __pyx_mstate_global->__pyx_tuple[4]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 3, __pyx_mstate_global->__pyx_tuple[4]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 4, __pyx_mstate_global->__pyx_tuple[5]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 4, __pyx_mstate_global->__pyx_tuple[5]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[6]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[6]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 5, __pyx_mstate_global->__pyx_tuple[6]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 5, __pyx_mstate_global->__pyx_tuple[6]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[7]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[7]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 6, __pyx_mstate_global->__pyx_tuple[7]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 6, __pyx_mstate_global->__pyx_tuple[7]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[8]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[8]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 7, __pyx_mstate_global->__pyx_tuple[8]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 7, __pyx_mstate_global->__pyx_tuple[8]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[9]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[9]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 8, __pyx_mstate_global->__pyx_tuple[9]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 8, __pyx_mstate_global->__pyx_tuple[9]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[10]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[10]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 9, __pyx_mstate_global->__pyx_tuple[10]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 9, __pyx_mstate_global->__pyx_tuple[10]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[11]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[11]);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 10, __pyx_mstate_global->__pyx_tuple[11]) != (0)) __PYX_ERR(0, 58, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_6, 10, __pyx_mstate_global->__pyx_tuple[11]) != (0)) __PYX_ERR(0, 49, __pyx_L1_error);
 
-  /* "av/sidedata/motionvectors.py":71
+  /* "av/sidedata/motionvectors.py":62
  *                     ("motion_scale", "uint16"),
  *                 ],
  *                 align=True,             # <<<<<<<<<<<<<<
@@ -4877,13 +4641,13 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
     PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_t_6, Py_True};
     #if CYTHON_VECTORCALL
     __pyx_t_8 = __pyx_mstate_global->__pyx_tuple[12];
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_INCREF(__pyx_t_8);
     #else
     {
       PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_align};
       __pyx_t_8 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 57, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 48, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     #endif
@@ -4891,7 +4655,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_7 = 0;
@@ -4899,13 +4663,13 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
     PyObject *__pyx_callargs[3] = {__pyx_t_3, ((PyObject *)__pyx_v_self), __pyx_t_4};
     #if CYTHON_VECTORCALL
     __pyx_t_8 = __pyx_mstate_global->__pyx_tuple[0];
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 55, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_INCREF(__pyx_t_8);
     #else
     {
       PyObject *__pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_dtype};
       __pyx_t_8 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 1);
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 55, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 46, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     #endif
@@ -4913,7 +4677,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   {
@@ -4927,7 +4691,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_11to_nda
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":47
+  /* "av/sidedata/motionvectors.py":38
  *             yield self[i]
  * 
  *     def to_ndarray(self):             # <<<<<<<<<<<<<<
@@ -5156,7 +4920,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_13MotionVectors_15__sets
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":85
+/* "av/sidedata/motionvectors.py":76
  *     """
  * 
  *     def __init__(self, sentinel, parent: MotionVectors, index: cython.int):             # <<<<<<<<<<<<<<
@@ -5204,46 +4968,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sentinel,&__pyx_mstate_global->__pyx_n_u_parent,&__pyx_mstate_global->__pyx_n_u_index,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL_TPNEW(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 85, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 76, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 85, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 85, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 85, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 76, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, i); __PYX_ERR(0, 85, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, i); __PYX_ERR(0, 76, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 85, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 85, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 76, __pyx_L3_error)
     }
     __pyx_v_sentinel = values[0];
     __pyx_v_parent = ((struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *)values[1]);
-    __pyx_v_index = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L3_error)
+    __pyx_v_index = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 76, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 85, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 76, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5254,7 +5018,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_parent), __pyx_mstate_global->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVectors, 0, "parent", 0))) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_parent), __pyx_mstate_global->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVectors, 0, "parent", 0))) __PYX_ERR(0, 76, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(((struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVector *)__pyx_v_self), __pyx_v_sentinel, __pyx_v_parent, __pyx_v_index);
 
   /* function exit code */
@@ -5288,7 +5052,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "av/sidedata/motionvectors.py":86
+  /* "av/sidedata/motionvectors.py":77
  * 
  *     def __init__(self, sentinel, parent: MotionVectors, index: cython.int):
  *         if sentinel is not _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
@@ -5299,7 +5063,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
   if (unlikely(__pyx_t_1)) {
 
 
-    /* "av/sidedata/motionvectors.py":87
+    /* "av/sidedata/motionvectors.py":78
  *     def __init__(self, sentinel, parent: MotionVectors, index: cython.int):
  *         if sentinel is not _cinit_bypass_sentinel:
  *             raise RuntimeError("cannot manually instantiate MotionVector")             # <<<<<<<<<<<<<<
@@ -5312,14 +5076,14 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cannot_manually_instantiate_Moti};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 87, __pyx_L1_error)
+    __PYX_ERR(0, 78, __pyx_L1_error)
 
-    /* "av/sidedata/motionvectors.py":86
+    /* "av/sidedata/motionvectors.py":77
  * 
  *     def __init__(self, sentinel, parent: MotionVectors, index: cython.int):
  *         if sentinel is not _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
@@ -5328,7 +5092,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
 */
   }
 
-  /* "av/sidedata/motionvectors.py":88
+  /* "av/sidedata/motionvectors.py":79
  *         if sentinel is not _cinit_bypass_sentinel:
  *             raise RuntimeError("cannot manually instantiate MotionVector")
  *         self.parent = parent             # <<<<<<<<<<<<<<
@@ -5341,7 +5105,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
   __Pyx_DECREF((PyObject *)__pyx_v_self->parent);
   __pyx_v_self->parent = __pyx_v_parent;
 
-  /* "av/sidedata/motionvectors.py":89
+  /* "av/sidedata/motionvectors.py":80
  *             raise RuntimeError("cannot manually instantiate MotionVector")
  *         self.parent = parent
  *         base: cython.pointer[lib.AVMotionVector] = cython.cast(             # <<<<<<<<<<<<<<
@@ -5350,7 +5114,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
 */
   __pyx_v_base = ((struct AVMotionVector *)__pyx_v_parent->__pyx_base.ptr->data);
 
-  /* "av/sidedata/motionvectors.py":92
+  /* "av/sidedata/motionvectors.py":83
  *             cython.pointer[lib.AVMotionVector], parent.ptr.data
  *         )
  *         self.ptr = base + index             # <<<<<<<<<<<<<<
@@ -5359,7 +5123,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
 */
   __pyx_v_self->ptr = (__pyx_v_base + __pyx_v_index);
 
-  /* "av/sidedata/motionvectors.py":85
+  /* "av/sidedata/motionvectors.py":76
  *     """
  * 
  *     def __init__(self, sentinel, parent: MotionVectors, index: cython.int):             # <<<<<<<<<<<<<<
@@ -5382,7 +5146,7 @@ static int __pyx_pf_2av_8sidedata_13motionvectors_12MotionVector___init__(struct
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":94
+/* "av/sidedata/motionvectors.py":85
  *         self.ptr = base + index
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -5423,49 +5187,49 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_2__repr__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/sidedata/motionvectors.py":96
+  /* "av/sidedata/motionvectors.py":87
  *     def __repr__(self):
  *         return (
  *             f"<av.sidedata.MotionVector {self.w}x{self.h} "             # <<<<<<<<<<<<<<
  *             f"from ({self.src_x},{self.src_y}) to ({self.dst_x},{self.dst_y})>"
  *         )
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/sidedata/motionvectors.py":97
+  /* "av/sidedata/motionvectors.py":88
  *         return (
  *             f"<av.sidedata.MotionVector {self.w}x{self.h} "
  *             f"from ({self.src_x},{self.src_y}) to ({self.dst_x},{self.dst_y})>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_src_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_src_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_src_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_src_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dst_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dst_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dst_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dst_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_av_sidedata_MotionVector;
@@ -5482,7 +5246,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_2__repr__
   __pyx_t_8[11] = __pyx_t_7;
   __pyx_t_8[12] = __pyx_mstate_global->__pyx_kp_u__3;
 
-  /* "av/sidedata/motionvectors.py":96
+  /* "av/sidedata/motionvectors.py":87
  *     def __repr__(self):
  *         return (
  *             f"<av.sidedata.MotionVector {self.w}x{self.h} "             # <<<<<<<<<<<<<<
@@ -5504,7 +5268,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_2__repr__
   }
   #endif
   __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_8, 13, __pyx_t_9, __pyx_t_10);
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -5523,7 +5287,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_2__repr__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":94
+  /* "av/sidedata/motionvectors.py":85
  *         self.ptr = base + index
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -5548,7 +5312,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_2__repr__
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":100
+/* "av/sidedata/motionvectors.py":91
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5580,14 +5344,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_6source__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":102
+  /* "av/sidedata/motionvectors.py":93
  *     @property
  *     def source(self):
  *         return self.ptr.source             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->source); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->source); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5600,7 +5364,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_6source__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":100
+  /* "av/sidedata/motionvectors.py":91
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5619,7 +5383,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_6source__
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":104
+/* "av/sidedata/motionvectors.py":95
  *         return self.ptr.source
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5651,14 +5415,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1w___get_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":106
+  /* "av/sidedata/motionvectors.py":97
  *     @property
  *     def w(self):
  *         return self.ptr.w             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_self->ptr->w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_self->ptr->w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5671,7 +5435,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1w___get_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":104
+  /* "av/sidedata/motionvectors.py":95
  *         return self.ptr.source
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5690,7 +5454,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1w___get_
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":108
+/* "av/sidedata/motionvectors.py":99
  *         return self.ptr.w
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5722,14 +5486,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1h___get_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":110
+  /* "av/sidedata/motionvectors.py":101
  *     @property
  *     def h(self):
  *         return self.ptr.h             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_self->ptr->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint8_t(__pyx_v_self->ptr->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5742,7 +5506,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1h___get_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":108
+  /* "av/sidedata/motionvectors.py":99
  *         return self.ptr.w
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5761,7 +5525,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_1h___get_
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":112
+/* "av/sidedata/motionvectors.py":103
  *         return self.ptr.h
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5793,14 +5557,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_x___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":114
+  /* "av/sidedata/motionvectors.py":105
  *     @property
  *     def src_x(self):
  *         return self.ptr.src_x             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->src_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->src_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5813,7 +5577,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_x___
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":112
+  /* "av/sidedata/motionvectors.py":103
  *         return self.ptr.h
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5832,7 +5596,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_x___
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":116
+/* "av/sidedata/motionvectors.py":107
  *         return self.ptr.src_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5864,14 +5628,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_y___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":118
+  /* "av/sidedata/motionvectors.py":109
  *     @property
  *     def src_y(self):
  *         return self.ptr.src_y             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->src_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->src_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5884,7 +5648,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_y___
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":116
+  /* "av/sidedata/motionvectors.py":107
  *         return self.ptr.src_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5903,7 +5667,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5src_y___
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":120
+/* "av/sidedata/motionvectors.py":111
  *         return self.ptr.src_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5935,14 +5699,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_x___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":122
+  /* "av/sidedata/motionvectors.py":113
  *     @property
  *     def dst_x(self):
  *         return self.ptr.dst_x             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->dst_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->dst_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5955,7 +5719,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_x___
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":120
+  /* "av/sidedata/motionvectors.py":111
  *         return self.ptr.src_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5974,7 +5738,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_x___
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":124
+/* "av/sidedata/motionvectors.py":115
  *         return self.ptr.dst_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6006,14 +5770,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_y___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":126
+  /* "av/sidedata/motionvectors.py":117
  *     @property
  *     def dst_y(self):
  *         return self.ptr.dst_y             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->dst_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int16_t(__pyx_v_self->ptr->dst_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -6026,7 +5790,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_y___
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":124
+  /* "av/sidedata/motionvectors.py":115
  *         return self.ptr.dst_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6045,7 +5809,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_5dst_y___
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":128
+/* "av/sidedata/motionvectors.py":119
  *         return self.ptr.dst_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6077,14 +5841,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_x
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":130
+  /* "av/sidedata/motionvectors.py":121
  *     @property
  *     def motion_x(self):
  *         return self.ptr.motion_x             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->motion_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->motion_x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -6097,7 +5861,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_x
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":128
+  /* "av/sidedata/motionvectors.py":119
  *         return self.ptr.dst_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6116,7 +5880,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_x
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":132
+/* "av/sidedata/motionvectors.py":123
  *         return self.ptr.motion_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6148,14 +5912,14 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_y
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":134
+  /* "av/sidedata/motionvectors.py":125
  *     @property
  *     def motion_y(self):
  *         return self.ptr.motion_y             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->motion_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int32_t(__pyx_v_self->ptr->motion_y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -6168,7 +5932,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_y
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":132
+  /* "av/sidedata/motionvectors.py":123
  *         return self.ptr.motion_x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6187,7 +5951,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_8motion_y
   return __pyx_r;
 }
 
-/* "av/sidedata/motionvectors.py":136
+/* "av/sidedata/motionvectors.py":127
  *         return self.ptr.motion_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6219,12 +5983,12 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_12motion_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/sidedata/motionvectors.py":138
+  /* "av/sidedata/motionvectors.py":129
  *     @property
  *     def motion_scale(self):
  *         return self.ptr.motion_scale             # <<<<<<<<<<<<<<
 */
-  __pyx_t_1 = __Pyx_PyLong_From_uint16_t(__pyx_v_self->ptr->motion_scale); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint16_t(__pyx_v_self->ptr->motion_scale); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -6237,7 +6001,7 @@ static PyObject *__pyx_pf_2av_8sidedata_13motionvectors_12MotionVector_12motion_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/sidedata/motionvectors.py":136
+  /* "av/sidedata/motionvectors.py":127
  *         return self.ptr.motion_y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6465,7 +6229,6 @@ static struct __pyx_vtabstruct_2av_8sidedata_13motionvectors_MotionVectors __pyx
 static PyObject *__pyx_tp_new__initialisation_2av_8sidedata_13motionvectors_MotionVectors(PyObject *o, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
   struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *p = ((struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *)o);
   p->__pyx_base.__pyx_base.__pyx_vtab = (struct __pyx_vtabstruct_2av_6buffer_Buffer*)__pyx_vtabptr_2av_8sidedata_13motionvectors_MotionVectors;
-  p->_vectors = ((PyObject*)Py_None); Py_INCREF(Py_None);
   return o;
 }
 
@@ -6484,7 +6247,6 @@ static PyObject *__pyx_tp_new_2av_8sidedata_13motionvectors_MotionVectors(PyType
 }
 
 static void __pyx_tp_dealloc_2av_8sidedata_13motionvectors_MotionVectors(PyObject *o) {
-  struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *p = (struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *)o;
   #if CYTHON_USE_TP_FINALIZE
   if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
     if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_2av_8sidedata_13motionvectors_MotionVectors) {
@@ -6493,7 +6255,6 @@ static void __pyx_tp_dealloc_2av_8sidedata_13motionvectors_MotionVectors(PyObjec
   }
   #endif
   PyObject_GC_UnTrack(o);
-  Py_CLEAR(p->_vectors);
   #if CYTHON_USE_TYPE_SPECS
   PyObject *tp = (PyObject*)Py_TYPE(o);
   #endif
@@ -6511,7 +6272,6 @@ static void __pyx_tp_dealloc_2av_8sidedata_13motionvectors_MotionVectors(PyObjec
 
 static int __pyx_tp_traverse_2av_8sidedata_13motionvectors_MotionVectors(PyObject *o, visitproc v, void *a) {
   int e;
-  struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *p = (struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *)o;
   #if !CYTHON_USE_MODULE_STATE
   e = 0;
   if (likely(__pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata_SideData)) {
@@ -6525,15 +6285,10 @@ static int __pyx_tp_traverse_2av_8sidedata_13motionvectors_MotionVectors(PyObjec
     e = __Pyx_call_type_traverse(o, 0, v, a);
     if (e) return e;
   }
-  if (p->_vectors) {
-    e = (*v)(p->_vectors, a); if (e) return e;
-  }
   return 0;
 }
 
 static int __pyx_tp_clear_2av_8sidedata_13motionvectors_MotionVectors(PyObject *o) {
-  PyObject* tmp;
-  struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *p = (struct __pyx_obj_2av_8sidedata_13motionvectors_MotionVectors *)o;
   #if !CYTHON_USE_MODULE_STATE
   if (likely(__pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata_SideData)) {
     inquiry clear = __Pyx_PyType_GetSlot(__pyx_mstate_global->__pyx_ptype_2av_8sidedata_8sidedata_SideData, tp_clear, inquiry);
@@ -6541,9 +6296,6 @@ static int __pyx_tp_clear_2av_8sidedata_13motionvectors_MotionVectors(PyObject *
   } else
   #endif
   { __Pyx_call_next_tp_clear(o, __pyx_tp_clear_2av_8sidedata_13motionvectors_MotionVectors); }
-  tmp = ((PyObject*)p->_vectors);
-  p->_vectors = ((PyObject*)Py_None); Py_INCREF(Py_None);
-  Py_XDECREF(tmp);
   return 0;
 }
 
@@ -7305,14 +7057,14 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_8sidedata_13motionvectors_MotionV
   __Pyx_RefNannySetupContext("__Pyx_modinit_Exttype___pyx_obj_2av_8sidedata_13motionvectors_MotionVector", 0);
   /*--- Exttype __pyx_obj_2av_8sidedata_13motionvectors_MotionVector ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_8sidedata_13motionvectors_MotionVector_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_8sidedata_13motionvectors_MotionVector_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector)) __PYX_ERR(0, 69, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector = &__pyx_type_2av_8sidedata_13motionvectors_MotionVector;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector);
@@ -7322,8 +7074,8 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_8sidedata_13motionvectors_MotionV
     __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MotionVector, (PyObject *) __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MotionVector, (PyObject *) __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors_MotionVector) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -7340,14 +7092,14 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_8sidedata_13motionvectors___pyx_s
   __Pyx_RefNannySetupContext("__Pyx_modinit_Exttype___pyx_obj_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__", 0);
   /*--- Exttype __pyx_obj_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__ ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_8sidedata_13motionvectors___pyx_scope_struct____iter___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_8sidedata_13motionvectors___pyx_scope_struct____iter___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__)) __PYX_ERR(0, 33, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__ = &__pyx_type_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_8sidedata_13motionvectors___pyx_scope_struct____iter__);
@@ -7515,30 +7267,7 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(10, 17, __pyx_L1_error)
   if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container, (void**)&__pyx_vtabptr_2av_9container_4core_Container) != 1)) __PYX_ERR(10, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 6, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntry = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.index", "IndexEntry",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #else
-  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntry),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry) __PYX_ERR(11, 6, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry, (void**)&__pyx_vtabptr_2av_5index_IndexEntry) != 1)) __PYX_ERR(11, 6, __pyx_L1_error)
-  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntries = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.index", "IndexEntries",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #else
-  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5index_IndexEntries),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries) __PYX_ERR(11, 10, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries, (void**)&__pyx_vtabptr_2av_5index_IndexEntries) != 1)) __PYX_ERR(11, 10, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 10, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6stream_Stream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "Stream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -7548,8 +7277,8 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_Stream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_Stream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(12, 10, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream, (void**)&__pyx_vtabptr_2av_6stream_Stream) != 1)) __PYX_ERR(12, 10, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(11, 9, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream, (void**)&__pyx_vtabptr_2av_6stream_Stream) != 1)) __PYX_ERR(11, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_DataStream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "DataStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_DataStream),
@@ -7558,8 +7287,8 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_DataStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(12, 34, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream, (void**)&__pyx_vtabptr_2av_6stream_DataStream) != 1)) __PYX_ERR(12, 34, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(11, 25, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream, (void**)&__pyx_vtabptr_2av_6stream_DataStream) != 1)) __PYX_ERR(11, 25, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.stream", "AttachmentStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_AttachmentStream),
@@ -7568,10 +7297,10 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6stream_AttachmentStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(12, 37, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream, (void**)&__pyx_vtabptr_2av_6stream_AttachmentStream) != 1)) __PYX_ERR(12, 37, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(11, 28, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream, (void**)&__pyx_vtabptr_2av_6stream_AttachmentStream) != 1)) __PYX_ERR(11, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.packet", "PacketSideData",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -7581,8 +7310,8 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_PacketSideData), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6packet_PacketSideData),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(13, 9, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData, (void**)&__pyx_vtabptr_2av_6packet_PacketSideData) != 1)) __PYX_ERR(13, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(12, 9, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData, (void**)&__pyx_vtabptr_2av_6packet_PacketSideData) != 1)) __PYX_ERR(12, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6packet_Packet = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.packet", "Packet",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6packet_Packet),
@@ -7591,8 +7320,21 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_6packet_Packet),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(13, 18, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet, (void**)&__pyx_vtabptr_2av_6packet_Packet) != 1)) __PYX_ERR(13, 18, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(12, 18, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet, (void**)&__pyx_vtabptr_2av_6packet_Packet) != 1)) __PYX_ERR(12, 18, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 6, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_5frame_Frame = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.frame", "Frame",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
+  #else
+  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5frame_Frame) __PYX_ERR(13, 6, __pyx_L1_error)
+  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5frame_Frame, (void**)&__pyx_vtabptr_2av_5frame_Frame) != 1)) __PYX_ERR(13, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -7605,19 +7347,6 @@ static int __Pyx_modinit_Type_import_code(__pyx_mstatetype *__pyx_mstate) {
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(14, 16, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 7, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_5frame_Frame = __Pyx_ImportType_3_3_0(__pyx_t_1, "av.frame", "Frame",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
-  #else
-  sizeof(struct __pyx_obj_2av_5frame_Frame), __PYX_GET_STRUCT_ALIGNMENT_3_3_0(struct __pyx_obj_2av_5frame_Frame),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_3_0); if (!__pyx_mstate->__pyx_ptype_2av_5frame_Frame) __PYX_ERR(15, 7, __pyx_L1_error)
-  if (unlikely(__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5frame_Frame, (void**)&__pyx_vtabptr_2av_5frame_Frame) != 1)) __PYX_ERR(15, 7, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -8050,7 +7779,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/sidedata/motionvectors.py":55
+  /* "av/sidedata/motionvectors.py":46
  *         import numpy as np
  * 
  *         return np.frombuffer(             # <<<<<<<<<<<<<<
@@ -8059,12 +7788,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_dtype};
-    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 55, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "av/sidedata/motionvectors.py":59
+  /* "av/sidedata/motionvectors.py":50
  *             dtype=np.dtype(
  *                 [
  *                     ("source", "int32"),             # <<<<<<<<<<<<<<
@@ -8073,12 +7802,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_source, __pyx_mstate_global->__pyx_n_u_int32};
-    __pyx_mstate_global->__pyx_tuple[1] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 59, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[1] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "av/sidedata/motionvectors.py":60
+  /* "av/sidedata/motionvectors.py":51
  *                 [
  *                     ("source", "int32"),
  *                     ("w", "uint8"),             # <<<<<<<<<<<<<<
@@ -8087,12 +7816,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_w, __pyx_mstate_global->__pyx_n_u_uint8};
-    __pyx_mstate_global->__pyx_tuple[2] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 60, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[2] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "av/sidedata/motionvectors.py":61
+  /* "av/sidedata/motionvectors.py":52
  *                     ("source", "int32"),
  *                     ("w", "uint8"),
  *                     ("h", "uint8"),             # <<<<<<<<<<<<<<
@@ -8101,12 +7830,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_h, __pyx_mstate_global->__pyx_n_u_uint8};
-    __pyx_mstate_global->__pyx_tuple[3] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 61, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[3] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
 
-  /* "av/sidedata/motionvectors.py":62
+  /* "av/sidedata/motionvectors.py":53
  *                     ("w", "uint8"),
  *                     ("h", "uint8"),
  *                     ("src_x", "int16"),             # <<<<<<<<<<<<<<
@@ -8115,12 +7844,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_src_x, __pyx_mstate_global->__pyx_n_u_int16};
-    __pyx_mstate_global->__pyx_tuple[4] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 62, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[4] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[4]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
 
-  /* "av/sidedata/motionvectors.py":63
+  /* "av/sidedata/motionvectors.py":54
  *                     ("h", "uint8"),
  *                     ("src_x", "int16"),
  *                     ("src_y", "int16"),             # <<<<<<<<<<<<<<
@@ -8129,12 +7858,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_src_y, __pyx_mstate_global->__pyx_n_u_int16};
-    __pyx_mstate_global->__pyx_tuple[5] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 63, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[5] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[5]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[5]);
 
-  /* "av/sidedata/motionvectors.py":64
+  /* "av/sidedata/motionvectors.py":55
  *                     ("src_x", "int16"),
  *                     ("src_y", "int16"),
  *                     ("dst_x", "int16"),             # <<<<<<<<<<<<<<
@@ -8143,12 +7872,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_dst_x, __pyx_mstate_global->__pyx_n_u_int16};
-    __pyx_mstate_global->__pyx_tuple[6] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[6] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[6]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[6]);
 
-  /* "av/sidedata/motionvectors.py":65
+  /* "av/sidedata/motionvectors.py":56
  *                     ("src_y", "int16"),
  *                     ("dst_x", "int16"),
  *                     ("dst_y", "int16"),             # <<<<<<<<<<<<<<
@@ -8157,12 +7886,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_dst_y, __pyx_mstate_global->__pyx_n_u_int16};
-    __pyx_mstate_global->__pyx_tuple[7] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[7] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 56, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[7]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[7]);
 
-  /* "av/sidedata/motionvectors.py":66
+  /* "av/sidedata/motionvectors.py":57
  *                     ("dst_x", "int16"),
  *                     ("dst_y", "int16"),
  *                     ("flags", "uint64"),             # <<<<<<<<<<<<<<
@@ -8171,12 +7900,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_flags, __pyx_mstate_global->__pyx_n_u_uint64};
-    __pyx_mstate_global->__pyx_tuple[8] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[8] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 57, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[8]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[8]);
 
-  /* "av/sidedata/motionvectors.py":67
+  /* "av/sidedata/motionvectors.py":58
  *                     ("dst_y", "int16"),
  *                     ("flags", "uint64"),
  *                     ("motion_x", "int32"),             # <<<<<<<<<<<<<<
@@ -8185,12 +7914,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_motion_x, __pyx_mstate_global->__pyx_n_u_int32};
-    __pyx_mstate_global->__pyx_tuple[9] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[9] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 58, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[9]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[9]);
 
-  /* "av/sidedata/motionvectors.py":68
+  /* "av/sidedata/motionvectors.py":59
  *                     ("flags", "uint64"),
  *                     ("motion_x", "int32"),
  *                     ("motion_y", "int32"),             # <<<<<<<<<<<<<<
@@ -8199,12 +7928,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_motion_y, __pyx_mstate_global->__pyx_n_u_int32};
-    __pyx_mstate_global->__pyx_tuple[10] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 68, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[10] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[10]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[10]);
 
-  /* "av/sidedata/motionvectors.py":69
+  /* "av/sidedata/motionvectors.py":60
  *                     ("motion_x", "int32"),
  *                     ("motion_y", "int32"),
  *                     ("motion_scale", "uint16"),             # <<<<<<<<<<<<<<
@@ -8213,12 +7942,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_motion_scale, __pyx_mstate_global->__pyx_n_u_uint16};
-    __pyx_mstate_global->__pyx_tuple[11] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[11] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[11]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[11]);
 
-  /* "av/sidedata/motionvectors.py":57
+  /* "av/sidedata/motionvectors.py":48
  *         return np.frombuffer(
  *             self,
  *             dtype=np.dtype(             # <<<<<<<<<<<<<<
@@ -8227,7 +7956,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[1] = {__pyx_mstate_global->__pyx_n_u_align};
-    __pyx_mstate_global->__pyx_tuple[12] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 57, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[12] = __Pyx_PyTuple_FromArray(__pyx_temp, 1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[12]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[12]);
@@ -8384,7 +8113,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 42};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 33};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_av_sidedata_motionvectors_py, __pyx_mstate->__pyx_n_u_iter, __pyx_mstate->__pyx_kp_b_iso88591_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
@@ -9405,111 +9134,10 @@ static PyObject* __Pyx_PyObject_Format(PyObject* obj, PyObject* format_spec) {
 }
 #endif
 
-/* PyFrozenDict (used by DictGetItem) */
+/* PyFrozenDict (used by GetItemInt) */
 #if CYTHON_COMPILING_IN_LIMITED_API
 static CYTHON_INLINE PyObject* __Pyx__PyFrozenDict_New(PyObject* frozendict_type, PyObject* it) {
     return PyObject_CallFunctionObjArgs(frozendict_type, it, NULL);
-}
-#endif
-
-/* DictGetItem */
-#if !CYTHON_COMPILING_IN_PYPY
-static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key) {
-    PyObject *value;
-    if (unlikely(__Pyx_PyDict_GetItemRef(d, key, &value) == 0)) { // no value, no error
-        if (unlikely(PyTuple_Check(key))) {
-            PyObject* args = PyTuple_Pack(1, key);
-            if (likely(args)) {
-                PyErr_SetObject(PyExc_KeyError, args);
-                Py_DECREF(args);
-            }
-        } else {
-            PyErr_SetObject(PyExc_KeyError, key);
-        }
-    }
-    return value;
-}
-#endif
-
-/* GetTopmostException (used by SaveResetException) */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem *
-__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
-{
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
-           exc_info->previous_item != NULL)
-    {
-        exc_info = exc_info->previous_item;
-    }
-    return exc_info;
-}
-#endif
-
-/* SaveResetException */
-#if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    PyObject *exc_value = exc_info->exc_value;
-    if (exc_value == NULL || exc_value == Py_None) {
-        *value = NULL;
-        *type = NULL;
-        *tb = NULL;
-    } else {
-        *value = exc_value;
-        Py_INCREF(*value);
-        *type = (PyObject*) Py_TYPE(exc_value);
-        Py_INCREF(*type);
-        *tb = PyException_GetTraceback(exc_value);
-    }
-  #elif CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    *type = exc_info->exc_type;
-    *value = exc_info->exc_value;
-    *tb = exc_info->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #else
-    *type = tstate->exc_type;
-    *value = tstate->exc_value;
-    *tb = tstate->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #endif
-}
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    PyObject *tmp_value = exc_info->exc_value;
-    exc_info->exc_value = value;
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-  #else
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    #if CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    tmp_type = exc_info->exc_type;
-    tmp_value = exc_info->exc_value;
-    tmp_tb = exc_info->exc_traceback;
-    exc_info->exc_type = type;
-    exc_info->exc_value = value;
-    exc_info->exc_traceback = tb;
-    #else
-    tmp_type = tstate->exc_type;
-    tmp_value = tstate->exc_value;
-    tmp_tb = tstate->exc_traceback;
-    tstate->exc_type = type;
-    tstate->exc_value = value;
-    tstate->exc_traceback = tb;
-    #endif
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
-  #endif
 }
 #endif
 
@@ -12070,6 +11698,88 @@ static int __pyx_CommonTypesMetaclass_init(PyObject *module) {
     }
     return 0;
 }
+
+/* GetTopmostException (used by SaveResetException) */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem *
+__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
+{
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
+           exc_info->previous_item != NULL)
+    {
+        exc_info = exc_info->previous_item;
+    }
+    return exc_info;
+}
+#endif
+
+/* SaveResetException (used by CoroutineBase) */
+#if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    PyObject *exc_value = exc_info->exc_value;
+    if (exc_value == NULL || exc_value == Py_None) {
+        *value = NULL;
+        *type = NULL;
+        *tb = NULL;
+    } else {
+        *value = exc_value;
+        Py_INCREF(*value);
+        *type = (PyObject*) Py_TYPE(exc_value);
+        Py_INCREF(*type);
+        *tb = PyException_GetTraceback(exc_value);
+    }
+  #elif CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    *type = exc_info->exc_type;
+    *value = exc_info->exc_value;
+    *tb = exc_info->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #else
+    *type = tstate->exc_type;
+    *value = tstate->exc_value;
+    *tb = tstate->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #endif
+}
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    PyObject *tmp_value = exc_info->exc_value;
+    exc_info->exc_value = value;
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+  #else
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    #if CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    tmp_type = exc_info->exc_type;
+    tmp_value = exc_info->exc_value;
+    tmp_tb = exc_info->exc_traceback;
+    exc_info->exc_type = type;
+    exc_info->exc_value = value;
+    exc_info->exc_traceback = tb;
+    #else
+    tmp_type = tstate->exc_type;
+    tmp_value = tstate->exc_value;
+    tmp_tb = tstate->exc_traceback;
+    tstate->exc_type = type;
+    tstate->exc_value = value;
+    tstate->exc_traceback = tb;
+    #endif
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+  #endif
+}
+#endif
 
 /* SwapException (used by CoroutineBase) */
 #if CYTHON_FAST_THREAD_STATE

@@ -731,7 +731,7 @@ class StreamBlockProcessor:
 
         Stamps the canonical Content-IR envelope on ``metadata.__ir`` so the
         frontend renders the block WITHOUT re-parsing it (contract:
-        /Users/armanisadeghi/code/common-docs/systems/content-ir-system/PYTHON_ENVELOPE_CONTRACT.md).
+        /Users/armanisadeghi/code/common-docs/systems/architecture/content-ir/FEATURE.md).
 
         COMPLETE-ONLY, and this guard is the whole law: a streaming block's
         data is a partial snapshot, and an envelope built from it would be

@@ -40,6 +40,7 @@ from pydantic import JsonValue
 
 @kind(
     "workflow_catalog_result",
+    disposition="record",
     label="Workflow Catalog Result",
     family="workflow_tools",
     example={
@@ -91,6 +92,7 @@ class WorkflowCatalogResult(KindModel):
 
 @kind(
     "workflow_author_result",
+    disposition="record",
     label="Workflow Author Result",
     family="workflow_tools",
     example={
@@ -151,6 +153,7 @@ class WorkflowAuthorResult(KindModel):
 
 @kind(
     "workflow_run_status",
+    disposition="record",
     label="Workflow Run Status",
     family="workflow_tools",
     example={"run_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "queued", "job_id": "1"},
@@ -173,6 +176,7 @@ class WorkflowRunStatus(KindModel):
 
 @kind(
     "workflow_node_result",
+    disposition="record",
     label="Workflow Node Result",
     family="workflow_tools",
     example={
@@ -242,6 +246,7 @@ class PlanView(KindSubModel):
 
 @kind(
     "workflow_plan_result",
+    disposition="record",
     label="Workflow Plan Result",
     family="workflow_tools",
     example={

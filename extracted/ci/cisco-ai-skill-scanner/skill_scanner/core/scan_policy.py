@@ -51,11 +51,25 @@ import yaml
 
 from ..utils.file_utils import FileValidationError, read_text_strict
 from .cel.models import CelMode
+from .suppressions import SuppressionRule, suppression_from_dict
 
 logger = logging.getLogger(__name__)
 
 _MAX_PATTERN_LENGTH = 1000
 _MAX_POLICY_SIZE_BYTES = 1024 * 1024
+
+
+def _drop_null_values(value: Any) -> Any:
+    """Remove null mapping keys recursively.
+
+    PyYAML parses a valueless key as ``None``. Treating it as absent lets policy
+    defaults apply without discarding other falsy values.
+    """
+    if isinstance(value, dict):
+        return {k: _drop_null_values(v) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        return [_drop_null_values(v) for v in value]
+    return value
 
 
 def _safe_compile(pattern: str, flags: int = 0, *, max_length: int = _MAX_PATTERN_LENGTH) -> re.Pattern | None:
@@ -80,6 +94,10 @@ _PRESET_POLICIES: dict[str, Path] = {
     "strict": _DATA_DIR / "strict_policy.yaml",
     "balanced": _DEFAULT_POLICY_PATH,
     "permissive": _DATA_DIR / "permissive_policy.yaml",
+    # Balanced detection with the noisiest rules reported at LOW; chosen on real-skill
+    # adjudication and MaliciousSkillBench train/validation (see measured-results.md).
+    "low-noise": _DATA_DIR / "low_noise_policy.yaml",
+    "quiet": _DATA_DIR / "quiet_policy.yaml",
 }
 
 
@@ -348,9 +366,12 @@ class LLMAnalysisPolicy:
     cross-correlation.
 
     Content that fits within budget is sent in full — **no truncation**.
-    Content that exceeds the budget is skipped entirely and an
-    ``LLM_CONTEXT_BUDGET_EXCEEDED`` INFO finding is emitted with guidance
-    on which policy knob to increase.
+    Oversized code files may contribute bounded excerpts. Set
+    ``max_code_file_chars`` to zero to keep directly formatted code-file
+    contents out of LLM requests. Referenced files use
+    ``max_referenced_file_chars`` and may still be included within that limit.
+    Oversized instruction bodies and referenced files are skipped entirely,
+    with an ``LLM_CONTEXT_BUDGET_EXCEEDED`` INFO finding.
     """
 
     # -- Per-item limits (LLM analyzer uses these directly) --
@@ -373,6 +394,20 @@ class LLMAnalysisPolicy:
     # LLM findings referencing only these domains are demoted to LOW.
     # Mirrors the pattern of ``pipeline.known_installer_domains``.
     trusted_reference_domains: set[str] = field(default_factory=set)
+
+    # -- Contextual-risk severity cap --
+    # When set (e.g. "LOW"), a finding the model itself labels CONTEXTUAL_RISK -- a
+    # risky capability whose intent, reach or execution is not established -- is capped
+    # at this severity; TRUE_POSITIVE findings are untouched. Empty means no cap. On
+    # MaliciousSkillBench development records a LOW cap took the judge's MEDIUM+
+    # false-positive rate from 23.6% to 6.9% for 5 points of recall.
+    contextual_risk_max_severity: str = ""
+    # -- Low-confidence severity cap --
+    # When set, a finding the model itself rates LOW confidence is capped at this severity.
+    # A middle operating point: with the current prompt a LOW cap took the real-skill MEDIUM+
+    # flag rate from 10.5% to 7.6%, and cost 2.5 points of recall on MaliciousSkillBench
+    # train/validation (3.6 on the test split).
+    low_confidence_max_severity: str = ""
 
     # -- Convenience helpers for the meta analyzer --
 
@@ -470,6 +505,9 @@ class ScanPolicy:
     finding_output: FindingOutputPolicy = field(default_factory=FindingOutputPolicy)
     severity_overrides: list[SeverityOverride] = field(default_factory=list)
     disabled_rules: set[str] = field(default_factory=set)
+    # Scoped suppressions: silence or re-rate a rule for named skills/paths
+    # instead of disabling it for every skill in the run.
+    suppressions: list[SuppressionRule] = field(default_factory=list)
 
     # -----------------------------------------------------------------------
     # Convenience helpers
@@ -520,7 +558,7 @@ class ScanPolicy:
 
     @classmethod
     def from_preset(cls, name: str) -> ScanPolicy:
-        """Load a named preset policy: ``strict``, ``balanced``, or ``permissive``."""
+        """Load a named preset policy: ``strict``, ``balanced``, ``permissive``, ``low-noise`` or ``quiet``."""
         name_lower = name.lower()
         # Select only fixed package-owned paths.  Avoid using request text as
         # a path-producing mapping key even after membership validation.
@@ -530,6 +568,10 @@ class ScanPolicy:
             preset_path = _DEFAULT_POLICY_PATH
         elif name_lower == "permissive":
             preset_path = _DATA_DIR / "permissive_policy.yaml"
+        elif name_lower == "low-noise":
+            preset_path = _DATA_DIR / "low_noise_policy.yaml"
+        elif name_lower == "quiet":
+            preset_path = _DATA_DIR / "quiet_policy.yaml"
         else:
             raise ValueError(f"Unknown preset '{name}'. Available: {', '.join(sorted(_PRESET_POLICIES))}")
         return cls.from_yaml(preset_path)
@@ -568,7 +610,7 @@ class ScanPolicy:
         raw_value = yaml.safe_load(content) or {}
         if not isinstance(raw_value, dict):
             raise ValueError("Policy YAML root must be a mapping")
-        raw: dict[str, Any] = raw_value
+        raw: dict[str, Any] = _drop_null_values(raw_value)
 
         # If this IS the default file, just parse directly
         is_default = os.path.realpath(os.fspath(path)) == os.path.realpath(os.fspath(_DEFAULT_POLICY_PATH))
@@ -621,23 +663,25 @@ class ScanPolicy:
 
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> ScanPolicy:
-        hf = d.get("hidden_files", {})
-        pl = d.get("pipeline", {})
-        ys = d.get("rule_scoping", {})
-        cr = d.get("credentials", {})
-        sc = d.get("system_cleanup", {})
-        fc = d.get("file_classification", {})
-        fl = d.get("file_limits", {})
-        at = d.get("analysis_thresholds", {})
-        sf = d.get("sensitive_files", {})
-        cs = d.get("command_safety", {})
-        az = d.get("analyzers", {})
-        cel_policy = d.get("cel", {})
-        aj = d.get("adjudicator", {})
-        la = d.get("llm_analysis", {})
-        fo = d.get("finding_output", {})
+        # Support direct callers that pass None for optional sections.
+        hf = d.get("hidden_files") or {}
+        pl = d.get("pipeline") or {}
+        ys = d.get("rule_scoping") or {}
+        cr = d.get("credentials") or {}
+        sc = d.get("system_cleanup") or {}
+        fc = d.get("file_classification") or {}
+        fl = d.get("file_limits") or {}
+        at = d.get("analysis_thresholds") or {}
+        sf = d.get("sensitive_files") or {}
+        cs = d.get("command_safety") or {}
+        az = d.get("analyzers") or {}
+        cel_policy = d.get("cel") or {}
+        aj = d.get("adjudicator") or {}
+        la = d.get("llm_analysis") or {}
+        fo = d.get("finding_output") or {}
 
-        severity_overrides = [SeverityOverride(**ovr) for ovr in d.get("severity_overrides", [])]
+        severity_overrides = [SeverityOverride(**ovr) for ovr in d.get("severity_overrides") or []]
+        suppressions = [suppression_from_dict(entry) for entry in d.get("suppressions") or []]
 
         cel_mode_value = cel_policy.get("mode", "off")
         # PyYAML's YAML 1.1 resolver treats an unquoted ``off`` as False.
@@ -767,6 +811,8 @@ class ScanPolicy:
                 max_output_tokens=la.get("max_output_tokens", 8192),
                 meta_budget_multiplier=la.get("meta_budget_multiplier", 3.0),
                 trusted_reference_domains=set(la.get("trusted_reference_domains", [])),
+                contextual_risk_max_severity=str(la.get("contextual_risk_max_severity") or "").upper(),
+                low_confidence_max_severity=str(la.get("low_confidence_max_severity") or "").upper(),
             ),
             finding_output=FindingOutputPolicy(
                 dedupe_exact_findings=fo.get("dedupe_exact_findings", True),
@@ -790,7 +836,8 @@ class ScanPolicy:
                 attach_policy_fingerprint=fo.get("attach_policy_fingerprint", True),
             ),
             severity_overrides=severity_overrides,
-            disabled_rules=set(d.get("disabled_rules", [])),
+            disabled_rules=set(d.get("disabled_rules") or []),
+            suppressions=suppressions,
         )
 
     def _to_dict(self) -> dict[str, Any]:
@@ -899,6 +946,8 @@ class ScanPolicy:
                 "max_output_tokens": self.llm_analysis.max_output_tokens,
                 "meta_budget_multiplier": self.llm_analysis.meta_budget_multiplier,
                 "trusted_reference_domains": sorted(self.llm_analysis.trusted_reference_domains),
+                "contextual_risk_max_severity": self.llm_analysis.contextual_risk_max_severity,
+                "low_confidence_max_severity": self.llm_analysis.low_confidence_max_severity,
             },
             "finding_output": {
                 "dedupe_exact_findings": self.finding_output.dedupe_exact_findings,
@@ -912,4 +961,5 @@ class ScanPolicy:
                 {"rule_id": o.rule_id, "severity": o.severity, "reason": o.reason} for o in self.severity_overrides
             ],
             "disabled_rules": sorted(self.disabled_rules),
+            "suppressions": [s.to_dict() for s in self.suppressions],
         }

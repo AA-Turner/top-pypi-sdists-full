@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firecrawl
-Version: 4.46.0
+Version: 4.46.2
 Summary: Python SDK for the Firecrawl API: web scraping, crawling, web search, and scientific literature search over a research paper index of PubMed, bioRxiv, medRxiv and arXiv abstracts
 Home-page: https://github.com/firecrawl/firecrawl
 Author: Mendable.ai
@@ -146,6 +146,13 @@ doc = firecrawl.parse(
 )
 
 print(doc.markdown)
+```
+
+To see which file formats `parse` accepts, call `get_parse_formats` (also available on `AsyncFirecrawl`). Each entry has `format`, `kind` (`"document"` or `"image"`), `extensions`, `mime_types`, and `available`, which is `False` when a format is disabled on the deployment.
+
+```python
+for f in firecrawl.get_parse_formats():
+  print(f.format, f.kind, f.extensions, f.mime_types, f.available)
 ```
 
 ### Crawling a Website

@@ -9,17 +9,20 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.payment import Payment
+from ..types.payment_input_line_items_item import PaymentInputLineItemsItem
+from ..types.payment_input_plan import PaymentInputPlan
 from ..types.payment_status import PaymentStatus
 from .raw_client import AsyncRawPaymentsClient, RawPaymentsClient
-from .types.create_payments_request_line_items_item import CreatePaymentsRequestLineItemsItem
-from .types.create_payments_request_plan import CreatePaymentsRequestPlan
+from .types.create_payments_request_payment_method import CreatePaymentsRequestPaymentMethod
 from .types.create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
 from .types.list_fees_payments_response import ListFeesPaymentsResponse
 from .types.list_payments_request_billing_reason import ListPaymentsRequestBillingReason
 from .types.list_payments_request_direction import ListPaymentsRequestDirection
+from .types.list_payments_request_mode import ListPaymentsRequestMode
 from .types.list_payments_request_order import ListPaymentsRequestOrder
 from .types.list_payments_request_status import ListPaymentsRequestStatus
 from .types.list_payments_response import ListPaymentsResponse
+from .types.update_payments_request_shipping_address import UpdatePaymentsRequestShippingAddress
 
 if typing.TYPE_CHECKING:
     from .direct.client import AsyncDirectClient, DirectClient
@@ -47,6 +50,7 @@ class PaymentsClient:
     def list(
         self,
         *,
+        mode: typing.Optional[ListPaymentsRequestMode] = None,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPaymentsRequestStatus] = None,
         billing_reason: typing.Optional[ListPaymentsRequestBillingReason] = None,
@@ -68,10 +72,13 @@ class PaymentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Payment, ListPaymentsResponse]:
         """
-        Lists payments, newest first. Without filters this is every payment the caller can read: a company credential's own account, or for a user every account they can read payments for. Filters narrow by account, buyer, product, plan, membership, status, billing reason, currency, and creation window. Filtering by `billing_reason=subscription_cycle` also matches renewals recorded as `subscription_update`. `settlement_time_at` is null on list rows — retrieve the payment for it.
+        Lists payments, newest first. By default, returns account sales: a company credential's own account, or for a user every account they can read payments for. Set `mode=user_sales` to list only the sales received by the signed-in user's primary ledger account, without a company. This mode requires the user's own Whop login session and cannot be combined with `account_id`. Filters narrow by account, buyer, product, plan, membership, status, billing reason, currency, and creation window. Filtering by `billing_reason=subscription_cycle` also matches renewals recorded as `subscription_update`. `settlement_time_at` is null on list rows — retrieve the payment for it.
 
         Parameters
         ----------
+        mode : typing.Optional[ListPaymentsRequestMode]
+            Which sales to list. `account_sales` returns sales for the accounts the caller can read. `user_sales` returns only sales received by the signed-in user's primary ledger account, without a company; requires their own Whop login session and cannot be combined with `account_id`.
+
         account_id : typing.Optional[str]
             Only payments charged by this account, prefixed `biz_`.
 
@@ -85,7 +92,7 @@ class PaymentsClient:
             Only payments presented in this three-letter currency, such as `usd`.
 
         user_id : typing.Optional[str]
-            Only payments made by this buyer, prefixed `user_`. Payments are listed for the accounts the caller manages, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
+            Only payments made by this buyer, prefixed `user_`. This filters sales the caller can read, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
             Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
@@ -100,7 +107,7 @@ class PaymentsClient:
             Only payments for this product, prefixed `prod_`.
 
         plan_id : typing.Optional[str]
-            Only payments priced by this plan, prefixed `plan_`.
+            Only payments priced by this variant, prefixed `plan_`.
 
         created_before : typing.Optional[dt.datetime]
             Only payments created before this ISO 8601 timestamp.
@@ -139,7 +146,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -151,6 +158,7 @@ class PaymentsClient:
             yield page
         """
         return self._raw_client.list(
+            mode=mode,
             account_id=account_id,
             status=status,
             billing_reason=billing_reason,
@@ -176,29 +184,36 @@ class PaymentsClient:
         self,
         *,
         account_id: str,
+        affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         confirmation_token: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
-        line_items: typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]] = OMIT,
         member_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        payment_method: typing.Optional[CreatePaymentsRequestPaymentMethod] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
-        plan: typing.Optional[CreatePaymentsRequestPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
-        promo_code_id: typing.Optional[str] = OMIT,
+        quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
+        line_items: typing.Optional[typing.Sequence[PaymentInputLineItemsItem]] = OMIT,
+        plan: typing.Optional[PaymentInputPlan] = OMIT,
+        plan_id: typing.Optional[str] = OMIT,
+        promo_code: typing.Optional[str] = OMIT,
+        promo_code_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Payment:
         """
-        Charges a buyer for one or more plans. Pass a payment method already on file (`member_id` and `payment_method_id`), or a `confirmation_token` describing a method the buyer just supplied. Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and, for a confirmation-token payment, what the buyer must still do. Pass `line_items` for one or more plans with quantities, `plan_id` for an existing plan, or `plan` to find or create one inline. These inputs are mutually exclusive.
+        Charges a buyer for one or more variants. Pass a payment method already on file (`member_id` and `payment_method_id`), or a `confirmation_token` describing a method the buyer just supplied. Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and, for a confirmation-token payment, what the buyer must still do. Pass `line_items` for one or more variants with quantities, `plan_id` for an existing variant, or the compatibility input `plan` to find or create one inline. These inputs are mutually exclusive.
 
         Parameters
         ----------
         account_id : str
-            The account to charge for, prefixed `biz_`.
+            The account the purchase belongs to, prefixed `biz_`.
+
+        affiliate_code : typing.Optional[str]
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with `payment_method`.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
@@ -210,10 +225,7 @@ class PaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            Overrides the buyer email carried on the confirmation token, resolving or creating the user the payment belongs to. Ignored unless `confirmation_token` is provided, and when the token was created by a signed-in buyer.
-
-        line_items : typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]]
-            What the buyer is purchasing. One entry charges that plan; several entries form a cart, which requires every plan to be a compatible plan from this account in the same currency.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached. Ignored with `member_id`.
 
         member_id : typing.Optional[str]
             The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided.
@@ -221,17 +233,14 @@ class PaymentsClient:
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
 
+        payment_method : typing.Optional[CreatePaymentsRequestPaymentMethod]
+            A payment method collected on the seller's device rather than described by a confirmation token. `type` names it and the member named after it carries what the device needs. Today only `card_present` (Tap to Pay): nothing is collected on this call, the payment is created first and the reader then collects against it with the client secret the status endpoint serves in `next_action`. Mutually exclusive with `confirmation_token`, `member_id` and `payment_method_id`.
+
         payment_method_id : typing.Optional[str]
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
-        plan : typing.Optional[CreatePaymentsRequestPlan]
-            Find or create a plan for this payment. Mutually exclusive with `plan_id` and `line_items`. Creating a plan requires plan:create; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The plan to charge for, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
-
-        promo_code_id : typing.Optional[str]
-            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the plan.
+        quote_id : typing.Optional[str]
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Ignored unless `confirmation_token` is provided.
@@ -240,7 +249,22 @@ class PaymentsClient:
             Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
 
         statement_descriptor : typing.Optional[str]
-            Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+            Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*` unless the business processes as the merchant of record. For businesses processing as the merchant of record, omit the `WHOP*` prefix; the descriptor appears as provided. Must be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+
+        line_items : typing.Optional[typing.Sequence[PaymentInputLineItemsItem]]
+            What the buyer is purchasing. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency.
+
+        plan : typing.Optional[PaymentInputPlan]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        plan_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
+
+        promo_code : typing.Optional[str]
+            The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`.
+
+        promo_code_id : typing.Optional[str]
+            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -255,7 +279,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -265,32 +289,36 @@ class PaymentsClient:
         """
         _response = self._raw_client.create(
             account_id=account_id,
+            affiliate_code=affiliate_code,
             auto_capture_after_minutes=auto_capture_after_minutes,
             capture=capture,
             confirmation_token=confirmation_token,
             email=email,
-            line_items=line_items,
             member_id=member_id,
             metadata=metadata,
+            payment_method=payment_method,
             payment_method_id=payment_method_id,
-            plan=plan,
-            plan_id=plan_id,
-            promo_code_id=promo_code_id,
+            quote_id=quote_id,
             return_url=return_url,
             shipping_address=shipping_address,
             statement_descriptor=statement_descriptor,
+            line_items=line_items,
+            plan=plan,
+            plan_id=plan_id,
+            promo_code=promo_code,
+            promo_code_id=promo_code_id,
             request_options=request_options,
         )
         return _response.data
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Payment:
         """
-        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
+        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a variant, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
 
         Parameters
         ----------
         id : str
-            The payment to retrieve, prefixed `pay_`.
+            The payment, prefixed `pay_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -305,7 +333,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -314,6 +342,54 @@ class PaymentsClient:
         )
         """
         _response = self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    def update(
+        self,
+        id: str,
+        *,
+        return_url: typing.Optional[str] = OMIT,
+        shipping_address: typing.Optional[UpdatePaymentsRequestShippingAddress] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Payment:
+        """
+        Updates a payment's `shipping_address` or `return_url`. Send the complete `shipping_address`, because it replaces the existing address and any field you leave out is cleared.
+
+        Parameters
+        ----------
+        id : str
+            The payment, prefixed `pay_`.
+
+        return_url : typing.Optional[str]
+            Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Only for payments created with a `confirmation_token`, and only until the buyer has returned. Omit it to leave it unchanged.
+
+        shipping_address : typing.Optional[UpdatePaymentsRequestShippingAddress]
+            The complete new shipping address. It replaces the current address as a whole and is never merged with it, so send every field the address should have, including the ones that are not changing. Any field you leave out is cleared: sending only `city` leaves an address with nothing but a city. Pass null to remove the address, or omit `shipping_address` to leave it unchanged. It cannot change once a shipment exists for the payment.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Payment
+            shipping address replaced
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.payments.update(
+            id="id",
+        )
+        """
+        _response = self._raw_client.update(
+            id, return_url=return_url, shipping_address=shipping_address, request_options=request_options
+        )
         return _response.data
 
     def capture(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PaymentStatus:
@@ -338,7 +414,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -373,7 +449,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -415,7 +491,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -428,7 +504,7 @@ class PaymentsClient:
 
     def retry(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Payment:
         """
-        Retries a failed or pending payment. This re-attempts the charge using the original payment method and plan details.
+        Retries a failed or pending payment. This re-attempts the charge using the original payment method and variant details.
 
         Parameters
         ----------
@@ -448,7 +524,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -481,7 +557,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -514,7 +590,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -552,7 +628,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -590,7 +666,7 @@ class PaymentsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -630,6 +706,7 @@ class AsyncPaymentsClient:
     async def list(
         self,
         *,
+        mode: typing.Optional[ListPaymentsRequestMode] = None,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPaymentsRequestStatus] = None,
         billing_reason: typing.Optional[ListPaymentsRequestBillingReason] = None,
@@ -651,10 +728,13 @@ class AsyncPaymentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Payment, ListPaymentsResponse]:
         """
-        Lists payments, newest first. Without filters this is every payment the caller can read: a company credential's own account, or for a user every account they can read payments for. Filters narrow by account, buyer, product, plan, membership, status, billing reason, currency, and creation window. Filtering by `billing_reason=subscription_cycle` also matches renewals recorded as `subscription_update`. `settlement_time_at` is null on list rows — retrieve the payment for it.
+        Lists payments, newest first. By default, returns account sales: a company credential's own account, or for a user every account they can read payments for. Set `mode=user_sales` to list only the sales received by the signed-in user's primary ledger account, without a company. This mode requires the user's own Whop login session and cannot be combined with `account_id`. Filters narrow by account, buyer, product, plan, membership, status, billing reason, currency, and creation window. Filtering by `billing_reason=subscription_cycle` also matches renewals recorded as `subscription_update`. `settlement_time_at` is null on list rows — retrieve the payment for it.
 
         Parameters
         ----------
+        mode : typing.Optional[ListPaymentsRequestMode]
+            Which sales to list. `account_sales` returns sales for the accounts the caller can read. `user_sales` returns only sales received by the signed-in user's primary ledger account, without a company; requires their own Whop login session and cannot be combined with `account_id`.
+
         account_id : typing.Optional[str]
             Only payments charged by this account, prefixed `biz_`.
 
@@ -668,7 +748,7 @@ class AsyncPaymentsClient:
             Only payments presented in this three-letter currency, such as `usd`.
 
         user_id : typing.Optional[str]
-            Only payments made by this buyer, prefixed `user_`. Payments are listed for the accounts the caller manages, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
+            Only payments made by this buyer, prefixed `user_`. This filters sales the caller can read, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
             Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
@@ -683,7 +763,7 @@ class AsyncPaymentsClient:
             Only payments for this product, prefixed `prod_`.
 
         plan_id : typing.Optional[str]
-            Only payments priced by this plan, prefixed `plan_`.
+            Only payments priced by this variant, prefixed `plan_`.
 
         created_before : typing.Optional[dt.datetime]
             Only payments created before this ISO 8601 timestamp.
@@ -724,7 +804,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -743,6 +823,7 @@ class AsyncPaymentsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
+            mode=mode,
             account_id=account_id,
             status=status,
             billing_reason=billing_reason,
@@ -768,29 +849,36 @@ class AsyncPaymentsClient:
         self,
         *,
         account_id: str,
+        affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         confirmation_token: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
-        line_items: typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]] = OMIT,
         member_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        payment_method: typing.Optional[CreatePaymentsRequestPaymentMethod] = OMIT,
         payment_method_id: typing.Optional[str] = OMIT,
-        plan: typing.Optional[CreatePaymentsRequestPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
-        promo_code_id: typing.Optional[str] = OMIT,
+        quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
+        line_items: typing.Optional[typing.Sequence[PaymentInputLineItemsItem]] = OMIT,
+        plan: typing.Optional[PaymentInputPlan] = OMIT,
+        plan_id: typing.Optional[str] = OMIT,
+        promo_code: typing.Optional[str] = OMIT,
+        promo_code_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Payment:
         """
-        Charges a buyer for one or more plans. Pass a payment method already on file (`member_id` and `payment_method_id`), or a `confirmation_token` describing a method the buyer just supplied. Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and, for a confirmation-token payment, what the buyer must still do. Pass `line_items` for one or more plans with quantities, `plan_id` for an existing plan, or `plan` to find or create one inline. These inputs are mutually exclusive.
+        Charges a buyer for one or more variants. Pass a payment method already on file (`member_id` and `payment_method_id`), or a `confirmation_token` describing a method the buyer just supplied. Collection runs in the background: the response is the payment as created, not its outcome — poll Retrieve status for how far it has got and, for a confirmation-token payment, what the buyer must still do. Pass `line_items` for one or more variants with quantities, `plan_id` for an existing variant, or the compatibility input `plan` to find or create one inline. These inputs are mutually exclusive.
 
         Parameters
         ----------
         account_id : str
-            The account to charge for, prefixed `biz_`.
+            The account the purchase belongs to, prefixed `biz_`.
+
+        affiliate_code : typing.Optional[str]
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with `payment_method`.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
@@ -802,10 +890,7 @@ class AsyncPaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            Overrides the buyer email carried on the confirmation token, resolving or creating the user the payment belongs to. Ignored unless `confirmation_token` is provided, and when the token was created by a signed-in buyer.
-
-        line_items : typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]]
-            What the buyer is purchasing. One entry charges that plan; several entries form a cart, which requires every plan to be a compatible plan from this account in the same currency.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached. Ignored with `member_id`.
 
         member_id : typing.Optional[str]
             The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided.
@@ -813,17 +898,14 @@ class AsyncPaymentsClient:
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
 
+        payment_method : typing.Optional[CreatePaymentsRequestPaymentMethod]
+            A payment method collected on the seller's device rather than described by a confirmation token. `type` names it and the member named after it carries what the device needs. Today only `card_present` (Tap to Pay): nothing is collected on this call, the payment is created first and the reader then collects against it with the client secret the status endpoint serves in `next_action`. Mutually exclusive with `confirmation_token`, `member_id` and `payment_method_id`.
+
         payment_method_id : typing.Optional[str]
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
-        plan : typing.Optional[CreatePaymentsRequestPlan]
-            Find or create a plan for this payment. Mutually exclusive with `plan_id` and `line_items`. Creating a plan requires plan:create; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The plan to charge for, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
-
-        promo_code_id : typing.Optional[str]
-            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the plan.
+        quote_id : typing.Optional[str]
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Ignored unless `confirmation_token` is provided.
@@ -832,7 +914,22 @@ class AsyncPaymentsClient:
             Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
 
         statement_descriptor : typing.Optional[str]
-            Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+            Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*` unless the business processes as the merchant of record. For businesses processing as the merchant of record, omit the `WHOP*` prefix; the descriptor appears as provided. Must be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
+
+        line_items : typing.Optional[typing.Sequence[PaymentInputLineItemsItem]]
+            What the buyer is purchasing. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency.
+
+        plan : typing.Optional[PaymentInputPlan]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        plan_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
+
+        promo_code : typing.Optional[str]
+            The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`.
+
+        promo_code_id : typing.Optional[str]
+            An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -849,7 +946,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -865,32 +962,36 @@ class AsyncPaymentsClient:
         """
         _response = await self._raw_client.create(
             account_id=account_id,
+            affiliate_code=affiliate_code,
             auto_capture_after_minutes=auto_capture_after_minutes,
             capture=capture,
             confirmation_token=confirmation_token,
             email=email,
-            line_items=line_items,
             member_id=member_id,
             metadata=metadata,
+            payment_method=payment_method,
             payment_method_id=payment_method_id,
-            plan=plan,
-            plan_id=plan_id,
-            promo_code_id=promo_code_id,
+            quote_id=quote_id,
             return_url=return_url,
             shipping_address=shipping_address,
             statement_descriptor=statement_descriptor,
+            line_items=line_items,
+            plan=plan,
+            plan_id=plan_id,
+            promo_code=promo_code,
+            promo_code_id=promo_code_id,
             request_options=request_options,
         )
         return _response.data
 
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Payment:
         """
-        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
+        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a variant, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
 
         Parameters
         ----------
         id : str
-            The payment to retrieve, prefixed `pay_`.
+            The payment, prefixed `pay_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -907,7 +1008,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -922,6 +1023,62 @@ class AsyncPaymentsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
+    async def update(
+        self,
+        id: str,
+        *,
+        return_url: typing.Optional[str] = OMIT,
+        shipping_address: typing.Optional[UpdatePaymentsRequestShippingAddress] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Payment:
+        """
+        Updates a payment's `shipping_address` or `return_url`. Send the complete `shipping_address`, because it replaces the existing address and any field you leave out is cleared.
+
+        Parameters
+        ----------
+        id : str
+            The payment, prefixed `pay_`.
+
+        return_url : typing.Optional[str]
+            Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Only for payments created with a `confirmation_token`, and only until the buyer has returned. Omit it to leave it unchanged.
+
+        shipping_address : typing.Optional[UpdatePaymentsRequestShippingAddress]
+            The complete new shipping address. It replaces the current address as a whole and is never merged with it, so send every field the address should have, including the ones that are not changing. Any field you leave out is cleared: sending only `city` leaves an address with nothing but a city. Pass null to remove the address, or omit `shipping_address` to leave it unchanged. It cannot change once a shipment exists for the payment.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Payment
+            shipping address replaced
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.payments.update(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update(
+            id, return_url=return_url, shipping_address=shipping_address, request_options=request_options
+        )
         return _response.data
 
     async def capture(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PaymentStatus:
@@ -948,7 +1105,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -991,7 +1148,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1041,7 +1198,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1060,7 +1217,7 @@ class AsyncPaymentsClient:
 
     async def retry(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Payment:
         """
-        Retries a failed or pending payment. This re-attempts the charge using the original payment method and plan details.
+        Retries a failed or pending payment. This re-attempts the charge using the original payment method and variant details.
 
         Parameters
         ----------
@@ -1082,7 +1239,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1123,7 +1280,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1166,7 +1323,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1212,7 +1369,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1258,7 +1415,7 @@ class AsyncPaymentsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

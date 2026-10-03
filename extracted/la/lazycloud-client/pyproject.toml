@@ -2,13 +2,13 @@
 # Published as `lazycloud-client`; the import and the command stay `lazycloud`.
 # The bare name on PyPI belongs to an unrelated project.
 name = "lazycloud-client"
-version = "0.1.73"
+version = "0.1.82"
 description = "LazyCloud Python SDK and client CLI."
 requires-python = ">=3.10"
 dependencies = [
     "cloudpickle>=3,<4",
     "httpx>=0.28,<1",
-    "lazycloud-shared==0.1.73",
+    "packaging>=24,<27",
     "pathspec>=0.12,<1",
     "pillow>=11.3,<13",
     "poetry-core>=2.2,<3",

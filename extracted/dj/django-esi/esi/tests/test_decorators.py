@@ -17,9 +17,8 @@ from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
 
 from ..decorators import (
-    _check_callback, esi_rate_limiter_bucketed, rate_limit_retry_task,
-    single_use_token, token_required, tokens_required,
-    wait_for_esi_errorlimit_reset,
+    _check_callback, esi_rate_limiter_bucketed, rate_limit_retry_task, single_use_token, token_required,
+    tokens_required, wait_for_esi_errorlimit_reset,
 )
 from ..exceptions import ESIBucketLimitException, ESIErrorLimitException
 from ..models import CallbackRedirect, Token
@@ -588,12 +587,12 @@ class TestESIErrorLimitDecorator(TestCase):
         duration = time() - _t
         self.assertGreater(duration, 5)
 
-class TestESIErrorLimitDecorator(TestCase):
+
+class TestESIErrorLimitDecorator2(TestCase):
     def setUp(self):
         self.celery_app = Celery("mysite", broker_url="memory://localhost/")
         self.celery_app.conf.update(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
         self.celery_app.config_from_object("django.conf:settings")
-
 
     def test_no_limit_bucket(self):
         @self.celery_app.task(bind=True)

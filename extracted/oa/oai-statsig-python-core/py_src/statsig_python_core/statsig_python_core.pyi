@@ -69,6 +69,12 @@ class DataStoreBase:
         Override to skip preparing and writing cached specs while retaining reads.
         The result should remain stable during an update; stores are writable by default.
         """
+    def write_once(self) -> builtins.bool:
+        r"""
+        Override to publish one config-spec snapshot successfully per SDK instance,
+        retrying failed writes with the same prepared payload.
+        ID-list writes are unaffected; later full responses are writable by default.
+        """
 
 @typing.final
 class DynamicConfigEvaluationOptions:

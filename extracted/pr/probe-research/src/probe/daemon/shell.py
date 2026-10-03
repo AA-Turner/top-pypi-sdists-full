@@ -205,6 +205,12 @@ _LINUX = sys.platform.startswith("linux")
 _NO_FILES = frozenset(
     {"echo", "expr", "false", "id", "pwd", "seq", "tr", "true", "uname", "whoami", "which"}
 )
+#: What may follow a note's text and still leave it data: a plain `probe ...`
+#: (the push) and filters on its output that read text and never run a file
+#: (`| grep -i url | head -2`), named bare (`./head` is any program). Anything
+#: else after it (`. ./x.sh`, `bash x.sh`, an `rg --pre`) could run the file
+#: the heredoc just wrote.
+_COPIES_ONLY_AFTER = frozenset({"cut", "grep", "head", "tail", "wc"})
 #: Read the files they are given; no option writes or runs anything.
 _READERS = frozenset({"cat", "cut", "diff", "grep", "head", "ls", "nl", "paste", "stat", "tail", "wc"})
 #: Codex allows these on Linux only (their BSD versions differ).
@@ -603,6 +609,12 @@ def _never_setting(name: str) -> None:
                      "through `probe`.")
 
 
+def _stderr_only(op: _Op, target: _Word) -> bool:
+    """`2>&1` or `2>/dev/null`: the redirects a probe step may carry."""
+    return op.fd == "2" and ((op.op == ">&" and target.value == "1")
+                             or (op.op == ">" and target.value == "/dev/null" and not target.tilde))
+
+
 def _is_probe(part: _Part) -> bool:
     return bool(part.words) and part.words[0].value == "probe"
 
@@ -797,7 +809,23 @@ class _Checker:
             raise _Refuse("The command is empty.")
         if "\0" in command:
             raise _Refuse("The command contains a NUL byte.")
-        note = self._note_write(command)
+        try:
+            note = self._note_write(command)
+        except _Refuse as refusal:
+            if not isinstance(refusal, (_Never, _Fix)):
+                # A heredoc in a refused shape is asked about, and bypass mode runs
+                # what is asked: the every-mode refusals first, over each piece as
+                # bash runs it. They were skipped here, so a write to Probe's config
+                # placed after a note's text ran in bypass mode (#2227).
+                try:
+                    self._never_heredoc(command)
+                except _Never:
+                    raise
+                except _Refuse:
+                    # Its pieces can't be read (`cat <<'EOF' |` ends the line on an
+                    # operator): the whole command, as for any unreadable one.
+                    self._never_raw(command)
+            raise
         if note is not None:
             return note
         try:
@@ -850,6 +878,59 @@ class _Checker:
                     if form in rest:
                         raise _Never(f"It names {form}: Probe's own key or state, or a credential folder.")
                 return
+
+    def _never_heredoc(self, command: str) -> None:
+        """The every-mode refusals for a heredoc `_note_write` refused, piece by
+        piece as bash runs it. Its first line and the lines after the closing one
+        are commands. The body is data only when a quoted tag feeds it to a lone
+        `cat` or `tee` (bash expands nothing; the program only copies it) AND no
+        line after it can run the file it wrote (`_COPIES_ONLY_AFTER`); code
+        otherwise: `bash <<'EOF'`, `cat <<'EOF' | sh`, `... EOF` then `. ./x.sh`,
+        or an unquoted tag, which runs its `$(...)`. Reading a note's text as
+        commands would refuse ordinary prose ("env", PROBE_RUN_ID) for a reason
+        that is not the daemon's mistake."""
+        first, _, rest = command.partition("\n")
+        parts = _split(_tokenize(first))  # `_note_write` read this line already
+        for part in parts:  # one by one: `_never` stops reading at a heredoc
+            if _is_probe(part):  # as the steps path refuses it: its lines would run as commands
+                raise _Never("A heredoc can't go in a chained command with probe (its lines would run as commands).")
+            self._never([part])
+        found = next(((op, tag) for part in parts for op, tag in part.redirects if op.op in ("<<", "<<-")), None)
+        if found is None:
+            self._never_raw(command)
+            return
+        op, tag = found
+        lines = rest.split("\n")
+        body, tail = lines, []
+        for k, line in enumerate(lines):
+            if (line.lstrip("\t") if op.op == "<<-" else line) == tag.value:
+                body, tail = lines[:k], lines[k + 1 :]
+                break
+        copies_only = True  # nothing after the closing line runs a file
+        if "\n".join(tail).strip():
+            try:
+                tail_parts = _split(_tokenize("\n".join(tail)))
+            except _Never:
+                raise
+            except _Refuse:
+                self._never_raw("\n".join(tail))
+                copies_only = False
+            else:
+                self._never(tail_parts)
+                copies_only = all(
+                    part.words and all(_stderr_only(op, target) for op, target in part.redirects)
+                    and (_is_probe(part) or part.words[0].value in _COPIES_ONLY_AFTER)
+                    for part in tail_parts
+                )
+        program = parts[0].words[0].value if len(parts) == 1 and parts[0].words else ""
+        quoted = tag.raw in (f"'{tag.value}'", f'"{tag.value}"')
+        if not (quoted and copies_only and os.path.basename(program) in ("cat", "tee")):
+            self._never_code("\n".join(body), 1)
+        if not copies_only:
+            # A line after it may run the file the heredoc wrote (`. ./x.sh`), and
+            # the body alone may not name probe (`unset ${v}_CONFIG_PATH`) while
+            # a plain probe after it does: read as one script, which it is.
+            self._never_raw(command)
 
     def _never_raw(self, command: str) -> None:
         """The every-mode refusals for a command too complex to read word by word:

@@ -27,13 +27,19 @@ async def extract_spans(
     *,
     threshold: float = 0.3,
     client: httpx.AsyncClient | None = None,
+    offering_id: str | None = None,
 ) -> SpanExtractionResult:
-    """Resolve an extraction model from the registry and run span extraction."""
+    """Resolve an extraction model from the registry and run span extraction.
+
+    ``offering_id`` is the chosen CLASS (``ai.offering``) of the model: when set,
+    exactly that offering is resolved (or resolution raises); ``None`` = the
+    model's preferred class.
+    """
     # Lazy import — keeps this module import-safe in an unconfigured environment
     # (resolution touches the host-injected ORM at call time).
     from matrx_ai.catalog.resolve import resolve_call_profile
 
-    profile = await resolve_call_profile(model_id_or_name)
+    profile = await resolve_call_profile(model_id_or_name, offering_id=offering_id)
 
     interaction = profile.capabilities.interaction
     if interaction != "extraction":

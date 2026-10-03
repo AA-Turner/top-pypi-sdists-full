@@ -4,6 +4,8 @@ Content hashing is the foundation of incremental analysis. Files with
 identical content produce identical hashes, enabling cache lookups.
 """
 
+import hashlib
+
 import pytest
 
 from pytest_gremlins.cache.hasher import ContentHasher
@@ -87,17 +89,51 @@ class DescribeContentHasherFileIO:
         assert isinstance(result, str)
         assert len(result) == 64  # SHA-256 produces 64 hex characters
 
-    def it_matches_hash_file_output_to_hash_string(self, tmp_path):
-        """hash_file produces same result as hash_string for same content."""
+    def it_matches_hash_file_output_to_hash_string_for_lf_source(self, tmp_path):
+        """hash_file matches hash_string for LF-encoded content.
+
+        This equivalence is scoped to LF-encoded UTF-8 source: it does not
+        claim anything about CRLF or non-UTF-8 files. See #469.
+        """
         hasher = ContentHasher()
         content = 'class MyClass:\n    pass\n'
         file_path = tmp_path / 'test.py'
-        file_path.write_text(content)
+        file_path.write_bytes(content.encode('utf-8'))
 
         file_hash = hasher.hash_file(file_path)
         string_hash = hasher.hash_string(content)
 
         assert file_hash == string_hash
+
+    def it_hashes_file_content_as_raw_bytes(self, tmp_path):
+        """hash_file equals the SHA-256 digest of the file's raw bytes."""
+        hasher = ContentHasher()
+        file_path = tmp_path / 'test.py'
+        file_path.write_bytes(b'class MyClass:\r\n    pass\r\n')
+
+        result = hasher.hash_file(file_path)
+
+        assert result == hashlib.sha256(file_path.read_bytes()).hexdigest()
+
+    def it_hashes_crlf_and_lf_files_differently_for_same_logical_content(self, tmp_path):
+        """A CRLF file and an LF file with the same logical content hash differently."""
+        hasher = ContentHasher()
+        logical_content = 'class MyClass:\n    pass\n'
+        lf_path = tmp_path / 'lf.py'
+        crlf_path = tmp_path / 'crlf.py'
+        lf_path.write_bytes(logical_content.encode('utf-8'))
+        crlf_path.write_bytes(logical_content.replace('\n', '\r\n').encode('utf-8'))
+
+        assert hasher.hash_file(lf_path) != hasher.hash_file(crlf_path)
+
+    def it_hashes_non_utf8_source_bytes(self, tmp_path):
+        """hash_file hashes valid PEP 263 source without decoding it."""
+        hasher = ContentHasher()
+        content = b"# -*- coding: latin-1 -*-\nname = 'caf\xe9'\n"
+        file_path = tmp_path / 'latin1.py'
+        file_path.write_bytes(content)
+
+        assert hasher.hash_file(file_path) == hashlib.sha256(content).hexdigest()
 
     def it_raises_for_missing_file(self, tmp_path):
         """hash_file raises FileNotFoundError for missing files."""
@@ -121,6 +157,50 @@ class DescribeContentHasherFileIO:
         assert str(file1) in result
         assert str(file2) in result
         assert result[str(file1)] != result[str(file2)]
+
+
+@pytest.mark.medium
+class DescribeContentHasherFileErrors:
+    """File I/O edge cases for ContentHasher — require real filesystem access."""
+
+    def it_raises_os_error_for_directories(self, tmp_path):
+        """hash_file raises OSError when given a directory.
+
+        IsADirectoryError is raised on POSIX systems, PermissionError on
+        Windows. Both are subclasses of OSError, so we assert the portable
+        contract without specifying the platform-specific subclass.
+        """
+        hasher = ContentHasher()
+
+        with pytest.raises(OSError):  # noqa: PT011
+            hasher.hash_file(tmp_path)
+
+    def it_hashes_empty_files(self, tmp_path):
+        """hash_file returns the SHA-256 of empty bytes for an empty file."""
+        hasher = ContentHasher()
+        file_path = tmp_path / 'empty.py'
+        file_path.write_bytes(b'')
+
+        assert hasher.hash_file(file_path) == hashlib.sha256(b'').hexdigest()
+
+    def it_follows_symlinks_to_target_content(self, tmp_path):
+        """hash_file hashes the symlink target's content, not the link itself."""
+        hasher = ContentHasher()
+        target = tmp_path / 'target.py'
+        target.write_bytes(b'def foo(): pass\n')
+        link = tmp_path / 'link.py'
+        link.symlink_to(target)
+
+        assert hasher.hash_file(link) == hasher.hash_file(target)
+
+    def it_hashes_utf8_bom_files_by_raw_bytes(self, tmp_path):
+        """hash_file includes the UTF-8 BOM in the digest."""
+        hasher = ContentHasher()
+        content = b'\xef\xbb\xbfdef foo(): pass\n'
+        file_path = tmp_path / 'bom.py'
+        file_path.write_bytes(content)
+
+        assert hasher.hash_file(file_path) == hashlib.sha256(content).hexdigest()
 
 
 @pytest.mark.small

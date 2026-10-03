@@ -1,16 +1,16 @@
 from datetime import timedelta
+from math import ceil
 from unittest.mock import patch
 
 from celery import current_app as celery_app
+
 from django.utils.timezone import now
 
 from esi.models import CallbackRedirect, Token
 from esi.tasks import cleanup_callbackredirect, cleanup_token, cleanup_token_subset
 
 from . import NoSocketsTestCase
-from .factories_2 import TokenFactory, CallbackRedirectFactory
-
-from math import ceil
+from .factories_2 import CallbackRedirectFactory, TokenFactory
 
 MANAGERS_PATH = "esi.managers"
 MODELS_PATH = "esi.models"

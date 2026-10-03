@@ -17,6 +17,25 @@
 #include <stdlib.h>
 #include <string.h>
 
+dp_pn_state_t *
+dp_wfm_seq_pn_create (const wfm_seq_t *s)
+{
+  if (!s || s->kind != WFM_SEQ_PN)
+    return NULL;
+  /* poly 0 is "the maximal-length one for this register", the same
+     resolution dp_wfm_synth_create() applies to its --pn-poly. Passing 0
+     through to dp_pn_create() instead means a register with NO FEEDBACK:
+     it shifts the seed out and emits zeros for ever, which is a constant
+     field that still looks like a field. And a register with NO
+     m-sequence to resolve to (width 1: pn_mls_poly is 0) is refused rather
+     than built as that same no-feedback register -- doppler#1602, the
+     frame-field twin of #1590's source fix. */
+  const uint64_t poly = s->poly ? s->poly : pn_mls_poly (s->reg_bits);
+  if (poly == 0)
+    return NULL;
+  return dp_pn_create (poly, s->seed ? s->seed : 1u, s->reg_bits, s->lfsr);
+}
+
 /* A field's bits, written at `out`. Returns the count, or 0 if the descriptor
    cannot produce them — which is a REFUSAL, not a short write: a frame that
    half-materialises would be scored against a truth nobody can regenerate. */
@@ -43,19 +62,7 @@ dp_wfm_seq_bits (const wfm_seq_t *s, uint8_t *out, size_t cap)
 
     case WFM_SEQ_PN:
       {
-        /* poly 0 is "the maximal-length one for this register", the same
-           resolution dp_wfm_synth_create() applies to its --pn-poly. Passing 0
-           through to dp_pn_create() instead means a register with NO FEEDBACK:
-           it shifts the seed out and emits zeros for ever, which is a
-           constant field that still looks like a field. And a register
-           with NO m-sequence to resolve to (width 1: pn_mls_poly is 0) is
-           refused rather than built as that same no-feedback register --
-           doppler#1602, the frame-field twin of #1590's source fix. */
-        const uint64_t poly = s->poly ? s->poly : pn_mls_poly (s->reg_bits);
-        if (poly == 0)
-          return 0;
-        dp_pn_state_t *p = dp_pn_create (poly, s->seed ? s->seed : 1u,
-                                         s->reg_bits, s->lfsr);
+        dp_pn_state_t *p = dp_wfm_seq_pn_create (s);
         if (!p)
           return 0;
         size_t n = dp_pn_generate (p, s->len, out, cap);
@@ -74,6 +81,12 @@ dp_wfm_seq_bits (const wfm_seq_t *s, uint8_t *out, size_t cap)
         dp_gold_destroy (g);
         return n;
       }
+
+    case WFM_SEQ_DATA:
+      /* A payload drawn from the frame's data source (docs/design/
+         payload-data-source.md): the description knows its length, never
+         its bits, so there is nothing here to write. */
+      return 0;
     }
   return 0;
 }
@@ -274,19 +287,28 @@ parse_literal (const char *p, size_t n, wfm_seq_t *q, uint8_t **owned,
   return DP_OK;
 }
 
-/* A generated field: `pn:`, `gold:` or `dotted:`, the kind word being the
-   same SEQ_KIND_NAMES spelling the JSON scene and the CLI use. */
+/* A generated field -- `pn:`, `gold:` or `dotted:` -- or `data:`, the kind
+   word being the same SEQ_KIND_NAMES spelling the JSON scene and the CLI
+   use. */
 static int
 parse_generated (const char *p, size_t n, wfm_seq_t *q, const char **why)
 {
   field_tok_t  t[FIELD_MAX_TOKENS];
   const size_t k = split_colons (p, n, t);
 
-  if (tok_is (t[0], "data"))
-    return field_refuse (why, "data:LEN names a payload drawn from a data "
-                              "source, which is not supported yet");
+  /* The two words of the retired `--data prbs|none` choice (#1619 F6a),
+     refused by name: `--data` is the Field grammar and nothing else. */
+  if (k == 1 && tok_is (t[0], "none"))
+    return field_refuse (why, "none is not a Field: code-only continuous "
+                              "dsss is --code-only (\"code_only\" in a "
+                              "scene)");
+  if (k == 1 && tok_is (t[0], "prbs"))
+    return field_refuse (why, "prbs is not a Field: the seeded PN is "
+                              "continuous dsss's default, so omit --data "
+                              "(a seeded stream on --data is doppler#1717)");
   int kind = -1;
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < (int)(sizeof SEQ_KIND_NAMES / sizeof *SEQ_KIND_NAMES);
+       i++)
     if (tok_is (t[0], SEQ_KIND_NAMES[i]))
       kind = i;
   if (kind == WFM_SEQ_LITERAL)
@@ -294,7 +316,7 @@ parse_generated (const char *p, size_t n, wfm_seq_t *q, const char **why)
                               "in hex (0x5), not as literal:");
   if (kind < 0)
     return field_refuse (why, "a field is 0/1 bits, 0x hex, or starts "
-                              "with pn:, gold: or dotted:");
+                              "with pn:, gold:, dotted: or data:");
   if (k > FIELD_MAX_TOKENS)
     return field_refuse (why, "too many ':' fields");
 
@@ -312,6 +334,13 @@ parse_generated (const char *p, size_t n, wfm_seq_t *q, const char **why)
     {
       if (k != 2)
         return field_refuse (why, "dotted takes only a length: dotted:LEN");
+      *q = s;
+      return DP_OK;
+    }
+  if (s.kind == WFM_SEQ_DATA)
+    {
+      if (k != 2)
+        return field_refuse (why, "data takes only a length: data:LEN");
       *q = s;
       return DP_OK;
     }
@@ -493,6 +522,11 @@ field_emit (const wfm_field_t *f, char *dst)
       put (dst, &at, b);
       break;
 
+    case WFM_SEQ_DATA:
+      (void)snprintf (b, sizeof b, "data:%zu", s->len);
+      put (dst, &at, b);
+      break;
+
     case WFM_SEQ_PN:
       (void)snprintf (b, sizeof b, "pn:%zu:%u", s->len, s->reg_bits);
       put (dst, &at, b);
@@ -552,6 +586,12 @@ dp_wfm_field_bits (const char *spec, uint8_t *out, size_t max_out,
   uint8_t    *owned = NULL;
   if (dp_wfm_field_parse (spec, &f, &owned, why) != DP_OK)
     return 0;
+  if (f.seq.kind == WFM_SEQ_DATA)
+    {
+      (void)field_refuse (why, "data:LEN has no bits of its own: they "
+                               "come from the frame's data source");
+      return 0;
+    }
   size_t n = supplied_bits (&f);
   if (out)
     {
@@ -605,10 +645,17 @@ dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
    * dp_wfm_frame_add_stage() wires the producer from the cover it is given --
    * so the check exists for the readers that take the two facts as
    * independent integers and could otherwise let them disagree. */
+  /* A frame draws from ONE data source, so it carries at most one data
+     field: a second would be a second position for the same bits, with no
+     rule for which chunk lands where. */
+  unsigned n_data = 0;
   for (unsigned i = 0; i < d->n_fields; i++)
     {
       const wfm_field_t *f = &d->field[i];
       if (!f->derived_by && f->bits && f->seq.len == 0)
+        return -1;
+      if (!f->derived_by && f->seq.kind == WFM_SEQ_DATA && f->seq.len
+          && ++n_data > 1u)
         return -1;
       out->field_bits[i] = supplied_bits (f);
     }
@@ -885,11 +932,26 @@ size_t
 dp_wfm_frame_assemble (const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
                        uint8_t *out, size_t max_out)
 {
+  return dp_wfm_frame_assemble_data (d, ops, NULL, out, max_out);
+}
+
+size_t
+dp_wfm_frame_assemble_data (const wfm_frame_desc_t *d,
+                            const wfm_frame_ops_t *ops, const uint8_t *data,
+                            uint8_t *out, size_t max_out)
+{
   wfm_frame_desc_layout_t l;
   if (!d || !out || dp_wfm_frame_desc_layout (d, &l) != 0)
     return 0;
   if (l.out_bits == 0 || l.out_bits > max_out)
     return 0;
+
+  /* A data field's bits are the caller's chunk; without one the frame is
+     refused BEFORE anything is written, like an unrunnable stage below. */
+  for (unsigned i = 0; i < d->n_fields; i++)
+    if (!d->field[i].derived_by && d->field[i].seq.kind == WFM_SEQ_DATA
+        && l.field_bits[i] && !data)
+      return 0;
 
   /* Every stage must have a kernel BEFORE anything is written. A stage
      discovered to be unrunnable half way through would leave a partly coded
@@ -917,7 +979,9 @@ dp_wfm_frame_assemble (const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
       if (n == 0 || f->derived_by)
         continue; /* absent, or written by the stage that derives it */
 
-      if (dp_wfm_field_render (f, frame + l.field_off[i], n) != n)
+      if (f->seq.kind == WFM_SEQ_DATA)
+        memcpy (frame + l.field_off[i], data, n); /* LEN * REPS, as drawn */
+      else if (dp_wfm_field_render (f, frame + l.field_off[i], n) != n)
         return 0;
     }
 
@@ -1045,6 +1109,18 @@ dp_wfm_dsss_desc_chips (const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
                         size_t acq_reps, const uint8_t *data_code,
                         size_t data_len, uint8_t *out, size_t max_out)
 {
+  return dp_wfm_dsss_desc_chips_data (d, ops, NULL, acq_code, acq_len,
+                                      acq_reps, data_code, data_len, out,
+                                      max_out);
+}
+
+size_t
+dp_wfm_dsss_desc_chips_data (const wfm_frame_desc_t *d,
+                             const wfm_frame_ops_t *ops, const uint8_t *data,
+                             const uint8_t *acq_code, size_t acq_len,
+                             size_t acq_reps, const uint8_t *data_code,
+                             size_t data_len, uint8_t *out, size_t max_out)
+{
   const size_t total
       = dp_wfm_dsss_desc_nchips (d, acq_len, acq_reps, data_len);
   if (total == 0 || total > max_out || !out)
@@ -1062,7 +1138,8 @@ dp_wfm_dsss_desc_chips (const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
   uint8_t *bits = (l.out_bits > 0) ? malloc (l.out_bits) : NULL;
   if (l.out_bits > 0
       && (!bits
-          || dp_wfm_frame_assemble (d, ops, bits, l.out_bits) != l.out_bits))
+          || dp_wfm_frame_assemble_data (d, ops, data, bits, l.out_bits)
+                 != l.out_bits))
     {
       free (bits);
       return 0;

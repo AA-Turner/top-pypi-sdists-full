@@ -10,6 +10,7 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.account import Account
 from .raw_client import AsyncRawAccountsClient, RawAccountsClient
+from .types.delete_accounts_response import DeleteAccountsResponse
 from .types.form_company_accounts_request_business_address import FormCompanyAccountsRequestBusinessAddress
 from .types.form_company_accounts_request_entity_suffix import FormCompanyAccountsRequestEntitySuffix
 from .types.form_company_accounts_request_entity_type import FormCompanyAccountsRequestEntityType
@@ -47,6 +48,7 @@ from .types.update_accounts_request_three_ds_level import UpdateAccountsRequestT
 
 if typing.TYPE_CHECKING:
     from .fees.client import AsyncFeesClient, FeesClient
+    from .financing_applications.client import AsyncFinancingApplicationsClient, FinancingApplicationsClient
     from .preferences.client import AsyncPreferencesClient, PreferencesClient
     from .reserves.client import AsyncReservesClient, ReservesClient
 # this is used as the default value for optional parameters
@@ -58,6 +60,7 @@ class AccountsClient:
         self._raw_client = RawAccountsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._fees: typing.Optional[FeesClient] = None
+        self._financing_applications: typing.Optional[FinancingApplicationsClient] = None
         self._preferences: typing.Optional[PreferencesClient] = None
         self._reserves: typing.Optional[ReservesClient] = None
 
@@ -147,7 +150,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -181,8 +184,10 @@ class AccountsClient:
         affiliate_code: typing.Optional[str] = OMIT,
         blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
@@ -202,11 +207,17 @@ class AccountsClient:
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         email : typing.Optional[str]
             The email address of the account owner. Required when creating a connected account.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         send_customer_emails : typing.Optional[bool]
             Whether Whop sends transactional emails to customers on behalf of the connected account.
@@ -230,7 +241,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -240,8 +251,10 @@ class AccountsClient:
             affiliate_code=affiliate_code,
             blueprint_id=blueprint_id,
             country=country,
+            dispute_fighter_enabled=dispute_fighter_enabled,
             email=email,
             metadata=metadata,
+            orchestration_enabled=orchestration_enabled,
             send_customer_emails=send_customer_emails,
             title=title,
             website=website,
@@ -273,7 +286,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -313,7 +326,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -322,6 +335,39 @@ class AccountsClient:
         )
         """
         _response = self._raw_client.retrieve(id, include_trading=include_trading, request_options=request_options)
+        return _response.data
+
+    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> DeleteAccountsResponse:
+        """
+        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteAccountsResponse
+            Connected account deleted.
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.accounts.delete(
+            id="id",
+        )
+        """
+        _response = self._raw_client.delete(id, request_options=request_options)
         return _response.data
 
     def update(
@@ -338,6 +384,7 @@ class AccountsClient:
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
@@ -349,6 +396,7 @@ class AccountsClient:
         onboarding_type: typing.Optional[UpdateAccountsRequestOnboardingType] = OMIT,
         opengraph_image: typing.Optional[UpdateAccountsRequestOpengraphImage] = OMIT,
         opengraph_image_variant: typing.Optional[UpdateAccountsRequestOpengraphImageVariant] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         other_business_description: typing.Optional[str] = OMIT,
         other_industry_description: typing.Optional[str] = OMIT,
         privacy_policy: typing.Optional[UpdateAccountsRequestPrivacyPolicy] = OMIT,
@@ -415,6 +463,9 @@ class AccountsClient:
         description : typing.Optional[str]
             Account promotional description. When creating a Whop-managed Facebook page, it is truncated to 155 characters and used as the About text.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
 
@@ -447,6 +498,9 @@ class AccountsClient:
 
         opengraph_image_variant : typing.Optional[UpdateAccountsRequestOpengraphImageVariant]
             The account Open Graph image variant.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         other_business_description : typing.Optional[str]
             The description of the business type when business_type is other.
@@ -533,7 +587,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -553,6 +607,7 @@ class AccountsClient:
             collect_vat_id=collect_vat_id,
             country=country,
             description=description,
+            dispute_fighter_enabled=dispute_fighter_enabled,
             eula=eula,
             featured_affiliate_product_id=featured_affiliate_product_id,
             home_preferences=home_preferences,
@@ -564,6 +619,7 @@ class AccountsClient:
             onboarding_type=onboarding_type,
             opengraph_image=opengraph_image,
             opengraph_image_variant=opengraph_image_variant,
+            orchestration_enabled=orchestration_enabled,
             other_business_description=other_business_description,
             other_industry_description=other_industry_description,
             privacy_policy=privacy_policy,
@@ -681,7 +737,7 @@ class AccountsClient:
         )
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -777,7 +833,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -810,7 +866,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -860,7 +916,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -881,6 +937,14 @@ class AccountsClient:
 
             self._fees = FeesClient(client_wrapper=self._client_wrapper)
         return self._fees
+
+    @property
+    def financing_applications(self):
+        if self._financing_applications is None:
+            from .financing_applications.client import FinancingApplicationsClient  # noqa: E402
+
+            self._financing_applications = FinancingApplicationsClient(client_wrapper=self._client_wrapper)
+        return self._financing_applications
 
     @property
     def preferences(self):
@@ -904,6 +968,7 @@ class AsyncAccountsClient:
         self._raw_client = AsyncRawAccountsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._fees: typing.Optional[AsyncFeesClient] = None
+        self._financing_applications: typing.Optional[AsyncFinancingApplicationsClient] = None
         self._preferences: typing.Optional[AsyncPreferencesClient] = None
         self._reserves: typing.Optional[AsyncReservesClient] = None
 
@@ -995,7 +1060,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1036,8 +1101,10 @@ class AsyncAccountsClient:
         affiliate_code: typing.Optional[str] = OMIT,
         blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
@@ -1057,11 +1124,17 @@ class AsyncAccountsClient:
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         email : typing.Optional[str]
             The email address of the account owner. Required when creating a connected account.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         send_customer_emails : typing.Optional[bool]
             Whether Whop sends transactional emails to customers on behalf of the connected account.
@@ -1087,7 +1160,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1103,8 +1176,10 @@ class AsyncAccountsClient:
             affiliate_code=affiliate_code,
             blueprint_id=blueprint_id,
             country=country,
+            dispute_fighter_enabled=dispute_fighter_enabled,
             email=email,
             metadata=metadata,
+            orchestration_enabled=orchestration_enabled,
             send_customer_emails=send_customer_emails,
             title=title,
             website=website,
@@ -1138,7 +1213,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1186,7 +1261,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1205,6 +1280,49 @@ class AsyncAccountsClient:
         )
         return _response.data
 
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteAccountsResponse:
+        """
+        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteAccountsResponse
+            Connected account deleted.
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-29",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.accounts.delete(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(id, request_options=request_options)
+        return _response.data
+
     async def update(
         self,
         id: str,
@@ -1219,6 +1337,7 @@ class AsyncAccountsClient:
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
@@ -1230,6 +1349,7 @@ class AsyncAccountsClient:
         onboarding_type: typing.Optional[UpdateAccountsRequestOnboardingType] = OMIT,
         opengraph_image: typing.Optional[UpdateAccountsRequestOpengraphImage] = OMIT,
         opengraph_image_variant: typing.Optional[UpdateAccountsRequestOpengraphImageVariant] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         other_business_description: typing.Optional[str] = OMIT,
         other_industry_description: typing.Optional[str] = OMIT,
         privacy_policy: typing.Optional[UpdateAccountsRequestPrivacyPolicy] = OMIT,
@@ -1296,6 +1416,9 @@ class AsyncAccountsClient:
         description : typing.Optional[str]
             Account promotional description. When creating a Whop-managed Facebook page, it is truncated to 155 characters and used as the About text.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
 
@@ -1328,6 +1451,9 @@ class AsyncAccountsClient:
 
         opengraph_image_variant : typing.Optional[UpdateAccountsRequestOpengraphImageVariant]
             The account Open Graph image variant.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         other_business_description : typing.Optional[str]
             The description of the business type when business_type is other.
@@ -1416,7 +1542,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1442,6 +1568,7 @@ class AsyncAccountsClient:
             collect_vat_id=collect_vat_id,
             country=country,
             description=description,
+            dispute_fighter_enabled=dispute_fighter_enabled,
             eula=eula,
             featured_affiliate_product_id=featured_affiliate_product_id,
             home_preferences=home_preferences,
@@ -1453,6 +1580,7 @@ class AsyncAccountsClient:
             onboarding_type=onboarding_type,
             opengraph_image=opengraph_image,
             opengraph_image_variant=opengraph_image_variant,
+            orchestration_enabled=orchestration_enabled,
             other_business_description=other_business_description,
             other_industry_description=other_industry_description,
             privacy_policy=privacy_policy,
@@ -1572,7 +1700,7 @@ class AsyncAccountsClient:
         )
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1676,7 +1804,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1717,7 +1845,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1775,7 +1903,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1802,6 +1930,14 @@ class AsyncAccountsClient:
 
             self._fees = AsyncFeesClient(client_wrapper=self._client_wrapper)
         return self._fees
+
+    @property
+    def financing_applications(self):
+        if self._financing_applications is None:
+            from .financing_applications.client import AsyncFinancingApplicationsClient  # noqa: E402
+
+            self._financing_applications = AsyncFinancingApplicationsClient(client_wrapper=self._client_wrapper)
+        return self._financing_applications
 
     @property
     def preferences(self):

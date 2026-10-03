@@ -15,6 +15,56 @@
 
 #include "doppler/cvt/cvt_core.h"
 
+#ifndef JM_ARRAY_ARG_DEFINED
+#define JM_ARRAY_ARG_DEFINED
+/* Convert a Python argument for an array parameter to an ndarray of
+ * `typenum` meeting `requirements` -- PyArray_FROM_OTF, less the two inputs
+ * it reads as text (gh-1700): a str is refused, never parsed as a number,
+ * and for a one-byte element type a byte buffer (bytes, bytearray,
+ * memoryview) is its bytes, one element per byte. `name` is the parameter,
+ * for the message, and `hint` (NULL for none) is appended to a str's
+ * refusal. Returns a new reference, or NULL with an exception. */
+static inline PyArrayObject *
+jm_array_arg_hint (PyObject *obj, int typenum, int requirements,
+                   const char *name, const char *hint)
+{
+  int one_byte = typenum == NPY_UINT8 || typenum == NPY_INT8;
+  if (PyUnicode_Check (obj) || (!one_byte && PyBytes_Check (obj)))
+    {
+      /* `hint` (gh-1756) says where text goes instead: a str only. */
+      int say = hint && PyUnicode_Check (obj);
+      PyErr_Format (PyExc_TypeError,
+                    "%s must be an array of numbers, not %.200s%s%s", name,
+                    Py_TYPE (obj)->tp_name, say ? ": " : "", say ? hint : "");
+      return NULL;
+    }
+  if (one_byte && !PyArray_Check (obj) && PyObject_CheckBuffer (obj))
+    {
+      PyObject *view = PyMemoryView_FromObject (obj);
+      if (!view)
+        return NULL;
+      if (PyMemoryView_GET_BUFFER (view)->itemsize == 1)
+        {
+          PyObject *raw = PyArray_FromBuffer (
+              view, PyArray_DescrFromType (typenum), -1, 0);
+          Py_DECREF (view);
+          if (!raw)
+            return NULL;
+          PyObject *arr = PyArray_FROM_OTF (raw, typenum, requirements);
+          Py_DECREF (raw);
+          return (PyArrayObject *)arr;
+        }
+      Py_DECREF (view);
+    }
+  return (PyArrayObject *)PyArray_FROM_OTF (obj, typenum, requirements);
+}
+static inline PyArrayObject *
+jm_array_arg (PyObject *obj, int typenum, int requirements, const char *name)
+{
+  return jm_array_arg_hint (obj, typenum, requirements, name, NULL);
+}
+#endif /* JM_ARRAY_ARG_DEFINED */
+
 #include "cvt_ext_adc.c"
 #include "cvt_ext_f32_to_i16.c"
 #include "cvt_ext_f32_to_i16u32.c"
@@ -55,8 +105,8 @@ _bind_int_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
                                         " ndarray of the output dtype");
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       return NULL;
@@ -90,8 +140,8 @@ _bind_hex_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
                                         " ndarray of the output dtype");
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       return NULL;
@@ -114,8 +164,8 @@ _bind_bytes_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "OOi", _kwlist, &octets_obj,
                                     &out_obj, &bitorder))
     return NULL;
-  PyArrayObject *octets_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      octets_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *octets_arr = (PyArrayObject *)jm_array_arg (
+      octets_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "octets");
   if (!octets_arr)
     {
       return NULL;
@@ -134,8 +184,8 @@ _bind_bytes_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (octets_arr);
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       Py_DECREF (octets_arr);
@@ -159,8 +209,8 @@ _bind_bin_to_int (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "Oi", _kwlist, &bits_obj,
                                     &bitorder))
     return NULL;
-  PyArrayObject *bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *bits_arr = (PyArrayObject *)jm_array_arg (
+      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "bits");
   if (!bits_arr)
     {
       return NULL;
@@ -183,8 +233,8 @@ _bind_bin_to_hex (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "OOi", _kwlist, &bits_obj,
                                     &out_obj, &bitorder))
     return NULL;
-  PyArrayObject *bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *bits_arr = (PyArrayObject *)jm_array_arg (
+      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "bits");
   if (!bits_arr)
     {
       return NULL;
@@ -203,8 +253,8 @@ _bind_bin_to_hex (PyObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (bits_arr);
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       Py_DECREF (bits_arr);
@@ -228,8 +278,8 @@ _bind_bin_to_nrz (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "OO", _kwlist, &bits_obj,
                                     &out_obj))
     return NULL;
-  PyArrayObject *bits_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *bits_arr = (PyArrayObject *)jm_array_arg (
+      bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "bits");
   if (!bits_arr)
     {
       return NULL;
@@ -248,8 +298,8 @@ _bind_bin_to_nrz (PyObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (bits_arr);
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       Py_DECREF (bits_arr);
@@ -273,8 +323,8 @@ _bind_nrz_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "OO", _kwlist, &nrz_obj,
                                     &out_obj))
     return NULL;
-  PyArrayObject *nrz_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      nrz_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *nrz_arr = (PyArrayObject *)jm_array_arg (
+      nrz_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS, "nrz");
   if (!nrz_arr)
     {
       return NULL;
@@ -293,8 +343,8 @@ _bind_nrz_to_bin (PyObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (nrz_arr);
       return NULL;
     }
-  PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+  PyArrayObject *out_arr = (PyArrayObject *)jm_array_arg (
+      out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
   if (!out_arr)
     {
       Py_DECREF (nrz_arr);
@@ -418,7 +468,7 @@ static PyMethodDef cvt_module_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "octets : NDArray[np.uint8]\n"
+    "octets : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    the packed bytes.\n"
     "out : NDArray[np.uint8]\n"
     "    receives `8 * octets_len` bytes, each 0 or 1.\n"
@@ -454,7 +504,7 @@ static PyMethodDef cvt_module_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "bits : NDArray[np.uint8]\n"
+    "bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    1..64 unpacked bits; any non-zero byte reads as 1.\n"
     "bitorder : int\n"
     "    DP_BITORDER_BIG or DP_BITORDER_LITTLE.\n"
@@ -490,7 +540,7 @@ static PyMethodDef cvt_module_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "bits : NDArray[np.uint8]\n"
+    "bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    unpacked bits; any non-zero byte reads as 1.\n"
     "out : NDArray[np.uint8]\n"
     "    receives the digits plus a NUL.\n"
@@ -532,7 +582,7 @@ static PyMethodDef cvt_module_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "bits : NDArray[np.uint8]\n"
+    "bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    unpacked bits; any non-zero byte reads as 1.\n"
     "out : NDArray[np.float32]\n"
     "    receives bits_len symbols, each +1.0f or -1.0f.\n"

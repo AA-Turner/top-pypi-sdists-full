@@ -13,7 +13,7 @@ Two halves, both real:
   fake gateway and the local origin, so "one residential retry happened" is a
   fact about the wire, not about a mock's call count.
 
-Contract: `common-docs/systems/platform/residential-egress/FEATURE.md`.
+Contract: `common-docs/systems/architecture/residential-egress/FEATURE.md`.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 import httpx
+from fixture_origins import allow_fixture_origins
 import pytest
 
 from matrx_scraper import _ext as ext_registry
@@ -162,8 +163,12 @@ async def origin_server(body: str = _ARTICLE) -> AsyncIterator[str]:
         writer.close()
 
     server = await asyncio.start_server(handle, "127.0.0.1", 0)
+    origin = f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}"
     try:
-        yield f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}/story"
+        # The address check refuses loopback; let exactly this fixture through.
+        with pytest.MonkeyPatch.context() as mp:
+            allow_fixture_origins(mp, origin)
+            yield f"{origin}/story"
     finally:
         server.close()
         await server.wait_closed()

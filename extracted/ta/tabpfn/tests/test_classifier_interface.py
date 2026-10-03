@@ -24,7 +24,7 @@ from torch import nn
 
 from tabpfn import TabPFNClassifier
 from tabpfn.architectures import tabpfn_v2_5
-from tabpfn.base import ClassifierModelSpecs, initialize_tabpfn_model
+from tabpfn.base import ModelSpecs, initialize_tabpfn_model
 from tabpfn.constants import ModelVersion
 from tabpfn.inference_config import DEFAULT_SOFTMAX_TEMPERATURE, InferenceConfig
 from tabpfn.inference_tuning import (
@@ -1023,7 +1023,6 @@ def test_initialize_model_variables_classifier_sets_required_attributes() -> Non
         initialize_tabpfn_model(
             model_path="auto",
             which="classifier",
-            fit_mode="low_memory",
         )
     )
     assert models is not None, "model should be initialized for classifier"
@@ -1045,8 +1044,8 @@ def test_initialize_model_variables_classifier_sets_required_attributes() -> Non
 
     assert not hasattr(classifier, "znorm_space_bardist_")
 
-    # 3) Reuse via ClassifierModelSpecs
-    spec = ClassifierModelSpecs(
+    # 3) Reuse via ModelSpecs
+    spec = ModelSpecs(
         model=classifier.models_[0],
         architecture_config=classifier.configs_[0],
         inference_config=classifier.inference_config_,
@@ -1386,7 +1385,7 @@ def test__fit_with_roc_auc_metric_with_temperature_calibration__warns() -> None:
 
 def _create_dummy_classifier_model_specs(
     max_num_classes: int = 10,
-) -> ClassifierModelSpecs:
+) -> ModelSpecs:
     minimal_config = tabpfn_v2_5.TabPFNV2p5Config(
         emsize=8,
         features_per_group=1,
@@ -1397,13 +1396,12 @@ def _create_dummy_classifier_model_specs(
     )
     model = tabpfn_v2_5.get_architecture(
         config=minimal_config,
-        cache_trainset_representation=False,
     )
     inference_config = InferenceConfig.get_default(
         task_type="multiclass",
         model_version=ModelVersion.V2_5,
     )
-    return ClassifierModelSpecs(
+    return ModelSpecs(
         model=model,
         architecture_config=minimal_config,
         inference_config=inference_config,

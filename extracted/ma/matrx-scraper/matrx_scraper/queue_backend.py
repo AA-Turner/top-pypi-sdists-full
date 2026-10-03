@@ -7,7 +7,7 @@ frontier to `runtime.work_item` (anchored to a `web.crawl_session`) so
 50,000-page crawls can resume after a crash. The host injects it as the
 `work_queue_factory` ext.
 
-(The retired `scraper.crawl_queue` backend went to `graveyard` with the rest of
+(The retired `scraper.crawl_queue` backend went to `deprecated` with the rest of
 the legacy crawl world on 2026-08-09 — there is ONE crawler now.)
 
 This is intentionally a tiny surface — anything more goes in the host.

@@ -1,150 +1,44 @@
 [build-system]
-requires = ["uv_build>=0.11.19,<0.12.0"]
+requires = ["uv_build>=0.12.22,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
 
-[project]
-name = "optype"
-description = "Building Blocks for Precise & Flexible Type Hints"
-version = "0.18.0"
-authors = [{ name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com" }]
-license = "BSD-3-Clause"
-license-files = ["LICENSE"]
-readme = "README.md"
-keywords = [
-  "annotations",
-  "basedpyright",
-  "checker",
-  "checking",
-  "hinting",
-  "hints",
-  "mypy",
-  "numpy",
-  "numpy-typing-compat",
-  "pyright",
-  "protocols",
-  "stubs",
-  "type",
-  "typechecking",
-  "typehinting",
-  "typehints",
-  "typing",
-]
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
-  "Intended Audience :: Science/Research",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: 3.15",
-  "Topic :: Scientific/Engineering",
-  "Topic :: Software Development",
-  "Typing :: Typed",
-]
-requires-python = ">=3.12"
-dependencies = ["typing-extensions>=4.10; python_version<'3.13'"]
-
-[project.scripts]
-optype = "optype.__main__:main"
-
-[project.optional-dependencies]
-numpy = [
-  "numpy>=2.0,<2.8",
-  "numpy-typing-compat>=20260602.2.0,<20260603",
-]
-
-[project.urls]
-Repository = "https://github.com/jorenham/optype/"
-Documentation = "https://jorenham.github.io/optype/"
-Issues = "https://github.com/jorenham/optype/issues"
-Changelog = "https://github.com/jorenham/optype/releases"
-Funding = "https://github.com/sponsors/jorenham"
-
-[dependency-groups]
-extra = [
-  "optype[numpy]",
-]
-doc = [
-  # https://github.com/zensical/zensical/issues/735
-  "zensical>=0.0.43, <0.1, !=0.0.44",
-  "pygments==2.20.0",
-]
-lint = [
-  "dprint-py==0.53.1.0",
-  "ruff==0.15.16",
-  "sp-repo-review[cli]==2026.4.4",
-]
-test = [
-  { include-group = "extra" },
-  # see [tool.uv.sources] for the Python 3.15 git pin
-  "beartype>=0.22.9",
-  "pytest>=9.0.3",
-  "typing-extensions>=4.15.0",
-]
-type = [
-  { include-group = "extra" },
-  { include-group = "test" },
-  "basedpyright==1.39.6",
-  "mypy[faster-cache]==2.1.0",
-  "pyrefly==1.0.0",
-  "ty==0.0.44",
-]
-dev = [
-  { include-group = "extra" },
-  { include-group = "doc" },
-  { include-group = "lint" },
-  { include-group = "test" },
-  { include-group = "type" },
-]
-
-[tool.uv.sources.beartype]
-# TODO(@jorenham): drop this git pin once beartype >0.22.9 is released (3.15 fix)
-git = "https://github.com/beartype/beartype.git"
-rev = "4f5b8fb"
-marker = "python_version >= '3.15'"
-
-[tool.uv.sources.typing-extensions]
-# TODO(@jorenham): drop this git pin once typing-extensions >4.15.0 is released (3.15 fix)
-git = "https://github.com/python/typing_extensions.git"
-rev = "7e4fc36"
-marker = "python_version >= '3.15'"
-
-# mypy
-
 [tool.mypy]
-packages = ["optype", "examples", "tests"]
+packages = [
+    "optype",
+    "examples",
+    "tests",
+]
 local_partial_types = true
 allow_redefinition_new = true
-
 strict = true
 disallow_any_expr = false
 disallow_any_decorated = false
 disallow_any_explicit = false
 enable_error_code = [
-  "exhaustive-match",
-  "ignore-without-code",
-  "redundant-expr",
-  "truthy-bool",
+    "exhaustive-match",
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
 ]
 warn_return_any = false
-warn_unreachable = false # numpy-typing-compat compat
-
-# pyrefly
+warn_unreachable = false
 
 [tool.pyrefly]
-project-includes = ["optype", "examples", "tests"]
+project-includes = [
+    "optype",
+    "examples",
+    "tests",
+]
 
 [tool.pyrefly.errors]
 implicit-abstract-class = "error"
 implicit-any = "error"
 implicitly-defined-attribute = "error"
 missing-override-decorator = "error"
-missing-source = "error" # bugged?
+missing-source = "error"
 not-required-key-access = "error"
 open-unpacking = "error"
 unannotated-attribute = "error"
@@ -156,75 +50,88 @@ variance-mismatch = "error"
 
 [[tool.pyrefly.sub-config]]
 matches = "tests/**"
-errors = { implicit-any = "ignore" }
 
-# [based]pyright
+[tool.pyrefly.sub-config.errors]
+implicit-any = "ignore"
 
 [tool.pyright]
 pythonPlatform = "All"
-include = ["optype", "examples", "tests"]
+include = [
+    "optype",
+    "examples",
+    "tests",
+]
 ignore = [".venv"]
 stubPath = "."
 typeCheckingMode = "all"
 useLibraryCodeForTypes = false
 enableReachabilityAnalysis = true
 reportAny = false
-reportExplicitAny = false # sometimes there's no way around it
-reportImplicitStringConcatenation = false # not a linter
-reportPrivateUsage = false # dupe of PLC2701
-reportPrivateImportUsage = false # dupe of PLC2701
-reportUnreachable = false # nothing wrong with `if sys.version_info() >= ...`
-reportUnusedCallResult = false # https://github.com/microsoft/pyright/issues/8650
-reportUnusedImport = false # dupe of F401
-reportUnusedVariable = false # dupe of F841
-
-# ty
-
-[tool.ty]
+reportExplicitAny = false
+reportImplicitStringConcatenation = false
+reportPrivateUsage = false
+reportPrivateImportUsage = false
+reportUnreachable = false
+reportUnusedCallResult = false
+reportUnusedImport = false
+reportUnusedVariable = false
 
 [tool.ty.environment]
 python-platform = "all"
 
 [tool.ty.src]
-include = [
-  "optype",
-  # there are  too many false positives in these dirs for now
-  # "examples",
-  # "tests",
-]
+include = ["optype"]
 
 [tool.ty.analysis]
-respect-type-ignore-comments = false # for mypy compat
+respect-type-ignore-comments = false
 
 [tool.ty.rules]
 unused-ignore-comment = "warn"
 possibly-unresolved-reference = "error"
 
-# pytest
-
 [tool.pytest]
 minversion = "9.0"
-testpaths = ["optype", "examples", "tests"]
-addopts = ["-ra", "--doctest-modules"]
-doctest_optionflags = ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL", "ELLIPSIS"]
+testpaths = [
+    "optype",
+    "examples",
+    "tests",
+]
+addopts = [
+    "-ra",
+    "--doctest-modules",
+    "-n",
+    "auto",
+    "--maxprocesses",
+    "8",
+]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "IGNORE_EXCEPTION_DETAIL",
+    "ELLIPSIS",
+]
 filterwarnings = ["error"]
 log_level = "INFO"
 strict = true
 
-# repo-review
-
 [tool.repo-review]
 ignore = [
-  "PY004", # Has docs folder
-  "PY006", # Has pre-commit-config
-  "RTD100", # Uses ReadTheDocs
+    "PY004",
+    "PY006",
+    "RTD100",
 ]
 
-# ruff
-
 [tool.ruff]
-src = ["optype", "examples", "tests"]
-extend-exclude = [".git", ".mypy_cache", ".tox", ".venv"]
+src = [
+    "optype",
+    "examples",
+    "tests",
+]
+extend-exclude = [
+    ".git",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+]
 force-exclude = true
 show-fixes = true
 preview = true
@@ -235,196 +142,301 @@ line-ending = "lf"
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-  "ANN401", # flake8-annotations - any-type
-  "S101", # flake8-bandit - assert
-  "FBT", # flake8-boolean-trap
-  "CPY", # flake8-copyright
-  "FIX", # flake8-fixme
-  "D", # pydocstyle
-  "DOC201", # pydoclint - docstring-missing-returns
-  "TRY003", # tryceratops - raise-vanilla-args
-  "RUF067", # ruff - non-empty-init-module
+    "any-type",
+    "assert",
+    "FBT",
+    "CPY",
+    "FIX",
+    "D",
+    "docstring-missing-returns",
+    "raise-vanilla-args",
+    "non-empty-init-module",
 ]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-allowed-modules = [
-  "copy",
-  "dataclasses",
-  "inspect",
-  "io",
-  "json",
-  "pickle",
-  "string",
-  "types",
-  "typing",
+    "copy",
+    "dataclasses",
+    "inspect",
+    "io",
+    "json",
+    "pickle",
+    "string",
+    "types",
+    "typing",
 ]
 
 [tool.ruff.lint.flake8-errmsg]
-max-string-length = 42 # this took a while to figure out
+max-string-length = 42
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
-"ctypes" = "ct"
-"datetime" = "dt"
+ctypes = "ct"
+datetime = "dt"
 "numpy.typing" = "npt"
 "optype.numpy" = "onp"
 "optype.typing" = "opt"
 
 [tool.ruff.lint.flake8-type-checking]
-exempt-modules = ["collections.abc", "types"]
+exempt-modules = [
+    "collections.abc",
+    "types",
+]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-extra-standard-library = ["_typeshed", "typing_extensions"]
+extra-standard-library = [
+    "_typeshed",
+    "typing_extensions",
+]
 known-local-folder = ["optype"]
 known-third-party = ["numpy"]
 
 [tool.ruff.lint.pylint]
 allow-dunder-method-names = [
-  # instance methods
-  "__self__",
-  # classmethods
-  "__func__",
-  "__wrapped__",
-  # `dlpack`
-  "__dlpack__",
-  "__dlpack_device__",
-  # `numpy` special methods
-  "__array__",
-  "__array_finalize__",
-  "__array_function__",
-  "__array_priority__",
-  "__array_ufunc__",
-  "__array_wrap__",
-  "__array_interface__",
-  "__array_struct__",
+    "__func__",
+    "__objclass__",
+    "__self__",
+    "__wrapped__",
+    "__dlpack__",
+    "__dlpack_device__",
+    "__array__",
+    "__array_finalize__",
+    "__array_function__",
+    "__array_priority__",
+    "__array_ufunc__",
+    "__array_wrap__",
+    "__array_interface__",
+    "__array_struct__",
 ]
-allow-magic-value-types = ["int", "str"]
-
-# tox
+allow-magic-value-types = [
+    "int",
+    "str",
+]
 
 [tool.tox]
 requires = ["tox-uv>=1"]
 env_list = [
-  "3.12",
-  "3.13",
-  "3.14",
-  "dprint",
-  "ruff",
-  "ty",
-  "pyrefly",
-  "mypy",
-  "pyright",
-  "pyright-verify",
-  "repo-review",
+    "3.12",
+    "3.13",
+    "3.14",
+    "3.15",
+    "dprint",
+    "ruff",
+    "ty",
+    "pyrefly",
+    "mypy",
+    "pyright",
+    "pyrefly-coverage",
+    "repo-review",
 ]
 
 [tool.tox.env_run_base]
 description = "test with {base_python}"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["test"]
-commands = [
-  [
+commands = [[
     "pytest",
     { replace = "posargs", default = [], extend = true },
-  ],
-]
+]]
 
 [tool.tox.env.dprint]
 description = "dprint check"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["lint"]
-commands = [
-  [
+commands = [[
     "dprint",
     "check",
     "--incremental=false",
     { replace = "posargs", default = [], extend = true },
-  ],
-]
+]]
 
 [tool.tox.env.ruff]
 description = "ruff check"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["lint"]
 commands = [
-  [
+    [
     "ruff",
     "check",
     "--show-fixes",
     { replace = "posargs", default = [], extend = true },
-  ],
-  [
+],
+    [
     "ruff",
     "format",
     "--check",
     { replace = "posargs", default = [], extend = true },
-  ],
+],
 ]
 
 [tool.tox.env.ty]
 description = "ty"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["type"]
-commands = [
-  [
+commands = [[
     "ty",
     "check",
     { replace = "posargs", default = [], extend = true },
-  ],
-]
+]]
 
 [tool.tox.env.pyrefly]
 description = "pyrefly"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["type"]
-commands = [
-  [
+commands = [[
     "pyrefly",
     "check",
     { replace = "posargs", default = [], extend = true },
-  ],
-]
+]]
 
 [tool.tox.env.mypy]
 description = "mypy"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["type"]
-commands = [
-  [
+commands = [[
     "mypy",
     { replace = "posargs", default = ["."], extend = true },
-  ],
-]
+]]
 
 [tool.tox.env.pyright]
 description = "basedpyright"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["type"]
-commands = [
-  [
+commands = [[
     "basedpyright",
     { replace = "posargs", default = [], extend = true },
-  ],
-]
+]]
 
-[tool.tox.env.pyright-verify]
-description = "basedpyright --verifytypes"
+[tool.tox.env.pyrefly-coverage]
+description = "pyrefly coverage check"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["type"]
-commands = [["basedpyright", "--ignoreexternal", "--verifytypes", "optype"]]
+commands = [[
+    "pyrefly",
+    "coverage",
+    "check",
+    "--public-only",
+    "optype",
+]]
 
 [tool.tox.env.repo-review]
 description = "repo-review"
 runner = "uv-venv-lock-runner"
 dependency_groups = ["lint"]
-commands = [["repo-review", "."]]
-
-# typos
+commands = [[
+    "repo-review",
+    ".",
+]]
 
 [tool.typos.default]
 extend-ignore-identifiers-re = [
-  "ND|nd",
-  "(N|n)in",
-  "Mode(R|W|X|A|O|_)(B|T|_)(U|_)?",
-  "ba", # file mode string
+    "ND|nd",
+    "(N|n)in",
+    "Mode(R|W|X|A|O|_)(B|T|_)(U|_)?",
+    "ba",
 ]
+
+[project]
+name = "optype"
+description = "Building Blocks for Precise & Flexible Type Hints"
+version = "0.19.0"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+keywords = [
+    "annotations",
+    "basedpyright",
+    "checker",
+    "checking",
+    "hinting",
+    "hints",
+    "mypy",
+    "numpy",
+    "numpy-typing-compat",
+    "pyright",
+    "protocols",
+    "stubs",
+    "type",
+    "typechecking",
+    "typehinting",
+    "typehints",
+    "typing",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+requires-python = ">=3.12"
+dependencies = ["typing-extensions>=4.10; python_version<'3.13'"]
+
+[[project.authors]]
+name = "Joren Hammudoglu"
+email = "jhammudoglu@gmail.com"
+
+[project.scripts]
+optype = "optype.__main__:main"
+
+[project.optional-dependencies]
+numpy = [
+    "numpy>=2.0,<2.8",
+    "numpy-typing-compat>=20260602.2.0,<20260603",
+]
+
+[project.urls]
+Repository = "https://github.com/jorenham/optype/"
+Documentation = "https://jorenham.github.io/optype/"
+Issues = "https://github.com/jorenham/optype/issues"
+Changelog = "https://github.com/jorenham/optype/releases"
+Funding = "https://github.com/sponsors/jorenham"
+
+[dependency-groups]
+extra = ["optype[numpy]"]
+doc = [
+    "zensical==0.0.67",
+    "pygments==2.21.0",
+]
+lint = [
+    "dprint-py==0.59.0.0",
+    "ruff==0.16.10",
+    "sp-repo-review[cli]==2026.8.14",
+]
+test = [
+    { include-group = "extra" },
+    "beartype>=0.23.0rc1",
+    "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
+    "typing-extensions>=4.16.0",
+    "basedpyright==1.40.1",
+    "mypy[faster-cache]==2.4.0",
+]
+type = [
+    { include-group = "extra" },
+    { include-group = "test" },
+    "pyrefly==1.3.2",
+    "ty==0.0.84",
+]
+
+[[dependency-groups.dev]]
+include-group = "extra"
+
+[[dependency-groups.dev]]
+include-group = "doc"
+
+[[dependency-groups.dev]]
+include-group = "lint"
+
+[[dependency-groups.dev]]
+include-group = "test"
+
+[[dependency-groups.dev]]
+include-group = "type"

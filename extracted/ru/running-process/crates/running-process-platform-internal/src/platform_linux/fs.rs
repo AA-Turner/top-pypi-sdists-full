@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 /// name with the caller's uid, because `/tmp` is shared and two accounts must
 /// not land on one directory.
 pub fn user_runtime_dir(product: &str) -> PathBuf {
-    if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+    if let Some(dir) = crate::env_vars::XDG_RUNTIME_DIR.os() {
         return PathBuf::from(dir).join(product);
     }
     let uid = unsafe { libc::getuid() };
@@ -20,13 +20,63 @@ pub fn user_runtime_dir(product: &str) -> PathBuf {
 
 /// Directory for `product`'s persistent state (databases that outlive a boot).
 pub fn user_state_dir(product: &str) -> PathBuf {
-    if let Some(dir) = std::env::var_os("XDG_STATE_HOME") {
+    if let Some(dir) = crate::env_vars::XDG_STATE_HOME.os() {
         PathBuf::from(dir).join(product)
     } else if let Some(home) = dirs::home_dir() {
         home.join(".local/state").join(product)
     } else {
         PathBuf::from(format!("/tmp/{product}-state"))
     }
+}
+
+/// Directory for `product`'s persistent state, derived from the environment
+/// alone: `XDG_STATE_HOME`, then `$HOME/.local/state`, then
+/// `/tmp/{product}-state`.
+///
+/// Unlike [`user_state_dir`] this never consults the account database, so the
+/// location is exactly what the environment says. That is the documented
+/// contract of the probe worker's symbol cache (#974), and a caller that
+/// publishes such a contract needs a primitive that keeps it.
+pub fn user_state_dir_from_environment(product: &str) -> PathBuf {
+    state_dir_from_environment_in(
+        crate::env_vars::XDG_STATE_HOME.os(),
+        crate::env_vars::HOME.os(),
+        product,
+    )
+}
+
+/// The base directory for per-user persistent state, derived from the
+/// environment alone: `XDG_STATE_HOME`, then `$HOME/.local/state`.
+///
+/// `None` when neither is set; the caller picks its own fallback and its own
+/// leaf beneath the base.
+pub fn state_home_from_environment() -> Option<PathBuf> {
+    state_home_in(
+        crate::env_vars::XDG_STATE_HOME.os(),
+        crate::env_vars::HOME.os(),
+    )
+}
+
+fn state_home_in(
+    xdg_state_home: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    xdg_state_home.map(PathBuf::from).or_else(|| {
+        home.map(PathBuf::from)
+            .map(|home| home.join(".local").join("state"))
+    })
+}
+
+fn state_dir_from_environment_in(
+    xdg_state_home: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+    product: &str,
+) -> PathBuf {
+    state_home_in(xdg_state_home, home)
+        .map_or_else(
+            || PathBuf::from(format!("/tmp/{product}-state")),
+            |base| base.join(product),
+        )
 }
 
 /// Root under which `product` keeps per-run scratch data.
@@ -154,7 +204,7 @@ pub fn decode_path_bytes(bytes: &[u8]) -> io::Result<PathBuf> {
 /// bookkeeping, while this is the data a user expects to follow their account.
 /// On hosts that distinguish the two, this is the one that roams.
 pub fn user_data_dir(product: &str) -> PathBuf {
-    if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
+    if let Some(data_home) = crate::env_vars::XDG_DATA_HOME.os() {
         return PathBuf::from(data_home).join(product);
     }
     dirs::home_dir()
@@ -170,7 +220,7 @@ pub fn user_data_dir(product: &str) -> PathBuf {
 /// configuration its own root, and a user who sets `XDG_CONFIG_HOME` expects
 /// it honoured rather than folded into the data root.
 pub fn user_config_dir(product: &str) -> PathBuf {
-    if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
+    if let Some(config_home) = crate::env_vars::XDG_CONFIG_HOME.os() {
         return PathBuf::from(config_home).join(product);
     }
     dirs::home_dir()
@@ -207,4 +257,78 @@ pub fn create_private_file(path: &Path) -> io::Result<File> {
         .create_new(true)
         .mode(0o600)
         .open(path)
+}
+
+/// Open `path` for reading without following a link at its final component.
+///
+/// The kernel refuses a symlink there (`ELOOP`), so the handle is always the
+/// named object itself, never a target substituted after the caller
+/// validated the name.
+pub fn open_read_no_follow(path: &Path) -> io::Result<File> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+}
+
+/// Whether metadata of an [`open_read_no_follow`] handle names a link rather
+/// than the object itself. The open already refused links here, so this
+/// reads the file type the handle reports.
+pub fn is_link_handle(metadata: &std::fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
+
+#[cfg(test)]
+mod no_follow_tests {
+    #[test]
+    fn state_dir_from_environment_prefers_xdg_then_home_then_tmp() {
+        use super::state_dir_from_environment_in as dir;
+        use std::path::PathBuf;
+        assert_eq!(
+            dir(Some("/xdg".into()), Some("/home/u".into()), "rp"),
+            PathBuf::from("/xdg/rp")
+        );
+        assert_eq!(
+            dir(None, Some("/home/u".into()), "rp"),
+            PathBuf::from("/home/u/.local/state/rp")
+        );
+        assert_eq!(dir(None, None, "rp"), PathBuf::from("/tmp/rp-state"));
+    }
+
+    /// #975: the state base without a product leaf or fallback, which the py
+    /// tracked-pid registry joins its own leaf onto (temp dir when `None`).
+    #[test]
+    fn state_home_prefers_xdg_then_home_and_has_no_fallback() {
+        use super::state_home_in as home;
+        use std::path::PathBuf;
+        assert_eq!(
+            home(Some("/xdg".into()), Some("/home/u".into())),
+            Some(PathBuf::from("/xdg"))
+        );
+        assert_eq!(
+            home(None, Some("/home/u".into())),
+            Some(PathBuf::from("/home/u/.local/state"))
+        );
+        assert_eq!(home(None, None), None);
+    }
+
+    /// #974 PR 2: probe-daemon validates an artifact's name, then opens it;
+    /// a symlink swapped in between must not redirect the open.
+    #[test]
+    fn a_no_follow_open_refuses_a_symlink_at_the_final_component() {
+        let dir = std::env::temp_dir().join(format!("rp-nofollow-link-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("target");
+        let link = dir.join("link");
+        std::fs::write(&target, b"secret").unwrap();
+        let _ = std::fs::remove_file(&link);
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let error = super::open_read_no_follow(&link).expect_err("a symlink must not be followed");
+        assert_eq!(error.raw_os_error(), Some(libc::ELOOP));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

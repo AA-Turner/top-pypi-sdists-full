@@ -6,7 +6,7 @@ actually depends on: every partial is parseable JSON, values only ever advance
 toward the truth, and every announced partial ends in exactly ONE terminal
 event so a skeleton can never be left on screen forever.
 
-Contract: ``common-docs/systems/content-ir-system/STREAMING_PARTIAL_KINDS.md``.
+Contract: ``common-docs/systems/architecture/content-ir/FEATURE.md``.
 """
 
 from __future__ import annotations

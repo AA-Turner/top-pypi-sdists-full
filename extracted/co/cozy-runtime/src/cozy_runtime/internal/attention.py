@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import site
 import sys
-import time
 from collections import deque
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
@@ -30,6 +29,7 @@ import msgspec
 from cozy_runtime.author._attention import AttentionContext
 from cozy_runtime.author._attention_scope import _EXPECTED
 from cozy_runtime.internal import (
+    accel,
     attention_sol,
     attention_ulysses,
     execution_evidence,
@@ -407,41 +407,6 @@ def _resolve(candidate: Candidate, device: DeviceFacts) -> Ready:
     return ready
 
 
-def expect(device: DeviceFacts, preferred: Sequence[str] = ()) -> list[dict[str, Any]]:
-    """Start compiling, before any construction exists, every kernel this device's first
-    construction could select: the model's preference and the ranked table. Returns at once,
-    one state row per kernel; the compiles overlap the weights' download."""
-    rows: list[dict[str, Any]] = []
-    names = [*preferred, *(c.name for c in for_device(device))]
-    for name in dict.fromkeys(names):
-        candidate = BY_NAME.get(name)
-        if candidate is None:
-            continue
-        unsupported = _device_admits(candidate, device)
-        if unsupported:
-            rows.append({**_unsupported(name, unsupported).document(), "status": "unsupported"})
-            continue
-        started = time.perf_counter()
-        why = ""
-        try:
-            _resolve(candidate, device)
-            status = "ready"
-        except Exception as exc:
-            status = exc.code if isinstance(exc, AttentionRefusal) else type(exc).__name__
-            why = str(exc)[:300]
-        state = _STATES.get(name)
-        rows.append(
-            {
-                **({"detail": why} if why else {}),
-                **(state.document() if state is not None else {}),
-                "kernel": name,
-                "status": status,
-                "ms": round((time.perf_counter() - started) * 1000, 1),
-            }
-        )
-    return rows
-
-
 def pending(applied: Applied, device: DeviceFacts) -> list[str]:
     """Kernels this selection skipped while they compiled that are now ready: a request start
     re-selects to take them."""
@@ -467,7 +432,7 @@ def _expected(live_tokens: int, module: Any) -> None:
     import torch
 
     device = next((p.device for p in module.parameters() if p.device.type != "meta"), None)
-    if device is None and torch.cuda.is_available():
+    if device is None and accel.present(torch, "cuda"):
         device = torch.device("cuda", torch.cuda.current_device())
     if device is not None:
         attention_sol.expect(live_tokens, device)
@@ -763,6 +728,11 @@ def _sites(roots: Mapping[str, object]) -> Iterator[tuple[str, Any, Any]]:
         yield component, module, processor
 
 
+def sites(roots: Mapping[str, object]) -> list[tuple[str, object, object]]:
+    """Every runtime-selectable attention site: (component, module, processor)."""
+    return list(_sites(roots))
+
+
 def _head_dim(module: Any) -> int:
     """This site's per-head dimension, or 0 when the module does not say.
 
@@ -787,7 +757,7 @@ def _projection_dtype(projection: Any) -> str:
     import torch
 
     peft_linear = getattr(sys.modules.get("peft.tuners.lora.layer"), "Linear", None)
-    if peft_linear is not None and type(projection) is peft_linear:
+    if peft_linear is not None and isinstance(projection, peft_linear):
         # PEFT returns the base result's dtype, even with differently typed factors.
         # Inspect the current base: encoded fill can replace it after construction.
         projection = projection.get_base_layer()

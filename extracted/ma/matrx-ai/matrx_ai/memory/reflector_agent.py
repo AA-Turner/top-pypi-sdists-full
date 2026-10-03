@@ -171,6 +171,7 @@ async def run_reflector(
             mandate_key=model_config.mandate_key,
             messages=[],
             model=model_config.model,
+            **({"offering_id": model_config.offering_id} if model_config.offering_id else {}),
             variables=build_reflector_variables(
                 observations=observations,
                 current_task=current_task,

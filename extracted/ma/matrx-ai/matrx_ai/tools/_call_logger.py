@@ -302,7 +302,20 @@ def _build_action_body(
     return "\n".join(body_parts)
 
 
-def _resolve_log_path(*, conversation_id: str | None, tool: str, call_id: str, unix_ts: int) -> tuple[str, str]:
+def _log_home(binding: Any) -> str:
+    """The home the log lives under: the person's own home on a ``local_machine`` binding (the
+    home the device reported, any OS), the container's agent home everywhere else. A desktop has
+    no ``/home/agent``; writing there failed on every Mac and Windows call."""
+    if binding is not None and getattr(binding, "target_kind", None) == "local_machine":
+        root = str(getattr(binding, "root_path", "") or "").rstrip("/")
+        if root:
+            return root
+    return _AGENT_HOME
+
+
+def _resolve_log_path(
+    *, conversation_id: str | None, tool: str, call_id: str, unix_ts: int, home: str = _AGENT_HOME
+) -> tuple[str, str]:
     """Return (absolute_path_on_fs, agent_facing_path_string).
 
     The agent-facing path uses ``~/`` so it reads naturally in the
@@ -313,7 +326,7 @@ def _resolve_log_path(*, conversation_id: str | None, tool: str, call_id: str, u
     short_id = _short_call_id(call_id)
     filename = f"{unix_ts}-{tool_segment}-{short_id}.md"
     relative = f"{_TOOL_CALL_SUBDIR}/{conv_segment}/{filename}"
-    abs_path = f"{_AGENT_HOME}/{relative}"
+    abs_path = f"{home}/{relative}"
     agent_path = f"~/{relative}"
     return abs_path, agent_path
 
@@ -354,6 +367,7 @@ async def write_tool_call_log(
         tool=tool,
         call_id=call_id,
         unix_ts=unix_ts,
+        home=_log_home(binding),
     )
 
     sandbox_id = binding.sandbox_id if binding else None
@@ -436,6 +450,7 @@ async def write_action_log(
         tool=tool,
         call_id=call_id,
         unix_ts=unix_ts,
+        home=_log_home(binding),
     )
 
     sandbox_id = binding.sandbox_id if binding else None

@@ -36,7 +36,7 @@ use crate::{
 };
 
 use crate::specs_adapter::remote_config_value_hydrator::{
-    HydrationPhase, ProtobufHydrationSession, RemoteConfigValueHydrator,
+    HydrationPhase, ProtobufHydrationSession, RemoteConfigValueHydrator, VerifiedRemoteValues,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
     rewrite_top_level_envelope,
@@ -55,6 +55,25 @@ const UNHYDRATED_REMOTE_CONFIG_METADATA_MESSAGE: &str =
 // response-sized buffer.
 const MAX_PENDING_HYDRATION_ENVELOPES: usize = 128;
 const MAX_PENDING_HYDRATION_BYTES: usize = 8 * 1024 * 1024;
+
+// Only remote values referenced by the published snapshot retain verification
+// provenance. Entries share immutable parsed values, not original blob bytes.
+pub(crate) type VerifiedRemoteConfigValues = HashMap<InternedString, Arc<VerifiedRemoteValues>>;
+
+/// Immutable parse inputs from the same published snapshot.
+pub(crate) struct ProtobufStoreParseBase<'a> {
+    pub(crate) specs: &'a SpecsResponseFull,
+    pub(crate) decode_stats: SpecDecodeStats,
+    pub(crate) field_checksums: &'a SpecsFieldChecksums,
+    pub(crate) verified_remote_values: &'a VerifiedRemoteConfigValues,
+}
+
+type HydratedProtobufStoreUpdate = (
+    ProtobufUpdate,
+    SpecDecodeStats,
+    Option<Vec<u8>>,
+    VerifiedRemoteConfigValues,
+);
 
 #[derive(Clone, PartialEq, Message)]
 struct SessionUpdateModeField {
@@ -228,6 +247,9 @@ struct PendingEntityParserContext<'a, 'h> {
     mmap_project_id: MmapProjectId,
     preserve_session_update_mode: bool,
     spec_decode_stats: SpecDecodeStats,
+    current_verified_values: &'a VerifiedRemoteConfigValues,
+    previous_values_initialized: bool,
+    next_verified_values: VerifiedRemoteConfigValues,
 }
 
 /// Bounded, ordered entity work waiting for the next shared hydration batch.
@@ -352,36 +374,37 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration(
     context: ProtobufHydrationContext<'_>,
 ) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
     let current_field_checksums = SpecsFieldChecksums::from_specs(current_specs);
+    let current_verified_values = VerifiedRemoteConfigValues::new();
     deserialize_protobuf_for_store_with_hydration_and_checksums(
         ops_stats,
-        current_specs,
-        previous_spec_decode_stats,
-        &current_field_checksums,
+        ProtobufStoreParseBase {
+            specs: current_specs,
+            decode_stats: previous_spec_decode_stats,
+            field_checksums: &current_field_checksums,
+            verified_remote_values: &current_verified_values,
+        },
         next_specs,
         data,
         context,
     )
     .await
+    .map(|(update, stats, bytes, _)| (update, stats, bytes))
 }
 
 pub(crate) async fn deserialize_protobuf_for_store_with_hydration_and_checksums(
     ops_stats: &OpsStatsForInstance,
-    current_specs: &SpecsResponseFull,
-    previous_spec_decode_stats: SpecDecodeStats,
-    current_field_checksums: &SpecsFieldChecksums,
+    base: ProtobufStoreParseBase<'_>,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
     context: ProtobufHydrationContext<'_>,
-) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
+) -> Result<HydratedProtobufStoreUpdate, StatsigErr> {
     let mut hydration = context
         .hydrator
         .begin_protobuf_hydration(context.source_url);
     let started_at = Instant::now();
     let result = deserialize_protobuf_for_store_with_hydration_inner(
         ops_stats,
-        current_specs,
-        previous_spec_decode_stats,
-        current_field_checksums,
+        base,
         next_specs,
         data,
         &mut hydration,
@@ -395,17 +418,20 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration_and_checksums(
     result
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn deserialize_protobuf_for_store_with_hydration_inner(
     ops_stats: &OpsStatsForInstance,
-    current_specs: &SpecsResponseFull,
-    previous_spec_decode_stats: SpecDecodeStats,
-    current_field_checksums: &SpecsFieldChecksums,
+    base: ProtobufStoreParseBase<'_>,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
     hydration: &mut ProtobufHydrationSession<'_>,
     context: ProtobufHydrationContext<'_>,
-) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
+) -> Result<HydratedProtobufStoreUpdate, StatsigErr> {
+    let ProtobufStoreParseBase {
+        specs: current_specs,
+        decode_stats: previous_spec_decode_stats,
+        field_checksums: current_field_checksums,
+        verified_remote_values: current_verified_values,
+    } = base;
     let ProtobufHydrationContext {
         mmap_project_id,
         capture_hydrated_data_store_bytes,
@@ -430,6 +456,9 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
         mmap_project_id,
         preserve_session_update_mode,
         spec_decode_stats: SpecDecodeStats::default(),
+        current_verified_values,
+        previous_values_initialized: false,
+        next_verified_values: VerifiedRemoteConfigValues::new(),
     };
 
     data.rewind()?;
@@ -502,6 +531,7 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                     update,
                     parser_context.spec_decode_stats,
                     hydrated_data_store_bytes,
+                    parser_context.next_verified_values,
                 ));
             }
             pb::SpecsEnvelopeKind::TopLevel => {
@@ -521,6 +551,11 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                         parser_context.parser.handle_top_level(env)
                     })?;
                 if accepted {
+                    parser_context.next_verified_values = if parser_context.parser.is_delta() {
+                        current_verified_values.clone()
+                    } else {
+                        VerifiedRemoteConfigValues::new()
+                    };
                     parser_context.hydrated_sidecar_provenance =
                         top_level_hydrated_sidecar_provenance;
                     if capture_hydrated_data_store_bytes
@@ -585,11 +620,16 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                 continue;
             }
             pb::SpecsEnvelopeKind::Deletions => {
-                let _ = parser_context
+                let deleted = parser_context
                     .spec_decode_stats
                     .with_mmap_project(parser_context.mmap_project_id, || {
-                        parser_context.parser.handle_deletions(env, false)
+                        parser_context.parser.handle_deletions(env, true)
                     })?;
+                for name in deleted.into_iter().flatten() {
+                    parser_context
+                        .next_verified_values
+                        .remove(&InternedString::from_string(name));
+                }
             }
             pb::SpecsEnvelopeKind::Checksums => {
                 parser_context
@@ -717,7 +757,7 @@ fn prepare_pending_entity_update(
             return Ok(None);
         }
     };
-    let reused = if context.preserve_session_update_mode {
+    let mut reused = if context.preserve_session_update_mode {
         reused.and_then(|(name, spec_pointer)| {
             spec_pointer
                 .with_session_update_mode(spec.session_update_mode.as_deref())
@@ -728,7 +768,8 @@ fn prepare_pending_entity_update(
     };
 
     let has_remote_metadata = protobuf_spec_has_remote_metadata(&spec);
-    let mut reuse_verified_remote_values = false;
+    let mut legacy_candidate_verified = false;
+    let mut published_candidate_verified = false;
     if has_remote_metadata {
         context.hydration.mark_remote_metadata();
         // Remote hydration is an explicit producer opt-in. A missing or false
@@ -736,25 +777,69 @@ fn prepare_pending_entity_update(
         if context.parser.remote_metadata_hint() != Some(true) {
             return Err(unhydrated_remote_config_metadata_error());
         }
-        context.hydration.register_spec_references(&spec)?;
-        if let Some(candidate_values) = reused.as_ref().and_then(|(_, spec_pointer)| {
-            context
-                .spec_decode_stats
-                .with_mmap_project(context.mmap_project_id, || {
-                    existing_hydrated_values(spec_pointer, &spec)
+        if !context.previous_values_initialized {
+            let previous_values = context
+                .current_verified_values
+                .values()
+                .flat_map(|values| {
+                    values
+                        .iter()
+                        .map(|(sha, value)| (sha.clone(), value.clone()))
                 })
-        }) {
-            reuse_verified_remote_values = context.hydration.seed_verified_values(candidate_values);
+                .collect();
+            context.hydration.set_previous_values(previous_values);
+            context.previous_values_initialized = true;
+        }
+        let remote_values_ready = context.hydration.register_spec_references(&spec)?;
+        let name = InternedString::from_str_ref(&envelope.name);
+        if let Some(values) = context.current_verified_values.get(&name) {
+            let candidate =
+                context
+                    .spec_decode_stats
+                    .with_mmap_project(context.mmap_project_id, || {
+                        let current = context.parser.current_specs.dynamic_configs.get(&name)?;
+                        if current.view().checksum().map(|value| value.as_str())
+                            != Some(envelope.checksum.as_str())
+                            || !existing_verified_values_match(current, &spec, values)
+                        {
+                            return None;
+                        }
+                        if context.preserve_session_update_mode {
+                            current.with_session_update_mode(spec.session_update_mode.as_deref())
+                        } else {
+                            Some(current.clone())
+                        }
+                    });
+            if let Some(candidate) = candidate {
+                reused = Some((name, candidate));
+                published_candidate_verified = true;
+            }
+        }
+        if !remote_values_ready {
+            if let Some(candidate_values) = reused.as_ref().and_then(|(_, spec_pointer)| {
+                context
+                    .spec_decode_stats
+                    .with_mmap_project(context.mmap_project_id, || {
+                        existing_hydrated_values(spec_pointer, &spec)
+                    })
+            }) {
+                // A snapshot loaded before this SDK verified the blob has no
+                // provenance. Keep the conservative exact-wire verification path.
+                legacy_candidate_verified =
+                    context.hydration.seed_verified_values(candidate_values);
+            }
         }
     }
-    // A matching pointer may be an older artifact that still contains the
-    // placeholder. Reuse it only when every existing remote-backed value can
-    // be reconstructed and independently verified against its full SHA-256.
-    let reused = if has_remote_metadata && !reuse_verified_remote_values {
-        None
-    } else {
-        reused
-    };
+    // A registry hit authenticates its saved value, not an arbitrary mmap
+    // pointer with the same config checksum. Preserve whole-config sharing
+    // only for the published pointer with matching slot proofs, or when the
+    // candidate itself passed the legacy exact-byte checks.
+    let reused =
+        if has_remote_metadata && !legacy_candidate_verified && !published_candidate_verified {
+            None
+        } else {
+            reused
+        };
 
     Ok(Some(PendingEntityUpdate::Dynamic(Box::new(
         PendingDynamicConfigUpdate::Decoded(Box::new(PendingDecodedDynamicConfigUpdate {
@@ -767,6 +852,37 @@ fn prepare_pending_entity_update(
             raw_frame,
         })),
     ))))
+}
+
+fn existing_verified_values_match(
+    existing: &SpecPointer,
+    incoming: &pb::Spec,
+    verified: &VerifiedRemoteValues,
+) -> bool {
+    let existing = existing.view();
+    if existing.rules_len() != incoming.rules.len() {
+        return false;
+    }
+    let matches = |metadata: &pb::RemoteConfigValueMetadata, value: ReturnableRef<'_>| {
+        verified
+            .get(&metadata.sha256)
+            .is_some_and(|entry| entry.matches_value(metadata, &value.to_owned()))
+    };
+    if incoming
+        .remote_config_metadata
+        .as_ref()
+        .is_some_and(|metadata| !matches(metadata, existing.default_value()))
+    {
+        return false;
+    }
+    incoming.rules.iter().enumerate().all(|(index, rule)| {
+        let old = existing.rule(index);
+        old.id().as_str() == rule.id
+            && rule
+                .remote_config_metadata
+                .as_ref()
+                .is_none_or(|metadata| matches(metadata, old.return_value()))
+    })
 }
 
 fn existing_hydrated_values(
@@ -865,6 +981,7 @@ async fn flush_pending_entity_updates(
             }
             PendingEntityUpdate::Dynamic(pending) => match *pending {
                 PendingDynamicConfigUpdate::Reused { name, spec_pointer } => {
+                    context.next_verified_values.remove(&name);
                     let checksum_name = name.clone();
                     let old_checksum = entity_checksum(
                         pb::SpecsEnvelopeKind::DynamicConfig,
@@ -898,22 +1015,27 @@ async fn flush_pending_entity_updates(
                         raw_frame,
                     } = *decoded;
                     let mut hydrated_frame = None;
+                    let mut remote_values = None;
                     if has_remote_metadata {
-                        let raw_spec = data_store_capture.is_some().then(|| spec.clone());
-                        context.hydration.apply_registered_spec(&mut spec)?;
-                        if let (Some(raw_frame), Some(raw_spec)) =
-                            (raw_frame.as_deref(), raw_spec.as_ref())
-                        {
+                        if let Some(raw_frame) = raw_frame.as_deref() {
+                            let sidecar_values = context.hydration.data_store_values(&spec)?;
                             hydrated_frame = Some(rewrite_decoded_dynamic_config_envelope(
                                 raw_frame,
                                 envelope
                                     .data
                                     .as_deref()
                                     .expect("decoded dynamic config must retain spec bytes"),
-                                raw_spec,
-                                context.hydration.hydrated_values(),
+                                &spec,
+                                &sidecar_values,
                             )?);
                         }
+                        remote_values = Some(
+                            context
+                                .spec_decode_stats
+                                .with_mmap_project(context.mmap_project_id, || {
+                                    context.hydration.take_verified_spec_values(&mut spec)
+                                })?,
+                        );
                     }
 
                     // A hydrated sidecar may share an envelope checksum with
@@ -921,6 +1043,16 @@ async fn flush_pending_entity_updates(
                     // decoded content before reusing that pointer; untouched
                     // configs still keep their mmap sharing when they match.
                     if let Some((name, spec_pointer)) = reused {
+                        match remote_values {
+                            Some(values) => {
+                                context
+                                    .next_verified_values
+                                    .insert(name.clone(), Arc::new(values.provenance));
+                            }
+                            None => {
+                                context.next_verified_values.remove(&name);
+                            }
+                        }
                         let checksum_name = name.clone();
                         let old_checksum = entity_checksum(
                             pb::SpecsEnvelopeKind::DynamicConfig,
@@ -981,10 +1113,27 @@ async fn flush_pending_entity_updates(
                         let result = context.spec_decode_stats.with_mmap_project(
                             context.mmap_project_id,
                             || {
+                                let mut decoded = spec_from_pb(envelope.checksum, spec)?;
+                                if let Some(values) = remote_values.as_ref() {
+                                    if let Some(value) = &values.default_value {
+                                        decoded.default_value = value.clone();
+                                    }
+                                    for (rule, value) in
+                                        decoded.rules.iter_mut().zip(&values.rule_values)
+                                    {
+                                        if let Some(value) = value {
+                                            rule.return_value = value.clone();
+                                        }
+                                    }
+                                }
                                 context
                                     .parser
                                     .next_specs
-                                    .handle_decoded_dynamic_config_update(envelope, spec)
+                                    .insert_owned_dynamic_config_update(
+                                        checksum_name.clone(),
+                                        decoded,
+                                    );
+                                Ok(())
                             },
                         );
                         let updated = result.is_ok();
@@ -994,6 +1143,16 @@ async fn flush_pending_entity_updates(
                             tolerates_malformed_entity,
                         )?;
                         if updated {
+                            match remote_values {
+                                Some(values) => {
+                                    context
+                                        .next_verified_values
+                                        .insert(checksum_name.clone(), Arc::new(values.provenance));
+                                }
+                                None => {
+                                    context.next_verified_values.remove(&checksum_name);
+                                }
+                            }
                             record_entity_checksum_update(
                                 pb::SpecsEnvelopeKind::DynamicConfig,
                                 context.parser.next_specs,
@@ -1382,17 +1541,6 @@ impl SpecsResponseFull {
         spec_pointer: SpecPointer,
     ) {
         self.dynamic_configs.insert(name, spec_pointer);
-    }
-
-    fn handle_decoded_dynamic_config_update(
-        &mut self,
-        envelope: pb::SpecsEnvelope,
-        spec: pb::Spec,
-    ) -> Result<(), StatsigErr> {
-        let name = InternedString::from_string(envelope.name);
-        let spec = spec_from_pb(envelope.checksum, spec)?;
-        self.insert_owned_dynamic_config_update(name, spec);
-        Ok(())
     }
 
     fn insert_owned_dynamic_config_update(&mut self, name: InternedString, spec: Spec) {

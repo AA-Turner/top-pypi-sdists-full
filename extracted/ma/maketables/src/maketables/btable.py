@@ -1,11 +1,10 @@
-from typing import Dict, List, Optional, Union
-
 import numpy as np
 import pandas as pd
 
 # Optional imports
 try:
     import pyfixest as pf
+
     HAS_PYFIXEST = True
 except ImportError:
     HAS_PYFIXEST = False
@@ -20,7 +19,7 @@ class BTable(DTable):
     Inherits DTable to build the stats table, then adds a 'p-value' column:
     - For 2 groups: p-value of the single group indicator (t test).
     - For >2 groups: joint Wald test that all group indicators are zero.
-    You can add fixed_effects and specify the `vcov` option, for instance 
+    You can add fixed_effects and specify the `vcov` option, for instance
     to implement clustering (see pyfixest documentation).
 
     Parameters
@@ -29,8 +28,15 @@ class BTable(DTable):
         Source data.
     vars : list[str]
         Variables to include.
-    group : str
-        Grouping column in df.
+    group : str | list[str]
+        Grouping column(s) in df.
+    byrow : str, optional
+        Optional row-grouping column (e.g. splits the table into a block of
+        rows per byrow level, such as "Principal" vs "Agent"). When set, the
+        group-effects regression used for the p-value column is run
+        separately within each byrow level, so the p-value tests balance
+        across `group` *within* that row-group rather than pooling across
+        byrow levels. Default None (no row grouping, matching prior behavior).
     labels : dict, optional
         Variable labels (used for display and in notes).
     digits : int, optional
@@ -60,17 +66,18 @@ class BTable(DTable):
     def __init__(
         self,
         df: pd.DataFrame,
-        vars: List[str],
-        group: str,
+        vars: list[str],
+        group: str | list[str],
         *,
-        labels: Optional[Dict[str, str]] = None,
+        byrow: str | None = None,
+        labels: dict[str, str] | None = None,
         digits: int = 2,
         pdigits: int = 3,
-        vcov: Union[str, Dict[str, str]] = "iid",
-        fixed_effects: Optional[List[str]] = None,
-        stats: Optional[List[str]] = None,
-        stats_labels: Optional[Dict[str, str]] = None,
-        format_spec: Optional[Dict[Union[str, tuple], str]] = None,
+        vcov: str | dict[str, str] = "iid",
+        fixed_effects: list[str] | None = None,
+        stats: list[str] | None = None,
+        stats_labels: dict[str, str] | None = None,
+        format_spec: dict[str | tuple, str] | None = None,
         hide_stats: bool = False,
         counts_row_below: bool = False,
         observed: bool = False,
@@ -85,19 +92,26 @@ class BTable(DTable):
                 "  pip install maketables[pystata]"
             )
 
-        assert group in df.columns, f"group column '{group}' not in DataFrame."
+        group_cols = [group] if isinstance(group, str) else list(group)
+        assert group_cols, "group must contain at least one column."
+        assert all(col in df.columns for col in group_cols), (
+            "group must be a column or list of columns in the DataFrame."
+        )
+        assert byrow is None or byrow in df.columns, (
+            "byrow must be a column in the DataFrame."
+        )
         for v in vars:
             assert v in df.columns, f"Variable '{v}' not in DataFrame."
 
         stats = ["mean", "std"] if stats is None else list(stats)
-    
+
         # Build the descriptive stats table via DTable
         super().__init__(
             df=df,
             vars=vars,
             stats=stats,
-            bycol=[group],
-            byrow=None,
+            bycol=group_cols,
+            byrow=byrow,
             labels=labels,
             stats_labels=stats_labels,
             format_spec=format_spec,
@@ -110,30 +124,67 @@ class BTable(DTable):
         )
 
         # Compute p-values per variable from a group-effects regression
-        n_groups = df[group].nunique()
+        pvalue_df = df
+        pvalue_group = group_cols[0]
+        if len(group_cols) > 1:
+            pvalue_df = df.copy()
+            pvalue_group = "__maketables_btable_group"
+            while pvalue_group in pvalue_df.columns:
+                pvalue_group = f"{pvalue_group}_"
+
+            group_values = pvalue_df[group_cols].astype("string")
+            interaction = group_values.fillna("").agg(" | ".join, axis=1)
+            interaction[group_values.isna().any(axis=1)] = pd.NA
+            pvalue_df[pvalue_group] = interaction
+
         pvals = pd.Series(index=self.df.index, dtype=str)
 
         fe_suffix = ""
         if fixed_effects:
             fe_suffix = f" | {'.'.join(fixed_effects)}"
 
-        for i, var in enumerate(vars):
-            formula = f"{var} ~ i({group}){fe_suffix}"
-            model = pf.feols(formula, data=df, vcov=vcov)
+        # With byrow set, self.df has one block of `vars` rows per byrow
+        # level (in the order DTable actually laid them out), and the
+        # group-effects test must run separately within each block so the
+        # p-value reflects balance across `group` *within* that row-group.
+        # Without byrow, this is a single implicit block over the full data,
+        # identical to the pre-byrow behavior.
+        if byrow is None:
+            row_blocks = [(None, pvalue_df)]
+        else:
+            byrow_levels = pd.unique(self.df.index.get_level_values(0))
+            row_blocks = [
+                (level, pvalue_df[pvalue_df[byrow] == level]) for level in byrow_levels
+            ]
 
-            if n_groups == 2:
-                # p-value of the single group indicator
-                pval = float(model._pvalue[1])
-            else:
-                # Joint test of all group indicators
-                k = model._k
-                R = np.zeros((k - 1, k))
-                for j in range(1, k):
-                    R[j - 1, j] = 1
-                q = np.zeros(k - 1)
-                pval = float(model.wald_test(R, q, distribution="chi2").pvalue)
+        row_pos = 0
+        for _, block_df in row_blocks:
+            n_groups = block_df[pvalue_group].nunique()
+            if n_groups < 2:
+                # Nothing to test: this row-group never sees more than one
+                # `group` value, so there's no balance to check.
+                pvals.iloc[row_pos : row_pos + len(vars)] = ""
+                row_pos += len(vars)
+                continue
 
-            pvals.iloc[i] = f"{pval:.{pdigits}f}"
+            for var in vars:
+                formula = f"{var} ~ i({pvalue_group}){fe_suffix}"
+                model = pf.feols(formula, data=block_df, vcov=vcov)
+
+                if n_groups == 2:
+                    # p-value of the single group indicator
+                    pval = float(model._pvalue[1])
+                else:
+                    # Joint test of all group indicators
+                    k = model._k
+                    R = np.zeros((k - 1, k))
+                    for j in range(1, k):
+                        R[j - 1, j] = 1
+                    q = np.zeros(k - 1)
+                    pval = float(model.wald_test(R, q, distribution="chi2").pvalue)
+
+                pvals.iloc[row_pos] = f"{pval:.{pdigits}f}"
+                row_pos += 1
 
         # Append the p-value column; handle MultiIndex columns
         if isinstance(self.df.columns, pd.MultiIndex):
@@ -173,13 +224,13 @@ class BTable(DTable):
                 clusters = []
                 for k, v in vcov.items():
                     if k in {"CRV1", "CRV3"}:
-                        clusters.append(labels.get(v, v))
+                        clusters.append((labels or {}).get(v, v))
                 if clusters:
                     se_str = "standard errors clustered on " + ", ".join(clusters)
 
             fe_str = ""
             if fixed_effects:
-                fe_str = ", ".join(labels.get(fx, fx) for fx in fixed_effects)
+                fe_str = ", ".join((labels or {}).get(fx, fx) for fx in fixed_effects)
 
             if fe_str and se_str:
                 chunks.append(

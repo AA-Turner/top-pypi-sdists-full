@@ -78,6 +78,9 @@ async def test_capture_uses_commit_then_bounded_dom_settle() -> None:
             return None
 
     class FakeContext:
+        async def route(self, pattern: str, handler: object) -> None:
+            return None  # the request guard installs here; this double serves no requests
+
         async def new_page(self) -> FakePage:
             return FakePage()
 
@@ -173,6 +176,9 @@ async def test_mixed_device_kinds_navigate_once_per_device_profile(
             return None
 
     class FakeContext:
+        async def route(self, pattern: str, handler: object) -> None:
+            return None  # the request guard installs here; this double serves no requests
+
         async def new_page(self) -> FakePage:
             return FakePage()
 

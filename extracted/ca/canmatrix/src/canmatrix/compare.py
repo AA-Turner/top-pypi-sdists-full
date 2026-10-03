@@ -26,16 +26,12 @@ from builtins import *
 
 import attr
 
-from canmatrix.CanMatrix import CanMatrix
-from canmatrix.Ecu import Ecu
-from canmatrix.Frame import Frame
-from canmatrix.Signal import Signal
-from canmatrix.Define import Define
-from canmatrix.SignalGroup import SignalGroup
+import canmatrix
 
 logger = logging.getLogger(__name__)
 ConfigDict = typing.Optional[typing.Mapping[str, typing.Union[str, bool]]]
-WithAttribute = typing.TypeVar("WithAttribute", CanMatrix, Ecu, Frame, Signal)
+WithAttribute = typing.TypeVar("WithAttribute", canmatrix.CanMatrix, canmatrix.Ecu, canmatrix.Frame, canmatrix.Signal)
+
 
 @attr.s
 class CompareResult:
@@ -68,7 +64,7 @@ def propagate_changes(res):  # type: (CompareResult) -> int
 
 
 def compare_db(db1, db2, ignore=None):
-    # type: (CanMatrix, CanMatrix, ConfigDict) -> CompareResult
+    # type: (canmatrix.CanMatrix, canmatrix.CanMatrix, ConfigDict) -> CompareResult
     result = CompareResult()
     if ignore is None:
         ignore = dict()
@@ -181,7 +177,7 @@ def compare_value_table(vt1, vt2):
 
 
 def compare_signal_group(sg1, sg2):
-    # type: (SignalGroup.SignalGroup, SignalGroup) -> CompareResult
+    # type: (canmatrix.SignalGroup, canmatrix.SignalGroup) -> CompareResult
     result = CompareResult("equal", "SignalGroup", sg1)
 
     if sg1.name != sg2.name:
@@ -206,7 +202,7 @@ def compare_signal_group(sg1, sg2):
 
 
 def compare_define_list(d1list, d2list):
-    # type: (typing.Mapping[str, Define], typing.Mapping[str, Define]) -> CompareResult
+    # type: (typing.Mapping[str, canmatrix.Define], typing.Mapping[str, canmatrix.Define]) -> CompareResult
     result = CompareResult("equal", "DefineList", d1list)
     for definition in d1list:
         if definition not in d2list:
@@ -273,7 +269,7 @@ def compare_attributes(ele1, ele2, ignore=None):
 
 
 def compare_ecu(ecu1, ecu2, ignore=None):
-    # type: (Ecu, Ecu, ConfigDict) -> CompareResult
+    # type: (canmatrix.Ecu, canmatrix.Ecu, ConfigDict) -> CompareResult
     if ignore is None:
         ignore = dict()
     result = CompareResult("equal", "ECU", ecu1)
@@ -293,7 +289,7 @@ def compare_ecu(ecu1, ecu2, ignore=None):
 
 
 def compare_frame(f1, f2, ignore=None):
-    # type: (Frame, Frame, ConfigDict) -> CompareResult
+    # type: (canmatrix.Frame, canmatrix.Frame, ConfigDict) -> CompareResult
     if ignore is None:
         ignore = dict()
     result = CompareResult("equal", "FRAME", f1)
@@ -376,7 +372,7 @@ def compare_frame(f1, f2, ignore=None):
 
 
 def compare_signal(s1, s2, ignore=None):
-    # type: (Signal, Signal, ConfigDict) -> CompareResult
+    # type: (canmatrix.Signal, canmatrix.Signal, ConfigDict) -> CompareResult
     if ignore is None:
         ignore = dict()
     result = CompareResult("equal", "SIGNAL", s1)

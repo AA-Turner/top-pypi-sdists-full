@@ -2,7 +2,7 @@
 
 Production evidence (ops.ops_issue_class ``tool_result_overflow:sql``, 37 events
 2026-07-28 → 2026-09-24): every firing was ``action='query'`` — e.g.
-``workspace.tasks`` with ``limit=1000`` and a ``metadata`` column (1,814,404 chars),
+``projects.tasks`` with ``limit=1000`` and a ``metadata`` column (1,814,404 chars),
 ``chat.message`` with ``limit=10`` and ``content`` (55,774 chars),
 ``admin.feature_docs`` with ``fields=['*']`` (667,638 chars). The generic gate then
 sliced the serialized JSON mid-object. These tests drive both read paths (the
@@ -41,7 +41,7 @@ async def _run_rls(monkeypatch, rows: list[dict[str, Any]], **args: Any):
 
     monkeypatch.setattr(_ext, "get_scoped_query_runner", lambda: runner)
     return await database._sql_query_scoped(
-        {"table": "workspace.tasks", **args}, ToolContext(call_id="c-rls"), 1.0, "developer"
+        {"table": "projects.tasks", **args}, ToolContext(call_id="c-rls"), 1.0, "developer"
     )
 
 
@@ -50,7 +50,7 @@ async def _run_super(monkeypatch, rows: list[dict[str, Any]], **args: Any):
         return rows
 
     monkeypatch.setattr("matrx_orm.operations.dynamic_crud.dynamic_select", select)
-    return await database.db_query({"table": "workspace.tasks", **args}, ToolContext(call_id="c-su"))
+    return await database.db_query({"table": "projects.tasks", **args}, ToolContext(call_id="c-su"))
 
 
 @pytest.mark.asyncio
@@ -174,7 +174,7 @@ async def test_public_sql_entry_keeps_the_bound_after_kind_stamping(monkeypatch)
 
     monkeypatch.setattr(database, "_resolve_read_target", resolve)
     result = await database.sql(
-        {"action": "query", "table": "workspace.tasks", "limit": 1000},
+        {"action": "query", "table": "projects.tasks", "limit": 1000},
         ToolContext(call_id="c-pub"),
     )
     assert result.success is True

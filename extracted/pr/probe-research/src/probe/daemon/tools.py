@@ -96,7 +96,13 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: `artifact add` (presign / PUT / confirm), `notes push` and `notes sync` (their
 #: merge answers are not replayed), every delete, `artifact version-add`,
 #: `experiment freeze`, `version create`, `project code *`, `run end` (it may send
-#: more than the one allowlisted PATCH). A write that failed mid-way is reported,
+#: more than the one allowlisted PATCH), and `notes append` / `notes edit`: their
+#: entity routes are allowlisted, but each READS the note and sends a document
+#: built on what it read, so a retry after a write that landed builds a different
+#: body -- refused as a reused key, or, after a stale-version 409 shifted the key
+#: count, appended twice. Their `--team` routes (`/v1/team-note/apply/*`) are not
+#: on the allowlist at all, and the daemon may not pass `--team` anyway
+#: (`precheck`). A write that failed mid-way is reported,
 #: and the model checks what landed before it tries again. Any other write is
 #: never retried: the CLI cannot say that nothing was written.
 IDEMPOTENT_COMMANDS = frozenset({
@@ -104,7 +110,8 @@ IDEMPOTENT_COMMANDS = frozenset({
     "project set", "project tag", "project move", "experiment set", "experiment tag",
     "run set", "run tag", "run move", "group set",
     "artifact set", "artifact move", "paper add", "paper update", "paper tag",
-    "project reference add", "edge add", "views create", "views rename", "notes create", "notes rename",
+    "project reference add", "edge add", "views create", "views rename", "views update",
+    "notes create", "notes rename",
 })
 #: The tools that can write -- run a `probe` write, or a shell command that
 #: changes files. Their calls run one at a time, in the order the model made
@@ -582,8 +589,15 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
         return "not run: the command contains what looks like a credential.", None
     if len(command) > appr.COMMAND_CHARS and not auto:
         # G3: a question shows the whole command or none of it; a yes runs all of it.
-        return (f"not run: the command is {len(command)} characters - a question shows the researcher at most "
-                f"{appr.COMMAND_CHARS}."), None
+        # The check's own reason comes FIRST: it is what the daemon can change. Said
+        # alone, "too long to ask" sent it shortening a note write whose shape was
+        # the problem (`... EOF` then `probe notes push` in one command), until the
+        # loop detector cut the bite short (2026-10-03: 89 refusals in 30 days).
+        hint = ""
+        if "<<" not in command and sh.names_writable(command, cwd=cwd, home=deps.home, folders=deps.write_dirs):
+            hint = f" {sh.R_HEREDOC}"  # a note write in another shape: name the one that runs
+        return (f"not run: {scrub(verdict.reason)}{hint} It can't be asked about either: the command is "
+                f"{len(command)} characters, and a question shows the researcher at most {appr.COMMAND_CHARS}."), None
     if stdin is not None and not auto:
         # A yes runs later, from the worker: the probe output it would read is gone by then.
         return (f"not run: `{command}` is not on the safe list ({verdict.reason}), and a question can't carry the "

@@ -458,6 +458,10 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str | None = None,
         platform: str | None = None,
         status: str | None = None,
+        search: str | None = None,
+        category: str | None = None,
+        sort: str | None = None,
+        order: str = "asc",
         include_over_limit: bool = False,
         page: int | None = None,
         limit: int | None = None,
@@ -470,6 +474,10 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
             platform: Filter accounts by platform (e.g. "instagram", "twitter").
             status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
+            search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
+            category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
+            sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
+            order: Direction for `sort`.
             include_over_limit: When true, includes accounts from over-limit profiles.
             page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
             limit: Page size. Must be provided together with page; sending only one of the two returns 400.
@@ -481,6 +489,10 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 platform=platform,
                 status=status,
+                search=search,
+                category=category,
+                sort=sort,
+                order=order,
                 include_over_limit=include_over_limit,
                 page=page,
                 limit=limit,
@@ -5670,6 +5682,26 @@ def register_generated_tools(mcp, _get_client):
                 asset_resource_names=asset_resource_names,
                 ad_group_asset_resource_names=ad_group_asset_resource_names,
             )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read the platform's review verdict for an ad",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_ad_review(ad_id: str) -> str:
+        """Read the platform's review verdict for an ad
+
+        Args:
+            ad_id: Zernio ad id (24-char hex) or the platform ad id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_ad_review(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -15777,8 +15809,9 @@ def register_generated_tools(mcp, _get_client):
     )
     def connect_select_google_business_location(
         profile_id: str,
-        location_id: str,
         pending_data_token: str,
+        location_id: str | None = None,
+        locations: list[dict[str, Any]] | None = None,
         account_id: str | None = None,
         redirect_url: str | None = None,
     ) -> str:
@@ -15786,7 +15819,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Profile ID from your connection flow (required)
-            location_id: The Google Business Profile location ID selected by the user (required)
+            location_id: The Google Business Profile location ID selected by the user. Send this or locations, not both.
+            locations: Several locations to connect from one sign-in, each as its own account. The sign-in is used once for the whole batch and handed back only if none connected. With two or more distinct locations the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect. A single location behaves exactly like locationId.
             account_id: Optional but recommended. The Google Business Profile Account resource name ("accounts/123") that owns the selected location (returned per-location by GET /v1/connect/googlebusiness/locations). When provided, the location is resolved directly instead of by enumerating the account, which is required for accounts that own many locations. Omit only for small accounts.
             pending_data_token: Token from the OAuth callback redirect (pendingDataToken query param). Tokens and profile data are retrieved server-side from this token. (required)
             redirect_url: Optional custom redirect URL to return to after selection"""
@@ -15795,6 +15829,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.select_google_business_location(
                 profile_id=profile_id,
                 location_id=location_id,
+                locations=locations,
                 account_id=account_id,
                 pending_data_token=pending_data_token,
                 redirect_url=redirect_url,
@@ -16263,17 +16298,29 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_discord_channel(guild_id: str, channel_id: str, profile_id: str) -> str:
+    def connect_discord_channel(
+        guild_id: str,
+        profile_id: str,
+        channel_id: str | None = None,
+        channel_ids: list[str] | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
         """Connect a Discord channel
 
         Args:
             guild_id: Discord server (guild) the channel belongs to (required)
-            channel_id: Text, announcement or forum channel to publish to (required)
-            profile_id: Profile to connect the channel to (required)"""
+            channel_id: Text, announcement or forum channel to publish to. Send this or channelIds, not both.
+            channel_ids: Several channels of the server to connect, each as its own account. With two or more distinct ids the response lists `accounts` and `failed` instead of `account`. A single id behaves exactly like channelId.
+            profile_id: Profile to connect the channel to (required)
+            redirect_url: channelIds only: a URL to return in `redirect_url`, with `connected`, `profileId`, `accountId` and `accountIds` appended."""
         client = _get_client()
         try:
             response = client.connect.connect_discord_channel(
-                guild_id=guild_id, channel_id=channel_id, profile_id=profile_id
+                guild_id=guild_id,
+                channel_id=channel_id,
+                channel_ids=channel_ids,
+                profile_id=profile_id,
+                redirect_url=redirect_url,
             )
             return _format_response(response)
         except Exception as e:
@@ -16325,7 +16372,9 @@ def register_generated_tools(mcp, _get_client):
     )
     def connect_slack_channel(
         profile_id: str,
-        channel_id: str,
+        channel_id: str | None = None,
+        channel_ids: list[str] | None = None,
+        redirect_url: str | None = None,
         pending_data_token: str | None = None,
         account_id: str | None = None,
     ) -> str:
@@ -16333,7 +16382,9 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: (required)
-            channel_id: Slack channel id, C... or G... (required)
+            channel_id: Slack channel id, C... or G.... Send this or channelIds, not both.
+            channel_ids: Several channels of the workspace to connect, each as its own account. With two or more distinct ids the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect. A single id behaves exactly like channelId.
+            redirect_url: channelIds only: a URL to return in `redirect_url`, with `connected`, `profileId`, `accountId` and `accountIds` appended.
             pending_data_token: Nonce from the OAuth redirect. Required unless accountId is sent.
             account_id: Existing Slack account whose workspace token is reused. Required unless pendingDataToken is sent."""
         client = _get_client()
@@ -16341,6 +16392,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.connect_slack_channel(
                 profile_id=profile_id,
                 channel_id=channel_id,
+                channel_ids=channel_ids,
+                redirect_url=redirect_url,
                 pending_data_token=pending_data_token,
                 account_id=account_id,
             )
@@ -23218,6 +23271,31 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.phone_numbers.delete_phone_number_stock_watch(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Request the WhatsApp verification code for a number",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def phone_numbers_request_phone_number_whats_app_code(
+        id: str, method: str | None = None
+    ) -> str:
+        """Request the WhatsApp verification code for a number
+
+        Args:
+            id: Phone number record ID (from GET /v1/phone-numbers). (required)
+            method: Delivery method for the code. Omit to let Zernio pick (SMS when the number can receive it, else VOICE)."""
+        client = _get_client()
+        try:
+            response = client.phone_numbers.request_phone_number_whats_app_code(
+                id=id, method=method
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -30390,16 +30468,20 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get pricing analytics
 
-        Args:
-            account_id: WhatsApp account ID (required)
-            start: Range start, ISO 8601 date or date-time. (required)
-            end: Range end, ISO 8601 date or date-time. Must be after start. (required)
-            granularity: (required)
-            dimensions: Comma-separated breakdowns: COUNTRY, PHONE, PRICING_CATEGORY, PRICING_TYPE, TIER. Without it each data point is a total for the interval.
-            metric_types: Comma-separated: COST, VOLUME. Defaults to both.
-            pricing_types: Comma-separated filter: REGULAR, FREE_CUSTOMER_SERVICE, FREE_ENTRY_POINT.
-            pricing_categories: Comma-separated filter of Meta pricing categories, for example MARKETING, MARKETING_LITE, UTILITY, AUTHENTICATION, AUTHENTICATION_INTERNATIONAL, SERVICE, REFERRAL_CONVERSION.
-            country_codes: Comma-separated ISO 3166-1 alpha-2 country codes to filter on."""
+            Args:
+                account_id: WhatsApp account ID (required)
+                start: Range start, ISO 8601 date or date-time. (required)
+                end: Range end, ISO 8601 date or date-time. Must be after start. (required)
+                granularity: Size of each data point. Meta refuses MONTHLY when the range is too short for a
+        monthly bucket (for example a range that starts at the beginning of the current
+        month and ends today); that is a 400 with `param: granularity` and Meta's reason
+        in `error`. Use DAILY for short or month-to-date ranges.
+         (required)
+                dimensions: Comma-separated breakdowns: COUNTRY, PHONE, PRICING_CATEGORY, PRICING_TYPE, TIER. Without it each data point is a total for the interval.
+                metric_types: Comma-separated: COST, VOLUME. Defaults to both.
+                pricing_types: Comma-separated filter: REGULAR, FREE_CUSTOMER_SERVICE, FREE_ENTRY_POINT.
+                pricing_categories: Comma-separated filter of Meta pricing categories, for example MARKETING, MARKETING_LITE, UTILITY, AUTHENTICATION, AUTHENTICATION_INTERNATIONAL, SERVICE, REFERRAL_CONVERSION.
+                country_codes: Comma-separated ISO 3166-1 alpha-2 country codes to filter on."""
         client = _get_client()
         try:
             response = client.whatsapp_phone_numbers.get_whats_app_pricing_analytics(

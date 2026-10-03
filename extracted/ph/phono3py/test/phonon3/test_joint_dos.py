@@ -289,7 +289,7 @@ def test_jdos_exclude_gamma_acoustic(
         nacl_pbe, [7, 7, 7], nac_params=nacl_pbe.nac_params, exclude_gamma_acoustic=True
     )
     jdos.run_phonon_solver()
-    frequencies = jdos.get_phonons()[0]
+    frequencies = jdos.phonons.frequencies
     assert frequencies is not None
     gp_Gamma = jdos.bz_grid.gp_Gamma
     np.testing.assert_array_equal(frequencies[gp_Gamma, :3], 0)
@@ -416,6 +416,18 @@ def test_jdos_nacl_nac_gamma_at_300K_npoints(nacl_pbe: Phono3py):
     )
 
 
+def test_jdos_get_phonons_deprecated(si_pbesol: Phono3py):
+    """Test that get_phonons is deprecated and returns the phonons property."""
+    jdos = _get_jdos(si_pbesol, [7, 7, 7])
+    jdos.set_grid_point(1)
+    with pytest.warns(DeprecationWarning, match="get_phonons"):
+        frequencies, eigenvectors, phonon_done = jdos.get_phonons()
+    assert jdos.phonons is not None
+    assert frequencies is jdos.phonons.frequencies
+    assert eigenvectors is jdos.phonons.eigenvectors
+    assert phonon_done is jdos.phonons.phonon_done
+
+
 def test_jdos_nac_direction_phonon_NaCl(nacl_pbe: Phono3py):
     """Test JDOS of NaCl with nac_q_direction."""
     jdos = _get_jdos(
@@ -425,7 +437,7 @@ def test_jdos_nac_direction_phonon_NaCl(nacl_pbe: Phono3py):
     )
     jdos.nac_q_direction = [1, 0, 0]
     jdos.set_grid_point(0)
-    frequencies, _, _ = jdos.get_phonons()
+    frequencies = jdos.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 7.41183870], rtol=0, atol=1e-6
     )
@@ -465,7 +477,7 @@ def test_jdos_nac_direction_phonon_NaCl_second_no_error(nacl_pbe: Phono3py):
     jdos.set_grid_point(0)
     jdos.nac_q_direction = None
     jdos.set_grid_point(1)
-    frequencies, _, _ = jdos.get_phonons()
+    frequencies = jdos.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 4.59488262], rtol=0, atol=1e-6
     )

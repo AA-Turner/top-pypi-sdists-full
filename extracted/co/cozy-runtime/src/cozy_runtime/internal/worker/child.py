@@ -41,8 +41,24 @@ from pathlib import Path
 from typing import Any, NotRequired, TypedDict, Unpack
 
 from cozy_runtime import __version__ as RUNTIME_VERSION
-from cozy_runtime.author._executor_requests import Handler, respond
-from cozy_runtime.internal import accel, executor_commands, jit_cache, liveness, proctree, spawn
+from cozy_runtime.author._executor_requests import (
+    Answer,
+    BudgetCell,
+    Handler,
+    Reply,
+    Request,
+    refuse,
+    respond,
+)
+from cozy_runtime.internal import (
+    accel,
+    budget_cell,
+    executor_commands,
+    jit_cache,
+    liveness,
+    proctree,
+    spawn,
+)
 from cozy_runtime.internal.child_env import (
     ALLOWLIST,
     EXECUTOR_SCOPE_ENV,
@@ -76,6 +92,12 @@ HELLO_SECONDS = 10.0
 #: has provably stopped moving (`liveness.Pace`, against the runtime's one noise floor). A
 #: 100 GB context whose teardown takes a minute is moving the whole time and is waited for.
 RECLAIM_SAMPLE_SECONDS = 0.25
+
+#: The weight plane copies to the device from read-only file mappings.
+SIGBUS_MEANS = (
+    ": a read fault on mapped weights (a disk read error, or a store object changed under "
+    "its mapping)"
+)
 
 
 def work(pid: int) -> int:
@@ -111,6 +133,21 @@ class ExecutorGone(Exception):
         super().__init__(detail)
         self.detail = detail
         self.status = status
+
+
+def death(status: int | None, name: object) -> str:
+    """An executor's end during `name`, from its wait status; "died" when none was readable."""
+    if status is None or status < 0:
+        return f"the executor died during {name!r}"
+    code = os.waitstatus_to_exitcode(status)
+    if code >= 0:
+        return f"the executor exited with status {code} during {name!r}"
+    try:
+        cause = signal.Signals(-code).name
+    except ValueError:
+        cause = f"signal {-code}"
+    killed = f"the executor was killed by {cause} during {name!r}"
+    return killed + SIGBUS_MEANS if code == -signal.SIGBUS else killed
 
 
 class ExecutorProtocolMismatch(ExecutorGone):
@@ -194,6 +231,9 @@ class Executor:
     #: the longest gap between frames this process has shown across its attempts (seconds);
     #: a later cancel's patience is never derived from less
     worst_pause: float = 0.0
+    #: its plane budget cell (`budget_cell`), handed over at its first load; None before, or
+    #: from an executor older than the cell
+    cell: budget_cell.Cell | None = None
     _calls: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -237,7 +277,10 @@ class Executor:
         with self._calls:
             name = command.__struct_config__.tag
             deadline = time.monotonic() + total_timeout if total_timeout is not None else None
-            self.channel.send(executor_commands.encode(command))
+            try:
+                self.channel.send(executor_commands.encode(command))
+            except OSError as exc:  # its seam is closed: it was reaped (a broken group's rank 0)
+                raise ExecutorGone(f"seam: {exc}", self.exit_status) from exc
             while True:
                 try:
                     remaining = None if deadline is None else max(deadline - time.monotonic(), 0)
@@ -245,11 +288,7 @@ class Executor:
                 except SeamError as exc:
                     raise ExecutorGone(f"seam: {exc}") from exc
                 if frame is None:
-                    raise ExecutorGone(
-                        self.wedged
-                        or f"the executor died during {name!r} (exit status {self.exit_status})",
-                        self.exit_status,
-                    )
+                    raise self._gone(name)
                 if frame.get("event") == "progress":
                     if on_progress is not None:
                         try:
@@ -258,13 +297,23 @@ class Executor:
                             _LOG.warning("dropped an executor progress frame: %r", exc)
                     continue
                 if frame.get("event") == "request":
-                    answer, handoff = respond(frame, on_request)
+                    try:
+                        received = (
+                            self.channel.recv_memfd() if frame.get("descriptor") is True else None
+                        )
+                    except SeamError as exc:
+                        raise ExecutorGone(f"seam: {exc}") from exc
+                    answer, handoff = respond(frame, self._cells(on_request), received)
                     try:
                         self.channel.send(answer)
-                        if handoff is not None:
+                        if isinstance(handoff, int):
+                            self.channel.send_memfd(handoff)
+                        elif handoff is not None:
                             self.channel.send_descriptor(handoff)
                     finally:
-                        if handoff is not None:
+                        if isinstance(handoff, int):
+                            os.close(handoff)
+                        elif handoff is not None:
                             handoff.close()
                     continue
                 if "reply" not in frame and frame.get("event") is not None:
@@ -273,6 +322,60 @@ class Executor:
                 if frame.get("reply") != name:
                     raise ExecutorGone(f"out-of-order reply {frame.get('reply')!r} for {name!r}")
                 return frame
+
+    def _gone(self, name: object) -> ExecutorGone:
+        """This process's death during `name`, read without reaping: retirement owns that."""
+        if self.wedged:
+            return ExecutorGone(self.wedged, self.exit_status)
+        status: int | None = None
+        with (
+            contextlib.suppress(OSError),
+            contextlib.closing(proctree.observe_process_exit(self.process)) as exited,
+        ):
+            # Its seam closed before its exit is reportable. One that is exiting is waited for,
+            # however long its device teardown takes; one that only closed its seam is not.
+            if proctree.dying(self.process):
+                exited.wait()
+                status = proctree.peek_child_exit(self.process)
+        if status is None:
+            status = self.exit_status
+        return ExecutorGone(death(status, name), status)
+
+    def _cells(self, handler: Handler | None) -> Handler | None:
+        """Keep this executor's budget cell; every other request goes to `handler`."""
+
+        def answer(request: Request) -> Reply:
+            if isinstance(request, BudgetCell):
+                if self.cell is not None:
+                    self.cell.close()
+                try:
+                    self.cell = budget_cell.Cell(request.memfd)
+                finally:
+                    os.close(request.memfd)
+                return Answer(ok=True)
+            if handler is None:
+                return refuse("no_durable_exchange", f"no handler for {request!r}"[:200])
+            return handler(request)
+
+        return answer
+
+    def cut(self, vram_bytes: int, *, every: float = 0.005) -> int | None:
+        """Lower (or raise) a running call's plane budget at its next block boundary: the
+        bytes it applied, or None when it has no cell or its call ended first (the next call
+        carries its grant). Waits on the call itself, never on a clock."""
+        cell = self.cell
+        if cell is None:
+            return None
+        ticket = cell.ask(vram_bytes)
+        while (applied := cell.answered(ticket)) is None:
+            if not (self.busy() and self.alive()):
+                return cell.answered(ticket)
+            threading.Event().wait(every)
+        return applied
+
+    def busy(self) -> bool:
+        """A call holds the seam now (an attempt, a load): a new one would wait for it."""
+        return self._calls.locked()
 
     @contextlib.contextmanager
     def watched(self, what: str) -> Iterator[None]:
@@ -321,6 +424,9 @@ class Executor:
 
     def close(self) -> None:
         self.channel.close()
+        if self.cell is not None:
+            self.cell.close()
+            self.cell = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -423,9 +529,9 @@ class ExecutorSupervision:
                 flush=True,
             )
             self._root_lease = proctree.acquire_worker_root_lease(lock, wait=True)
-        # Rank 0 writes warm-call tensors before any request has an attempt spool.
-        # Provision that subtree before dropping privileges; the worker root remains
-        # traverse-only for the executor and cannot be created beneath by that UID.
+        # An older executor's rank 0 writes `Model.warm`'s call tensors before any request has
+        # an attempt spool. Provision that subtree before dropping privileges; the worker root
+        # remains traverse-only for the executor and cannot be created beneath by that UID.
         warm = self.root / "warm"
         warm.mkdir(mode=0o700, exist_ok=True)
         if self.isolated:
@@ -528,6 +634,9 @@ class ExecutorSupervision:
         pids = {process.pid for process in processes}
         if self._device_process is not None:
             return {pid: self._device_process(pid) for pid in pids}
+        if not self.devices:
+            # Sealed to no device: it cannot hold device memory, and no driver is asked.
+            return {pid: accel.ProcessMemory("absent", 0) for pid in pids}
         return accel.process_memories(pids, accel.host_backend_family())
 
     def _owner_payload(self, owner: OwnerRecord) -> str:

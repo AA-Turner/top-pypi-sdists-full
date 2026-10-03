@@ -1,0 +1,264 @@
+"""Run inference under a timeout, in a forked subprocess where one is available."""
+
+# ruff: file-ignore[blind-except, docstring-missing-exception]
+
+import faulthandler
+import gc
+import mmap
+import multiprocessing as mp
+import os
+import signal
+import sys
+import threading
+import time
+import warnings
+from collections.abc import Callable
+from concurrent.futures import Future
+from contextlib import closing, suppress
+from multiprocessing.connection import Connection
+from multiprocessing.process import BaseProcess
+from pathlib import Path
+
+import optype.infer._spy as _spy  # ruff: ignore[manual-from-import]
+from ._errors import WARN_SKIP_PREFIX, InferError, describe
+from ._gc import cyclic_gc
+
+_MAX_STATE_SIZE = 4096
+
+_S_TIMEOUT = 60.0
+_S_GRACE = 1.0
+_S_POLL = 0.01
+
+
+def _detach_stdio(send: Connection) -> Connection:
+    # a spy's `__index__` is 0 or 1, so an fd op in the target lands on these; with
+    # the host's stdio closed, the pipe or `/dev/null` itself may already sit there
+    fd = send.fileno()
+    while fd <= 2:
+        fd = os.dup(fd)  # a low copy is redirected below
+    if fd != send.fileno():
+        send = Connection(fd, readable=False)
+    null = os.open(os.devnull, os.O_RDWR)
+    for low in (0, 1, 2):
+        if low != null:
+            os.dup2(null, low)
+    if null > 2:
+        os.close(null)
+    return send
+
+
+def _child(work: Callable[[], object], send: Connection, buf: mmap.mmap) -> None:
+    os.setsid()  # own session, so the target's `kill(0)`/`killpg` can't reach the host
+    send = _detach_stdio(send)
+    pid = os.getpid()
+    faulthandler.disable()  # report a native crash via InferError, not a C-level dump
+    _spy.set_state_buffer(buf)
+    cyclic_gc.stay_paused()  # the garbage dies with this process
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            payload, ok, cause = work(), True, None
+        except BaseException as exc:
+            payload, ok = _outcome(exc), False
+            cause = payload.__cause__
+
+        warns = [(str(w.message), w.category) for w in caught]
+
+        if os.getpid() != pid:
+            os._exit(0)  # the target forked; only the original child may send
+
+        try:
+            send.send((ok, payload, cause, warns))
+        except Exception:
+            # a spy in the exception won't pickle
+            if isinstance(payload, InferError):
+                fallback = InferError(str(payload))  # already described
+            elif isinstance(payload, BaseException):
+                fallback = InferError(describe(payload))
+            else:
+                fallback = payload
+            send.send((ok, fallback, None, warns))
+
+
+def _read_state(buf: mmap.mmap) -> str:
+    buf.seek(0)
+    return buf.read().split(b"\x00", 1)[0].decode("utf-8", "replace")
+
+
+def _wait_exit(pid: int) -> bool:
+    # `WNOWAIT` keeps the zombie, so the pid (= pgid) can't be recycled before the sweep
+    if not hasattr(os, "waitid"):
+        return True
+
+    flags = os.WEXITED | os.WNOHANG | os.WNOWAIT
+    for _ in range(round(_S_GRACE / _S_POLL)):
+        try:
+            if os.waitid(os.P_PID, pid, flags) is not None:
+                return True
+        except ChildProcessError:
+            return True
+
+        time.sleep(_S_POLL)
+
+    return False
+
+
+def _kill_tree(proc: BaseProcess) -> None:
+    # sweep before join: an unreaped child can't have its pid (= pgid) recycled
+    if proc.pid is not None:
+        with suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGKILL)
+    proc.kill()
+    proc.join()
+
+
+def _outcome(exc: BaseException) -> BaseException:
+    # the child has its own session and a thread gets no signals, so an interrupt
+    # came from the target itself (e.g. `signal.default_int_handler`)
+    if isinstance(exc, KeyboardInterrupt):
+        error = InferError("the function raised KeyboardInterrupt")
+        error.__cause__ = exc
+        return error
+    return exc
+
+
+def _timeout_error(*details: str) -> InferError:
+    exc = InferError("inference timed out")
+    for detail in details:
+        if detail:
+            exc.add_note(detail)
+    return exc
+
+
+def _blocked_at(thread: threading.Thread) -> str:
+    # `sys._current_frames` is a CPython debugging aid; elsewhere there is no note
+    if not hasattr(sys, "_current_frames"):
+        return ""
+
+    frames = sys._current_frames()  # ruff: ignore[private-member-access]
+    if (frame := frames.get(thread.ident or -1)) is None:
+        return ""
+
+    code = frame.f_code
+    where = f"{Path(code.co_filename).name}:{frame.f_lineno}"
+    return f"blocked at: {where} in {code.co_qualname}"
+
+
+def _crash_error(sig: int, state: str) -> InferError:
+    exc = InferError("inference crashed the interpreter")
+    try:
+        exc.add_note(f"signal: {signal.Signals(sig).name} ({sig})")
+    except ValueError:
+        exc.add_note(f"signal: {sig}")
+    if state:
+        exc.add_note(f"spy state: {state}")
+    return exc
+
+
+def _no_result_error(proc: BaseProcess, buf: mmap.mmap, *, exited: bool) -> InferError:
+    code = proc.exitcode
+    state = _read_state(buf)
+    if exited and code and code < 0:
+        return _crash_error(-code, state)
+
+    exc = InferError("inference produced no result")
+    if state:
+        exc.add_note(f"spy state: {state}")
+    if exited:
+        exc.add_note(f"exit code: {code}")
+    else:
+        exc.add_note("the subprocess was killed after breaking its result pipe")
+    return exc
+
+
+def _inline[T](work: Callable[[], T]) -> T:
+    """Run `work` on a worker thread, containing exploration debris like a fork child.
+
+    A leaked explored object can raise from its deallocator, through a spy or a
+    warnings-as-errors filter; that noise dies with a fork child, so it is muted
+    here too. A thread cannot be killed, so one that hits the timeout keeps running
+    until the process exits, and the call raises.
+    """
+
+    def run() -> None:
+        try:
+            outcome.set_result(work())
+        except BaseException as exc:
+            outcome.set_exception(_outcome(exc))
+
+    def mute(_: object, /) -> None: ...
+
+    outcome: Future[T] = Future()
+    thread = threading.Thread(target=run, daemon=True)
+
+    hook = sys.unraisablehook
+    sys.unraisablehook = mute
+    try:
+        # held here, not in the thread, which never unwinds once abandoned
+        with cyclic_gc.pause():
+            thread.start()
+            thread.join(_S_TIMEOUT)
+
+            if thread.is_alive():
+                blocked = _blocked_at(thread)
+                raise _timeout_error(blocked, "blocked thread was abandoned")
+
+        gc.collect()  # finalize the explored garbage while the hook is muted
+    finally:
+        sys.unraisablehook = hook
+
+    return outcome.result()
+
+
+def isolate[T](work: Callable[[], T]) -> T:
+    """Run `work` in a forked subprocess so a native crash becomes an `InferError`.
+
+    Without `fork` it runs on a worker thread, which keeps the timeout but not the
+    crash containment.
+    """
+    if not hasattr(os, "fork"):
+        return _inline(work)
+
+    ctx = mp.get_context("fork")
+    recv, send = ctx.Pipe(duplex=False)
+    with closing(recv), closing(mmap.mmap(-1, _MAX_STATE_SIZE)) as buf:
+        proc = ctx.Process(target=_child, args=(work, send, buf))
+        try:
+            with warnings.catch_warnings():
+                # multi-threaded fork warns; we'd otherwise error on it
+                warnings.simplefilter("ignore", DeprecationWarning)
+                proc.start()
+        except OSError:
+            return _inline(work)
+        finally:
+            # close the parent's write end so a dead child yields EOF, not a hang
+            send.close()
+
+        try:
+            if not recv.poll(_S_TIMEOUT):
+                state = _read_state(buf)
+                raise _timeout_error(f"spy state: {state}" if state else "")
+
+            exited = True
+            try:
+                received = recv.recv()
+            except Exception:
+                # dead child: EOF or truncated pickle
+                received = None
+                exited = proc.pid is not None and _wait_exit(proc.pid)
+        finally:
+            # also on a host-side interrupt, which the child's session shields it from
+            _kill_tree(proc)
+
+        if received is None:
+            raise _no_result_error(proc, buf, exited=exited)
+
+        ok, payload, cause, warns = received
+        for message, category in warns:
+            warnings.warn(message, category, skip_file_prefixes=(WARN_SKIP_PREFIX,))
+
+        if not ok:
+            raise payload from cause
+
+        return payload

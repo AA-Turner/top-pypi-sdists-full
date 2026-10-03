@@ -6,6 +6,20 @@ from .browser_args import (
     CloudBrowserArgs,
 )
 from .db_args import DbInsertArgs, DbQueryArgs, DbSchemaArgs, DbUpdateArgs, SqlArgs
+from .desktop_args import (
+    DesktopAppsArgs,
+    DesktopClipboardArgs,
+    DesktopInputArgs,
+    DesktopPowerArgs,
+    DesktopProcessArgs,
+    DesktopResourcesArgs,
+    DesktopScreenArgs,
+    DesktopSystemArgs,
+    DesktopTranscribeArgs,
+    DesktopWindowArgs,
+    FsWatchArgs,
+    ShellJobArgs,
+)
 from .dictionary_args import DictionaryArgs
 from .dispatcher_args import (
     CloudFileArgs,
@@ -49,6 +63,18 @@ from .web_args import (
 )
 
 __all__ = [
+    "DesktopAppsArgs",
+    "DesktopClipboardArgs",
+    "DesktopInputArgs",
+    "DesktopPowerArgs",
+    "DesktopProcessArgs",
+    "DesktopResourcesArgs",
+    "DesktopScreenArgs",
+    "DesktopSystemArgs",
+    "DesktopTranscribeArgs",
+    "DesktopWindowArgs",
+    "FsWatchArgs",
+    "ShellJobArgs",
     "WebSearchArgs",
     "WebReadArgs",
     "WebArgs",

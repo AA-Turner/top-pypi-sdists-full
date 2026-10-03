@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.domain import Domain
+from ..types.domain_list_item import DomainListItem
 from .raw_client import AsyncRawDomainsClient, RawDomainsClient
 from .types.list_domains_request_direction import ListDomainsRequestDirection
 from .types.list_domains_request_order import ListDomainsRequestOrder
@@ -43,10 +44,14 @@ class DomainsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[Domain, ListDomainsResponse]:
+    ) -> SyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists the caller's domain claims and assignments. Filter by account, app, or lifecycle status.
+        Lists your domains. Filter by account, app, or status.
+
+        Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
         Parameters
         ----------
@@ -77,12 +82,18 @@ class DomainsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        search : typing.Optional[str]
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+
+        tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SyncPager[Domain, ListDomainsResponse]
+        SyncPager[DomainListItem, ListDomainsResponse]
             Domain list
 
         Examples
@@ -90,11 +101,13 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
-        response = client.domains.list()
+        response = client.domains.list(
+            tlds=["com"],
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -111,6 +124,8 @@ class DomainsClient:
             after=after,
             last=last,
             before=before,
+            search=search,
+            tlds=tlds,
             request_options=request_options,
         )
 
@@ -125,7 +140,7 @@ class DomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Domain:
         """
-        Creates an unverified claim and returns DNS instructions. A claim does not reserve the hostname globally. Publish its unique TXT record; ownership verification, DNS checks, and certificate provisioning run automatically. Unverified claims are deleted after 48 hours.
+        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
 
         Parameters
         ----------
@@ -157,7 +172,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -178,12 +193,14 @@ class DomainsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Retrieves the claim, app assignment, DNS instructions, and the latest hostname and certificate state. For domains still connecting, needing attention, or being deleted, requests an immediate background check.
+        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+
+        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -198,7 +215,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -211,12 +228,12 @@ class DomainsClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Stops resolving the domain to its app and queues Cloudflare cleanup. The response is deleting; retrieve the resource until it is removed.
+        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -231,7 +248,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -256,7 +273,7 @@ class DomainsClient:
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         app_id : typing.Optional[str]
             App ID, prefixed app_. Must belong to the same account.
@@ -277,7 +294,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -316,10 +333,14 @@ class AsyncDomainsClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[Domain, ListDomainsResponse]:
+    ) -> AsyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists the caller's domain claims and assignments. Filter by account, app, or lifecycle status.
+        Lists your domains. Filter by account, app, or status.
+
+        Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
         Parameters
         ----------
@@ -350,12 +371,18 @@ class AsyncDomainsClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
+        search : typing.Optional[str]
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+
+        tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncPager[Domain, ListDomainsResponse]
+        AsyncPager[DomainListItem, ListDomainsResponse]
             Domain list
 
         Examples
@@ -365,14 +392,16 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
 
 
         async def main() -> None:
-            response = await client.domains.list()
+            response = await client.domains.list(
+                tlds=["com"],
+            )
             async for item in response:
                 yield item
 
@@ -393,6 +422,8 @@ class AsyncDomainsClient:
             after=after,
             last=last,
             before=before,
+            search=search,
+            tlds=tlds,
             request_options=request_options,
         )
 
@@ -407,7 +438,7 @@ class AsyncDomainsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Domain:
         """
-        Creates an unverified claim and returns DNS instructions. A claim does not reserve the hostname globally. Publish its unique TXT record; ownership verification, DNS checks, and certificate provisioning run automatically. Unverified claims are deleted after 48 hours.
+        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
 
         Parameters
         ----------
@@ -441,7 +472,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -468,12 +499,14 @@ class AsyncDomainsClient:
 
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Retrieves the claim, app assignment, DNS instructions, and the latest hostname and certificate state. For domains still connecting, needing attention, or being deleted, requests an immediate background check.
+        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+
+        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -490,7 +523,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -509,12 +542,12 @@ class AsyncDomainsClient:
 
     async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Stops resolving the domain to its app and queues Cloudflare cleanup. The response is deleting; retrieve the resource until it is removed.
+        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -531,7 +564,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -562,7 +595,7 @@ class AsyncDomainsClient:
         Parameters
         ----------
         id : str
-            Domain ID, prefixed dom_.
+            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
 
         app_id : typing.Optional[str]
             App ID, prefixed app_. Must belong to the same account.
@@ -585,7 +618,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

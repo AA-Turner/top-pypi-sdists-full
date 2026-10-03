@@ -23,6 +23,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "ide_state_fields",
+    disposition="record",
     label="IDE State",
     family="tool_execution",
     example={

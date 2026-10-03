@@ -25,7 +25,7 @@ ESI_USER_CONTACT_EMAIL = getattr(settings, 'ESI_USER_CONTACT_EMAIL', None)
 This will be included in the User-Agent header of every request.
 """
 
-# https://www.python-httpx.org/advanced/resource-limits/
+# https://pydantic.dev/docs/httpx2/advanced/resource-limits/
 ESI_CONNECTION_POOL_MAX_CONNECTIONS = getattr(settings, 'ESI_CONNECTION_POOL_MAX_CONNECTIONS', 100)
 """Maximum number of allowable connections"""
 
@@ -42,7 +42,27 @@ ESI_SERVER_ERROR_MAX_RETRIES = getattr(settings, 'ESI_SERVER_ERROR_MAX_RETRIES',
 ESI_SERVER_ERROR_WAIT_EXPONENT = getattr(settings, 'ESI_SERVER_ERROR_WAIT_EXPONENT', 1)
 """"""
 
-# https://www.python-httpx.org/advanced/timeouts/
+ESI_SSO_USER_AGENT = getattr(settings, 'ESI_SSO_USER_AGENT', None)
+"""Override the User-Agent sent on requests to the EVE SSO.
+
+Defaults to Django-ESI's own User-Agent, including ESI_USER_CONTACT_EMAIL.
+"""
+
+ESI_SSO_MAX_RETRIES = getattr(settings, 'ESI_SSO_MAX_RETRIES', 3)
+"""Max attempts for a request to the EVE SSO
+on connection errors, timeouts, 429, 502, 503 and 504 responses."""
+
+ESI_SSO_WAIT_EXPONENT = getattr(settings, 'ESI_SSO_WAIT_EXPONENT', 1)
+"""Exponential backoff multiplier between EVE SSO retries,
+used when the SSO does not send a Retry-After header."""
+
+ESI_SSO_MAX_RETRY_AFTER = getattr(settings, 'ESI_SSO_MAX_RETRY_AFTER', 60)
+"""Longest Retry-After in seconds that will be waited on before retrying an EVE SSO request.
+
+Longer waits are not retried, to avoid blocking a worker.
+"""
+
+# https://pydantic.dev/docs/httpx2/advanced/timeouts/
 ESI_REQUESTS_CONNECT_TIMEOUT = getattr(settings, 'ESI_REQUESTS_CONNECT_TIMEOUT', 5)
 """Default connection timeouts for all requests to ESI."""
 

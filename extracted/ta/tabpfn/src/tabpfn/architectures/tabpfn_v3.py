@@ -25,10 +25,11 @@ Copyright (c) Prior Labs GmbH 2026.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import logging as _logging
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from typing import TYPE_CHECKING, Any, Literal, cast
 from typing_extensions import override
@@ -41,8 +42,10 @@ import torch.utils.checkpoint
 from torch import nn
 
 from tabpfn.architectures.interface import (
+    DEFAULT_ESTIMATOR_BATCH_BUDGET,
     Architecture,
     ArchitectureConfig,
+    EstimatorBatchBudget,
     PerformanceOptions,
 )
 from tabpfn.architectures.kv_cache import (
@@ -50,6 +53,10 @@ from tabpfn.architectures.kv_cache import (
     KVCache,
     KVCacheEntry,
     QuantizedKVCacheEntry,
+)
+from tabpfn.architectures.shared.attention_backends import (
+    kv_grid_dtype,
+    recorded_attention_backends,
 )
 from tabpfn.architectures.shared.chunked_evaluate import chunked_evaluate_maybe_inplace
 from tabpfn.architectures.shared.scaled_dot_product_attention import (
@@ -156,8 +163,29 @@ class TabPFNV3Config(ArchitectureConfig):
     of the cell embedder."""
 
     # ---- Memory-efficient inference ----
-    inference_row_chunk_size: int = 2048
-    """Max rows per Stage 0-2 chunk during inference."""
+    inference_chunk_cells: int = 2048 * 768
+    """Cells per Stage 0-2 chunk during inference, summed over the batch.
+
+    Rows per chunk are this divided by the batch size times the column count, so
+    narrower inputs and smaller batches get more rows per chunk.
+    2048 (rows) * 768 (max columns of v3.5) is the size we found to be stable
+    before.
+    """
+
+    max_batched_estimator_rows: int = DEFAULT_ESTIMATOR_BATCH_BUDGET.rows
+    """Rows one forward pass may carry summed over batched estimators.
+
+    Bounds the ICL activations of a batch; longer contexts run one estimator at a
+    time.
+    """
+
+    max_batched_estimator_cells: int = DEFAULT_ESTIMATOR_BATCH_BUDGET.cells
+    """Cells (rows times prepared columns) one forward pass may carry summed over
+    batched estimators.
+
+    Bounds the stage 0-2 activations; the default is the widest and tallest table
+    a single estimator supports.
+    """
 
     inference_col_chunk_size: int = 4
     """Max output groups per chunk for inducing hidden state computation."""
@@ -241,6 +269,22 @@ class TabPFNV3Cache(KVCache):
             inducing_hidden=self._list_of_tensors_to(self.inducing_hidden, device),
         )
 
+    @override
+    @classmethod
+    def concatenate(cls, caches: Sequence[KVCache]) -> TabPFNV3Cache:
+        """One cache holding the batch elements of ``caches`` in order."""
+        assert all(isinstance(cache, TabPFNV3Cache) for cache in caches)
+        v3_caches = cast("Sequence[TabPFNV3Cache]", caches)
+        num_train = {cache.train_shape[1] for cache in v3_caches}
+        assert len(num_train) == 1, "Caches to concatenate differ in train rows."
+        return TabPFNV3Cache(
+            kv=cls._consume_and_concatenate_layers(caches),
+            decoder_keys=cls._cat([c.decoder_keys for c in v3_caches]),
+            train_shape=(sum(c.train_shape[0] for c in v3_caches), num_train.pop()),
+            scaler_cache=cls._cat([c.scaler_cache for c in v3_caches]),
+            inducing_hidden=cls._cat([c.inducing_hidden for c in v3_caches]),
+        )
+
     def quantize(self, dtype: torch.dtype = QUANTIZED_KV_DTYPE) -> TabPFNV3Cache:
         """Return a new cache with quantized ICL KV entries.
 
@@ -269,7 +313,7 @@ def get_cache_size(
     n_features: int,
     model_config: TabPFNV3Config,
     base_dtype: torch.dtype | Literal["autocast"],
-    kv_cache_precision: Literal["auto", "int8", "fp8"] = "int8",
+    kv_cache_precision: Literal["auto", "int8", "fp8", "adaptive"] = "int8",
 ) -> int:
     """Calculate the cached memory in bytes for a single TabPFN v3 estimator.
 
@@ -313,20 +357,21 @@ def get_cache_size(
             ``"autocast"`` (GPU autocast path -- KV and ``decoder_keys`` are
             sized at fp16 while ``inducing_hidden`` and ``scaler_cache`` stay
             fp32, since autocast keeps those ops in fp32).
-        kv_cache_precision: If ``"int8"`` (default) or ``"fp8"``, the KV cache
-            is sized at one byte per element plus scales; if ``"auto"``, K/V
-            are sized at the compute dtype with no scales.
+        kv_cache_precision: If ``"int8"`` (default), ``"fp8"`` or
+            ``"adaptive"``, the KV cache is sized at one byte per element plus
+            scales; if ``"auto"``, K/V are sized at the compute dtype with no
+            scales.
 
     Returns:
         Per-estimator cache size in bytes. Multiply by the ensemble size for the
         total (each estimator holds its own cache); divide by ``1024 ** 2`` for MB.
     """
-    if kv_cache_precision not in ("auto", "int8", "fp8"):
+    if kv_cache_precision not in ("auto", "int8", "fp8", "adaptive"):
         raise ValueError(
             f"Invalid kv_cache_precision: {kv_cache_precision}. "
-            "Must be one of 'auto', 'int8' or 'fp8'."
+            "Must be one of 'auto', 'int8', 'fp8' or 'adaptive'."
         )
-    quantize_kv_cache = kv_cache_precision in ("int8", "fp8")
+    quantize_kv_cache = kv_cache_precision in ("int8", "fp8", "adaptive")
 
     # Set the stored dtype of each cached component up front. On the forced-
     # precision path the model and inputs are cast to ``dtype``, so every
@@ -1038,18 +1083,26 @@ class ICLAttention(nn.Module):
             k = self.k_projection(x_train).view(B, N, self.num_kv_heads, self.head_dim)
             v = self.v_projection(x_train).view(B, N, self.num_kv_heads, self.head_dim)
 
+            # A backend that took the train rows' call may have left K/V on a
+            # coarser grid; the cache below reads which one off this record.
+            train_calls_recorder = (
+                recorded_attention_backends()
+                if return_kv
+                else contextlib.nullcontext([])
+            )
             if (
                 self.num_kv_heads_test is not None
                 and single_eval_pos is not None
                 and N < R
             ):
                 # Train rows: full KV heads
-                out_train = _batched_scaled_dot_product_attention(
-                    q[:, :N],
-                    k,
-                    v,
-                    softmax_scaling_layer=self.softmax_scaling_layer,
-                )
+                with train_calls_recorder as train_calls:
+                    out_train = _batched_scaled_dot_product_attention(
+                        q[:, :N],
+                        k,
+                        v,
+                        softmax_scaling_layer=self.softmax_scaling_layer,
+                    )
                 # Test rows: fewer KV heads (GQA / MQA)
                 nh_test_heads = self.num_kv_heads_test
                 out_test = _batched_scaled_dot_product_attention(
@@ -1060,12 +1113,13 @@ class ICLAttention(nn.Module):
                 )
                 out = torch.cat([out_train, out_test], dim=1)
             else:
-                out = _batched_scaled_dot_product_attention(
-                    q,
-                    k,
-                    v,
-                    softmax_scaling_layer=self.softmax_scaling_layer,
-                )
+                with train_calls_recorder as train_calls:
+                    out = _batched_scaled_dot_product_attention(
+                        q,
+                        k,
+                        v,
+                        softmax_scaling_layer=self.softmax_scaling_layer,
+                    )
 
         result = self.out_projection(out.reshape(B, R, self.head_dim * self.num_heads))
 
@@ -1081,7 +1135,15 @@ class ICLAttention(nn.Module):
                 # cache silently retains all KV heads via the slice view.
                 k_cache = k_cache[:, :, :nh_test_heads].contiguous()
                 v_cache = v_cache[:, :, :nh_test_heads].contiguous()
-            kv_entry = KVCacheEntry(key=k_cache.detach(), value=v_cache.detach())
+            kv_entry = KVCacheEntry(
+                key=k_cache.detach(),
+                value=v_cache.detach(),
+                # A backend's grid has one scale per KV head, which a per-tensor
+                # quantization reproduces only for a single cached head.
+                grid_dtype=kv_grid_dtype(train_calls)
+                if k_cache.shape[2] == 1
+                else None,
+            )
         return result, kv_entry
 
 
@@ -1805,8 +1867,17 @@ class TabPFNV3(Architecture):
         self.standard_scaler = TorchStandardScaler()
         self._nan_safe_output = True
         self.emsize = config.embed_dim
-        self.inference_row_chunk_size = config.inference_row_chunk_size
+        self.inference_chunk_cells = config.inference_chunk_cells
+        self._estimator_batch_budget = EstimatorBatchBudget(
+            rows=config.max_batched_estimator_rows,
+            cells=config.max_batched_estimator_cells,
+        )
         self.inference_col_chunk_size = config.inference_col_chunk_size
+
+    @property
+    @override
+    def estimator_batch_budget(self) -> EstimatorBatchBudget:
+        return self._estimator_batch_budget
 
     @property
     @override
@@ -1928,8 +1999,10 @@ class TabPFNV3(Architecture):
                     )
                     assert kv_entry.key is not None
                     kv_compute_dtype = kv_entry.key.dtype
-                    if performance_options.kv_cache_dtype is not None:
-                        kv_entry = kv_entry.quantize(performance_options.kv_cache_dtype)
+                    kv_entry = kv_entry.at_storage_dtype(
+                        performance_options.kv_cache_dtype,
+                        follow_grid=performance_options.kv_cache_follows_attention_grid,
+                    )
                     kv_out[layer_idx] = kv_entry
             else:
                 for block in self.icl_blocks:
@@ -2043,7 +2116,7 @@ class TabPFNV3(Architecture):
 
     @override
     def get_supported_kv_cache_precisions(self) -> tuple[str, ...]:
-        return ("auto", "int8", "fp8")
+        return ("auto", "int8", "fp8", "adaptive")
 
     def _prepare_y(
         self,
@@ -2071,13 +2144,17 @@ class TabPFNV3(Architecture):
         """Embed y_train for the col stage → (B, T, E)."""
         if self.task_type == "multiclass":
             return self.col_y_encoder(y_BN)
-        return self.col_y_encoder(y_BN.unsqueeze(-1))
+        # A 2D projection avoids eager Triton BMM and its C compiler requirement.
+        y_emb = self.col_y_encoder(y_BN.reshape(-1, 1))
+        return y_emb.reshape(*y_BN.shape, y_emb.shape[-1])
 
     def _embed_icl_y(self, y_BN: torch.Tensor) -> torch.Tensor:
         """Embed y_train for the ICL stage → (B, T, D)."""
         if self.task_type == "multiclass":
             return self.icl_y_encoder(y_BN)
-        return self.icl_y_encoder(y_BN.unsqueeze(-1))
+        # A 2D projection avoids eager Triton BMM and its C compiler requirement.
+        y_emb = self.icl_y_encoder(y_BN.reshape(-1, 1))
+        return y_emb.reshape(*y_BN.shape, y_emb.shape[-1])
 
     def _preprocess_raw(
         self,
@@ -2254,7 +2331,11 @@ class TabPFNV3(Architecture):
         """
         num_train = y.shape[0]
         if performance_options.use_chunkwise_inference and not self.training:
-            row_chunk_size = self.inference_row_chunk_size
+            # A chunk holds a fixed number of cells summed over the batch, so a batch
+            # of ensemble members costs the memory of a single one and narrow inputs
+            # take more rows per chunk.
+            _, batch, columns = x_RiBC.shape
+            row_chunk_size = max(1, self.inference_chunk_cells // (batch * columns))
             col_chunk_size = self.inference_col_chunk_size
         else:
             row_chunk_size = None
@@ -2364,7 +2445,8 @@ class TabPFNV3(Architecture):
                 _logger.warning(
                     "OOM: halving row_chunk_size to %d", effective_chunk_size
                 )
-                self.inference_row_chunk_size = effective_chunk_size
+                # Stored as cells summed over the batch, as it is configured.
+                self.inference_chunk_cells = effective_chunk_size * batch * columns
 
         if use_chunks:
             inducing_hidden = precomputed_hidden
@@ -2471,17 +2553,9 @@ def parse_config(
     return parsed_config, parsed_config.get_unused_config(config)
 
 
-def get_architecture(
-    config: ArchitectureConfig,
-    *,
-    cache_trainset_representation: bool = False,
-) -> TabPFNV3:
+def get_architecture(config: ArchitectureConfig) -> TabPFNV3:
     """Construct TabPFN v3 from the given config."""
-    del cache_trainset_representation
     assert isinstance(config, TabPFNV3Config)
-    # cache_trainset_representation is accepted for interface compatibility but
-    # is a no-op: v3 uses explicit KV cache passing via forward() parameters
-    # (kv_cache / return_kv_cache) instead of model-internal caching.
     task_type = "multiclass" if config.is_classification else "regression"
     n_out = config.max_num_classes if task_type == "multiclass" else config.num_buckets
     return TabPFNV3(
@@ -2582,9 +2656,6 @@ def _spline_based_regression_borders(num_buckets: int) -> torch.Tensor:
 
     Note: Borders are num_buckets + 1!
     Border reference points are derived from tabpfn-v2.5-regressor-v2.5_default.ckpt.
-    For visual comparison of the original buckets vs approx, see
-    https://www.notion.so/priorlabs/Regression-bucket-approx-3125be1f3b4980f0924bc7bcb6b72bbd
-
 
     Returns:
         An array of shape (num_buckets + 1,) containing the bucket borders.

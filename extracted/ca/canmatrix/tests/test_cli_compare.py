@@ -5,10 +5,6 @@ import tempfile
 import pytest
 
 import canmatrix.formats
-from canmatrix.utils import arbitration_id_converter
-from canmatrix.CanMatrix import CanMatrix
-from canmatrix.Signal import Signal
-from canmatrix.Frame import Frame
 
 try:
     from pathlib import Path
@@ -48,8 +44,8 @@ def create_dbc():
     outFile1 = tmp_dir + "/output_cli_compare_tmpa.dbc"
     outFile2 = tmp_dir + "/output_cli_compare_tmpb.dbc"
 
-    myFrame = Frame("testFrame3", arbitration_id=arbitration_id_converter(0x124), size=8, transmitters=["testBU"])
-    mySignal = Signal("someTestSignal",
+    myFrame = canmatrix.Frame("testFrame3", arbitration_id=canmatrix.arbitration_id_converter(0x124), size=8, transmitters=["testBU"])
+    mySignal = canmatrix.Signal("someTestSignal",
                       size=11,
                       is_little_endian=False,
                       is_signed=False,
@@ -60,7 +56,7 @@ def create_dbc():
                       receivers=["recBU"])
     myFrame.add_signal(mySignal)
     mySignal.add_values(1, "one")
-    db = CanMatrix()
+    db = canmatrix.CanMatrix()
     db.add_frame(myFrame)
     canmatrix.formats.dumpp({"": db}, outFile1, dbcExportEncoding='iso-8859-1',
                             dbcExportCommentEncoding='iso-8859-1')

@@ -688,6 +688,20 @@ def _match_company_candidate(window: str, member_candidates: tuple[str, ...]) ->
         if not prefixes:
             return cleaned_window.strip() if removed_prefix else None
         prefix = max(prefixes, key=len)
+        # A candidate that fills the whole first pipe segment is the company the
+        # filer tagged, not a grouping in front of it: PSEC's "First Tower Finance
+        # Company LLC | Consumer Finance | First Lien Term Loan ..." lost the
+        # company here and kept "First Lien" (GH #1373). SLRC also tags its
+        # headings ("Senior Secured Loans"), so a segment holding an instrument
+        # or a portfolio category is still a prefix.
+        first_segment = cleaned_window.split(' | ', 1)[0].strip()
+        if (
+            first_segment != cleaned_window.strip()
+            and _normalize_member_text(first_segment) == prefix
+            and not _PORTFOLIO_CATEGORY_RE.match(prefix)
+            and not _known_investment_type_matches(first_segment)
+        ):
+            return first_segment
         if prefix == last_prefix:
             return cleaned_window.strip()
         prefix_tokens = len(prefix.split())
@@ -1017,6 +1031,105 @@ def _parse_structured_identifier(
     return company_name, investment_type
 
 
+# Category-led identifiers (GH #1372) open with schedule headings, not the
+# company: CGBD writes "Investment | Non-Affiliated Issuer | First Lien Debt |
+# Auctane, Inc. | Transportation: Cargo", SLRC "Common Equity/Equity
+# Interests/Warrants | KBH Topco LLC (Kingsbridge) | Multi-Sector Holdings",
+# PFX "Controlled Investments - ECC Capital Corp. - Real Estate - Equity".
+# A heading is a segment made only of these words; a company always carries
+# at least one word outside them (a name, a legal form).
+_HEADING_WORDS = frozenset({
+    'investment', 'investments', 'issuer', 'issuers', 'portfolio', 'non',
+    'affiliate', 'affiliated', 'control', 'controlled', 'credit', 'fund', 'funds',
+    'debt', 'loan', 'loans', 'bank', 'first', 'second', 'lien', 'senior', 'junior',
+    'secured', 'unsecured', 'subordinated', 'mezzanine', 'structured', 'note', 'notes',
+    'bond', 'bonds', 'equity', 'equities', 'interest', 'interests', 'common', 'preferred',
+    'stock', 'warrant', 'warrants', 'securities', 'other', 'and',
+    # SLRC names its lending lines: "First Lien Life Science Senior Secured Loans",
+    # "Second Lien Asset-Based Senior Secured Loans".
+    'life', 'science', 'asset', 'based',
+})
+
+_RELATIONSHIP_LED_RE = re.compile(
+    r'^(?:Non-Controlled/Non-Affiliated|Non-Controlled/Affiliated|Controlled|Affiliated|'
+    r'Control|Affiliate) Investments?\s+-\s+(?P<body>.+)$',
+    re.IGNORECASE,
+)
+
+
+_DUPLICATE_COUNTER_RE = re.compile(
+    r'(\b(?:LLC|LP|L\.P\.|Inc\.?|Ltd\.?|Limited|Corp\.?|Corporation|Company|S\.A\.R\.L\.))'
+    r'\s+(?:\d{1,2}|\(\d{1,2}\))$',
+    re.IGNORECASE,
+)
+
+
+def _is_schedule_heading(segment: str) -> bool:
+    words = re.findall(r'[A-Za-z]+', segment.lower())
+    return bool(words) and all(word in _HEADING_WORDS for word in words)
+
+
+def _split_trailing_instrument(segment: str) -> tuple[str, Optional[str]]:
+    """Split the instrument off the end of a company segment: SLRC's "CardioFocus,
+    Inc. Warrants" and "Venus Concept Ltd. Warrants (f/k/a Restoration Robotics)",
+    CGBD's "Middle Market Credit Fund, LLC, Subordinated Loan and Member's Interest"."""
+    for match in _known_investment_type_matches(segment):
+        before = segment[:match.start()]
+        if re.search(r'\S,\s+$', before):
+            return before.rstrip(' ,'), segment[match.start():].strip()
+        if (match.start() > 0 and before.endswith(' ')
+                and re.fullmatch(r'\s*(?:\([^)]*\))?', segment[match.end():])):
+            return before.strip(), match.group().strip()
+    trailing = re.search(r'\s+(?P<type>Class [A-Z](?:-\d+)?)$', segment)
+    if trailing:
+        return segment[:trailing.start()].rstrip(' ,'), trailing.group('type')
+    return segment, None
+
+
+def _starts_with_instrument(text: str) -> bool:
+    return any(match.start() == 0 for match in _known_investment_type_matches(text))
+
+
+def _category_led_fields(identifier: str) -> Optional[tuple[str, str]]:
+    """Company and investment type from an identifier that leads with schedule
+    headings, or None when the identifier leads with anything else."""
+    relationship_led = _RELATIONSHIP_LED_RE.match(identifier)
+    if relationship_led and '|' not in identifier:
+        # <Relationship> Investments - <Company>[ - <Industry>] - <Instrument>[ - <detail>]
+        parts = [part.strip() for part in re.split(r'\s+-\s+', relationship_led.group('body'))]
+        company_name, rest = parts[0], parts[1:]
+        while rest and rest[0] == company_name:  # "NVTN LLC - NVTN LLC - Hotel, ..."
+            rest = rest[1:]
+        start = next((index for index, part in enumerate(rest) if _starts_with_instrument(part)), None)
+        if start is None and any(_known_investment_type_matches(part) for part in rest[1:]):
+            start = 1  # the instrument follows the industry
+        if start is None:
+            # No instrument: PFX's subtotal members ("... Investments - PHH Mortgage
+            # Corp.", $3.9M, the sum of the rows under it). Naming them after the
+            # company would count it twice in any grouping by company_name.
+            return None
+        return company_name, ' - '.join(rest[start:])
+
+    # CGBD once omits the space: "Credit Fund | First Lien Debt |Vensure Employer ..."
+    segments = [segment.strip() for segment in re.split(r'\s*\|\s*', identifier)]
+    if len(segments) < 2 or not _is_schedule_heading(segments[0]):
+        return None
+    for position, segment in enumerate(segments):
+        if _is_schedule_heading(segment):
+            continue
+        # The filer's duplicate counter after the legal form: "SCHP Purchaser, INC 2",
+        # "Atlas US Finco, Inc. (1)".
+        segment = _DUPLICATE_COUNTER_RE.sub(r'\1', segment)
+        company_name, trailing_type = _split_trailing_instrument(segment)
+        instruments = [
+            heading for heading in segments[:position]
+            if _known_investment_type_matches(heading)
+        ]
+        investment_type = trailing_type or (instruments[-1] if instruments else 'Unclassified')
+        return company_name, investment_type
+    return None
+
+
 def _parse_investment_identifier(
     dimension_label: str,
     member_candidates: tuple[str, ...] = (),
@@ -1038,12 +1151,13 @@ def _parse_investment_identifier(
     Returns:
         Tuple of (identifier, company_name, investment_type)
     """
-    # Strip the axis prefix
-    identifier = dimension_label
-    if ':' in dimension_label:
-        parts = dimension_label.split(': ', 1)
-        if len(parts) > 1:
-            identifier = parts[1].strip()
+    # Strip the axis prefix, and only the axis prefix: SLRC ends its identifiers
+    # with "Sector: Sub-sector" ("... | Auctane, Inc. | Transportation: Cargo"),
+    # and cutting at any ": " returned "Cargo" as the company (GH #1372).
+    identifier = dimension_label.strip()
+    axis_prefix = re.match(r'\S+Axis:\s+', identifier)
+    if axis_prefix:
+        identifier = identifier[axis_prefix.end():].strip()
 
     # Check for category rollup pattern (e.g., "Debt Investments Software (52.80%)")
     # These should be excluded as they're not individual investments
@@ -1144,6 +1258,10 @@ def _parse_investment_identifier(
             if not company_name:
                 company_name = body
         return identifier, company_name, investment_type
+
+    category_led = _category_led_fields(identifier)
+    if category_led:
+        return identifier, *category_led
 
     relationship_investment = None
     if not _STRUCTURED_FIELD_RE.search(identifier):
@@ -1963,6 +2081,274 @@ class PortfolioInvestment:
         return repr_rich(self.__rich__())
 
 
+class ExcludedInvestment(NamedTuple):
+    """An identifier row left out of a portfolio because it restates others."""
+    investment: PortfolioInvestment
+    reason: str
+
+
+def _reported_total_fair_value(all_facts, period: Optional[str]):
+    """The filer's undimensioned total investments at fair value and its unit.
+
+    Filers tag the same total at several precisions (ARCC: decimals -6 and -5);
+    the most precise one is returned. ``(None, None)`` when there is none.
+    """
+    best = None
+    for fact in all_facts:
+        if (fact.get('concept') != 'us-gaap:InvestmentOwnedAtFairValue'
+                or fact.get('period_instant') != period
+                or any(key.startswith('dim_') and fact.get(key) for key in fact)):
+            continue
+        value = fact.get('numeric_value')
+        if value is None or pd.isna(value):
+            continue
+        decimals = fact.get('decimals')
+        precision = float('inf') if str(decimals).upper() == 'INF' else _as_float(decimals, -99)
+        if best is None or precision > best[0]:
+            best = (precision, Decimal(str(value)), fact.get('unit_ref'))
+    return (best[1], best[2]) if best else (None, None)
+
+
+# Investment-type members a filer uses to net unfunded commitments out of its
+# totals: fsk:UnfundedSeniorSecuredLoansFirstLienMember, ...NettingMember
+_NETTING_MEMBER_RE = re.compile(r'unfunded|netting|commitment', re.IGNORECASE)
+
+
+def _unfunded_commitments_fair_value(all_facts, period: Optional[str]) -> Optional[Decimal]:
+    """The fair value of unfunded commitments the filer nets out of its total, or None.
+
+    Some filers report each holding's funded fair value on the schedule and carry
+    unfunded commitments only as negative totals by investment type (FSK:
+    -1,338.4M of first lien, -98.9M of asset based finance), so the balance-sheet
+    total is net of an amount no row carries. Only facts dimensioned by
+    ``InvestmentTypeAxis`` alone count, one per member, the most precise.
+    """
+    best: dict = {}
+    for fact in all_facts:
+        if fact.get('concept') != 'us-gaap:InvestmentOwnedAtFairValue' or fact.get('period_instant') != period:
+            continue
+        dims = {key: fact.get(key) for key in fact if key.startswith('dim_') and fact.get(key)}
+        member = dims.get('dim_us-gaap_InvestmentTypeAxis')
+        if len(dims) != 1 or not member or not _NETTING_MEMBER_RE.search(str(member)):
+            continue
+        value = fact.get('numeric_value')
+        if value is None or pd.isna(value) or value >= 0:
+            continue
+        precision = _as_float(fact.get('decimals'), -99)
+        if member not in best or precision > best[member][0]:
+            best[member] = (precision, Decimal(str(value)))
+    if not best:
+        return None
+    return sum((value for _, value in best.values()), Decimal(0))
+
+
+def _as_float(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+# "Debt Investments Healthcare Services, Other and Total Marathon Health, LLC"
+_COMPANY_TOTAL_RE = re.compile(r'\bTotal\s+(.+)$')
+
+# A footnote marker on a member name: "AAM Series 2.1 Aviation Feeder, LLC(d)"
+_FOOTNOTE_MARK_RE = re.compile(r'(?:\s*\([a-z0-9]{1,2}\))+\s*$', re.IGNORECASE)
+_DBA_RE = re.compile(r'\(\s*(?:dba|d/b/a|fka|f/k/a)\s+([^)]+)\)', re.IGNORECASE)
+_NAME_SUFFIX_RE = re.compile(
+    r'(?:\s+(?:inc|incorporated|corp|corporation|co|company|llc|l l c|lp|l p|ltd|limited|plc|holdings?))+$')
+
+
+# Identifier facts with one of these dimensions too are not the filer's holdings.
+# BCSF and NMFC list their senior loan programs' portfolios on the identifier axis
+# under InvestmentCompanyNonconsolidatedSubsidiaryAxis (BCSF +90% above its
+# balance sheet with them, exact without); SAR lists a non-consolidated CLO's
+# under LegalEntityAxis; OBDC tags "investments ranging from $24.8M to $303.9M"
+# with srt:RangeAxis.
+_NON_HOLDING_AXES = (
+    'dim_us-gaap_InvestmentCompanyNonconsolidatedSubsidiaryAxis',
+    'dim_dei_LegalEntityAxis',
+    'dim_srt_RangeAxis',
+)
+
+
+def _strip_footnote_marks(identifier: str) -> str:
+    return _FOOTNOTE_MARK_RE.sub('', identifier)
+
+
+def _company_keys(inv: PortfolioInvestment) -> set:
+    """Names a row's company goes by: its own, without suffix, and any "(dba X)"."""
+    name = _strip_footnote_marks(inv.company_name or '')
+    keys = {_DBA_RE.sub('', match).strip() for match in _DBA_RE.findall(name)}
+    keys.add(_DBA_RE.sub('', name))
+    normalized = set()
+    for key in keys:
+        key = re.sub(r'[^a-z0-9]+', ' ', key.lower()).strip()
+        key = _NAME_SUFFIX_RE.sub('', key).strip()
+        if key:
+            normalized.add(key)
+    return normalized
+
+
+def _names_only_a_company(inv: PortfolioInvestment) -> bool:
+    """The row's identifier is a company name with no instrument: "New PLI Holdings, LLC (dba PLI)"."""
+    if inv.investment_type in (None, '', 'Unknown'):
+        return True
+    return _strip_footnote_marks(inv.identifier).strip() == _strip_footnote_marks(inv.company_name or '').strip()
+
+
+def _rounding_tolerance(value: Decimal) -> Decimal:
+    """Half the unit a value was rounded to: 24,100,000 was reported to $0.1M."""
+    unit = Decimal(1000)
+    while unit < Decimal(1_000_000) and value % (unit * 10) == 0:
+        unit *= 10
+    return unit / 2
+
+
+def _exclude_restated_rows(rows: list[PortfolioInvestment]):
+    """Split identifier rows into holdings and rows that restate holdings already counted.
+
+    ``InvestmentIdentifierAxis`` members carry no hierarchy, so a filer's
+    subtotals and second-schedule copies look like holdings. Measured against
+    each filer's own balance-sheet total, the rows summed high on every BDC
+    checked (FSK +48%, HTGC +21%, ARCC +16%, MAIN +14%). A row is excluded only
+    when the other rows account for its value exactly:
+
+    - a company total ("... and Total Marathon Health, LLC", HTGC) equal to the
+      sum of the rows naming that company;
+    - a parent equal to the sum of the rows whose identifier extends it
+      ("Bolder Panther Group, LLC | Secured Debt" = tranches "... 1.1", "1.2",
+      "1.3" on MAIN; "Ivy Hill Asset Management, L.P." = its instruments on ARCC);
+    - the same identifier spelled differently with the same fair value
+      ("ITA HOLDINGS GROUP, LLC" / "ITA Holdings Group, LLC", CSWC);
+    - a row with no cost whose fair value equals a costed row's: the affiliate
+      roll-forward restating a holding under its own member name
+      ("Blue Owl Credit SLF LLC(c)", OBDC; "Production Resource Group LLC 8", FSK);
+    - a row with no cost equal to the sum of the rows for the same company, by
+      name without footnote marks or suffix, or by a shared "(dba X)": OBDC's
+      "New PLI Holdings, LLC (dba PLI)" = its units plus "Swipe Acquisition
+      Corporation (dba PLI)"'s loans;
+    - consecutive rows with no cost, naming companies listed nowhere else, that
+      add up to one costed row: a footnote's breakdown of a holding (OBDC's eight
+      "... Custom Windows" entities, $0.1M precision, = "Windows Entities | LLC Units").
+
+    Returns ``(kept, excluded)``.
+    """
+    excluded: list[ExcludedInvestment] = []
+    kept = list(rows)
+
+    def fv(inv) -> Decimal:
+        return inv.fair_value or Decimal(0)
+
+    def tolerance(n: int) -> Decimal:
+        # Each row is rounded to the filer's precision, typically thousands
+        return Decimal(1000) * max(n, 1)
+
+    def drop(inv, reason):
+        kept.remove(inv)
+        excluded.append(ExcludedInvestment(inv, reason))
+
+    # Company totals
+    for inv in list(kept):
+        match = _COMPANY_TOTAL_RE.search(inv.identifier)
+        if not match or not inv.fair_value:
+            continue
+        # Only rows under the same heading: HTGC's "Debt Investments ... Total X"
+        # covers X's debt rows, not X's warrants filed under another heading
+        name = match.group(1).strip()
+        heading = inv.identifier[:match.start()]
+        parts = [o for o in kept if o is not inv and o.identifier.startswith(heading)
+                 and name in o.identifier and not _COMPANY_TOTAL_RE.search(o.identifier)]
+        if parts and abs(sum(map(fv, parts)) - fv(inv)) <= tolerance(len(parts)):
+            drop(inv, f"company total of {len(parts)} holding(s)")
+
+    # Parents of their own tranches or instruments, deepest first
+    for inv in sorted(kept, key=lambda i: -len(i.identifier)):
+        if not inv.fair_value:
+            continue
+        ident = _strip_footnote_marks(inv.identifier)
+        parts = [o for o in kept if o is not inv and o.identifier.startswith(ident)
+                 and len(o.identifier) > len(ident) and not o.identifier[len(ident)].isalnum()]
+        if parts and abs(sum(map(fv, parts)) - fv(inv)) <= tolerance(len(parts)):
+            drop(inv, f"total of {len(parts)} row(s) that extend it")
+
+    # One identifier spelled two ways
+    seen: dict = {}
+    for inv in list(kept):
+        if not inv.fair_value:
+            continue
+        key = (re.sub(r'\W+', ' ', inv.identifier).strip().lower(), inv.fair_value)
+        other = seen.get(key)
+        if other is None:
+            seen[key] = inv
+            continue
+        # Keep the row that carries more of the schedule's fields
+        loser = inv if _field_count(inv) <= _field_count(other) else other
+        if loser is other:
+            seen[key] = inv
+        drop(loser, "same identifier and fair value as another row")
+
+    # Cost-less copies from another schedule
+    costed = {inv.fair_value for inv in kept if inv.cost is not None and inv.fair_value}
+    for inv in list(kept):
+        if inv.fair_value and inv.cost is None and inv.fair_value in costed:
+            drop(inv, "no cost, fair value equal to a costed row")
+
+    # Cost-less company totals, matched by name rather than by identifier prefix.
+    # A total names a company and no instrument; without that condition a filer
+    # that tags no cost loses a first lien equal to its second.
+    for inv in list(kept):
+        if inv.cost is not None or not inv.fair_value or inv.fair_value <= 0 or not _names_only_a_company(inv):
+            continue
+        keys = _company_keys(inv)
+        parts = [o for o in kept if o is not inv and keys & _company_keys(o)]
+        if parts and abs(sum(map(fv, parts)) - fv(inv)) <= tolerance(len(parts)):
+            drop(inv, f"no cost, total of {len(parts)} row(s) for the same company")
+
+    # Cost-less breakdowns of one costed row, listed consecutively. Only orphans:
+    # a breakdown names entities the schedule lists nowhere else, and without
+    # that condition unrelated rows match by coincidence (GBDC's "G & H Wire",
+    # "IMPLUS Footcare" and "Reaction Biology" company rows summed to a fourth).
+    targets = sorted(inv.fair_value for inv in kept if inv.cost is not None and inv.fair_value)
+    key_counts: dict = {}
+    for inv in kept:
+        for key in _company_keys(inv):
+            key_counts[key] = key_counts.get(key, 0) + 1
+
+    def orphan(inv) -> bool:
+        return all(key_counts.get(key, 0) == 1 for key in _company_keys(inv))
+
+    run: list = []
+    runs = []
+    for inv in kept + [None]:
+        if (inv is not None and inv.cost is None and inv.fair_value and inv.fair_value > 0
+                and orphan(inv)):
+            run.append(inv)
+            continue
+        if len(run) >= 2:
+            runs.append(run)
+        run = []
+    for run in runs:
+        for start in range(len(run)):
+            total = Decimal(0)
+            slack = Decimal(0)
+            for end in range(start, len(run)):
+                total += run[end].fair_value
+                slack += _rounding_tolerance(run[end].fair_value)
+                if end > start and any(abs(total - t) <= slack for t in targets):
+                    for part in run[start:end + 1]:
+                        if part in kept:
+                            drop(part, f"no cost, one of {end - start + 1} rows that add up to a costed row")
+                    break
+
+    return kept, excluded
+
+
+def _field_count(inv: PortfolioInvestment) -> int:
+    return sum(value is not None for value in (
+        inv.fair_value, inv.cost, inv.principal_amount, inv.shares, inv.interest_rate))
+
+
 class PortfolioInvestments:
     """
     A collection of portfolio investments from a BDC's Schedule of Investments.
@@ -1979,10 +2365,16 @@ class PortfolioInvestments:
         investments: list[PortfolioInvestment],
         period: Optional[str] = None,
         nonaccrual_fair_value: Optional[Decimal] = None,
+        reported_total_fair_value: Optional[Decimal] = None,
+        excluded: Optional[list['ExcludedInvestment']] = None,
+        unfunded_commitments_fair_value: Optional[Decimal] = None,
     ):
         self._investments = investments
         self._period = period
         self._nonaccrual_fair_value = nonaccrual_fair_value
+        self._reported_total_fair_value = reported_total_fair_value
+        self._excluded = excluded or []
+        self._unfunded_commitments_fair_value = unfunded_commitments_fair_value
 
     def __len__(self) -> int:
         return len(self._investments)
@@ -2050,6 +2442,59 @@ class PortfolioInvestments:
             (inv.fair_value for inv in self._investments if inv.fair_value is not None),
             Decimal(0)
         )
+
+    @property
+    def reported_total_fair_value(self) -> Optional[Decimal]:
+        """The total investments at fair value the filer reports on its balance sheet.
+
+        This is the filing's own figure (``us-gaap:InvestmentOwnedAtFairValue``
+        with no dimension), the ground truth ``total_fair_value`` should agree
+        with. None when the filing does not report it, or for a filtered subset.
+        """
+        return self._reported_total_fair_value
+
+    @property
+    def reconciliation_gap(self) -> Optional[float]:
+        """How far ``total_fair_value`` is from the filer's reported total, as a fraction.
+
+        ``0.02`` means the rows sum 2% above the balance sheet. Some filers tag
+        a holding in more than one schedule under different identifiers, and not
+        every restatement can be recognised, so check this before relying on a
+        total or a share of the portfolio. None when there is no reported total.
+        """
+        reported = self._reported_total_fair_value
+        if not reported:
+            return None
+        return float(self.total_fair_value / (reported - self._unitemized_netting()) - 1)
+
+    @property
+    def unfunded_commitments_fair_value(self) -> Optional[Decimal]:
+        """The negative fair value of unfunded commitments the filer nets out of its total.
+
+        FSK reports -1,448.1M this way for 2025: its schedule rows are funded
+        positions and its 13,008.6M balance-sheet total is net of this, so
+        ``reconciliation_gap`` adds back whatever no row carries. None when the
+        filer tags no such total, or for a filtered subset.
+        """
+        return self._unfunded_commitments_fair_value
+
+    def _unitemized_netting(self) -> Decimal:
+        """The part of the netting that no row carries (OBDC itemizes its -3.4M)."""
+        netting = self._unfunded_commitments_fair_value
+        if netting is None:
+            return Decimal(0)
+        itemized = sum((inv.fair_value for inv in self._investments
+                        if inv.fair_value is not None and inv.fair_value < 0), Decimal(0))
+        return min(Decimal(0), netting - itemized)
+
+    @property
+    def excluded(self) -> list['ExcludedInvestment']:
+        """Identifier rows left out because they restate holdings already counted.
+
+        Each entry holds the ``investment`` and the ``reason``: a company or
+        tranche total, or a second schedule's copy of a row.
+        """
+        return list(self._excluded)
 
     @property
     def total_cost(self) -> Decimal:
@@ -2229,6 +2674,12 @@ class PortfolioInvestments:
             lines.append(f'Period: {self._period}')
         lines.append(f'Holdings: {len(self._investments)}')
         lines.append(f'Total Fair Value: ${self.total_fair_value:,.0f}')
+        if self._reported_total_fair_value is not None:
+            lines.append(f'Reported Total Fair Value: ${self._reported_total_fair_value:,.0f}')
+            gap = self.reconciliation_gap
+            if gap is not None and abs(gap) > 0.02:
+                lines.append(f'WARNING: holdings sum {gap:+.1%} from the reported total; '
+                             f'some may be counted twice')
         lines.append(f'Total Cost: ${self.total_cost:,.0f}')
 
         gain_loss = self.total_unrealized_gain_loss
@@ -2570,8 +3021,16 @@ class PortfolioInvestments:
             'us-gaap:InvestmentIndustrySectorExtensibleEnumeration': 'industry_enumeration',
         }
 
+        # The filer's own total, and the currency it reports in. A holding in a
+        # foreign currency is tagged twice, e.g. TSLX's Hippo XPA Bidco at
+        # U_USD 23,226,000 and U_SEK 214,115,000, and keeping whichever came last
+        # put SEK into a USD total (edgartools-6xxb).
+        reported_total, reporting_unit = _reported_total_fair_value(all_facts, period)
+        unfunded = _unfunded_commitments_fair_value(all_facts, period)
+
         # Group facts by investment identifier
         investments = {}
+        member_units: dict = {}
         member_candidates = _get_investment_member_candidates(xbrl)
         for fact in all_facts:
             # Check if this is a relevant concept
@@ -2582,6 +3041,10 @@ class PortfolioInvestments:
             # Check for investment dimension
             inv_identifier = fact.get(dim_key)
             if not inv_identifier:
+                continue
+
+            # A joint venture's or CLO's own holdings, or a range, not this filer's position
+            if any(fact.get(axis) for axis in _NON_HOLDING_AXES):
                 continue
 
             # Check period matches
@@ -2626,6 +3089,14 @@ class PortfolioInvestments:
 
             try:
                 if field_name in ('fair_value', 'cost', 'principal_amount'):
+                    # A value in the reporting currency is never replaced by one in
+                    # another; a foreign-only value is kept when that is all there is.
+                    unit = fact.get('unit_ref')
+                    units = member_units.setdefault(inv_identifier, {})
+                    if (reporting_unit and field_name in units
+                            and units[field_name] == reporting_unit and unit != reporting_unit):
+                        continue
+                    units[field_name] = unit
                     investments[inv_identifier][field_name] = Decimal(str(value))
                 elif field_name == 'shares':
                     investments[inv_identifier][field_name] = int(float(value))
@@ -2664,6 +3135,11 @@ class PortfolioInvestments:
             for inv_data in investments.values()
         ]
 
+        # Drop members that restate holdings already counted: company totals,
+        # parents of their own tranches, and a second schedule's copy of a row.
+        # Before this every BDC measured summed 2-48% above its own balance sheet.
+        portfolio, excluded = _exclude_restated_rows(portfolio)
+
         # Filter out Unknown types unless include_untyped is True
         if not include_untyped:
             portfolio = [inv for inv in portfolio if inv.investment_type != "Unknown"]
@@ -2674,4 +3150,6 @@ class PortfolioInvestments:
             reverse=True
         )
 
-        return cls(portfolio, period=period, nonaccrual_fair_value=nonaccrual_fv)
+        return cls(portfolio, period=period, nonaccrual_fair_value=nonaccrual_fv,
+                   reported_total_fair_value=reported_total, excluded=excluded,
+                   unfunded_commitments_fair_value=unfunded)

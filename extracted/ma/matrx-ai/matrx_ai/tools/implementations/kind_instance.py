@@ -396,7 +396,7 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         # content_ir.kind_instance is certified: written AS THE PERSON (RLS decides).
         try:
-            async with writing_as_the_person(ctx), declared_actor("ai", "tool:instance_create"):
+            async with writing_as_the_person(ctx), declared_actor("agent", "tool:instance_create"):
                 created = await KindInstance.create_item(**payload)
         except WriteRefused as exc:
             return refused("a new instance of kind", str(kd.id), exc)

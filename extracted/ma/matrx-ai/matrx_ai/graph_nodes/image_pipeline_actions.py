@@ -46,6 +46,7 @@ from matrx_ai.graph_nodes._strict_json import (
     StrictJsonError,
     node_panel_hooks,
 )
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.mandates import hold_code_call, run_held_pydantic
 
 _MODEL_FIELD_DESCRIPTION = (
@@ -105,7 +106,12 @@ class ConceptGenerateInput(BaseModel):
         default=None,
         description="Optional global style hint applied to every concept.",
     )
-    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
+    model: str | None = Field(
+        default=None,
+        description=_MODEL_FIELD_DESCRIPTION,
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
+    )
+    offering_id: str | None = offering_id_field()
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -165,6 +171,7 @@ async def image_concept_generate(
                 user=user_message,
                 output_cls=ConceptGenerateOutput,
                 model=inputs.model,
+                offering_id=inputs.offering_id,
                 unset_max_tokens=2048,
                 metadata=inputs.metadata,
                 on_delta=on_delta,
@@ -216,7 +223,12 @@ class PromptWriteInput(BaseModel):
         ),
     )
     aspect_ratio: str = Field(default="1:1")
-    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
+    model: str | None = Field(
+        default=None,
+        description=_MODEL_FIELD_DESCRIPTION,
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
+    )
+    offering_id: str | None = offering_id_field()
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -312,6 +324,7 @@ async def image_prompt_write(
             user=user_message,
             output_cls=_PromptWriteLlmOutput,
             model=inputs.model,
+            offering_id=inputs.offering_id,
             unset_max_tokens=1024,
             metadata=inputs.metadata,
             on_delta=on_delta,
@@ -378,7 +391,12 @@ class ImageQcInput(BaseModel):
             "'no text overlay', 'photorealistic, not cartoon')."
         ),
     )
-    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
+    model: str | None = Field(
+        default=None,
+        description=_MODEL_FIELD_DESCRIPTION,
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
+    )
+    offering_id: str | None = offering_id_field()
     api_key: str | None = Field(
         default=None,
         description="Override ANTHROPIC_API_KEY for this call.",
@@ -506,6 +524,7 @@ async def image_qc_judge(
             messages=[{"role": "user", "content": [image_block, text_block]}],
             output_cls=ImageQcVerdict,
             model=inputs.model,
+            offering_id=inputs.offering_id,
             unset_max_tokens=1024,
             api_keys={"ANTHROPIC_API_KEY": api_key},
             metadata=getattr(inputs, "metadata", None) or {},

@@ -11,7 +11,7 @@ codegen-units = 1
 
 [package]
 name = "renkin"
-version = "1.0.13"
+version = "1.0.14"
 edition = "2024"
 authors = ["kent-tokyo <kent-tokyo@users.noreply.github.com>"]
 description = "Ultra-fast retrosynthesis engine for computer-aided synthesis planning (CASP) — pure Rust, WASM-ready, Python bindings via PyO3"
@@ -117,10 +117,10 @@ perf-instrumentation = ["dep:chematic-rxn"]
 [dependencies]
 # Keep the facade and direct optional `chematic-rxn` dependency on the same
 # release so their shared chemistry types resolve coherently.
-chematic = { version = "1.0.26", features = ["smiles", "chem", "smarts", "rxn", "inchi"] }
+chematic = { version = "1.0.31", features = ["smiles", "chem", "smarts", "rxn", "inchi"] }
 # Only used by the optional perf-instrumentation feature; normal builds reach
 # `run_reactants` through the `chematic` facade above.
-chematic-rxn = { version = "1.0.26", features = ["perf-instrumentation"], optional = true }
+chematic-rxn = { version = "1.0.31", features = ["perf-instrumentation"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"

@@ -251,28 +251,38 @@ class BaseMediaGeneration(ABC):
         ``context`` carries the outbound context flags (operation="generate" |
         "edit", has_image_input=bool). Adjustments are voiced loudly.
 
-        The DECLARED-KEYS GATE (shared with the chat seam — one canonical
-        implementation in ``outbound_params.drop_foreign_canonical_keys``)
-        runs AFTER the extra_canonical merge: a canonical key not declared by
-        this offering's compiled rules (e.g. ``verbosity``, a gpt-5 text
-        control, riding on a config pointed at a FLUX offering) is DROPPED
-        loudly instead of leaking into the provider body via PASSTHROUGH_RULE
-        — the crown-jewel guarantee (any model's params at any other model →
-        valid body) holds on the media seam too. Builder-derived extras are
-        declared structural rules per family (_ai_029), so the gate never
-        touches them."""
+        THE GATE (shared with the chat seam — one implementation,
+        ``outbound_params.drop_foreign_canonical_keys`` ->
+        ``CompiledControlsMap.translate_foreign``) runs AFTER the
+        extra_canonical merge: a canonical key this offering does not natively
+        carry never leaks into the provider body via PASSTHROUGH_RULE. With
+        setting families loaded (K7) it CONVERTS through its family — a chat
+        config's reasoning_effort=max reaching an image offering becomes its top
+        resolution/quality — and only a family with no member here drops (with
+        the client warning). Without family data it is dropped as before C6.
+        Builder-derived extras are declared structural rules per family
+        (_ai_029), so the gate never touches them."""
         from matrx_ai.catalog.canonicalize import canonical_settings_from_config
-        from matrx_ai.providers.outbound_params import drop_foreign_canonical_keys
+        from matrx_ai.providers.outbound_params import (
+            drop_foreign_canonical_keys,
+            remember_outbound_adjustments,
+        )
 
         canonical = canonical_settings_from_config(unified_config)
         if extra_canonical:
             for key, value in extra_canonical.items():
                 if value is not None:
                     canonical[key] = value
+        foreign_adjustments: list[Any] = []
         drop_foreign_canonical_keys(
-            canonical, controls, model=getattr(unified_config, "model", "?")
+            canonical,
+            controls,
+            model=getattr(unified_config, "model", "?"),
+            adjustments=foreign_adjustments,
         )
         params, adjustments = controls.outbound(canonical, context=context or {})
+        adjustments = foreign_adjustments + adjustments
+        remember_outbound_adjustments(getattr(unified_config, "model", "?"), adjustments)
         for adjustment in adjustments:
             vcprint(f"[media controls] {adjustment.reason}", color="yellow")
         # Same law as the chat seam: an unexpected drop reaches the user as a
@@ -1205,6 +1215,11 @@ class BaseMediaGeneration(ABC):
             vcprint(exc, f"[{self.provider} {self.modality}] Error", color="red")
             traceback.print_exc()
 
+            # What was sent, for a settings-rejection record's ``sent_value``
+            # (media providers do not ride ``capture_request_payload``).
+            from matrx_ai.providers.setting_rejection import attach_wire_payload
+
+            attach_wire_payload(exc, kwargs)
             error_info = getattr(exc, "error_info", None) or self._classify_error(exc)
             if paid_provider_call_completed:
                 # The paid call returned: never retryable, and the billed usage

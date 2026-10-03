@@ -103,8 +103,13 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
 def test_the_makefile_sync_list_matches_synced() -> None:
     """Parsed, not eyeballed — same contract as test_skills_sync.py's
     equivalent guard, applied to the sync-pi-skills loop instead."""
-    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
-    m = re.search(r"sync-pi-skills:\n\t@for s in ([^;]+); do", makefile)
+    # The loop reads agent/skills/profiles.json, so read it as make expands it.
+    import subprocess
+
+    dry_run = subprocess.run(
+        ["make", "-n", "-C", str(_ROOT), "sync-pi-skills"], capture_output=True, text=True, check=True
+    ).stdout
+    m = re.search(r"for s in ([^;]+); do", dry_run)
     assert m, "could not parse the sync-pi-skills loop"
     assert set(m.group(1).split()) == set(_SYNCED)
 
@@ -143,3 +148,48 @@ def test_package_json_declares_exactly_the_synced_skills() -> None:
         f"{sorted(_SYNCED)} — keep pi.skills, the Makefile loop, and _SYNCED "
         "in lockstep"
     )
+
+
+# ---------------------------------------------------------------------------
+# The daemon profile's `probe` skill (pi on the Probe daemon).
+# ---------------------------------------------------------------------------
+
+_DAEMON_SKILL = _ROOT / "plugins" / "probe-research-daemon" / "skills" / "probe" / "SKILL.md"
+_PI_DAEMON_SKILLS = _ROOT / "plugins" / "probe-research-pi" / "daemon-skills"
+
+
+def test_pi_daemon_skill_is_a_byte_copy_of_the_lean_plugins() -> None:
+    """pi's daemon profile tells the agent what Claude Code's lean plugin tells
+    it: the extension adds `daemon-skills/probe` through `resources_discover`,
+    and that file must be the lean plugin's `probe` skill byte for byte."""
+    copy = _PI_DAEMON_SKILLS / "probe" / "SKILL.md"
+    assert copy.is_file(), "pi's daemon skill copy is missing; run `make sync-pi-daemon-skill`"
+    assert copy.read_bytes() == _DAEMON_SKILL.read_bytes(), (
+        "plugins/probe-research-pi/daemon-skills/probe/SKILL.md differs from the lean plugin's; "
+        "run `make sync-pi-daemon-skill` (edit plugins/probe-research-daemon/skills/probe, never the copy)"
+    )
+    assert sorted(p.relative_to(_PI_DAEMON_SKILLS).as_posix() for p in _PI_DAEMON_SKILLS.rglob("*") if p.is_file()) == [
+        "probe/SKILL.md"
+    ], "daemon-skills/ carries only the daemon's probe skill"
+
+
+def test_sync_pi_daemon_skill_copies_that_file_and_runs_in_the_composite() -> None:
+    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
+    m = re.search(r"^sync-pi-daemon-skill:\n((?:\t.*\n)+)", makefile, re.MULTILINE)
+    assert m, "could not find the sync-pi-daemon-skill target"
+    assert (
+        "cp plugins/probe-research-daemon/skills/probe/SKILL.md "
+        "plugins/probe-research-pi/daemon-skills/probe/SKILL.md"
+    ) in m.group(1)
+    composite = re.search(r"^sync-plugin:\s*(.+)$", makefile, re.MULTILINE)
+    assert composite and "sync-pi-daemon-skill" in composite.group(1).split()
+
+
+def test_the_agent_profile_never_loads_the_daemon_skill() -> None:
+    """pi loads every skill a package's manifest names. Listing daemon-skills
+    there would give an agent-profile session two `probe` skills that disagree
+    about who records; the extension adds it only in the daemon profile."""
+    manifest = json.loads(_PI_PACKAGE_JSON.read_text(encoding="utf-8"))
+    mirror = json.loads((_ROOT / "mirror-package.json").read_text(encoding="utf-8"))
+    for declared in (manifest["pi"]["skills"], mirror["pi"]["skills"]):
+        assert not [entry for entry in declared if "daemon-skills" in entry]

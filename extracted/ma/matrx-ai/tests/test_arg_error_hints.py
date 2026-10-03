@@ -208,23 +208,32 @@ class TestFormatArgsError:
 
 
 class TestFlattenedVariantExtras:
-    def test_field_owned_by_another_action_is_removed(self) -> None:
+    @pytest.mark.parametrize("empty", [None, "", [], {}])
+    def test_an_empty_placeholder_owned_by_another_action_is_removed(self, empty: Any) -> None:
         from matrx_ai.tools.arg_models.db_args import SqlArgs
 
-        args = {
-            "action": "query",
-            "table": "ai.provider",
-            "data": {"name": "ignored"},
-        }
+        args = {"action": "query", "table": "ai.provider", "data": empty}
         exc = _fail(SqlArgs, args)
 
         recovered = remove_flattened_variant_extras(args, SqlArgs, exc)
 
-        assert recovered == (
-            {"action": "query", "table": "ai.provider"},
-            ["data"],
-        )
+        assert recovered == ({"action": "query", "table": "ai.provider"}, ["data"])
         SqlArgs.model_validate(recovered[0])
+
+    @pytest.mark.parametrize(
+        "value", [{"name": "Completed"}, "Completed", ["a"], 0, False]
+    )
+    def test_an_argument_with_a_value_is_never_stripped_so_the_call_is_refused(
+        self, value: Any
+    ) -> None:
+        """The $640 class: `match` sent to an action that takes no filter was removed and
+        the unfiltered number returned as success. A valued argument must refuse."""
+        from matrx_ai.tools.arg_models.db_args import SqlArgs
+
+        args = {"action": "query", "table": "ai.provider", "data": value}
+        exc = _fail(SqlArgs, args)
+
+        assert remove_flattened_variant_extras(args, SqlArgs, exc) is None
 
     def test_unknown_field_is_not_silently_removed(self) -> None:
         from matrx_ai.tools.arg_models.db_args import SqlArgs

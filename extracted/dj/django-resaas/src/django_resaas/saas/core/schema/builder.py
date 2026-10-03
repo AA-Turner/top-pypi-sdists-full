@@ -5,6 +5,10 @@ from django_resaas.saas.models.model_extra_action import (
 )
 
 
+# tenant fields every BaseModel has: never proposed as list filters (see build_filters)
+TENANT_FIELDS = ("entity", "branch")
+
+
 class ResaasSchemaBuilder:
 
 
@@ -400,6 +404,13 @@ class ResaasSchemaBuilder:
             if not name:
                 continue
 
+            # the tenant fields: a list is always the current Entity/Branch,
+            # so filtering by them changes nothing - and their pickers are
+            # refused (403) to whoever cannot pick an Entity/Branch. A model
+            # can still list them in its RESAAS.filters["fields"].
+            if name in TENANT_FIELDS:
+                continue
+
             filter_fields.append(
                 name
             )
@@ -608,7 +619,7 @@ class ResaasSchemaBuilder:
                 (
                     f"{self.app}/"
                     f"{self.model}s/"
-                    "pdflist/"
+                    "pdf_list/"
                 ),
 
         }

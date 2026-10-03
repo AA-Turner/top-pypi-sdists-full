@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai-prebuilt
-Version: 1.2.2
+Version: 1.3.0
 Summary: A simple, ready-to-use prebuilt client supporting all Pipecat transports.
 License: BSD 2-Clause License
 Project-URL: homepage, https://github.com/pipecat-ai/pipecat-prebuilt
@@ -14,7 +14,9 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: fastapi[all]
+Dynamic: license-file
 
 # Pipecat AI Prebuilt
 

@@ -26,7 +26,12 @@ from matrx_graph.content_ir.sdk import kind
 from matrx_ai.config.prompt_values import prompt_safe_value
 
 
-@kind("prompt_door_trial_link", label="Trial Link", family="prompt_door_trial")
+@kind(
+    "prompt_door_trial_link",
+    disposition="record",
+    label="Trial Link",
+    family="prompt_door_trial",
+)
 class TrialLink(KindModel):
     """An item kind that declares NO ai_view — the untouched case."""
 
@@ -37,6 +42,7 @@ class TrialLink(KindModel):
 
 @kind(
     "prompt_door_trial_page",
+    disposition="record",
     label="Trial Page",
     family="prompt_door_trial",
     # The body is the markdown; the alternate renderings, the link records and
@@ -57,7 +63,12 @@ class TrialPage(KindModel):
     fingerprint: str = ""
 
 
-@kind("prompt_door_trial_batch", label="Trial Batch", family="prompt_door_trial")
+@kind(
+    "prompt_door_trial_batch",
+    disposition="record",
+    label="Trial Batch",
+    family="prompt_door_trial",
+)
 class TrialBatch(KindModel):
     pages: list[TrialPage] = []
     successful: int = 0

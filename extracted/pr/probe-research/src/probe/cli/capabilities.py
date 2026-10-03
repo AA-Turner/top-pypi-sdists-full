@@ -58,23 +58,22 @@ ENV_CODEX_TAP_PLUGIN_DIR = "PRBE_CODEX_TAP_PLUGIN_DIR"
 ENV_PI_INGEST_TOKEN = "PROBE_PI_TAP_TOKEN"
 ENV_PI_TAP_PLUGIN_DIR = "PROBE_PI_TAP_PLUGIN_DIR"
 
-#: Per-source overrides for the tap's token/plugin-dir env vars, hand-mirrored
-#: from tap/sources.py's `token_env`/`plugin_dir_env` columns -- this package
-#: cannot import that table (see the module docstring: the tap is a separate
-#: plugin package living in the coding agent's plugin cache, not necessarily
-#: on this process's PYTHONPATH). claude_code carries no row: it is the
-#: implicit default (ENV_INGEST_TOKEN / ENV_TAP_PLUGIN_DIR) everywhere below,
-#: matching `sources.DEFAULT_SOURCE_ID`. A source added to tap/sources.py
-#: without a matching row here silently falls back to claude_code's env vars
-#: and plugin dir -- the exact "codex read as claude_code" bug class this
-#: table exists to close off.
+#: Per-source overrides for the tap's token/plugin-dir env vars, read from the
+#: harness registry (probe/harness/harnesses.json, `capture` of each captured
+#: row). The tap package reads its own copy of the same file, so the two can no
+#: longer drift (tests/test_harness_conformance.py). claude_code is the
+#: registry's default; ENV_INGEST_TOKEN / ENV_TAP_PLUGIN_DIR remain its names.
+def _capture_rows() -> dict:
+    from probe.harness import get_registry
+
+    return {h.id: h.capture for h in get_registry().captured()}
+
+
 _TAP_TOKEN_ENV_BY_SOURCE: dict[str, str] = {
-    "codex": ENV_CODEX_INGEST_TOKEN,
-    "pi": ENV_PI_INGEST_TOKEN,
+    source: capture.token_env for source, capture in _capture_rows().items() if source != "claude_code"
 }
 _TAP_PLUGIN_DIR_ENV_BY_SOURCE: dict[str, str] = {
-    "codex": ENV_CODEX_TAP_PLUGIN_DIR,
-    "pi": ENV_PI_TAP_PLUGIN_DIR,
+    source: capture.plugin_dir_env for source, capture in _capture_rows().items() if source != "claude_code"
 }
 
 
@@ -318,23 +317,24 @@ def agent_source() -> str:
         it non-regressive. python -W error turns it back into a hard stop
         for anyone who wants the strict behavior.
     """
+    from probe.harness import get_registry
+
+    registry = get_registry()
     raw = os.environ.get(ENV_AGENT) or ""
     explicit = raw.strip().lower()
     if not explicit:
-        return "claude_code"
-    if explicit in {"claude", "claude_code"}:
-        return "claude_code"
-    if explicit == "codex":
-        return "codex"
-    if explicit == "pi":
-        return "pi"
+        return registry.default
+    harness = registry.find(explicit)
+    if harness is not None and harness.installable:
+        return harness.id
+    accepted = ", ".join(name for h in registry.installable() for name in h.names)
     warnings.warn(
         f"{ENV_AGENT}={raw!r} is not a recognized agent source "
-        "(accepted: claude, claude_code, codex, pi); continuing as claude_code",
+        f"(accepted: {accepted}); continuing as {registry.default}",
         UnrecognizedAgentSourceWarning,
         stacklevel=2,
     )
-    return "claude_code"
+    return registry.default
 
 
 @contextmanager
@@ -379,24 +379,17 @@ def capture_plugin_name(source: str | None = None) -> str:
 
 
 def tap_plugin_dir(source: str | None = None) -> Path:
+    """The capture tap's state folder for an agent, from its registry row:
+    the override variable, else the current folder, else a legacy folder an
+    older install left (Codex's retired standalone plugin name). The tap
+    resolves the same row from its own copy of the registry."""
+    from probe.harness import get_registry
+
     selected = source or agent_source()
-    env_name = _TAP_PLUGIN_DIR_ENV_BY_SOURCE.get(selected, ENV_TAP_PLUGIN_DIR)
-    env = os.environ.get(env_name)
-    if env:
-        return Path(env)
-    if selected == "codex":
-        state = Path.home() / ".codex" / "state"
-        current = state / TAP_PLUGIN_NAME
-        legacy = state / "prbe-codex-tap-plugin"
-        # Existing pairings/outboxes stay live without making the retired
-        # standalone plugin name the default for new installations.
-        return legacy if legacy.exists() and not current.exists() else current
-    if selected == "pi":
-        # Mirrors tap/sources.py::plugin_state_dir()'s pi row exactly -- pi's
-        # daemon does NOT live under ~/.claude/plugins like claude_code, nor
-        # under ~/.codex/state like codex; it has its own state root.
-        return Path.home() / ".pi" / "agent" / "state" / TAP_PLUGIN_NAME
-    return Path.home() / ".claude" / "plugins" / TAP_PLUGIN_NAME
+    capture = get_registry().get(selected).capture
+    if capture is None:
+        raise ValueError(f"{selected!r} has no capture tap")
+    return capture.state_dir()
 
 
 def probe_config_path() -> Path:
@@ -437,6 +430,19 @@ def probe_config_credentials() -> dict:
     return raw
 
 
+def consumes_cli_capture_token(source: str) -> bool:
+    """Does this agent's uploader fall back to the probe CLI config's
+    `ingest_token`? Only Claude Code: that token is the capture token minted
+    for Claude Code, and the server refuses a paired token on any other
+    agent's route. Mirrors tap/config.py::load_token() and the pi extension's
+    pairing.ts (decision D3, 2026-09-09). Read from the harness registry
+    (`capture.cli_token_fallback`)."""
+    from probe.harness import get_registry
+
+    harness = get_registry().find(source)
+    return bool(harness and harness.capture and harness.capture.cli_token_fallback)
+
+
 def capture_token_sources(source: str | None = None) -> tuple[TokenSource, ...]:
     """Every place a capture credential currently resolves from, in the
     uploader's own precedence order.
@@ -458,13 +464,12 @@ def capture_token_sources(source: str | None = None) -> tuple[TokenSource, ...]:
     if (os.environ.get(token_env) or "").strip():
         found.append(TokenSource.ENVIRONMENT)
     if (
-        # Mirrors tap/config.py::load_token()'s actual gate ("codex never
-        # falls back to the probe CLI's config"), not the closed two-source
-        # universe this used to assume. pi DOES fall back to it -- see that
-        # module's docstring and the pi extension's README precedence list --
-        # so gating on `selected == "claude_code"` silently under-reported a
-        # paired pi device's PROBE_CONFIG source once pi existed at all.
-        selected != "codex"
+        # Mirrors tap/config.py::load_token(): the probe CLI config's
+        # `ingest_token` is the capture token minted for Claude Code, and the
+        # server refuses it on every other agent's route (a paired device
+        # token is bound to its source). So only Claude Code falls back to it;
+        # Codex and pi resolve their own paired token or env var, or nothing.
+        consumes_cli_capture_token(selected)
         and str(probe_config_credentials().get("ingest_token") or "").strip()
     ):
         found.append(TokenSource.PROBE_CONFIG)
@@ -483,10 +488,7 @@ def resolved_capture_credential(source: str | None = None) -> tuple[str, str] | 
     if not token:
         token_env = _TAP_TOKEN_ENV_BY_SOURCE.get(selected, ENV_INGEST_TOKEN)
         token = (os.environ.get(token_env) or "").strip()
-    if not token and selected != "codex":
-        # See capture_token_sources() for why this is "not codex" rather than
-        # "is claude_code": tap/config.py::load_token() excludes codex only,
-        # and pi shares claude_code's CLI-config fallback.
+    if not token and consumes_cli_capture_token(selected):
         token = str(probe_config_credentials().get("ingest_token") or "").strip()
 
     base_url = (os.environ.get("PROBE_BASE_URL") or "").strip().rstrip("/")

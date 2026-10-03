@@ -54,6 +54,7 @@ import time
 import traceback
 from typing import Any
 
+from matrx_utils.text_case import humanize_identifier
 from pydantic import ValidationError
 
 from matrx_ai.tools._dispatch_util import format_args_error
@@ -299,7 +300,7 @@ async def _create_from_patch(
         )
 
     obj_type_raw = (args.get("type") or "").strip()
-    label = (args.get("label") or "").strip() or key.replace("_", " ").title()
+    label = (args.get("label") or "").strip() or humanize_identifier(key)
     description = args.get("description") or ""
     overwrite = bool(args.get("overwrite_existing", False))
 

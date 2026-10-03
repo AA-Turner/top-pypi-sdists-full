@@ -401,6 +401,11 @@ async def _send_status(send: _ASGISend, status: int) -> None:
     await send({"type": "http.response.body", "body": b""})
 
 
+def is_schedule_scripts_app(app: object) -> bool:
+    """Whether `app` is a supervisor from `create_schedule_scripts_app`."""
+    return isinstance(app, _ScheduleScriptApp)
+
+
 def create_schedule_scripts_app(scripts: Mapping[str, str]) -> object:
     """Create the supervisor that runs a schedule's script once per firing.
 

@@ -181,6 +181,7 @@ class _RecordingLedger:
     def __init__(self) -> None:
         """Start with empty write logs and no scripted rejections."""
         self.started: list[JsonObject] = []
+        self.started_request_ids: set[str] = set()
         self.finished: list[JsonObject] = []
         self.terminal_events: list[GatewayEvent | None] = []
         self.service_tiers: list[GatewayServiceTierSettlement | None] = []
@@ -192,6 +193,7 @@ class _RecordingLedger:
         self.finished_requests: list[GatewayFailure] = []
         self.budget_rejections: dict[str, BudgetScopeKind] = {}
         self.fail_finishes = 0
+        self.fail_request_finishes = 0
         self.typed_rejection: GatewayFailure | None = None
         self._counter = 0
 
@@ -202,7 +204,7 @@ class _RecordingLedger:
     def start_attempt(
         self,
         *,
-        snapshot: object,
+        snapshot: ExecutionSnapshot,
         deployment: ExactModelDeployment,
         attempt_ordinal: int,
         route_depth: int,
@@ -216,13 +218,14 @@ class _RecordingLedger:
         service_tier: GatewayServiceTierAdmission | None = None,
     ) -> str:
         """Reserve one recorded attempt row, honoring scripted rejections."""
-        del snapshot, fallback_reason
+        del fallback_reason
         if self.typed_rejection is not None:
             raise AttemptRejectedError("root preflight required", failure=self.typed_rejection)
         scope = self.budget_rejections.get(deployment.deployment_id)
         if scope is not None:
             raise BudgetReservationRejected(scope_kind=scope, reason="scripted")
         self._counter += 1
+        self.started_request_ids.add(snapshot.authorization.request_id)
         attempt_id = f"attempt-{self._counter}"
         self.started.append(
             {
@@ -308,10 +311,14 @@ class _RecordingLedger:
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Record one request-only terminalization."""
-        del authorization
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Record terminalization and report the fake's exact prior-attempt history."""
+        if self.fail_request_finishes:
+            self.fail_request_finishes -= 1
+            raise RuntimeError("scripted request terminal-write failure")
         self.finished_requests.append(failure)
+        return certify_no_effects and authorization.request_id not in self.started_request_ids
 
 
 def _registry() -> tuple[NativeAttemptAccounting, _RecordingLedger, InflightRequest]:
@@ -1302,6 +1309,7 @@ def _admit(
     sticky_preferred: bool = False,
     reasoning_pinned_deployment_id: str | None = None,
     catalog_sha256: str = _DIGEST,
+    no_paid_prework: bool = True,
 ) -> InflightRequest:
     """Register one admitted request over the given rung ladder.
 
@@ -1341,6 +1349,7 @@ def _admit(
         route=route,
         request=_request(),
         deadline_monotonic=time.monotonic() + 30,
+        no_paid_prework=no_paid_prework,
         affinity_fingerprint=affinity_fingerprint,
         sticky_preferred=sticky_preferred,
     )
@@ -1394,6 +1403,7 @@ class TestLaneSaturation:
         assert _start(registry, ordinal=0, request_id="request-1")["route_depth"] == 0
         refused = _start(registry, ordinal=0, request_id="request-2")
         assert refused["exhausted"] is True
+        assert refused["known_unbilled"] is True
         failure = cast("JsonObject", refused["failure"])
         assert failure["failure_class"] == "throttled"
         assert failure["retry_after_seconds"] == 5
@@ -1412,6 +1422,31 @@ class TestLaneSaturation:
         )
         _admit(registry, only, request_id="request-3")
         assert _start(registry, ordinal=0, request_id="request-3")["route_depth"] == 0
+
+    @pytest.mark.parametrize("no_paid_prework", [False, True])
+    @pytest.mark.parametrize("prior_attempt", [False, True])
+    @pytest.mark.parametrize("write_fails", [False, True])
+    def test_capacity_certificate_requires_durable_zero_attempt_proof(
+        self, prior_attempt: bool, write_fails: bool, no_paid_prework: bool
+    ) -> None:
+        """In-memory counters and a swallowed terminal error cannot certify free work."""
+        ledger = _RecordingLedger()
+        registry = NativeAttemptAccounting(ledger, default_lane_bound=1)
+        only = (_deployment("deployment-a", connection_sha256="b" * 64),)
+        _admit(registry, only, request_id="occupied")
+        _admit(registry, only, request_id="refused", no_paid_prework=no_paid_prework)
+        _start(registry, ordinal=0, request_id="occupied")
+        if prior_attempt:
+            ledger.started_request_ids.add("refused")
+        ledger.fail_request_finishes = int(write_fails)
+
+        response = _start(registry, ordinal=0, request_id="refused")
+
+        assert response.get("known_unbilled", False) is (
+            no_paid_prework and not prior_attempt and not write_fails
+        )
+        assert registry.accounting_healthy is (not write_fails)
+        assert len(ledger.started) == 1
 
     @pytest.mark.parametrize("authored", [False, True])
     @pytest.mark.parametrize("staged", [False, True])
@@ -2122,7 +2157,7 @@ def test_start_attempt_reprices_only_when_the_selected_depth_forwards_the_tier()
         def start_attempt(
             self,
             *,
-            snapshot: object,
+            snapshot: ExecutionSnapshot,
             deployment: ExactModelDeployment,
             attempt_ordinal: int,
             route_depth: int,

@@ -20,7 +20,6 @@ from django.urls import path
 
 from rest_framework import routers
 
-from rest_framework_simplejwt.views import TokenRefreshView
 
 
 
@@ -28,7 +27,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 # ─────────────────────────────
 # User / Auth views
 # ─────────────────────────────
-from django_resaas.saas.data.user.views.login import LoginAPIView
+from django_resaas.saas.data.user.views.login import LoginAPIView, TokenRefreshView
 from django_resaas.saas.data.user.views.logins import LoginsAPIView
 from django_resaas.saas.data.user.views.logout import LogoutAPIView
 from django_resaas.saas.data.user.views.me import MeAPIView
@@ -102,10 +101,10 @@ import django_resaas.notifications.views  # noqa: F401
 from django_resaas.saas.data.pdf.views.invoice import invoice_pdf
 
 from django_resaas.view import home
-from django_resaas.view import deploy_github, deploy_status, deploy_releases, deploy_logs, deploy_rollback
 from django_resaas.saas.core.utils.autoload_urls import build_saas_urls
 
 from django_resaas.saas.data.context.views.context import ResaasContextAPIView
+from django_resaas.saas.data.entitlement.views.entitlement import EntitlementsAPIView
 
 from django_resaas.saas.core.dashboards.views import (
     DashboardDetailAPIView,
@@ -161,13 +160,9 @@ urlpatterns = [
 
     path('', home, name='home'),
     path(  "resaas/context/", ResaasContextAPIView.as_view(), name="resaas_context" ),
+    path("resaas/entitlements/", EntitlementsAPIView.as_view(), name="resaas_entitlements"),
     
 
-    path("deploy/github/", deploy_github),
-    path("deploy/status/", deploy_status),
-    path("deploy/releases/", deploy_releases),
-    path("deploy/logs/", deploy_logs),
-    path("deploy/rollback/", deploy_rollback),
     
 
     path("django_resaas/", include(routerdjango_resaas.urls)),

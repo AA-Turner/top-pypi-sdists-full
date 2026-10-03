@@ -454,10 +454,15 @@ class DatasetCollectionWithPreprocessing(torch.utils.data.Dataset):
 
             y_test_standardized = (y_test_raw - train_mean) / train_std
             y_train_standardized = (y_train_raw - train_mean) / train_std
-            raw_space_bardist_ = FullSupportBarDistribution(
-                znorm_space_bardist_.borders * train_std
-                + train_mean  # Inverse normalization back to raw space
-            ).float()
+            znorm_borders = znorm_space_bardist_.borders
+            raw_space_bardist_ = (
+                FullSupportBarDistribution(
+                    znorm_borders.cpu().double() * train_std
+                    + train_mean  # Inverse normalization back to raw space
+                )
+                .float()
+                .to(znorm_borders.device)
+            )
             y_train = y_train_standardized
         else:
             y_train = y_train_raw
@@ -523,7 +528,9 @@ class DatasetCollectionWithPreprocessing(torch.utils.data.Dataset):
                 y_context=y_trains_preprocessed,
                 y_query=y_test_standardized,
                 cat_indices=cat_indices,
-                configs=list(conf),
+                # The members carry the fitted configs (e.g. target transforms),
+                # which differ from `conf` when preprocessing ran in worker processes.
+                configs=[m.config for m in ensemble_members],
                 raw_space_bardist=raw_space_bardist_,
                 znorm_space_bardist=znorm_space_bardist_,
                 X_query_raw=x_test_raw,
@@ -536,7 +543,7 @@ class DatasetCollectionWithPreprocessing(torch.utils.data.Dataset):
             y_context=y_trains_preprocessed,
             y_query=y_test_raw,
             cat_indices=cat_indices,
-            configs=list(conf),
+            configs=[m.config for m in ensemble_members],
         )
 
 

@@ -7,8 +7,8 @@ use chematic_core::{
 };
 use chematic_perception::RingSet;
 use chematic_smarts::{
-    AtomPrimitive, AtomQuery, BondPrimitive, BondQuery, QueryMolecule, find_matches,
-    find_matches_with_rings,
+    AtomPrimitive, AtomQuery, BondPrimitive, BondQuery, MatchConfig, QueryMolecule,
+    find_matches_with_config, find_matches_with_rings_and_config,
 };
 
 use crate::reaction::{RxnError, parse_reaction};
@@ -359,6 +359,19 @@ pub struct PreparedReaction {
 }
 
 impl PreparedReaction {
+    /// Whether the reactant pattern has tetrahedral `@`/`@@` constraints.
+    ///
+    /// This is deliberately separate from E/Z bond stereo. Callers that need
+    /// RDKit-compatible reaction semantics can refuse this profile explicitly
+    /// rather than returning a confident, differently interpreted product.
+    pub fn has_tetrahedral_reactant_stereo(&self) -> bool {
+        self.has_stereo
+            || self
+                .variants
+                .as_ref()
+                .is_some_and(|variants| variants.iter().any(|variant| variant.has_stereo))
+    }
+
     /// Parse and compile one SMIRKS template for repeated matching and
     /// application. The returned value owns all query state, is safe to share
     /// between threads, and never reparses the template during its methods.
@@ -912,6 +925,16 @@ fn find_matches_impl(
     }
 
     // VF2 match: for each (template_query, input_mol) pair.
+    // A substructure API may deduplicate embeddings by target atom *set*.
+    // Reactions cannot: swapping two template atoms mapped to the same set
+    // may produce distinct products (e.g. asymmetric ether cleavage).
+    let match_config = MatchConfig {
+        uniquify: false,
+        // A reaction reactant template is an exact molecular specification,
+        // unlike the general substructure API's isotope-agnostic default.
+        use_isotopes: true,
+        ..MatchConfig::default()
+    };
     let all_match_sets: Vec<Vec<FxHashMap<usize, AtomIdx>>> = prepared
         .queries
         .iter()
@@ -919,8 +942,10 @@ fn find_matches_impl(
         .enumerate()
         .map(|(index, (q, mol))| {
             let matches = match rings {
-                Some(rings) => find_matches_with_rings(q, mol, rings[index]),
-                None => find_matches(q, mol),
+                Some(rings) => {
+                    find_matches_with_rings_and_config(q, mol, rings[index], &match_config)
+                }
+                None => find_matches_with_config(q, mol, &match_config),
             };
             crate::perf_counters::record_reactant_query_match_call(matches.len());
             if matches.len() > limits.max_matches {
@@ -1305,6 +1330,13 @@ fn mol_to_query(mol: &Molecule) -> QueryMolecule {
             q = AtomQuery::And(
                 Box::new(q),
                 Box::new(AtomQuery::Primitive(AtomPrimitive::Charge(atom.charge))),
+            );
+        }
+
+        if let Some(mass) = atom.isotope {
+            q = AtomQuery::And(
+                Box::new(q),
+                Box::new(AtomQuery::Primitive(AtomPrimitive::Isotope(mass))),
             );
         }
 
@@ -1878,6 +1910,36 @@ mod tests {
     }
 
     #[test]
+    fn mapped_asymmetric_ether_keeps_both_embeddings_on_one_atom_set() {
+        // The C-O-C query covers the same three target atoms in both
+        // orientations, but the mapped cleavage yields two different product
+        // tuples. Target-set uniquification must not discard either one.
+        let mol = parse("COCC").unwrap();
+        let results = run_reactants("[C:1][O:2][C:3]>>[C:1][O:2].[C:3]", &[&mol]).unwrap();
+        let outcomes: std::collections::BTreeSet<Vec<String>> = results
+            .into_iter()
+            .map(|set| {
+                let mut products = canonical_set(set);
+                products.sort();
+                products
+            })
+            .collect();
+        let expected: std::collections::BTreeSet<Vec<String>> =
+            [vec!["C", "CCO"], vec!["CC", "CO"]]
+                .into_iter()
+                .map(|set| {
+                    let mut products: Vec<String> = set
+                        .into_iter()
+                        .map(|smiles| canonical(&parse(smiles).unwrap()))
+                        .collect();
+                    products.sort();
+                    products
+                })
+                .collect();
+        assert_eq!(outcomes, expected);
+    }
+
+    #[test]
     fn applies_atomic_number_smirks_and_keeps_atom_maps() {
         let reactant = parse("NC=O").unwrap();
         let smirks = "[#7:1][C:2](=[O:3])>>[#7:1][C:2](=[O:3])";
@@ -1897,6 +1959,28 @@ mod tests {
         assert!(!results.is_empty(), "atomic-number SMIRKS must apply");
         let product = &results[0][0];
         assert_eq!(product.atom_count(), 3);
+    }
+
+    #[test]
+    fn styrene_hydrogenation_keeps_both_template_map_orientations() {
+        let reactant = parse("C=Cc1ccccc1").unwrap();
+        let smirks = "[C:1]=[C:2]>>[C:1][C:2]";
+        let prepared = PreparedReaction::new(smirks).unwrap();
+        let matches = prepared.find_matches(&[&reactant]).unwrap();
+        let maps: Vec<_> = matches
+            .iter()
+            .map(|m| m.atom_map_positions(smirks).unwrap())
+            .collect();
+        assert_eq!(
+            maps.len(),
+            2,
+            "each atom-map orientation is observable: {maps:?}"
+        );
+        let orientations: std::collections::BTreeSet<_> = maps
+            .iter()
+            .map(|positions| (positions[&1].1.0, positions[&2].1.0))
+            .collect();
+        assert_eq!(orientations, [(0, 1), (1, 0)].into());
     }
 
     #[test]
@@ -3301,6 +3385,10 @@ mod tests {
                 vec![parse("NCC").unwrap(), parse("CO").unwrap()],
             ),
             ("[C:1][C:2]>>[C:1].[C:2]", vec![parse("CCO").unwrap()]),
+            // A product-only map labels a newly created atom; it has no
+            // reactant origin, including when emitted as a second product.
+            ("[C:1]>>[C:1][O:2]", vec![parse("C").unwrap()]),
+            ("[C:1]>>[C:1].[O:2]", vec![parse("C").unwrap()]),
             (
                 "[OH:1]-[C:2]=[O:3]>>C-[O:1]-[C:2]=[O:3]",
                 vec![parse("CC(=O)OC1=CC=CC=C1C(=O)O").unwrap()],
@@ -3400,6 +3488,28 @@ mod tests {
             mol.atom_count(),
             "every reactant atom is carried"
         );
+    }
+
+    #[test]
+    fn symmetric_ether_cleavage_retains_both_source_assignments() {
+        let mut ether = parse("COC").unwrap();
+        for i in 0..ether.atom_count() {
+            ether.set_tag(AtomIdx(i as u32), Some(i as u16 + 1));
+        }
+        let smirks = "[C:1][O:2][C:3]>>[C:1][O:2].[C:3]";
+        let products = run_reactants(smirks, &[&ether]).unwrap();
+        let mut assignments: Vec<_> = products
+            .iter()
+            .map(|set| {
+                assert_eq!(set.len(), 2);
+                (
+                    set[0].atom_tag(AtomIdx(0)).unwrap().get(),
+                    set[1].atom_tag(AtomIdx(0)).unwrap().get(),
+                )
+            })
+            .collect();
+        assignments.sort_unstable();
+        assert_eq!(assignments, [(1, 3), (3, 1)]);
     }
 
     /// `run_reactants_strict` (carry_substituents=false) must also compose
@@ -3533,6 +3643,23 @@ mod tests {
         assert_eq!(report.diagnostics.valence_rejected_matches, 1);
         assert!(!report.diagnostics.truncated_matches);
         assert!(run_reactants(smirks, &[&ethanol]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn mapped_isotope_template_matches_only_the_specified_nuclide() {
+        let labeled = parse("[13CH3]O").unwrap();
+        let unlabeled = parse("CO").unwrap();
+        let smirks = "[13CH3:1][O:2]>>[13CH3:1][O:2]";
+
+        let products = run_reactants(smirks, &[&labeled]).unwrap();
+        assert_eq!(products.len(), 1);
+        assert_eq!(products[0].len(), 1);
+        assert!(
+            products[0]
+                .iter()
+                .any(|m| m.atoms().any(|(_, a)| a.isotope == Some(13)))
+        );
+        assert!(run_reactants(smirks, &[&unlabeled]).unwrap().is_empty());
     }
 
     #[test]

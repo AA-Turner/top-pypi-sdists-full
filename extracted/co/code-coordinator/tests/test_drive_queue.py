@@ -15,6 +15,8 @@ most attention here are the ones that caused real incidents:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from coord.drive_queue import (
@@ -38,18 +40,21 @@ from coord.drive_queue import (
     STATE_WAITING,
     UNREACHABLE_WAIT_MIN_DEFERRALS,
     BoardView,
+    ExistingPrMatch,
     IssueFacts,
     ProbeResult,
     QueueEntry,
     QueueError,
     add_preflight_notice,
     build_board_view,
+    conventional_branch_patterns,
     detect_unreachable_waits,
     compute_leg_counts,
     dispatch_type_for_labels,
     effective_max_fix_rounds,
     entries_from_rows,
     entry_key,
+    existing_pr_relaunch_remedy,
     find_cycle,
     is_empty_branch_death_reason,
     is_merge_gate_block_reason,
@@ -7364,6 +7369,27 @@ def test_merge_gate_remedy_command_falls_back_to_inspect_for_red_ci():
     assert "drive-queue remove" not in command
 
 
+def test_merge_gate_remedy_command_recognizes_a_stale_checks_failed_reason():
+    """#1986: a RED check that predates the current base still carries the
+    plain `checks failed` prefix (`coord/merge_queue.py`'s
+    `checks_failed_stale_suffix` only ever APPENDS to it) — so this must
+    keep matching here exactly as the bare #2983-less red-CI shape does
+    above, not fall through to "not a merge-gate block" just because the
+    message now also names the stale base."""
+    reason = (
+        "checks failed: windows (failure) — but that run predates the "
+        "current base (ran against main as of 2026-08-07T03:33:48Z, main "
+        "now 2026-08-08T01:02:03Z) — rebase onto main and push (`git push "
+        "--force-with-lease`) and let CI re-run before trusting this "
+        "result; a CI re-run against the same base cannot see a moved base"
+    )
+    assert is_merge_gate_block_reason(reason) is True
+    command = merge_gate_remedy_command(reason, REPO, 1986)
+    assert command == merge_plan_inspect_command(REPO)
+    assert "revalidate" not in command
+    assert "drive-queue remove" not in command
+
+
 def test_merge_gate_remedy_command_falls_back_to_inspect_for_review_required():
     reason = (
         "review_required — coord merge's own gate reports 'review missing', "
@@ -7414,6 +7440,259 @@ def test_merge_gate_remedy_command_is_the_safe_inspect_fallback_for_none_and_non
     ordinary = "no candidate machine available for claude-coordinator#1650"
     assert is_merge_gate_block_reason(ordinary) is False
     assert merge_gate_remedy_command(ordinary, REPO, 1650) == merge_plan_inspect_command(REPO)
+
+
+# ── #2377: don't relaunch over an already-fixed PR ──────────────────────────
+#
+# The live incident: claude-coordinator#2283's entry was `blocked` on the
+# #2363 empty-branch-death signature, and the recommended remedy was a blind
+# `coord drive-queue remove 2283 && coord drive-queue add 2283` — blind to PR
+# #2353 already carrying the correctly re-authored, all-green work. These
+# cover the two PURE functions the fix is built from; `tests/
+# test_cli_drive_queue.py` covers the `add`-time refusal and the tick's
+# escalation-command override end to end.
+
+
+def test_conventional_branch_patterns_match_both_named_shapes():
+    patterns = conventional_branch_patterns(2283)
+    assert "issue-2283-*" in patterns
+    assert "test-author-ms-*-slice-2283" in patterns
+    import fnmatch
+
+    # The real #2283 incident's own branch name (a work dispatch would use
+    # this shape with a different, descriptive slug).
+    assert any(
+        fnmatch.fnmatch("issue-2283-drive-queue-reliability", p) for p in patterns
+    )
+    # The oracle-loop JIT acceptance-author shape, wildcarded on milestone.
+    assert any(fnmatch.fnmatch("test-author-ms-65-slice-2283", p) for p in patterns)
+    # Never a false positive on an unrelated, merely-similar issue number.
+    assert not any(fnmatch.fnmatch("issue-22830-foo", p) for p in patterns)
+    assert not any(
+        fnmatch.fnmatch("test-author-ms-65-slice-22830", p) for p in patterns
+    )
+
+
+def test_existing_pr_relaunch_remedy_is_none_without_a_match():
+    """#2377's unconditional default: no PR found on the conventional branch
+    name(s) — start fresh, today's only behaviour, unchanged."""
+    assert existing_pr_relaunch_remedy(REPO, 2283, None) is None
+
+
+def test_existing_pr_relaunch_remedy_recommends_merging_a_green_pr():
+    match = ExistingPrMatch(
+        number=2353, branch="test-author-ms-65-slice-2283",
+        url="https://github.com/example/claude-coordinator/pull/2353",
+        all_green=True,
+    )
+    remedy = existing_pr_relaunch_remedy(REPO, 2283, match)
+    assert remedy is not None
+    assert remedy["command_or_action"] == f"coord merge --only {REPO}#2283"
+    assert "2353" in remedy["what_happens"]
+    assert "drive-queue remove" not in remedy["command_or_action"]
+    assert "drive-queue add" not in remedy["command_or_action"]
+
+
+def test_existing_pr_relaunch_remedy_refuses_the_relaunch_even_when_red():
+    """A red/stale-checks PR is NOT a green light to requeue either — #2377's
+    design note: something else may already be mid-fixing that branch, and a
+    fresh drive on top of it risks clobbering it mid-flight. The gate must
+    be able to say "not ready" too: this match is deliberately `all_green=
+    False`, so the assertion below only holds if the function can actually
+    produce the non-merge branch."""
+    match = ExistingPrMatch(
+        number=2353, branch="test-author-ms-65-slice-2283",
+        url="https://github.com/example/claude-coordinator/pull/2353",
+        all_green=False,
+    )
+    remedy = existing_pr_relaunch_remedy(REPO, 2283, match)
+    assert remedy is not None
+    assert remedy["command_or_action"] != f"coord merge --only {REPO}#2283"
+    assert "coord merge --only" not in remedy["command_or_action"]
+    assert "drive-queue remove" not in remedy["command_or_action"]
+    assert "2353" in remedy["what_happens"]
+    # Review nit on #2377: reuses `merge_plan_inspect_command` rather than a
+    # second hardcoded copy of the same string.
+    assert remedy["command_or_action"] == merge_plan_inspect_command(REPO)
+
+
+# ── #3539: green PR, but Test and/or Review never recorded ─────────────────
+#
+# The live incident: quadraui#1109 (PR #1253) had its Test stage dead-end on
+# an unrelated capability-probe failure, a `coord fix` worker then repaired
+# the PR's only red CI job, and once every check went green the #2377 guard
+# refused the re-add with "merge it instead" — but `coord gates` showed BOTH
+# `review` and `test` BLOCKED, and `coord merge --only` itself refused with
+# "enqueue blocked by review gate". The guard must tell these two "green"
+# shapes apart.
+
+
+def test_existing_pr_relaunch_remedy_recommends_merging_a_fully_gated_green_pr():
+    """Unchanged #2377 behaviour, now spelled out explicitly for the shape
+    `missing_gates` is empty on: every required gate already satisfied —
+    still refuse, still "merge it"."""
+    match = ExistingPrMatch(
+        number=1253, branch="issue-1109-fix",
+        url="https://github.com/example/quadraui/pull/1253",
+        all_green=True,
+        missing_gates=(),
+    )
+    remedy = existing_pr_relaunch_remedy("quadraui", 1109, match)
+    assert remedy is not None
+    assert remedy["command_or_action"] == "coord merge --only quadraui#1109"
+    assert "1253" in remedy["what_happens"]
+
+
+def test_existing_pr_relaunch_remedy_accepts_a_green_pr_missing_both_gates():
+    """#3539's actual fix: CI green, but review AND test were never
+    recorded — `None` (accept the `add`, resume on the existing branch),
+    never the impossible "merge it" advice."""
+    match = ExistingPrMatch(
+        number=1253, branch="issue-1109-fix",
+        url="https://github.com/example/quadraui/pull/1253",
+        all_green=True,
+        missing_gates=("review", "test"),
+    )
+    assert existing_pr_relaunch_remedy("quadraui", 1109, match) is None
+
+
+def test_existing_pr_relaunch_remedy_accepts_a_green_pr_missing_one_gate():
+    """Same fix, the partial shape — only ONE gate missing (e.g. review
+    approved, test never dispatched) is still "accept", not "merge it"."""
+    match = ExistingPrMatch(
+        number=1253, branch="issue-1109-fix",
+        url="https://github.com/example/quadraui/pull/1253",
+        all_green=True,
+        missing_gates=("test",),
+    )
+    assert existing_pr_relaunch_remedy("quadraui", 1109, match) is None
+
+
+def test_existing_pr_relaunch_remedy_still_refuses_fix_forward_when_red_with_missing_gates():
+    """A red PR is refused on CI alone, same as before #3539 — missing
+    gates are moot (and, realistically, implied) when checks are not even
+    green yet. `missing_gates` is populated here to prove the red-check
+    branch is checked FIRST and never looks at it."""
+    match = ExistingPrMatch(
+        number=1253, branch="issue-1109-fix",
+        url="https://github.com/example/quadraui/pull/1253",
+        all_green=False,
+        missing_gates=("review", "test"),
+    )
+    remedy = existing_pr_relaunch_remedy("quadraui", 1109, match)
+    assert remedy is not None
+    assert "coord merge --only" not in remedy["command_or_action"]
+    assert remedy["command_or_action"] == merge_plan_inspect_command("quadraui")
+
+
+# ── #3539: `_missing_required_gates` — the live read `_existing_pr_match`
+# feeds `missing_gates` from, pinned directly since it is the one place
+# that reuses `coord.gates.build_gate_report` (#2096: one question, one
+# answer) rather than a second, driftable guess at gate state. ───────────
+
+
+def test_missing_required_gates_reports_only_the_unsatisfied_gate(monkeypatch):
+    from coord.commands.drive_queue import _missing_required_gates
+    from coord.gates import GateDecision, GateReport
+
+    report = GateReport(repo_name="quadraui", issue_number=1109)
+    report.decisions = [
+        GateDecision(gate="review", required=True, ok=False, reason="review required but not approved"),
+        GateDecision(gate="test", required=True, ok=True),
+    ]
+    monkeypatch.setattr("coord.gates.build_gate_report", lambda *a, **k: report)
+    monkeypatch.setattr("coord.commands._common._load_config", lambda *a, **k: object())
+    monkeypatch.setattr("coord.board_service.read_board", lambda *a, **k: object())
+
+    assert _missing_required_gates(Path("/dev/null"), "quadraui", 1109) == ("review",)
+
+
+def test_missing_required_gates_empty_when_both_satisfied(monkeypatch):
+    from coord.commands.drive_queue import _missing_required_gates
+    from coord.gates import GateDecision, GateReport
+
+    report = GateReport(repo_name="quadraui", issue_number=1109)
+    report.decisions = [
+        GateDecision(gate="review", required=True, ok=True),
+        GateDecision(gate="test", required=False, ok=True),
+    ]
+    monkeypatch.setattr("coord.gates.build_gate_report", lambda *a, **k: report)
+    monkeypatch.setattr("coord.commands._common._load_config", lambda *a, **k: object())
+    monkeypatch.setattr("coord.board_service.read_board", lambda *a, **k: object())
+
+    assert _missing_required_gates(Path("/dev/null"), "quadraui", 1109) == ()
+
+
+def test_missing_required_gates_fails_open_to_missing_on_a_read_error(monkeypatch):
+    """#2096: a read that cannot confirm the gate is satisfied must never
+    report it as satisfied — an exception anywhere in the live read (here:
+    `build_gate_report` itself blowing up) reports BOTH gates missing, the
+    safe default, never `()`."""
+    from coord.commands.drive_queue import _missing_required_gates
+
+    def _boom(*a, **k):
+        raise RuntimeError("gh unreachable")
+
+    monkeypatch.setattr("coord.gates.build_gate_report", _boom)
+    monkeypatch.setattr("coord.commands._common._load_config", lambda *a, **k: object())
+    monkeypatch.setattr("coord.board_service.read_board", lambda *a, **k: object())
+
+    assert _missing_required_gates(Path("/dev/null"), "quadraui", 1109) == ("review", "test")
+
+
+def test_missing_required_gates_fails_open_when_no_decision_could_be_resolved(monkeypatch):
+    """A report with no resolved decisions at all (e.g. no work-like
+    assignment `build_gate_report` could select a winner from) is "unknown",
+    never "satisfied" — same fail-open default as a hard read error."""
+    from coord.commands.drive_queue import _missing_required_gates
+    from coord.gates import GateReport
+
+    report = GateReport(repo_name="quadraui", issue_number=1109)
+    report.notes = ["no assignments found on the board for quadraui#1109"]
+    monkeypatch.setattr("coord.gates.build_gate_report", lambda *a, **k: report)
+    monkeypatch.setattr("coord.commands._common._load_config", lambda *a, **k: object())
+    monkeypatch.setattr("coord.board_service.read_board", lambda *a, **k: object())
+
+    assert _missing_required_gates(Path("/dev/null"), "quadraui", 1109) == ("review", "test")
+
+
+def test_missing_required_gates_reads_the_board_through_the_daemon_aware_seam(monkeypatch):
+    """#615/#906: `coord drive-queue add` has no whole-command daemon
+    reroute, so this gate read must go through
+    `coord.board_service.read_board()` (GET /board on a thin client) and
+    never `coord.state.build_board()` directly — a thin client reading the
+    local DB would see an empty board and fail open to "both gates missing"
+    on every add. Pinned by making the local read EXPLODE: a regression back
+    to `build_board()` is swallowed by the fail-open `except` and shows up
+    here as ("review", "test") instead of the real ().
+    """
+    from coord.commands.drive_queue import _missing_required_gates
+    from coord.gates import GateDecision, GateReport
+
+    sentinel_board = object()
+    seen: list[object] = []
+
+    report = GateReport(repo_name="quadraui", issue_number=1109)
+    report.decisions = [
+        GateDecision(gate="review", required=True, ok=True),
+        GateDecision(gate="test", required=True, ok=True),
+    ]
+
+    def _build_gate_report(board, *a, **k):
+        seen.append(board)
+        return report
+
+    def _local_board_is_forbidden(*a, **k):
+        raise AssertionError("read the local board instead of board_service.read_board()")
+
+    monkeypatch.setattr("coord.gates.build_gate_report", _build_gate_report)
+    monkeypatch.setattr("coord.commands._common._load_config", lambda *a, **k: object())
+    monkeypatch.setattr("coord.board_service.read_board", lambda *a, **k: sentinel_board)
+    monkeypatch.setattr("coord.state.build_board", _local_board_is_forbidden)
+    monkeypatch.setattr("coord.state.load_board", _local_board_is_forbidden)
+
+    assert _missing_required_gates(Path("/dev/null"), "quadraui", 1109) == ()
+    assert seen == [sentinel_board]
 
 
 class TestDriveQueueListReadDistinguishesFailureFromEmpty:

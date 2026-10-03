@@ -1116,6 +1116,9 @@ class _GuardedSpanExporter:
         require_positive = foreign_client_seen()
         for span in spans:
             attrs = getattr(span, "attributes", None) or {}
+            # Replay spans belong to the eval store and use its Query SDK credential.
+            if attrs.get("raindrop.eval_correlation_id"):
+                continue
             hint = attrs.get(AUTH_HINT_SPAN_ATTRIBUTE)
             if require_positive:
                 keep = hint == self._owner_auth_hint

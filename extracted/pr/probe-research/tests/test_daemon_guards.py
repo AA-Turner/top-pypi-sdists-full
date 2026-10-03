@@ -69,6 +69,7 @@ import httpx
 import pytest
 
 from probe.daemon import adapters, approvals as appr, lease, precheck, probe_api, tools
+from probe.daemon import shell as sh
 from probe.daemon.store import Store
 
 AGENT = Path(__file__).resolve().parents[1]
@@ -293,6 +294,129 @@ def test_a_long_command_is_refused_never_cut(tmp_path):
     _run(tools.shell(deps, short))
     q = deps.board.all()[0].question
     assert f"`{short}`" in q.question and "cut" not in q.question and not q.terminal_only
+
+
+def test_a_long_refused_command_says_what_the_check_refused_first(tmp_path):
+    """"Too long to ask" alone sent the daemon shortening a note write whose
+    SHAPE was refused (a `probe notes push` after the heredoc), three times
+    over, until the loop detector cut the bite short (2026-10-03)."""
+    notes = tmp_path / "state" / "probe" / "notes" / "experiment" / "e1"
+    notes.mkdir(parents=True)
+    deps = _deps(tmp_path)
+    deps.write_dirs = [tmp_path / "state" / "probe" / "notes"]
+    body = "\n".join(f"- caveat {i}: one seed per setting, so the ranking is provisional" for i in range(8))
+    command = f"cat > {notes / 'note.md'} <<'EOF'\n{body}\nEOF\nprobe notes push --experiment e1"
+    assert len(command) > appr.COMMAND_CHARS
+
+    out = _run(tools.shell(deps, command))
+
+    assert out.startswith("not run: Something follows the heredoc"), out
+    assert f"at most {appr.COMMAND_CHARS}" in out
+    assert deps.board.all() == []
+
+
+def test_a_long_note_write_in_another_shape_names_the_one_that_runs(tmp_path):
+    notes = tmp_path / "state" / "probe" / "notes" / "experiment" / "e1"
+    notes.mkdir(parents=True)
+    deps = _deps(tmp_path)
+    deps.write_dirs = [tmp_path / "state" / "probe" / "notes"]
+    command = f"printf '%s\\n' '{'- one seed per setting, so the ranking is provisional. ' * 6}' > {notes / 'note.md'}"
+    assert len(command) > appr.COMMAND_CHARS
+
+    out = _run(tools.shell(deps, command))
+
+    assert out.startswith("not run") and sh.R_HEREDOC in out, out
+
+
+def _probe_config(tmp_path) -> Path:
+    """Probe's config file, where the checker protects it."""
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or tmp_path / ".config") / "probe" / "config.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text("{}")
+    return config
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "cat > {work}/x.md <<'EOF'\nhi\nEOF\necho pwned > {config}",  # after a note's text
+        "tee {config} <<'EOF'\npwned\nEOF",  # a heredoc in another shape
+        "bash <<'EOF'\necho pwned > {config}\nEOF",  # a heredoc that is a script
+    ],
+)
+def test_a_refused_heredoc_still_gets_the_every_mode_refusals(tmp_path, shape):
+    """The heredoc check refused first and the every-mode refusals never read
+    the rest, so bypass mode ran a write to Probe's config placed after a
+    note's text (2026-10-03 review of #2226)."""
+    config = _probe_config(tmp_path)
+    deps = _deps(tmp_path, bypass=True)
+
+    out = _run(tools.shell(deps, shape.format(work=deps.cwd, config=config)))
+
+    assert out.startswith("not run") and "refused in every mode" in out, out
+    assert config.read_text() == "{}"
+
+
+def _classified(tmp_path, command: str):
+    work = tmp_path / "work"
+    work.mkdir(exist_ok=True)
+    return sh.classify(command, workdirs=[work], home=tmp_path, cwd=work, write_dirs=[work])
+
+
+_BUILT = "v=PROBE\nunset ${v}_CONFIG_PATH\nprobe notes push"  # a setting named at run time
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"bash <<'EOF'\n{_BUILT}\nEOF",
+        "bash <<'EOF'\nunset ${!PROBE@}\nprobe notes push\nEOF",
+        f"cat > x.md <<'EOF'\nhi\nEOF\n{_BUILT}",
+        "cat > x.md <<EOF\n$(v=PROBE; unset ${v}_CONFIG_PATH; probe notes push)\nEOF",  # unquoted: bash runs $(...)
+        "cat <<'EOF' | bash\nprobe notes push\nEOF",  # the body piped into a shell is code
+        f"cat <<'EOF' |\n{_BUILT}\nEOF\nbash",  # a line ending on an operator, then the shell
+        f"cat > x.sh <<'EOF' &&\n{_BUILT}\nEOF\nbash x.sh",
+        "cat > x.sh <<'EOF'\nv=PROBE\nunset ${v}_CONFIG_PATH\nEOF\n. ./x.sh\nprobe notes push",  # runs what it wrote
+        f"tee x.sh <<'EOF'\n{_BUILT}\nEOF\nbash x.sh",
+        "probe notes push <<'EOF'\nhi\nEOF",  # as the steps path: its lines would run as commands
+    ],
+)
+def test_a_refused_heredoc_that_could_reach_probe_with_a_key_is_refused_in_every_mode(tmp_path, command):
+    """The shell is key-less only while PROBE_CONFIG_PATH holds: a script that
+    unsets it under a name built at run time would start probe with the real
+    key, so a heredoc's commands and code get every check `bash -c` gets."""
+    verdict = _classified(tmp_path, command)
+    assert verdict.refused, verdict.reason
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "Re-ran in a clean env so nothing leaked.\n- one seed per setting",
+        "The run id came from PROBE_RUN_ID.",
+        "Probe keeps its key in ~/.config/probe/config.json.",
+    ],
+)
+def test_a_refused_note_writes_text_is_read_as_text(tmp_path, prose):
+    """A note's text is cat's data: read as commands, ordinary prose was
+    refused in every mode for an `env -i` or a setting the daemon never wrote,
+    and the shape reason it needed was lost."""
+    for after in ("probe notes push", "probe experiment show e1 2>&1 | grep -i url | head -2"):
+        verdict = _classified(tmp_path, f"cat > x.md <<'EOF'\n{prose}\nEOF\n{after}")
+        assert not verdict.refused and verdict.reason.startswith("Something follows the heredoc"), verdict.reason
+
+
+def test_a_refused_note_write_naming_probe_in_its_text_keeps_its_reason(tmp_path):
+    """`probe` as a word is no every-mode refusal for a heredoc: a note's text
+    names Probe, and the shell has no Probe key."""
+    notes = tmp_path / "state" / "probe" / "notes"
+    notes.mkdir(parents=True)
+    deps = _deps(tmp_path)
+    deps.write_dirs = [notes]
+
+    out = _run(tools.shell(deps, f"tee {notes / 'n.md'} <<'EOF'\nprobe recorded both runs\nEOF"))
+
+    assert "names probe" not in out and sh.R_HEREDOC in out, out
 
 
 def _team_note(tmp_path) -> tuple[Path, list[Path]]:
@@ -531,6 +655,7 @@ def test_every_file_a_command_uploads_is_checked(tmp_path):
     assert _blocked(["artifact", "add", "--project", "p", "clean.txt"], tmp_path) is None
     assert _blocked(["artifact", "add", "--from-manifest", str(manifest), "--project", "p"], tmp_path) is not None
     assert _blocked(["views", "create", "r1", "v", "--spec-file", "spec.json"], tmp_path) is not None
+    assert _blocked(["views", "update", "v1", "--spec-file", "spec.json"], tmp_path) is not None
     assert _blocked(["views", "preview", "r1", "--spec-file", "spec.json"], tmp_path) is not None  # a read uploads it too
     assert _blocked(["artifact", "add", "--project", "p", str(tmp_path)], tmp_path) is not None  # a folder
 
@@ -588,6 +713,50 @@ def test_a_note_body_with_a_secret_is_not_written(tmp_path):
     deps.write_dirs = [notes]
     out = _run(tools.shell(deps, f"cat > {notes / 'n.md'} <<'EOF'\nkey {FAKE_KEY}\nEOF\n"))
     assert out.startswith("not run") and not (notes / "n.md").exists()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["notes", "append", "--run", "r1", "--text", f"@team the key is {FAKE_KEY}"],
+        ["notes", "edit", "--run", "r1", "--old", "x", "--new", f"@team the key is {FAKE_KEY}"],
+        ["notes", "edit", "--run", "r1", "--old", f"@team the key is {FAKE_KEY}", "--new", ""],
+    ],
+)
+def test_text_only_note_writes_scan_their_literal_text(tmp_path, argv):
+    """`notes append --text` and `notes edit --old/--new` never read a file, so a
+    leading `@` is text: it must be scanned like any other text, not skipped as a
+    file reference the CLI would read (and then never send)."""
+    block = _blocked(argv, tmp_path)
+    assert block is not None and block.check == "secret"
+    assert precheck.files_sent(precheck.parse(argv), tmp_path) == []
+
+
+def test_text_only_note_writes_and_views_update_are_the_daemons():
+    for argv in (
+        ["notes", "append", "--run", "r1", "--text", "the verifier was broken"],
+        ["notes", "edit", "--run", "r1", "--old", "broken", "--new", "fixed in v2"],
+        ["views", "update", "v1", "--name", "loss ratio"],
+    ):
+        parsed = precheck.parse(argv)
+        assert parsed.owner == precheck.DAEMON, parsed.path
+        assert precheck.check(parsed, cwd=Path.cwd()) is None, parsed.path
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["notes", "append", "--team", "--text", "the cluster is free after 6pm"],
+        ["notes", "edit", "--team", "--old", "oversubscribed", "--new", "free"],
+    ],
+)
+def test_the_daemon_never_writes_the_team_note_past_its_question(tmp_path, argv):
+    """[D6] every team-note change is shown to the researcher first. `--team`
+    writes it directly, so the daemon is sent back to the file, whose writes
+    are held as a question with the diff."""
+    block = _blocked(argv, tmp_path)
+    assert block is not None and block.check == "option"
+    assert "team note" in block.why
 
 
 def test_every_team_note_change_is_a_question_with_its_diff(tmp_path):
@@ -663,6 +832,15 @@ def test_only_transport_failures_of_safe_repeats_are_retried():
     # Words in a failed command's output are not a transport signal.
     assert not tools._may_retry(_failed("error: the sweep timed out (502 from the cluster)\n"), ["run", "tag", "r1", "x"])
     assert not tools._may_retry(_failed("", code=None), ["notes", "push", "--run", "r1"])  # stopped mid-write
+    # One PATCH on an allowlisted route with the same body every time: a replay.
+    assert tools._may_retry(_failed("error: PATCH /v1/views/v1: ReadTimeout\n"),
+                            ["views", "update", "v1", "--name", "n"])
+    # Allowlisted routes, but the body is built from a read: a retry after a
+    # landed write sends a DIFFERENT document, so it is never retried.
+    assert not tools._may_retry(_failed("error: PATCH /v1/runs/r1: ReadTimeout\n"),
+                                ["notes", "append", "--run", "r1", "--text", "t"])
+    assert not tools._may_retry(_failed("error: PATCH /v1/runs/r1: ReadTimeout\n"),
+                                ["notes", "edit", "--run", "r1", "--old", "a", "--new", "b"])
 
 
 def test_a_non_idempotent_write_that_failed_in_transport_runs_once(tmp_path, monkeypatch):

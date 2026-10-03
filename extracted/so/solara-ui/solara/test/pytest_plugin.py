@@ -27,7 +27,7 @@ import solara.server.server
 import solara.server.settings
 from solara.server import reload
 from solara.server.starlette import ServerStarlette
-from solara.server.threaded import ServerBase
+from solara.server.threaded import SERVER_START_TIMEOUT, ServerBase
 
 if typing.TYPE_CHECKING:
     import playwright.sync_api
@@ -273,6 +273,11 @@ def SyncWrapper():
 
 @contextlib.contextmanager
 def _solara_test(solara_server, solara_app, page_session: "playwright.sync_api.Page", require_vuetify_warmup: bool):
+    # Leave the previous test's page first. Once its kernel is closed (by the previous test's
+    # solara_app teardown, or by solara_app below), that page reloads itself in development
+    # mode about 3 seconds later, and when the page below takes longer to load (slow CI
+    # runners), that reload aborts it with net::ERR_ABORTED.
+    page_session.goto("about:blank")
     with solara_app("solara.test.pytest_plugin:SyncWrapper"):
         id = str(uuid.uuid4())
         run_events[id] = run_event = threading.Event()
@@ -331,6 +336,12 @@ def solara_test(solara_server, solara_app, page_session: "playwright.sync_api.Pa
         yield
 
 
+# Jupyter Lab and Voila start as subprocesses that load many extensions, which took more
+# than the default 30 seconds on a busy Windows CI runner (the server was up 1.7 s too late).
+# A larger SOLARA_TEST_SERVER_START_TIMEOUT still wins.
+SUBPROCESS_SERVER_START_TIMEOUT = max(SERVER_START_TIMEOUT, 120.0)
+
+
 class ServerVoila(ServerBase):
     popen = None
 
@@ -344,8 +355,9 @@ class ServerVoila(ServerBase):
         if self.popen is not None and self.popen.poll() is not None:
             raise RuntimeError(f"voila server process exited with return code {self.popen.returncode}")
         try:
-            return requests.get(self.base_url).status_code // 100 in [2, 3]
-        except requests.exceptions.ConnectionError:
+            # a timeout per probe, so one hanging probe cannot outlast wait_until_serving's budget
+            return requests.get(self.base_url, timeout=5).status_code // 100 in [2, 3]
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             return False
 
     def signal_stop(self):
@@ -383,8 +395,9 @@ class ServerJupyter(ServerBase):
         if self.popen is not None and self.popen.poll() is not None:
             raise RuntimeError(f"jupyter server process exited with return code {self.popen.returncode}")
         try:
-            return requests.get(self.base_url).status_code // 100 in [2, 3]
-        except requests.exceptions.ConnectionError:
+            # a timeout per probe, so one hanging probe cannot outlast wait_until_serving's budget
+            return requests.get(self.base_url, timeout=5).status_code // 100 in [2, 3]
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             return False
 
     def signal_stop(self):
@@ -417,7 +430,7 @@ def voila_server(pytestconfig: Any, notebook_path):
     server = ServerVoila(notebook_path, port, host)
     try:
         server.serve_threaded()
-        server.wait_until_serving()
+        server.wait_until_serving(SUBPROCESS_SERVER_START_TIMEOUT)
         yield server
     finally:
         server.stop_serving()
@@ -434,7 +447,7 @@ def jupyter_server(pytestconfig: Any, notebook_path):
     server = ServerJupyter(notebook_path, port, host)
     try:
         server.serve_threaded()
-        server.wait_until_serving()
+        server.wait_until_serving(SUBPROCESS_SERVER_START_TIMEOUT)
         yield server
     finally:
         server.stop_serving()
@@ -672,9 +685,11 @@ def compare_default(reference, result, threshold=0.1):
     from PIL import Image
     from pixelmatch.contrib.PIL import pixelmatch
 
-    difference = Image.new("RGB", reference.size)
+    # pixelmatch 0.4 writes RGBA data into the diff image, older versions accept RGBA too
+    difference = Image.new("RGBA", reference.size)
     diff = pixelmatch(reference, result, difference, threshold=threshold)
-    return diff, difference
+    # return RGB as before, so the diff can still be saved in formats without alpha, like JPEG
+    return diff, difference.convert("RGB")
 
 
 @pytest.fixture

@@ -124,11 +124,16 @@ def add_data_worker_capacity(
     client_id: str | None = None,
     client_secret: str | None = None,
     bearer_token: str | None = None,
+    dataplane_group_id: str | None = None,
 ) -> DataWorkerAllocationList:
-    """Add Data Worker capacity to an organization's allocation."""
+    """Add Data Worker capacity to a region, or the organization's default region if none is given."""
     return _post_allocation_request(
         path="data_worker_allocation/add_capacity",
-        payload={"organization_id": organization_id, "amount": amount},
+        payload={
+            "organization_id": organization_id,
+            "amount": amount,
+            "dataplane_group_id": dataplane_group_id,
+        },
         operation="POST data worker capacity",
         config_api_root=config_api_root,
         client_id=client_id,

@@ -1,7 +1,5 @@
 from datetime import timedelta
-from unittest.mock import Mock, patch
-
-import requests_mock
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -9,7 +7,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
 from django.utils.timezone import now
 
-from ..errors import IncompleteResponseError, TokenError
+from ..errors import IncompleteResponseError, SSOUnavailableError, TokenError
 from ..managers import _process_scopes
 from ..models import Token
 from . import _generate_token, _store_as_Token
@@ -72,8 +70,6 @@ class TestTokenGetExpired(TestCase):
 @patch("esi.managers.app_settings.ESI_SSO_CLIENT_SECRET", "xyz")
 @patch("esi.models.Token.delete", autospec=True)
 @patch("esi.models.Token.refresh", autospec=True)
-@patch("esi.managers.requests.auth.HTTPBasicAuth", autospec=True)
-@patch("esi.managers.OAuth2Session", autospec=True)
 class TestTokenBulkRefresh(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -84,8 +80,6 @@ class TestTokenBulkRefresh(TestCase):
 
     def test_bulk_refresh_normal(
         self,
-        mock_OAuth2Session,
-        mock_HTTPBasicAuth,
         mock_Token_refresh,
         mock_Token_delete,
     ):
@@ -116,8 +110,6 @@ class TestTokenBulkRefresh(TestCase):
 
     def test_bulk_refresh_token_error(
         self,
-        mock_OAuth2Session,
-        mock_HTTPBasicAuth,
         mock_Token_refresh,
         mock_Token_delete,
     ):
@@ -144,8 +136,6 @@ class TestTokenBulkRefresh(TestCase):
 
     def test_bulk_refresh_incomplete_response_error(
         self,
-        mock_OAuth2Session,
-        mock_HTTPBasicAuth,
         mock_Token_refresh,
         mock_Token_delete,
     ):
@@ -169,6 +159,28 @@ class TestTokenBulkRefresh(TestCase):
         self.assertEqual(mock_Token_refresh.call_count, 2)
         self.assertEqual(mock_Token_delete.call_count, 0)
         self.assertSetEqual(set(incomplete_qs), set())
+
+    def test_bulk_refresh_sso_unavailable_stops_early(
+        self,
+        mock_Token_refresh,
+        mock_Token_delete,
+    ):
+        mock_Token_refresh.side_effect = SSOUnavailableError
+
+        character_id = 99
+        character_name = "Bruce Wayne"
+        for scope in ["abc", "xyz", "123"]:
+            _store_as_Token(
+                _generate_token(
+                    character_id=character_id, character_name=character_name, scopes=[scope]
+                ),
+                self.user,
+            )
+        incomplete_qs = Token.objects.get_queryset().bulk_refresh()
+        self.assertEqual(mock_Token_refresh.call_count, 1)
+        self.assertEqual(mock_Token_delete.call_count, 0)
+        self.assertSetEqual(set(incomplete_qs), set())
+        self.assertEqual(Token.objects.count(), 3)
 
 
 @patch("esi.models.app_settings.ESI_TOKEN_VALID_DURATION", 120)
@@ -462,20 +474,16 @@ class TestTokenManager(TestCase):
     @patch("esi.managers.app_settings.ESI_TOKEN_URL", "localhost")
     @patch("esi.managers.app_settings.ESI_ALWAYS_CREATE_TOKEN", False)
     @patch("esi.managers.TokenManager._decode_jwt")
-    @patch("esi.managers.OAuth2Session", autospec=True)
-    def test_create_from_code_single_scope(self, mock_OAuth2Session, mock_decode_jwt):
+    @patch("esi.managers.sso.get_jwks", return_value={"keys": [{"alg": "RS256"}]})
+    @patch("esi.managers.sso.exchange_code")
+    def test_create_from_code_single_scope(self, mock_exchange_code, mock_get_jwks, mock_decode_jwt):
         """Normal case with refresh token"""
-        mock_oauth = Mock()
-        mock_oauth.request.return_value.json.return_value = _generate_token(
-            99, "Bruce Wayne", scopes="publicData"
-        )
-        mock_oauth.fetch_token.return_value = {
+        mock_exchange_code.return_value = {
             "access_token": "access_token",
             "refresh_token": "refresh_token",
             "token_type": "Bearer",
             "expires_in": 1200,
         }
-        mock_OAuth2Session.return_value = mock_oauth
         mock_decode_jwt.return_value = _generate_token(
             99, "Bruce Wayne", scopes="publicData"
         )
@@ -495,27 +503,16 @@ class TestTokenManager(TestCase):
     @patch("esi.managers.app_settings.ESI_TOKEN_URL", "localhost")
     @patch("esi.managers.app_settings.ESI_ALWAYS_CREATE_TOKEN", False)
     @patch("esi.managers.TokenManager._decode_jwt")
-    @patch("esi.managers.OAuth2Session", autospec=True)
-    def test_create_from_code_1(self, mock_OAuth2Session, mock_decode_jwt):
+    @patch("esi.managers.sso.get_jwks", return_value={"keys": [{"alg": "RS256"}]})
+    @patch("esi.managers.sso.exchange_code")
+    def test_create_from_code_1(self, mock_exchange_code, mock_get_jwks, mock_decode_jwt):
         """Normal case with refresh token"""
-        mock_oauth = Mock()
-        mock_oauth.request.return_value.json.return_value = _generate_token(
-            99,
-            "Bruce Wayne",
-            scopes=[
-                "esi-calendar.read_calendar_events.v1",
-                "esi-location.read_location.v1",
-                "esi-location.read_ship_type.v1",
-                "esi-unknown-scope",
-            ],
-        )
-        mock_oauth.fetch_token.return_value = {
+        mock_exchange_code.return_value = {
             "access_token": "access_token",
             "refresh_token": "refresh_token",
             "token_type": "Bearer",
             "expires_in": 1200,
         }
-        mock_OAuth2Session.return_value = mock_oauth
         mock_decode_jwt.return_value = _generate_token(
             99,
             "Bruce Wayne",
@@ -543,27 +540,16 @@ class TestTokenManager(TestCase):
     @patch("esi.managers.app_settings.ESI_TOKEN_URL", "localhost")
     @patch("esi.managers.app_settings.ESI_ALWAYS_CREATE_TOKEN", False)
     @patch("esi.managers.TokenManager._decode_jwt")
-    @patch("esi.managers.OAuth2Session", autospec=True)
-    def test_create_from_code_2(self, mock_OAuth2Session, mock_decode_jwt):
+    @patch("esi.managers.sso.get_jwks", return_value={"keys": [{"alg": "RS256"}]})
+    @patch("esi.managers.sso.exchange_code")
+    def test_create_from_code_2(self, mock_exchange_code, mock_get_jwks, mock_decode_jwt):
         """Special case w/o refresh token"""
-        mock_oauth = Mock()
-        mock_oauth.request.return_value.json.return_value = _generate_token(
-            99,
-            "Bruce Wayne",
-            scopes=[
-                "esi-calendar.read_calendar_events.v1",
-                "esi-location.read_location.v1",
-                "esi-location.read_ship_type.v1",
-                "esi-unknown-scope",
-            ],
-        )
-        mock_oauth.fetch_token.return_value = {
+        mock_exchange_code.return_value = {
             "access_token": "access_token",
             "refresh_token": None,
             "token_type": "Bearer",
             "expires_in": 1200,
         }
-        mock_OAuth2Session.return_value = mock_oauth
         mock_decode_jwt.return_value = _generate_token(
             99,
             "Bruce Wayne",
@@ -601,14 +587,12 @@ class TestTokenManager(TestCase):
         self.assertEqual(mock_create_from_code.call_args[0][1], "abc123")
 
 
-@requests_mock.Mocker()
+@patch("esi.managers.sso.get_jwks")
 class TestTokenManagerValidateAccessToken(TestCase):
-    def test_should_return_token_1(self, requests_mocker):
+    def test_should_return_token_1(self, mock_get_jwks):
         # given
         jwks = {"keys": [generate_jwk()]}
-        requests_mocker.register_uri(
-            "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
-        )
+        mock_get_jwks.return_value = jwks
         access_token, _ = generate_token(1001, "Bruce Wayne")
         # when
         token = Token.objects.validate_access_token(access_token)
@@ -617,12 +601,10 @@ class TestTokenManagerValidateAccessToken(TestCase):
         self.assertEqual(token["name"], "Bruce Wayne")
         self.assertEqual(token["token_type"], "character")
 
-    def test_should_return_token_2(self, requests_mocker):
+    def test_should_return_token_2(self, mock_get_jwks):
         # given
         jwks = {"keys": [generate_jwk()]}
-        requests_mocker.register_uri(
-            "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
-        )
+        mock_get_jwks.return_value = jwks
         access_token, _ = generate_token(
             1001, "Bruce Wayne", issuer="https://login.eveonline.com"
         )
@@ -633,24 +615,20 @@ class TestTokenManagerValidateAccessToken(TestCase):
         self.assertEqual(token["name"], "Bruce Wayne")
         self.assertEqual(token["token_type"], "character")
 
-    def test_should_return_none_when_no_jwk(self, requests_mocker):
+    def test_should_return_none_when_no_jwk(self, mock_get_jwks):
         # given
         jwks: dict = {}
-        requests_mocker.register_uri(
-            "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
-        )
+        mock_get_jwks.return_value = jwks
         access_token, _ = generate_token(1001, "Bruce Wayne", audience=False)
         # when
         result = Token.objects.validate_access_token(access_token)
         # then
         self.assertIsNone(result)
 
-    def test_should_return_none_when_expired(self, requests_mocker):
+    def test_should_return_none_when_expired(self, mock_get_jwks):
         # given
         jwks = {"keys": [generate_jwk()]}
-        requests_mocker.register_uri(
-            "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
-        )
+        mock_get_jwks.return_value = jwks
         issued_at = now() - timedelta(hours=3)
         access_token, _ = generate_token(1001, "Bruce Wayne", issued_at=issued_at)
         # when
@@ -658,14 +636,33 @@ class TestTokenManagerValidateAccessToken(TestCase):
         # then
         self.assertIsNone(result)
 
-    def test_should_return_none_when_invalid(self, requests_mocker):
+    def test_should_return_none_when_invalid(self, mock_get_jwks):
         # given
         jwks = {"keys": [generate_jwk()]}
-        requests_mocker.register_uri(
-            "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
-        )
+        mock_get_jwks.return_value = jwks
         access_token = "invalid"
         # when
         result = Token.objects.validate_access_token(access_token)
         # then
         self.assertIsNone(result)
+
+    def test_should_refetch_keys_when_kid_not_cached(self, mock_get_jwks):
+        # given
+        old_jwk = {**generate_jwk(), "kid": "old-key"}
+        mock_get_jwks.side_effect = [{"keys": [old_jwk]}, {"keys": [generate_jwk()]}]
+        access_token, _ = generate_token(1001, "Bruce Wayne")
+        # when
+        token = Token.objects.validate_access_token(access_token)
+        # then
+        self.assertEqual(token["character_id"], 1001)
+        self.assertEqual(mock_get_jwks.call_args_list[1].kwargs, {"force_refresh": True})
+
+    def test_should_return_none_when_kid_unknown(self, mock_get_jwks):
+        # given
+        mock_get_jwks.return_value = {"keys": [{**generate_jwk(), "kid": "other-key"}]}
+        access_token, _ = generate_token(1001, "Bruce Wayne")
+        # when
+        result = Token.objects.validate_access_token(access_token)
+        # then
+        self.assertIsNone(result)
+        self.assertEqual(mock_get_jwks.call_count, 2)

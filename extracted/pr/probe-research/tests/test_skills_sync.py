@@ -292,8 +292,13 @@ def test_the_makefile_sync_list_matches_synced() -> None:
     mechanical."""
     import re
 
-    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
-    m = re.search(r"sync-plugin-skills:\n\t@for s in ([^;]+); do", makefile)
+    # The loop reads agent/skills/profiles.json, so read it as make expands it.
+    import subprocess
+
+    dry_run = subprocess.run(
+        ["make", "-n", "-C", str(_ROOT), "sync-plugin-skills"], capture_output=True, text=True, check=True
+    ).stdout
+    m = re.search(r"for s in ([^;]+); do", dry_run)
     assert m, "could not parse the sync-plugin-skills loop"
     assert set(m.group(1).split()) == set(_SYNCED)
 

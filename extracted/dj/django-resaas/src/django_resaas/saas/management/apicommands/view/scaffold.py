@@ -34,6 +34,7 @@ import importlib.util
 import importlib
 import pprint
 from io import StringIO
+from django_resaas.saas.core.base.response_mixin import ResaasResponseMixin
 
 
 # =========================================================
@@ -293,13 +294,12 @@ class {model}Serializer(BaseSerializer):
 
 def build_view(module, model):
     return f"""
-from django_resaas.saas.core.base.views import BaseAPIView
-from django_resaas.saas.core.base.views import registerView
+from django_resaas.saas.core.base.views import BaseAPIView, register_view
 from {module}.models.{clean_file_name(model)} import {clean_class_name(model)}
 from {module}.serializers.{clean_file_name(model)} import {clean_class_name(model)}Serializer
 
 
-@registerView('{clean_lower(model)}s')
+@register_view('{clean_lower(model)}s')
 class {model}APIView(BaseAPIView):
     queryset = {clean_class_name(model)}.objects.all()   
     serializer_class = {clean_class_name(model)}Serializer
@@ -424,7 +424,7 @@ def write_python_pretty(code: str) -> str:
 # =========================================================
 
 @registerView("scaffold", "django_resaas")
-class ScaffoldAPIView(ViewSet):
+class ScaffoldAPIView(ResaasResponseMixin, ViewSet):
 
     permission_classes = [IsAdminUser]
 

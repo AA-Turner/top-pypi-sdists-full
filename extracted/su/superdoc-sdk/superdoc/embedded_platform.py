@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+import stat
 from importlib import resources
 from pathlib import Path
 from typing import Optional
@@ -61,8 +62,19 @@ def resolve_companion_binary(target: str, binary_name: str) -> Optional[str]:
 def ensure_executable(path: str) -> None:
     if os.name == 'nt':
         return
+    # AIDEV-NOTE: Never chmod a binary this process can already execute. Every
+    # client construction lands here, and on overlayfs any metadata write to a
+    # file in a read-only image layer copies the whole binary (over 100 MB)
+    # into the container layer. Mirrors ensureEmbeddedExecutable in the Node SDK.
+    if os.access(path, os.X_OK):
+        return
     try:
-        mode = os.stat(path).st_mode
-        os.chmod(path, mode | 0o111)
+        mode = stat.S_IMODE(os.stat(path).st_mode) | 0o111
     except OSError:
+        # Unreadable mode is not a reason to skip the repair.
+        mode = 0o755
+    try:
+        os.chmod(path, mode)
+    except OSError:
+        # Non-fatal: launching the host reports the actionable error.
         pass

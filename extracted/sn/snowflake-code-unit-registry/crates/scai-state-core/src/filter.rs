@@ -506,7 +506,7 @@ mod tests {
             },
             "planning": {
                 "wave": 1,
-                "wavePosition": 3
+                "waveRank": 3
             }
         })
     }

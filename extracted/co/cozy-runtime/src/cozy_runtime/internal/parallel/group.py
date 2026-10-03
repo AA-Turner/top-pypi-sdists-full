@@ -73,11 +73,13 @@ class Frame(msgspec.Struct, frozen=True):
 
 
 class _Hello(msgspec.Struct, frozen=True):
-    """A follower's `hello`, as far as rank 0 checks it: who it is and under which seal."""
+    """A follower's `hello`, as far as rank 0 checks it: who it is and under which seal, and
+    what its memory answers beyond the floor's commands (`weight_plane/1`)."""
 
     rank: int
     world: int
     sealed: dict[str, str]
+    memory: tuple[str, ...] = ()
 
 
 _Bytes = Annotated[int, msgspec.Meta(ge=0)]
@@ -136,6 +138,8 @@ class Follower:
     replies: queue.Queue[tuple[Frame, dict[str, Any]] | None] = field(default_factory=queue.Queue)
     #: the seam-closed verdict once the reader saw EOF or a torn frame; "" while live
     gone: str = ""
+    #: its `hello`'s memory capabilities: rank 0 sends it only the commands it answers
+    memory: tuple[str, ...] = ()
 
     @property
     def pid(self) -> int:
@@ -399,6 +403,7 @@ class RankGroup:
                     f"({hello.sealed!r} vs {dict(sealed)!r})",
                     code="group_unformed",
                 )
+            follower.memory = hello.memory
 
     def form(self, torch: Any, sealed: Mapping[str, str]) -> Any:
         """Form the process group: the store on a kernel-chosen loopback port, every
@@ -494,6 +499,15 @@ class RankGroup:
         except SeamError as exc:
             raise GroupRefusal(
                 f"{self.gpu(rank)} cannot be commanded: {exc}", code="group_broken"
+            ) from exc
+
+    def memfd_to(self, rank: int, memfd: int) -> None:
+        """Hand follower `rank` one pinned host tier (right after the frame naming it)."""
+        try:
+            self.followers[rank - 1].channel.send_memfd(memfd)
+        except SeamError as exc:
+            raise GroupRefusal(
+                f"{self.gpu(rank)} cannot take a host tier: {exc}", code="group_broken"
             ) from exc
 
     def reply_one(self, rank: int, name: str) -> dict[str, Any]:

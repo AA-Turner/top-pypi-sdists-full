@@ -49,12 +49,14 @@ __all__ = [
     "CanFloordivSelf",
     "CanFormat",
     "CanGe",
+    "CanGeSame",
     "CanGet",
     "CanGetMissing",
     "CanGetattr",
     "CanGetattribute",
     "CanGetitem",
     "CanGt",
+    "CanGtSame",
     "CanHash",
     "CanIAdd",
     "CanIAddSame",
@@ -96,18 +98,21 @@ __all__ = [
     "CanIXorSame",
     "CanIXorSelf",
     "CanIndex",
+    "CanInstancecheck",
     "CanInt",
     "CanInvert",
     "CanInvertSelf",
     "CanIter",
     "CanIterSelf",
     "CanLe",
+    "CanLeSame",
     "CanLen",
     "CanLengthHint",
     "CanLshift",
     "CanLshiftSame",
     "CanLshiftSelf",
     "CanLt",
+    "CanLtSame",
     "CanMatmul",
     "CanMatmulSame",
     "CanMatmulSelf",
@@ -150,6 +155,7 @@ __all__ = [
     "CanROr",
     "CanROrSelf",
     "CanRPow",
+    "CanRPow3",
     "CanRPowSelf",
     "CanRRshift",
     "CanRRshiftSelf",
@@ -177,6 +183,7 @@ __all__ = [
     "CanSub",
     "CanSubSame",
     "CanSubSelf",
+    "CanSubclasscheck",
     "CanTruediv",
     "CanTruedivSame",
     "CanTruedivSelf",
@@ -367,7 +374,7 @@ class CanAIterSelf(CanAIter["CanAIterSelf[_V_co]"], CanANext[_V_co], Protocol[_V
 
 
 @runtime_checkable
-class CanEq(Protocol[_T_object_contra, _T_bool_co]):  # noqa: PLW1641
+class CanEq(Protocol[_T_object_contra, _T_bool_co]):  # ruff: ignore[eq-without-hash]
     """
     Unfortunately, `typeshed` (incorrectly) annotates `object.__eq__` as
     `(Self, object) -> bool`.
@@ -403,8 +410,22 @@ class CanLt(Protocol[_T_object_contra, _T_bool_co]):
 
 
 @runtime_checkable
+class CanLtSame(Protocol[_T_Never_contra, _T_bool_co]):
+    """CanLtSame[-T = Never, +R = bool] = CanLt[Self | T, R]"""
+
+    def __lt__(self, rhs: Self | _T_Never_contra, /) -> _T_bool_co: ...
+
+
+@runtime_checkable
 class CanLe(Protocol[_T_object_contra, _T_bool_co]):
     def __le__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
+
+
+@runtime_checkable
+class CanLeSame(Protocol[_T_Never_contra, _T_bool_co]):
+    """CanLeSame[-T = Never, +R = bool] = CanLe[Self | T, R]"""
+
+    def __le__(self, rhs: Self | _T_Never_contra, /) -> _T_bool_co: ...
 
 
 @runtime_checkable
@@ -413,8 +434,22 @@ class CanGt(Protocol[_T_object_contra, _T_bool_co]):
 
 
 @runtime_checkable
+class CanGtSame(Protocol[_T_Never_contra, _T_bool_co]):
+    """CanGtSame[-T = Never, +R = bool] = CanGt[Self | T, R]"""
+
+    def __gt__(self, rhs: Self | _T_Never_contra, /) -> _T_bool_co: ...
+
+
+@runtime_checkable
 class CanGe(Protocol[_T_object_contra, _T_bool_co]):
     def __ge__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
+
+
+@runtime_checkable
+class CanGeSame(Protocol[_T_Never_contra, _T_bool_co]):
+    """CanGeSame[-T = Never, +R = bool] = CanGe[Self | T, R]"""
+
+    def __ge__(self, rhs: Self | _T_Never_contra, /) -> _T_bool_co: ...
 
 
 # Callables
@@ -497,6 +532,20 @@ class CanDelete(Protocol[_T_contra]):
 @runtime_checkable
 class CanSetName(Protocol[_T_contra]):
     def __set_name__(self, cls: type[_T_contra], name: str, /) -> _Ignored: ...
+
+
+# Class checks
+
+
+@runtime_checkable
+class CanInstancecheck(Protocol):
+    def __instancecheck__(self, instance: object, /) -> bool: ...
+
+
+# not `@runtime_checkable`: a `__subclasscheck__` member shadows the one that
+# `ABCMeta` invokes internally during `isinstance`, so the check would crash
+class CanSubclasscheck(Protocol):
+    def __subclasscheck__(self, subclass: type, /) -> bool: ...
 
 
 # Collection type operands.
@@ -1007,6 +1056,12 @@ class CanRDivmod(Protocol[_T_contra, _T_co]):
 @runtime_checkable
 class CanRPow(Protocol[_T_contra, _TT_co]):
     def __rpow__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRPow3(Protocol[_T_contra, _V_contra, _T_int_co]):
+    # https://github.com/python/mypy/issues/10786
+    def __rpow__(self, lhs: _T_contra, mod: _V_contra, /) -> _T_int_co: ...  # type: ignore[misc]
 
 
 @runtime_checkable
@@ -1527,7 +1582,7 @@ class CanExit(Protocol[_T_None_co]):
     @overload
     def __exit__(self, exc_type: None, exc: None, tb: None, /) -> None: ...
     @overload
-    def __exit__[ExcT: BaseException](  # noqa: PYI036
+    def __exit__[ExcT: BaseException](  # ruff: ignore[bad-exit-annotation]
         self,
         exc_type: type[ExcT],
         exc: ExcT,

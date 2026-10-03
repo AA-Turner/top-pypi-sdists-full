@@ -1,17 +1,16 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools~=83.0"]
+requires = ["setuptools~=84.0"]
 
 [project]
 authors = [
-    {name = "Christoph Heer", email = "christoph.heer@sap.com"},
+    { name = "Christoph Heer", email = "christoph.heer@sap.com" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -39,13 +38,13 @@ license-files = [
     "LICENSE",
 ]
 maintainers = [
-    {name = "Christoph Heer", email = "christoph.heer@sap.com"},
-    {name = "Kai Harder", email = "kai.harder@sap.com"},
+    { name = "Christoph Heer", email = "christoph.heer@sap.com" },
+    { name = "Kai Harder", email = "kai.harder@sap.com" },
 ]
 name = "sqlalchemy-hana"
 readme = "README.rst"
-requires-python = "~=3.10"
-version = "4.6.1"
+requires-python = ">=3.11,<4"
+version = "5.0.0"
 
 [project.optional-dependencies]
 alembic = ["alembic~=1.12"]
@@ -62,27 +61,27 @@ hana = "sqlalchemy_hana.dialect:HANAHDBCLIDialect"
 
 [dependency-groups]
 dev = [
-    "isort==8.0.1",
+    "isort==9.0.2",
     "black==26.5.1",
-    "pre-commit==4.6.0",
-    "flake8==7.3.0",
-    "flake8-tergeo==26.6.10.0",
-    "pylint==4.0.6",
-    "mypy==2.3.0",
-    "types-hdbcli==2.25.0.20260518",
+    "pre-commit==4.6.2",
+    "flake8==7.4.1",
+    "flake8-tergeo==26.9.24.0",
+    "pylint==4.0.9",
+    "mypy==2.3.1",
+    "types-hdbcli==2.30.0.20260923",
     "typing-extensions==4.16.0",
     "yesqa==1.5.0",
     "pyupgrade==3.21.2",
-    "pylint-per-file-ignores==3.2.1",
-    "toml-sort==0.24.4",
-    "uv==0.11.28",
+    "pylint-per-file-ignores==4.0.0",
+    "toml-sort==0.25.0",
+    "uv==0.12.20",
 ]
 test = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "coverage[toml]==7.15.1",
-    "diff-cover[toml]==10.3.0",
-    "pytest-randomly==4.1.0",
+    "coverage[toml]==7.16.2",
+    "diff-cover[toml]==10.6.0",
+    "pytest-randomly==5.0.0",
 ]
 
 [tool.diff_cover]
@@ -203,6 +202,10 @@ filterwarnings = [
     "ignore:There is no current event loop:DeprecationWarning",
     # see https://github.com/sqlalchemy/sqlalchemy/discussions/13391
     "ignore::pytest.PytestRemovedIn10Warning",
+    # ignore our own deprecation warnings
+    "ignore:CreateView is deprecated.*",
+    "ignore:DropView is deprecated.*",
+    "ignore:view is deprecated.*",
 ]
 log_level = "DEBUG"
 markers = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-upgrade
-Version: 1.32.0
+Version: 1.33.0
 Summary: Automatically upgrade your Django project code.
 Keywords: Django
 Author: Adam Johnson

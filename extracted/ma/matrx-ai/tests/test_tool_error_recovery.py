@@ -20,7 +20,7 @@ from matrx_ai.tools.error_remedy import UNDECLARED_ACTOR_SYSTEM, annotate_tool_e
 from matrx_ai.tools.models import ToolError, ToolRecovery, ToolResult
 
 LIVE_REFUSAL = (
-    "This write declares actor_tier=code, but names no actor_system … "
+    "This write declares actor_tier=system, but names no actor_system … "
     "x-matrx-actor-system on the client channel, or the app.actor_system GUC "
     "on a server channel"
 )

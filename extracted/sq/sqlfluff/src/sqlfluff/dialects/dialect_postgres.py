@@ -2937,6 +2937,15 @@ class AlterTableActionSegment(BaseSegment):
         Sequence("CLUSTER", "ON", Ref("ParameterNameSegment")),
         Sequence("SET", "WITHOUT", OneOf("CLUSTER", "OIDS")),
         Sequence("SET", "TABLESPACE", Ref("TablespaceReferenceSegment")),
+        # `SET ACCESS METHOD` was added in PostgreSQL 15, and accepting
+        # `DEFAULT` (meaning `default_table_access_method`) in PostgreSQL 17.
+        # https://www.postgresql.org/docs/current/sql-altertable.html
+        Sequence(
+            "SET",
+            "ACCESS",
+            "METHOD",
+            OneOf(Ref("ParameterNameSegment"), "DEFAULT"),
+        ),
         Sequence("SET", OneOf("LOGGED", "UNLOGGED")),
         Sequence("SET", Ref("RelationOptionsSegment")),
         # Documentation says you can only provide keys in RESET options, but the
@@ -3429,6 +3438,14 @@ class AlterMaterializedViewActionSegment(BaseSegment):
         ),
         Sequence("CLUSTER", "ON", Ref("ParameterNameSegment")),
         Sequence("SET", "WITHOUT", "CLUSTER"),
+        # `SET ACCESS METHOD` was added in PostgreSQL 15.
+        # https://www.postgresql.org/docs/current/sql-altermaterializedview.html
+        Sequence(
+            "SET",
+            "ACCESS",
+            "METHOD",
+            OneOf(Ref("ParameterNameSegment"), "DEFAULT"),
+        ),
         Sequence(
             "SET",
             Bracketed(
@@ -4030,7 +4047,13 @@ class ColumnConstraintSegment(ansi.ColumnConstraintSegment):
                     Ref("ExpressionSegment"),
                 ),
             ),
-            Sequence("GENERATED", "ALWAYS", "AS", Ref("ExpressionSegment"), "STORED"),
+            Sequence(
+                "GENERATED",
+                "ALWAYS",
+                "AS",
+                Bracketed(Ref("ExpressionSegment")),
+                OneOf("STORED", "VIRTUAL", optional=True),
+            ),
             Sequence(
                 "GENERATED",
                 OneOf("ALWAYS", Sequence("BY", "DEFAULT")),
@@ -4115,8 +4138,14 @@ class ForeignTableColumnConstraintSegment(ansi.ColumnConstraintSegment):
                     Ref("ExpressionSegment"),
                 ),
             ),
-            # GENERATED ALWAYS AS ( generation_expr ) STORED
-            Sequence("GENERATED", "ALWAYS", "AS", Ref("ExpressionSegment"), "STORED"),
+            # GENERATED ALWAYS AS ( generation_expr ) [ STORED | VIRTUAL ]
+            Sequence(
+                "GENERATED",
+                "ALWAYS",
+                "AS",
+                Bracketed(Ref("ExpressionSegment")),
+                OneOf("STORED", "VIRTUAL", optional=True),
+            ),
         ),
     )
 
@@ -5992,7 +6021,7 @@ class TruncateStatementSegment(ansi.TruncateStatementSegment):
 class CopyStatementSegment(BaseSegment):
     """A `COPY` statement.
 
-    As Specified in https://www.postgresql.org/docs/14/sql-copy.html
+    As Specified in https://www.postgresql.org/docs/current/sql-copy.html
     """
 
     type = "copy_statement"
@@ -6020,7 +6049,12 @@ class CopyStatementSegment(BaseSegment):
                     Sequence("FREEZE", Ref("BooleanLiteralGrammar", optional=True)),
                     Sequence("DELIMITER", Ref("QuotedLiteralSegment")),
                     Sequence("NULL", Ref("QuotedLiteralSegment")),
-                    Sequence("HEADER", Ref("BooleanLiteralGrammar", optional=True)),
+                    # PostgreSQL 16+
+                    Sequence("DEFAULT", Ref("QuotedLiteralSegment")),
+                    Sequence(
+                        "HEADER",
+                        OneOf(Ref("BooleanLiteralGrammar"), "MATCH", optional=True),
+                    ),
                     Sequence("QUOTE", Ref("QuotedLiteralSegment")),
                     Sequence("ESCAPE", Ref("QuotedLiteralSegment")),
                     Sequence(
@@ -6032,13 +6066,25 @@ class CopyStatementSegment(BaseSegment):
                     ),
                     Sequence(
                         "FORCE_NOT_NULL",
-                        Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+                        OneOf(
+                            Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+                            Ref("StarSegment"),
+                        ),
                     ),
                     Sequence(
                         "FORCE_NULL",
-                        Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+                        OneOf(
+                            Bracketed(Delimited(Ref("ColumnReferenceSegment"))),
+                            Ref("StarSegment"),
+                        ),
                     ),
+                    # PostgreSQL 17+
+                    Sequence("ON_ERROR", OneOf("STOP", "IGNORE")),
+                    # PostgreSQL 18+
+                    Sequence("REJECT_LIMIT", Ref("NumericLiteralSegment")),
                     Sequence("ENCODING", Ref("QuotedLiteralSegment")),
+                    # PostgreSQL 17+ (SILENT added in 18)
+                    Sequence("LOG_VERBOSITY", OneOf("DEFAULT", "VERBOSE", "SILENT")),
                 )
             )
         ),
@@ -7513,4 +7559,36 @@ class FileSegment(BaseFileSegment):
             allow_gaps=True,
             allow_trailing=True,
         ),
+    )
+
+
+class MergeStatementSegment(ansi.MergeStatementSegment):
+    """A `MERGE` statement.
+
+    https://www.postgresql.org/docs/17/sql-merge.html
+
+    PostgreSQL 17 added a `RETURNING` clause to `MERGE`, matching the one
+    already supported on `INSERT`, `UPDATE` and `DELETE`. Output expressions
+    may use the `merge_action()` function to report which action produced a
+    given row.
+    """
+
+    match_grammar = ansi.MergeStatementSegment.match_grammar.copy(
+        insert=[
+            Sequence(
+                "RETURNING",
+                Indent,
+                OneOf(
+                    Ref("StarSegment"),
+                    Delimited(
+                        Sequence(
+                            Ref("ExpressionSegment"),
+                            Ref("AliasExpressionSegment", optional=True),
+                        ),
+                    ),
+                ),
+                Dedent,
+                optional=True,
+            ),
+        ],
     )

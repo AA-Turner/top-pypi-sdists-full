@@ -213,7 +213,7 @@ async def test_replay_leaves_ambiguous_or_non_notes_synonyms_unmodified() -> Non
             "payload": {"name": "legacy", "label": "canonical"},
         },
         {
-            "table_target": "workspace.tasks",
+            "table_target": "projects.tasks",
             "payload": {"name": "queued"},
         },
     ]

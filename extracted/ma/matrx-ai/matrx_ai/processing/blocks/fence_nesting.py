@@ -18,7 +18,7 @@ CommonMark — a ```bash heredoc is code, not a document):
     under strict CommonMark (the unclosed inner fence must not eat the outer
     closer and the rest of the message).
 
-Spec (one copy): common-docs/systems/content-ir-system/NESTED-FENCES.md.
+Spec (one copy): common-docs/systems/architecture/content-ir/FEATURE.md.
 THE rule (TypeScript, defined once): @ai-matrx/content-ir
 source/fence-nesting.ts — the source tokenizer and matrx-frontend's splitters
 import it; this module is held to it by the generated vectors. Guards: processing/blocks/tests/test_nested_fence_splitting.py

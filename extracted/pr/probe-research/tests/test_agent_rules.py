@@ -114,15 +114,17 @@ def test_pi_is_reached_through_probe_agent_env_like_the_other_two(
 def test_pi_does_not_disturb_the_existing_codex_and_claude_branches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Adding the pi branch must not have touched the other two. An
-    unrecognized/absent source still falls back to claude_code, exactly as
-    before pi existed."""
+    """Adding pi must not have touched the other two. An absent source still
+    means the default (Claude Code); a NAMED source this CLI does not know is
+    refused -- resolving it to Claude Code's file would write or remove the
+    managed block in the wrong agent's real instructions (harness audit)."""
     for key in ("PROBE_AGENT", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "PI_CODING_AGENT_DIR"):
         monkeypatch.delenv(key, raising=False)
 
     assert agent_rules.memory_path() == Path.home() / ".claude" / "CLAUDE.md"
     assert agent_rules.memory_path("codex") == Path.home() / ".codex" / "AGENTS.md"
-    assert agent_rules.memory_path("bogus") == Path.home() / ".claude" / "CLAUDE.md"
+    with pytest.raises(ValueError, match="bogus"):
+        agent_rules.memory_path("bogus")
 
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-cfg"))
     assert agent_rules.memory_path("claude_code") == tmp_path / "claude-cfg" / "CLAUDE.md"
@@ -306,6 +308,105 @@ def test_removal_reports_a_file_it_could_not_read(memory: Path) -> None:
 
     messages = wizard.apply_agent_rules(False)
     assert messages and "Could not update" in messages[0]
+
+
+def test_opting_out_drops_the_team_note_block_too(memory: Path, monkeypatch) -> None:
+    """Unticking the rules removed the pointer and left the team note, which
+    the next sync then kept current: Probe's text stayed in a global file
+    whose owner had said no."""
+    from probe.cli import setup as wizard
+
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    memory.write_text("mine\n", encoding="utf-8")
+    agent_rules.install(memory)
+    agent_rules.install(
+        memory, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## note", document="d")
+    )
+
+    messages = wizard.apply_agent_rules(False)
+
+    assert messages and messages[0].startswith("Removed the Probe block")
+    assert memory.read_text(encoding="utf-8") == "mine\n"
+
+
+def test_a_damaged_pointer_stops_the_opt_out_before_any_write(memory: Path) -> None:
+    from probe.cli import setup as wizard
+
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    damaged = f"{agent_rules.BEGIN_MARKER}\norphan\n"
+    memory.write_text(damaged, encoding="utf-8")
+    agent_rules.install(memory, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+    before = memory.read_text(encoding="utf-8")
+
+    messages = wizard.apply_agent_rules(False)
+
+    assert messages[0].startswith("! Left")
+    assert memory.read_text(encoding="utf-8") == before, "not half cleaned"
+
+
+def test_the_wizard_writes_under_the_syncs_file_lock(memory: Path, monkeypatch) -> None:
+    """The team-note sync reads and writes this file under a per-file lock; a
+    wizard write outside it could be undone by a sync that read the old file."""
+    import contextlib
+
+    from probe.cli import setup as wizard
+    from probe.cli import team_note_file
+    from probe.sdk import durable
+
+    held: list = []
+
+    @contextlib.contextmanager
+    def lock(path):
+        held.append(path)
+        yield
+        held.append("released")
+
+    monkeypatch.setattr(durable, "file_lock", lock)
+    monkeypatch.setattr(wizard, "apply_statusline", lambda: [])
+    monkeypatch.setattr(wizard, "seed_team_note_block", lambda: [])
+    wizard.apply_agent_rules(True)
+    wizard.apply_recorder_rules("claude_code", "daemon", False)
+    assert held == [team_note_file.instruction_lock_path(memory), "released"] * 2
+
+
+def test_a_damaged_note_does_not_keep_the_pointer_on_uninstall(memory: Path) -> None:
+    """Uninstall removes the skills the pointer names, so the pointer must go
+    even when the note beside it is unreadable; the sync reports the note."""
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    agent_rules.install(memory)
+    memory.write_text(memory.read_text(encoding="utf-8") + agent_rules.NOTE_BLOCK.begin + "\nno end\n", encoding="utf-8")
+
+    assert agent_rules.remove_all(memory) is True
+
+    text = memory.read_text(encoding="utf-8")
+    assert agent_rules.BEGIN_MARKER not in text
+    assert agent_rules.NOTE_BLOCK.begin in text, "the damaged note is left for a human"
+
+
+@pytest.mark.parametrize("prefix", ["", "\n\n", "mine\n"])
+def test_remove_all_cuts_both_blocks_wherever_the_file_starts(memory: Path, prefix: str) -> None:
+    """Cutting one block moves the other; both must still go, in one write."""
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    memory.write_text("mine\n" if prefix == "mine\n" else "", encoding="utf-8")
+    agent_rules.install(memory)
+    agent_rules.install(memory, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+    if prefix == "\n\n":
+        memory.write_text(prefix + memory.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert agent_rules.remove_all(memory) is True
+    assert memory.read_text(encoding="utf-8") == ("mine\n" if prefix == "mine\n" else "")
+
+
+def test_the_install_seeds_the_note_after_the_pointer(memory: Path, monkeypatch) -> None:
+    """The note renders only beside the pointer, so seeding it first rendered
+    nothing on a fresh machine."""
+    from probe.cli import setup as wizard
+
+    seen: list[bool] = []
+    monkeypatch.setattr(wizard, "apply_statusline", lambda: [])
+    monkeypatch.setattr(wizard, "seed_team_note_block", lambda: seen.append(agent_rules.is_installed(memory)) or [])
+    wizard.apply_agent_rules(True)
+    assert seen == [True]
 
 
 def test_the_write_is_atomic(memory: Path) -> None:
@@ -830,7 +931,7 @@ def test_the_document_path_fixture_is_what_the_cli_produces(monkeypatch, tmp_pat
     """The fixture pi's suite reads must describe THIS implementation.
 
     `tests/fixtures/team-note-document-path.json` is the only thing keeping the
-    TypeScript resolver (`probe-research-pi/src/paths.ts`) honest -- it cannot
+    TypeScript resolver (`probe-research-pi/src/core/paths.ts`) honest -- it cannot
     import the CLI, and pi briefs a session from whatever that resolver returns.
     A fixture that drifted from the CLI would pin the wrong answer on both sides
     and read as agreement.

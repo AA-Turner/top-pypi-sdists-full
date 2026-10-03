@@ -13,14 +13,14 @@ owns_schemas:
   - seo                 # owner of every table (owner bypasses RLS on its own tables)
 schema_usage:
   - web
-  - workspace
+  - projects
   - platform
   - users
   - iam
 table_grants:
   web.site: [SELECT]
   web.page: [SELECT]
-  workspace.projects: [SELECT]
+  projects.projects: [SELECT]
   platform.associations: [SELECT, INSERT, UPDATE, DELETE]
   platform.entity_types: [SELECT]
   # THE FACET VOCABULARY (D37). Dimensions and their allowed values are rows a

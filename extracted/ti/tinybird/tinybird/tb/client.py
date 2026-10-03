@@ -58,14 +58,6 @@ class TimeoutException(Exception):
     pass
 
 
-class ReachRetryLimit(Exception):
-    pass
-
-
-class ConnectorNothingToLoad(Exception):
-    pass
-
-
 class JobException(Exception):
     pass
 

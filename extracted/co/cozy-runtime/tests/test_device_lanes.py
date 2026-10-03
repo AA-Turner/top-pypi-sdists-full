@@ -4,13 +4,10 @@ Every arm below drives the REAL worker — real `Worker`, real trampoline, real 
 processes dialling back over the real seam — against `examples/marco-polo`, and reads what
 the child process itself reported about its sealed environment. Nothing is patched.
 
-WHAT IS REAL AND WHAT IS SIMULATED. This box has one card. A two-entry envelope
-(`--devices 0,1`) is therefore a real envelope naming one card that exists and one that does
-not: the fence, the per-lane seal and the lane arithmetic are exercised for real (the
-worker is torch-free and a weightless executor never opens a CUDA context, so the absent
-card is never touched), and the driver's answer for entry `1` is the honest UNREADABLE the
-lane logic is built to refuse on. Concurrent attempts on two real cards are the live proof
-cr-066 owes on a two-GPU box; they are not claimed here.
+WHAT IS REAL AND WHAT IS SIMULATED. The envelopes name virtual cards (ordinals 64 and up) no
+host has and this process asks no GPU driver about (`driverless`): the fence, the per-lane
+seal and the lane arithmetic are exercised for real, and a weightless executor never opens a
+CUDA context. The one arm that reads a real card's driver numbers is marked `real_gpu`.
 """
 
 from __future__ import annotations
@@ -42,6 +39,7 @@ from cozy_runtime.internal.worker.session import (
 from cozy_runtime.protocol import worker_pb2 as pb
 from local_owner import claimable
 from test_end_to_end import NO_EXECUTOR
+from test_gpu_scheduler import driverless
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "examples" / "marco-polo"
@@ -76,16 +74,17 @@ def _workspace() -> Iterator[Path]:
 
 
 @needs_executor
-def test_an_executor_is_sealed_to_exactly_its_lane() -> None:
+def test_an_executor_is_sealed_to_exactly_its_lane(monkeypatch: pytest.MonkeyPatch) -> None:
     """THE SEAL. On a two-lane worker an executor spawned for lane 1 reports
-    `CUDA_VISIBLE_DEVICES=1` from its own environment, and refuses `env_seal_broken` when
+    `CUDA_VISIBLE_DEVICES=65` from its own environment, and refuses `env_seal_broken` when
     told to prepare for any other lane."""
+    driverless(monkeypatch)
     with _workspace() as root:
         config = _config(root / "home")
-        options = WorkerOptions(root=root / "worker", devices="0,1")
+        options = WorkerOptions(root=root / "worker", devices="64,65")
         worker = Worker(*claimable(config, options), InMemoryControlHost())
-        assert [lane.devices for lane in worker.lanes.lanes] == ["0", "1"]
-        assert worker.lanes.envelope.devices == "0,1"
+        assert [lane.devices for lane in worker.lanes.lanes] == ["64", "65"]
+        assert worker.lanes.envelope.devices == "64,65"
         lane = worker.lanes.lanes[1]
         found = discover_installed(WEIGHTLESS)
         body = package_interface.build(found)
@@ -94,7 +93,7 @@ def test_an_executor_is_sealed_to_exactly_its_lane() -> None:
         interface.write_bytes(package_interface.canonical_bytes(body))
         executor = worker.supervision.spawn(imposed=worker.imposed(lane))
         try:
-            assert executor.hello["sealed"]["CUDA_VISIBLE_DEVICES"] == "1"
+            assert executor.hello["sealed"]["CUDA_VISIBLE_DEVICES"] == "65"
             refused = executor.call(
                 Start(
                     application=str(body["application"]),
@@ -104,7 +103,7 @@ def test_an_executor_is_sealed_to_exactly_its_lane() -> None:
                 timeout=60.0,
             )
             assert refused["code"] == "env_seal_broken", refused
-            assert "'1'" in refused["detail"] and "'0'" in refused["detail"], refused
+            assert "'65'" in refused["detail"] and "'64'" in refused["detail"], refused
         finally:
             worker.supervision.retire_current(executor, "arm done")
             worker.supervision.close()
@@ -113,6 +112,7 @@ def test_an_executor_is_sealed_to_exactly_its_lane() -> None:
 # --------------------------------------------------------------------------- step 2
 
 
+@pytest.mark.real_gpu
 def test_ceilings_are_measured_and_never_double_booked() -> None:
     """THE ASSIGNED CEILING. The driver's own number for the card that exists, UNREADABLE
     for the one that does not, and two executors authorized back to back on one lane can
@@ -192,13 +192,10 @@ def test_a_load_without_an_assigned_ceiling_is_a_worker_defect() -> None:
 # --------------------------------------------------------------------------- step 3/4
 
 
-def test_placements_are_assigned_by_measured_fit_or_refused_typed() -> None:
-    """Fit is arithmetic over MEASURED bytes, in steps (cr-066, then cr-022): a
-    model-bearing placement takes a lane with room and no other model-bearing tenant; else
-    a lane with measured headroom BESIDE its tenants (co-residency); else a lane whose
-    measured TOTAL holds it alone (time-sliced sharing); else any readable lane (bounded
-    preparation). A lane the driver cannot read is never chosen. Choosing authorizes no
-    bytes, and binding takes exactly the chosen ordinals."""
+def test_placements_bind_exactly_or_are_refused_typed() -> None:
+    """Binding takes exactly the chosen ordinals and authorizes no bytes; a lane the driver
+    cannot read is never bound. Which ordinals an owner placement gets is the stage
+    scheduler's (`test_stage_scheduler`)."""
     lanes_ = lanes.LaneSet.from_envelope("0,1,2", worker_pid=os.getpid())
     assert len(lanes_.lanes) == 3 and lanes_.envelope.ordinals == (0, 1, 2) and lanes_.wide
     measured = {
@@ -206,41 +203,28 @@ def test_placements_are_assigned_by_measured_fit_or_refused_typed() -> None:
         1: accel.DeviceMemory("measured", 16 << 30, 24 << 30),
         2: accel.DeviceMemory("unreadable"),
     }
-
-    def place(name: str, declared: int, candidates: tuple[int, ...] = (0, 1, 2)) -> str:
-        ordinals = lanes_.choose(
-            candidates, 1, model_bearing=True, declared_bytes=declared, measured=measured
-        )
-        lane = lanes_.bind(name, ordinals, model_bearing=True, measured=measured)
-        lane.row(name).model_bearing = True
-        return lane.lane_id
-
-    assert place("big", 8 << 30) == "lane-1"  # step 1: the only empty lane with room
-    assert place("small", 2 << 30) == "lane-0"  # step 1 again: lane-0 is still empty
-    assert place("beside", 1 << 30) == "lane-0"  # step 2: headroom beside a tenant
-    assert place("shared", 6 << 30, (0,)) == "lane-0"  # step 3: its total holds it alone
-    assert place("huge", 32 << 30) == "lane-1"  # step 4: bounded preparation, fewest tenants
-    with pytest.raises(lanes.LaneRefusal) as refused:
-        lanes_.choose((2,), 1, model_bearing=True, declared_bytes=1 << 20, measured=measured)
-    assert refused.value.code == "device_lane_infeasible"
+    big = lanes_.bind("big", (1,), model_bearing=True, measured=measured)
+    assert big.lane_id == "lane-1"
+    assert lanes_.bind("beside", (1,), model_bearing=True, measured=measured) is big
     with pytest.raises(lanes.LaneRefusal) as refused:
         lanes_.bind("blind", (2,), model_bearing=True, measured=measured)
     assert refused.value.code == "device_pin_infeasible"
     assert "ordinal 2 ('2') free bytes unreadable" in refused.value.detail
     assert lanes_.lane_of("blind") is None
-    # weightless placements spread over the lanes with the fewest tenants
-    assert lanes_.choose((0, 1, 2), 1, model_bearing=False, declared_bytes=0, measured={}) == (2,)
     lanes_.release("big")
     assert lanes_.lane_of("big") is None and "big" not in lanes_.lanes[1].rows
 
 
-def test_the_ledger_row_survives_a_switch_to_another_placement() -> None:
+def test_the_ledger_row_survives_a_switch_to_another_placement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Per-executor rows under a per-lane ledger: binding an attempt to placement B wipes
     nothing placement A's row measured (it used to `begin_generation` the one ledger)."""
+    driverless(monkeypatch)
     with _workspace() as root:
         config = _config(root / "home")
         worker = Worker(
-            *claimable(config, WorkerOptions(root=root / "worker", devices="0")),
+            *claimable(config, WorkerOptions(root=root / "worker", devices="64")),
             InMemoryControlHost(),
         )
         try:
@@ -264,7 +248,7 @@ def test_the_ledger_row_survives_a_switch_to_another_placement() -> None:
                 attempt = AttemptRecord(request_id=placement_id, attempt=1, digest=b"", spec={})
                 attempt.placement_id = placement_id
                 slot = worker._bind_attempt_slot(attempt)
-                assert slot.lane_id == "lane-0" and slot.devices == "0"
+                assert slot.lane_id == "lane-0" and slot.devices == "64"
             assert worker.primary_ledger() is row
             assert row.weights_bytes == 1234 and row.device_baseline == 99
             assert set(lane.rows) == {"p0", "p1"}

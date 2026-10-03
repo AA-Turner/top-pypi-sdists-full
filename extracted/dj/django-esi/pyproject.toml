@@ -31,14 +31,14 @@ classifiers = [
 ]
 dynamic = [ "description", "version" ]
 dependencies = [
-    "aiopenapi3<0.11",
+    "aiopenapi3>=0.11",
     "celery>=5.2,<6",
     "django>=5.2,<7",
     "django-redis>=5.2",
-    "httpx[brotli,http2,zstd]", # Python 3.14+ ships with zstd, does nothing if
+    "httpx2[brotli,http2,zstd]", # Python 3.14+ ships with zstd, does nothing if
     "python-jose>=3.3",
-    "requests>=2.26",
-    "requests-oauthlib>=0.8",
+    "requests>=2.26",            # No longer used by Django-ESI, kept for apps relying on it, to be removed
+    "requests-oauthlib>=0.8",    # No longer used by Django-ESI, kept for apps relying on it, to be removed
     "tenacity",
 ]
 optional-dependencies.docs = [
@@ -80,3 +80,32 @@ known_django = [
     "django",
     "django_redis",
 ]
+
+[tool.flake8]
+exclude = [
+    ".git",
+    "*migrations*",
+    ".tox",
+    "dist",
+    "htmlcov",
+]
+max-line-length = 119
+select = [
+    "C",   # pylint convention
+    "E",   # pycodestyle error
+    "F",   # pyflakes (flake8 base)
+    "W",   # pycodestyle Warning
+    "B",   # flake8-bugbear
+    "TC",  # flake8-type-checking
+    "TC1", # flake8-type-checking, future deferring annotations <= py3.13
+]
+
+ignore = [
+    "E203", # Whitespace before ':', flake8 is wrong
+    "E231",
+    "E501", # Line too long, WIP across repo.
+    "W503",
+    "W291",
+    "W293",
+    "W503",
+]  # W503 Line Breaks Before Binary, flake8 hasn't been updated

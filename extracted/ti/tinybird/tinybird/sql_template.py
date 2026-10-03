@@ -1,5 +1,4 @@
 import ast
-import builtins
 import linecache
 import logging
 import re
@@ -1336,8 +1335,10 @@ sqlescape_for_string_expression = sqlescape_generator(
 )
 
 
-def escape_single_quote_str(s):
-    return "'" + s.replace("'", "''") + "'"
+def escape_single_quote_str(s: str) -> str:
+    # ClickHouse string literals treat backslash as an escape char, so it must be doubled too:
+    # otherwise a trailing backslash escapes the closing quote and the following input becomes SQL
+    return "'" + s.replace("\\", "\\\\").replace("'", "''") + "'"
 
 
 def expression_wrapper(x, name, escape_arrays: bool = False):
@@ -1388,13 +1389,14 @@ _namespace = {
 }
 
 
-reserved_vars = {"_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *list(vars(builtins))}
+# Built from the builtins templates can actually resolve: names missing from SAFE_BUILTINS (`type`, `dir`,
+# `property`, `object`, ...) can only be template parameters, so they must be discovered as such to get a
+# value (None or a test-mode placeholder) instead of raising NameError.
+reserved_vars = {"_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *SAFE_BUILTINS}
 for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
     reserved_vars.discard(p)  # `format` is part of builtins
-# Allow 'id', 'type' and 'dir' as template parameter names despite being builtins.
+# Allow 'id' as a template parameter name despite being a builtin - https://gitlab.com/tinybird/analytics/-/issues/19119
 reserved_vars.discard("id")
-reserved_vars.discard("type")
-reserved_vars.discard("dir")
 error_vars = ["error", "custom_error"]
 
 
@@ -1470,8 +1472,8 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
         return Expression(f"-- disable {feature}\n")
 
     namespace.update(_namespace)
-    # Default these here, not in _namespace, so they stay visible to variable extraction.
-    namespace.update({"id": None, "type": None, "dir": None})
+    # Default it here, not in _namespace, so it stays visible to variable extraction.
+    namespace.update({"id": None})
     namespace.update(kwargs)
     namespace.update(
         {
@@ -1820,7 +1822,7 @@ def get_var_names(t: Template):
     >>> [v['name'] for v in get_var_names(Template("{% for name in secret_names %}{{tb_secret(name)}}{% end %}"))]
     ['secret_names', 'name', 'tb_secret', 'name']
 
-    Type casting with date function in elif chain (type is in reserved_vars):
+    Type casting with date function in elif chain:
     >>> t = Template("{% if kind == 'int' %}{{Int32(val, 0)}}{% elif kind == 'date' %}{{DateTime(val)}}{% elif kind == 'diff' %}{{date_diff_in_days(val, now)}}{% end %}")
     >>> [v['name'] for v in get_var_names(t)]
     ['kind', 'Int32', 'val', 'kind', 'DateTime', 'val', 'kind', 'date_diff_in_days', 'val', 'now']
@@ -2372,7 +2374,24 @@ def wrap_vars(t, escape_arrays: bool = False):
     return var
 
 
-def get_used_tables_in_template(sql):
+def _constant_table_name(node: ast.expr) -> Optional[str]:
+    """Value of a constant table() argument: a literal or a concatenation of string literals."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return str(node.value)
+    return _string_literal(node)
+
+
+def _string_literal(node: ast.expr) -> Optional[str]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _string_literal(node.left), _string_literal(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def get_used_tables_in_template(sql: str) -> List[str]:
     """
     >>> get_used_tables_in_template("select * from {{table('test')}}")
     ['test']
@@ -2386,30 +2405,42 @@ def get_used_tables_in_template(sql):
     []
     >>> get_used_tables_in_template("select * from {{table('my.test')}}, {{table('another.one')}}")
     ['my.test', 'another.one']
+
+    Only constant table names can be known without rendering, so anything else is skipped
+    >>> get_used_tables_in_template("select * from {{table(tbl)}}, {{TABLE('b')}}, {{table('my.' + 'c')}}")
+    ['b', 'my.c']
     """
+    return list(_get_used_tables_in_template_cached(sql))
+
+
+# Building the Template dominates the cost and the result only depends on the SQL, which deployments and
+# /v0/sql pipelines scan repeatedly
+@lru_cache(maxsize=2**10)
+def _get_used_tables_in_template_cached(sql: str) -> Tuple[str, ...]:
     try:
         t = Template(sql)
 
         def _n(chunks, tables):
             for x in chunks:
                 if type(x).__name__ == "_Expression":
-                    c = compile(x.expression, "<string>", "exec", dont_inherit=True)
-                    v = [x.lower() for x in c.co_names if x not in _namespace and x not in reserved_vars]
-                    if "table" in v:
-
-                        def _t(*args, **kwargs):
-                            return str(args[0])
-
-                        n = {"table": _t, "TABLE": _t}
-                        e = "_tt_tmp = %s" % x.expression
-                        exec_in(e, n)
-                        tables += [n["_tt_tmp"]]
+                    # Read the names from the AST instead of executing the expression: this runs outside
+                    # generate(), without the restricted builtins, on every pipe, query and deployment.
+                    for node in ast.walk(ast.parse(x.expression)):
+                        if (
+                            isinstance(node, ast.Call)
+                            and isinstance(node.func, ast.Name)
+                            and node.func.id in ("table", "TABLE")
+                            and node.args
+                        ):
+                            name = _constant_table_name(node.args[0])
+                            if name is not None:
+                                tables.append(name)
                 elif type(x).__name__ == "_ControlBlock":
                     _n(x.body.chunks, tables)
 
-        tables = []
+        tables: List[str] = []
         _n(t.file.body.chunks, tables)
-        return tables
+        return tuple(tables)
     except SecurityException as e:
         raise SQLTemplateException(e)
 

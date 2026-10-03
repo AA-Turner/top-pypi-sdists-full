@@ -215,14 +215,12 @@ def create_project_structure(folder: str):
         "connections       →": "Connect to and ingest data from popular sources: Kafka, S3 or GCS.",
     }
 
-    for x in PROJECT_PATHS_DESCRIPTIONS.keys():
+    for x, description in PROJECT_PATHS_DESCRIPTIONS.items():
         try:
             path = x.split("→")[0].strip()
             f = folder_path / path
             f.mkdir()
-            click.echo(
-                FeedbackManager.info(message=f"./{x} ") + FeedbackManager.gray(message=PROJECT_PATHS_DESCRIPTIONS[x])
-            )
+            click.echo(FeedbackManager.info(message=f"./{x} ") + FeedbackManager.gray(message=description))
         except FileExistsError:
             pass
 

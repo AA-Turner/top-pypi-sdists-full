@@ -131,6 +131,11 @@ def local_network(monkeypatch: pytest.MonkeyPatch):
             if hasattr(module, "validate_public_http_url"):
                 monkeypatch.setattr(module, "validate_public_http_url", validate_public)
 
+        # Every other layer of the address check: same single origin.
+        from fixture_origins import allow_fixture_origins
+
+        allow_fixture_origins(monkeypatch, origin)
+
     return allow
 
 

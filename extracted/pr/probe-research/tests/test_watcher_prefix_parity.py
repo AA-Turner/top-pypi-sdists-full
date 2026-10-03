@@ -31,7 +31,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import re
 import subprocess
 import sys
 import uuid
@@ -63,31 +62,41 @@ EXPECTED_PLUGIN_DIR = {
 #: state directory it already has; a clean install gets the unified name.
 CODEX_LEGACY_DIR = ".codex/state/prbe-codex-tap-plugin"
 
-#: Every hand-written mirror of the WATCHER PREFIX, found by reading the tree
-#: rather than by trusting a list. A new one belongs here the day it is written.
+#: The homes that still spell the WATCHER PREFIX by hand: the pi extension
+#: (TypeScript) and the tap's shell hooks. Every Python home -- the tap's
+#: config, the CLI (`capture_state`, `capture`), the status-line hook -- now
+#: reads `capture.watcher_prefix` from the harness registry, which
+#: `test_the_registry_carries_the_conventions_this_file_pins` checks.
 PREFIX_MIRRORS = (
-    "agent/plugins/probe-research-pi/src/paths.ts",
+    "agent/plugins/probe-research-pi/src/core/paths.ts",
     "agent/plugins/probe-research-tap/hooks/session-start.sh",
     "agent/plugins/probe-research-tap/hooks/session-end.sh",
     "agent/plugins/probe-research-tap/hooks/ensure-daemon.sh",
-    "agent/plugins/probe-research/hooks/statusline_refresh.py",
-    "agent/src/probe/cli/capture_state.py",
-    "agent/src/probe/cli/capture.py",
 )
 
-#: Every hand-written mirror of the TAP STATE DIRECTORY. `version_check.py` and
-#: `agent_session.py` read a different file out of it (`.installed_version`,
-#: `.token`) but resolve the same directory, legacy fallback included, so they
-#: drift the same way.
+#: The homes that still spell the TAP STATE DIRECTORY by hand (TypeScript and
+#: shell). `capabilities.py`, `agent_session.py`, `version_check.py` and
+#: `statusline_refresh.py` read it from the registry row (`capture.state_dir`).
 PLUGIN_DIR_MIRRORS = (
-    "agent/plugins/probe-research-pi/src/paths.ts",
+    "agent/plugins/probe-research-pi/src/core/paths.ts",
     "agent/plugins/probe-research-tap/hooks/session-start.sh",
     "agent/plugins/probe-research-tap/hooks/ensure-daemon.sh",
-    "agent/plugins/probe-research/hooks/statusline_refresh.py",
-    "agent/plugins/probe-research/hooks/version_check.py",
-    "agent/src/probe/cli/capabilities.py",
-    "agent/src/probe/sdk/agent_session.py",
 )
+
+
+def test_the_registry_carries_the_conventions_this_file_pins():
+    """The harness registry is now where the prefix, the state dir and the
+    Codex legacy fallback are written down; this file's expectations are held
+    to it, and the live implementations below to both."""
+    from probe.harness import get_registry
+
+    reg = get_registry()
+    for source, prefix in EXPECTED_PREFIX.items():
+        assert reg.get(source).capture.watcher_prefix == prefix
+    for source, (env_name, relative) in EXPECTED_PLUGIN_DIR.items():
+        capture = reg.get(source).capture
+        assert (capture.plugin_dir_env, capture.plugin_dir) == (env_name, relative)
+    assert reg.get("codex").capture.legacy_plugin_dir == CODEX_LEGACY_DIR
 
 
 def _text(rel: str) -> str:
@@ -181,18 +190,16 @@ def test_the_codex_legacy_state_dir_is_a_one_way_fallback(tmp_path):
     ), "once the unified directory exists it wins — the fallback is one-way"
 
 
-def test_the_tap_source_of_truth_is_still_one_ternary():
-    """MUTANT: a second source-dependent prefix in `config.py` -> red.
+def test_the_tap_reads_the_prefix_from_its_registry_row():
+    """MUTANT: a hand-written prefix branch back in `config.py` -> red.
 
-    `watcher_prefix()` is where the whole convention is decided. If it grows a
-    branch, every mirror below needs the same branch, and the literal-equality
-    assertions in this file would keep passing while the shapes diverged.
+    `watcher_prefix()` is where the tap decides the convention; it must read
+    the row, not grow a `"codex" if ...` again that the registry cannot see.
     """
     src = _text("agent/plugins/probe-research-tap/tap/config.py")
-    match = re.search(r'return "([\w-]+)" if capture_source\(\) == "codex" else (\w+)', src)
-    assert match is not None, "tap/config.py::watcher_prefix() changed shape"
-    assert match.group(1) == EXPECTED_PREFIX["codex"]
-    assert match.group(2) == "PLUGIN_NAME"
+    body = src.split("def watcher_prefix()", 1)[1].split("\ndef ", 1)[0]
+    assert "capture.watcher_prefix" in body
+    assert '"codex"' not in body
 
 
 # --- the mirrors -----------------------------------------------------------
@@ -214,7 +221,7 @@ def test_every_prefix_mirror_carries_both_literals(rel):
 
 
 def test_the_typescript_mirror_pins_the_prefix_as_a_constant():
-    src = _text("agent/plugins/probe-research-pi/src/paths.ts")
+    src = _text("agent/plugins/probe-research-pi/src/core/paths.ts")
     assert f'WATCHER_PREFIX = "{EXPECTED_PREFIX["pi"]}"' in src
     assert "`${WATCHER_PREFIX}-watcher-${sessionId}.pid`" in src
     assert "`${WATCHER_PREFIX}-watcher-${sessionId}.shutdown`" in src

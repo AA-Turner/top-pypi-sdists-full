@@ -7,7 +7,7 @@ from typing import List as TypingList
 
 import numpy as np
 
-from ..helpers import check_attribute_color_range, rgb_volume_channels
+from ..helpers import check_attribute_color_range, check_unsigned_range, rgb_volume_channels
 from ..objects import MIP, MarchingCubes, SparseVoxels, Volume, VolumeSlice, VoxelChunk, Voxels, VoxelsGroup
 from ..transform import process_transform_arguments
 from .common import _default_color, default_colormap, nice_colors
@@ -561,9 +561,12 @@ def voxels(
     if color_map is None:
         color_map = nice_colors
 
+    # process_transform_arguments only reads separate xmin/xmax/... out of **kwargs when
+    # "bounds" is absent from it, so always setting kwargs["bounds"] here (as a prior revision
+    # did) shadowed those arguments even when the caller passed them and not bounds.
     if bounds is not None:
         kwargs["bounds"] = bounds
-    else:
+    elif not any(k in kwargs for k in ("xmin", "xmax", "ymin", "ymax", "zmin", "zmax")):
         max_z, max_y, max_x = np.shape(voxels)
         kwargs["bounds"] = np.array([0, max_x, 0, max_y, 0, max_z])
 
@@ -958,8 +961,11 @@ def voxel_chunk(
     VoxelChunk
         VoxelChunk object.
     """
+    voxels = np.asarray(voxels)
+    check_unsigned_range(voxels, np.uint8)
+
     return VoxelChunk(
-        voxels=np.array(voxels, np.uint8),
+        voxels=voxels.astype(np.uint8),
         coord=np.array(coord, np.uint32),
         multiple=multiple,
         compression_level=compression_level,

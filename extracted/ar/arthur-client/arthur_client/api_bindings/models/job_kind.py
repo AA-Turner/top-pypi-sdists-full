@@ -43,6 +43,7 @@ class JobKind(str, Enum):
     DISCOVER_AGENTS = 'discover_agents'
     COMPLIANCE_POLICY_CHECK = 'compliance_policy_check'
     FETCH_DISCOVERED_AGENTS = 'fetch_discovered_agents'
+    TEST_DISCOVERY_SOURCE = 'test_discovery_source'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

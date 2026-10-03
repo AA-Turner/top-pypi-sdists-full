@@ -17,6 +17,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "value_store_result",
+    disposition="record",
     label="Value Store Result",
     family="conversation_values",
     example={

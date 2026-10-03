@@ -21,7 +21,7 @@ from tabpfn.architectures.interface import (
     PerformanceOptions,
 )
 from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
-from tabpfn.base import ClassifierModelSpecs, RegressorModelSpecs
+from tabpfn.base import ModelSpecs
 from tabpfn.checkpoint import Checkpoint
 from tabpfn.constants import ModelVersion
 from tabpfn.errors import TabPFNValidationError
@@ -38,6 +38,11 @@ device_combinations = [
     # to work, even if there's only one cpu.
     ("auto", ["cpu:0", "cpu:1"]),
 ]
+
+
+def _batched_cache_moved_onto_mps(fit_mode: str, device_1: str, device_2: str) -> bool:
+    """A KV cache built for a batch of members off MPS refuses to move onto MPS."""
+    return fit_mode == "fit_with_cache" and device_2 == "mps" and device_1 != "mps"
 
 
 @pytest.mark.parametrize(("device_1", "device_2"), device_combinations)
@@ -72,6 +77,10 @@ def test__to__between_fit_and_predict__does_not_crash(
     estimator = estimator_class(fit_mode=fit_mode, device=device_1, n_estimators=2)
     X_train, X_test, y_train = _get_tiny_dataset(estimator)
     estimator.fit(X_train, y_train)
+    if _batched_cache_moved_onto_mps(fit_mode, device_1, device_2):
+        with pytest.raises(RuntimeError, match="cannot be used on MPS"):
+            estimator.to(device_2)
+        return
     estimator.to(device_2)
     estimator.predict(X_test)
 
@@ -97,6 +106,10 @@ def test__to__between_fits__outputs_equal(
     X_train, X_test, y_train = _get_tiny_dataset(estimator)
     estimator.fit(X_train, y_train)
     prediction_1 = estimator.predict(X_test)
+    if _batched_cache_moved_onto_mps(fit_mode, device_1, device_2):
+        with pytest.raises(RuntimeError, match="cannot be used on MPS"):
+            estimator.to(device_2)
+        return
     estimator.to(device_2)
     estimator.fit(X_train, y_train)
     prediction_2 = estimator.predict(X_test)
@@ -462,7 +475,7 @@ def _get_shipped_inference_config(
 
 def _get_stand_in_model_specs(
     estimator_class: type[TabPFNClassifier] | type[TabPFNRegressor],
-) -> ClassifierModelSpecs | RegressorModelSpecs:
+) -> ModelSpecs:
     """Return specs that make an estimator run on `_ConstantOutputModel`.
 
     Passing specs as `model_path` is the supported way to supply an already
@@ -470,14 +483,14 @@ def _get_stand_in_model_specs(
     shipped preprocessing and only the forward pass is a stand-in.
     """
     if issubclass(estimator_class, TabPFNClassifier):
-        return ClassifierModelSpecs(
+        return ModelSpecs(
             model=_ConstantOutputModel(STAND_IN_MAX_NUM_CLASSES),
             architecture_config=ArchitectureConfig(
                 max_num_classes=STAND_IN_MAX_NUM_CLASSES
             ),
             inference_config=_get_shipped_inference_config("classifier"),
         )
-    return RegressorModelSpecs(
+    return ModelSpecs(
         model=_ConstantOutputModel(STAND_IN_NUM_BUCKETS),
         architecture_config=ArchitectureConfig(num_buckets=STAND_IN_NUM_BUCKETS),
         inference_config=_get_shipped_inference_config("regressor"),

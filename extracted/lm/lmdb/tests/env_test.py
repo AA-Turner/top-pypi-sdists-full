@@ -21,6 +21,7 @@
 #
 
 import os
+import subprocess
 import sys
 import unittest
 import weakref
@@ -68,6 +69,42 @@ class OpenTest(unittest.TestCase):
             lambda: lmdb.open('/doesnt/exist/at/all'))
         self.assertRaises(Exception,
             lambda: lmdb.open(testlib.temp_file()))
+
+    def test_bytes_path(self):
+        """A bytes path must work, including on reopen.
+
+        Regression guard: the engine sniffer joined the incoming path with a
+        str filename, which raises "Can't mix strings and bytes in path
+        components" for bytes paths.  Reopen matters as much as create --
+        the sniffer only reads an existing data file.
+        """
+        path = testlib.temp_dir().encode()
+        env = lmdb.open(path)
+        try:
+            with env.begin(write=True) as txn:
+                txn.put(B('a'), B('b'))
+        finally:
+            env.close()
+
+        env = lmdb.open(path)
+        testlib._cleanups.append(env.close)
+        with env.begin() as txn:
+            assert txn.get(B('a')) == B('b')
+
+    def test_bytes_path_nosubdir(self):
+        """As above, for subdir=False, where the path is the data file."""
+        path = testlib.temp_file(create=False).encode()
+        env = lmdb.open(path, subdir=False)
+        try:
+            with env.begin(write=True) as txn:
+                txn.put(B('a'), B('b'))
+        finally:
+            env.close()
+
+        env = lmdb.open(path, subdir=False)
+        testlib._cleanups.append(env.close)
+        with env.begin() as txn:
+            assert txn.get(B('a')) == B('b')
 
     def test_ok_path(self):
         path, env = testlib.temp_env()
@@ -163,6 +200,83 @@ class OpenTest(unittest.TestCase):
         env2 = lmdb.open(path)
         env2.close()
 
+    def test_open_same_path_twice_nosubdir(self):
+        path = testlib.temp_file(create=False)
+        _, env = testlib.temp_env(path, subdir=False)
+        self.assertRaises(lmdb.Error,
+            lambda: lmdb.open(path, subdir=False))
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'open files cannot be deleted on Windows')
+    def test_open_same_path_after_delete(self):
+        # Deleting an open environment and re-creating it at the same path
+        # yields new, unrelated files, which may be opened (issue #491).
+        path, env = testlib.temp_env()
+        with env.begin(write=True) as txn:
+            txn.put(B('old'), B('1'))
+        rtxn = env.begin()
+        for name in 'data.mdb', 'lock.mdb':
+            os.unlink(os.path.join(path, name))
+
+        _, env2 = testlib.temp_env(path)
+        with env2.begin(write=True) as txn:
+            txn.put(B('new'), B('2'))
+        # The two environments stay independent.
+        assert rtxn.get(B('old')) == B('1')
+        assert rtxn.get(B('new')) is None
+        with env2.begin() as txn:
+            assert txn.get(B('old')) is None
+            assert txn.get(B('new')) == B('2')
+        rtxn.abort()
+
+        # Closing the old one must not forget the new one.
+        env.close()
+        self.assertRaises(lmdb.Error, lambda: lmdb.open(path))
+        env2.close()
+        lmdb.open(path).close()
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'open files cannot be deleted on Windows')
+    def test_open_same_path_after_delete_nosubdir(self):
+        path = testlib.temp_file(create=False)
+        _, env = testlib.temp_env(path, subdir=False)
+        os.unlink(path)
+        os.unlink(path + '-lock')
+        _, env2 = testlib.temp_env(path, subdir=False)
+        with env2.begin(write=True) as txn:
+            txn.put(B('a'), B('b'))
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'open files cannot be deleted on Windows')
+    def test_open_same_lock_file_after_data_delete(self):
+        # With only the data file replaced, a second environment would share
+        # the lock file -- and so the reader table and fcntl() locks -- of
+        # the one still open, so it is still refused.
+        path, env = testlib.temp_env()
+        os.unlink(os.path.join(path, 'data.mdb'))
+        self.assertRaises(lmdb.Error, lambda: lmdb.open(path))
+
+    def test_open_hard_link_twice(self):
+        # The same files reached by another name are still the same
+        # environment.
+        path = testlib.temp_file(create=False)
+        _, env = testlib.temp_env(path, subdir=False)
+        link = testlib.temp_file(create=False)
+        try:
+            os.link(path, link)
+        except (AttributeError, OSError) as e:
+            self.skipTest('hard links unsupported: %s' % (e,))
+        self.assertRaises(lmdb.Error,
+            lambda: lmdb.open(link, subdir=False))
+
+    @unittest.skipIf(sys.platform == 'win32',
+                     'symlinks need privileges on Windows')
+    def test_open_symlink_twice(self):
+        path, env = testlib.temp_env()
+        link = testlib.temp_dir(create=False)
+        os.symlink(path, link)
+        self.assertRaises(lmdb.Error, lambda: lmdb.open(link))
+
     def test_metasync(self):
         for flag in True, False:
             path, env = testlib.temp_env(metasync=flag)
@@ -227,6 +341,26 @@ class OpenTest(unittest.TestCase):
         for flag in True, False:
             path, env = testlib.temp_env(writemap=flag)
             assert env.flags()['writemap'] == flag
+
+    def test_writemap_commit(self):
+        """Write and commit under writemap, at both sync settings.
+
+        test_writemap above only checks the flag round-trips; nothing
+        exercised a commit.  The default sync=True path in particular went
+        untested, since the writemap tests elsewhere either pass sync=False
+        (crash_test) or only write on Linux (cursor_test).
+
+        On Windows, LMDB 1.0.1 could not commit with sync=True (issue #486);
+        1.0.2 fixed that upstream (ITS#10575), and this is the check.
+        """
+        for sync in True, False:
+            path, env = testlib.temp_env(writemap=True, sync=sync)
+            with env.begin(write=True) as txn:
+                for i in range(100):
+                    txn.put(b'k%04d' % i, b'v' * 100)
+            with env.begin() as txn:
+                assert sum(1 for _ in txn.cursor()) == 100, sync
+            env.close()
 
     def test_meminit(self):
         for flag in True, False:
@@ -419,11 +553,8 @@ class SetMapSizeConcurrencyTest(unittest.TestCase):
 
         def tolerated(e):
             """A handle invalidated by a concurrent resize surfaces as
-            lmdb.Error (CPython backend) or as a TypeError mentioning the
-            _invalid sentinel (CFFI backend)."""
-            return (isinstance(e, lmdb.Error) or
-                    (isinstance(e, TypeError) and
-                     '_LMDB_Resource' in str(e)))
+            lmdb.Error on both implementations (issue #503)."""
+            return isinstance(e, lmdb.Error)
 
         def worker_read():
             while not stop.is_set():
@@ -594,6 +725,28 @@ class InfoMethodsTest(unittest.TestCase):
         env.close()
         self.assertRaises(Exception,
             lambda: env.info())
+
+    def test_info_map_addr_is_pointer_sized(self):
+        """info()['map_addr'] must survive a full-width pointer.
+
+        Regression guard for a Windows-only defect: the cffi implementation
+        converted me_mapaddr through C `long`, which is 32 bits on Windows
+        even in 64-bit builds (LLP64), so an address with bit 31 set came
+        back negative.  It could not fail on Linux, where `long` is 64-bit,
+        and on Windows it only failed when ASLR happened to place the
+        mapping accordingly -- so it surfaced as an intermittent CI failure.
+
+        me_mapaddr is NULL unless MDB_FIXEDMAP is used, so this exercises
+        the conversion directly rather than relying on a real mapping.
+        """
+        if lmdb.Environment.__module__ != 'lmdb.cffi':
+            self.skipTest('cffi implementation not in use')
+        from lmdb.cffi import _ffi
+
+        for addr in (0x80320000, 0x7ff680320000):
+            p = _ffi.cast('void *', addr)
+            self.assertEqual(int(_ffi.cast('uintptr_t', p)), addr)
+        self.assertEqual(_ffi.sizeof('uintptr_t'), _ffi.sizeof('void *'))
 
     def test_flags(self):
         _, env = testlib.temp_env()
@@ -783,6 +936,7 @@ class OtherMethodsTest(unittest.TestCase):
         _, env = testlib.temp_env()
         env.sync(False)
         env.sync(True)
+        env.sync(force=True)  # keyword accepted on both (issue #499)
         env.close()
         self.assertRaises(Exception,
             lambda: env.sync(False))
@@ -809,10 +963,30 @@ class OtherMethodsTest(unittest.TestCase):
         assert env.reader_check() == 0
 
         # Start a child, open a txn, then crash the child.
-        rc = os.spawnl(os.P_WAIT, sys.executable, sys.executable,
-                       __file__, 'test_reader_check_child', path)
+        #
+        # Run it through subprocess rather than os.spawnl so a child that
+        # dies before it ever opens a transaction can say why.  The child
+        # is launched as a script, so Python puts tests/ on its sys.path
+        # rather than the repo root: unless py-lmdb is actually installed
+        # (or the repo root is on PYTHONPATH), the child cannot import
+        # lmdb.  That is a harness problem, not a reader-check failure,
+        # and it used to surface only as a bare "assert 1 == 0".
+        proc = subprocess.run(
+            [sys.executable, __file__, 'test_reader_check_child', path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        rc = proc.returncode
+        stderr = proc.stderr.decode('utf-8', 'replace')
 
-        assert rc == 0
+        if rc != 0 and 'No module named' in stderr and 'lmdb' in stderr:
+            self.skipTest(
+                'child process cannot import lmdb, so this test cannot run. '
+                'Install the package (e.g. "pip install -e .") or put the '
+                'repo root on PYTHONPATH; a child launched as a script only '
+                'gets tests/ on sys.path.\nChild stderr:\n' + stderr)
+
+        assert rc == 0, (
+            'reader-check child exited %d\n--- child stderr ---\n%s'
+            % (rc, stderr or '(none)'))
         assert env.reader_check() == 1
         assert env.reader_check() == 0
         assert env.readers() != NO_READERS
@@ -950,6 +1124,29 @@ class OpenDbTest(unittest.TestCase):
         env.close()
         self.assertRaises(Exception,
             lambda: env.open_db('subdb3'))  # type: ignore[arg-type]
+
+    def test_handle_from_aborted_txn_not_reused(self):
+        '''Issue #502: a database created in a transaction that aborted
+        does not exist afterwards; CFFI used to return its cached handle.
+        Same when the creating child commits but its parent aborts.'''
+        _, env = testlib.temp_env(max_dbs=4)
+        txn = env.begin(write=True)
+        env.open_db(B('gone'), txn=txn)
+        txn.abort()
+        self.assertRaises(lmdb.NotFoundError,
+            lambda: env.open_db(B('gone'), create=False))
+
+        parent = env.begin(write=True)
+        child = env.begin(write=True, parent=parent)
+        env.open_db(B('nested'), txn=child)
+        child.commit()
+        parent.abort()
+        self.assertRaises(lmdb.NotFoundError,
+            lambda: env.open_db(B('nested'), create=False))
+
+        with env.begin(write=True) as txn:
+            env.open_db(B('kept'), txn=txn)
+        env.open_db(B('kept'), create=False)
 
     def test_sub_rotxn(self):
         _, env = testlib.temp_env()
@@ -1111,6 +1308,16 @@ class SpareTxnTest(unittest.TestCase):
 
         t2.abort()
         del t2
+        assert 0 == reader_count(env)
+
+    def test_default_is_no_caching(self):
+        '''Issue #501: both implementations default to max_spare_txns=0,
+        so a finished read txn leaves no reader slot behind.'''
+        _, env = testlib.temp_env()
+        t1 = env.begin()
+        assert 1 == reader_count(env)
+        t1.abort()
+        del t1
         assert 0 == reader_count(env)
 
     def test_one(self):

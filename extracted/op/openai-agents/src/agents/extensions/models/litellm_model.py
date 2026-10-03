@@ -224,6 +224,7 @@ class LitellmModel(Model):
                 model=str(self.model),
                 model_config=model_config_for_trace(
                     model_settings,
+                    tracing,
                     base_url=self.base_url or "",
                     extra_config={"model_impl": "litellm"},
                 ),
@@ -273,9 +274,9 @@ class LitellmModel(Model):
                 usage = (
                     Usage(
                         requests=1,
-                        input_tokens=response_usage.prompt_tokens,
-                        output_tokens=response_usage.completion_tokens,
-                        total_tokens=response_usage.total_tokens,
+                        input_tokens=response_usage.prompt_tokens or 0,
+                        output_tokens=response_usage.completion_tokens or 0,
+                        total_tokens=response_usage.total_tokens or 0,
                         input_tokens_details=_make_input_tokens_details(
                             cached_tokens=getattr(
                                 response_usage.prompt_tokens_details, "cached_tokens", 0
@@ -397,6 +398,7 @@ class LitellmModel(Model):
                 model=str(self.model),
                 model_config=model_config_for_trace(
                     model_settings,
+                    tracing,
                     base_url=self.base_url or "",
                     extra_config={"model_impl": "litellm"},
                 ),

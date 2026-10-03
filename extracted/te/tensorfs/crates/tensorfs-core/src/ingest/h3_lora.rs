@@ -6,7 +6,8 @@
 //! checkpoint's head interleave is reordered before training, not exported again
 //! in adapter state dictionaries. This is structural conversion, not permission
 //! to apply a FL2VA-trained adapter to REF2VA. Runtime owns that binding and never
-//! parses foreign keys.
+//! parses foreign keys. This planner is also the key grammar of the
+//! `h3/native-lora-*/2` profiles: any complete pairs on the reviewed projections.
 
 use std::collections::BTreeMap;
 
@@ -160,6 +161,29 @@ pub(super) fn plan(
     plain: &EncodingSpec,
     p: &mut Plan,
 ) -> Result<()> {
+    let adaln: Vec<&str> = header
+        .tensors
+        .iter()
+        .map(|tensor| tensor.key.as_str())
+        .filter(|key| key.contains("adaln_proj"))
+        .collect();
+    if !adaln.is_empty() {
+        // Named in full: these are the factors a conversion would have to drop.
+        let more = match adaln.len().saturating_sub(4) {
+            0 => String::new(),
+            more => format!(", and {more} more"),
+        };
+        return refuse(
+            Code::ADAPTER_TARGET_UNSUPPORTED,
+            format!(
+                "{} AdaLN modulation factor(s) ({}{more}). h3.lora/2 maps attention and MLP \
+                 projections only, and dropping AdaLN pairs changes the adapter. Use a repack \
+                 with the AdaLN pairs removed, or store the file as-is.",
+                adaln.len(),
+                adaln[..adaln.len().min(4)].join(", "),
+            ),
+        );
+    }
     let mut pairs: BTreeMap<String, Pair<'_>> = BTreeMap::new();
     for tensor in &header.tensors {
         if !matches!(tensor.dtype, Dtype::F16 | Dtype::Bf16 | Dtype::F32) {

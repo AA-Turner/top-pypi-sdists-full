@@ -42,9 +42,10 @@ NUMERIC_DTYPE_KINDS = "?bBiufm"
 # a frame need not be built to convert it. Timedeltas ("m") are excluded: pandas
 # converts those through its own units rather than numpy's raw integers.
 FAST_CONVERTIBLE_DTYPE_KINDS = "?bBiuf"
-# `O` object, `V` void (structured records), `U` fixed-width unicode strings: pandas
-# reads the cells to work out each column's dtype.
-OBJECT_OR_STRING_DTYPE_KINDS = "OVU"
+# `O` object, `V` void (structured records), `U` fixed-width unicode strings, `T`
+# variable-width unicode strings (numpy 2's `StringDType`): pandas reads the cells to
+# work out each column's dtype.
+OBJECT_OR_STRING_DTYPE_KINDS = "OVUT"
 # `S` fixed-width byte strings and `a`, its legacy alias: refused.
 BYTES_DTYPE_KINDS = "Sa"
 # `c` complex, `M` datetime64. Not needed, just for completeness.
@@ -152,6 +153,20 @@ def clean_data_transform(
     Returns:
         The cleaned data as a float64 array.
     """
+    if constant_values := getattr(ord_encoder, "constant_values_", None):
+        # A column constant at fit gets its fit-time value back, so it is cleaned
+        # exactly as at fit, whatever it holds at predict.
+        numeric = all(
+            isinstance(v, (int, float, np.number)) for v in constant_values.values()
+        )
+        # A copy either way: the caller's array must not be written to.
+        if not numeric:
+            X = X.astype(object)
+        else:
+            X = X.astype(X.dtype if X.dtype.kind in "fO" else np.float64)
+        for index, value in constant_values.items():
+            X[:, index] = value
+
     if _is_plain_numeric_array(X) and _encoder_selects_nothing(ord_encoder):
         # `passthrough_inf` makes no difference here: it records the +/-inf cells,
         # NaNs them so the encoder does not choke, and writes them back at the same
@@ -188,6 +203,12 @@ def clean_data(
 
     # Ensure categories are ordinally encoded
     ord_encoder = get_ordinal_encoder()
+    # Restored by `clean_data_transform`, so these columns carry no information at
+    # predict and never meet a value, e.g. a string, that fit did not see.
+    ord_encoder.constant_values_ = {  # type: ignore[attr-defined]
+        index: X[0, index]
+        for index in feature_schema.indices_for(FeatureModality.CONSTANT)
+    }
 
     if not cat_indices and _is_plain_numeric_array(X):
         # A numeric array holds no string cell, so with no categorical column
@@ -226,12 +247,16 @@ def coerce_nullable_dtypes_to_numpy(X: pd.DataFrame) -> pd.DataFrame:
 
     ``category``/``string``/``object`` columns are left untouched.
     """
-    cols = [
-        col
-        for col, dtype in X.dtypes.items()
+    dtypes = X.dtypes
+    # Decided once per distinct dtype rather than once per column: a wide frame has
+    # thousands of columns and a handful of dtypes.
+    dtypes_to_cast = {
+        dtype
+        for dtype in dtypes.unique()
         if pd.api.types.is_bool_dtype(dtype)
         or (pd.api.types.is_extension_array_dtype(dtype) and dtype.kind in "iuf")
-    ]
+    }
+    cols = [col for col, dtype in dtypes.items() if dtype in dtypes_to_cast]
     return _cast_columns(X, cols, "float64")
 
 

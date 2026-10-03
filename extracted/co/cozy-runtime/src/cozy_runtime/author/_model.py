@@ -22,7 +22,7 @@ import json
 import logging
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import AbstractContextManager, ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass, field
 from typing import (
     Any,
@@ -41,7 +41,6 @@ from cozy_runtime.author._errors import (
     CapabilityError,
     ConformanceError,
     InvalidRequest,
-    is_device_oom,
 )
 from cozy_runtime.author._loader import (
     Artifact,
@@ -54,6 +53,8 @@ from cozy_runtime.author._loader import (
     Scheduler,
     loading,
 )
+from cozy_runtime.author._memo import MemoDependency, declare
+from cozy_runtime.author._stage_memo import StageMemo, memoized
 
 _LOG = logging.getLogger(__name__)
 
@@ -147,7 +148,16 @@ EXCLUDED_KEYWORDS: Mapping[str, str] = {
 }
 
 _RUNTIME_MEMBERS = frozenset(
-    {"load", "warm", "unload", "for_request", "for_test", "checkpoint_ref", "harness"}
+    {
+        "load",
+        "warm",  # reserved: packages built for an older Runtime define one; nothing calls it
+        "unload",
+        "for_request",
+        "for_test",
+        "checkpoint_ref",
+        "harness",
+        "batch_fits",
+    }
 )
 
 
@@ -216,19 +226,19 @@ class Residency(Protocol):
     """The runtime's component-use ADMISSION, installed on a constructed generation.
 
     Declared here because the contract has one home; implemented nowhere in this package,
-    because admission, materialization, event fencing and eviction all need a device and
-    this package is torch-free by construction. cozy-runtime supplies the body
-    (`internal/residency.py`); a promoted Varena adapter would supply a different one and the
-    package above would not be able to tell.
+    because it needs a device and this package is torch-free by construction. cozy-runtime
+    supplies the body on the weight plane (`internal/weights.py`).
 
-    `admit` runs BEFORE method entry and either makes the declared set materialized or
-    refuses typed. `release` runs after the body returns, records the event fence, and makes
-    the leases EVICTABLE — it never forces eviction and never imposes a global scope order.
+    `admit` runs BEFORE method entry: the declared set becomes a stage with its resident
+    prefix wanted and its tail streaming, or it refuses typed. `release` runs after the body
+    returns and makes the stage's weights evictable; it never forces eviction.
     """
 
     def admit(self, method: str, components: tuple[str, ...]) -> None: ...
 
     def release(self, method: str, components: tuple[str, ...]) -> None: ...
+
+    def batch_fits(self, method: str, batch: int) -> bool: ...
 
 
 class Placement(Protocol):
@@ -270,12 +280,20 @@ def remote_scope(model: object) -> tuple[str, tuple[str, ...]] | None:
 
 def uses_components(
     *names: str,
+    memoize: bool = False,
+    memo_version: str | None = None,
+    memo_dependencies: tuple[MemoDependency, ...] = (),
 ) -> Callable[[Callable[Concatenate[M, P], R]], Callable[Concatenate[M, P], R]]:
     """Declare the possible heavyweight component set of ONE public `Model` method.
 
     A component-use contract, not a phase declaration: while this method executes, any
     branch may touch these components. Omitted means ALL (conservatively safe); explicitly
     empty REFUSES — a method touching no components is module code, not a Model method.
+
+    `memoize=True` marks an encoder-like method whose result is a pure function of its
+    code, declared helpers (`memo_dependencies`, `memo_version` as on `@invocable`), the
+    components' weights, its arguments and the numerics it runs under. The Runtime checks
+    for a stored result before the scope opens, so a hit stages nothing.
     """
     if not names:
         raise ConformanceError(
@@ -313,6 +331,9 @@ def uses_components(
             )
         _check_signature(fn)
         wrapper = _async_wrapper(fn, components) if _is_async(fn) else _sync_wrapper(fn, components)
+        if memoize or memo_version is not None or memo_dependencies:
+            declare(fn, memoize=memoize, version=memo_version, dependencies=memo_dependencies)
+            wrapper = memoized(fn, wrapper, components, is_async=_is_async(fn))
         declared: _Declared = cast("_Declared", wrapper)
         declared.__uses_components__ = components
         return wrapper
@@ -390,40 +411,6 @@ def placeable(*names: str) -> Callable[[type[ModelT]], type[ModelT]]:
     return decorate
 
 
-# STOPGAP until memory v3, which deletes it: a device OOM in a scope holding only diffusers'
-# image `AutoencoderKL` (SDXL's decode: one call, one returned frame) frees what the scope
-# does not hold and runs the same call once more tiled. Nothing else is retried: a video
-# VAE's decode streams chunks to its caller, and a second run would deliver them twice.
-def _tiles_after_oom(model: Any, components: tuple[str, ...], exc: Exception) -> list[Any]:
-    plane: Any = model._cozy_residency
-    held = plane.backend.components if plane is not None and is_device_oom(exc) else {}
-    modules = [held.get(name) for name in components]
-    image_vaes = all(
-        any(k.__name__ == "AutoencoderKL" and k.__module__.startswith("diffusers.") for k in
-            type(m).__mro__)
-        for m in modules
-    )
-    return modules if modules and image_vaes else []
-
-
-@contextmanager
-def _tiled_retry(model: Any, method: str, modules: list[Any]) -> Iterator[None]:
-    plane: Any = model._cozy_residency
-    plane.shed()
-    if plane.torch is not None and plane.kind == "cuda":
-        plane.torch.cuda.empty_cache()
-    plane.backend.stage_log.append({"method": method, "action": "decode retried tiled after OOM"})
-    _LOG.warning("%s: decode retried tiled after OOM", method)
-    untiled = [m for m in modules if not getattr(m, "use_tiling", False)]
-    for module in untiled:
-        module.enable_tiling()
-    try:
-        yield
-    finally:
-        for module in untiled:
-            module.disable_tiling()
-
-
 def _is_async(fn: Callable[..., object]) -> bool:
     return inspect.iscoroutinefunction(inspect.unwrap(fn))
 
@@ -434,15 +421,7 @@ def _sync_wrapper[M: _ScopedModel, **P, R](
     @functools.wraps(fn)
     def wrapper(self: M, /, *args: P.args, **kwargs: P.kwargs) -> R:
         with self._cozy_scope(fn.__name__, components):
-            tiles: list[Any] = []
-            try:
-                result = fn(self, *args, **kwargs)
-            except Exception as exc:
-                if not (tiles := _tiles_after_oom(self, components, exc)):
-                    raise
-            if tiles:  # outside `except`, so the failed call's frames and tensors are gone
-                with _tiled_retry(self, fn.__name__, tiles):
-                    result = fn(self, *args, **kwargs)
+            result = fn(self, *args, **kwargs)
             _refuse_lazy(fn.__name__, result)
             return result
 
@@ -457,15 +436,7 @@ def _async_wrapper[M: _ScopedModel, **P, R](
     @functools.wraps(fn)
     async def wrapper(self: M, /, *args: P.args, **kwargs: P.kwargs) -> object:
         with self._cozy_scope(fn.__name__, components):
-            tiles: list[Any] = []
-            try:
-                result = await fn(self, *args, **kwargs)  # type: ignore[misc]
-            except Exception as exc:
-                if not (tiles := _tiles_after_oom(self, components, exc)):
-                    raise
-            if tiles:
-                with _tiled_retry(self, fn.__name__, tiles):
-                    result = await fn(self, *args, **kwargs)  # type: ignore[misc]
+            result = await fn(self, *args, **kwargs)  # type: ignore[misc]
             _refuse_lazy(fn.__name__, result)
             return result
 
@@ -498,9 +469,8 @@ def _refuse_lazy(method: str, result: object) -> None:
 class Model[PipelineT]:
     """Base of a package's reusable model class — the ONE long-lived model boundary.
 
-    The author owns WHAT the model is: the three lifecycle methods `load` (construct under
-    fake tensors, then fill), optional `warm` (post-fill, pre-serving work with real
-    tensors) and `unload` (release when the construction leaves the worker), the declared
+    The author owns WHAT the model is: the lifecycle methods `load` (construct under fake
+    tensors, then fill) and `unload` (release when the construction leaves the worker), the declared
     persistent state, and the component-touching methods handlers call. The runtime owns
     WHEN they run and where every byte lives (model-lifecycle.md). A bare typed parameter
     is the whole declaration, and its presence in a signature is what derives `gpu`.
@@ -548,6 +518,8 @@ class Model[PipelineT]:
     reason a scope works without one: a test double has no bytes to stage."""
     _cozy_placement: Placement | None = None
     """Runtime-installed on the first GPU of a group that hosts a component on another."""
+    _cozy_memo: StageMemo | None = None
+    """Runtime-installed: where `memoize=True` methods look before their scope opens."""
 
     def __init_subclass__(cls, /, **keywords: str) -> None:
         """The class-keyword plane is exactly `encoded_leaves` and `fusion` (model-code-fit
@@ -605,27 +577,17 @@ class Model[PipelineT]:
         """
         return None
 
-    def warm(self, ctx: Context) -> None:
-        """Optional post-fill, pre-serving work — the ONE place for it (cr-110, #708).
-
-        The runtime calls it once per construction fill: after the fill and its
-        verification, before the placement reports DISPATCHABLE, on every worker, with the
-        device lease held and real tensors in place. Never again on a component stage or
-        evict — module objects survive residency, only bytes move — and again only when the
-        construction is rebuilt. What goes here is the author's choice: an in-place
-        `module.compile()` or `compile_repeated_blocks`, Triton/kernel loading, autotune,
-        a dry step at the canonical shape, or nothing. `torch.compile(module)` is refused
-        here as under derive: it wraps the module and renames every state_dict key, so the
-        object the code then calls is not the one the fill and residency planes hold.
-        `ctx` carries the device, the fill's deadline and cancellation; it has no request
-        and can reserve no package call. A raise is a construction failure naming the
-        exception, and the generation never serves.
-        """
-        return None
-
     def unload(self, loader: Loader) -> None:
         """Release declared state. The runtime drains before calling this."""
         return None
+
+    def batch_fits(self, method: str, batch: int = 2) -> bool:
+        """Whether `method` can run `batch` requests' worth at once — cond and uncond as one
+        batch, say — counting weights the runtime may unmap as free. Ask before the stage;
+        the runtime records the answer in the run's outputs and it holds for the request.
+        Unmeasured is yes: the first run measures, and a block that runs out retries."""
+        residency = self._cozy_residency
+        return True if residency is None else residency.batch_fits(method, batch)
 
     def prepare_adapters(self, overlays: tuple[AdapterRef, ...]) -> None:
         """Apply an admitted ordered overlay once during model preparation."""
@@ -772,14 +734,6 @@ class Model[PipelineT]:
                 fields=[name],
             )
         object.__delattr__(self, name)
-
-
-def warm_context(where: Device, *, deadline: float, cancel: Callable[[], bool]) -> Context:
-    """The Context `Model.warm` receives: where it runs, how long the fill may take, and
-    whether the generation is still wanted. No request id and no adapters, because there
-    is no attempt; the package-call broker only `invoke` binds is absent, so an invocable
-    called here refuses `child_broker_absent` by construction (cr-110)."""
-    return Context("", deadline, where, cancel)
 
 
 def _carries_view(value: object) -> bool:
@@ -1157,6 +1111,7 @@ def _merge(records: Sequence[ConstructionRecord]) -> ConstructionRecord:
         filled=sum(r.filled for r in records),
         filled_bytes=sum(r.filled_bytes for r in records),
         ignored_extras=tuple(e for r in records for e in r.ignored_extras),
+        ignored_warnings=tuple(w for r in records for w in r.ignored_warnings),
         fit=next((r.fit for r in records if r.fit is not None), None),
     )
 

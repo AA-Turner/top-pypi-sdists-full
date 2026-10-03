@@ -7,6 +7,7 @@ from typing import Literal, Optional, Union
 
 import numpy as np
 import pytest
+from phonopy.phonon.degeneracy import degenerate_sets
 from phonopy.structure.cells import get_smallest_vectors
 
 from phono3py import Phono3py
@@ -122,12 +123,24 @@ def test_interaction_RTA_AlN(aln_lda: Phono3py):
     )
 
 
+def test_interaction_get_phonons_deprecated(si_pbesol: Phono3py):
+    """Test that get_phonons is deprecated and returns the phonons property."""
+    itr = _get_irt(si_pbesol, [7, 7, 7])
+    itr.set_grid_point(1)
+    with pytest.warns(DeprecationWarning, match="get_phonons"):
+        frequencies, eigenvectors, phonon_done = itr.get_phonons()
+    assert itr.phonons is not None
+    assert frequencies is itr.phonons.frequencies
+    assert eigenvectors is itr.phonons.eigenvectors
+    assert phonon_done is itr.phonons.phonon_done
+
+
 def test_interaction_nac_direction_phonon_NaCl(nacl_pbe: Phono3py):
     """Test interaction_strength of NaCl with nac_q_direction."""
     itr = _get_irt(nacl_pbe, [7, 7, 7], nac_params=nacl_pbe.nac_params)
     itr.nac_q_direction = [1, 0, 0]
     itr.set_grid_point(0)
-    frequencies, _, _ = itr.get_phonons()
+    frequencies = itr.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 7.41183870], rtol=0, atol=1e-6
     )
@@ -159,7 +172,7 @@ def test_interaction_nac_direction_phonon_NaCl_second_no_error(nacl_pbe: Phono3p
     itr.set_grid_point(0)
     itr.nac_q_direction = None
     itr.set_grid_point(1)
-    frequencies, _, _ = itr.get_phonons()
+    frequencies = itr.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 4.59488262], rtol=0, atol=1e-6
     )
@@ -183,12 +196,12 @@ def test_interaction_run_phonon_solver_at_gamma_NaCl(nacl_pbe: Phono3py):
     """
     itr = _get_irt(nacl_pbe, [7, 7, 7], nac_params=nacl_pbe.nac_params)
     itr.nac_q_direction = [1, 0, 0]
-    frequencies, _, _ = itr.get_phonons()
+    frequencies = itr.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 4.59488262], rtol=0, atol=1e-6
     )
     itr.set_grid_point(0)
-    frequencies, _, _ = itr.get_phonons()
+    frequencies = itr.phonons.frequencies
     np.testing.assert_allclose(
         frequencies[0], [0, 0, 0, 4.59488262, 4.59488262, 7.41183870], rtol=0, atol=1e-6
     )
@@ -224,7 +237,7 @@ def test_interaction_exclude_gamma_acoustic_NaCl(nacl_pbe: Phono3py):
         nacl_pbe, [7, 7, 7], nac_params=nacl_pbe.nac_params, exclude_gamma_acoustic=True
     )
     itr.nac_q_direction = [1, 0, 0]
-    frequencies, _, _ = itr.get_phonons()
+    frequencies = itr.phonons.frequencies
     np.testing.assert_array_equal(frequencies[0, :3], 0)
     itr.set_grid_point(0)
     np.testing.assert_array_equal(frequencies[0, :3], 0)
@@ -242,12 +255,34 @@ def test_phonon_solver_expand_RTA_si(si_pbesol: Phono3py):
 
     """
     itr = _get_irt(si_pbesol, [4, 4, 4])
-    freqs, _, phonon_done = itr.get_phonons()
+    freqs = itr.phonons.frequencies
+    phonon_done = itr.phonons.phonon_done
     assert (phonon_done == 1).all()
     itr = _get_irt(si_pbesol, [4, 4, 4], solve_dynamical_matrices=False)
     itr.run_phonon_solver_with_eigvec_rotation()
-    freqs_expanded, _, _ = itr.get_phonons()
+    freqs_expanded = itr.phonons.frequencies
     np.testing.assert_allclose(freqs, freqs_expanded, rtol=0, atol=1e-6)
+
+
+def test_degenerate_ids_si(si_pbesol: Phono3py):
+    """Test that degenerate_ids gives the sets of phonopy's degenerate_sets.
+
+    The sets are checked at every BZ-grid point after the phonons are solved
+    over the grid, and again after they are solved with eigenvector rotation.
+
+    """
+    for solve_by_rotation in (False, True):
+        itr = _get_irt(si_pbesol, [6, 6, 6], solve_dynamical_matrices=False)
+        itr.run_phonon_solver(solve_by_rotation=solve_by_rotation)
+        freqs = itr.phonons.frequencies
+        assert freqs is not None
+        assert itr.phonons.degenerate_ids is not None
+        num_degenerate = 0
+        for f, ids in zip(freqs, itr.phonons.degenerate_ids, strict=True):
+            sets = [np.flatnonzero(ids == i).tolist() for i in np.unique(ids)]
+            assert sets == degenerate_sets(f)
+            num_degenerate += len(sets) < len(f)
+        assert num_degenerate > 0
 
 
 def test_get_all_shortest(aln_lda: Phono3py):

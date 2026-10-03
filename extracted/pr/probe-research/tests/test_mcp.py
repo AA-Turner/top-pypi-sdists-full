@@ -1096,7 +1096,17 @@ def test_browse_annotates_nodes_with_ref_and_available_views(app, client):
     # not repeated on every node of the kind.
     assert "available_views" not in node
     assert envelope["data"]["available_views"] == {
-        "project": ["artifacts", "card", "code", "lineage", "notes", "papers", "record", "summary"]
+        "project": [
+            "artifacts",
+            "card",
+            "code",
+            "lineage",
+            "notes",
+            "papers",
+            "readme",
+            "record",
+            "summary",
+        ]
     }
     assert "completeness" not in envelope
     # Unexpanded levels stay None -- distinct from [] (expanded, empty).
@@ -1403,7 +1413,7 @@ def test_backend_truncation_is_surfaced_not_swallowed(client, app):
     has nothing else" -- the silent false negative this whole surface is built
     to avoid.
     """
-    app.search_response = {**_search_response(), "truncated": True}
+    app.search_response = {**_search_response(), "truncated": True, "dropped_result_count": 2}
     service = ResearchReadService(ResearchOSSource(client))
     out = service.search_knowledge("q")
     assert out["completeness"]["state"] == "partial"
@@ -1411,6 +1421,24 @@ def test_backend_truncation_is_surfaced_not_swallowed(client, app):
 
     # ...and an untruncated response stays complete, so the marker means something.
     app.search_response = _search_response()
+    assert "completeness" not in service.search_knowledge("q")
+
+
+def test_dropped_chunk_text_alone_is_not_a_truncation(client, app):
+    """A card never carries chunk text, so losing some is not a loss here.
+
+    The backend sets `truncated` for dropped chunks as well as dropped results.
+    Reading that flag marked searches partial -- "an absent document is not
+    evidence of absence" -- when every document was present and only text this
+    tool discards had gone.
+    """
+    app.search_response = {
+        **_search_response(),
+        "truncated": True,
+        "dropped_chunk_count": 4,
+        "dropped_result_count": 0,
+    }
+    service = ResearchReadService(ResearchOSSource(client))
     assert "completeness" not in service.search_knowledge("q")
 
 
@@ -1702,16 +1730,22 @@ def test_an_unknown_argument_is_refused_with_the_declared_parameters(client) -> 
 
     server = create_server(ResearchReadService(ResearchOSSource(client)))
 
-    async def call() -> str:
+    async def call(arguments: dict) -> str:
         try:
-            await server.call_tool("browse", {"query": "anything"})
+            await server.call_tool("browse", arguments)
         except Exception as exc:
             return str(exc)
         return ""
 
-    message = _asyncio.run(call())
-    assert "unknown argument" in message and "query" in message
+    message = _asyncio.run(call({"search": "anything"}))
+    assert "unknown argument" in message and "search" in message
     assert "ref" in message and "token_budget" in message
+    # `query` IS declared now (browse(mode="notes") reads it), so on the default
+    # tree it is refused by the per-mode check instead: still refused, never
+    # dropped -- and pointed at the two places a search actually happens.
+    message = _asyncio.run(call({"query": "anything"}))
+    assert "mode=tree does not read query" in message
+    assert "mode=notes" in message and "search_knowledge" in message
 
 
 def _semantic_rows(n: int, *, content: str = "x" * 400, why: str | None = None) -> list[dict]:

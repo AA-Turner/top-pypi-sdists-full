@@ -26,7 +26,8 @@ Two independent checks; both must be satisfied for success:
    *completed*, and whose conclusion is not ``success``/``skipped`` fails the
    gate — UNLESS it is the poller itself or one of a small, explicit
    :data:`SOFT_ALLOWLIST` of jobs that already exist in ``ci.yml`` as
-   non-gating (advisory / orphan). This can only ever be *stricter* than the old
+   non-gating (advisory / orphan). Non-exempt running rows hold the verdict at
+   PENDING and are re-polled. This can only ever be *stricter* than the old
    mechanism, never a rubber-stamp.
 
 2. **Completeness anchor.** Success additionally requires that every
@@ -302,6 +303,8 @@ SPEC_REQUIRED_VALIDATOR_JOBS: tuple[str, ...] = (
     "Duplicate Registry Ids",  # duplicate-registry-ids (OMN-14401)
     "Hardcoded Topic Validator",  # hardcoded-topic-validator (OMN-14430)
     "Runtime Identity Validator",  # runtime-identity-validator (OMN-17308)
+    "Canonical File Shape (OMN-20304)",  # canonical-file-shape (OMN-20304)
+    "Shape-Gate Independence (OMN-20298)",  # shape-gate-independence (OMN-20298)
 )
 
 # Conclusions that count as "provably passed".
@@ -768,7 +771,7 @@ def evaluate(
     latest = dedup_latest(jobs, run_attempt=run_attempt)
     observed = _job_states(jobs, run_attempt=run_attempt)
 
-    # (1) Default-deny failure sweep over every present+completed job.
+    # (1) Default-deny sweep: fail completed refusals and wait for running rows.
     sweep_failures = sorted(
         {
             state.name
@@ -777,6 +780,16 @@ def evaluate(
             and state.name not in allowlist
             and state.status == "completed"
             and state.conclusion not in GOOD_CONCLUSIONS
+        }
+    )
+    sweep_running = sorted(
+        {
+            state.name
+            for state in observed
+            if state.name != self_name
+            and state.name not in gate_jobs
+            and state.name not in allowlist
+            and state.status != "completed"
         }
     )
 
@@ -847,14 +860,15 @@ def evaluate(
     )
 
     if sweep_failures or validator_not_success or external_failures:
-        return EXIT_FAILURE, _report("FAILURE", *args)
+        return EXIT_FAILURE, _report("FAILURE", *args, sweep_running=sweep_running)
     if (
         gate_missing_or_pending
         or validator_missing_or_pending
         or external_missing_or_pending
+        or sweep_running
     ):
-        return EXIT_PENDING, _report("PENDING", *args)
-    return EXIT_SUCCESS, _report("SUCCESS", *args)
+        return EXIT_PENDING, _report("PENDING", *args, sweep_running=sweep_running)
+    return EXIT_SUCCESS, _report("SUCCESS", *args, sweep_running=sweep_running)
 
 
 def _report(
@@ -870,6 +884,8 @@ def _report(
     external_failures: list[str] | None = None,
     external_missing_or_pending: list[str] | None = None,
     external_provisional: list[str] | None = None,
+    *,
+    sweep_running: list[str] | None = None,
 ) -> str:
     external_failures = external_failures or []
     external_missing_or_pending = external_missing_or_pending or []
@@ -904,6 +920,11 @@ def _report(
                 lines.append(f"    - {name}: success")
     if sweep_failures:
         lines.append(f"  default-deny sweep failures: {', '.join(sweep_failures)}")
+    if sweep_running:
+        lines.append(
+            "  default-deny sweep rows still running (PENDING, re-polled): "
+            + ", ".join(sweep_running)
+        )
     if validator_not_success:
         lines.append(
             "  spec-required validators not success (skip/fail is a coverage gap): "

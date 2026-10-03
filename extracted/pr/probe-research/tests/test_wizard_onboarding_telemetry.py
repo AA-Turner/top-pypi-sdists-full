@@ -336,7 +336,7 @@ def test_unattended_uninstall_enters_the_funnel_without_a_prompt(captured, monke
     from probe.cli import bootstrap, plugin_cli
 
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=None)
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
     )
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True))

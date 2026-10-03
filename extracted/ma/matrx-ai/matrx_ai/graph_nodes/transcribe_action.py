@@ -22,6 +22,11 @@ from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.class_pin import (
+    class_pin_kwargs,
+    model_class_extras,
+    offering_id_field,
+)
 from matrx_ai.graph_nodes.shared import AiUsage
 
 
@@ -40,8 +45,9 @@ class TranscribeInput(BaseModel):
     model: str = Field(
         default="stt-default",
         description="Catalog model or alias whose offering uses an STT translator.",
-        json_schema_extra=field_extras(widget="select"),
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
+    offering_id: str | None = offering_id_field()
     language: str | None = Field(
         default=None,
         description="ISO-639-1 language code ('en', 'es', 'fr', …). Auto-detect when None.",
@@ -99,6 +105,7 @@ async def ai_transcribe(
         STTRequest(
             audio_source=inputs.audio_source,
             model=inputs.model,
+            **class_pin_kwargs(inputs.model, inputs.offering_id, where="ai.transcribe"),
             language=inputs.language,
             response_format=inputs.response_format,
             temperature=inputs.temperature,

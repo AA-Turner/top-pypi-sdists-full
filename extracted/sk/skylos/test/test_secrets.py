@@ -51,6 +51,34 @@ def _unicode_escape(value):
     return "".join(f"\\u{ord(character):04x}" for character in value)
 
 
+def test_generated_directory_id_is_not_a_generic_secret():
+    resource_id = "artifact-run-20260928T014434Z-3777d48be9bb"
+    source = json.dumps({"jobId": resource_id}, indent=2) + "\n"
+    rel_path = f"artifacts/{resource_id}/metadata.json"
+
+    assert not list(scan_ctx(_ctx_from_source(source, rel=rel_path)))
+
+
+def test_generated_id_suppression_requires_directory_and_nonsensitive_field():
+    resource_id = "artifact-run-20260928T014434Z-3777d48be9bb"
+    wrong_directory = "artifacts/other-job/metadata.json"
+    matching_directory = f"artifacts/{resource_id}/metadata.json"
+
+    for source, rel_path in (
+        (json.dumps({"jobId": resource_id}, indent=2), wrong_directory),
+        (json.dumps({"apiToken": resource_id}, indent=2), matching_directory),
+        (json.dumps({"sessionId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"userSessionId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"tokenId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"secretId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"credentialId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"apiKeyId": resource_id}, indent=2), matching_directory),
+        (json.dumps({"valid": resource_id}, indent=2), matching_directory),
+    ):
+        findings = list(scan_ctx(_ctx_from_source(source + "\n", rel=rel_path)))
+        assert any(finding["provider"] == "generic" for finding in findings)
+
+
 def test_github_and_generic_both_fire_on_token_assignment():
     src = 'GITHUB_TOKEN = "ghp_1234567890abcdef1234567890abcdef1234"\n'
 
@@ -95,7 +123,8 @@ def test_provider_patterns(line, provider):
 
 
 def test_aws_secret_access_key_special_case():
-    src = 'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"\n'
+    # Not AWS's published example key, which is documentation, not a leak.
+    src = 'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/' + 'bPxRfiCYzEXAMPLEKQ"\n'
     findings = list(scan_ctx(_ctx_from_source(src)))
     hit = None
     for finding in findings:
@@ -296,10 +325,7 @@ def test_ordered_character_set_under_secret_key_remains_detectable():
     "token",
     [
         GENERIC_SECRET + "-01234567",
-        (
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
-            + GENERIC_SECRET
-        ),
+        ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-" + GENERIC_SECRET),
         "01234567ABCDEFGHaB3dE5fG7hJ9kL2a",
         "0123456-ABCDEFG-abcdefg-0123456-",
         (
@@ -754,11 +780,7 @@ def test_yaml_checksum_alias_scans_the_anchored_scalar():
 
 
 def test_yaml_complex_key_does_not_leave_stale_checksum_state():
-    src = (
-        "? [integrity]\n"
-        ": harmless\n"
-        "checksum: aB3dE5fG7hJ9$kL2mN4pQ\n"
-    )
+    src = "? [integrity]\n: harmless\nchecksum: aB3dE5fG7hJ9$kL2mN4pQ\n"
 
     generic = [
         finding
@@ -771,10 +793,7 @@ def test_yaml_complex_key_does_not_leave_stale_checksum_state():
 
 
 def test_yaml_scalar_alias_can_supply_checksum_mapping_key():
-    src = (
-        "field: &checksum_field integrity\n"
-        "*checksum_field: aB3dE5fG7hJ9$kL2mN4pQ\n"
-    )
+    src = "field: &checksum_field integrity\n*checksum_field: aB3dE5fG7hJ9$kL2mN4pQ\n"
 
     generic = [
         finding
@@ -838,10 +857,7 @@ def test_computed_checksum_field_does_not_hide_provider_secret():
 
 def test_dynamic_checksum_template_does_not_hide_provider_secret():
     token = "ghp_" + "1234567890abcdef" * 2 + "1234"
-    src = (
-        "const integrity = `prefix-${suffix}-"
-        f"{token}`;\n"
-    )
+    src = f"const integrity = `prefix-${{suffix}}-{token}`;\n"
 
     providers = {
         finding["provider"] for finding in scan_ctx(_ctx_from_source(src, rel="app.js"))
@@ -2514,3 +2530,15 @@ def test_lockfile_hash_field_still_not_flagged():
     ctx = _ctx_from_source(src, rel="uv.lock")
     generic = [f for f in scan_ctx(ctx) if f["provider"] == "generic"]
     assert generic == []
+
+
+def test_vendor_documentation_example_credentials_are_not_secrets():
+    from skylos.rules.secrets import scan_ctx
+
+    lines = [
+        'AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"\n',
+        'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"\n',
+        'REAL = "AKIAIOSFODNN7' + 'ABCDEFG"\n',
+    ]
+    findings = scan_ctx({"relpath": "docs_example.py", "lines": lines, "tree": None})
+    assert [f["line"] for f in findings] == [3]

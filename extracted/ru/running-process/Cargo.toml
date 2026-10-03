@@ -7,10 +7,10 @@ members = ["crates/running-process", "crates/running-process-protocol", "crates/
 exclude = ["testbins-tokio"]
 
 [workspace.package]
-version = "4.10.15"
+version = "4.10.16"
 edition = "2021"
 rust-version = "1.95"
-license = "BSD-3-Clause"
+license = "MIT"
 repository = "https://github.com/zackees/running-process"
 homepage = "https://github.com/zackees/running-process"
 
@@ -29,7 +29,9 @@ disallowed_methods = "deny"
 # Coverage builds select these repository-owned branches in binaries and
 # integration tests. Register the cfg once so all-targets Clippy validates
 # the same intentional surface rather than rejecting it as a typo.
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+# `dylint_lib` is set by `cargo dylint` for the library it is running, and
+# gates each crate's opt-in to `running_process_env_direct` (#1101).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)', 'cfg(dylint_lib, values(any()))'] }
 
 [profile.release]
 # Line tables for OUR crates, so a release-mode stack can be resolved to
@@ -71,6 +73,26 @@ strip = "none"
 # backtrace readable.
 [profile.dev.build-override]
 debug = false
+
+# Hash crates run optimized even in dev/test builds. Identity checks hash the
+# running executable, and a debug test binary is ~170 MB: at opt-level 0 each
+# SHA-256/BLAKE3 pass over it took seconds, so ~20 tests sat at 5-20 s apiece
+# doing nothing but hashing. These crates are leaf numerics nobody steps
+# through, so optimizing them costs no debuggability.
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.blake3]
+opt-level = 3
+[profile.dev.package.digest]
+opt-level = 3
+[profile.dev.package.block-buffer]
+opt-level = 3
+[profile.dev.package.generic-array]
+opt-level = 3
+[profile.dev.package.crypto-common]
+opt-level = 3
+[profile.dev.package.cpufeatures]
+opt-level = 3
 
 # The same reasoning for release. #803 already stopped emitting debug info for
 # release dependencies; build scripts were not covered by that, and inherited

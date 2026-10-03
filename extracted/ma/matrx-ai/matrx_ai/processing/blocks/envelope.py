@@ -2,7 +2,7 @@
 
 The frontend accepts a pre-built ``CanonicalBlockIR`` on a ``render_block``
 event and renders it WITHOUT re-parsing. This module builds that envelope.
-Wire contract: ``/Users/armanisadeghi/code/common-docs/systems/content-ir-system/PYTHON_ENVELOPE_CONTRACT.md``.
+Wire contract: ``/Users/armanisadeghi/code/common-docs/systems/architecture/content-ir/FEATURE.md``.
 TS twin (shape reference): ``features/content-ir/core/normalize.ts#envelopeFromCompleteValue``
 and ``core/ir-types.ts``.
 
@@ -158,7 +158,7 @@ BLOCK_KIND_MAP: dict[str, str] = {
 # it gets none. A type in NEITHER table is an UNCLASSIFIED bypass and screams
 # via ``_log_once`` in ``envelope_for_block`` — no silent bypasses, ever.
 #
-# Classifications (common-docs/systems/content-ir-system/FEATURE.md — framed protocols
+# Classifications (common-docs/systems/architecture/content-ir/FEATURE.md — framed protocols
 # carry kind/version out of band; protocol/control events are not display
 # Shapes unless explicitly classified as such):
 #

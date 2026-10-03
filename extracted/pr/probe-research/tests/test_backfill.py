@@ -1004,7 +1004,7 @@ def test_the_command_installs_a_persistent_probe_first():
 def _stub_bootstrap(monkeypatch):
     monkeypatch.setattr(
         "probe.cli.bootstrap.ensure_persistent_install",
-        lambda: type("B", (), {"message": None})(),
+        lambda **_: type("B", (), {"message": None})(),
     )
 
 

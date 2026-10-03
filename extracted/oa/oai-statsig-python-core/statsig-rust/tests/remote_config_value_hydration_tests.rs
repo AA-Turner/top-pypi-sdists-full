@@ -1,6 +1,6 @@
 mod utils;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::sync::Arc;
 
@@ -11,8 +11,9 @@ use prost::Message;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use statsig_rust::{
-    SpecAdapterConfig, SpecsAdapterType, SpecsSource, Statsig, StatsigErr, StatsigOptions,
-    StatsigUser,
+    SpecAdapterConfig, SpecsAdapterType, SpecsSource, SpecsUpdate, Statsig, StatsigErr,
+    StatsigOptions, StatsigUser,
+    networking::ResponseData,
     specs_response::{
         proto_stream_reader::BUFFER_SIZE,
         statsig_config_specs::{self as pb, return_value},
@@ -541,6 +542,417 @@ async fn network_hydration_skips_zstd_cache_after_transient_read_only_result() {
 async fn network_hydration_skips_cache_when_data_store_becomes_read_only() {
     assert_network_hydration_data_store_behavior("statsig-br", ReadOnlyBehavior::AfterFirstCheck)
         .await;
+}
+
+#[tokio::test]
+async fn write_once_store_publishes_one_snapshot_across_full_fallbacks() {
+    for (encoding, warm_start) in [
+        ("statsig-br", false),
+        ("statsig-zstd", false),
+        ("statsig-br", true),
+    ] {
+        assert_data_store_full_fallbacks(encoding, warm_start, true).await;
+    }
+}
+
+#[tokio::test]
+async fn default_store_publishes_each_full_fallback() {
+    assert_data_store_full_fallbacks("statsig-br", false, false).await;
+}
+
+async fn assert_data_store_full_fallbacks(
+    encoding: &'static str,
+    warm_start: bool,
+    write_once: bool,
+) {
+    let server = MockServer::start().await;
+    let initial_value = br#"{"large":"initial"}"#;
+    let initial_sha = lowercase_hex(&Sha256::digest(initial_value));
+    let initial_path = format!("{DOWNLOAD_PATH_PREFIX}{initial_sha}");
+    let initial_bytes =
+        remote_protobuf_dcs(&server, &initial_path, &initial_sha, initial_value.len());
+    mount_remote_value(&server, &initial_path, initial_value).await;
+    let mut data_store = if warm_start {
+        MockDataStore::with_proto_cache(&initial_bytes)
+    } else {
+        MockDataStore::new_with_byte_cache(false)
+    };
+    if write_once {
+        data_store = data_store.with_write_once();
+    }
+    let data_store = Arc::new(data_store);
+    let initial_bytes = if encoding == "statsig-zstd" {
+        let mut decoded = Vec::new();
+        brotli::Decompressor::new(initial_bytes.as_slice(), 4096)
+            .read_to_end(&mut decoded)
+            .unwrap();
+        zstd::stream::encode_all(decoded.as_slice(), 3).unwrap()
+    } else {
+        initial_bytes
+    };
+    mount_protobuf_dcs_with_encoding(&server, initial_bytes, encoding).await;
+    let options = StatsigOptions {
+        data_store: Some(data_store.clone()),
+        specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
+        specs_sync_interval_ms: Some(1000),
+        enable_dcs_deltas: Some(true),
+        disable_all_logging: Some(true),
+        disable_country_lookup: Some(true),
+        ..StatsigOptions::new()
+    };
+    let statsig = Statsig::new(SDK_KEY, Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+    let expected_writes = usize::from(!warm_start);
+    assert_eventually!(|| data_store.num_set_bytes_calls() == expected_writes);
+    assert_eventually!(|| if encoding == "statsig-zstd" {
+        data_store.stored_zstd_proto_bytes().is_some()
+    } else {
+        data_store.stored_proto_bytes().is_some()
+    });
+    let mut published_bytes = (!warm_start).then(|| {
+        (
+            data_store.stored_proto_bytes(),
+            data_store.stored_zstd_proto_bytes(),
+        )
+    });
+
+    for (version, value) in [(2, "updated"), (3, "latest")] {
+        server.reset().await;
+        let updated_value = serde_json::to_vec(&json!({"large": value})).unwrap();
+        let updated_sha = lowercase_hex(&Sha256::digest(&updated_value));
+        let updated_path = format!("{DOWNLOAD_PATH_PREFIX}{updated_sha}");
+        mount_remote_value(&server, &updated_path, &updated_value).await;
+        let mut envelopes = decode_protobuf_envelopes(&remote_protobuf_dcs(
+            &server,
+            &updated_path,
+            &updated_sha,
+            updated_value.len(),
+        ));
+        let mut top = pb::SpecsTopLevel::decode(envelopes[0].data.as_deref().unwrap()).unwrap();
+        top.time = version;
+        top.checksum = format!("response-{version}");
+        envelopes[0].data = Some(top.encode_to_vec());
+        envelopes[1].checksum = format!("config-{version}");
+        let mut decoded = Vec::new();
+        for envelope in envelopes {
+            envelope.encode_length_delimited(&mut decoded).unwrap();
+        }
+        let updated_bytes = if encoding == "statsig-zstd" {
+            zstd::stream::encode_all(decoded.as_slice(), 3).unwrap()
+        } else {
+            let mut writer = brotli::CompressorWriter::new(Vec::new(), 4096, 1, 22);
+            writer.write_all(&decoded).unwrap();
+            writer.into_inner()
+        };
+        // No delta header: the upstream falls back to a full response.
+        mount_protobuf_dcs_with_encoding(&server, updated_bytes, encoding).await;
+        let user = StatsigUser::with_user_id("a-user");
+        assert_eventually!(|| statsig
+            .get_dynamic_config(&user, "large_config")
+            .value
+            .get("large")
+            == Some(&json!(value)));
+        let expected_writes = if write_once { 1 } else { version as usize };
+        assert_eventually!(|| data_store.num_set_bytes_calls() == expected_writes);
+        if let Some((brotli, zstd)) = &published_bytes {
+            if write_once {
+                assert_eq!(&data_store.stored_proto_bytes(), brotli);
+                assert_eq!(&data_store.stored_zstd_proto_bytes(), zstd);
+            }
+        } else {
+            assert_eventually!(|| data_store
+                .stored_proto_bytes()
+                .as_ref()
+                .is_some_and(|bytes| {
+                    let envelopes = decode_protobuf_envelopes(bytes);
+                    let top =
+                        pb::SpecsTopLevel::decode(envelopes[0].data.as_deref().unwrap()).unwrap();
+                    top.time == version
+                }));
+            published_bytes = Some((
+                data_store.stored_proto_bytes(),
+                data_store.stored_zstd_proto_bytes(),
+            ));
+        }
+    }
+    statsig.shutdown().await.unwrap();
+    assert_eq!(
+        data_store.num_set_bytes_calls(),
+        if write_once { 1 } else { 3 }
+    );
+    assert_eq!(data_store.num_set_calls(), 0);
+}
+
+#[tokio::test]
+async fn write_once_store_publishes_after_failed_or_timed_out_init() {
+    for timed_out in [false, true] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(if timed_out {
+                ResponseTemplate::new(503).set_delay(std::time::Duration::from_secs(1))
+            } else {
+                ResponseTemplate::new(503)
+            })
+            .mount(&server)
+            .await;
+        let data_store = Arc::new(MockDataStore::new_with_byte_cache(false).with_write_once());
+        let options = StatsigOptions {
+            data_store: Some(data_store.clone()),
+            specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
+            specs_sync_interval_ms: Some(1000),
+            init_timeout_ms: timed_out.then_some(20),
+            fallback_to_statsig_api: Some(false),
+            disable_all_logging: Some(true),
+            disable_country_lookup: Some(true),
+            ..StatsigOptions::new()
+        };
+        let statsig = Statsig::new(SDK_KEY, Some(Arc::new(options)));
+        let details = statsig.initialize_with_details().await.unwrap();
+        assert!(details.failure_details.is_some());
+        server.reset().await;
+        let remote_value = br#"{"large":"recovered"}"#;
+        let sha = lowercase_hex(&Sha256::digest(remote_value));
+        let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+        mount_remote_value(&server, &download_path, remote_value).await;
+        mount_protobuf_dcs(
+            &server,
+            remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len()),
+        )
+        .await;
+        let user = StatsigUser::with_user_id("a-user");
+        assert_eventually!(|| statsig
+            .get_dynamic_config(&user, "large_config")
+            .value
+            .get("large")
+            == Some(&json!("recovered")));
+        assert_eventually!(|| data_store.stored_proto_bytes().is_some());
+        statsig.shutdown().await.unwrap();
+        assert_eq!(data_store.num_set_bytes_calls(), 1);
+        assert_eq!(data_store.num_set_calls(), 0);
+        assert_offline_follower_bootstrap(&server, &data_store, "recovered").await;
+    }
+}
+
+#[tokio::test]
+async fn write_once_store_retries_failed_publication_without_an_upstream_change() {
+    let server = MockServer::start().await;
+    let remote_value = br#"{"large":"retry-payload"}"#;
+    let sha = lowercase_hex(&Sha256::digest(remote_value));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    let response = remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len());
+    mount_remote_value(&server, &download_path, remote_value).await;
+    mount_protobuf_dcs(&server, response.clone()).await;
+    let data_store = Arc::new(
+        MockDataStore::new_with_byte_cache(false)
+            .with_write_once()
+            .with_set_bytes_failures(1)
+            .with_blocked_set_bytes(),
+    );
+    let statsig = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            data_store: Some(data_store.clone()),
+            ..(*options_for(&server)).clone()
+        })),
+    );
+    statsig.initialize().await.unwrap();
+    data_store.wait_for_set_bytes_call().await;
+
+    // This full fallback has the same LCUT/checksum and is skipped. Publication
+    // must retry independently: no subsequent upstream request is needed.
+    statsig
+        .get_context()
+        .spec_store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes_with_headers(
+                response,
+                Some(HashMap::from([
+                    (
+                        "content-type".to_string(),
+                        "application/octet-stream".to_string(),
+                    ),
+                    ("content-encoding".to_string(), "statsig-br".to_string()),
+                ])),
+            ),
+            source: SpecsSource::Network,
+            received_at: 2,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
+    assert!(data_store.stored_proto_bytes().is_none());
+    data_store.release_set_bytes_calls(1);
+    data_store.wait_for_set_bytes_call().await;
+    assert!(data_store.stored_proto_bytes().is_none());
+    let attempts = data_store.set_bytes_payloads();
+    assert_eq!(attempts.len(), 2);
+    assert_eq!(
+        attempts[0], attempts[1],
+        "retry must reuse the prepared snapshot"
+    );
+    data_store.release_set_bytes_calls(1);
+    await_data_store_writes(&statsig).await;
+    assert!(data_store.stored_proto_bytes().is_some());
+    apply_full_response(&statsig, 2);
+    await_data_store_writes(&statsig).await;
+    statsig.shutdown().await.unwrap();
+    assert_eq!(data_store.num_set_bytes_calls(), 2);
+    assert_eq!(data_store.num_set_calls(), 0);
+    assert_eq!(server.received_requests().await.unwrap().len(), 2);
+    assert_offline_follower_bootstrap(&server, &data_store, "retry-payload").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn write_once_store_has_only_one_in_flight_publication() {
+    let server = MockServer::start().await;
+    let remote_value = br#"{"large":"first-publication"}"#;
+    let sha = lowercase_hex(&Sha256::digest(remote_value));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    mount_remote_value(&server, &download_path, remote_value).await;
+    mount_protobuf_dcs(
+        &server,
+        remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len()),
+    )
+    .await;
+    let data_store = Arc::new(
+        MockDataStore::new_with_byte_cache(false)
+            .with_write_once()
+            .with_blocked_set_bytes(),
+    );
+    let statsig = Arc::new(Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            data_store: Some(data_store.clone()),
+            ..(*options_for(&server)).clone()
+        })),
+    ));
+    statsig.initialize().await.unwrap();
+    data_store.wait_for_set_bytes_call().await;
+    let mut updates = Vec::new();
+    for version in 2..10 {
+        let statsig = statsig.clone();
+        updates.push(tokio::task::spawn_blocking(move || {
+            apply_full_response(&statsig, version)
+        }));
+    }
+    for update in updates {
+        update.await.unwrap();
+    }
+    // Let any incorrectly scheduled duplicate writes complete so shutdown and
+    // the final attempt count detect them without relying on a scheduling sleep.
+    data_store.release_set_bytes_calls(10);
+    await_data_store_writes(&statsig).await;
+    assert!(data_store.stored_proto_bytes().is_some());
+    statsig.shutdown().await.unwrap();
+    assert_eq!(data_store.num_set_bytes_calls(), 1);
+    assert_eq!(data_store.num_set_calls(), 0);
+    assert_offline_follower_bootstrap(&server, &data_store, "first-publication").await;
+}
+
+#[tokio::test]
+async fn write_once_store_cancels_blocked_publication_on_shutdown() {
+    let server = MockServer::start().await;
+    mount_dcs(
+        &server,
+        json!({
+            "has_updates": true,
+            "time": 1,
+            "experiment_to_layer": {},
+            "condition_map": {},
+            "feature_gates": {},
+            "dynamic_configs": {},
+            "layer_configs": {}
+        }),
+    )
+    .await;
+    let data_store = Arc::new(
+        MockDataStore::new_with_byte_cache(false)
+            .with_write_once()
+            .with_blocked_set_bytes(),
+    );
+    let statsig = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            data_store: Some(data_store.clone()),
+            ..(*options_for(&server)).clone()
+        })),
+    );
+    statsig.initialize().await.unwrap();
+    data_store.wait_for_set_bytes_call().await;
+    statsig
+        .shutdown_with_timeout(std::time::Duration::from_secs(1))
+        .await
+        .unwrap();
+    assert_eq!(data_store.num_set_bytes_calls(), 1);
+    assert!(data_store.stored_json_bytes().is_none());
+    assert_eq!(statsig.statsig_runtime.get_num_active_tasks(), 0);
+}
+
+async fn await_data_store_writes(statsig: &Statsig) {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        statsig
+            .statsig_runtime
+            .await_tasks_with_tag("spec_store_update_data_store"),
+    )
+    .await
+    .expect("datastore publications should complete");
+}
+
+fn apply_full_response(statsig: &Statsig, version: u64) {
+    let store = &statsig.get_context().spec_store;
+    let mut values = store.get_current_values().unwrap();
+    values.time = version;
+    values.checksum = Some(format!("full-response-{version}"));
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(serde_json::to_vec(&values).unwrap()),
+            source: SpecsSource::Network,
+            received_at: version,
+            source_api: None,
+            has_updates: None,
+        })
+        .unwrap();
+}
+
+async fn assert_offline_follower_bootstrap(
+    server: &MockServer,
+    data_store: &MockDataStore,
+    expected_value: &str,
+) {
+    server.verify().await;
+    server.reset().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(server)
+        .await;
+    let follower_store = Arc::new(
+        MockDataStore::with_proto_cache(&data_store.stored_proto_bytes().unwrap())
+            .with_read_only(true)
+            .with_write_once(),
+    );
+    let follower = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            data_store: Some(follower_store.clone()),
+            spec_adapters_config: Some(vec![data_store_adapter_config()]),
+            ..(*options_for(server)).clone()
+        })),
+    );
+    let details = follower.initialize_with_details().await.unwrap();
+    assert!(details.init_success);
+    assert_eq!(
+        details.source,
+        SpecsSource::Adapter("DataStore".to_string())
+    );
+    let config =
+        follower.get_dynamic_config(&StatsigUser::with_user_id("follower"), "large_config");
+    assert_eq!(config.value.get("large"), Some(&json!(expected_value)));
+    follower.shutdown().await.unwrap();
+    assert_eq!(follower_store.num_set_bytes_calls(), 0);
+    assert_eq!(follower_store.num_set_calls(), 0);
+    server.verify().await;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -175,9 +175,9 @@ class Manager:
         self.synonyms = _synonym_to_canonical(self.registry)
 
         if metaregistry is None:
-            self.metaregistry = dict(_read_metaregistry(METAREGISTRY_PATH))
+            self.metaregistry = dict(_read_metaregistry(METAREGISTRY_PATH, registry=self.registry))
         elif isinstance(metaregistry, str | Path):
-            self.metaregistry = dict(_read_metaregistry(metaregistry))
+            self.metaregistry = dict(_read_metaregistry(metaregistry, registry=self.registry))
         else:
             self.metaregistry = dict(metaregistry)
 
@@ -272,9 +272,14 @@ class Manager:
 
     def get_registry(self, metaprefix: str, *, strict: bool = False) -> Registry | None:
         """Get the metaregistry entry for the given prefix."""
+        if rv := self.metaregistry.get(metaprefix):
+            return rv
+        if rv := self.metaregistry.get(f"{metaprefix}.resource"):
+            logger.warning(f"metaprefix has been changed from {metaprefix} to {rv.prefix}")
+            return rv
         if strict:
-            return self.metaregistry[metaprefix]
-        return self.metaregistry.get(metaprefix)
+            raise KeyError
+        return None
 
     def write_collections(self) -> None:
         """Write collections."""
@@ -785,7 +790,7 @@ class Manager:
 
     @cache  # noqa:B019
     def get_registry_invmap(
-        self, metaprefix: str, use_obo_preferred: bool = False
+        self, metaprefix: str, *, use_obo_preferred: bool = False
     ) -> dict[str, str]:
         """Get a mapping from prefixes in another registry to Bioregistry prefixes.
 
@@ -818,8 +823,9 @@ class Manager:
         return rv
 
     def _iter_registry_map(
-        self, metaprefix: str, use_obo_preferred: bool = False
+        self, metaprefix: str, *, use_obo_preferred: bool = False
     ) -> Iterable[tuple[str, str]]:
+        self._raise_for_invalid_metaprefix(metaprefix)
         for prefix, resource in self.registry.items():
             mapped_prefix = resource.get_mapped_prefix(
                 metaprefix, use_obo_preferred=use_obo_preferred
@@ -827,20 +833,52 @@ class Manager:
             if mapped_prefix is not None:
                 yield prefix, mapped_prefix
 
+    # docstr-coverage:excused `overload`
+    @overload
     def get_mapped_prefix(
-        self, prefix: str, metaprefix: str, *, use_obo_preferred: bool = False
+        self,
+        prefix: str,
+        metaprefix: str,
+        *,
+        use_obo_preferred: bool = ...,
+        strict: Literal[True] = ...,
+    ) -> str: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def get_mapped_prefix(
+        self,
+        prefix: str,
+        metaprefix: str,
+        *,
+        use_obo_preferred: bool = ...,
+        strict: Literal[False] = ...,
+    ) -> str | None: ...
+
+    def get_mapped_prefix(
+        self, prefix: str, metaprefix: str, *, use_obo_preferred: bool = False, strict: bool = False
     ) -> str | None:
         """Get the prefix mapped into another registry."""
-        resource = self.get_resource(prefix)
+        resource = self.get_resource(prefix, strict=strict)  # type:ignore[call-overload]
         if resource is None:
             return None
-        return resource.get_mapped_prefix(metaprefix, use_obo_preferred=use_obo_preferred)
+        registry = self.get_registry(metaprefix, strict=strict)  # type:ignore[call-overload]
+        if registry is None:
+            return None
+        return resource.get_mapped_prefix(  # type:ignore[no-any-return]
+            registry.prefix, use_obo_preferred=use_obo_preferred, strict=strict
+        )
+
+    def _raise_for_invalid_metaprefix(self, metaprefix: str) -> None:
+        if metaprefix not in self.metaregistry:
+            raise KeyError(f"metaprefix is not in the metaregistry: {metaprefix}")
 
     def get_external(self, prefix: str, metaprefix: str) -> Record | None:
         """Get the external data for the entry."""
-        entry = self.get_resource(prefix)
+        entry = self.get_resource(prefix, strict=False)
         if entry is None:
             return None
+        self._raise_for_invalid_metaprefix(metaprefix)
         return entry.get_external(metaprefix)
 
     def get_versions(self) -> Mapping[str, str]:
@@ -881,6 +919,13 @@ class Manager:
         if strict:
             raise ValueError
         return None
+
+    def get_rdf_uri_prefix(self, prefix: str) -> str | None:
+        """Get a well-formed URI prefix appropriate for RDF, if available."""
+        entry = self.get_resource(prefix)
+        if entry is not None:
+            return None
+        return entry.get_rdf_uri_prefix()
 
     # docstr-coverage:excused `overload`
     @overload
@@ -1376,35 +1421,69 @@ class Manager:
         rv = []
         for obo_prefix in resource._get_external_value("obofoundry", key, []):
             # these prefixes are normalized / lowercased already
-            canonical_prefix = self.lookup_from("obofoundry", obo_prefix)
+            canonical_prefix = self.lookup_external_prefix("obofoundry", obo_prefix)
             if canonical_prefix is None:
                 logger.warning("[%s] could not map OBO %s: %s", prefix, key, obo_prefix)
             else:
                 rv.append(canonical_prefix)
         return rv
 
-    def lookup_from(
-        self, metaprefix: str, metaidentifier: str, use_obo_preferred: bool = False
+    # docstr-coverage:excused `overload`
+    @overload
+    def lookup_external_prefix(
+        self,
+        metaprefix: str,
+        metaidentifier: str,
+        *,
+        use_obo_preferred: bool = ...,
+        strict: Literal[True] = ...,
+    ) -> str: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    def lookup_external_prefix(
+        self,
+        metaprefix: str,
+        metaidentifier: str,
+        *,
+        use_obo_preferred: bool = ...,
+        strict: Literal[False] = ...,
+    ) -> str | None: ...
+
+    def lookup_external_prefix(
+        self,
+        metaprefix: str,
+        metaidentifier: str,
+        *,
+        use_obo_preferred: bool = False,
+        strict: bool = False,
     ) -> str | None:
         """Get the bioregistry prefix from an external prefix.
 
         :param metaprefix: The key for the external registry
         :param metaidentifier: The prefix in the external registry
+        :param use_obo_preferred: Should OBO preferred prefixes be used?
+        :param strict: If true, raises an exception when there is no available internal prefix
 
-        :returns: The bioregistry prefix (if it can be mapped)
+        :returns: The Bioregistry prefix (if it can be mapped)
 
         >>> from bioregistry import manager
-        >>> manager.lookup_from("obofoundry", "go")
+        >>> manager.lookup_external_prefix("obofoundry", "go")
         'go'
-        >>> manager.lookup_from("obofoundry", "GO")
+        >>> manager.lookup_external_prefix("obofoundry", "GO")
         None
-        >>> manager.lookup_from("obofoundry", "GO", use_obo_preferred=True)
+        >>> manager.lookup_external_prefix("obofoundry", "GO", use_obo_preferred=True)
         'go'
         """
         external_id_to_bioregistry_id = self.get_registry_invmap(
             metaprefix, use_obo_preferred=use_obo_preferred
         )
-        return external_id_to_bioregistry_id.get(metaidentifier)
+        prefix = external_id_to_bioregistry_id.get(metaidentifier)
+        if prefix is not None:
+            return prefix
+        if strict:
+            raise KeyError
+        return None
 
     def get_has_canonical(self, prefix: str) -> str | None:
         """Get the canonical prefix."""
@@ -1654,7 +1733,7 @@ class Manager:
         >>> manager.get_rrid_iri("antibodyregistry", "493771")
         'https://scicrunch.org/resolver/RRID:AB_493771'
         """
-        return self.get_formatted_iri("rrid", prefix, identifier)
+        return self.get_formatted_iri("rrid.resource", prefix, identifier)
 
     def get_scholia_iri(self, prefix: str, identifier: str) -> str | None:
         """Get a Scholia IRI, if possible.
@@ -1690,7 +1769,7 @@ class Manager:
             "n2t": self.get_n2t_iri,
             "bioportal": self.get_bioportal_iri,
             "scholia": self.get_scholia_iri,
-            "rrid": self.get_rrid_iri,
+            "rrid.resource": self.get_rrid_iri,
         }
 
     def get_providers_list(
@@ -1756,12 +1835,12 @@ class Manager:
             entity denoted by the prefix/identifier pair.
 
         >>> from bioregistry import manager
-        >>> manager.get_registry_uri("rrid", "antibodyregistry", "493771")
+        >>> manager.get_registry_uri("rrid.resource", "antibodyregistry", "493771")
         'https://scicrunch.org/resolver/RRID:AB_493771'
 
         GO is not in RRID so this should return None
 
-        >>> manager.get_registry_uri("rrid", "GO", "493771")
+        >>> manager.get_registry_uri("rrid.resource", "GO", "493771")
         """
         providers = self.get_providers(prefix, identifier)
         if not providers:
@@ -1875,22 +1954,25 @@ class Manager:
     def _get_internal_converter(self) -> curies.Converter:
         converter = curies.Converter()
         converter.add_prefix(
-            "wikidata", "http://www.wikidata.org/entity/", ["wikidata.entity", "wikidata.property"]
+            "wikidata",
+            "http://www.wikidata.org/entity/",
+            ["wikidata.entity", "wikidata.property"],
+            ["https://www.wikidata.org/entity/"],
         )
-        converter.add_prefix("edam", "http://edamontology.org/data_", ["edam.data"])
 
         default_prefixes = {"bioregistry.schema", "bfo"}
         for prefix in default_prefixes:
-            converter.add_prefix(prefix, self.get_uri_prefix(prefix, strict=True))
-
-        for metaprefix, metaresource in self.metaregistry.items():
-            uri_prefix = metaresource.get_provider_uri_prefix(base_url=self.base_url)
             converter.add_prefix(
-                metaresource.bioregistry_prefix,
-                uri_prefix,
-                [metaprefix] if metaresource.bioregistry_prefix != metaprefix else [],
-                merge=True,
+                prefix, self.get_rdf_uri_prefix(prefix) or self.get_uri_prefix(prefix, strict=True)
             )
+
+        for metaresource in self.metaregistry.values():
+            uri_prefix = (
+                self.get_rdf_uri_prefix(metaresource.prefix)
+                or self.get_uri_prefix(metaresource.prefix)
+                or metaresource.get_provider_uri_prefix(base_url=self.base_url)
+            )
+            converter.add_prefix(metaresource.prefix, uri_prefix, merge=True)
         return converter
 
     def get_internal_prefix_map(self) -> Mapping[str, str]:
@@ -2247,7 +2329,8 @@ class Manager:
         A prefix is first party if:
 
         1. One of the maintainers of the collection is also a contact or contact extra
-        2. One of the organizations of the collection is also an organization of the record
+        2. One of the organizations of the collection is also an organization of the
+           record
         """
         if isinstance(collection, str):
             collection = self.collections[collection]

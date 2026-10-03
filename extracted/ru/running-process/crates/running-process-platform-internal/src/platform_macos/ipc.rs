@@ -106,6 +106,12 @@ pub const fn endpoint_is_filesystem_backed() -> bool {
     true
 }
 
+/// Whether this host has a transport for handing a live connection to another
+/// process (descriptor passing on Unix, handle duplication on Windows).
+pub const fn handoff_transport_available() -> bool {
+    true
+}
+
 fn prepare_owner_private_parent(path: &str) -> io::Result<()> {
     use std::os::unix::fs::{DirBuilderExt as _, MetadataExt as _, PermissionsExt as _};
 
@@ -527,7 +533,7 @@ impl InheritedListener {
     }
 
     pub fn recover_from_env(env_key: &str) -> io::Result<Option<Listener>> {
-        let Some(raw) = std::env::var_os(env_key) else { return Ok(None); };
+        let Some(raw) = crate::env::os_named(env_key) else { return Ok(None); };
         let raw = raw.to_string_lossy();
         let fd = parse_descriptor(env_key, &raw)?;
         if !is_listening_socket(fd)? {

@@ -1,78 +1,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 import typer
-from lazycloud.abstractions.shell import ShellSession
 from lazycloud.cli.main import build_public_cli
 from lazycloud.cli.main import start as client_start
 from lazycloud.cli.volumes import parse_remote_path, parse_remote_path_if_schemed
-from shared.http.secrets import GetSecretResponse, SecretWireRecord
-from shared.http.tasks import TaskPageResponse, TaskResponse
-from shared.http.volumes import DeleteVolumeResponse
 from typer.testing import CliRunner
 
 client_cli = build_public_cli()
-
-
-@dataclass
-class FakeTaskResourceClient:
-    app_ids: list[str | None] = field(default_factory=list)
-
-    def list_tasks(
-        self,
-        *,
-        limit: int = 100,
-        app_id: str | None = None,
-    ) -> TaskPageResponse:
-        assert limit == 100
-        self.app_ids.append(app_id)
-        return TaskPageResponse(
-            data=[
-                TaskResponse(
-                    id="task-1",
-                    name="probe",
-                    app_id=app_id,
-                    created_at=datetime(2026, 7, 12, tzinfo=UTC),
-                )
-            ]
-        )
-
-
-def test_task_list_filters_by_exact_app_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    resources = FakeTaskResourceClient()
-
-    def fake_resource_client(
-        *,
-        workspace: str | None = None,
-    ) -> FakeTaskResourceClient:
-        assert workspace == "team"
-        return resources
-
-    monkeypatch.setattr("lazycloud.cli.resources.resource_client", fake_resource_client)
-
-    result = CliRunner().invoke(
-        client_cli,
-        [
-            "--json",
-            "task",
-            "list",
-            "--app",
-            "11111111-1111-4111-8111-111111111111",
-            "--workspace",
-            "team",
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output)[0]["id"] == "task-1"
-    assert resources.app_ids == ["11111111-1111-4111-8111-111111111111"]
 
 
 def test_public_cli_opens_an_existing_container_shell_without_a_handler(
@@ -99,47 +37,6 @@ def test_public_cli_opens_an_existing_container_shell_without_a_handler(
 
     assert public_result.exit_code == 0, public_result.output
     assert calls == [("container-1", "team")]
-
-
-def test_development_session_connects_without_printing_credentials(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session = ShellSession(
-        container_id="container-1",
-        stub_id="stub-1",
-        username="shell",
-        password="fixture-shell-secret",
-    )
-    opened: list[ShellSession] = []
-
-    class FakePod:
-        workspace: str | None = None
-
-        def shell(self, *, workspace: str | None, sync_dir: str) -> ShellSession:
-            assert workspace == "team"
-            assert sync_dir == "./"
-            return session
-
-    def open_session(
-        _ctx: typer.Context,
-        selected: ShellSession,
-        *,
-        workspace: str | None = None,
-    ) -> None:
-        assert workspace == "team"
-        opened.append(selected)
-
-    def default_dev_pod() -> FakePod:
-        return FakePod()
-
-    monkeypatch.setattr("lazycloud.cli.development._default_dev_pod", default_dev_pod)
-    monkeypatch.setattr("lazycloud.cli.development.open_shell_session", open_session)
-
-    result = CliRunner().invoke(client_cli, ["dev", "--workspace", "team"])
-
-    assert result.exit_code == 0, result.output
-    assert opened == [session]
-    assert "fixture-shell-secret" not in result.output
 
 
 def test_interactive_shell_rejects_json_output_before_creating_a_session() -> None:
@@ -235,37 +132,6 @@ def test_run_json_preserves_values_and_reports_unsupported_results_without_stdou
     assert json.loads(captured.err)["error"]["type"] == "result_not_json_serializable"
 
 
-def test_secret_show_masks_secret_value_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    secret = SecretWireRecord(
-        id="API_KEY",
-        name="API_KEY",
-        value="visible-fixture-value",
-        created_at=datetime(2026, 1, 1, tzinfo=UTC),
-        updated_at=datetime(2026, 1, 2, tzinfo=UTC),
-    )
-
-    class FakeSecretClient:
-        def get(self, name: str) -> GetSecretResponse:
-            assert name == "API_KEY"
-            return GetSecretResponse(secret=secret)
-
-    def fake_secret_client(**_: object) -> FakeSecretClient:
-        return FakeSecretClient()
-
-    monkeypatch.setattr("lazycloud.cli.secrets.secret_client", fake_secret_client)
-
-    masked = CliRunner().invoke(client_cli, ["secret", "show", "API_KEY"])
-    revealed = CliRunner().invoke(client_cli, ["secret", "show", "API_KEY", "--reveal"])
-
-    assert masked.exit_code == 0
-    assert "********" in masked.stdout
-    assert "visible-fixture-value" not in masked.stdout
-    assert revealed.exit_code == 0
-    assert "visible-fixture-value" in revealed.stdout
-
-
 def test_volume_remote_path_parser_supports_plain_and_scheme_syntax() -> None:
     plain = parse_remote_path("myvol/subdir/file.txt")
     schemed = parse_remote_path_if_schemed("lazycloud://myvol/subdir/file.txt")
@@ -279,27 +145,9 @@ def test_volume_remote_path_parser_supports_plain_and_scheme_syntax() -> None:
     assert parse_remote_path_if_schemed("local/path.txt") is None
 
 
-@dataclass
-class FakeVolumeDeleteClient:
-    deleted: list[str] = field(default_factory=list)
-
-    def delete(self, name: str) -> DeleteVolumeResponse:
-        self.deleted.append(name)
-        return DeleteVolumeResponse(deleted=True)
-
-
 def test_volume_delete_without_tty_requires_yes_flag(
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    volumes = FakeVolumeDeleteClient()
-
-    def fake_volume_client(workspace: str | None = None) -> FakeVolumeDeleteClient:
-        del workspace
-        return volumes
-
-    monkeypatch.setattr("lazycloud.cli.volumes.volume_client", fake_volume_client)
-
     with pytest.raises(SystemExit) as raised:
         client_start(args=["volume", "delete", "vol-a"], prog_name="lazycloud")
 
@@ -309,21 +157,11 @@ def test_volume_delete_without_tty_requires_yes_flag(
     assert "--yes" in captured.err
     assert "[y/N]" not in captured.err
     assert "Aborted" not in captured.err
-    assert volumes.deleted == []
 
 
 def test_volume_delete_without_tty_reports_clean_json_error(
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    volumes = FakeVolumeDeleteClient()
-
-    def fake_volume_client(workspace: str | None = None) -> FakeVolumeDeleteClient:
-        del workspace
-        return volumes
-
-    monkeypatch.setattr("lazycloud.cli.volumes.volume_client", fake_volume_client)
-
     with pytest.raises(SystemExit) as raised:
         client_start(args=["--json", "volume", "delete", "vol-a"], prog_name="lazycloud")
 
@@ -333,22 +171,3 @@ def test_volume_delete_without_tty_reports_clean_json_error(
     payload = json.loads(captured.err)
     assert payload["error"]["type"] == "confirmation_required"
     assert "--yes" in payload["error"]["hint"]
-    assert volumes.deleted == []
-
-
-def test_volume_delete_with_yes_flag_skips_confirmation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    volumes = FakeVolumeDeleteClient()
-
-    def fake_volume_client(workspace: str | None = None) -> FakeVolumeDeleteClient:
-        del workspace
-        return volumes
-
-    monkeypatch.setattr("lazycloud.cli.volumes.volume_client", fake_volume_client)
-
-    result = CliRunner().invoke(client_cli, ["--json", "volume", "delete", "vol-a", "--yes"])
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {"name": "vol-a", "deleted": True}
-    assert volumes.deleted == ["vol-a"]

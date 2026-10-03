@@ -2,7 +2,7 @@
 Vercel sandbox (https://vercel.com) implementation.
 
 This module provides a Vercel-backed sandbox client/session implementation backed by
-`vercel.sandbox.AsyncSandbox`.
+`vercel.sandbox.SandboxClient`.
 
 The `vercel` dependency is optional, so package-level exports should guard imports of this
 module. Within this module, Vercel SDK imports are normal so users with the extra installed get
@@ -24,8 +24,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
-import httpx
-from pydantic import TypeAdapter, field_serializer, field_validator
+import httpx2
+from pydantic import BaseModel, TypeAdapter, field_serializer, field_validator
 from vercel import sandbox as vercel_sandbox
 
 from ....sandbox._mount_security import (
@@ -56,6 +56,7 @@ from ....sandbox.manifest import Manifest
 from ....sandbox.materialization import MaterializationResult
 from ....sandbox.session import SandboxSession, SandboxSessionState, manifest_ops
 from ....sandbox.session.base_sandbox_session import BaseSandboxSession
+from ....sandbox.session.bounded_read import collect_bounded
 from ....sandbox.session.dependencies import Dependencies
 from ....sandbox.session.manager import Instrumentation
 from ....sandbox.session.mount_lifecycle import (
@@ -73,10 +74,10 @@ from ....sandbox.util.retry import (
 )
 from ....sandbox.util.tar_utils import UnsafeTarMemberError, validate_tarfile
 from ....sandbox.workspace_paths import coerce_posix_path, posix_path_as_path, sandbox_path_str
+from ._network_policy import NetworkPolicy
+from ._provider import DEFAULT_VERCEL_WAIT_FOR_RUNNING_TIMEOUT_S, ProviderSandbox as AsyncSandbox
 
-AsyncSandbox = vercel_sandbox.AsyncSandbox
-NetworkPolicy = vercel_sandbox.NetworkPolicy
-Resources = vercel_sandbox.Resources
+Resources = vercel_sandbox.SandboxResources
 SandboxStatus = vercel_sandbox.SandboxStatus
 SnapshotSource = vercel_sandbox.SnapshotSource
 
@@ -93,23 +94,17 @@ _REDACTED_MOUNT_FAILURE_CAUSE_TYPE = "redacted"
 DEFAULT_VERCEL_WORKSPACE_ROOT = "/vercel/sandbox"
 _DEFAULT_MANIFEST_ROOT = cast(str, Manifest.model_fields["root"].default)
 DEFAULT_VERCEL_SANDBOX_TIMEOUT_MS = 270_000
-DEFAULT_VERCEL_WAIT_FOR_RUNNING_TIMEOUT_S = 45.0
 _NETWORK_POLICY_ADAPTER: TypeAdapter[NetworkPolicy] = TypeAdapter(NetworkPolicy)
 
 _VERCEL_TRANSIENT_TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (
-    httpx.ReadError,
-    httpx.NetworkError,
-    httpx.ProtocolError,
-)
-_VERCEL_RETRYABLE_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
-    vercel_sandbox.SandboxRateLimitError,
-    vercel_sandbox.SandboxServerError,
+    httpx2.ReadError,
+    httpx2.NetworkError,
+    httpx2.ProtocolError,
 )
 _VERCEL_NON_RETRYABLE_PROVIDER_ERRORS: tuple[type[BaseException], ...] = (
-    vercel_sandbox.SandboxAuthError,
-    vercel_sandbox.SandboxNotFoundError,
-    vercel_sandbox.SandboxPermissionError,
-    vercel_sandbox.SandboxValidationError,
+    vercel_sandbox.SandboxCredentialsError,
+    vercel_sandbox.SandboxInvalidHandleError,
+    vercel_sandbox.SandboxPathNotFoundError,
 )
 _VERCEL_HTTP_STATUS_RETRYABLE: dict[int, bool] = {
     400: False,
@@ -134,8 +129,6 @@ _VERCEL_TRANSIENT_SANDBOX_STATUSES: frozenset[str] = frozenset({"pending"})
 
 
 def _vercel_provider_retryability(exc: BaseException) -> bool | None:
-    if exception_chain_contains_type(exc, _VERCEL_RETRYABLE_PROVIDER_ERRORS):
-        return True
     if exception_chain_contains_type(exc, _VERCEL_NON_RETRYABLE_PROVIDER_ERRORS):
         return False
     if exception_chain_contains_type(exc, _VERCEL_TRANSIENT_TRANSPORT_ERRORS):
@@ -228,6 +221,8 @@ def _validate_network_policy(value: object) -> NetworkPolicy | None:
     if value is None:
         return None
 
+    if isinstance(value, BaseModel):
+        value = value.model_dump(mode="json")
     return _NETWORK_POLICY_ADAPTER.validate_python(value)
 
 
@@ -405,7 +400,12 @@ def _manifest_without_vercel_s3_credentials(manifest: Manifest) -> Manifest:
 
 
 class VercelSandboxClientOptions(BaseSandboxClientOptions):
-    """Client options for the Vercel sandbox backend."""
+    """Client options for the Vercel sandbox backend.
+
+    ``interactive`` remains accepted for existing callers and saved state. Vercel
+    now manages external interactive shells independently of sandbox creation;
+    this option does not enable PTY support in the Agents SDK backend.
+    """
 
     type: Literal["vercel"] = "vercel"
     project_id: str | None = None
@@ -480,6 +480,7 @@ class VercelSandboxSessionState(SandboxSessionState):
     snapshot_expiration_ms: int | None = None
     network_policy: NetworkPolicy | None = None
     s3_mounts_non_resumable: bool = False
+    sandbox_name: str | None = None
 
     def _sanitize_persisted_provider_identity(
         self,
@@ -489,6 +490,7 @@ class VercelSandboxSessionState(SandboxSessionState):
     ) -> None:
         if mount_authority_redacted or self.s3_mounts_non_resumable:
             data["sandbox_id"] = ""
+            data["sandbox_name"] = None
             data["workspace_root_ready"] = False
 
     @field_serializer("manifest")
@@ -1062,6 +1064,7 @@ class VercelSandboxSession(BaseSandboxSession):
         )
         self._sandbox = sandbox
         self.state.sandbox_id = sandbox.sandbox_id
+        self.state.sandbox_name = sandbox.sandbox_name
         return sandbox
 
     async def _close_sandbox_client(self) -> None:
@@ -1077,6 +1080,7 @@ class VercelSandboxSession(BaseSandboxSession):
         sandbox = self._sandbox
         if sandbox is None:
             return
+        # Retain the owned transport if stop fails so delete/aclose can retry.
         await sandbox.stop(blocking=True)
         await self._close_sandbox_client()
         self._sandbox = None
@@ -1238,6 +1242,35 @@ class VercelSandboxSession(BaseSandboxSession):
             port=parsed.port or (443 if tls else 80),
             tls=tls,
         )
+
+    @redact_mount_error_data
+    async def _read_bounded(self, path: Path, *, max_bytes: int) -> bytes:
+        async with self._s3_mount_operation():
+            normalized_path = await self._validate_path_access(path)
+            sandbox = await self._ensure_sandbox()
+            try:
+                chunks = await sandbox.iter_file(
+                    sandbox_path_str(normalized_path), chunk_size=65536
+                )
+                completed = False
+                try:
+                    payload = await collect_bounded(chunks, max_bytes)
+                    completed = True
+                    return payload
+                finally:
+                    try:
+                        await chunks.aclose()
+                    except Exception:
+                        # Preserve the primary read failure or cancellation.
+                        # A close failure is primary only after a successful read.
+                        if completed:
+                            raise
+            except vercel_sandbox.SandboxPathNotFoundError:
+                raise WorkspaceReadNotFoundError(path=path) from None
+            except Exception as error:
+                raise WorkspaceArchiveReadError(
+                    path=path, retryable=_vercel_provider_retryability(error)
+                ) from None
 
     @redact_mount_error_data
     async def read(self, path: Path, *, user: str | User | None = None) -> io.IOBase:
@@ -1612,6 +1645,12 @@ class VercelSandboxClient(BaseSandboxClient[VercelSandboxClientOptions]):
 
     @redact_mount_error_data
     async def delete(self, session: SandboxSession) -> SandboxSession:
+        """Stop the session's execution and close its provider connection.
+
+        The named Vercel resource remains because deleting by name could delete
+        a replacement execution. Owners can explicitly destroy that resource
+        through Vercel when they have exclusive ownership.
+        """
         inner = session._inner
         if not isinstance(inner, VercelSandboxSession):
             raise TypeError("VercelSandboxClient.delete expects a VercelSandboxSession")
@@ -1655,6 +1694,7 @@ class VercelSandboxClient(BaseSandboxClient[VercelSandboxClientOptions]):
             try:
                 sandbox = await AsyncSandbox.get(
                     sandbox_id=state.sandbox_id,
+                    sandbox_name=state.sandbox_name,
                     token=resolved_token,
                     project_id=resolved_project_id,
                     team_id=resolved_team_id,
@@ -1670,17 +1710,17 @@ class VercelSandboxClient(BaseSandboxClient[VercelSandboxClientOptions]):
                         timeout=DEFAULT_VERCEL_WAIT_FOR_RUNNING_TIMEOUT_S,
                     )
                     reconnected = True
-                else:
-                    # Cannot reach RUNNING from here (STOPPING, STOPPED, FAILED,
-                    # ABORTED, SNAPSHOTTING). Drop the handle and recreate below.
-                    await sandbox.client.aclose()
-                    sandbox = None
-            except asyncio.TimeoutError:
-                if sandbox is not None:
-                    await sandbox.client.aclose()
-                    sandbox = None
             except Exception:
-                sandbox = None
+                # Failed reconnects use the existing fresh-sandbox fallback below.
+                pass
+            finally:
+                if sandbox is not None and not reconnected:
+                    try:
+                        await sandbox.client.aclose()
+                    except Exception:
+                        # Best-effort close preserves reconnect cancellation or fallback.
+                        pass
+                    sandbox = None
 
         inner = VercelSandboxSession.from_state(state, sandbox=sandbox, token=resolved_token)
         if sandbox is None:

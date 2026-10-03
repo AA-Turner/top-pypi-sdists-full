@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: scapy
-Version: 2.7.0
+Version: 2.8.0
 Summary: Scapy: interactive packet manipulation tool
 Author: Philippe BIONDI, Gabriel POTTER
 Maintainer: Pierre LALET, Gabriel POTTER, Guillaume VALADON, Nils WEISS
-License: GPL-2.0-only
+License-Expression: GPL-2.0-only
 Project-URL: Homepage, https://scapy.net
 Project-URL: Download, https://github.com/secdev/scapy/tarball/master
 Project-URL: Documentation, https://scapy.readthedocs.io
@@ -18,7 +18,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Telecommunications Industry
-Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.7
@@ -28,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Networking
 Classifier: Topic :: System :: Networking :: Monitoring

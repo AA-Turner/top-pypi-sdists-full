@@ -24,6 +24,7 @@
 #include "doppler/resamp/resamp_core.h"
 #include <math.h> /* log10/powf/sqrtf in create_impl */
 #include "doppler/gold/gold_core.h"
+#include "doppler/wfm/wfm_dsp.h" /* dp_wfm_dsss_cont_edge: the symbol clock */
 #include "doppler/mpsk/mpsk_core.h" /* mpsk_constellation — the ONE bit->symbol map */
 #include "doppler/cvt/cvt_core.h"
 #ifdef __cplusplus
@@ -38,7 +39,7 @@ enum {
     WFM_SYNTH_BPSK = 3,  /* BPSK over PN-sourced data bits           */
     WFM_SYNTH_QPSK = 4,  /* Gray-coded QPSK over PN-sourced data     */
     WFM_SYNTH_CHIRP = 5, /* linear-FM sweep f_start→f_end (no symbols) */
-    WFM_SYNTH_BITS = 6,  /* user bit pattern, oversampled + cycled    */
+    WFM_SYNTH_BITS = 6,  /* user bit pattern, oversampled, sent once  */
     WFM_SYNTH_SYMBOLS
     = 7,                /* user complex-symbol stream, oversampled + cycled */
     WFM_SYNTH_DSSS = 8, /* two-code DSSS burst: repeated preamble +
@@ -53,9 +54,14 @@ enum {
 /** Continuous-DSSS data-symbol source (dp_wfm_synth_set_dsss_cont's data_mode). */
 enum {
     WFM_DSSS_DATA_NONE = 0, /* code-only: constant bit 0 -> the pure code    */
-    WFM_DSSS_DATA_BITS = 1, /* a caller payload array, cycled mod n_bits      */
+    WFM_DSSS_DATA_BITS = 1, /* a payload sent once, or a data source's bits */
     WFM_DSSS_DATA_PRBS = 2, /* bits from the seeded PN LFSR (regenerable)     */
 };
+
+/** `cur_data` once a continuous stream's data has ended: not a bit, so the
+ *  chips are silent from then on, and it is a byte of the serialized state
+ *  like the bit it replaces. */
+#define WFM_DSSS_ENDED 2u
 
 /* snr >= this (dB) means "clean": no AWGN is generated at all (the common case
  * — a clean waveform shouldn't pay the noise cost). 100 dB SNR is the default
@@ -139,6 +145,17 @@ wfm_synth_mls_poly(uint32_t n)
  *
  * Allocate with dp_wfm_synth_create().
  */
+/**
+ * @brief Where a BITS synth's next frame (or a dsss burst's next burst)
+ *        comes from, in place of the cycle.
+ *
+ * Called when the synth has read the last of its `n` bits: write the next
+ * frame's `n` bits into @p bits and return 0, or return non-zero when the
+ * data has ended. The frame length never changes, which is what lets the
+ * synth refill its own buffer in place. See dp_wfm_synth_set_refill().
+ */
+typedef int (*wfm_synth_refill_fn)(void *user, uint8_t *bits, size_t n);
+
 typedef struct {
     int wtype;
     int nsps;
@@ -168,6 +185,9 @@ typedef struct {
     size_t frame_symbols;     /* config: frame length in symbols; 0 = no window */
     uint64_t chip_n;         /* running: chips emitted so far                 */
     uint64_t sym_idx;        /* running: current data-symbol index            */
+    uint64_t next_edge;      /* derived: first chip of symbol sym_idx + 1
+                                (dp_wfm_dsss_cont_edge); not serialized --
+                                set_state recomputes it from sym_idx       */
     uint8_t cur_data;        /* running: data bit latched for this symbol      */
     dp_fir_state_t * fir;       /* dense RRC FIR (non-power-of-two sps fallback)  */
     /* Polyphase RRC pulse shaper: a resamp interpolate-by-sps view over the
@@ -179,10 +199,53 @@ typedef struct {
     dp_lo_state_t * lo;
     dp_awgn_state_t * awgn;
     dp_pn_state_t * pn;
+    /* A frame source (dp_wfm_synth_set_refill): NULL sends `bits` once.
+       Once it reports the end, `data_ended` latches and every symbol after is zero --
+       silence, never a held symbol (a line on the air nobody sent). */
+    wfm_synth_refill_fn refill;
+    void *refill_user;
+    void (*refill_free)(void *);
+    uint8_t data_ended;
 } dp_wfm_synth_state_t;
 
 /**
- * @brief Next symbol from the user bit pattern, cycled — one mapping, every M.
+ * @brief The next bit of the pattern, or none once the data has ended.
+ *
+ * The cursor STOPS at `n_bits`; it never wraps (doppler#1718: the cycle
+ * that sent one pattern again and again is gone). With a refill, that one
+ * bounds check finds the frame boundary: the next frame is drawn lazily,
+ * when its first bit is due -- the source's counts are frames started, and
+ * a paced source is asked when the frame is due. A refill that reports the
+ * end latches `data_ended`, and so does the end of a pattern with no
+ * refill: it was the whole of the data, sent once. Either way every later
+ * call is the slow path's immediate "no bit", and the caller sends silence -- never a line nobody
+ * sent. The one place the cursor moves, so the per-sample and block paths
+ * cannot disagree about a frame boundary.
+ *
+ * @param s    the synth; a type=bits synth with a pattern set.
+ * @param bit  receives the next bit, 0 or 1, when one is returned.
+ * @return 1 with the bit in @p *bit, or 0: the data has ended.
+ */
+JM_FORCEINLINE int
+wfm_synth_bit_next(dp_wfm_synth_state_t *s, unsigned *bit)
+{
+    if (s->bit_idx >= s->n_bits) { /* the pattern is spent */
+        if (s->data_ended)
+            return 0;
+        /* No source to refill from: the pattern was the whole of the data,
+           sent once -- the same end as a source that reports one. */
+        if (!s->refill || s->refill(s->refill_user, s->bits, s->n_bits) != 0) {
+            s->data_ended = 1;
+            return 0;
+        }
+        s->bit_idx = 0;
+    }
+    *bit = s->bits[s->bit_idx++] ? 1u : 0u;
+    return 1;
+}
+
+/**
+ * @brief Next symbol from the user bit pattern — one mapping, every M.
  *
  * **The single home for the bits->symbol map.** It had four copies: two in
  * this header (`wfm_synth_next_symbol` and `dp_wfm_synth_step`) and two in
@@ -215,16 +278,24 @@ typedef struct {
 JM_FORCEINLINE float _Complex
 wfm_synth_bit_symbol(dp_wfm_synth_state_t *s)
 {
-    unsigned g = 0u;
+    unsigned g = 0u, b = 0u;
     int      k;
     if (s->bit_mod <= 0) {
-        float a    = s->bits[s->bit_idx] ? 1.0f : 0.0f;
-        s->bit_idx = (s->bit_idx + 1) % s->n_bits;
-        return a + 0.0f * I;
+        if (!wfm_synth_bit_next(s, &b))
+            return 0.0f + 0.0f * I; /* silence after the data */
+        return (b ? 1.0f : 0.0f) + 0.0f * I;
     }
     for (k = 0; k < s->bit_mod; k++) { /* MSB-first within the symbol */
-        g          = (g << 1) | (unsigned)(s->bits[s->bit_idx] ? 1u : 0u);
-        s->bit_idx = (s->bit_idx + 1) % s->n_bits;
+        if (!wfm_synth_bit_next(s, &b)) {
+            /* Silence once the data has ended -- never a held symbol, a
+               line on the air nobody sent. A symbol the end cuts short is
+               completed with zero bits: the frame did not divide into
+               symbols, and the zeros only finish the symbol it started. */
+            if (k == 0)
+                return 0.0f + 0.0f * I;
+            b = 0u;
+        }
+        g = (g << 1) | b;
     }
     return mpsk_constellation(g, 1 << s->bit_mod);
 }
@@ -238,7 +309,7 @@ wfm_synth_bit_symbol(dp_wfm_synth_state_t *s)
  * code clock (`n % n_code`) and the INDEPENDENT symbol clock (`floor(n /
  * chips_per_symbol)`) off one running chip counter; at each symbol boundary it
  * refreshes the data bit from the configured source (constant 0 for code-only,
- * the cycled payload, or the next PN bit). Non-integer `chips_per_symbol` is
+ * the next payload bit, or the next PN bit). Non-integer `chips_per_symbol` is
  * what makes symbol edges land mid-epoch — the asynchronicity.
  *
  * With a frame set (`dp_wfm_synth_set_dsss_window`), the frame lives on the
@@ -258,28 +329,37 @@ wfm_synth_bit_symbol(dp_wfm_synth_state_t *s)
 JM_FORCEINLINE float
 wfm_synth_cont_dsss_chip(dp_wfm_synth_state_t *s)
 {
-    uint64_t n   = s->chip_n;
-    uint64_t sym = (uint64_t)((double)n / s->chips_per_symbol);
-    if (n == 0 || sym != s->sym_idx) {
-        s->sym_idx = sym;
+    uint64_t n = s->chip_n;
+    /* The symbol clock is dp_wfm_dsss_cont_edge's, the one every caller
+       shares: a symbol opens on its edge chip, and cps >= 1 means at most
+       one edge per chip. One call per symbol, not a division per chip. */
+    if (n == 0 || n >= s->next_edge) {
+        const uint64_t sym = n ? s->sym_idx + 1u : 0u;
+        s->sym_idx         = sym;
+        s->next_edge = dp_wfm_dsss_cont_edge(sym + 1u, s->chips_per_symbol);
         const uint64_t F = s->frame_symbols, W = s->code_only_symbols;
-        if (F && sym % F < W) {
+        if (n && s->cur_data == WFM_DSSS_ENDED) {
+            /* the data has ended: silent for good, window or not */
+        } else if (F && sym % F < W) {
             s->cur_data = 0u; /* the pure-code window: the code, +polarity */
         } else if (s->data_mode == WFM_DSSS_DATA_PRBS) {
             s->cur_data = s->pn ? pn_step(s->pn) : 0u; /* data symbols only */
         } else if (s->data_mode == WFM_DSSS_DATA_BITS) {
-            /* payload index = data symbols before this one, over every frame:
-               derived from the clock, never latched, so nothing to serialize */
-            uint64_t k = F ? (sym / F) * (F - W) + (sym % F - W) : sym;
-            s->cur_data = (s->bits && s->n_bits)
-                              ? (uint8_t)(s->bits[k % s->n_bits] & 1u)
-                              : 0u;
+            /* the next bit through the one cursor, one per data symbol --
+               the code-only window takes none -- from a data source
+               (doppler#1719) or a payload sent once (doppler#1718); once
+               there is none, WFM_DSSS_ENDED: silence, for good */
+            unsigned b  = 0u;
+            s->cur_data = wfm_synth_bit_next(s, &b) ? (uint8_t)b
+                                                    : WFM_DSSS_ENDED;
         } else {
             s->cur_data = 0u; /* code-only: the pure code, +code polarity */
         }
     }
     uint8_t code_bit = (uint8_t)(s->code[n % s->n_code] & 1u);
     s->chip_n        = n + 1;
+    if (s->cur_data == WFM_DSSS_ENDED)
+        return 0.0f; /* silence after the data's last bit */
     return (code_bit ^ s->cur_data) ? -1.0f : 1.0f;
 }
 
@@ -288,8 +368,8 @@ wfm_synth_cont_dsss_chip(dp_wfm_synth_state_t *s)
  *
  * The single symbol-generation point the polyphase pulse shaper feeds from,
  * dispatching on the waveform type exactly as `dp_wfm_synth_step`'s symbol latch
- * does — the PN LFSR (pn/bpsk one chip, qpsk two Gray chips), the cycled user
- * bit pattern (bits, per bit_mod), the continuous asynchronous DSSS chip, or
+ * does — the PN LFSR (pn/bpsk one chip, qpsk two Gray chips), the user bit
+ * pattern (bits, per bit_mod, sent once), the continuous asynchronous DSSS chip, or
  * the cycled complex-symbol stream — and advancing that source's read cursor by
  * one symbol. Only the shaped types (pn/bpsk/qpsk/bits/symbols/dsss, the set
  * `dp_wfm_synth_set_rrc` accepts) reach here, so the shaper draws the *same* symbol
@@ -466,8 +546,9 @@ void dp_wfm_synth_set_chirp_span(dp_wfm_synth_state_t *state, size_t span);
  * Copies @p n bits (each 0/1) into the synth; @p modulation maps them to
  * symbols (0=none → 0/1 amplitude, 1=bpsk → ±1, 2=qpsk → Gray-coded ±1/√2,
  * two bits per symbol). The pattern is oversampled by the create-time `sps`
- * and **cycled** to fill whatever length `dp_wfm_synth_steps()` requests, so one
- * pass is `n * sps` samples (`2*ceil... ` — `n/2 * sps` for qpsk). Replaces any
+ * and sent ONCE: one pass is `n * sps` samples (`n/2 * sps` for qpsk), and the
+ * output is silent after it (doppler#1718 deleted the cycle; a payload that
+ * goes on is a data source, dp_wfm_synth_set_refill). Replaces any
  * previous pattern; resets the read position. Safe to call repeatedly.
  *
  * @param state  Must be non-NULL.
@@ -478,6 +559,77 @@ void dp_wfm_synth_set_chirp_span(dp_wfm_synth_state_t *state, size_t span);
  */
 int dp_wfm_synth_set_bits(dp_wfm_synth_state_t *state, const uint8_t *bits, size_t n,
                        int modulation);
+
+/**
+ * @brief Pull each frame from @p fn instead of cycling the pattern.
+ *
+ * The pattern set by dp_wfm_synth_set_bits() is the FIRST frame; when its
+ * last bit has been read, @p fn writes the next frame's bits into the synth's
+ * buffer (the same `n`), and so on. When @p fn reports the end, the synth
+ * latches it (dp_wfm_synth_data_ended()) and emits zero -- silence -- from
+ * then on. A later dp_wfm_synth_set_bits() detaches the refill.
+ *
+ * A dsss BURST plays its chips through the same cursor, so it takes a refill
+ * too: the pattern is the burst dp_wfm_synth_set_dsss_chips() installed, and
+ * @p fn writes the next burst's chips (doppler#1719). A later
+ * dp_wfm_synth_set_dsss_chips() detaches it. A CONTINUOUS dsss stream set
+ * up with `WFM_DSSS_DATA_BITS` takes one as well: each data symbol reads the
+ * next bit through the cursor instead of cycling its payload, the refill
+ * writing the next `n` bits, and the chips are silent once it reports the
+ * end.
+ *
+ * A synth with a refill attached REFUSES serialization --
+ * dp_wfm_synth_state_bytes() returns 0 and dp_wfm_synth_set_state() is
+ * DP_ERR_INVALID -- because the pulled frame and the source's position are
+ * state it cannot yet carry (doppler#1681).
+ *
+ * @param state      a type=bits synth with a pattern set, a type=dsss
+ *                   burst with its chips set, or a continuous one whose
+ *                   data_mode is `WFM_DSSS_DATA_BITS`.
+ * @param fn         the frame source; NULL detaches.
+ * @param user       passed to @p fn; owned by the synth when @p free_user
+ *                   is given, which it calls on detach or destroy.
+ * @param free_user  frees @p user, or NULL.
+ * @return 0, or -1 if the synth is none of those, or has no pattern.
+ *
+ * @code
+ * #include "doppler/wfm_synth/wfm_synth_core.h"
+ * #include <complex.h>
+ *
+ * // One more 4-bit frame of ones after the first, then the end.
+ * static int
+ * one_more (void *u, uint8_t *bits, size_t n)
+ * {
+ *   int *left = u;
+ *   if ((*left)-- <= 0)
+ *     return 1; // the end
+ *   for (size_t i = 0; i < n; i++)
+ *     bits[i] = 1;
+ *   return 0;
+ * }
+ *
+ * int
+ * main (void)
+ * {
+ *   dp_wfm_synth_state_t *s = dp_wfm_synth_create (
+ *       WFM_SYNTH_BITS, 1e6, 0.0, 200.0, 0, 1, 1, 7, 0, 0, 0.0);
+ *   int left = 1;
+ *   dp_wfm_synth_set_bits (s, (const uint8_t[]){ 0, 1, 0, 1 }, 4, 0);
+ *   dp_wfm_synth_set_refill (s, one_more, &left, NULL);
+ *   float _Complex x[12];
+ *   dp_wfm_synth_steps (s, x, 12); // 0101, then 1111, then silence
+ *   const int ok = crealf (x[1]) > 0.5f && crealf (x[4]) > 0.5f
+ *                  && cabsf (x[11]) < 1e-3f && dp_wfm_synth_data_ended (s);
+ *   dp_wfm_synth_destroy (s);
+ *   return ok ? 0 : 1;
+ * }
+ * @endcode
+ */
+int dp_wfm_synth_set_refill(dp_wfm_synth_state_t *state, wfm_synth_refill_fn fn,
+                         void *user, void (*free_user)(void *));
+
+/** @brief Non-zero once an attached frame source has reported its end. */
+int dp_wfm_synth_data_ended(const dp_wfm_synth_state_t *state);
 
 /**
  * @brief Install an assembled two-code DSSS burst as the chip pattern.
@@ -494,9 +646,10 @@ int dp_wfm_synth_set_bits(dp_wfm_synth_state_t *state, const uint8_t *bits, size
  * word, and payload length hand to `dp_burst_demod_set_preamble`/`set_sync`
  * on receive.
  *
- * One pass of the pattern is one burst (`n_chips * sps` samples); like the
- * bits pattern it cycles if more samples are requested — the composer sizes
- * a dsss segment's on-time to exactly one burst. Replaces any previous
+ * One pass of the pattern is one burst (`n_chips * sps` samples), sent once
+ * like the bits pattern, and silence after it -- the composer sizes a dsss
+ * segment's on-time to exactly one burst, or one per frame of a data source
+ * (dp_wfm_synth_set_refill). Replaces any previous
  * pattern; resets the read position. Chips are copied; @p chips stays the
  * caller's.
  *
@@ -528,7 +681,8 @@ int dp_wfm_synth_set_dsss_chips(dp_wfm_synth_state_t *state, const uint8_t *chip
  * endless — there is no pattern length to pick and the standalone `Synth` face
  * works unbounded. The data-symbol source is chosen by @p data_mode:
  *   - `WFM_DSSS_DATA_NONE` — code-only: the pure spreading code, no data.
- *   - `WFM_DSSS_DATA_BITS` — @p data, cycled mod @p n_data (caller holds it).
+ *   - `WFM_DSSS_DATA_BITS` — @p data, one bit per data symbol, sent ONCE:
+ *     the chips are silent after its last bit (doppler#1718).
  *   - `WFM_DSSS_DATA_PRBS` — the synth's own seeded PN (create it in create();
  *     a receiver regenerates the bits via `doppler.wfm.PN`).
  *

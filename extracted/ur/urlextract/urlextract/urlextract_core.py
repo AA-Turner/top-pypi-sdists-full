@@ -8,6 +8,7 @@ urlextract_core.py - file with definition of URLExtract class and urlextract cli
 .. codeauthor:: Jan Lipovský <janlipovsky@gmail.com>, janlipovsky.cz
 .. contributors: https://github.com/lipoja/URLExtract/graphs/contributors
 """
+
 from argparse import Namespace
 import functools
 import ipaddress
@@ -25,7 +26,7 @@ import uritools  # type: ignore
 from urlextract.cachefile import CacheFile, CacheFileError
 
 # version of URLExtract (do not forget to change it in setup.py as well)
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 
 # default value for maximum count of processed URLs by find_url
 DEFAULT_LIMIT = 10000
@@ -113,10 +114,10 @@ class URLExtract(CacheFile):
         self._reload_tlds_from_file()
 
         # general stop characters
-        general_stop_chars = {'"', "<", ">", ";"}
+        general_stop_chars = {'"', "<", ">", ";", "|"}
         # defining default stop chars left
         self._stop_chars_left = set(string.whitespace)
-        self._stop_chars_left |= general_stop_chars | {"|", "=", "]", ")", "}"}
+        self._stop_chars_left |= general_stop_chars | {"=", "]", ")", "}"}
 
         # default stop characters on left side from schema
         self._stop_chars_left_from_schema = self._stop_chars_left.copy() | {":"}
@@ -131,7 +132,7 @@ class URLExtract(CacheFile):
     def _get_after_tld_chars(self) -> Set[str]:
         """Initialize after tld characters"""
         after_tld_chars = set(string.whitespace)
-        after_tld_chars |= {"/", '"', "'", "<", ">", "?", ":", ".", ","}
+        after_tld_chars |= {"/", '"', "'", "<", ">", "?", ":", ".", ",", "|"}
         # get left enclosure characters
         _, right_enclosure = zip(*self._enclosure)
         # add right enclosure characters to be valid after TLD

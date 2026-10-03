@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "snowflake-code-unit-registry"
-version = "0.8.78"
+version = "0.8.83"
 description = "SCAI state management library for database migrations"
 readme = "README.md"
 requires-python = ">=3.9"

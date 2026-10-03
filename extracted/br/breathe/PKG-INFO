@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: breathe
-Version: 5.0.0
+Version: 5.1.0
 Summary: Sphinx Doxygen renderer
 Author-email: Michael Jones <m.pricejones@gmail.com>
 Requires-Python: >=3.9
@@ -34,13 +34,13 @@ Requires-Dist: setuptools>=80.9.0 ; extra == "build"
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: sphinx-copybutton ; extra == "docs"
 Requires-Dist: sphinxcontrib-spelling ; extra == "docs"
-Requires-Dist: ruff==0.9.2 ; extra == "lint"
-Requires-Dist: mypy>=1 ; extra == "lint"
+Requires-Dist: ruff==0.16.8 ; extra == "lint"
+Requires-Dist: mypy>=1,<1.10 ; extra == "lint"
 Requires-Dist: types-docutils ; extra == "lint"
 Requires-Dist: types-Pygments ; extra == "lint"
-Requires-Dist: pytest>=8.0 ; extra == "lint"
+Requires-Dist: pytest>=8.0,<9 ; extra == "lint"
 Requires-Dist: sphinxcontrib-phpdomain ; extra == "lint"
-Requires-Dist: pytest>=8.0 ; extra == "test"
+Requires-Dist: pytest>=8.0,<9 ; extra == "test"
 Requires-Dist: Sphinx[test] ; extra == "test"
 Project-URL: Changelog, https://github.com/breathe-doc/breathe/blob/main/CHANGELOG.rst
 Project-URL: Code, https://github.com/breathe-doc/breathe/

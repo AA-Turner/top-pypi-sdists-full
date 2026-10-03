@@ -4023,6 +4023,13 @@ class Bitfab:
         )
         return cast(CapturedSpan | None, result)
 
+    def get_span(self, span_id: str) -> CapturedSpan | None:
+        if not isinstance(span_id, str) or not span_id.strip():
+            raise ValueError("span_id must be a non-empty string")
+
+        result = self.http_client.get_span(span_id)
+        return cast(CapturedSpan | None, result)
+
     def get_function(self, trace_function_key: str) -> BitfabFunction:
         """Get a function wrapper for a specific trace function key.
 

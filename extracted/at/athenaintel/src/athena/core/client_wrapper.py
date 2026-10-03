@@ -24,10 +24,10 @@ class BaseClientWrapper:
 
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {
-            "User-Agent": "athenaintel/0.1.2310",
+            "User-Agent": "athenaintel/0.1.2312",
             "X-Fern-Language": "Python",
             "X-Fern-SDK-Name": "athenaintel",
-            "X-Fern-SDK-Version": "0.1.2310",
+            "X-Fern-SDK-Version": "0.1.2312",
             **(self.get_custom_headers() or {}),
         }
         if self._session_credential is not None:

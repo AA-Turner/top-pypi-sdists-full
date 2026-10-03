@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
+import math
+import uuid
 from dataclasses import dataclass, field
 from dataclasses import replace as dataclass_replace
 from datetime import datetime, timezone
@@ -23,6 +26,7 @@ from .budget import Budget, count_tokens, serialize
 from .contract import (
     BackendCorpus,
     BackendSearchState,
+    BrowseMode,
     Channel,
     ChannelError,
     CollapseMode,
@@ -30,14 +34,19 @@ from .contract import (
     EnvelopeState,
     MatchMode,
     MissingMarker,
+    NoteCatalogKind,
+    ReadmeState,
+    ReadmeUnavailableReason,
     ToolCorpus,
     VIEW_PURPOSE,
     View,
     WebState,
 )
+from .continuation import ContinuationError
+from .continuation import encode as _encode_delivery_cursor
 from .continuation import omit_defaults
 from .delivery_context import current_delivery, pin_document, source_changed
-from .source import ResearchOSSource
+from .source import _TRANSCRIPT_AGENTS, ResearchOSSource
 
 # `search_in` vocabulary -> backend /v1/search `corpus` values. NOT a passthrough:
 # three entries are identity and one is not, which is the whole reason the tool
@@ -191,7 +200,8 @@ def _why_matched(
     machinery found it, `reason` is why the reader that read it thinks it fits.
     Two differently-named `why` fields on one card is a question asked twice.
     Absent -- not empty -- when the engine sent none, which is most hits: the
-    recall floor backfills from the fused pool, and no model ever read those.
+    default Jev selector scores passages without writing a reason, and a hit
+    the raw pool answered with (`recall_floor`) was never read by a model.
     """
     why: dict[str, Any] = {"mode": mode, "channel": channel, "score": score}
     if reason:
@@ -623,6 +633,94 @@ _TRANSCRIPT_CONTEXT_MAX = 20
 _EXPORT_PAGE_MAX = 1_000
 _EXPORT_PAGE_DEFAULT = 200
 
+#: The artifact sessions route caps `limit` at 50, and the run bundle's session
+#: list is capped server-side at the same number; neither takes an offset.
+_SESSIONS_ROUTE_MAX = 50
+
+#: What a saved metric view row keeps. `run_id` goes: it is the run asked about.
+_SAVED_VIEW_FIELDS = ("id", "name", "spec", "created_by", "created_at", "updated_at")
+
+#: What a captured-session row keeps (AgentSessionOut). The OWNER is the point:
+#: "who made this" is answered by a person, not a session id.
+_SESSION_ROW_FIELDS = (
+    "name",
+    "agent",
+    "owner_name",
+    "owner_email",
+    "device_label",
+    "first_seen_at",
+    "last_seen_at",
+)
+
+#: ProjectReadmeOut, `markdown` last so a reader meets the provenance first.
+_README_FIELDS = (
+    "state",
+    "reason",
+    "repo",
+    "path",
+    "commit_sha",
+    "html_url",
+    "fetched_at",
+    "markdown",
+)
+
+#: What a README read with no text MEANS, per state and unavailable reason.
+#: The backend sends the state and reason codes only; the dashboard renders
+#: its own copy for each, and an agent reading a bare `live` cannot tell it from
+#: a failure.
+_README_STATE_NOTES: dict[str, str] = {
+    ReadmeState.LIVE: (
+        "Probe holds no copy of this README: no installation of the Probe GitHub "
+        "app covers the repository, so the dashboard reads it from GitHub in the "
+        "browser. It is at html_url."
+    ),
+    ReadmeState.NONE: "No repository is attached to this project, so it has no README.",
+}
+_README_UNAVAILABLE_NOTES: dict[str, str] = {
+    ReadmeUnavailableReason.NOT_FOUND_OR_NO_ACCESS: (
+        "GitHub answered 404: the repository or its README does not exist, or the "
+        "Probe GitHub app cannot see the repository."
+    ),
+    ReadmeUnavailableReason.RATE_LIMITED: "GitHub rate-limited the read; try again later.",
+    ReadmeUnavailableReason.UPSTREAM_ERROR: "GitHub did not answer the read; try again later.",
+    ReadmeUnavailableReason.APP_PERMISSION_REQUIRED: (
+        "The Probe GitHub app is installed without the Contents permission; a GitHub "
+        "admin has to approve that before the README can be read."
+    ),
+}
+
+
+def _readme_note(state: Any, reason: Any) -> str | None:
+    """The sentence a README read with no text carries, or None for a snapshot."""
+    if state == ReadmeState.SNAPSHOT:
+        return None
+    if state == ReadmeState.UNAVAILABLE:
+        return _README_UNAVAILABLE_NOTES.get(reason, "The README could not be read.")
+    return _README_STATE_NOTES.get(state, "No README text came back.")
+
+
+#: Headroom on a refused series' `min_token_budget`, before rounding up to the
+#: next hundred: room for the re-read to come back a little longer.
+_SERIES_BUDGET_HEADROOM = 1.1
+
+#: A delivery cursor of representative size. A read that fits its own rows to
+#: the budget must leave room for the continuation token delivery puts in
+#: `next_cursor` -- a bound, compressed state roughly this long, not the short
+#: native cursor the service writes there.
+_DELIVERY_CURSOR_STAND_IN = _encode_delivery_cursor(
+    {
+        "native": "9999",
+        # A page cursor carries the read's identity snapshot (a 64-hex hash,
+        # which does not compress) -- see `_check_series_identity`.
+        "source_snapshot": {
+            "source": "series",
+            "end": 0,
+            "sha256": hashlib.sha256(b"series-identity-stand-in").hexdigest(),
+        },
+    },
+    hashlib.sha256(b"delivery-cursor-stand-in").hexdigest()[:32],
+)
+
 # `limit` at 200; the token budget trims below this anyway.
 
 
@@ -783,18 +881,23 @@ def _fit_sections(sections: list[tuple[str, list]], budget: int) -> tuple[dict[s
     return kept, truncated
 
 
-def _split_get_cursor(cursor: str | None, view: str) -> int:
-    """research_get's opaque cursor, carrying ``{"view": v, "offset": n}``.
+def _split_get_cursor(cursor: str | None, view: str) -> tuple[int, str | None]:
+    """research_get's opaque cursor, carrying ``{"view": v, "offset": n}`` and,
+    for a view that resumes on its route's own cursor, ``"after"``: the key of
+    the last row sent (see `_ViewData.resume_key`).
 
     The view is carried so a cursor can never be silently re-based onto another
     view — offset 40 of a trajectory means nothing in an events list, and quietly
     reinterpreting it would skip 40 events with no signal at all."""
     if not cursor:
-        return 0
+        return 0, None
     parsed = _unpack_cursor(cursor, hint="research_get")
     try:
         offset, cursor_view = parsed["offset"], parsed["view"]
+        after = parsed.get("after")
         if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+            raise ValueError
+        if after is not None and not isinstance(after, str):
             raise ValueError
     except (ValueError, KeyError, TypeError):
         raise errors.ValidationError(
@@ -807,11 +910,14 @@ def _split_get_cursor(cursor: str | None, view: str) -> int:
             f"view={view!r}: pass a cursor back with the view that produced it",
             status=422,
         )
-    return offset
+    return offset, after
 
 
-def _join_get_cursor(view: str, offset: int) -> str:
-    return _pack_cursor({"offset": offset, "view": str(view)})
+def _join_get_cursor(view: str, offset: int, *, after: str | None = None) -> str:
+    payload: dict[str, Any] = {"offset": offset, "view": str(view)}
+    if after is not None:
+        payload["after"] = after
+    return _pack_cursor(payload)
 
 
 @dataclass(frozen=True)
@@ -820,6 +926,9 @@ class _Req:
 
     filters: dict[str, Any]
     offset: int
+    #: The last row the previous page sent, for a view that resumes on its
+    #: route's own cursor (`_ViewData.resume_key`); None on a first page.
+    after: str | None = None
 
 
 @dataclass
@@ -847,6 +956,10 @@ class _ViewData:
     missing: list[str] = field(default_factory=list)
     more_beyond: bool = False
     no_match: bool = False
+    #: A row field whose value is the ROUTE'S OWN cursor: set it and the rows
+    #: are one route page read from `_Req.after`, and the next cursor names the
+    #: last row sent instead of an offset into a re-read from the first row.
+    resume_key: str | None = None
 
 
 # (entity kind, view) -> builder method. Explicit and greppable: this table IS the
@@ -921,6 +1034,9 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     EntityType.GROUP: (),
     EntityType.SESSION: ("session_id", "agent", "name", "work_observed"),
     EntityType.TEAM_NOTE: ("version",),
+    # Fullness rides the card because a sub-note is capped at its carrier's
+    # limit, and an agent about to append needs the room left, not a guess.
+    EntityType.SUB_NOTE: ("chars", "limit_chars", "remaining_chars", "notes_version"),
 }
 _CARD_DESCRIPTION_CHARS = 480
 _CARD_TEXT_CHARS = 240
@@ -1023,9 +1139,9 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
             out[f"{key}_count"] = len(rows)
             if len(rows) > _CARD_LIST_ITEMS:
                 out[f"{key}_truncated"] = True
-    if kind == EntityType.TEAM_NOTE:
-        # This singleton names the document itself: asking for it must deliver
-        # briefing text immediately. The common delivery boundary pages it.
+    if kind in (EntityType.TEAM_NOTE, EntityType.SUB_NOTE):
+        # These name the document itself: asking for one must deliver its text
+        # immediately. The common delivery boundary pages it.
         out["body"] = entity.get("body") or ""
     return out
 
@@ -1081,6 +1197,66 @@ def _notes_excerpt(text: str | None, *, read_all: str = 'view="notes"') -> dict 
     if truncated:
         excerpt["read_all"] = read_all
     return excerpt
+
+
+def _session_row(row: dict) -> dict:
+    """One captured session as a row an agent can OPEN: `uuid` is the
+    `session:` address `entity` takes, qualified by its agent when the agent is
+    one the transcript read knows (a bare id is resolved by probing each)."""
+    session_id = row.get("session_id")
+    agent = row.get("agent")
+    address = (
+        f"{EntityType.SESSION.value}:{agent}/{session_id}"
+        if agent in _TRANSCRIPT_AGENTS
+        else f"{EntityType.SESSION.value}:{session_id}"
+    )
+    out: dict = {"uuid": address}
+    out.update({key: row[key] for key in _SESSION_ROW_FIELDS if row.get(key) is not None})
+    if row.get("direct") is False:
+        # Reached through a child (a run's session seen on its project, say).
+        # Absent means direct, the common case, so only the exception is said.
+        out["direct"] = False
+    return out
+
+
+def _sessions_view(sessions: Any, total: Any) -> _ViewData:
+    """A `sessions` view: the rows the server returned, plus its exact total.
+
+    Both routes cap the list server-side and take no offset, so a total above
+    the rows is reported (`sessions_beyond_server_limit`) rather than paged --
+    a cursor here would walk an already-cut list and call its end the end.
+
+    Under `X-Probe-Hide-Session-Work` the WATCHED session is left out, like its
+    work in every other view: asked "which session made this run", the daemon's
+    reader must not answer with the session it is reading beside. The total is
+    lowered with it, so the count still says what the rows can add up to --
+    and when the list was cut before the watched session would have appeared,
+    whether the server's total counted it is unknowable, so the count is a
+    floor (`session_total_at_least`), never a number that may be one too high."""
+    watched = accounting.session_work_to_hide()
+    listed = [s for s in sessions or [] if isinstance(s, dict) and s.get("session_id")]
+    count = total if isinstance(total, int) and not isinstance(total, bool) else len(listed)
+    floor = False
+    if watched is not None:
+        kept = [s for s in listed if str(s["session_id"]).lower() != watched.lower()]
+        if len(kept) < len(listed):
+            count = max(len(kept), count - (len(listed) - len(kept)))
+        elif count > len(listed):
+            # Capped, and the watched session was not in the part returned: it
+            # may be among the rest, or may never have touched this entity.
+            count, floor = max(len(kept), count - 1), True
+        listed = kept
+    rows = [_session_row(s) for s in listed]
+    return _ViewData(
+        payload={"session_total_at_least" if floor else "session_total": count},
+        rows=rows,
+        rows_key="sessions",
+        missing=(
+            [MissingMarker.SESSIONS_BEYOND_SERVER_LIMIT]
+            if count > len(rows) or floor
+            else []
+        ),
+    )
 
 
 def _span_subtree(spans: list[dict], root_id: str) -> list[dict] | None:
@@ -1146,6 +1322,17 @@ _VIEWS: dict[tuple[str, str], str] = {
     # view_options={"compare_to": ...} — the diff against another run. See the
     # builder for why the compare rides this view instead of `reproduce`.
     (EntityType.RUN, View.CODE): "_view_run_code",
+    # The metric views saved on the run -- the id a chart or a follow-up read
+    # names one by. Nothing else on this surface lists them.
+    (EntityType.RUN, View.VIEWS): "_view_run_views",
+    # One trial's begin/end FILESYSTEM diff (the sandbox-state bundle), needing
+    # `view_options.trial`. Rows are the changed paths; `counts` totals the
+    # whole scan whatever the window.
+    (EntityType.RUN, View.DIFF): "_view_run_diff",
+    # The captured coding sessions that produced the run. Only the run BUNDLE
+    # carries them (`GET /v1/runs/{ref}` does not, and `handoff` drops them), so
+    # "which session made this run" had no answer here before this view.
+    (EntityType.RUN, View.SESSIONS): "_view_run_sessions",
     (EntityType.EXPERIMENT, View.CARD): "_view_card_with_notes",
     (EntityType.EXPERIMENT, View.NOTES): "_view_experiment_notes",
     (EntityType.EXPERIMENT, View.SUMMARY): "_view_experiment_summary",
@@ -1182,6 +1369,9 @@ _VIEWS: dict[tuple[str, str], str] = {
     # excerpt idiom would truncate exactly the summaries worth reading.
     (EntityType.PROJECT, View.PAPERS): "_view_project_papers",
     (EntityType.PROJECT, View.LINEAGE): "_view_project_lineage",
+    # The attached repository's README, as text. A document view: delivery
+    # pages its markdown in text fragments, the repo and commit riding along.
+    (EntityType.PROJECT, View.README): "_view_project_readme",
     (EntityType.GROUP, View.CARD): "_view_card_with_notes",
     (EntityType.GROUP, View.NOTES): "_view_group_notes",
     # One rollout as an entity (0135). NO `notes` view and no notes excerpt on the
@@ -1203,6 +1393,13 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.ARTIFACT, View.LINEAGE): "_view_artifact_lineage",
     (EntityType.ARTIFACT, View.CARD): "_view_artifact_card",
     (EntityType.ARTIFACT, View.VERSIONS): "_view_artifact_versions",
+    # The captured sessions that registered or touched the file -- "who made
+    # this", which the artifact's own row does not say.
+    (EntityType.ARTIFACT, View.SESSIONS): "_view_artifact_sessions",
+    # One titled SUB-NOTE (0146). Like the team note, its card IS the document:
+    # the `notes` view shows each sub-note as a 700-character excerpt, and this
+    # is where the rest lives. Card only -- see the RECORD note below.
+    (EntityType.SUB_NOTE, View.CARD): "_view_sub_note_card",
     # The TEAM NOTE (research-os 0125). Its `card` IS the
     # document -- a note's identity is its contents, and excerpting here would
     # send an agent that asked for the briefing to a second call to read it. The
@@ -1219,7 +1416,17 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.SESSION, View.CARD): "_view_card",
     (EntityType.SESSION, View.TRANSCRIPT): "_view_session_transcript",
 }
-_VIEWS.update({(kind, View.RECORD): "_view_record" for kind, view in _VIEWS if view == View.CARD})
+# Every kind with a card gets the raw record -- except a sub-note, whose card
+# already IS the whole record (title, body, fullness), and which the shared
+# vocabulary (`VIEW_MATRIX`) declares card-only. Serving a pair the matrix does
+# not hold is a word this surface would have invented alone.
+_VIEWS.update(
+    {
+        (kind, View.RECORD): "_view_record"
+        for kind, view in _VIEWS
+        if view == View.CARD and kind != EntityType.SUB_NOTE
+    }
+)
 
 # Filters each (kind, view) accepts, mapped onto the backend's REAL server-side
 # filters. Anything else is rejected loudly — a silently-ignored filter returns a
@@ -1281,6 +1488,10 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # `depth` (1-5) adds the upstream walk, resolved server-side by
     # GET /v1/runs/{ref}/upstream?depth=N (0255) -- an honest backend parameter.
     (EntityType.RUN, View.LINEAGE): {"depth"},
+    # Both are the sandbox-state diff route's own query parameters. `trial` is
+    # REQUIRED there (`Query(...)`), so the builder refuses its absence in the
+    # caller's words rather than relaying a 422 about a query field.
+    (EntityType.RUN, View.DIFF): {"trial", "path_prefix"},
 }
 _VIEW_OPTIONS.update(
     {(kind, View.RECORD): {"field"} for kind, view in _VIEWS if view == View.RECORD}
@@ -1845,6 +2056,490 @@ class ResearchReadService:
             if isinstance(row, dict) and row.get("id")
         ]
 
+    # -- browse: the flat listings ------------------------------------------------
+    #
+    # Every mode but `tree` lists ONE kind of row from ONE route, newest-first or
+    # name-ordered as that route orders it. The service answers one backend page
+    # (from the position its own cursor names) and says, per row, the cursor that
+    # resumes AFTER that row (`_list_after`) -- the same contract the tree's
+    # `_browse_handles` give browse delivery, so delivery can send the largest
+    # prefix of WHOLE rows the budget holds and continue exactly where it cut,
+    # never skipping a row it did not send. See `browse_list` for why a position
+    # is always the last row sent and never a count.
+
+    #: Rows one flat-listing page fetches at most. Kept small: a notes
+    #: continuation re-reads its page to find the row it stopped after.
+    _BROWSE_LIST_MAX = 50
+
+    #: The Shared and workspace file routes' own ceiling for one read (`le=1000`).
+    #: They take no cursor, so a folder past it is unreachable by paging.
+    _FILES_BACKEND_MAX = 1_000
+
+    #: Run fields a flat run row keeps: identity, state, where it is filed, and
+    #: when. Metrics and config are other reads (`metrics`, `entity`).
+    _RUN_ROW_FIELDS = (
+        "id",
+        "slug",
+        "name",
+        "status",
+        "project_id",
+        "experiment_id",
+        "group_id",
+        "created_at",
+        "started_at",
+        "ended_at",
+        "updated_at",
+    )
+
+    #: File fields a Shared/workspace row keeps.
+    _FILE_ROW_FIELDS = (
+        "id",
+        "name",
+        "kind",
+        "size_bytes",
+        "content_type",
+        "status",
+        "created_at",
+    )
+
+    #: Excerpt length for a row's free text (a run's description, a file's notes)
+    #: -- the browse tree's own `description` excerpt, for the same reason.
+    _ROW_TEXT_CHARS = 180
+
+    #: How many backend pages one flat-listing call reads looking for a row the
+    #: caller may see, when the caller's own session work is hidden. Past it the
+    #: call answers with no rows, `next_cursor` and a marker rather than walk an
+    #: unbounded run of the caller's own rows in one request.
+    _HIDDEN_FILL_PAGES = 5
+
+    @staticmethod
+    def _list_position(cursor: str | None, mode: str) -> tuple[str | None, str | None]:
+        """`(backend cursor, the last row sent)` from this mode's continuation
+        token -- WHERE TO RESUME, never how many rows to skip.
+
+        A position is the row the previous page ENDED on, not an offset into a
+        re-fetched page: an offset counts rows, and a row that disappears (a run
+        no longer active, a note emptied, a file deleted) between two calls
+        shifts every later row by one, so the row after the cut is skipped with
+        nothing saying so. The mode rides in the token so a cursor can never be
+        replayed against a different listing."""
+        if not cursor:
+            return None, None
+        parsed = _unpack_cursor(cursor, hint="browse")
+        backend, last = parsed.get("c"), parsed.get("a")
+        if (
+            parsed.get("browse") != str(mode)
+            or (backend is not None and not isinstance(backend, str))
+            or (last is not None and not isinstance(last, str))
+        ):
+            raise errors.ValidationError(
+                f"this cursor does not continue browse(mode={str(mode)!r}): pass the "
+                "next_cursor value from a previous call with the same arguments",
+                status=422,
+            )
+        return backend, last
+
+    @staticmethod
+    def _list_cursor(mode: str, backend: str | None = None, last: str | None = None) -> str:
+        return _pack_cursor({"browse": str(mode), "c": backend, "a": last})
+
+    @staticmethod
+    def _uuid_ref(value: str, kinds: tuple[str, ...], *, what: str) -> tuple[str, str]:
+        """`kind:<uuid>` -> `(kind, uuid)` for one of `kinds`, or a refusal that
+        names the accepted forms. A UUID because these filters are UUID-typed
+        query parameters: a slug would 422 at the route in words about a field
+        the caller never wrote."""
+        kind, _, ident = str(value).partition(":")
+        try:
+            if kind not in kinds or not ident:
+                raise ValueError
+            uuid_value = str(uuid.UUID(ident))
+        except ValueError:
+            accepted = " or ".join(f"`{k}:<uuid>`" for k in kinds)
+            raise errors.ValidationError(
+                f"{what} takes {accepted}, not {value!r} (slugs go to `entity`)",
+                status=422,
+            ) from None
+        return kind, uuid_value
+
+    def _run_row(self, row: dict) -> dict:
+        node = {key: row.get(key) for key in self._RUN_ROW_FIELDS}
+        if row.get("tags"):
+            node["tags"] = row["tags"]
+        description = row.get("description")
+        if isinstance(description, str) and description:
+            node["description"] = description[: self._ROW_TEXT_CHARS]
+            if len(description) > self._ROW_TEXT_CHARS:
+                node["description_truncated"] = True
+        return _annotate(node, EntityType.RUN, api_base_url=self._api_base_url)
+
+    def _file_row(self, row: dict) -> dict:
+        node = {key: row.get(key) for key in self._FILE_ROW_FIELDS}
+        notes = row.get("notes")
+        if isinstance(notes, str) and notes:
+            node["notes"] = notes[: self._ROW_TEXT_CHARS]
+            if len(notes) > self._ROW_TEXT_CHARS:
+                node["notes_truncated"] = True
+        return _annotate(node, EntityType.ARTIFACT, api_base_url=self._api_base_url)
+
+    #: Postgres `lower()` under the research databases' C collation lowers ASCII
+    #: letters only; Python's `str.lower` would also fold `É`, and sort a row
+    #: somewhere the route never puts it.
+    _ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
+    @classmethod
+    def _workspace_key(cls, row: dict) -> tuple[str, str]:
+        """The workspace list's own order, `ORDER BY lower(name), id`
+        (app/workspaces/router.py). Code-point order on both halves IS the C
+        collation's byte order, and a uuid sorts as its lowercase hex."""
+        return (
+            str(row.get("name") or "").translate(cls._ASCII_LOWER),
+            str(row.get("id") or "").lower(),
+        )
+
+    @staticmethod
+    def _workspace_row(row: dict) -> dict:
+        # `workspace_id` IS the argument browse/search_knowledge take to scope to
+        # it, so the row spells its id that way rather than as an entity address:
+        # a workspace is a filing location, not something `entity` opens.
+        out = {"workspace_id": row.get("id")}
+        out.update(
+            {
+                key: row[key]
+                for key in ("name", "slug", "kind", "project_count")
+                if row.get(key) is not None
+            }
+        )
+        return out
+
+    @staticmethod
+    def _note_row_ref(kind: Any, ident: Any) -> tuple[str, str] | None:
+        """`(entity_type, address)` for a notes-catalog row, or None when it
+        names no openable document. The catalog's kinds are `entity`'s kinds,
+        spelled the same, except the two singletons-in-name below."""
+        if kind == NoteCatalogKind.TEAM_NOTE:
+            return EntityType.TEAM_NOTE.value, EntityType.TEAM_NOTE.value
+        if not ident:
+            return None
+        if kind == NoteCatalogKind.SUB_NOTE:
+            return EntityType.SUB_NOTE.value, f"{EntityType.SUB_NOTE.value}:{ident}"
+        try:
+            catalog = NoteCatalogKind(kind)
+        except ValueError:
+            return None
+        return catalog.value, f"{catalog.value}:{ident}"
+
+    @staticmethod
+    def _note_identity(row: dict) -> str:
+        """A catalog row's identity for resuming after it: `kind:id`, with the
+        team note's absent id spelled empty (it is the one row with none)."""
+        return f"{row.get('kind')}:{row.get('id') or ''}"
+
+    _TEAM_NOTE_IDENTITY = f"{NoteCatalogKind.TEAM_NOTE.value}:"
+
+    def _note_row(self, row: dict) -> dict:
+        resolved = self._note_row_ref(row.get("kind"), row.get("id"))
+        out: dict = {}
+        if resolved is not None:
+            out["entity_type"], out["uuid"] = resolved
+        out.update(
+            {
+                key: row[key]
+                for key in ("title", "excerpt", "chars", "limit_chars", "updated_at")
+                if row.get(key) is not None
+            }
+        )
+        # WHERE the note lives, as addresses a reader can open: the ancestry is
+        # what tells "the scorer caveat on run X" from the same title elsewhere.
+        ancestors = [
+            {"uuid": f"{a.get('kind')}:{a.get('id')}", "title": a.get("title")}
+            for a in row.get("ancestors") or []
+            if isinstance(a, dict) and a.get("id")
+        ]
+        if ancestors:
+            out["ancestors"] = ancestors
+        return out
+
+    @staticmethod
+    def _note_names_hidden(row: dict, hidden: frozenset[str]) -> bool:
+        ancestors = row.get("ancestors") or []
+        ids = [row.get("id"), *[a.get("id") for a in ancestors if isinstance(a, dict)]]
+        return any(isinstance(i, str) and i.lower() in hidden for i in ids)
+
+    @staticmethod
+    def _gone(what: str) -> errors.ValidationError:
+        """The refusal for a continuation whose resume row has disappeared.
+        Restarting is the only honest answer: guessing where the listing would
+        have continued is how a row gets skipped."""
+        return source_changed(f"the {what} this listing stopped after is gone since that page")
+
+    def browse_list(
+        self,
+        mode: str,
+        *,
+        scope: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+        active: bool | None = None,
+        query: str | None = None,
+        prefix: str | None = None,
+        workspace_id: str | None = None,
+        limit: int = 10,
+        cursor: str | None = None,
+    ) -> dict:
+        """One page of a flat listing: runs (newest first), workspaces, the
+        notes catalog, or the files in Shared / one workspace.
+
+        Returns the compact envelope plus two private keys browse delivery
+        consumes and strips: `_list_after` (per row, the cursor resuming after
+        it) and `_list_end` (the cursor after the whole page, or None). An
+        in-process caller reads `next_cursor`, which is `_list_end`.
+
+        Every resume position names the LAST ROW SENT, in the form the route can
+        act on: runs carry the list's own `(created_at, id)` keyset, notes the
+        catalog page plus the row's identity (refused, never guessed, if it is
+        gone), workspaces the row's id, files the row's name. None of them is a
+        count of rows to skip.
+        """
+        mode = BrowseMode(mode)
+        if mode is BrowseMode.TREE:
+            raise errors.ValidationError("mode=tree is browse_research", status=422)
+        page_size = max(1, min(int(limit), self._BROWSE_LIST_MAX))
+        backend_cursor, last_sent = self._list_position(cursor, mode)
+        hide_session = accounting.session_work_to_hide()
+        missing: list[str] = []
+        data: dict[str, Any] = {"mode": str(mode)}
+        # (projected row, the cursor resuming after it) for every row this call
+        # sends; `end` resumes after the whole page.
+        sent: list[tuple[dict, str | None]] = []
+        end: str | None = None
+        hidden: frozenset[str] | None = None
+
+        if mode in (BrowseMode.RUNS, BrowseMode.NOTES) and hide_session is not None:
+            created = self._session_created_ids(hide_session)
+            if created is None:
+                missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
+            else:
+                hidden, truncated = created
+                if truncated:
+                    missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
+
+        if mode is BrowseMode.RUNS:
+            project_id = experiment_id = None
+            if scope is not None:
+                kind, ident = self._uuid_ref(
+                    scope,
+                    (EntityType.PROJECT.value, EntityType.EXPERIMENT.value),
+                    what="browse(mode='runs') `ref`",
+                )
+                if kind == EntityType.PROJECT.value:
+                    project_id = ident
+                else:
+                    experiment_id = ident
+                data["scope"] = scope
+            position = backend_cursor
+            for _ in range(self._HIDDEN_FILL_PAGES):
+                rows, backend_next = self.source.run_list(
+                    project_id=project_id,
+                    experiment_id=experiment_id,
+                    status=status,
+                    tags=tags,
+                    active=bool(active),
+                    cursor=position,
+                    limit=page_size,
+                    exclude_origin_session=hide_session,
+                )
+                visible = [
+                    row
+                    for row in rows
+                    if isinstance(row, dict)
+                    and row.get("id")
+                    and not (hidden and str(row["id"]).lower() in hidden)
+                ]
+                end = self._list_cursor(mode, backend_next) if backend_next else None
+                if visible or not backend_next:
+                    break
+                position = backend_next
+            else:
+                missing.append(MissingMarker.PAGE_HIDDEN_AS_OWN_SESSION_WORK)
+            for index, row in enumerate(visible):
+                if index + 1 == len(visible):
+                    after = end
+                else:
+                    keyset = self.source.run_cursor_after(row)
+                    if keyset is None:
+                        raise errors.ValidationError(
+                            "a run row came back without `created_at`, so this "
+                            "listing cannot resume after it; raise `limit` to read "
+                            "the page whole",
+                            status=422,
+                        )
+                    after = self._list_cursor(mode, keyset)
+                sent.append((self._run_row(row), after))
+            views_by_kind = {EntityType.RUN.value}
+        elif mode is BrowseMode.NOTES:
+            if query is not None:
+                data["query"] = query
+            position, resume_after = backend_cursor, last_sent
+            for _ in range(self._HIDDEN_FILL_PAGES):
+                page = self.source.notes_catalog(query=query, cursor=position, limit=page_size)
+                rows = [row for row in (page or {}).get("items") or [] if isinstance(row, dict)]
+                backend_next = (page or {}).get("next_cursor")
+                start = 0
+                if resume_after is not None:
+                    # Only for a row the catalog's keyset cannot name: the team
+                    # note (the first page's singleton, with no keyset) or a
+                    # kind this client has no rank for. Found again in the same
+                    # page by identity.
+                    found = next(
+                        (
+                            i
+                            for i, row in enumerate(rows)
+                            if self._note_identity(row) == resume_after
+                        ),
+                        None,
+                    )
+                    if found is not None:
+                        start = found + 1
+                    elif resume_after != self._TEAM_NOTE_IDENTITY:
+                        raise self._gone("note")
+                    # A team note emptied since: it only ever led page one, so
+                    # every entity row of that page still follows it.
+                    resume_after = None
+                visible = [
+                    row
+                    for row in rows[start:]
+                    if not (hidden and self._note_names_hidden(row, hidden))
+                ]
+                end = self._list_cursor(mode, backend_next) if backend_next else None
+                if visible or not backend_next:
+                    break
+                position = backend_next
+            else:
+                missing.append(MissingMarker.PAGE_HIDDEN_AS_OWN_SESSION_WORK)
+            for index, row in enumerate(visible):
+                if index + 1 == len(visible):
+                    after = end
+                elif keyset := self.source.note_cursor_after(row):
+                    # The catalog's OWN cursor, built from the row: newer notes
+                    # landing on the first page cannot push it off its page.
+                    after = self._list_cursor(mode, keyset)
+                else:
+                    after = self._list_cursor(mode, position, self._note_identity(row))
+                sent.append((self._note_row(row), after))
+            views_by_kind = {row["entity_type"] for row, _ in sent if "entity_type" in row}
+        elif mode is BrowseMode.WORKSPACES:
+            # The whole list, every call (the route does not page; creation is
+            # capped tenant-wide), resumed at the first workspace whose SORT
+            # KEY is past the last one sent. The key, not the id: a workspace
+            # renamed between pages moves in the order, and resuming after
+            # wherever its id now sits ended the walk early or repeated rows.
+            rows = [row for row in self.source.workspaces() or [] if isinstance(row, dict)]
+            # In OUR key's order, not just the route's: they agree on prod
+            # (datcollate=C), and on a database where they do not, resuming in
+            # the route's order could hand back the same page forever.
+            rows.sort(key=self._workspace_key)
+            start = 0
+            if last_sent is not None:
+                try:
+                    name, ident = json.loads(last_sent)
+                    resume = (str(name), str(ident))
+                except (ValueError, TypeError):
+                    raise errors.ValidationError(
+                        "malformed browse cursor: pass the next_cursor value from a "
+                        "previous call with the same arguments",
+                        status=422,
+                    ) from None
+                start = next(
+                    (i for i, row in enumerate(rows) if self._workspace_key(row) > resume),
+                    len(rows),
+                )
+            window = rows[start : start + page_size]
+            for offset, row in enumerate(window, start=start):
+                after = (
+                    self._list_cursor(mode, last=json.dumps(list(self._workspace_key(row))))
+                    if offset + 1 < len(rows)
+                    else None
+                )
+                sent.append((self._workspace_row(row), after))
+            end = sent[-1][1] if sent else None
+            views_by_kind = set()
+        else:
+            if workspace_id is not None:
+                try:
+                    workspace_id = str(uuid.UUID(str(workspace_id)))
+                except ValueError:
+                    raise errors.ValidationError(
+                        f"workspace_id must be a workspace UUID (browse(mode='workspaces') "
+                        f"lists them), not {workspace_id!r}",
+                        status=422,
+                    ) from None
+                data["workspace_id"] = workspace_id
+            if prefix is not None:
+                data["prefix"] = prefix
+            # Name-ordered and cursorless: the first page reads one row past
+            # its window (so "there is more" is a fact), and a continuation reads
+            # the route's whole ceiling and resumes after the last NAME sent.
+            # Names are unique per folder, so the name IS the position.
+            rows = [
+                row
+                for row in self.source.files(
+                    workspace_id=workspace_id,
+                    prefix=prefix,
+                    limit=(
+                        min(page_size + 1, self._FILES_BACKEND_MAX)
+                        if last_sent is None
+                        else self._FILES_BACKEND_MAX
+                    ),
+                )
+                if isinstance(row, dict)
+            ]
+            start = 0
+            if last_sent is not None:
+                found = next(
+                    (i for i, row in enumerate(rows) if row.get("name") == last_sent), None
+                )
+                # A file deleted since the last page: continue at the first name
+                # after it. Code-point order IS the route's `ORDER BY name` order
+                # because the research databases are `datcollate=C` (UTF-8 bytes
+                # sort as code points do).
+                start = (
+                    found + 1
+                    if found is not None
+                    else next(
+                        (i for i, row in enumerate(rows) if str(row.get("name")) > last_sent),
+                        len(rows),
+                    )
+                )
+            window = rows[start : start + page_size]
+            capped = len(rows) >= self._FILES_BACKEND_MAX
+            if capped and start + page_size >= len(rows):
+                # The window reached the end of what one read can return.
+                missing.append(MissingMarker.FILES_BEYOND_BACKEND_LIMIT)
+            for offset, row in enumerate(window, start=start):
+                after = (
+                    self._list_cursor(mode, last=str(row.get("name")))
+                    if offset + 1 < len(rows)
+                    else None
+                )
+                sent.append((self._file_row(row), after))
+            end = sent[-1][1] if sent else None
+            views_by_kind = {EntityType.ARTIFACT.value}
+
+        data[str(mode)] = [row for row, _ in sent]
+        views = {kind: _supported_views(kind) for kind in sorted(views_by_kind)}
+        if views:
+            data["available_views"] = views
+        envelope = self._envelope(
+            data,
+            state=EnvelopeState.PARTIAL if missing else EnvelopeState.COMPLETE,
+            missing=missing,
+            next_cursor=end,
+        )
+        envelope["_list_after"] = [after for _, after in sent]
+        envelope["_list_end"] = end
+        return envelope
+
     def query_sql(
         self,
         sql: str | None = None,
@@ -2279,11 +2974,17 @@ class ResearchReadService:
             missing.append(MissingMarker.SEMANTIC_ANSWER_DEGRADED)
         if unsupported:
             missing.append(MissingMarker.KB_VALUES)
-        if isinstance(response, dict) and response.get("truncated"):
-            # The backend trimmed the response onto its size budget, so an
+        if isinstance(response, dict) and (response.get("dropped_result_count") or 0) > 0:
+            # The backend dropped whole DOCUMENTS to fit a size budget, so an
             # absent document is NOT evidence of absence. Surfacing this is the
             # whole point of the backend emitting it -- a caller that cannot see
             # the trim reads a short result set as a complete one.
+            #
+            # Keyed on dropped RESULTS, not the backend's `truncated`: that one
+            # also counts dropped chunk text, which a card never carries, so it
+            # marked 77 of 2,942 searches (30 days to 2026-10-02) partial for
+            # text this tool throws away. This tool sends no byte budget, so today it
+            # fires only if that changes.
             missing.append(MissingMarker.TRUNCATED_BY_RESPONSE_BUDGET)
         backend_ok = isinstance(response, dict) and response.get("state") == BackendSearchState.OK
 
@@ -2457,9 +3158,11 @@ class ResearchReadService:
                 raise source_changed("document is unavailable") from exc
             raise
         view = self._checked_view(kind, view)
+        offset, after = _split_get_cursor(cursor, view)
         request = _Req(
             filters=self._checked_view_options(kind, view, filters),
-            offset=_split_get_cursor(cursor, view),
+            offset=offset,
+            after=after,
         )
         result: _ViewData = getattr(self, _VIEWS[(kind, view)])(entity, request)
         # `X-Probe-Hide-Session-Work` (the daemon's reader): the entity asked for
@@ -2522,11 +3225,24 @@ class ResearchReadService:
             # _fit still emits one row at a floor of 0, so a caller always makes
             # progress and the overflow is reported below rather than hidden.
             window = result.rows[request.offset :]
-            emitted = _fit(window, max(0, token_budget - _tokens(data)))
+            if result.resume_key and _MIN_TOKEN_BUDGET <= token_budget <= _MAX_TOKEN_BUDGET:
+                emitted = self._fit_resume_rows(view, data, window, result, missing, token_budget)
+            else:
+                emitted = _fit(window, max(0, token_budget - _tokens(data)))
             data[result.rows_key] = emitted
             budget_cut = len(emitted) < len(window)
             rows_exhausted = not budget_cut and not result.more_beyond
-            if budget_cut or result.more_beyond:
+            if (budget_cut or result.more_beyond) and result.resume_key:
+                # Resume on the route's own cursor, after the last row SENT --
+                # or, having sent none, from where this page itself began.
+                next_cursor = _join_get_cursor(
+                    view,
+                    0,
+                    after=(
+                        str(emitted[-1].get(result.resume_key)) if emitted else request.after
+                    ),
+                )
+            elif budget_cut or result.more_beyond:
                 next_cursor = _join_get_cursor(view, request.offset + len(emitted))
             if budget_cut:
                 # Only a BUDGET cut is "partial". Reaching the end of a fetch
@@ -2577,6 +3293,75 @@ class ResearchReadService:
     # -- view builders -------------------------------------------------------
     # Contract: report what is genuinely absent in `missing`, and NEVER report it
     # unconditionally — an always-`missing` view is the lie this rewrite removes.
+
+    @staticmethod
+    def _fit_resume_rows(
+        view: str,
+        data: dict[str, Any],
+        window: list[dict],
+        result: _ViewData,
+        missing: list[str],
+        token_budget: int,
+    ) -> list[dict]:
+        """As many WHOLE rows of a `resume_key` view as the delivered page holds,
+        measured EXACTLY -- the compact envelope, its markers, and the cursor
+        delivery will wrap around the last row's key -- as `metrics_series`
+        measures its series.
+
+        Its cursor carries that KEY (a diff carries a path), so it grows with
+        the rows, and the chars/4 estimate other views fit on undercounts
+        path-like text badly. Fitted that way, every page of long paths
+        overflowed once the cursor landed and went out as fragments: 29 calls
+        for 60 entries of 250-character paths where an offset cursor took 22.
+        One row is always sent; one too big alone is fragmented by delivery."""
+        budget = Budget(token_budget)
+        request_id = hashlib.sha256(b"resume-cursor-stand-in").hexdigest()[:32]
+
+        def page(count: int) -> dict:
+            rows = window[:count]
+            more = count < len(window) or result.more_beyond
+            cursor = (
+                _encode_delivery_cursor(
+                    {
+                        "native": _join_get_cursor(
+                            view, 0, after=str(rows[-1].get(result.resume_key))
+                        )
+                    },
+                    request_id,
+                )
+                if more and rows
+                else None
+            )
+            marked = [*missing]
+            if count < len(window):
+                marked.append(MissingMarker.TRUNCATED_BY_TOKEN_BUDGET)
+            return omit_defaults(
+                {
+                    "data": {**data, result.rows_key: rows},
+                    "completeness": {
+                        "state": EnvelopeState.PARTIAL if marked else EnvelopeState.COMPLETE,
+                        "missing": marked,
+                    },
+                    "next_cursor": cursor,
+                }
+            )
+
+        def fits(count: int) -> bool:
+            try:
+                return budget.fits(page(count))
+            except ContinuationError:
+                # A cursor too large to encode (one very long path as the
+                # last row) cannot end a page; a shorter page may still fit.
+                return False
+
+        low, high, kept = 1, len(window), min(1, len(window))
+        while low <= high:
+            mid = (low + high) // 2
+            if fits(mid):
+                kept, low = mid, mid + 1
+            else:
+                high = mid - 1
+        return window[:kept]
 
     @staticmethod
     def _bounded(fetch: Any, offset: int, backend_max: int) -> tuple[list[dict], bool, bool]:
@@ -2995,6 +3780,10 @@ class ResearchReadService:
                     "chars": row.get("chars"),
                     "limit_chars": row.get("limit_chars"),
                 }
+                if row.get("id"):
+                    # The address of the WHOLE sub-note: the excerpt below is
+                    # bounded, and `entity` on this reads the rest.
+                    item["uuid"] = f"{EntityType.SUB_NOTE.value}:{row['id']}"
                 try:
                     body = self.source.client.get_sub_note(str(row["id"])).get("body") or ""
                 except errors.RosError:
@@ -3008,7 +3797,9 @@ class ResearchReadService:
                     if len(body) > _SUB_NOTE_VIEW_EXCERPT:
                         item["truncated"] = True
                         item["read_all"] = (
-                            "the entity page's Notes tab, or `probe notes show --note <title>`"
+                            "entity(refs=[uuid])"
+                            if "uuid" in item
+                            else "the entity page's Notes tab, or `probe notes show --note <title>`"
                         )
                 section.append(item)
             if section:
@@ -3304,6 +4095,14 @@ class ResearchReadService:
                 "artifact_total": total,
                 "parent_run_id": bundle.get("parent_run_id"),
                 "child_run_ids": bundle.get("child_run_ids"),
+                # A source-backed run whose provider read failed comes back with
+                # an EMPTY catalog and the reason here; without it `series: []`
+                # reads as "this run logged no metrics".
+                **(
+                    {"source_error": bundle["source_error"]}
+                    if bundle.get("source_error")
+                    else {}
+                ),
             },
             rows=artifacts,
             rows_key="artifacts",
@@ -3429,6 +4228,94 @@ class ResearchReadService:
 
     def _view_events(self, entity: dict, request: _Req) -> _ViewData:
         return _ViewData(rows=self.source.run_events(str(entity["id"])), rows_key="events")
+
+    def _view_run_views(self, entity: dict, request: _Req) -> _ViewData:
+        """The metric views saved on this run, each with its expression `spec`.
+        `updated_at` is kept: it is the precondition a view edit sends."""
+        rows = [
+            {key: row[key] for key in _SAVED_VIEW_FIELDS if row.get(key) is not None}
+            for row in self.source.run_views(str(entity["id"]))
+            if isinstance(row, dict)
+        ]
+        return _ViewData(rows=rows, rows_key="views")
+
+    def _view_run_diff(self, entity: dict, request: _Req) -> _ViewData:
+        """One trial's begin/end filesystem diff: the CHANGED paths as rows,
+        whole-scan `counts` in the fixed payload.
+
+        ONE route page per call, read from the route's own path cursor: the
+        next cursor names the last path SENT (`resume_key`), so a continuation
+        asks the route for the paths after it. Re-walking from the first path
+        and skipping the ones already sent re-read the trial's manifests from
+        storage once per page, and every changed path stays reachable without a
+        walk bound. `view_options.path_prefix` narrows server-side."""
+        trial = request.filters.get("trial")
+        if not isinstance(trial, str) or not trial.strip():
+            raise errors.ValidationError(
+                'view="diff" needs view_options.trial: the trial (attempt) whose '
+                "sandbox filesystem to diff. It is `meta.sandbox_state.attempt_ref` "
+                'on the run\'s sandbox-state files, which view="artifacts" lists.',
+                status=422,
+            )
+        path_prefix = request.filters.get("path_prefix")
+        if path_prefix is not None and not isinstance(path_prefix, str):
+            raise errors.ValidationError("view_options.path_prefix must be a string", status=422)
+        page = self.source.run_sandbox_diff(
+            str(entity["id"]),
+            trial=trial,
+            path_prefix=path_prefix,
+            cursor=request.after,
+            limit=_PAGE_FETCH,
+        )
+        entries = [e for e in page.get("entries") or [] if isinstance(e, dict)]
+        payload: dict[str, Any] = {
+            key: page[key]
+            for key in ("trial", "compare_mode", "counts", "integrity", "limits")
+            if page.get(key)
+        }
+        payload["filters"] = request.filters
+        return _ViewData(
+            payload=payload,
+            rows=[{k: v for k, v in e.items() if v is not None} for e in entries],
+            rows_key="entries",
+            more_beyond=bool(page.get("next_cursor")) and bool(entries),
+            resume_key="path",
+        )
+
+    def _view_run_sessions(self, entity: dict, request: _Req) -> _ViewData:
+        """The captured coding sessions that produced this run, read off the run
+        BUNDLE -- the only route that carries them."""
+        bundle = self.source.bundle(str(entity["id"]))
+        return _sessions_view(bundle.get("sessions"), bundle.get("session_total"))
+
+    def _view_artifact_sessions(self, entity: dict, request: _Req) -> _ViewData:
+        """The captured sessions that registered or touched this file."""
+        out = self.source.artifact_sessions(str(entity["id"]), limit=_SESSIONS_ROUTE_MAX)
+        return _sessions_view(out.get("sessions"), out.get("session_total"))
+
+    def _view_project_readme(self, entity: dict, request: _Req) -> _ViewData:
+        """The attached repository's README. Only a `snapshot` carries text; every
+        other state says WHY there is none in `note`, because an absent
+        `markdown` reads the same for "no repository attached", "Probe holds no
+        copy, read it on GitHub" and "GitHub refused" -- and only the first is
+        a fact about the project."""
+        readme = self.source.project_readme(str(entity["id"]))
+        shaped = {key: readme[key] for key in _README_FIELDS if readme.get(key) is not None}
+        note = _readme_note(readme.get("state"), readme.get("reason"))
+        if note:
+            shaped["note"] = note
+        return _ViewData(payload={"readme": shaped})
+
+    def _view_sub_note_card(self, entity: dict, request: _Req) -> _ViewData:
+        """One sub-note, WHOLE -- its card is the document, as the team note's
+        is. Pinned so a paged read cannot splice two versions together."""
+        if current_delivery() is not None:
+            entity["body"] = pin_document(
+                entity.get("body") or "", f"{EntityType.SUB_NOTE.value}:{entity.get('id')}"
+            )
+        if entity.get("body"):
+            return _ViewData()
+        return _ViewData(payload={"state": "empty"})
 
     def _view_groups(self, entity: dict, request: _Req) -> _ViewData:
         """Sweeps/ensembles under an experiment — reached by a view, not by a
@@ -3772,6 +4659,338 @@ class ResearchReadService:
             state=EnvelopeState.PARTIAL if more else EnvelopeState.COMPLETE,
             missing=[MissingMarker.ROWS_BEYOND_PAGE_BOUND] if more else [],
             next_cursor=str(points[-1]["id"]) if more else None,
+        )
+
+    #: Points per series a `series` read asks the backend for when the caller
+    #: names no `max_points`. The backend's own default is EVERY point, and one
+    #: 10k-step series is ~100k tokens: no response can carry it. 100 is the
+    #: chart path's min-max downsample (endpoints and extremes kept), and the
+    #: response says the number it used.
+    _SERIES_DEFAULT_MAX_POINTS = 100
+
+    #: How many per-series read failures one response lists; the count is exact.
+    _SERIES_ERRORS_LISTED = 20
+
+    #: The provenance of an exact local read. A series whose provenance differs
+    #: (a provider's sample, a bucket-smoothed curve) carries it on its row.
+    _EXACT_PROVENANCE = {"source": "probe", "coverage": "complete", "exactness": "exact"}
+
+    #: What the API stamps on EVERY local series of a read that named
+    #: `max_points` (`provider_reads.local_read_provenance`), whether or not the
+    #: downsample dropped a point. Kept on a row only when the row can have been
+    #: cut -- see `_series_row`.
+    _LOCAL_DISPLAY_SAMPLE = {"source": "probe", "coverage": "sampled", "exactness": "sampled"}
+
+    #: `delivery_context` snapshot source for a series read's identity hash.
+    _SERIES_SNAPSHOT = "series"
+
+    @staticmethod
+    def _series_run_id(value: Any) -> str:
+        """A run UUID from `<uuid>` or `run:<uuid>` (browse's `uuid` field).
+        The series route types `run_ids` as UUIDs, so a slug is refused here in
+        words that say how to get the id, not relayed as a body 422."""
+        text = str(value)
+        ident = text[len("run:") :] if text.startswith("run:") else text
+        try:
+            return str(uuid.UUID(ident))
+        except ValueError:
+            raise errors.ValidationError(
+                f"mode=series takes run UUIDs, not {text!r}: a slug resolves with "
+                f'entity(refs=["run:<slug>"]), whose card carries the id',
+                status=422,
+            ) from None
+
+    @classmethod
+    def _plain_display_sample(cls, series: dict) -> bool:
+        provenance = series.get("read_provenance")
+        return isinstance(provenance, dict) and all(
+            provenance.get(key) == value for key, value in cls._LOCAL_DISPLAY_SAMPLE.items()
+        )
+
+    @staticmethod
+    def _catalog_identity(series: dict) -> tuple:
+        return (
+            str(series.get("run_id")),
+            series.get("kind"),
+            series.get("key"),
+            serialize(series.get("dimensions") or {}),
+        )
+
+    def _logged_counts(self, raw: list[dict], keys: list[str]) -> dict[tuple, int]:
+        """How many points each LOCALLY-sampled series has logged in all, from
+        the catalog (`POST /v1/series/latest`: one call, no point scan) -- what
+        tells a series the downsample cut from one it returned whole.
+
+        Only for the runs that carry the API's blanket "sampled" stamp; a
+        provider's receipt is its own and is never second-guessed (asking would
+        also cost a provider read). Empty on any failure, which keeps every
+        stamp: unsure reads as "may be sampled", never as "exact"."""
+        runs = sorted({str(s.get("run_id")) for s in raw if self._plain_display_sample(s)})
+        if not runs:
+            return {}
+        try:
+            answer = self.source.latest_scalars(runs, keys=keys) or {}
+        except errors.RosError:
+            return {}
+        return {
+            self._catalog_identity(row): row["point_count"]
+            for row in answer.get("scalars") or []
+            if isinstance(row, dict)
+            and isinstance(row.get("point_count"), int)
+            and not isinstance(row.get("point_count"), bool)
+        }
+
+    @classmethod
+    def _series_row(
+        cls, series: dict, fields: list[str], max_points: int, logged: int | None = None
+    ) -> dict:
+        """One series, its points as positional arrays in `point_fields` order.
+
+        Positional because a point object repeats its three key names on every
+        point -- most of a long series' tokens -- and the legend rides once on
+        the response instead."""
+
+        def cell(point: dict, field: str) -> Any:
+            value = point.get(field)
+            # Strict JSON: a non-finite float would fail the whole response.
+            if isinstance(value, float) and not math.isfinite(value):
+                return None
+            return value
+
+        points = [
+            [cell(point, field) for field in fields]
+            for point in series.get("points") or []
+            if isinstance(point, dict)
+        ]
+        row: dict[str, Any] = {
+            "run_id": str(series.get("run_id")),
+            "key": series.get("key"),
+            "kind": series.get("kind"),
+        }
+        if series.get("dimensions"):
+            row["dimensions"] = series["dimensions"]
+        if series.get("x_axis") not in (None, "step"):
+            row["x_axis"] = series["x_axis"]
+        provenance = series.get("read_provenance")
+        if isinstance(provenance, dict):
+            if cls._plain_display_sample(series) and logged is not None and logged <= max_points:
+                # The API stamps every local series of a `max_points` read as
+                # sampled, so on its own the stamp says only that a bound was
+                # sent. The downsample only runs on more points than the bound,
+                # and a series that has LOGGED no more than that -- in all, so
+                # in any step window too -- came back whole. Its returned count
+                # cannot say this: a cut series often comes back a point or two
+                # short of the bound (an endpoint is also a bucket's extreme),
+                # and a flat one far shorter.
+                provenance = None
+            if provenance is not None and any(
+                provenance.get(key, default) != default
+                for key, default in cls._EXACT_PROVENANCE.items()
+            ):
+                row["read_provenance"] = {
+                    key: value
+                    for key, value in provenance.items()
+                    if value is not None and key != "fetched_at"
+                }
+        row["point_count"] = len(points)
+        row["points"] = points
+        return row
+
+    @staticmethod
+    def _series_identity(series: dict) -> list:
+        """What makes a series row THE SAME row on a re-read: never its points,
+        which a still-logging run keeps adding to."""
+        return [
+            str(series.get("run_id")),
+            series.get("kind"),
+            series.get("key"),
+            serialize(series.get("dimensions") or {}),
+            str(series.get("x_axis") or ""),
+        ]
+
+    def _check_series_identity(self, raw: list[dict]) -> None:
+        """Refuse to continue a series read whose LIST of series changed.
+
+        Each page re-runs the query (the route takes no cursor) and the cursor
+        is an index into its rows. If a series appears or vanishes between two
+        pages -- a W&B read that fails on page 2, or recovers -- the same index
+        names a different series and one is skipped or repeated with nothing
+        saying so. The first page's identity hash rides the delivery cursor;
+        every later page must match it or say "restart".
+
+        KNOWN COST, accepted: every page re-reads every series (provider reads
+        included), because the cursorless route offers nothing narrower."""
+        digest = hashlib.sha256(
+            serialize([self._series_identity(series) for series in raw]).encode("utf-8")
+        ).hexdigest()
+        context = current_delivery()
+        if context is None:
+            return
+        if context.snapshot is None:
+            context.snapshot = {"source": self._SERIES_SNAPSHOT, "end": 0, "sha256": digest}
+            return
+        if context.snapshot.get("source") != self._SERIES_SNAPSHOT:
+            raise source_changed("document identity changed")
+        if context.snapshot.get("sha256") != digest:
+            raise source_changed(
+                "the series this read returns changed since its first page (a series "
+                "appeared or vanished -- a provider read can fail or recover between "
+                "calls)"
+            )
+
+    def metrics_series(
+        self,
+        run_ids: list[str],
+        keys: list[str],
+        *,
+        step_from: int | None = None,
+        step_to: int | None = None,
+        smoothing: str | None = None,
+        max_points: int | None = None,
+        offset: int = 0,
+        token_budget: int = 2000,
+    ) -> dict:
+        """Several runs x several keys in one read (`POST /v1/series/query`).
+
+        One ROW per series (run x key x dimensions). The read is one backend
+        call; the response carries as many WHOLE series as `token_budget`
+        holds, measured with the real tokenizer, and `next_cursor` is the
+        index of the next series (pass it back as the cursor argument).
+
+        A series is never split across responses. One that does not fit even
+        alone is REFUSED with the budget that would carry it (or the
+        `max_points` that would fit the largest budget): a series re-read for
+        its second half on a still-logging run is a different series, so a
+        multi-response series could not be put back together.
+        """
+        ids = [self._series_run_id(run) for run in run_ids]
+        bound = self._SERIES_DEFAULT_MAX_POINTS if max_points is None else int(max_points)
+        body: dict[str, Any] = {"keys": list(keys), "max_points": bound}
+        if step_from is not None:
+            body["step_from"] = step_from
+        if step_to is not None:
+            body["step_to"] = step_to
+        if smoothing is not None:
+            body["smoothing"] = str(smoothing)
+        result = self.source.query_series(ids, **body) or {}
+        raw = [series for series in result.get("series") or [] if isinstance(series, dict)]
+        self._check_series_identity(raw)
+        # The timestamp column is decided by the series' AXIS, not only by
+        # whether a point lacks a step: a step window drops every stepless point,
+        # and a wall-clock series must still say when its points were logged.
+        timed = any(series.get("x_axis") == "wall_clock" for series in raw) or any(
+            isinstance(point, dict) and point.get("step_index") is None
+            for series in raw
+            for point in series.get("points") or []
+        )
+        fields = ["step_index", "value"]
+        if timed:
+            fields.append("wall_clock")
+        if smoothing is not None:
+            fields.append("smoothed")
+        logged = self._logged_counts(raw, list(keys))
+        rows = [
+            self._series_row(series, fields, bound, logged.get(self._catalog_identity(series)))
+            for series in raw
+        ]
+        failures = [error for error in result.get("errors") or [] if isinstance(error, dict)]
+        if offset > len(rows):
+            raise errors.ValidationError(
+                "this cursor is past the end of the series read; repeat it without cursor",
+                status=422,
+            )
+        source_missing: list[str] = []
+        if result.get("truncated"):
+            # The backend's raw-point safety ceiling: points past it were never
+            # read, so a line may end early. Narrow the keys or the step window.
+            source_missing.append(MissingMarker.METRIC_POINTS_BEYOND_BACKEND_LIMIT)
+        if failures:
+            source_missing.append(MissingMarker.SERIES_READ_ERRORS)
+
+        def build(count: int, next_cursor: str | None, extra: dict | None = None) -> dict:
+            data: dict[str, Any] = {
+                "max_points": bound,
+                "point_fields": fields,
+                "series_total": len(rows),
+                "series": rows[offset : offset + count],
+                **(extra or {}),
+            }
+            if failures and offset == 0:
+                data["errors"] = failures[: self._SERIES_ERRORS_LISTED]
+                if len(failures) > self._SERIES_ERRORS_LISTED:
+                    data["errors_total"] = len(failures)
+            missing = list(source_missing)
+            if offset + count < len(rows):
+                missing.append(
+                    MissingMarker.TRUNCATED_BY_TOKEN_BUDGET
+                    if count
+                    else MissingMarker.FIRST_RESULT_EXCEEDS_BUDGET
+                )
+            return omit_defaults(
+                {
+                    "data": data,
+                    "completeness": {
+                        "state": EnvelopeState.PARTIAL if missing else EnvelopeState.COMPLETE,
+                        "missing": missing,
+                    },
+                    "next_cursor": next_cursor,
+                }
+            )
+
+        remaining = len(rows) - offset
+        budget = Budget(max(_MIN_TOKEN_BUDGET, min(int(token_budget), _MAX_TOKEN_BUDGET)))
+        # Measured with a STAND-IN for the delivery cursor that will replace the
+        # native one: delivery wraps `next_cursor` in a bound, compressed token of
+        # about this size, and a fit computed without it overflows by exactly
+        # that much.
+        stand_in = _DELIVERY_CURSOR_STAND_IN
+        low, high, kept = 1, remaining, 0
+        while low <= high:
+            mid = (low + high) // 2
+            if budget.fits(build(mid, stand_in if mid < remaining else None)):
+                kept, low = mid, mid + 1
+            else:
+                high = mid - 1
+        if remaining and not kept:
+            # Not even the next series fits. Say what would, rather than cut it.
+            needed = _budget_cost(build(1, stand_in if remaining > 1 else None))
+            extra: dict[str, Any] = {"next_series_tokens": needed}
+            # WITH HEADROOM, as `_budget_for` names its number: the retry
+            # re-reads the series, and on a still-logging run with noisy values
+            # it comes back a little longer -- a hint of exactly `needed` was
+            # refused again on retry in 7 of 12 seeds, 1-12 tokens short.
+            hint = -(-int(needed * _SERIES_BUDGET_HEADROOM) // 100) * 100
+            if hint <= _MAX_TOKEN_BUDGET:
+                extra["min_token_budget"] = hint
+                extra["retry"] = (
+                    "repeat this call (same cursor) with token_budget >= min_token_budget"
+                )
+            else:
+                points = rows[offset].get("point_count") or 0
+                extra["fits_max_points"] = max(
+                    2, int(points * _MAX_TOKEN_BUDGET / (needed * _SERIES_BUDGET_HEADROOM))
+                )
+                if needed <= _MAX_TOKEN_BUDGET:
+                    # It fits the largest budget today, with too little room to
+                    # promise a re-read will.
+                    extra["min_token_budget"] = _MAX_TOKEN_BUDGET
+                extra["retry"] = (
+                    "this series is at the largest token_budget's edge or past it: repeat "
+                    "the read with max_points <= fits_max_points"
+                )
+            shaped = build(0, None, extra)
+            return self._envelope(
+                shaped["data"],
+                state=EnvelopeState.PARTIAL,
+                missing=(shaped.get("completeness") or {}).get("missing", []),
+            )
+        next_cursor = str(offset + kept) if offset + kept < len(rows) else None
+        shaped = build(kept, next_cursor)
+        return self._envelope(
+            shaped["data"],
+            state=(shaped.get("completeness") or {}).get("state", EnvelopeState.COMPLETE),
+            missing=(shaped.get("completeness") or {}).get("missing", []),
+            next_cursor=next_cursor,
         )
 
     def research_compare(

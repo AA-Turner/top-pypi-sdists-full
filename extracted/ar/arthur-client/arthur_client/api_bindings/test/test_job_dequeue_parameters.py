@@ -35,7 +35,8 @@ class TestJobDequeueParameters(unittest.TestCase):
         model = JobDequeueParameters()
         if include_optional:
             return JobDequeueParameters(
-                memory_limit_mb = 56
+                memory_limit_mb = 56,
+                discovery_source_test = True
             )
         else:
             return JobDequeueParameters(

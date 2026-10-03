@@ -1091,7 +1091,18 @@ async def persist_completed_request(
                             if _exec_state is not None:
                                 _exec_state.reserved_message_ids[position] = msg_id
                                 reserved_msg_ids[position] = msg_id
-                            if tracker and emitter:
+                            # Only an OUTPUT row (at or after the run's first
+                            # result position) is an iteration for the client to
+                            # write into. An INPUT row this persist also writes —
+                            # the agent's authored assistant prefill, consumed
+                            # into the reply and hidden from the person — is
+                            # never announced: announced, it sat BEFORE the
+                            # reply's own reservation, the client wrote the
+                            # streamed answer onto that hidden row and left the
+                            # real answer row pending and empty (Model / Settings
+                            # battle, variables-only first turn, 2026-10-01).
+                            _is_output_row = start_pos is None or position >= start_pos
+                            if tracker and emitter and _is_output_row:
                                 try:
                                     await tracker.reserve(
                                         emitter=emitter,
@@ -1479,6 +1490,7 @@ async def persist_completed_request(
             # multi-call cumulative usage_by_model is rebuilt fresh from
             # this call's contribution only.
             prior_by_model: dict[str, Any] = {}
+            prior_ttft_ms: Any = None
             if _get_coordinator() is None:
                 existing_ur_rows = await _cxm().user_request.filter_user_requests(
                     id=user_request_id
@@ -1486,6 +1498,7 @@ async def persist_completed_request(
                 if existing_ur_rows:
                     prior_meta = getattr(existing_ur_rows[0], "metadata", {}) or {}
                     prior_by_model = prior_meta.get("usage_by_model", {})
+                    prior_ttft_ms = prior_meta.get("ttft_ms")
 
             # Start from prior state, then add this execution's contributions.
             merged_by_model: dict[str, Any] = dict(prior_by_model)
@@ -1530,6 +1543,10 @@ async def persist_completed_request(
                 request_metadata["response_id"] = completed.metadata["response_id"]
             if merged_by_model:
                 request_metadata["usage_by_model"] = merged_by_model
+            # TTFT is the FIRST output of the turn: an earlier call that shares
+            # this user_request already recorded it, and that value stands.
+            if isinstance(prior_ttft_ms, int):
+                request_metadata["ttft_ms"] = prior_ttft_ms
 
             # 🚨 THE TOTALS ARE NOT WRITTEN HERE — they are DERIVED (migration
             # 0791). Every one of total_cost / total_*_tokens / *_duration_ms /
@@ -1762,7 +1779,7 @@ async def _refresh_cache_state(
     last_req = req_rows[-1]
     # ``cx_request.provider`` stores TokenUsage.api, the vendor tag
     # ("openai" / "groq" / "anthropic"). Renamed from the misnomer ``api_class``
-    # in migration ai_035 (see /Users/armanisadeghi/code/common-docs/systems/agents/ai-models/DECISIONS.md).
+    # in migration ai_035 (see /Users/armanisadeghi/code/common-docs/systems/ai/ai-models/DECISIONS.md).
     vendor_tag = (last_req.get("provider") or "").lower()
     provider_hint = _provider_from_vendor_tag(vendor_tag)
 

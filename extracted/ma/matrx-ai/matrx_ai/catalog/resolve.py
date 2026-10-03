@@ -124,6 +124,39 @@ def _resolve_pinned_offering(
     )
 
 
+def select_offering(
+    model_id: str,
+    offering_id: str | None = None,
+    *,
+    manager: AiCatalogManager | None = None,
+    model_name: str | None = None,
+) -> CatalogOffering:
+    """The offering a call on ``model_id`` in class ``offering_id`` runs — sync.
+
+    The SAME rule ``resolve_call_profile`` applies, for a reader that needs the
+    offering (its controls, its pricing, its provider model id) without
+    building a whole call profile: no pin → the model's preferred available
+    offering; a pin → that exact row, else its class's preferred available
+    offering, else RAISE (another class is a different product, never
+    substituted). The manager must already be loaded (``ensure_loaded``).
+    """
+    catalog = manager or ai_catalog_manager
+    offerings = catalog.offerings_for(str(model_id))
+    if offering_id:
+        return _resolve_pinned_offering(
+            offerings,
+            catalog,
+            offering_id=str(offering_id),
+            model_id=str(model_id),
+            model_name=model_name or str(model_id),
+        )
+    if not offerings:
+        raise CatalogRoutingError(
+            f"select_offering: model '{model_name or model_id}' has no available ai.offering"
+        )
+    return offerings[0]
+
+
 def select_tts_default_voice(
     model_name: str, voices: tuple[CatalogVoice, ...]
 ) -> str | None:
@@ -485,6 +518,7 @@ __all__ = [
     "resolve_call_profile",
     "resolve_tts_call_profile",
     "resolve_tts_voice",
+    "select_offering",
     "select_tts_default_voice",
     "validate_tts_voices",
 ]

@@ -264,7 +264,7 @@ fn tokio_configuration_and_live_signal_helpers_reach_the_os() {
         grouped.arg("30").kill_on_drop(true);
         configure_command(&mut grouped, true, false, None).unwrap();
         let mut child = grouped.spawn().unwrap();
-        after_spawn(&child, false).expect("a no-op must still succeed");
+        after_spawn(&child, false, None).expect("a no-op must still succeed");
         let pid = child.id().unwrap();
         unix_signal_process_group(pid as i32, UnixSignalKind::Terminate).unwrap();
         let status = tokio::time::timeout(Duration::from_secs(2), child.wait())
@@ -273,4 +273,182 @@ fn tokio_configuration_and_live_signal_helpers_reach_the_os() {
             .unwrap();
         assert!(!status.success());
     });
+}
+
+#[cfg(feature = "async-process")]
+#[test]
+fn nice_alone_is_applied_after_spawn_and_owner_death_keeps_pre_exec() {
+    // Owner-death runs in the child, so it keeps `pre_exec` and carries nice
+    // with it; nice alone must not (#1248).
+    assert_eq!(nice_after_spawn(false, Some(7)), Some(7));
+    assert_eq!(nice_after_spawn(false, None), None);
+    assert_eq!(nice_after_spawn(true, Some(7)), None);
+    assert_eq!(nice_after_spawn(true, None), None);
+}
+
+#[cfg(feature = "async-process")]
+#[test]
+fn nice_only_spawn_reports_the_requested_niceness_once_spawn_completes() {
+    // /proc/<pid>/stat field 19 is the niceness of the child's main thread.
+    fn niceness(pid: u32) -> i32 {
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+        let tail = &stat[stat.rfind(')').unwrap() + 1..];
+        tail.split_ascii_whitespace().nth(16).unwrap().parse().unwrap()
+    }
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        // Raising the value only lowers priority, so no CAP_SYS_NICE is needed.
+        let requested = niceness(std::process::id()).max(0) + 3;
+        let mut command = Command::new("/bin/sleep");
+        command.arg("30").kill_on_drop(true);
+        configure_command(&mut command, false, false, Some(requested)).unwrap();
+        let mut child = command.spawn().unwrap();
+        after_spawn(&child, false, Some(requested)).unwrap();
+        let pid = child.id().unwrap();
+        assert_eq!(niceness(pid), requested);
+        child.kill().await.unwrap();
+    });
+}
+
+#[cfg(feature = "async-process")]
+#[test]
+fn nice_only_spawn_kills_the_child_when_the_priority_cannot_be_applied() {
+    // Lowering niceness below the inherited value needs CAP_SYS_NICE.
+    let status = std::fs::read_to_string("/proc/self/status").unwrap();
+    let effective_uid = status
+        .lines()
+        .find_map(|line| line.strip_prefix("Uid:"))
+        .and_then(|fields| fields.split_ascii_whitespace().nth(1))
+        .and_then(|uid| uid.parse::<u32>().ok())
+        .unwrap();
+    if effective_uid == 0 {
+        return;
+    }
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let mut command = Command::new("/bin/sleep");
+        command.arg("30").kill_on_drop(true);
+        configure_command(&mut command, false, false, Some(-10)).unwrap();
+        let mut child = command.spawn().unwrap();
+        assert!(after_spawn(&child, false, Some(-10)).is_err());
+        let status = tokio::time::timeout(Duration::from_secs(2), child.wait())
+            .await
+            .expect("a child that missed its priority must not keep running")
+            .unwrap();
+        assert!(!status.success());
+    });
+}
+
+#[test]
+fn fault_code_names_are_byte_exact() {
+    // #974 PR 2: moved out of probe-daemon's crash store, spelling unchanged.
+    assert_eq!(process_fault_code_name(11), "SIGSEGV");
+    assert_eq!(process_fault_code_name(7), "SIGBUS");
+    assert_eq!(process_fault_code_name(4), "SIGILL");
+    assert_eq!(process_fault_code_name(8), "SIGFPE");
+    assert_eq!(process_fault_code_name(6), "SIGABRT");
+    assert_eq!(process_fault_code_name(5), "SIGTRAP");
+    assert_eq!(process_fault_code_name(99), "signal-99");
+}
+
+#[cfg(feature = "ipc")]
+#[test]
+fn component_runtime_dirs_are_byte_exact_for_the_probe() {
+    // #974 PR 2: probe-daemon's discovery directory used to be derived in the
+    // daemon. Pin the spelling so a running daemon's discovery file stays
+    // findable across an upgrade, and pin that sockets live inside it.
+    let xdg = Some(std::ffi::OsString::from("/run/user/1000"));
+    assert_eq!(
+        component_runtime_dir_in(xdg.clone(), 1000, "probe"),
+        std::path::PathBuf::from("/run/user/1000/running-process/probe")
+    );
+    assert_eq!(
+        component_runtime_dir_in(None, 1000, "probe"),
+        std::path::PathBuf::from("/tmp/running-process-1000/probe")
+    );
+    let socket = component_endpoint_path_in(xdg.clone(), 1000, "probe", "x");
+    assert_eq!(
+        std::path::Path::new(&socket).parent(),
+        Some(component_runtime_dir_in(xdg, 1000, "probe").as_path())
+    );
+}
+
+#[cfg(feature = "ipc")]
+#[test]
+fn component_endpoint_paths_are_byte_exact_for_the_probe_and_the_broker() {
+    // #974: probe-daemon used to derive these itself. Pinning the spelling
+    // keeps sockets that a running daemon already published reachable.
+    let xdg = Some(std::ffi::OsString::from("/run/user/1000"));
+    assert_eq!(
+        component_endpoint_path_in(xdg.clone(), 1000, "probe", "rpp-probe-abc-0"),
+        "/run/user/1000/running-process/probe/rpp-probe-abc-0.sock"
+    );
+    assert_eq!(
+        component_endpoint_path_in(None, 1000, "probe", "rpp-probe-abc-0"),
+        "/tmp/running-process-1000/probe/rpp-probe-abc-0.sock"
+    );
+    // The broker now goes through the same primitive; its spelling must not move.
+    assert_eq!(
+        component_endpoint_path_in(xdg, 1000, "broker-v2", "rpb-v2-x-0"),
+        "/run/user/1000/running-process/broker-v2/rpb-v2-x-0.sock"
+    );
+    assert_eq!(
+        component_endpoint_path_in(None, 1000, "broker-v2", "rpb-v2-x-0"),
+        "/tmp/running-process-1000/broker-v2/rpb-v2-x-0.sock"
+    );
+}
+
+#[cfg(feature = "ipc")]
+#[test]
+fn probe_and_broker_never_share_a_socket_directory() {
+    let probe = component_endpoint_path_in(None, 7, "probe", "same-name-0");
+    let broker = component_endpoint_path_in(None, 7, "broker-v2", "same-name-0");
+    assert_ne!(probe, broker);
+    assert_eq!(
+        std::path::Path::new(&probe).file_name(),
+        std::path::Path::new(&broker).file_name()
+    );
+}
+
+#[cfg(feature = "ipc")]
+#[test]
+fn broker_endpoint_name_is_the_broker_component_path() {
+    assert_eq!(
+        ipc_broker_endpoint_name("rpb-v2-x-0", false).unwrap(),
+        ipc_component_endpoint_path("broker-v2", "rpb-v2-x-0")
+    );
+}
+
+#[cfg(feature = "async-process")]
+#[tokio::test]
+async fn command_override_keeps_argv_and_applies_the_native_limit_mapping() {
+    let raw = OsStr::new("arg with 'quotes' and spaces");
+    let mut command = std::process::Command::new("/bin/sh");
+    command
+        .arg("-c")
+        .arg("printf '%s|' \"$1\"; ulimit -v")
+        .arg("sh")
+        .arg(raw);
+    let output = crate::SpawnSpec::from_std_command(command)
+        .address_space_limit_bytes(Some(1 << 40))
+        .stdin(crate::StreamMode::Null)
+        .stdout(crate::StreamMode::Piped)
+        .stderr(crate::StreamMode::Piped)
+        .spawn()
+        .await
+        .expect("spawn override")
+        .wait_with_output()
+        .await
+        .expect("wait override");
+    assert!(output.status.success(), "{output:?}");
+    let mut expected = b"arg with 'quotes' and spaces|".to_vec();
+    expected.extend_from_slice(format!("{}\n", (1u64 << 40) / 1024).as_bytes());
+    assert_eq!(output.stdout, expected);
 }

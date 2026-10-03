@@ -45,7 +45,8 @@ class TestSensitiveDataPlane(unittest.TestCase):
                 infrastructure = 'AWS',
                 last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
-                    gen_ai_enabled = True, ),
+                    gen_ai_enabled = True, 
+                    discovery_source_test = True, ),
                 client_id = '',
                 client_secret = ''
             )
@@ -61,7 +62,8 @@ class TestSensitiveDataPlane(unittest.TestCase):
                 infrastructure = 'AWS',
                 last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
-                    gen_ai_enabled = True, ),
+                    gen_ai_enabled = True, 
+                    discovery_source_test = True, ),
                 client_id = '',
                 client_secret = '',
         )

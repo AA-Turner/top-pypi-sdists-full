@@ -6,7 +6,7 @@ task by id. Chair ruling: the tool must not grow permission logic; it runs its
 ORM work inside the caller's RLS session (``as_the_person`` → the host's
 ``acting_as_caller`` → matrx-orm ``rls_session``) and Postgres decides.
 
-The ORM seams below are an in-memory workspace.tasks that behaves like the table
+The ORM seams below are an in-memory projects.tasks that behaves like the table
 under RLS: it answers ONLY inside a person session, and only with the rows that
 person may see / change. Anything that touches it outside a session, or reads a
 row by id through the identity-blind cache, is recorded as a violation.
@@ -45,7 +45,7 @@ class _Row:
 
 
 class RlsTasksTable:
-    """workspace.tasks as RLS shows it: visible/writable per acting person."""
+    """projects.tasks as RLS shows it: visible/writable per acting person."""
 
     def __init__(self) -> None:
         self.rows: dict[str, dict[str, Any]] = {}

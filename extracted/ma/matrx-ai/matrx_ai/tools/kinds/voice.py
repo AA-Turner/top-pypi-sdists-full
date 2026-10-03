@@ -199,6 +199,7 @@ class Extraction(KindSubModel):
 
 @kind(
     "voice_fingerprint",
+    disposition="record",
     label="Voice Fingerprint",
     family="brand",
     example={
@@ -271,6 +272,7 @@ class VoiceCheckStats(KindSubModel):
 
 @kind(
     "voice_measure_result",
+    disposition="record",
     label="Voice Measurement",
     family="brand",
     example={

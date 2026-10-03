@@ -1,42 +1,132 @@
 [project]
 name = "toon-format"
-version = "0.1.0"
-description = "Token-Oriented Object Notation – a token-efficient JSON alternative for LLM prompts"
+version = "1.0.0"
+description = "Official Python implementation of TOON (Token-Oriented Object Notation), a compact, human-readable encoding of the JSON data model for LLM prompts."
 readme = "README.md"
-authors = [
-    { name = "Johann Schopplich", email = "hello@johannschopplich.com" }
-]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = []
-license = { text = "MIT" }
-keywords = ["toon", "serialization", "llm", "data-format", "token-efficient"]
+keywords = [
+    "toon",
+    "serialization",
+    "llm",
+    "json",
+    "tokens",
+    "data-format",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup",
+    "Typing :: Typed",
 ]
+
+[[project.authors]]
+name = "Johann Schopplich"
+email = "hello@johannschopplich.com"
+
+[[project.authors]]
+name = "Alessio Sanfratello"
+email = "sanfra90@gmail.com"
 
 [project.urls]
 Homepage = "https://toonformat.dev"
+Documentation = "https://github.com/toon-format/toon-python/tree/main/docs"
 Repository = "https://github.com/toon-format/toon-python"
-Documentation = "https://github.com/toon-format/toon"
-"Bug Tracker" = "https://github.com/toon-format/toon-python/issues"
+Specification = "https://github.com/toon-format/spec/blob/main/SPEC.md"
+Changelog = "https://github.com/toon-format/toon-python/blob/main/CHANGELOG.md"
+Issues = "https://github.com/toon-format/toon-python/issues"
+
+[project.optional-dependencies]
+pydantic = [
+    "pydantic>=2",
+    "typing-extensions>=4.0; python_version < '3.11'",
+]
 
 [dependency-groups]
-dev = ["pytest>=8.0.0"]
+dev = [
+    "attrs>=23",
+    "hypothesis>=6.100",
+    "mypy>=1.13",
+    "prek>=0.5.4",
+    "pydantic>=2",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.8",
+]
+docs = [
+    "mkdocs>=1.6.1,<2",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings[python]>=1.0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.20,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "toon_format"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+filterwarnings = ["error"]
 
-[build-system]
-requires = ["uv_build>=0.9.7,<0.10.0"]
-build-backend = "uv_build"
+[tool.coverage.run]
+branch = true
+source = ["toon_format"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "RUF",
+    "PT",
+    "C4",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "E501",
+    "RUF001",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["toon_format"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]

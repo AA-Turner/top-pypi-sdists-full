@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcloud-rest-datastore
-Version: 9.2.1
+Version: 9.2.2
 Summary: Python Client for Google Cloud Datastore
 License: MIT
 License-File: LICENSE
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Requires-Dist: gcloud-rest-auth (>=3.1.0,<6.0.0)
 Project-URL: Repository, https://github.com/talkiq/gcloud-aio

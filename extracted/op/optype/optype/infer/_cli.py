@@ -1,27 +1,79 @@
-"""The ``optype infer`` command-line logic."""
+"""The `optype infer` command-line logic."""
 
+import argparse
 import ast
 import sys
+import warnings
+from typing import Final
 
-from optype.infer import infer
+from . import _color
+from ._backends import BackendName
+from ._color import ColorMode
+from optype.infer import InferError, InferWarning, infer
+from optype.infer._errors import describe
+
+_FORMATS: Final[tuple[BackendName, ...]] = "terse", "compat"
+_COLORS: Final[tuple[ColorMode, ...]] = "auto", "always", "never"
 
 
-def run(args: list[str]) -> None:
-    if not args:
-        sys.exit("usage: optype infer EXPR [PARAM ...]")
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="optype infer",
+        description="Infer the `optype` protocols required of a callable.",
+    )
+    parser.add_argument("--format", choices=_FORMATS, default=_FORMATS[0])
+    parser.add_argument("--color", choices=_COLORS, default=_COLORS[0])
+    # REMAINDER stops flag parsing at the expression, so a `-1` parameter position
+    # (and an expression containing `--`) reaches us intact
+    parser.add_argument("rest", nargs=argparse.REMAINDER, metavar="EXPR [PARAM ...]")
+    return parser
 
-    source, *selectors = args
-    params = [int(s) if s.lstrip("-").isdigit() else s for s in selectors]
+
+def _failure(exc: Exception) -> str:
+    message = str(exc)
+    if (cause := exc.__cause__) is not None:
+        shown = describe(cause)
+        if message != shown and not message.endswith(f"({shown})"):
+            name = type(cause).__name__
+            message += f" ({name})" if shown == name else f" ({name}: {shown})"
+    notes = "".join(f"\n  {note}" for note in getattr(exc, "__notes__", ()))
+    return f"{type(exc).__name__}: {message}{notes}"
+
+
+def run(*args: str) -> None:
+    parser = _parser()
+    ns = parser.parse_args(args)
+    rest: list[str] = ns.rest
+    if not rest:
+        parser.error("the EXPR argument is required")
+
+    backend: BackendName = ns.format
+    color: ColorMode = ns.color
+    source, *selectors = rest
+    selectors = [int(s) if s.removeprefix("-").isdigit() else s for s in selectors]
 
     body = ast.parse(source).body
     last = body[-1] if body else None
+    if isinstance(last, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        # append a reference to the definition so it becomes the final expression
+        body = ast.parse(f"{source}\n{last.name}").body
+        last = body[-1]
     if not isinstance(last, ast.Expr):
-        sys.exit("the final statement must be an expression")
+        sys.exit("the final statement must be an expression or a definition")
 
     namespace: dict[str, object] = {}
-    exec(compile(ast.Module(body[:-1], []), "<expr>", "exec"), namespace)  # noqa: S102
+    exec(compile(ast.Module(body[:-1], []), "<expr>", "exec"), namespace)
     code = compile(ast.Expression(last.value), "<expr>", "eval")
     try:
-        print(infer(eval(code, namespace), *params))  # noqa: S307, T201
-    except (NotImplementedError, ValueError, TypeError) as exc:
-        sys.exit(f"{type(exc).__name__}: {exc}")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", InferWarning)
+            rendered = infer(eval(code, namespace), *selectors, backend=backend)
+    except (InferError, ValueError) as exc:
+        sys.exit(_failure(exc))
+
+    if _color.want_color(sys.stdout, color):
+        rendered = _color.highlight(rendered)
+    print(rendered)
+    for entry in caught:
+        if issubclass(entry.category, InferWarning):
+            print(f"warning: {entry.message}", file=sys.stderr)

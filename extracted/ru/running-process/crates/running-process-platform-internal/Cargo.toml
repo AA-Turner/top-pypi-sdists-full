@@ -8,6 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 description = "Blessed platform process operations for running-process (implementation detail)"
 publish = true
+# The cosmocc APE fixture is test-only; keep its binary out of the package.
+exclude = ["tests/data/ape-hello/hello.com"]
 readme = "README.md"
 
 [lints]
@@ -35,6 +37,9 @@ pty = ["dep:portable-pty", "process-inspection"]
 # Terminal capability probing is independent of pseudo-terminal allocation and
 # remains available to the root terminal-graphics feature without `pty`.
 terminal-graphics = []
+# Extract the loader embedded in an Actually Portable Executable so a refused
+# APE image can be started without `/bin/sh`, `dd` or `gzip` (NixOS).
+ape-loader = ["dep:miniz_oxide"]
 conpty-sidecar = [
     "pty",
     "dep:dirs",
@@ -45,8 +50,9 @@ conpty-sidecar = [
 ]
 
 [dependencies]
+miniz_oxide = { version = "0.8", optional = true }
 prost = { version = "0.14", optional = true }
-running-process-protocol = { version = "=4.10.15", path = "../running-process-protocol", optional = true }
+running-process-protocol = { version = "=4.10.16", path = "../running-process-protocol", optional = true }
 tokio = { version = "1", default-features = false, features = ["io-util", "macros", "process", "rt"], optional = true }
 sysinfo = { version = "0.30", optional = true }
 interprocess = { version = "2", optional = true }
@@ -93,5 +99,5 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Registry",
     "Win32_System_Threading",
 ] }
-winapi = { version = "0.3", features = ["consoleapi", "errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "minwindef", "namedpipeapi", "processenv", "processthreadsapi", "securitybaseapi", "shellapi", "synchapi", "tlhelp32", "winbase", "wincon", "wincontypes", "windef", "winerror", "winnt", "winuser"] }
+winapi = { version = "0.3", features = ["consoleapi", "errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "minwindef", "namedpipeapi", "processenv", "processthreadsapi", "psapi", "securitybaseapi", "shellapi", "synchapi", "tlhelp32", "winbase", "wincon", "wincontypes", "windef", "winerror", "winnt", "winuser"] }
 widestring = "1"

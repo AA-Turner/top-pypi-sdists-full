@@ -31,7 +31,7 @@ def entry(tmp_path, monkeypatch):
     monkeypatch.delenv("PROBE_TOKEN", raising=False)
     monkeypatch.delenv("PROBE_MCP_TOKEN", raising=False)
     monkeypatch.delenv("PROBE_INGEST_TOKEN", raising=False)
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(main, "_version_notice", lambda: None)
     monkeypatch.setattr(main, "_outbox_notice", lambda: None)
     monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code",))
@@ -334,9 +334,9 @@ def test_installing_pi_requires_its_own_capture_grant(entry, monkeypatch):
         "collect",
         lambda: Capabilities(
             agent_source="pi",
-            capture_token_sources=(TokenSource.PROBE_CONFIG,),
-            # The Claude token can pass a status check but cannot ingest pi sessions.
-            capture_credential_valid=True,
+            # D3: the CLI config's (Claude Code) token is never one of pi's
+            # sources, so a machine signed in for Claude Code has none for pi.
+            capture_token_sources=(),
         ),
     )
     result = CliRunner().invoke(main.app, ["install", "--agent", "pi"])
@@ -477,7 +477,7 @@ def test_failed_authentication_cannot_open_the_menu(entry, monkeypatch):
 
 def test_invalid_code_is_rejected_without_bootstrapping(entry, monkeypatch):
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: pytest.fail("no work before validation")
+        bootstrap, "ensure_persistent_install", lambda **_: pytest.fail("no work before validation")
     )
     result = CliRunner().invoke(main.app, ["install", "too-short"])
     assert result.exit_code == 2, result.output

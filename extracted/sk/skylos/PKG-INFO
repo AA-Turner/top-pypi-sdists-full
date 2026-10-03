@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.43.0
+Version: 4.43.2
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, C++, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -35,6 +35,7 @@ Requires-Dist: rich>=14.0.0
 Requires-Dist: textual>=1.0.0
 Requires-Dist: keyring!=3.4.2,>=25.6.0
 Requires-Dist: requests
+Requires-Dist: packaging>=24.2
 Requires-Dist: tree-sitter<0.27,>=0.25.2
 Requires-Dist: tree-sitter-typescript<0.24,>=0.23.2
 Requires-Dist: tree-sitter-go<0.26,>=0.23.0
@@ -50,7 +51,7 @@ Requires-Dist: pyperclip
 Requires-Dist: ca9>=0.6.0
 Requires-Dist: mcp<2,>=1.0.0
 Provides-Extra: llm
-Requires-Dist: litellm<1.85.0,>=1.84.0; extra == "llm"
+Requires-Dist: litellm<1.89.0,>=1.84.0; extra == "llm"
 Requires-Dist: aiohttp>=3.14.0; extra == "llm"
 Provides-Extra: lint
 Requires-Dist: ruff>=0.15.0; extra == "lint"
@@ -62,7 +63,7 @@ Requires-Dist: cryptography>=42; extra == "verdict"
 Provides-Extra: all
 Requires-Dist: pytest>=9.0.2; extra == "all"
 Requires-Dist: packaging>=24.2; extra == "all"
-Requires-Dist: litellm<1.85.0,>=1.84.0; extra == "all"
+Requires-Dist: litellm<1.89.0,>=1.84.0; extra == "all"
 Requires-Dist: aiohttp>=3.14.0; extra == "all"
 Requires-Dist: ruff>=0.15.0; extra == "all"
 Requires-Dist: cryptography>=42; extra == "all"

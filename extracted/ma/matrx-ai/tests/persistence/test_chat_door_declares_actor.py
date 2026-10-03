@@ -16,8 +16,8 @@ Two legs, both about the real system:
 2. ``test_the_flush_emits_each_rows_author_to_postgres`` (``integration``) —
    runs the REAL flush against the LIVE database and asserts on the SQL
    asyncpg actually sent on that connection: ``set_config('app.actor_tier',
-   'human')`` immediately before the person's row is INSERTed, and
-   ``set_config('app.actor_tier','ai')`` immediately before the assistant's.
+   'user')`` immediately before the person's row is INSERTed, and
+   ``set_config('app.actor_tier','agent')`` immediately before the assistant's.
    Nothing here is stubbed — the statements are recorded by asyncpg's own
    query logger on the live connection, and the whole thing runs inside an
    outer transaction that is rolled back, so the database keeps no rows.
@@ -42,8 +42,8 @@ load_dotenv(REPO / ".env")
 
 _HAS_DB = bool(os.environ.get("SUPABASE_MATRIX_HOST"))
 
-USER_ACTOR = ("human", "chat_user_turn")
-ASSISTANT_ACTOR = ("ai", "chat_assistant_turn")
+USER_ACTOR = ("user", "chat_user_turn")
+ASSISTANT_ACTOR = ("agent", "chat_assistant_turn")
 
 
 # --------------------------------------------------------------------------
@@ -156,8 +156,8 @@ async def test_the_door_declares_an_author_per_row(monkeypatch) -> None:
         from matrx_orm.session.coalesce import coalesce_ops
 
         coalesced = {op.pk_value: op for op in coalesce_ops(list(coord._session._ops))}
-        assert coalesced[user_row].actor.tier == "human"
-        assert coalesced[assistant_row].actor.tier == "ai"
+        assert coalesced[user_row].actor.tier == "user"
+        assert coalesced[assistant_row].actor.tier == "agent"
     finally:
         stand_in.__exit__(None, None, None)
         _coordinator_cv.reset(token)
@@ -249,9 +249,9 @@ async def test_the_flush_emits_each_rows_author_to_postgres() -> None:
             elif assistant_row in str(args):
                 timeline.append("insert=assistant_row")
 
-    assert "tier=human" in timeline, f"the person's author never reached Postgres: {timeline}"
-    assert "tier=ai" in timeline, f"the assistant's author never reached Postgres: {timeline}"
-    assert timeline.index("tier=human") < timeline.index("insert=user_row"), timeline
-    assert timeline.index("tier=ai") < timeline.index("insert=assistant_row"), timeline
+    assert "tier=user" in timeline, f"the person's author never reached Postgres: {timeline}"
+    assert "tier=agent" in timeline, f"the assistant's author never reached Postgres: {timeline}"
+    assert timeline.index("tier=user") < timeline.index("insert=user_row"), timeline
+    assert timeline.index("tier=agent") < timeline.index("insert=assistant_row"), timeline
     # Each row is written under ITS OWN declaration, not one turn-wide stamp.
-    assert timeline.index("insert=user_row") < timeline.index("tier=ai"), timeline
+    assert timeline.index("insert=user_row") < timeline.index("tier=agent"), timeline

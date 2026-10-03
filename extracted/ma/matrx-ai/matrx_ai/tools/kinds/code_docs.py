@@ -24,6 +24,7 @@ _FAMILY = "code_docs"
 
 @kind(
     "llms_txt_link",
+    disposition="record",
     label="LLM-Docs Link",
     family=_FAMILY,
     example={"title": "Quickstart", "url": "https://example.com/docs/quickstart.md", "notes": None},
@@ -39,6 +40,7 @@ class LlmsTxtLink(KindModel):
 
 @kind(
     "llms_txt_section",
+    disposition="record",
     label="LLM-Docs Section",
     family=_FAMILY,
     example={"name": "Docs", "links": []},
@@ -53,6 +55,7 @@ class LlmsTxtSection(KindModel):
 
 @kind(
     "llms_txt_outline",
+    disposition="record",
     label="LLM-Docs Outline",
     family=_FAMILY,
     example={"title": "Example Docs", "summary": "Docs for Example.", "sections": []},
@@ -69,6 +72,7 @@ class LlmsTxtOutline(KindModel):
 
 @kind(
     "llms_txt_document",
+    disposition="record",
     label="LLM-Docs File",
     family=_FAMILY,
     example={
@@ -98,6 +102,7 @@ class LlmsTxtDocument(KindModel):
 
 @kind(
     "code_tree_result",
+    disposition="record",
     label="Code Tree",
     family=_FAMILY,
     example={

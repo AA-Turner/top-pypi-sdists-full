@@ -145,6 +145,7 @@ class WeatherHourReading(KindSubModel):
 
 @kind(
     "weather_history_reading",
+    disposition="record",
     label="Historical Weather Reading",
     family="weather",
     # A REAL measured payload: Open-Meteo's ERA5 archive for London on

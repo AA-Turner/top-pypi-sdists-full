@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking-sdk
-Version: 0.1.12
+Version: 0.1.13
 Summary: Lightweight Python HTTP SDK for OpenViking
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8

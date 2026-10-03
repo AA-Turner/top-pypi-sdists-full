@@ -7,7 +7,7 @@ use pyo3::types::{PyDict, PyDictMethods, PyList, PyTuple};
 use pyo3::{FromPyObject, pyfunction, wrap_pyfunction};
 
 use crate::configuration::main::load;
-use crate::constants::API_VERSION;
+use crate::constants::{API_VERSION, NATIVE_BUILD_IDENTITY};
 use crate::engine::main::evaluate;
 use crate::models::CatalogueResponse;
 use crate::rules::main::{catalogue, selected_codes};
@@ -70,6 +70,12 @@ fn value_error(error: impl std::fmt::Display) -> PyErr {
 #[pyfunction]
 fn evaluate_json(py: Python<'_>, request_json: &str) -> PyResult<String> {
     py.compiler_detach(|| evaluate::evaluate_json(request_json))
+        .map_err(value_error)
+}
+
+#[pyfunction]
+fn run_custom_host_json(py: Python<'_>, spec_json: &str) -> PyResult<String> {
+    py.compiler_detach(|| crate::engine::main::custom_host::run_custom_host_json(spec_json))
         .map_err(value_error)
 }
 
@@ -422,6 +428,7 @@ fn skill_freshness(content: Option<&str>, input_fingerprint: &str) -> String {
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(evaluate_json, module)?)?;
     module.add_function(wrap_pyfunction!(finalize_rule_findings_json, module)?)?;
+    module.add_function(wrap_pyfunction!(run_custom_host_json, module)?)?;
     module.add_function(wrap_pyfunction!(lint_sql_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_lint_sql, module)?)?;
     module.add(
@@ -469,5 +476,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(render_owned_skill, module)?)?;
     module.add_function(wrap_pyfunction!(skill_freshness, module)?)?;
     module.add("API_VERSION", API_VERSION)?;
+    module.add("BUILD_IDENTITY", NATIVE_BUILD_IDENTITY)?;
     Ok(())
 }

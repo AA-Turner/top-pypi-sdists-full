@@ -1,19 +1,27 @@
+from __future__ import annotations
+
+__lazy_modules__ = ["collections.abc"]  # py3,16
+
 import functools
 import inspect
 import logging
 import time
-from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from celery import Task
 
 from django.core.cache import cache
 
 from esi.exceptions import ESIBucketLimitException, ESIErrorLimitException, TaskBucketLimitException
-from esi.rate_limiting import ESIRateLimitBucket, ESIRateLimits, TaskRateLimitBucket, TaskRateLimits, task_bucket_slug_key, task_bucket_slug_key
+from esi.rate_limiting import (
+    ESIRateLimitBucket, ESIRateLimits, TaskRateLimitBucket, TaskRateLimits, task_bucket_slug_key,
+)
 
 from .models import CallbackRedirect, Token
+
+if TYPE_CHECKING:  # py3.14
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

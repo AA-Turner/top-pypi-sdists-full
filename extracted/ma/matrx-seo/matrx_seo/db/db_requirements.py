@@ -2,7 +2,7 @@
 # the host's `python db/generate.py --schema seo --models-only`) and binds them
 # via matrx_seo.db.configure_db(db_config_name) — wired in aidream's
 # package_integration._configure_matrx_seo(). It reads platform surfaces
-# (web.site / web.page / workspace.projects / platform.associations /
+# (web.site / web.page / projects.projects / platform.associations /
 # platform.entity_types / users.integration_connections) through its OWN
 # minimal package-owned model classes (distinct class names, same tables) so a
 # standalone install needs no host model injection; credentials come from the

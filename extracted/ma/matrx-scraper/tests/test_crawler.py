@@ -15,6 +15,7 @@ Two layers:
 
 from __future__ import annotations
 
+from fixture_origins import allow_fixture_origins
 import asyncio
 from typing import Any
 
@@ -717,6 +718,7 @@ async def test_low_text_quality_signal_warns_but_page_is_persisted(
 async def test_http_fetch_keeps_low_text_as_nonfatal_quality_detail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    allow_fixture_origins(monkeypatch, "https://x.test")  # stand-in hosts; the engine is stubbed
     import matrx_scraper.scraper as scraper_module
 
     monkeypatch.setattr(scraper_module, "CURL_CFFI_AVAILABLE", True)

@@ -606,7 +606,9 @@ MaterializedViewRefreshStateType = Literal["FAILED", "RUNNING", "STARTING", "STO
 MaterializedViewRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 MetadataOperationType = Literal["CREATE"]
 NodeTypeType = Literal["CRAWLER", "JOB", "TRIGGER"]
-OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
+OAuth2GrantTypeType = Literal[
+    "AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER", "REFRESH_TOKEN"
+]
 ObservationConfigurationType = Literal["ALL", "NONE"]
 ObservationModeType = Literal["FIXED", "SCHEDULED"]
 OverwriteChildResourcePermissionsWithDefaultEnumType = Literal["Accept", "Deny"]
@@ -867,6 +869,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -941,6 +944,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

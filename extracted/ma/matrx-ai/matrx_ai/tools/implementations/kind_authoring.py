@@ -52,7 +52,9 @@ import logging
 import traceback
 from typing import Any
 
+from matrx_graph.content_ir.sdk import disposition_refusal
 from matrx_utils.row_access import is_published, publish_columns
+from matrx_utils.text_case import humanize_identifier
 
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.implementations.kind_shared import (
@@ -255,6 +257,7 @@ async def _create_single_kind(
     title_key: str | None = None,
     loading_component: str | None = None,
     platform: bool = False,
+    disposition: str | None = None,
 ) -> tuple[Any | None, Any | None, Any | None, ToolResult | None]:
     """Persist ONE kind row + its marked canonical example + the seeded input
     component. Returns ``(kind_row, example_row, input_component_row, error)``.
@@ -277,6 +280,9 @@ async def _create_single_kind(
         "family": "user_authored",
         "generated": False,
         "created_via": "kind_create",
+        # KINDS-GLUE wave 1b: what this kind's output IS, stated by the caller. Checked by
+        # the ONE validator on the exact metadata written, right before the insert.
+        "disposition": disposition,
     }
     if description:
         metadata["description"] = description
@@ -331,6 +337,13 @@ async def _create_single_kind(
             "explicitly. Fix the caller — nothing here picks a tenant."
         )
     payload["organization_id"] = org_id
+    refusal = disposition_refusal(slug, metadata.get("disposition"))
+    if refusal:
+        return None, None, None, err(
+            "validation",
+            refusal,
+            "Pass disposition (and child_dispositions for each new nested kind) and retry.",
+        )
     # content_ir.kind_definition is certified: written AS THE PERSON (RLS +
     # governance decide). The example / input component / edges below are
     # KIND_TABLES_PENDING_CANONICAL_RLS and stay on the privileged connection.
@@ -385,6 +398,27 @@ async def _create_single_kind(
     return kd, example_fresh, input_component, None
 
 
+def _nested_kind_slugs(
+    marked: dict[str, Any], slug: str, depth: int = 1, ancestors: tuple[str, ...] = ()
+) -> set[tuple[str, tuple[str, ...]]]:
+    """Every nested kind a composed create would resolve or create, with its ancestor chain.
+
+    Walks the same marked sample ``_resolve_or_create_child`` walks, with the same
+    ``collect_child_kind_fields`` and depth cap. A nested kind is CREATED only when neither
+    it nor any ancestor already exists (an existing child is reused and not descended into).
+    """
+    if depth > _MAX_CHILD_DEPTH:
+        return set()
+    found: set[tuple[str, tuple[str, ...]]] = set()
+    for info in collect_child_kind_fields(marked, slug).values():
+        child = info["slug"]
+        found.add((child, ancestors))
+        found |= _nested_kind_slugs(
+            ensure_root_marker(info["sample"], child), child, depth + 1, (*ancestors, child)
+        )
+    return found
+
+
 async def _resolve_or_create_child(
     *,
     slug: str,
@@ -394,6 +428,7 @@ async def _resolve_or_create_child(
     ctx: ToolContext,
     depth: int,
     platform: bool = False,
+    child_dispositions: dict[str, str] | None = None,
 ) -> tuple[Any | None, bool, ToolResult | None]:
     """Resolve a nested child kind by slug, or create it from its marked
     sample (recursively — a child's own marked children become ITS edges).
@@ -450,6 +485,7 @@ async def _resolve_or_create_child(
             ctx=ctx,
             depth=depth + 1,
             platform=platform,
+            child_dispositions=child_dispositions,
         )
         if failure:
             return None, False, failure
@@ -457,7 +493,7 @@ async def _resolve_or_create_child(
 
     wire_schema = infer_schema_from_sample(marked)
     block_schema = inject_kind_markers_into_schema(wire_schema, marked, slug)
-    label = slug.replace("_", " ").title()
+    label = humanize_identifier(slug)
     kd, _example, _input_component, failure = await _create_single_kind(
         slug=slug,
         label=label,
@@ -467,6 +503,7 @@ async def _resolve_or_create_child(
         user_id=user_id,
         org_id=org_id,
         platform=platform,
+        disposition=(child_dispositions or {}).get(slug),
     )
     if failure:
         return None, False, failure
@@ -569,6 +606,8 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     loading_component = (args.get("loading_component") or "").strip() or None
     required_fields = args.get("required_fields") or None
     platform_kind = bool(args.get("platform_kind", False))
+    disposition = args.get("disposition")
+    child_dispositions = dict(args.get("child_dispositions") or {})
 
     if loading_component and loading_component not in KIND_LOADING_SLUGS:
         return err(
@@ -611,6 +650,15 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     bad_slug = validate_kind_slug_format(slug)
     if bad_slug:
         return bad_slug
+    # KINDS-GLUE wave 1b: a kind is never born without saying what its output is. The
+    # caller states it; nothing here derives or defaults one.
+    refusal = disposition_refusal(slug, disposition)
+    if refusal:
+        return err(
+            "validation",
+            refusal,
+            "Pass disposition: record, prose, proposal, receipt or envelope, then retry.",
+        )
     if slug in RESERVED_KIND_SLUGS:
         return err(
             "validation",
@@ -719,8 +767,36 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # structured items get their own item kind; most shapes are two levels.
         try:
             child_fields = collect_child_kind_fields(canonical_marked, slug)
+            nested_slugs = _nested_kind_slugs(canonical_marked, slug)
         except ValueError as ve:
             return err("validation", str(ve))
+        # Every nested kind this call would CREATE must say what it is — checked before
+        # the first write, so a refusal never leaves half a composed shape behind.
+        if nested_slugs:
+            every_slug = sorted({child for child, _ in nested_slugs})
+            live_children = {
+                str(r.kind)
+                for r in await KindDefinition.filter(kind__in=every_slug).all()
+                if r.deleted_at is None
+            }
+            undeclared = sorted(
+                {
+                    child
+                    for child, chain in nested_slugs
+                    if child not in live_children
+                    and not live_children.intersection(chain)
+                    and disposition_refusal(child, child_dispositions.get(child))
+                }
+            )
+            if undeclared:
+                return err(
+                    "validation",
+                    "The nested kinds "
+                    + ", ".join(repr(c) for c in undeclared)
+                    + " would be created without saying what their output is.",
+                    "Pass child_dispositions with one of record, prose, proposal, receipt "
+                    "or envelope for each of them, then retry.",
+                )
         resolved_children: list[tuple[str, Any, bool, bool]] = []
         for field, info in child_fields.items():
             child, created, failure = await _resolve_or_create_child(
@@ -731,6 +807,7 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 ctx=ctx,
                 depth=1,
                 platform=platform_kind,
+                child_dispositions=child_dispositions,
             )
             if failure:
                 return failure
@@ -759,6 +836,7 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             title_key=title_key,
             loading_component=loading_component,
             platform=platform_kind,
+            disposition=disposition,
         )
         if failure:
             return failure
@@ -826,7 +904,7 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 retrieval_instruction=retrieval_instruction,
                 component_authoring=ComponentAuthoringBundle(**_component_authoring_bundle()),
                 message=(
-                    f"Kind '{slug}' created "
+                    f"Kind '{slug}' created as a {disposition} "
                     + (
                         "(inactive, PLATFORM: system org, public)"
                         if platform_kind

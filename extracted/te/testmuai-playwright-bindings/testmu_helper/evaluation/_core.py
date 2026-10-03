@@ -91,7 +91,11 @@ def _values_equal(a: str, b: str) -> bool:
     return False
 
 
-def _try_parse_collection(value: str):
+def _try_parse_collection(value):
+    if isinstance(value, (dict, list)):
+        return value
+    if not isinstance(value, str):
+        return None
     """Try to parse a string as a JSON/Python list or dict."""
     stripped = value.strip()
     if not stripped:
@@ -104,6 +108,13 @@ def _try_parse_collection(value: str):
         if isinstance(parsed, (list, dict)):
             return parsed
     except (json.JSONDecodeError, ValueError):
+        pass
+    try:
+        import ast as _ast_mod
+        parsed = _ast_mod.literal_eval(stripped)
+        if isinstance(parsed, (list, dict)):
+            return parsed
+    except (ValueError, SyntaxError):
         pass
     try:
         converted = stripped.replace("'", '"')

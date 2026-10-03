@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-esi
-Version: 9.10.1
+Version: 10.0.0
 Summary: Django app for accessing the EVE Stable Interface (ESI).
 Keywords: eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -23,11 +23,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
-Requires-Dist: aiopenapi3<0.11
+Requires-Dist: aiopenapi3>=0.11
 Requires-Dist: celery>=5.2,<6
 Requires-Dist: django>=5.2,<7
 Requires-Dist: django-redis>=5.2
-Requires-Dist: httpx[brotli, http2, zstd]
+Requires-Dist: httpx2[brotli, http2, zstd]
 Requires-Dist: python-jose>=3.3
 Requires-Dist: requests>=2.26
 Requires-Dist: requests-oauthlib>=0.8

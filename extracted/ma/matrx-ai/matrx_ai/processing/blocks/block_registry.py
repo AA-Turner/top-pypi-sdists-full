@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from matrx_utils.text_case import humanize_identifier
+
 from matrx_ai.processing.blocks.models.base import StreamingBehavior
 
 type BlockTypeRowsLoader = Callable[
@@ -90,7 +92,7 @@ class BlockTypeDefinition:
 
     def __post_init__(self) -> None:
         if not self.display_name:
-            self.display_name = self.type_key.replace("_", " ").title()
+            self.display_name = humanize_identifier(self.type_key)
 
 
 # ---------------------------------------------------------------------------

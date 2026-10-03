@@ -31,6 +31,7 @@ class DiscoverySourceVendor(str, Enum):
     ELASTIC_SECURITY = 'elastic_security'
     AWS_BEDROCK = 'aws_bedrock'
     JAMF_PRO = 'jamf_pro'
+    GCP_VERTEX = 'gcp_vertex'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

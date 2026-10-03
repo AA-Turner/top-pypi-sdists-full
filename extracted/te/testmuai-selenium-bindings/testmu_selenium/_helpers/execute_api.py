@@ -482,6 +482,40 @@ def execute_api(
         "time": elapsed_ms,
     }
 
+    if _settings.get("normalization", False):
+        for key in ("headers", "cookies"):
+            folded = {}
+            for k, v in resp[key].items():
+                fk = str(k).lower()
+                folded[fk] = f"{folded[fk]}, {v}" if fk in folded else v
+            resp[key] = folded
+        for _gh in ("content-type", "cache-control", "x-request-id", "x-ratelimit-remaining"):
+            resp["headers"].setdefault(_gh, "")
+        body = resp["body"]
+        if isinstance(body, bytes):
+            try:
+                decoded = body.decode("utf-8")
+                if not decoded:
+                    resp["body"] = None
+                    resp["response_body"] = None
+                else:
+                    try:
+                        parsed = json.loads(decoded)
+                        if _settings.get("enable_json_splitter", False):
+                            parsed = _deep_unwrap_json(parsed)
+                    except (TypeError, ValueError):
+                        parsed = decoded
+                    resp["body"] = parsed
+                    resp["response_body"] = parsed
+            except Exception:
+                fallback = str(body)
+                if len(fallback) > 255:
+                    fallback = fallback[:255] + "..."
+                resp["body"] = fallback
+                resp["response_body"] = fallback
+        _log.info("    [execute_api] result=%s", str(resp.get("response_body"))[:200])
+        return resp
+
     # Normalise non-JSON-serialisable values
     for key in list(resp.keys()):
         try:

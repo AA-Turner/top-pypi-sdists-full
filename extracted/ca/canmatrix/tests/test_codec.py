@@ -7,8 +7,7 @@ import unittest
 import tempfile
 
 from canmatrix import formats
-from canmatrix.Signal import Signal
-from canmatrix.ArbitrationId import ArbitrationId
+from canmatrix.canmatrix import Signal, ArbitrationId
 
 
 class TestCanmatrixCodec(unittest.TestCase):

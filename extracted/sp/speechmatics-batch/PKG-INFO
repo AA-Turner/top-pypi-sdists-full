@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: speechmatics-batch
-Version: 1.0.0
+Version: 1.1.0
 Summary: Speechmatics Batch API Client
 Author-email: Speechmatics <support@speechmatics.com>
 License-Expression: MIT

@@ -317,19 +317,10 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "merged result they did not ask for. Agents use POST /v1/team-note/sync, "
         "which does merge and IS wired."
     ),
-    # The dashboard assistant's two server-computed writes. Not client surface
-    # because the client has a FILE: it syncs whole documents and never needs the
-    # server to compute a change for it. These exist for the one caller that has
-    # no filesystem and structurally cannot read the document to rewrite it (the
-    # note's cap is exactly the assistant's tool-result budget), so the server
-    # does its read-modify-write. Wiring them into the SDK would hand a client
-    # that already has the whole document a second, weaker way to change it.
-    ("POST", "/v1/team-note/apply/paragraph"): (
-        "dashboard-assistant surface; SDK clients sync the whole file instead"
-    ),
-    ("POST", "/v1/team-note/apply/span"): (
-        "dashboard-assistant surface; SDK clients sync the whole file instead"
-    ),
+    # NOT HERE: POST /v1/team-note/apply/paragraph and /apply/span. They were
+    # the dashboard assistant's alone, on the reasoning that every other client
+    # has the team-note FILE. The assistant now writes through the CLI from an
+    # empty directory with no file, so `probe notes append|edit --team` call them.
     # Browser OIDC legs: redirects, not JSON.
     ("GET", "/auth/login"): "browser OIDC redirect leg",
     ("GET", "/auth/callback"): "browser OIDC redirect leg",
@@ -401,11 +392,11 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "/v1/integrations/github/installations",
     ): "browser OAuth install flow; dashboard surface",
     ("DELETE", "/v1/integrations/github/installations/{}"): "connector admin; dashboard surface",
-    ("GET", "/v1/integrations/ingestion"): "connector status for the dashboard's Integrations page",
+    ("GET", "/v1/integrations/ingestion"): "per-source index stats; its dashboard strip was deleted (#2213), no caller",
     (
         "GET",
         "/v1/integrations/ingestion/{}/devices",
-    ): "per-device connector stats for the dashboard",
+    ): "per-device connector stats; its dashboard caller was deleted (#2213), no caller",
     (
         "GET",
         "/v1/integrations/{}/backfill",
@@ -493,8 +484,9 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # BROWSER — image sources point at artifact preview routes the dashboard
     # resolves against its own `/api` origin — so the value is meaningless
     # anywhere else. What the CLI and SDK genuinely need is `repo` on the entity
-    # itself, and that IS reachable through its detail read.
-    ("GET", "/v1/projects/{}/readme"): "dashboard render surface; the SDK reads project.repo",
+    # itself, and that IS reachable through its detail read. The PROJECT's README
+    # left this list: the MCP's `entity(view="readme")` reads its TEXT, which
+    # an agent can use even where the image links cannot resolve.
     (
         "GET",
         "/v1/experiments/{}/readme",
@@ -561,8 +553,9 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # tests (tests/test_base_url.py, tests/test_killswitch.py), so they stay guarded.
     (
         "POST",
-        "/ingest/v1/sessions/claude-code",
-    ): "tap plugin surface; path pinned by the tap's own tests",
+        "/ingest/v1/sessions/{}",
+    ): "tap plugin surface, one door per captured harness's registry route (claude-code, "
+    "codex, pi); paths pinned by the tap's own tests",
     (
         "GET",
         "/ingest/v1/sessions/status",
@@ -791,9 +784,9 @@ PENDING: dict[Op, str] = {
     ("GET", "/v1/chart-settings"): "dashboard-only chart axis config; no CLI verb proposed",
     ("POST", "/agent-tap/pair"): "device pairing; dashboard + agent-tap plugin surface today",
     ("POST", "/agent-tap/revoke"): "device pairing; dashboard + agent-tap plugin surface today",
-    ("POST", "/v1/pairing-tokens"): "device pairing; mint flow is dashboard-driven today",
-    ("GET", "/v1/devices"): "paired-device list; dashboard surface today",
-    ("DELETE", "/v1/devices/{}"): "unpair; dashboard surface today",
+    ("POST", "/v1/pairing-tokens"): "device pairing mint; its dashboard card was deleted (#2213), the wizard pairs by device auth",
+    ("GET", "/v1/devices"): "paired-device list; its dashboard card was deleted (#2213), no caller",
+    ("DELETE", "/v1/devices/{}"): "unpair; its dashboard card was deleted (#2213), no caller",
     # Surfaced 2026-08-24 by the `dump-openapi` that accompanied the Trial
     # notes-carrier removal. The note-publishing surface (#900 team note, #918
     # per-entity) shipped on the backend while the checked-in schema sat stale,
@@ -1021,10 +1014,7 @@ PENDING: dict[Op, str] = {
     ("DELETE", "/v1/runs/{}/public"): "share-links publish control; dashboard surface today",
     ("GET", "/v1/runs/{}/public"): "share-links publish control; dashboard surface today",
     ("PUT", "/v1/runs/{}/public"): "share-links publish control; dashboard surface today",
-    (
-        "GET",
-        "/v1/runs/{}/sandbox-state/diff",
-    ): "sandbox-state read; `probe trial` reads these through the bundle today",
+    # (`/sandbox-state/diff` left this list: the MCP's run `diff` view reads it.)
     (
         "GET",
         "/v1/runs/{}/sandbox-state/file",
@@ -1035,7 +1025,8 @@ PENDING: dict[Op, str] = {
     # snapshot too. Dashboard surfaces today; no `probe` verb designed yet.
     ("PUT", "/v1/chart-settings"): "chart presentation state; dashboard surface today",
     ("DELETE", "/v1/chart-settings"): "chart presentation state; dashboard surface today",
-    ("GET", "/v1/artifacts/{}/sessions"): "artifact session roll-up; dashboard surface today",
+    # (`/v1/artifacts/{}/sessions` left this list: the MCP's artifact `sessions`
+    # view reads it.)
     #
     # The six PRIVATE metric-view routes (research-os 0087-0089) were parked here
     # on 2026-08-03 as "dashboard surface today" and cleared the same day: the
@@ -1066,8 +1057,6 @@ PENDING: dict[Op, str] = {
     # refresh that added a batch of dashboard-only routes pulled them all in at
     # once. Listed rather than silently re-hidden, because an unlisted gap is
     # indistinguishable from a route nobody wanted.
-    ("POST", "/ingest/v1/sessions/codex"): "codex session ingest; the plugin posts this directly",
-    ("POST", "/ingest/v1/sessions/pi"): "pi session ingest; the plugin posts this directly",
     ("GET", "/v1/artifacts/{}/content"): "artifact content by id; same anchor-first reason",
     ("GET", "/v1/service-tokens"): "service tokens; no CLI verb designed yet",
     ("POST", "/v1/service-tokens"): "service tokens; no CLI verb designed yet",

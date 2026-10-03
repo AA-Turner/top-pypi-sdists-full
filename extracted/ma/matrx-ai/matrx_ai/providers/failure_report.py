@@ -14,7 +14,9 @@ browser-held session reported to ``POST /broker/provider-failures``) calls
 marked once reported, so every layer may call it and the operator still gets
 exactly one row.
 
-Today it files one alarm class: ``provider_account_out_of_credit`` — the
+It files two classes. ``provider_setting_rejected`` (Settings Translation R1,
+K10): the provider refused one of our SETTINGS — the typed ``invalid_setting``
+record a routine can fix from. And ``provider_account_out_of_credit`` — the
 platform's account with a provider cannot pay for calls (2026-10-01: OpenAI
 "You have no credits remaining" was retried 3x as ``unknown_error`` and no
 operator surface named it). A new operator-worthy provider condition is added
@@ -29,6 +31,7 @@ import time
 from typing import Any
 
 from matrx_ai.providers.errors import RetryableError, classify_provider_error
+from matrx_ai.providers.setting_rejection import SETTING_REJECTION_ERROR_TYPE
 
 #: ``system_error.kind`` for a provider refusing because the PLATFORM's account
 #: has no credit (or is suspended). Its own kind so the collapsed error
@@ -112,6 +115,7 @@ async def report_provider_failure(
     route: str = "providers/dispatch",
     error_info: RetryableError | None = None,
     payload: dict[str, Any] | None = None,
+    setting_context: dict[str, Any] | None = None,
     **identity: Any,
 ) -> RetryableError | None:
     """Classify ``exc`` and file the operator alarm it calls for — once per exception.
@@ -120,6 +124,18 @@ async def report_provider_failure(
     AppContext when the caller knows better. Returns the classification.
     """
     info = error_info or classify_for_report(exc, provider)
+    if info is not None and info.error_type == SETTING_REJECTION_ERROR_TYPE:
+        await report_setting_rejection(
+            exc,
+            info,
+            provider=provider,
+            model=model,
+            route=route,
+            payload=payload,
+            setting_context=setting_context,
+            **identity,
+        )
+        return info
     if info is None or info.error_type != "billing_error":
         return info
     if getattr(exc, _REPORTED_ATTR, False):
@@ -156,6 +172,107 @@ async def report_provider_failure(
     return info
 
 
+def _ambient_setting_context() -> dict[str, Any]:
+    """What the running turn knows about the call that just failed.
+
+    The ExecutionState holds the wire body the provider captured just before the
+    SDK call, the pre-allocated failure snapshot id, and the canonical config of
+    the request in flight. Absent outside an orchestrated turn (a bare media
+    call) — the caller's explicit context and the exception's attached wire
+    payload cover that.
+    """
+    try:
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+
+        state = try_get_execution_state()
+    except Exception:  # noqa: BLE001
+        state = None
+    if state is None:
+        return {}
+    current = getattr(state, "current_request", None)
+    return {
+        "wire_payload": getattr(state, "snapshot_payload", None),
+        "request_snapshot_id": getattr(state, "failure_snapshot_id", None),
+        "config": getattr(current, "config", None) if current is not None else None,
+        "adjustments": getattr(state, "adjustments", None),
+    }
+
+
+async def report_setting_rejection(
+    exc: BaseException,
+    info: RetryableError,
+    *,
+    provider: str,
+    model: str | None = None,
+    route: str = "providers/dispatch",
+    payload: dict[str, Any] | None = None,
+    setting_context: dict[str, Any] | None = None,
+    **identity: Any,
+) -> None:
+    """File THE record of a settings rejection (K10) — once per exception and request.
+
+    ONE ``ops.system_error`` row, kind ``provider_setting_rejected``, error_type
+    ``<provider>.invalid_setting``, payload = the K10 record with
+    ``lifecycle: "new"``. The orchestrator's generic ``provider_request_failed``
+    row is NOT also written for this class, and the browser's copy of the same
+    stream error is kept local (matrx-frontend captureStreamError) — the request
+    id on this row is the dedupe key. Never raises.
+    """
+    if getattr(exc, _REPORTED_ATTR, False):
+        return
+    try:
+        setattr(exc, _REPORTED_ATTR, True)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from matrx_ai.providers.setting_rejection import (
+            PROVIDER_SETTING_REJECTED_KIND,
+            attached_wire_payload,
+            build_record,
+        )
+
+        ctx: dict[str, Any] = {k: v for k, v in _ambient_setting_context().items() if v is not None}
+        ctx.update({k: v for k, v in (setting_context or {}).items() if v is not None})
+        wire = ctx.get("wire_payload")
+        if wire is None:
+            wire = attached_wire_payload(exc)
+        record = build_record(
+            info,
+            model=model,
+            profile=ctx.get("profile"),
+            config=ctx.get("config"),
+            wire_payload=wire,
+            request_snapshot_id=ctx.get("request_snapshot_id"),
+            modality=ctx.get("modality"),
+            adjustments=ctx.get("adjustments"),
+        )
+        fields: dict[str, Any] = {**_ambient_identity(), **{k: v for k, v in identity.items() if v}}
+        # One record per (request, refused field); with no request, per print.
+        dedupe = (
+            f"setting:{record['provider']}:{record['provider_param'] or '?'}"
+            if fields.get("request_id")
+            else f"setting:{record['fingerprint']}"
+        )
+        if _already_alarmed(dedupe, fields.get("request_id")):
+            return
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            exc,
+            kind=PROVIDER_SETTING_REJECTED_KIND,
+            route=route,
+            error_type=f"{record['provider']}.{SETTING_REJECTION_ERROR_TYPE}",
+            error_text=(
+                f"{record['provider']} rejected setting "
+                f"{record['provider_param'] or '(unnamed)'}: {record['provider_message']}"
+            )[:2000],
+            payload={**record, **(payload or {})},
+            **fields,
+        )
+    except Exception:  # noqa: BLE001 — the record never replaces the provider's exception
+        pass
+
+
 PROVIDER_BILLING_CAPTURE_MISSING_KIND = "provider_billing_capture_missing"
 
 
@@ -165,6 +282,10 @@ async def report_dispatch_failure(
     provider: str,
     model: str | None = None,
     route: str = "providers/dispatch",
+    profile: Any = None,
+    config: Any = None,
+    modality: str | None = None,
+    defer_setting_rejection: bool = False,
 ) -> None:
     """Everything the shared dispatch seam does with a failed provider call.
 
@@ -177,7 +298,21 @@ async def report_dispatch_failure(
     """
     from matrx_ai.providers.errors import report_unbilled_provider_failure
 
-    await report_provider_failure(exc, provider=provider, model=model, route=route)
+    # ``defer_setting_rejection``: the caller (the dispatch seam's settings
+    # self-heal, R2) files the K10 record itself once the repair's outcome is
+    # known — ``self_healed`` true/false — so it is not filed here first.
+    deferred = False
+    if defer_setting_rejection:
+        info = classify_for_report(exc, provider)
+        deferred = info is not None and info.error_type == SETTING_REJECTION_ERROR_TYPE
+    if not deferred:
+        await report_provider_failure(
+            exc,
+            provider=provider,
+            model=model,
+            route=route,
+            setting_context={"profile": profile, "config": config, "modality": modality},
+        )
     if not report_unbilled_provider_failure(exc, provider=provider, model=model):
         return
     try:
@@ -196,6 +331,7 @@ async def report_dispatch_failure(
 
 __all__ = [
     "PROVIDER_BILLING_CAPTURE_MISSING_KIND",
+    "report_setting_rejection",
     "PROVIDER_OUT_OF_CREDIT_KIND",
     "classify_for_report",
     "report_dispatch_failure",

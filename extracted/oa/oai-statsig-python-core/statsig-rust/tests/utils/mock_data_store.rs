@@ -11,6 +11,7 @@ use statsig_rust::{
         RequestPath,
     },
 };
+use tokio::sync::Semaphore;
 
 #[derive(Default)]
 struct MockDataStoreByteCache {
@@ -26,6 +27,11 @@ pub struct MockDataStore {
     supports_polling: bool,
     byte_cache_enabled: bool,
     read_only: bool,
+    write_once: bool,
+    set_bytes_failures: AtomicUsize,
+    set_bytes_gate: Option<Semaphore>,
+    set_bytes_started: Semaphore,
+    set_bytes_payloads: Mutex<Vec<Vec<u8>>>,
     read_only_once: AtomicBool,
     read_only_after_first_check: bool,
     read_only_call_count: AtomicUsize,
@@ -45,6 +51,11 @@ impl MockDataStore {
             supports_polling,
             byte_cache_enabled: false,
             read_only: false,
+            write_once: false,
+            set_bytes_failures: AtomicUsize::new(0),
+            set_bytes_gate: None,
+            set_bytes_started: Semaphore::new(0),
+            set_bytes_payloads: Mutex::new(Vec::new()),
             read_only_once: AtomicBool::new(false),
             read_only_after_first_check: false,
             read_only_call_count: AtomicUsize::new(0),
@@ -66,6 +77,40 @@ impl MockDataStore {
     pub fn with_read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;
         self
+    }
+
+    pub fn with_write_once(mut self) -> Self {
+        self.write_once = true;
+        self
+    }
+
+    pub fn with_set_bytes_failures(mut self, count: usize) -> Self {
+        self.set_bytes_failures = AtomicUsize::new(count);
+        self
+    }
+
+    pub fn with_blocked_set_bytes(mut self) -> Self {
+        self.set_bytes_gate = Some(Semaphore::new(0));
+        self
+    }
+
+    pub async fn wait_for_set_bytes_call(&self) {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.set_bytes_started.acquire(),
+        )
+        .await
+        .expect("datastore publication should start")
+        .unwrap()
+        .forget();
+    }
+
+    pub fn release_set_bytes_calls(&self, count: usize) {
+        self.set_bytes_gate.as_ref().unwrap().add_permits(count);
+    }
+
+    pub fn set_bytes_payloads(&self) -> Vec<Vec<u8>> {
+        self.set_bytes_payloads.lock().unwrap().clone()
     }
 
     pub fn with_read_only_once(mut self) -> Self {
@@ -167,6 +212,10 @@ impl MockDataStore {
 
 #[async_trait]
 impl DataStoreTrait for MockDataStore {
+    fn write_once(&self) -> bool {
+        self.write_once
+    }
+
     fn is_read_only(&self) -> bool {
         let prior_checks = self.read_only_call_count.fetch_add(1, Ordering::SeqCst);
         self.read_only
@@ -245,6 +294,22 @@ impl DataStoreTrait for MockDataStore {
         _checksum: Option<String>,
     ) -> Result<(), StatsigErr> {
         self.set_bytes_call_count.fetch_add(1, Ordering::SeqCst);
+        self.set_bytes_payloads.lock().unwrap().push(value.to_vec());
+        self.set_bytes_started.add_permits(1);
+        if let Some(gate) = &self.set_bytes_gate {
+            gate.acquire().await.unwrap().forget();
+        }
+        if self
+            .set_bytes_failures
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
+                remaining.checked_sub(1)
+            })
+            .is_ok()
+        {
+            return Err(StatsigErr::DataStoreFailure(
+                "Publication failed".to_string(),
+            ));
+        }
         if !self.byte_cache_enabled {
             return Err(StatsigErr::BytesNotImplemented);
         }

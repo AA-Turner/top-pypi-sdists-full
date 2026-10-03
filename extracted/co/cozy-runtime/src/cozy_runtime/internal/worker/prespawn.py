@@ -1,23 +1,25 @@
-"""Start a serving call's executor while its weights download (h3a-087, the startup warm).
+"""Start a serving installation's executor before its call reaches it (h3a-087, startup warm).
 
-A download is network-bound; an executor's start is CPU-bound (torch, CUDA and the package:
-~14 s for H3) and so is proving its attention kernels. Neither needs a weight byte, so the
-preparation that begins a download also starts the placement's process on the GPUs its
-root would be granted — ones the root already holds, else free ones — at the lowest CPU
-priority, and proves its kernels while those cards are idle. The grant prefers those
-ordinals (`ordinals`), the replica adopts the started process (`claim`/`settle`) and its
-construction fill begins the moment the weights land.
+An executor's start is CPU work: two interpreters, torch, the Runtime and the package (4-8 s
+for SDXL and Anima, ~14 s for H3). None of it needs a GPU or a weight byte, so as soon as the
+machine knows an installation will run on a GPU set it starts that installation's process
+there at the lowest CPU priority and imports everything without touching a device
+(`Start(import_only)`), which also submits the fused glue's compile. Its hello also tells the
+stage scheduler whether the installation takes stage turns, so a queued call can prepare ahead.
 
-Two preparations begin a download. A serving call's own (`request`) knows its root. The
-Host's, for a root it has not submitted yet (`request_landing`, h3a-089), knows none: its
-slot starts on free cards and the first root that asks for the installation, or is granted
-one of those cards for it, adopts it. Its phase rows wait in the slot and reach the
-adopting root's journal when that root's replica takes the process.
+Four things say an installation will run, and where: a queued call the stage scheduler placed
+(`waiting`), a child call preparing its models (`request`), the Host landing weights for a root
+not submitted yet (`request_landing`, h3a-089), and a restarted machine's journal (`prewarm`:
+the installations each GPU set served last). The replica that binds those GPUs adopts the
+process (`claim`/`settle`) and its start only initializes the device.
 
-Nothing here reserves a GPU. A slot yields — its process is reclaimed — as soon as another
-root leases or is granted one of its cards, when its root ends, or when its installation's
-replica lands elsewhere or is collected. A failure anywhere is a missed saving, never a
-verdict: the replica then starts its own process exactly as it did before this existed.
+The seal (`CUDA_VISIBLE_DEVICES`) is fixed at spawn, so the GPUs must be known first: the
+scheduler's placement, or where it would place such a call now. Nothing here reserves a GPU or
+allocates device memory. A process yields when its installation's replica claims another set,
+or its installation is collected. An executor that predates import-only starts
+(`import_only` absent from its hello) is only spawned: sent the start it does not know, it would
+initialize the device. A failure anywhere is a missed saving, never a verdict: the replica then
+starts its own process exactly as it did before this existed.
 """
 
 from __future__ import annotations
@@ -28,54 +30,46 @@ import functools
 import hashlib
 import json
 import os
+import resource
 import threading
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import msgspec
-from packaging.version import InvalidVersion, Version
-
-from cozy_runtime.internal import accel, package_installation, package_interface
+from cozy_runtime.internal import package_environment, package_installation, package_interface
 from cozy_runtime.internal.canonical import Json
-from cozy_runtime.internal.execution_evidence import gpu_name, gpu_names
-from cozy_runtime.internal.executor_commands import Start, Warm
+from cozy_runtime.internal.execution_evidence import gpu_names
+from cozy_runtime.internal.executor_commands import Start
+from cozy_runtime.internal.worker import machine_lanes
 from cozy_runtime.internal.worker.child import Executor, ExecutorGone, ExecutorSupervision
-from cozy_runtime.internal.worker.gpu_scheduler import Ordinals, model_degrees, width_for
 from cozy_runtime.internal.worker.lanes import DeviceLane, lane_id_for
 from cozy_runtime.internal.worker.stage_progress import Emit
+from cozy_runtime.internal.worker.stage_scheduler import Ordinals, Want
 
 if TYPE_CHECKING:
     from .machine_child_target import Target
     from .session import HostedPlacement, Worker
 
 
-class _Cards(msgspec.Struct, frozen=True):
-    """The GPU scheduler's `view()`: each root's leased cards and each grant's root and cards."""
-
-    leases: dict[str, tuple[int, ...]]
-    grants: dict[str, tuple[str, tuple[int, ...]]]
-
-
 @dataclass
 class Slot:
     installation: str
     ordinals: Ordinals
-    #: the root this process is started for; empty until one adopts a Host-started slot
-    root: str
+    #: the roots waiting for this process; empty until one adopts a Host-started slot
+    roots: set[str]
     supervision: ExecutorSupervision
-    #: set once the process is started (or failed to); a claim waits on it, never a clock
+    #: set once the start is done trying; a claim waits on it, never a clock
     started: threading.Event = field(default_factory=threading.Event)
     claimed: threading.Event = field(default_factory=threading.Event)
-    #: set when the warm thread has nothing more to send this process
-    finished: threading.Event = field(default_factory=threading.Event)
-    #: set by every scheduling pass, claim and drop: the warm thread looks again
-    nudge: threading.Event = field(default_factory=threading.Event)
+    #: the process is spawned and, when it can, has imported everything
+    ready: bool = False
     executor: Executor | None = None
     #: the dead replica of these cards whose own slot this starts its successor in
     replica: str = ""
+    #: the interpreter of the installation generation the process was started from
+    python: str = ""
     #: where phase rows go; rows wait here until a root's journal takes them
     sink: Emit | None = None
     frames: list[dict[str, Json]] = field(default_factory=list)
@@ -99,15 +93,31 @@ class Slot:
                 sink(frame)
 
 
+#: Installations prewarmed per GPU set at boot: the two it served last, the pair an
+#: alternating workload (SDXL, then Anima, then SDXL) comes back to after a restart.
+PREWARM = 2
+
+
 class Prespawns:
     def __init__(self, worker: Worker) -> None:
         self.worker = worker
         self.lock = threading.Lock()
+        #: serializes slot creation, never held while a process starts
+        self.starting = threading.Lock()
         self.slots: dict[tuple[str, Ordinals], Slot] = {}
 
+    def waiting(self, key: str, want: Want, interface: bytes, emit: Emit) -> None:
+        """Start the executor a queued call will run in, on the GPUs it was placed on."""
+        try:
+            ordinals = self.worker.stages.planned(key)
+            if ordinals:
+                self._request(want.root, want.template[0], interface, ordinals, emit)
+        except Exception as exc:  # a missed saving, never the execution's failure
+            self.worker.note("warm", f"no prespawn: {type(exc).__name__}: {exc}"[:256])
+
     def request(self, owner: str, parent: str, target: Target, emit: Emit) -> None:
-        """Start `target`'s executor beside its download, if a GPU set is spare for the root
-        `parent` descends from."""
+        """Start `target`'s executor while its call prepares, for the root `parent`
+        descends from, where the scheduler would place it."""
         try:
             assert self.worker.executions is not None
             root, _ = self.worker.executions.scheduling_root(owner, parent)
@@ -115,7 +125,7 @@ class Prespawns:
                 target.prepared_installation["placement"]["package_interface"], validate=True
             )
             models = target.declaration.get("models") or []
-            self._request(root, target.installation_id, raw, models, emit)
+            self._foresee(root, target.installation_id, raw, models, emit)
         except Exception as exc:  # a missed saving, never the preparation's failure
             self.worker.note("warm", f"no prespawn: {type(exc).__name__}: {exc}"[:256])
 
@@ -123,13 +133,13 @@ class Prespawns:
         self, installation: str, interface: bytes, models: Sequence[object]
     ) -> None:
         """Start `installation`'s executor while the Host lands the weights of a root not yet
-        submitted, on free cards; the first root to ask for it or be granted there adopts it."""
+        submitted; the first replica of it on those GPUs adopts it."""
         try:
-            self._request("", installation, interface, models, None)
+            self._foresee("", installation, interface, models, None)
         except Exception as exc:  # a missed saving, never the preparation's failure
             self.worker.note("warm", f"no prespawn: {type(exc).__name__}: {exc}"[:256])
 
-    def _request(
+    def _foresee(
         self,
         root: str,
         installation: str,
@@ -137,67 +147,102 @@ class Prespawns:
         models: Sequence[object],
         emit: Emit | None,
     ) -> None:
-        worker = self.worker
-        entries = worker.lanes.entries
-        if not models or not entries or worker.options.install_root is None:
+        readable = self.worker.readable_gpus()
+        width = _width(models, len(readable))
+        if not width:
             return
-        with self.lock:
-            waiting = [s for s in self.slots.values() if s.installation == installation]
-            unrooted = next((s for s in waiting if not s.root), None)
-            if root and unrooted is not None:
-                # The Host started this installation for a root it had not submitted yet.
-                unrooted.root = root
-            elif root or not waiting:
-                unrooted = None
-            else:
-                return  # already started beside an earlier download of it
-        if unrooted is not None:
-            worker.note("warm", f"{root!r} adopts the prespawn on {list(unrooted.ordinals)}")
-            if emit is not None:
-                unrooted.attach(emit)
-            unrooted.nudge.set()
-            return
-        family = accel.host_backend_family()
-        readable = [
-            o for o, e in enumerate(entries) if accel.device_memory(e, family).state == "measured"
-        ]
-        width = width_for(model_degrees(models), len(readable))
-        unreadable = set(range(len(entries))) - set(readable)
-        ordinals = worker.gpu.spare(root, width, exclude=unreadable)
-        replica = None if ordinals is None else self._replica(installation, ordinals)
-        current = replica.supervision.current if replica is not None else None
-        if ordinals is None or (current is not None and current.alive()):
-            return
-        if current is not None:
-            replica = None  # its dead process is still being reclaimed: a slot of its own
-        slot_id = "warm-" + _digest([installation, list(ordinals)])
-        with self.lock:
-            if (installation, ordinals) in self.slots:
-                return
-            if replica is not None:
-                # A dead replica of these cards: its successor starts early, in its own slot.
-                slot = Slot(installation, ordinals, root, replica.supervision, sink=emit)
-                slot.replica = replica.placement.placement_id
-            else:
-                supervision = worker._new_placement_supervision(
-                    slot_id, uid_key=uid_key(installation, ordinals)
-                )
-                slot = Slot(installation, ordinals, root, supervision, sink=emit)
-                supervision.on_exit = functools.partial(_forget, supervision)
-            self.slots[(slot.installation, ordinals)] = slot
-        threading.Thread(
-            target=self._finishing,
-            args=(slot, interface),
-            name=f"prespawn-{slot_id}",
-            daemon=True,
-        ).start()
+        excluded = tuple(o for o in range(len(self.worker.lanes.entries)) if o not in readable)
+        ordinals = self.worker.stages.predict(
+            Want(
+                root=root or installation,
+                widths=(width,),
+                template=(installation, ""),
+                exclude=excluded,
+            )
+        )
+        if ordinals:
+            self._request(root, installation, interface, ordinals, emit)
 
-    def _finishing(self, slot: Slot, interface: bytes) -> None:
-        try:
-            self._run(slot, interface)
-        finally:
-            slot.started.set()
-            slot.finished.set()
+    def prewarm(self, owner: str) -> None:
+        """A restarted machine's first calls pay no executor start either: the installations
+        each GPU set served most recently (`PREWARM`, the pair a workload alternates between),
+        read from this machine's own journal, start importing there for no call; a replica of
+        one on that set adopts it."""
+        assert self.worker.executions is not None
+        chosen: dict[Ordinals, list[str]] = {}
+        readable = set(self.worker.readable_gpus())
+        for request, ordinals in self.worker.executions.last_grants(owner):
+            served = chosen.setdefault(ordinals, [])
+            if len(served) >= PREWARM or not set(ordinals) <= readable:
+                continue
+            try:
+                shape = machine_lanes.recorded(self.worker, owner, request)
+                installation = shape.template[0]
+                if shape.kind == "serving" and installation not in served:
+                    served.append(installation)
+                    self._request("", installation, shape.interface, ordinals, None)
+            except Exception as exc:  # a missed saving, never the boot's failure
+                self.worker.note("warm", f"no prewarm from {request}: {exc!r}"[:256])
+
+    def _request(
+        self,
+        root: str,
+        installation: str,
+        interface: bytes,
+        ordinals: Ordinals,
+        emit: Emit | None,
+    ) -> None:
+        """One import-only process per installation and GPU set, unless a replica of it already
+        runs there; a later caller's rows follow the one it started."""
+        if self.worker.options.install_root is None or not installation:
+            return
+        # One at a time: two callers for one installation and GPU set (the boot's prewarm and
+        # a queued call) must find one slot, never each make a supervision for it.
+        with self.starting:
+            replica = self._replica(installation, ordinals)
+            if replica is not None and (
+                replica.supervision.current is not None
+                or replica.placement.placement_id in self.worker._activating
+            ):
+                return  # its replica holds these cards, or is starting on them: nothing to start
+            with self.lock:
+                slot = self.slots.get((installation, ordinals))
+                if slot is not None:
+                    slot.roots |= {root} - {""}
+            if slot is None:
+                slot = self._slot(installation, ordinals, {root} - {""}, emit, replica)
+                threading.Thread(
+                    target=self._run,
+                    args=(slot, interface),
+                    name=f"prespawn-{installation}",
+                    daemon=True,
+                ).start()
+                return
+        if emit is not None:
+            slot.attach(emit)
+
+    def _slot(
+        self,
+        installation: str,
+        ordinals: Ordinals,
+        roots: set[str],
+        emit: Emit | None,
+        replica: HostedPlacement | None,
+    ) -> Slot:
+        if replica is not None:
+            # A dead replica of these cards: its successor starts early, in its own slot.
+            slot = Slot(installation, ordinals, roots, replica.supervision, sink=emit)
+            slot.replica = replica.placement.placement_id
+        else:
+            supervision = self.worker._new_placement_supervision(
+                "warm-" + _digest([installation, list(ordinals)]),
+                uid_key=uid_key(installation, ordinals),
+            )
+            slot = Slot(installation, ordinals, roots, supervision, sink=emit)
+            supervision.on_exit = functools.partial(_forget, supervision)
+        with self.lock:
+            self.slots[(installation, ordinals)] = slot
+        return slot
 
     def _replica(self, installation: str, ordinals: Ordinals) -> HostedPlacement | None:
         """The replica of this installation already bound to these cards, alive or not."""
@@ -214,12 +259,16 @@ class Prespawns:
     def _run(self, slot: Slot, raw: bytes) -> None:
         worker = self.worker
         started, began = time.time(), time.perf_counter()
-        detail = legs = ""
         lane = _lane(worker, slot.ordinals)
         try:
-            installed = package_installation.open_installation(
-                Path(worker.options.install_root or ""), slot.installation
+            # A Runtime update leaves the installation's SDK generation behind. Rebuild it
+            # first, so no executor starts from the old one (runs 2495, 2575, 2710).
+            installed = package_installation.refresh(
+                Path(worker.options.install_root or ""),
+                slot.installation,
+                cache=worker.config.dependency_cache,
             )
+            slot.python = str(installed.python)
             interface = package_interface.parse(raw, "prespawned installation")
             path = (
                 Path(worker.options.artifact_cache or "")
@@ -230,62 +279,52 @@ class Prespawns:
             package_interface.publish(path, raw)
             slot.supervision.use_environment(str(installed.python), slot.installation)
             executor = slot.executor = slot.supervision.spawn(imposed=worker.imposed(lane))
-            # The warm yields every CPU to the download and to running requests; a claim
-            # restores the adopted process's priority.
-            if not slot.claimed.is_set():
+            # Its hello says whether the installation takes stage turns: a call queued for
+            # it may now prepare ahead of its turn.
+            worker.stages.resync()
+            # The imports yield every CPU to running requests; a claim restores the adopted
+            # process's priority, so a worker that cannot restore it leaves it unchanged.
+            if not slot.claimed.is_set() and _RESTORABLE:
                 _nice(executor, 19)
-            startup = "warm-" + _digest([slot.installation, list(slot.ordinals)])
-            with worker.memory.starting(lane, startup):
+            if "import_only" in executor.hello.get("memory", ()):
                 reply = executor.call(
                     Start(
                         devices=lane.devices,
                         sequence_parallel_degree=len(slot.ordinals),
                         application=interface.application,
                         package_interface=str(path),
+                        import_only=True,
                     ),
                     timeout=None,
                 )
-            if not reply.get("ok"):
-                raise ExecutorGone(f"start refused: {reply.get('code')}: {reply.get('detail')}")
-            executor.started = dict(reply)
-            legs = ", ".join(f"{k} {v:.0f}ms" for k, v in reply.get("stages") or ())
+                if not reply.get("ok"):
+                    raise ExecutorGone(f"start refused: {reply.get('code')}: {reply.get('detail')}")
+                detail = "; ".join(
+                    part
+                    for part in (
+                        ", ".join(f"{k} {v:.0f}ms" for k, v in reply.get("stages") or ()),
+                        str(reply.get("compiles") or ""),
+                    )
+                    if part
+                )
+            else:
+                detail = (
+                    f"executor cozy-runtime {executor.hello.get('runtime_version')} "
+                    "imports at its grant"
+                )
+            slot.ready = True
         except Exception as exc:
             detail = f"{type(exc).__name__}: {exc}"[:300]
         finally:
             slot.started.set()
-        self._phase("Starting model executor", started, began, not detail, slot, detail or legs)
-        if detail:
+        self._phase("Preparing model executor", started, began, slot.ready, slot, detail)
+        if not slot.ready:
             worker.note("warm", f"prespawn on {gpu_names(lane.entries)} failed: {detail}")
             self._drop(slot)
             return
-        worker.note("warm", f"prespawned {slot.installation} on {gpu_names(lane.entries)}: {legs}")
-        # Launch checks wait for idle cards; the compiles they start run beside the download.
-        while self._busy(slot.ordinals):
-            slot.nudge.wait()
-            slot.nudge.clear()
-            if slot.claimed.is_set() or not self._held(slot):
-                return
-        if slot.claimed.is_set() or not self._held(slot):
-            return
-        started, began = time.time(), time.perf_counter()
-        try:
-            reply = executor.call(Warm(), timeout=None)
-            ranks = reply.get("ranks") or []
-            detail = "; ".join(
-                f"{gpu_name(lane.entries, int(row.get('rank', -1)))}: "
-                + ", ".join(
-                    f"{k['kernel']} {k.get('line') or k['status']}" for k in row.get("kernels", ())
-                )
-                for row in ranks
-            ) or str(reply.get("skipped") or reply.get("detail") or "")
-            ok = bool(reply.get("ok"))
-            detail = "; ".join(
-                part for part in (_before_boot_compile(executor) + detail, _machine(worker)) if part
-            )
-        except ExecutorGone as exc:
-            detail, ok = f"executor gone: {exc}"[:300], False
-        self._phase("Starting kernel compiles", started, began, ok, slot, detail)
-        worker.note("warm", f"prespawned {slot.installation} kernels: {detail}"[:256])
+        worker.note(
+            "warm", f"prespawned {slot.installation} on {gpu_names(lane.entries)}: {detail}"
+        )
 
     def _phase(
         self, name: str, started: float, began: float, ok: bool, slot: Slot, detail: str
@@ -307,109 +346,96 @@ class Prespawns:
             }
         )
 
-    def _held(self, slot: Slot) -> bool:
+    def sets(self, installation: str) -> list[Ordinals]:
+        """Where a started process of this installation waits, so its call is placed there."""
         with self.lock:
-            return self.slots.get((slot.installation, slot.ordinals)) is slot
+            return [key[1] for key in self.slots if key[0] == installation]
 
-    def _busy(self, ordinals: Ordinals) -> bool:
-        grants = msgspec.convert(self.worker.gpu.view(), _Cards, strict=True).grants
-        return any(set(held) & set(ordinals) for _root, held in grants.values())
-
-    def ordinals(self, installation: str) -> Ordinals:
-        """Where a started process of this installation waits, so its grant goes there."""
+    def hellos(self, installation: str) -> list[dict[str, object]]:
+        """The hellos of this installation's started processes."""
         with self.lock:
-            return tuple(
-                sorted({o for key in self.slots if key[0] == installation for o in key[1]})
-            )
+            return [
+                slot.executor.hello
+                for key, slot in self.slots.items()
+                if key[0] == installation and slot.executor is not None
+            ]
 
-    def claim(self, installation: str, ordinals: Ordinals, sink: Emit | None = None) -> Slot | None:
+    def claim(
+        self, installation: str, ordinals: Ordinals, sink: Emit | None = None, placement: str = ""
+    ) -> Slot | None:
         """The replica about to bind these cards takes the slot started for them; every other
         slot of its installation is now useless and yields. A slot started for no root sends
-        its phase rows to `sink`, the claiming execution's journal."""
+        its phase rows to `sink`, the claiming execution's journal. The slot stays known until
+        `settle`, so a caller arriving while the replica starts finds it and starts nothing.
+
+        Two slots yield instead of being taken, and the replica starts its own process: one
+        started from a generation of the installation that a Runtime update has since replaced,
+        and one started in another (dead) replica's own executor slot, which `placement` would
+        otherwise share with it (run 2493, `executor_replaced_before_entry`)."""
         with self.lock:
-            slot = self.slots.pop((installation, ordinals), None)
-            stale = [s for key, s in self.slots.items() if key[0] == installation]
+            slot = self.slots.get((installation, ordinals))
+            yields = slot is not None and (
+                bool(slot.replica and placement and slot.replica != placement)
+                or not self._current(slot)
+            )
+            stale = [s for key, s in self.slots.items() if key[0] == installation and s is not slot]
+            if slot is not None and yields:
+                del self.slots[(installation, ordinals)]
+            elif slot is not None:
+                slot.claimed.set()
         for other in stale:
             self._drop(other)
+        if slot is not None and yields:
+            self._retire(slot)  # now: the replica's own start never meets this process
+            return None
         if slot is not None:
             if sink is not None:
                 slot.attach(sink)
-            slot.claimed.set()
-            slot.nudge.set()
             if slot.executor is not None:
                 _nice(slot.executor, _WORKER)
         return slot
 
+    def _current(self, slot: Slot) -> bool:
+        """Whether the slot's process runs its installation's current generation."""
+        if not slot.python:
+            return True  # not spawned yet: its start refreshes the installation first
+        try:
+            installed = package_installation.open_installation(
+                Path(self.worker.options.install_root or ""), slot.installation
+            )
+        except package_environment.EnvironmentRefusal:
+            return False
+        return str(installed.python) == slot.python
+
     def settle(self, slot: Slot, placement_id: str) -> None:
-        """Wait out the claimed slot's start (the replica would pay it anyway), then hand
+        """Wait out the claimed slot's imports (the replica would pay them anyway), then hand
         its process to the replica at ordinary priority, or retire it so the replica starts
         its own."""
         slot.started.wait()
+        with self.lock:
+            if self.slots.get((slot.installation, slot.ordinals)) is slot:
+                del self.slots[(slot.installation, slot.ordinals)]
         executor = slot.executor
         worker = self.worker
         supervision = slot.supervision
         supervision.on_invalidate = lambda why: worker._hosted_capacity_dropped(placement_id, why)
         supervision.on_exit = lambda gone: worker._hosted_executor_exited(placement_id, gone)
         supervision.on_change = lambda current: worker._row_changed(placement_id, current)
-        if executor is None or not executor.started or not executor.alive():
+        if not slot.ready or executor is None or not executor.alive():
             if executor is not None:
                 self._reclaim(supervision, executor, "prespawned start did not finish")
             return
         _nice(executor, _WORKER)
         worker.note("warm", f"{placement_id!r} adopts prespawned epoch {executor.epoch}")
 
-    def reconcile(
-        self,
-        roots: Mapping[str, int],
-        view: Mapping[str, object],
-        installations: Mapping[str, str] | None = None,
-    ) -> None:
-        """Yield every slot another root now leases or was granted a card of, and every slot
-        whose root ended. A slot started for no root is adopted by the one root granted its
-        cards for its installation (`installations`: grant key -> installation)."""
-        installations = installations or {}
-        cards = msgspec.convert(view, _Cards, strict=True)
-        taken: dict[int, set[str]] = {}
-        granted: dict[int, set[tuple[str, str]]] = {}
-        for root, held in cards.leases.items():
-            for ordinal in held:
-                taken.setdefault(ordinal, set()).add(root)
-        for key, (root, held) in cards.grants.items():
-            for ordinal in held:
-                taken.setdefault(ordinal, set()).add(root)
-                granted.setdefault(ordinal, set()).add((root, installations.get(key, "")))
-        with self.lock:
-            for slot in self.slots.values():
-                takers = {r for o in slot.ordinals for r in taken.get(o, ())}
-                grants = {g for o in slot.ordinals for g in granted.get(o, ())}
-                if (
-                    not slot.root
-                    and len(takers) == 1
-                    and grants
-                    and all(installation == slot.installation for _, installation in grants)
-                ):
-                    (slot.root,) = takers
-                    self.worker.note(
-                        "warm", f"{slot.root!r} adopts the prespawn on {list(slot.ordinals)}"
-                    )
-            leaving = [
-                slot
-                for slot in self.slots.values()
-                if (slot.root and slot.root not in roots)
-                or any(taken.get(o, set()) - {slot.root} for o in slot.ordinals)
-            ]
-            for slot in self.slots.values():
-                slot.nudge.set()
-        for slot in leaving:
-            self.worker.note("warm", f"prespawn on {list(slot.ordinals)} yields its cards")
-            self._drop(slot)
-
     def _drop(self, slot: Slot) -> None:
-        """Forget `slot` and reclaim its process off the caller's thread."""
+        """Forget `slot` and reclaim its process off the caller's thread. A claimed slot is
+        its replica's: `settle` reclaims a start that failed, and the replica starts its own."""
         with self.lock:
+            if slot.claimed.is_set():
+                return
             if self.slots.get((slot.installation, slot.ordinals)) is slot:
                 del self.slots[(slot.installation, slot.ordinals)]
-        slot.nudge.set()
         threading.Thread(target=self._retire, args=(slot,), daemon=True).start()
 
     def _retire(self, slot: Slot) -> None:
@@ -437,8 +463,22 @@ class Prespawns:
         with self.lock:
             slots, self.slots = list(self.slots.values()), {}
         for slot in slots:
-            slot.nudge.set()
-            self._retire(slot)
+            if not slot.claimed.is_set():
+                self._retire(slot)
+
+
+def _width(models: Sequence[object], readable: int) -> int:
+    """A model-bearing call's width here: the widest count every model slot declares (one
+    always is) that `readable` GPUs form; 0 for no model or no GPU."""
+    if not models or not readable:
+        return 0
+    common = set(range(1, readable + 1))
+    for model in models:
+        parallel = model.get("sequence_parallel") if isinstance(model, dict) else None
+        degrees = parallel.get("degrees") if isinstance(parallel, dict) else None
+        declared = {d for d in degrees if type(d) is int} if isinstance(degrees, list) else set()
+        common &= {1, *declared}
+    return max(common)
 
 
 def uid_key(installation: str, ordinals: Ordinals) -> str:
@@ -450,42 +490,14 @@ def uid_key(installation: str, ordinals: Ordinals) -> str:
 def _lane(worker: Worker, ordinals: Ordinals) -> DeviceLane:
     """The seal of the lane a replica on these cards binds, without binding one."""
     devices = ",".join(worker.lanes.by_id[lane_id_for((o,))].devices for o in ordinals)
-    return DeviceLane(
-        lane_id_for(ordinals),
-        ordinals,
-        devices,
-        worker_pid=os.getpid(),
-        locks=tuple(worker.lanes.by_id[lane_id_for((o,))].locks[0] for o in ordinals),
-    )
+    return DeviceLane(lane_id_for(ordinals), ordinals, devices, worker_pid=os.getpid())
 
 
 #: The priority an adopted process returns to: the worker's own.
 _WORKER = os.getpriority(os.PRIO_PROCESS, 0)
-
-
-#: The first Runtime whose executor compiles its kernels on the machine (e345e63c).
-BOOT_COMPILE = Version("0.18.70")
-
-
-def _before_boot_compile(executor: Executor) -> str:
-    """An older executor compiles nothing and reads only the image kernel site: its rows
-    say absent until the machine's build of a kernel lands there, and it takes one at its
-    next construction. The package's lock picks it."""
-    found = str(executor.hello.get("runtime_version", ""))
-    try:
-        if Version(found) >= BOOT_COMPILE:
-            return ""
-    except InvalidVersion:
-        return ""
-    return (
-        f"executor cozy-runtime {found} (before {BOOT_COMPILE}) takes each machine kernel "
-        "from the image kernel site at its next construction after it is ready; "
-    )
-
-
-def _machine(worker: Worker) -> str:
-    machine = worker.machine_kernels
-    return machine.line() if machine is not None else ""
+#: Whether this worker may raise a process back to `_WORKER` after lowering it: root, or
+#: an RLIMIT_NICE that reaches it (the ceiling is 20 - its soft limit).
+_RESTORABLE = os.geteuid() == 0 or 20 - resource.getrlimit(resource.RLIMIT_NICE)[0] <= _WORKER
 
 
 def _nice(executor: Executor, value: int) -> None:

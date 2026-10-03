@@ -127,13 +127,13 @@ def _list_dives() -> list[dict]:
 
 def _call_llm_for_sql(question: str, store, history: list | None = None) -> dict:
     """Return the LLM-generated {sql, chart_type, x, y, title, description} spec."""
-    import shutil
     from routes.advisor import (
         _load_anthropic_auth,
         _call_anthropic_api,
         _call_via_claude_cli,
     )
     from clawmetry.dives_prompt import build_dives_prompt
+    from clawmetry.english import explanation_or_fallback
 
     mode, credential = _load_anthropic_auth()
     if not credential:
@@ -145,9 +145,8 @@ def _call_llm_for_sql(question: str, store, history: list | None = None) -> dict
     msgs = build_dives_prompt(question, store, history=history)
 
     if mode == "claude_cli":
-        claude_bin = shutil.which("claude") or "claude"
         raw = _call_via_claude_cli(
-            claude_bin,
+            credential,
             msgs["user"],
             system=msgs["system"],
             timeout=_QUERY_TIMEOUT_SEC,
@@ -167,7 +166,7 @@ def _call_llm_for_sql(question: str, store, history: list | None = None) -> dict
     text = "".join(
         b.get("text", "")
         for b in (raw.get("content") or [])
-        if isinstance(b, dict) and b.get("type") == "text"
+        if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)
     ).strip()
 
     # Strip optional markdown fences the model sometimes adds.
@@ -179,10 +178,18 @@ def _call_llm_for_sql(question: str, store, history: list | None = None) -> dict
     except json.JSONDecodeError as e:
         raise ValueError(f"parse_error: LLM returned non-JSON ({e})")
 
+    if not isinstance(spec, dict):
+        raise ValueError("parse_error: LLM response must be a JSON object")
+
     for key in ("sql", "chart_type", "x", "y", "title"):
         if not spec.get(key):
             raise ValueError(f"incomplete_response: LLM response missing '{key}'")
 
+    spec["title"] = explanation_or_fallback(spec["title"], "chart_title", max_chars=200, max_sentences=1)
+    if "description" in spec:
+        spec["description"] = explanation_or_fallback(
+            spec["description"], "chart_description", max_chars=1000, max_sentences=3,
+        )
     return spec
 
 

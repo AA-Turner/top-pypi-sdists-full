@@ -5,7 +5,7 @@ the spec, and its twin suite
 features/agents/.../__tests__/constraint-eval-fixture.test.ts reads THIS SAME
 content from common-docs).
 
-The fixture moved from `systems/model-config/` to `systems/agents/ai-models/`
+The fixture moved from `systems/model-config/` to `systems/ai/ai-models/`
 in the common-docs docs rename cascade (6bb0b8aa) and this test kept pointing
 at the old path — where it silently SKIPPED, which is why nobody noticed.
 
@@ -41,7 +41,7 @@ _SIBLINGS = Path(__file__).resolve().parents[3].parent
 COMMON_DOCS_ROOT = Path(
     os.environ.get("MATRX_COMMON_DOCS", str(_SIBLINGS / "common-docs"))
 )
-DEFAULT_FIXTURES_DIR = COMMON_DOCS_ROOT / "systems" / "agents" / "ai-models"
+DEFAULT_FIXTURES_DIR = COMMON_DOCS_ROOT / "systems" / "ai" / "ai-models"
 PACKAGE_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 FIXTURES_DIR = Path(os.environ.get("MATRX_SHARED_FIXTURES_DIR", str(PACKAGE_FIXTURES_DIR)))
 FIXTURE_PATH = FIXTURES_DIR / "constraint-eval-fixture.json"

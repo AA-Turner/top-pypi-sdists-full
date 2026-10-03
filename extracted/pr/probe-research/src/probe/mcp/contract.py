@@ -151,6 +151,12 @@ class EntityType(StrEnum):
     # session was metadata riding on other entities: its transcript was
     # searchable (chunk hits) and renderable (dashboard), but not readable here.
     SESSION = "session"
+    # One titled SUB-NOTE (0146), by its own UUID: `sub_note:<id>`, the id a
+    # `notes` view row and a notes-catalog row carry. Its card IS the document.
+    # Before this member existed `view="notes"` showed a 700-character excerpt
+    # of each sub-note and pointed at the dashboard for the rest, so the whole
+    # body of a caveat tab was unreadable on this surface.
+    SUB_NOTE = "sub_note"
 
 
 class CollapseMode(StrEnum):
@@ -184,7 +190,8 @@ class CollapseMode(StrEnum):
 #   rather than a schema rejection.
 class MetricMode(StrEnum):
     """Which grain to read: `grouped` (server-side reduction), `coordinates`
-    (the axis catalog), or `points` (raw)."""
+    (the axis catalog), `points` (raw), or `series` (several runs and keys at
+    once, for comparison)."""
 
     #: Server-side reduction over coordinate axes and step buckets.
     GROUPED = "grouped"
@@ -193,6 +200,81 @@ class MetricMode(StrEnum):
     COORDINATES = "coordinates"
     #: Raw points, losslessly, one bounded keyset page at a time.
     POINTS = "points"
+    #: Several runs x several keys in ONE read (`POST /v1/series/query`), the
+    #: comparison read. The only grain that is not one run, which is why it
+    #: takes `run_ids` + `keys` where the other three take `run_id` + `key`.
+    SERIES = "series"
+
+
+# The wire's `smoothing` Literal on `POST /v1/series/query`, mirrored rather
+# than imported (this package does not import the backend). Typed on the tool
+# signature so a misspelling is refused before the request is built -- the
+# endpoint's own 422 names a field the caller never wrote.
+class SeriesSmoothing(StrEnum):
+    """`smoothing` on metrics(mode="series"): adds a `smoothed` value per point."""
+
+    EMA = "ema"
+    SMA = "sma"
+    GAUSSIAN = "gaussian"
+    TWEMA = "twema"
+
+
+# THE ONE TOOL, FIVE LISTINGS. `tree` is what browse always was (projects ->
+# experiments -> runs via GET /v1/browse); the other four are flat listings
+# behind their own routes, added so an agent can answer "my last N runs", "what
+# is running now", "which workspace is this", "what did we write down about X"
+# and "what is in Shared" without a tree walk -- the reads the dashboard
+# assistant had and this surface lacked. Each mode REFUSES the arguments it does
+# not read (`server._BROWSE_MODE_ARGS`), for the reason `MetricMode` does.
+class BrowseMode(StrEnum):
+    """What browse lists: `tree` (projects/experiments/runs, the default),
+    `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
+    or `files` (Shared, or one workspace's)."""
+
+    TREE = "tree"
+    RUNS = "runs"
+    WORKSPACES = "workspaces"
+    NOTES = "notes"
+    FILES = "files"
+
+
+class ReadmeState(StrEnum):
+    """`state` on GET /v1/projects/{id}/readme (the backend's `ReadmeState`)."""
+
+    # Mirrored, not imported. Only SNAPSHOT carries text: LIVE means no
+    # installation of the GitHub app covers the repository, so Probe holds no
+    # copy and the dashboard fetches it in the browser; NONE means no repository
+    # is attached; UNAVAILABLE carries a `reason`. The view says which in words
+    # (`service._README_STATE_NOTES`), because an empty `markdown` reads the same
+    # for all three.
+    SNAPSHOT = "snapshot"
+    LIVE = "live"
+    NONE = "none"
+    UNAVAILABLE = "unavailable"
+
+
+class ReadmeUnavailableReason(StrEnum):
+    """`reason` on an `unavailable` README (the backend's enum, mirrored)."""
+
+    NOT_FOUND_OR_NO_ACCESS = "not_found_or_no_access"
+    RATE_LIMITED = "rate_limited"
+    UPSTREAM_ERROR = "upstream_error"
+    APP_PERMISSION_REQUIRED = "app_permission_required"
+
+
+class NoteCatalogKind(StrEnum):
+    """`kind` on a `GET /v1/notes` row (the backend's `NoteKind`)."""
+
+    # Mirrored, not imported. Every member but two is also an `entity` ref kind
+    # spelled the same; TEAM_NOTE is the bare `team-note` ref and SUB_NOTE is
+    # `sub_note:<id>` -- the mapping lives in `service._note_row_ref`.
+    TEAM_NOTE = "team_note"
+    PROJECT = "project"
+    EXPERIMENT = "experiment"
+    RUN = "run"
+    GROUP = "group"
+    ARTIFACT = "artifact"
+    SUB_NOTE = "sub_note"
 
 
 class Channel(StrEnum):
@@ -412,6 +494,23 @@ class MissingMarker(StrEnum):
     # So handoff cannot show the rest: it says so, and view="artifacts" (which reads
     # the uncapped route) is where the full list lives.
     ARTIFACTS_BEYOND_BUNDLE_LIMIT = "artifacts_beyond_bundle_limit"
+    # A `sessions` view (run or artifact) whose server list is capped at 50
+    # while `session_total` counts them all, on routes with no offset: the rest
+    # are not reachable here, and the exact total rides the payload.
+    SESSIONS_BEYOND_SERVER_LIMIT = "sessions_beyond_server_limit"
+    # browse(mode="files"): the Shared and workspace file routes take no cursor
+    # and serve at most 1,000 rows per read, so a folder past that is not
+    # reachable by paging. Narrow with `prefix`.
+    FILES_BEYOND_BACKEND_LIMIT = "files_beyond_backend_limit"
+    # browse(mode="runs"/"notes") under `X-Probe-Hide-Session-Work`: every row
+    # the backend pages this read covered was the caller's own session's work and
+    # was left out, up to the read's own bound. NOT "nothing exists": the empty
+    # page says nothing about what lies past `next_cursor`, which continues.
+    PAGE_HIDDEN_AS_OWN_SESSION_WORK = "page_hidden_as_own_session_work"
+    # metrics(mode="series"): the backend answered, and some series could not be
+    # read (a provider-backed run's source failed). Those failures are listed in
+    # `data.errors`; the series that DID read are complete as far as they go.
+    SERIES_READ_ERRORS = "series_read_errors"
     # lineage on a project or experiment: the read stopped at a window, and the
     # payload's `*_truncated` flags say which -- its children past the route's
     # limit, its links past the view's cap, links among its runs past that cap,

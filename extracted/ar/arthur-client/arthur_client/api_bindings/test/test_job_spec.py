@@ -35,7 +35,7 @@ class TestJobSpec(unittest.TestCase):
         model = JobSpec()
         if include_optional:
             return JobSpec(
-                job_type = 'fetch_discovered_agents',
+                job_type = 'test_discovery_source',
                 dataset_id = '',
                 available_dataset_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -119,7 +119,9 @@ class TestJobSpec(unittest.TestCase):
                     ''
                     ],
                 discovery_source_id = '',
-                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
+                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                test_id = '',
+                preview_limit = 56
             )
         else:
             return JobSpec(
@@ -153,7 +155,21 @@ class TestJobSpec(unittest.TestCase):
                 test_custom_aggregation_id = '',
                 workspace_id = '',
                 data_plane_id = '',
+                lookback_hours = 56,
+                discovery_source_config_id = '',
+                discovery_source_config = arthur_client.api_bindings.models.discovery_source_config_spec.DiscoverySourceConfigSpec(
+                    discovery_source_id = '', 
+                    name = '', 
+                    vendor = '', 
+                    query = '', 
+                    query_language = '', 
+                    lookback_window_seconds = 56, 
+                    source_fields = {
+                        'key' : ''
+                        }, ),
                 discovery_source_id = '',
+                test_id = '',
+                preview_limit = 56,
         )
         """
 

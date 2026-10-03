@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: running_process
-Version: 4.10.15
+Version: 4.10.16
 License-File: LICENSE
 Summary: A Rust-backed subprocess wrapper with split stdout/stderr streaming
 Home-Page: https://github.com/zackees/running-process
 Author-email: Your Name <your.email@example.com>
-License: BSD 3-Clause License
+License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/zackees/running-process
@@ -101,15 +101,17 @@ The v1 broker work is documented as a stable spec alongside the implementation:
 
 </details>
 
-| Platform | CI |
+| Workflow | CI |
 |----------|----|
-| Linux | [![Linux](https://github.com/zackees/running-process/actions/workflows/ci-linux.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/ci-linux.yml) |
-| macOS | [![macOS](https://github.com/zackees/running-process/actions/workflows/ci-macos.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/ci-macos.yml) |
-| Windows | [![Windows](https://github.com/zackees/running-process/actions/workflows/ci-windows.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/ci-windows.yml) |
+| CI | [![CI](https://github.com/zackees/running-process/actions/workflows/ci.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/ci.yml) |
 | Release | [![Auto Release](https://github.com/zackees/running-process/actions/workflows/auto-release.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/auto-release.yml) |
 
-Each `ci-*` workflow fans out to that platform's x86 and ARM lanes (and
-musl on Linux), running build, lint, unit and integration stages per lane.
+Every pull request and main push runs the Linux x64 lint, Dylint, build, and
+unit checks. Add `ci-integration` to include Linux integration tests, or add
+`ci-windows` / `ci-mac` to include that platform's x64 and ARM lanes. Add
+`ci-full` to run all platform and Linux musl lanes, coverage, and
+Windows/macOS all-features checks. The full suite also runs nightly; main
+merges do not start the heavy platform or coverage jobs.
 
 ## Process watches
 
@@ -168,6 +170,30 @@ the same coverage for static binaries, secure-exec/setuid programs, direct
 syscalls, or programs that clear their environment. See
 [process watches](docs/process-watches.md) for stack artifacts, capability
 discovery, exact selector semantics, and the full platform model.
+
+### Attaching to an already-running process
+
+Watches above cover a tree this library launched. For a process it did **not**
+launch (an adopted pid), the Rust `observer::observe_launched_tree(root_pid,
+config)` attaches a descendant monitor after the fact:
+
+| Platform | How descendants are found | Grade |
+|---|---|---|
+| Linux | `/proc` children walk over every thread of each process | snapshot-inferred |
+| macOS | process snapshots plus kqueue hints | snapshot-inferred |
+| Windows | polls the process table every 50 ms | snapshot-inferred |
+
+"Snapshot-inferred" means a descendant that starts and exits between two polls
+is not seen, so this is for diagnosis, not an audit trail. On Windows a child
+is matched by parent id and rejected if it predates its parent, so a reused
+parent id is not mistaken for ancestry. A process spawned *with* an observer is
+better served: Linux can trace it exactly, and Windows reports it through its
+Job Object.
+
+Not provided: macOS Endpoint Security (needs Apple's entitlement, root, and a
+signed deployed client), Windows ETW (needs administrator rights), and a
+Windows `DEBUG_PROCESS` exact backend (deferred: it makes this library the
+debugger of the launched tree).
 
 ## PTY Support Matrix
 
@@ -330,10 +356,11 @@ restores daemon state. Manifests from a prior runner boot are reported as stale:
 ## Pipe-backed API
 
 ```python
-from running_process import RunningProcess
+from running_process import PIPE, RunningProcess
 
 process = RunningProcess(
-    ["python", "-c", "import sys; print('out'); print('err', file=sys.stderr)"]
+    ["python", "-c", "import sys; print('out'); print('err', file=sys.stderr)"],
+    stderr=PIPE,
 )
 
 process.wait()
@@ -342,6 +369,9 @@ print(process.stdout)          # stdout only
 print(process.stderr)          # stderr only
 print(process.combined_output) # combined compatibility view
 ```
+
+By default, `RunningProcess(...)` merges `stderr` into `stdout`.
+Pass `stderr=PIPE` when independent `stdout` and `stderr` capture is required.
 
 Captured data values stay plain `str | bytes`. Live stream handles are exposed separately:
 
@@ -764,8 +794,8 @@ python scripts/terminate_tracked_processes.py
 
 ## Notes
 
-- `stdout` and `stderr` are no longer merged by default.
-- `combined_output` exists for compatibility when you need the merged view.
+- `RunningProcess(...)` merges `stderr` into `stdout` by default; pass `stderr=PIPE` to capture them separately.
+- `combined_output` provides the merged view in either capture mode.
 - `RunningProcess(..., use_pty=True)` is no longer the preferred path; use `RunningProcess.pseudo_terminal(...)` for PTY sessions.
 - On supported Windows builds, PTY support is provided by the native Rust extension rather than a Python `winpty` fallback.
 - The test suite checks that `running_process.__version__`, package metadata, and manifest versions stay in sync.

@@ -24,9 +24,39 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
 #include <process.h> /* getpid, under its POSIX name; the UCRT has no <unistd.h> */
+/* The pipe calls the data-source tests make, per platform (functions, not
+   function-like macros: a call may pass a compound literal). */
+static int
+t_pipe (int p[2])
+{
+  return _pipe (p, 4096, _O_BINARY);
+}
+static int
+t_write (int f, const void *b, size_t n)
+{
+  return _write (f, b, (unsigned)n);
+}
+#define t_close _close
+#define t_dup _dup
+#define t_dup2 _dup2
 #else
 #include <unistd.h>
+static int
+t_pipe (int p[2])
+{
+  return pipe (p);
+}
+static int
+t_write (int f, const void *b, size_t n)
+{
+  return (int)write (f, b, n);
+}
+#define t_close close
+#define t_dup dup
+#define t_dup2 dup2
 #endif
 
 /* The standalone-Synth half of the shared bridge. It has no header of its own
@@ -257,9 +287,9 @@ test_the_two_faces_agree (void)
     s.data_code.kind             = WFM_SEQ_LITERAL;
     s.data_code.bits             = code;
     s.data_code.len              = sizeof code;
-    s.payload.kind               = WFM_SEQ_LITERAL;
-    s.payload.bits               = pay;
-    s.payload.len                = sizeof pay;
+    s.data.kind                  = WFM_SEQ_LITERAL;
+    s.data.bits                  = pay;
+    s.data.len                   = sizeof pay;
     s.crc                        = 1;
 
     float _Complex *da = malloc (n * sizeof *da);
@@ -336,16 +366,17 @@ wire_bits (const wfm_source_t *src, uint8_t *out, size_t n)
  * The sequences are borrowed; the marker's bits are static. Returns 0. */
 typedef struct
 {
-  int              asm_;      /* the 0x1ACFFC1D marker, first            */
-  const wfm_seq_t *pre;       /* preamble, or NULL                        */
-  size_t           reps;      /* its repetitions                          */
-  const wfm_seq_t *sync;      /* sync word, or NULL                       */
-  const wfm_seq_t *payload;   /* the payload                              */
-  int              crc;       /* CRC-16 over the payload                  */
-  unsigned         rs;        /* outer code depth; 0 = none               */
-  unsigned         rand;      /* randomiser: 1 = 10.4.1, 2 = 10.4.2       */
-  unsigned         ilv, unit; /* interleaver depth and unit bits          */
-  int              conv;      /* inner code over every field              */
+  int              asm_;    /* the 0x1ACFFC1D marker, first            */
+  const wfm_seq_t *pre;     /* preamble, or NULL                        */
+  size_t           reps;    /* its repetitions                          */
+  const wfm_seq_t *sync;    /* sync word, or NULL                       */
+  const wfm_seq_t *payload; /* the payload: a data:LEN field this long,
+                               its bits the source's data (#1718)      */
+  int      crc;             /* CRC-16 over the payload                  */
+  unsigned rs;              /* outer code depth; 0 = none               */
+  unsigned rand;            /* randomiser: 1 = 10.4.1, 2 = 10.4.2       */
+  unsigned ilv, unit;       /* interleaver depth and unit bits          */
+  int      conv;            /* inner code over every field              */
 } coded_t;
 
 static int
@@ -376,7 +407,8 @@ coded_frame (const coded_t *c, wfm_frame_desc_t *d)
         return -1;
       first = first ? first : "sync";
     }
-  if (dp_wfm_frame_add_field (d, "payload", c->payload, 0u) < 0)
+  const wfm_seq_t dq = { .kind = WFM_SEQ_DATA, .len = c->payload->len };
+  if (dp_wfm_frame_add_field (d, "payload", &dq, 0u) < 0)
     return -1;
   first = first ? first : "payload";
   if (c->crc && dp_wfm_frame_add_derived (d, "crc", WFM_FRAME_CRC_BITS) < 0)
@@ -457,14 +489,17 @@ test_a_source_carries_the_frame_a_caller_built (void)
   payload.bits      = payload_bits;
   payload.len       = 24;
 
+  /* The payload is the frame's data:LEN field, its bits the source's data
+     (doppler#1718): a description says where the data goes, never what. */
+  const wfm_seq_t  dq = { .kind = WFM_SEQ_DATA, .len = 24 };
   wfm_frame_desc_t d;
   memset (&d, 0, sizeof d);
   DP_REQUIRE_MSG (
       dp_wfm_frame_add_field (&d, "mark", &marker, 0u) == 0,
       "frame: dp_wfm_frame_add_field (&d, 'mark', &marker, 0u) == 0");
   DP_REQUIRE_MSG (
-      dp_wfm_frame_add_field (&d, "payload", &payload, 0u) == 1,
-      "frame: dp_wfm_frame_add_field (&d, 'payload', &payload, 0u) == 1");
+      dp_wfm_frame_add_field (&d, "payload", &dq, 0u) == 1,
+      "frame: dp_wfm_frame_add_field (&d, 'payload', &dq, 0u) == 1");
   DP_REQUIRE_MSG (
       dp_wfm_frame_add_stage (&d, WFM_STAGE_CRC16, "payload", "payload") == 0,
       "frame: dp_wfm_frame_add_stage (&d, WFM_STAGE_CRC16, 'payload', 'payl");
@@ -474,14 +509,13 @@ test_a_source_carries_the_frame_a_caller_built (void)
   src.pn_length    = 7;
   src.modulation   = 1; /* bpsk */
   src.sps          = 1;
-  src.payload      = payload;
 
-  /* Without a carried frame, none of the flat fields is set, so this
-     source is unframed -- the precondition that makes the next line mean
-     something rather than restating a default. */
+  /* With nothing set the source is unframed -- the precondition that makes
+     the next lines mean something rather than restating a default. */
   DP_REQUIRE_MSG (!dp_wfm_source_has_frame (&src),
                   "frame: !dp_wfm_source_has_frame (&src)");
 
+  src.data  = payload;
   src.frame = &d;
   DP_REQUIRE_MSG (
       dp_wfm_source_has_frame (&src),
@@ -493,7 +527,8 @@ test_a_source_carries_the_frame_a_caller_built (void)
   DP_REQUIRE (dp_wfm_frame_desc_layout (&d, &l) == 0);
   uint8_t want[64], got[64];
   DP_REQUIRE_MSG (l.out_bits <= sizeof want
-                      && dp_wfm_frame_assemble (&d, NULL, want, sizeof want)
+                      && dp_wfm_frame_assemble_data (&d, NULL, payload_bits,
+                                                     want, sizeof want)
                              == l.out_bits,
                   "the description assembles");
   DP_REQUIRE_MSG (dp_wfm_source_frame_error (&src) == NULL,
@@ -524,6 +559,69 @@ test_a_source_carries_the_frame_a_caller_built (void)
                   "frame: a preamble alone frames the common frame");
   DP_REQUIRE_MSG (dp_wfm_source_frame_error (&src) == NULL,
                   "frame: and it builds");
+
+  /* A carried frame of FIXED bits -- no data:LEN field, so no data source
+     -- is a FINITE source of one frame, sent once (doppler#1718 deleted the
+     cycle): the run is the frame, whatever count is given beside it, and
+     more of it is repeats, each from its first bit. */
+  {
+    wfm_frame_desc_t fixed;
+    memset (&fixed, 0, sizeof fixed);
+    DP_REQUIRE (dp_wfm_frame_add_field (&fixed, "mark", &marker, 0u) == 0
+                && dp_wfm_frame_add_field (&fixed, "payload", &payload, 0u)
+                       == 1);
+    wfm_source_t once = { 0 };
+    once.type         = WFM_SYNTH_BITS;
+    once.pn_length    = 7;
+    once.modulation   = 1;
+    once.sps          = 1;
+    once.snr          = 200.0;
+    once.frame        = &fixed;
+    DP_REQUIRE_MSG (dp_wfm_source_error (&once) == NULL,
+                    "a carried frame of fixed bits needs no data source");
+    enum
+    {
+      FB = 16 + 24 /* mark + payload */
+    };
+    DP_CHECK_MSG (dp_wfm_source_data_frames (&once) == 1
+                      && dp_wfm_source_data_samples (&once, 1e6, 1) == FB,
+                  "it is a finite source of one frame");
+    for (size_t reps = 1; reps <= 2; reps++)
+      {
+        wfm_segment_t seg         = { .sources     = &once,
+                                      .n_sources   = 1,
+                                      .fs          = 1e6,
+                                      .num_samples = 3 * FB, /* not the run */
+                                      .repeats     = reps };
+        dp_wfm_compose_state_t *c = dp_wfm_compose_create (&seg, 1, 0, 0);
+        DP_REQUIRE (c != NULL);
+        float complex y[3 * FB];
+        size_t        n = 0, got;
+        while ((got = dp_wfm_compose_execute (c, y + n, 3 * FB - n)) > 0)
+          n += got;
+        dp_wfm_compose_destroy (c);
+        int sent = n == reps * FB;
+        for (size_t i = 0; i < n; i++)
+          sent &= cabsf (y[i]) > 0.5f;
+        if (reps == 2)
+          sent &= memcmp (y, y + FB, FB * sizeof *y) == 0;
+        DP_CHECK_MSG (sent, "the run is the frame -- once, or once a "
+                            "repeat -- and never the count given beside it");
+      }
+    /* So a scene that GIVES a count beside it is refused, naming repeats,
+       as for any finite source: the face that can tell a count given from
+       its default says so. */
+    const char             *why = NULL;
+    dp_wfm_compose_state_t *bad = dp_wfm_compose_from_json_why (
+        "{\"segments\":[{\"type\":\"bits\",\"fs\":1e6,"
+        "\"num_samples\":64,\"frame\":{\"fields\":"
+        "[{\"name\":\"a\",\"spec\":\"1010\"}]}}]}",
+        &why);
+    DP_CHECK_MSG (bad == NULL && why && strstr (why, "repeats"),
+                  "a scene's count beside a fixed frame is refused, naming "
+                  "repeats");
+    dp_wfm_compose_destroy (bad);
+  }
 
   printf ("  a source carries the frame a caller built\n");
   return 0;
@@ -611,6 +709,12 @@ test_a_carried_frame_survives_the_scene_json (void)
      create -- so does the scene. 5 x 11 keeps both keys non-zero. */
   d.stage[2].depth     = 5u;
   d.stage[2].unit_bits = 11u;
+  /* The payload: a data:LEN field, filled from the source's data
+     (doppler#1718). Last, and outside every stage's cover, so the covers
+     and the interleaver's geometry above stay what they say. */
+  const wfm_seq_t dq = { .kind = WFM_SEQ_DATA, .len = 16 };
+  DP_REQUIRE_MSG (dp_wfm_frame_add_field (&d, "payload", &dq, 0u) == 3,
+                  "json-frame: add_field payload == 3");
 
   /* BITS rather than BPSK: a bits source's payload is the literal it was
      given, and a payload that did not survive the round trip would make the
@@ -622,11 +726,10 @@ test_a_carried_frame_survives_the_scene_json (void)
                        .seed      = 1,
                        .sps       = 4,
                        .pn_length = 7 };
-  /* A framed source needs a payload -- dp_wfm_source_frame_error() refuses one
-     without, and a CARRIED description is framing by the same predicate, so
-     the rule reaches this source exactly as it reaches a flat-framed one. */
-  src.payload = payload;
-  src.frame   = &d;
+  /* The description is the whole frame; the bits its data:LEN field
+     carries are the source's data. */
+  src.frame = &d;
+  src.data  = payload;
   wfm_segment_t seg
       = { .sources = &src, .n_sources = 1, .fs = 1e6, .num_samples = 256 };
 
@@ -710,22 +813,20 @@ test_a_carried_frame_survives_the_scene_json (void)
 
   /* Each reject below differs from THIS scene by exactly one thing: the
      frame defect under test. Asserting the control PARSES is what stops
-     them passing for an unrelated reason -- a framed source with no payload
-     is refused outright, so a frame reject written without one proves
-     nothing about the frame. */
+     them passing for an unrelated reason. */
 #define FRAME_SCENE(FR)                                                       \
-  "{\"segments\":[{\"type\":\"bits\",\"fs\":1e6,\"num_samples\":16,"          \
-  "\"payload\":\"1100101001110001\",\"frame\":" FR "}]}"
+  "{\"segments\":[{\"type\":\"bits\",\"fs\":1e6,\"data\":\"1010\","           \
+  "\"frame\":" FR "}]}"
 
   dp_wfm_compose_state_t *ctl = dp_wfm_compose_from_json (
-      FRAME_SCENE ("{\"fields\":[{\"name\":\"a\",\"spec\":\"1010\"}]}"));
+      FRAME_SCENE ("{\"fields\":[{\"name\":\"a\",\"spec\":\"data:4\"}]}"));
   DP_REQUIRE_MSG (ctl, "json-frame: the control scene parses");
   dp_wfm_compose_destroy (ctl);
 
   /* A kind this build does not know is REFUSED, not defaulted -- kind 0 is
      crc16, so a reader that fell back would turn a typo into a CRC stage. */
   DP_REQUIRE_MSG (!dp_wfm_compose_from_json (FRAME_SCENE (
-                      "{\"fields\":[{\"name\":\"a\",\"spec\":\"1010\"}],"
+                      "{\"fields\":[{\"name\":\"a\",\"spec\":\"data:4\"}],"
                       "\"stages\":[{\"kind\":\"crc32\",\"n_fields\":1}]}")),
                   "json-frame: an unknown stage NAME is refused");
   /* A field's bits are ONE Field, "spec"; the keys it replaced are
@@ -772,9 +873,9 @@ test_a_framed_pn_type_sends_its_frame (void)
   src.sync.kind    = WFM_SEQ_LITERAL;
   src.sync.bits    = barker;
   src.sync.len     = sizeof barker;
-  src.payload.kind = WFM_SEQ_LITERAL;
-  src.payload.bits = pay;
-  src.payload.len  = sizeof pay;
+  src.data.kind    = WFM_SEQ_LITERAL;
+  src.data.bits    = pay;
+  src.data.len     = sizeof pay;
   DP_REQUIRE_MSG (dp_wfm_source_frame_error (&src) == NULL,
                   "precondition: a framed bpsk is a shape the rule accepts");
 
@@ -838,20 +939,22 @@ test_a_framed_pn_type_sends_its_frame (void)
         dp_wfm_synth_destroy (bridge);
       }
 
-  /* An UNFRAMED bpsk keeps its PN stream: the switch is the frame's, not
-     the type's. A bridge that made every bpsk a BITS synth would pass
-     everything above and silence every unframed PN source. */
+  /* An UNFRAMED bpsk -- no sync, no data source -- keeps its PN stream:
+     the switch is the frame's, not the type's. A bridge that made every
+     bpsk a BITS synth would pass everything above and silence every
+     unframed PN source. */
   {
     wfm_source_t u = src;
     memset (&u.sync, 0, sizeof u.sync);
+    memset (&u.data, 0, sizeof u.data);
     DP_REQUIRE (!dp_wfm_source_has_frame (&u));
-    wfm_source_t plain = u;
-    memset (&plain.payload, 0, sizeof plain.payload);
+    DP_CHECK_MSG (dp_wfm_source_synth_type (&u) == WFM_SYNTH_BPSK,
+                  "an unframed bpsk is built as a bpsk, not a bits synth");
     DP_REQUIRE (wire_bits (&u, got, 32) == 32);
-    uint8_t ref[32];
-    DP_REQUIRE (wire_bits (&plain, ref, 32) == 32);
-    DP_CHECK_MSG (memcmp (got, ref, 32) == 0,
-                  "an unframed bpsk still emits its own PN stream");
+    int varies = 0;
+    for (size_t i = 1; i < 32; i++)
+      varies |= got[i] != got[0];
+    DP_CHECK_MSG (varies, "and it sends its own PN stream, not silence");
   }
   free (a);
   free (b);
@@ -955,6 +1058,884 @@ test_frame_from_json_directly (void)
     dp_wfm_frame_free (dp_wfm_frame_from_json ("{\"fields\": []}", NULL));
   }
   printf ("  dp_wfm_frame_from_json reads, refuses and frees\n");
+  return 0;
+}
+
+/* dp_wfm_source_bits_refuse_text: a source's bit field takes bits, so its
+ * text face always refuses, with one reason naming field_bits(). */
+static int
+test_source_bits_refuse_text (void)
+{
+  uint8_t     out[4] = { 7, 7, 7, 7 };
+  const char *why    = NULL;
+  DP_CHECK_MSG (dp_wfm_source_bits_refuse_text ("0101", out, sizeof out, &why)
+                    == 0,
+                "bits_refuse_text: valid Field text is still refused");
+  DP_CHECK_MSG (why && strstr (why, "field_bits()"),
+                "bits_refuse_text: the reason names field_bits()");
+  DP_CHECK_MSG (out[0] == 7 && out[3] == 7,
+                "bits_refuse_text: nothing is written");
+  DP_CHECK_MSG (dp_wfm_source_bits_refuse_text ("", NULL, 0, NULL) == 0,
+                "bits_refuse_text: why may be NULL");
+  /* The header's @code example, as written. */
+  {
+    const char *w;
+    size_t      n = dp_wfm_source_bits_refuse_text ("0101", NULL, 0, &w);
+    DP_CHECK_MSG (n == 0 && strstr (w, "field_bits()"),
+                  "bits_refuse_text @code: n == 0, why names field_bits()");
+  }
+  printf ("  dp_wfm_source_bits_refuse_text refuses every str\n");
+  return 0;
+}
+
+/* dp_wfm_frame_refuse_text: `frame=` takes a description, so its text face
+ * refuses, naming the object forms and the scene's "frame" key. */
+static int
+test_frame_refuse_text (void)
+{
+  const char *why = NULL;
+  DP_CHECK_MSG (dp_wfm_frame_refuse_text ("{\"fields\": []}", &why) == NULL,
+                "frame_refuse_text: a valid description's text is refused");
+  DP_CHECK_MSG (why && strstr (why, "FrameDesc")
+                    && strstr (why, "\"frame\" key"),
+                "frame_refuse_text: the reason names the object and the key");
+  DP_CHECK_MSG (dp_wfm_frame_refuse_text ("x", NULL) == NULL,
+                "frame_refuse_text: why may be NULL");
+  /* The header's @code example, as written. */
+  {
+    const char       *w;
+    wfm_frame_desc_t *d = dp_wfm_frame_refuse_text ("{\"fields\": []}", &w);
+    DP_CHECK_MSG (d == NULL && strstr (w, "FrameDesc"),
+                  "frame_refuse_text @code: NULL, why names FrameDesc");
+  }
+  printf ("  dp_wfm_frame_refuse_text refuses every str\n");
+  return 0;
+}
+
+/* dp_wfm_frame_to_json / _copy: with dp_wfm_frame_from_json, the three a
+ * binding's owned-pointer field calls (just-makeit#1711), each pinned on the
+ * header's claims. */
+static int
+test_frame_to_json_copy (void)
+{
+  static const char full[]
+      = "{\"fields\":[{\"name\":\"asm\",\"spec\":\"0x1ACFFC1D\"},"
+        "{\"name\":\"data\",\"spec\":\"pn:31:5*4\"},"
+        "{\"name\":\"crc\",\"bits\":16,\"derived_by\":1}],"
+        "\"stages\":[{\"kind\":\"crc16\",\"first_field\":1,"
+        "\"n_fields\":2}]}";
+
+  wfm_frame_desc_t *d = dp_wfm_frame_from_json (full, NULL);
+  DP_REQUIRE_MSG (d != NULL && d->n_fields == 3 && d->n_stages == 1,
+                  "frame_to_json: the description under test reads");
+
+  /* to_json is the scene writer's text, and it reads back to itself. */
+  char *once = dp_wfm_frame_to_json (d);
+  DP_REQUIRE_MSG (once != NULL, "frame_to_json: a description writes");
+  DP_CHECK_MSG (strstr (once, "\"name\":\"asm\"")
+                    && strstr (once, "\"derived_by\":1")
+                    && strstr (once, "\"kind\":\"crc16\""),
+                "frame_to_json: fields, a derived field and the stage");
+  wfm_frame_desc_t *back  = dp_wfm_frame_from_json (once, NULL);
+  char             *twice = dp_wfm_frame_to_json (back);
+  DP_CHECK_MSG (back && twice && strcmp (once, twice) == 0,
+                "frame_to_json: parse(to_json(d)) writes the same text");
+  DP_CHECK_MSG (dp_wfm_frame_to_json (NULL) == NULL,
+                "frame_to_json: NULL gives NULL");
+  free (twice);
+  dp_wfm_frame_free (back);
+
+  /* copy owns its bits: equal text, distinct buffers, and it outlives the
+     original (LSan and ASan hold the frees under test-asan). */
+  wfm_frame_desc_t *c = dp_wfm_frame_copy (d);
+  DP_REQUIRE_MSG (c != NULL, "frame_copy: a description copies");
+  DP_CHECK_MSG (c->field[0].seq.bits != NULL
+                    && c->field[0].seq.bits != d->field[0].seq.bits
+                    && memcmp (c->field[0].seq.bits, d->field[0].seq.bits,
+                               d->field[0].seq.len)
+                           == 0,
+                "frame_copy: a literal field's bits are copied, not shared");
+  DP_CHECK_MSG (c->field[2].seq.bits == NULL,
+                "frame_copy: a derived field stays without bits");
+  dp_wfm_frame_free (d);
+  char *copied = dp_wfm_frame_to_json (c);
+  DP_CHECK_MSG (copied && strcmp (copied, once) == 0,
+                "frame_copy: the copy survives the original's free");
+  free (copied);
+  free (once);
+  dp_wfm_frame_free (c);
+  DP_CHECK_MSG (dp_wfm_frame_copy (NULL) == NULL,
+                "frame_copy: NULL gives NULL");
+
+  /* The header's @code examples, as written. */
+  {
+    wfm_frame_desc_t *e = dp_wfm_frame_from_json (
+        "{\"fields\": [{\"spec\": \"1010\"}]}", NULL);
+    DP_CHECK_MSG (e && e->n_fields == 1, "frame @code: one field");
+    char *text = dp_wfm_frame_to_json (e);
+    DP_CHECK_MSG (text
+                      && strcmp (text, "{\"fields\":[{\"spec\":\"0xa\"}],"
+                                       "\"stages\":[]}")
+                             == 0,
+                  "frame_to_json @code: the text as documented");
+    free (text);
+    wfm_frame_desc_t *b = dp_wfm_frame_copy (e);
+    dp_wfm_frame_free (e);
+    DP_CHECK_MSG (b && b->field[0].seq.len == 4,
+                  "frame_copy @code: the copy keeps four bits");
+    dp_wfm_frame_free (b);
+  }
+  printf ("  dp_wfm_frame_to_json/_copy round-trip and own\n");
+  return 0;
+}
+
+/* ── #1619 F6a: a frame's payload drawn from a data source ──────────────
+ *
+ * Every source here is type=bits at one sample per bit with no CRC, so the
+ * air IS the data: each output sample is a 0/1 bit and the frames can be
+ * read back against the source's own bits. */
+static const uint8_t SIX[6] = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB };
+
+static void
+six_bits (uint8_t *b)
+{
+  for (size_t i = 0; i < 48; i++)
+    b[i] = (uint8_t)((SIX[i / 8] >> (7 - i % 8)) & 1u);
+}
+
+static wfm_source_t
+data_line (void)
+{
+  wfm_source_t s = { 0 };
+  s.type         = WFM_SYNTH_BITS;
+  s.snr          = 200.0;
+  s.seed         = 1;
+  s.sps          = 1;
+  s.pn_length    = 7;
+  s.data_len     = 16;
+  return s;
+}
+
+/* Read n samples back as bits; -1 if any is not a clean 0 or 1. */
+static int
+as_bits (const float complex *x, size_t n, uint8_t *b)
+{
+  for (size_t i = 0; i < n; i++)
+    {
+      const float a = crealf (x[i]);
+      b[i]          = a > 0.5f;
+      if (fabsf (a - (float)b[i]) > 1e-3f)
+        return -1;
+    }
+  return 0;
+}
+
+static int
+test_a_finite_data_source_sets_the_run (void)
+{
+  uint8_t bits[48], got[48];
+  six_bits (bits);
+  wfm_source_t src = data_line ();
+  src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 48 };
+  wfm_segment_t           seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+  dp_wfm_compose_state_t *c   = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "a source drawing from a Field composes");
+  float complex out[200];
+  const size_t  n = dp_wfm_compose_execute (c, out, 200);
+  DP_CHECK_MSG (n == 48,
+                "48 bits in 16-bit frames is 3 frames: the run's length is "
+                "DERIVED from the data, not the 1024 default");
+  DP_CHECK_MSG (as_bits (out, 48, got) == 0 && memcmp (got, bits, 48) == 0,
+                "and the frames carry the data, in order, each its own chunk");
+  dp_wfm_compose_destroy (c);
+
+  /* One 8-bit frame of 0xFF; the second frame's 4 bits padded from fill. */
+  static const uint8_t twelve[12] = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0 };
+  static const uint8_t f01[2]     = { 0, 1 };
+  src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = twelve, .len = 12 };
+  src.data_len = 8;
+  DP_CHECK_MSG (dp_wfm_source_error (&src) != NULL,
+                "12 bits in 8-bit frames with no fill: refused before a "
+                "sample");
+  src.fill = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = f01, .len = 2 };
+  c        = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE (c != NULL);
+  DP_CHECK_MSG (dp_wfm_compose_execute (c, out, 200) == 16,
+                "two 8-bit frames, the last padded");
+  dp_wfm_compose_destroy (c);
+  return 0;
+}
+
+/* A dsss BURST over a data source: one burst per chunk, each the preamble
+   then that chunk's frame spread, so the bursts differ -- not one burst
+   cycled. The run is the bursts, derived (doppler#1719). */
+static int
+test_a_dsss_burst_draws_a_chunk_per_burst (void)
+{
+  enum
+  {
+    SF   = 4,             /* data-code chips per frame bit */
+    LEN  = 16,            /* data bits per burst           */
+    NCH  = SF + LEN * SF, /* preamble once, then the frame */
+    NBUR = 3              /* 48 bits / 16                  */
+  };
+  static const uint8_t acq[SF] = { 1, 0, 0, 1 }, code[SF] = { 1, 1, 0, 1 };
+  uint8_t              bits[48];
+  six_bits (bits);
+  wfm_source_t src = data_line ();
+  src.type         = WFM_SYNTH_DSSS;
+  src.acq_code
+      = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = acq, .len = SF };
+  src.acq_reps = 1;
+  src.data_code
+      = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = code, .len = SF };
+  src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 48 };
+  DP_REQUIRE_MSG (dp_wfm_source_error (&src) == NULL,
+                  "a data source on a dsss burst is a source");
+  DP_REQUIRE_MSG (dp_wfm_source_data_samples (&src, 1e6, 1) == NCH,
+                  "a burst's samples are its chips at sps 1");
+
+  wfm_segment_t           seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+  dp_wfm_compose_state_t *c   = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "it composes");
+  float complex out[NBUR * NCH + 64];
+  const size_t  n = dp_wfm_compose_execute (c, out, NBUR * NCH + 64);
+  dp_wfm_compose_destroy (c);
+  DP_CHECK_MSG (n == NBUR * NCH,
+                "the run is 3 bursts, derived from 48 bits in 16-bit "
+                "chunks -- not one burst, not a count");
+
+  /* Each burst against the one spreader, over ITS chunk. Chips are BPSK:
+     0 is +1, 1 is -1. */
+  wfm_frame_desc_t d;
+  const wfm_seq_t  dq = { .kind = WFM_SEQ_DATA, .len = LEN };
+  DP_REQUIRE (dp_wfm_frame_fixed (&d, NULL, 0, NULL, &dq, 0) == 0);
+  int same = 1, differ = 0;
+  for (size_t b = 0; b < NBUR; b++)
+    {
+      uint8_t want[NCH];
+      DP_REQUIRE (dp_wfm_dsss_desc_chips_data (&d, NULL, bits + b * LEN, acq,
+                                               SF, 1, code, SF, want, NCH)
+                  == NCH);
+      for (size_t i = 0; i < NCH; i++)
+        {
+          const float chip = crealf (out[b * NCH + i]);
+          if (fabsf (chip - (want[i] ? -1.0f : 1.0f)) > 1e-3f)
+            same = 0;
+          if (b && fabsf (chip - crealf (out[i])) > 1e-3f)
+            differ = 1;
+        }
+    }
+  DP_CHECK_MSG (same, "every burst is the preamble, then ITS chunk spread");
+  DP_CHECK_MSG (differ, "and the bursts differ: no burst is cycled");
+
+  /* A C caller that skips dp_wfm_source_error: a carried frame with no
+     data:LEN field has nothing for the source to fill, so the attach
+     refuses rather than send a burst over nothing. */
+  {
+    wfm_frame_desc_t fd;
+    const wfm_seq_t  dotted = { .kind = WFM_SEQ_DOTTED, .len = 8 };
+    DP_REQUIRE (dp_wfm_frame_fixed (&fd, NULL, 0, NULL, &dotted, 0) == 0);
+    wfm_source_t bare         = src;
+    bare.frame                = &fd;
+    dp_wfm_synth_state_t *syn = dp_wfm_synth_create (
+        WFM_SYNTH_DSSS, 1e6, 0.0, 200.0, 0, 1, 1, 7, 0, 0, 0.0);
+    DP_REQUIRE (syn != NULL);
+    DP_CHECK_MSG (dp_wfm_source_attach_dsss (syn, &bare, 1e6) == -1,
+                  "a dsss burst whose frame has no data field refuses a "
+                  "data source");
+    dp_wfm_synth_destroy (syn);
+  }
+
+  /* The same burst from stdin: the run is where the stream ends, 3 bursts,
+     not the one burst a lone dsss source is otherwise sized to. */
+  int p[2];
+  DP_REQUIRE (t_pipe (p) == 0);
+  DP_REQUIRE (t_write (p[1], SIX, 6) == 6);
+  t_close (p[1]);
+  const int saved = t_dup (0);
+  DP_REQUIRE (saved >= 0 && t_dup2 (p[0], 0) == 0);
+  t_close (p[0]);
+  static const uint8_t zero[1] = { 0 };
+  src.data                     = (wfm_seq_t){ 0 };
+  src.data_from_file           = "-";
+  src.fill = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+  c        = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "a dsss burst over stdin composes");
+  float complex piped[NBUR * NCH + 64];
+  size_t        m = 0, got;
+  while ((got = dp_wfm_compose_execute (c, piped + m, NBUR * NCH + 64 - m))
+         > 0)
+    m += got;
+  dp_wfm_compose_destroy (c);
+  t_dup2 (saved, 0);
+  t_close (saved);
+  DP_CHECK_MSG (m == NBUR * NCH,
+                "stdin's 48 bits are 3 bursts: the run ends where the "
+                "stream does, not after one burst");
+  DP_CHECK_MSG (m == n && memcmp (piped, out, n * sizeof *out) == 0,
+                "and they are the bursts the same bits make as a Field");
+  return 0;
+}
+
+/* CONTINUOUS dsss over a data source: no frame, one bit per data symbol.
+   Chip n is the code XOR the data bit of symbol floor(n / cps), with cps
+   not a whole number, and the run ends with the last data symbol's chips
+   (doppler#1719). */
+static uint8_t
+cont_want (const uint8_t *code, size_t nc, const uint8_t *bits, double cps,
+           size_t n)
+{
+  return (uint8_t)(code[n % nc] ^ bits[(uint64_t)((double)n / cps)]);
+}
+
+static int
+test_continuous_dsss_draws_a_bit_per_symbol (void)
+{
+  static const uint8_t code[5] = { 1, 1, 0, 1, 0 };
+  uint8_t              bits[48];
+  six_bits (bits);
+  const double fs = 1e6, rate = fs / 3.7; /* 3.7 chips per data symbol */
+  const double cps = (fs / 1.0) / rate;   /* the kernel's own expression */
+  wfm_source_t src = data_line ();
+  src.type         = WFM_SYNTH_DSSS;
+  src.symbol_rate  = rate;
+  src.data_len     = 0;
+  src.data_code
+      = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = code, .len = 5 };
+  src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 48 };
+  DP_REQUIRE_MSG (dp_wfm_source_error (&src) == NULL,
+                  "a data source on continuous dsss is a source");
+  /* 48 symbols of 3.7 chips: chips 0..177 (floor(177/3.7) = 47), 178 of
+     them, and chip 178 is symbol 48 -- ceil(48 * 3.7) = 178. */
+  const size_t len = 178;
+  DP_CHECK_MSG (dp_wfm_source_data_frames (&src) == 48
+                    && dp_wfm_source_data_samples (&src, fs, 48) == len,
+                "the run is every chip of the 48 data symbols, no more");
+
+  wfm_segment_t           seg = { .sources = &src, .n_sources = 1, .fs = fs };
+  dp_wfm_compose_state_t *c   = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "it composes");
+  float complex out[256];
+  size_t        n = 0, got;
+  while ((got = dp_wfm_compose_execute (c, out + n, 256 - n)) > 0)
+    n += got;
+  dp_wfm_compose_destroy (c);
+  DP_CHECK_MSG (n == len, "the run is derived from the data, not a count");
+  int same = 1;
+  for (size_t i = 0; i < len && i < n; i++)
+    if (fabsf (crealf (out[i])
+               - (cont_want (code, 5, bits, cps, i) ? -1.0f : 1.0f))
+        > 1e-3f)
+      same = 0;
+  DP_CHECK_MSG (same, "every chip is the code XOR its symbol's data bit, "
+                      "the bits in order, none cycled");
+
+  /* The same bits from stdin: a stream, ending where the input does. */
+  int p[2];
+  DP_REQUIRE (t_pipe (p) == 0);
+  DP_REQUIRE (t_write (p[1], SIX, 6) == 6);
+  t_close (p[1]);
+  const int saved = t_dup (0);
+  DP_REQUIRE (saved >= 0 && t_dup2 (p[0], 0) == 0);
+  t_close (p[0]);
+  src.data           = (wfm_seq_t){ 0 };
+  src.data_from_file = "-";
+  c                  = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "a continuous dsss source over stdin composes");
+  float complex piped[256];
+  size_t        m = 0;
+  while ((got = dp_wfm_compose_execute (c, piped + m, 256 - m)) > 0)
+    m += got;
+  dp_wfm_compose_destroy (c);
+  t_dup2 (saved, 0);
+  t_close (saved);
+  DP_CHECK_MSG (m == len && memcmp (piped, out, len * sizeof *out) == 0,
+                "stdin ends the run with its last data symbol, and sends "
+                "the chips the same bits make as a Field");
+
+  /* The length against the WAVEFORM: where the synth falls silent, the
+     first chip past its last data symbol. At the CLI's own geometry
+     (6138000 / 2 / 2700 chips a symbol) ceil(D * cps) overshoots at D = 51
+     and undershoots at D = 15, and a fast-math reciprocal put D = 51 one
+     chip long -- so the end is read from the chips the kernel sends, not
+     from an expression this test would compile its own way. */
+  {
+    wfm_source_t g     = src;
+    g.symbol_rate      = 2700.0;
+    g.data_from_file   = NULL;
+    const double   gfs = 6138000.0 / 2.0; /* sps 1: chips are samples */
+    static uint8_t alt[51];
+    for (size_t i = 0; i < 51; i++)
+      alt[i] = (uint8_t)(i & 1u);
+    const unsigned ds[2] = { 51, 15 };
+    for (size_t t = 0; t < 2; t++)
+      {
+        g.data              = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL,
+                                           .bits = alt,
+                                           .len  = ds[t] };
+        const size_t   nmax = 60000;
+        float complex *x    = malloc (nmax * sizeof *x);
+        DP_REQUIRE (x != NULL);
+        dp_wfm_synth_state_t *syn = dp_wfm_compose_build_synth (
+            &g, gfs, 0, 0.0, 200.0, 0.0, 0, 0, 0);
+        DP_REQUIRE (syn != NULL);
+        dp_wfm_synth_steps (syn, x, nmax);
+        dp_wfm_synth_destroy (syn);
+        size_t k = 0;
+        while (k < nmax && cabsf (x[k]) > 0.5f)
+          k++;
+        free (x);
+        DP_CHECK_MSG (k < nmax
+                          && dp_wfm_source_data_samples (&g, gfs, ds[t]) == k,
+                      "the run ends on the chip where the waveform's data "
+                      "does, at both of ceil()'s errors");
+      }
+    /* And the clock itself is the EXACT quotient, under this tree's
+       -ffast-math: symbol 51 opens on 57970 (ceil, and a reciprocal, say
+       57971), symbol 15 on 17051 (ceil says 17050). */
+    const double ccps = gfs / 2700.0;
+    DP_CHECK_MSG (dp_wfm_dsss_cont_edge (51, ccps) == 57970
+                      && dp_wfm_dsss_cont_edge (15, ccps) == 17051,
+                  "the one symbol clock is the exact quotient, not a "
+                  "fast-math rewrite of it");
+    g.symbol_rate = 2.0 * fs; /* half a chip a symbol: no such geometry */
+    DP_CHECK_MSG (dp_wfm_source_data_samples (&g, fs, 4) == 0,
+                  "a geometry with under a chip a symbol has no length");
+    wfm_segment_t bad = { .sources = &g, .n_sources = 1, .fs = fs };
+    DP_CHECK_MSG (dp_wfm_compose_create (&bad, 1, 0, 0) == NULL,
+                  "and is not built");
+  }
+
+  /* What has no meaning without a frame is refused, each by name. */
+  static const uint8_t zero[1] = { 0 };
+  src.data_from_file           = NULL;
+  src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 48 };
+  src.data_len    = 8;
+  const char *why = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "data_len does not apply"),
+                "data_len on continuous dsss is refused by name");
+  src.data_len = 0;
+  src.fill = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+  why      = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "fill does not apply"), "and fill");
+  src.fill           = (wfm_seq_t){ 0 };
+  src.dsss_code_only = 1;
+  why                = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "--code-only sends"),
+                "and code_only beside a data source");
+  src.dsss_code_only = 0;
+  src.data           = (wfm_seq_t){ .kind = WFM_SEQ_DATA, .len = 8 };
+  why                = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "no bits of its own"),
+                "and data:LEN as the data");
+  src.data           = (wfm_seq_t){ 0 };
+  src.data_from_file = "no-such-file.bin";
+  why                = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "cannot be opened"),
+                "and a file that cannot be read");
+  return 0;
+}
+
+/* stdin: the validation build reads nothing, and the run ends where the
+   stream does -- on a frame boundary -- rather than at a count. */
+static int
+test_a_data_stream_ends_the_run_on_a_frame (void)
+{
+  int p[2];
+  DP_REQUIRE (t_pipe (p) == 0);
+  DP_REQUIRE (t_write (p[1], SIX, 6) == 6);
+  t_close (p[1]);
+  const int saved = t_dup (0);
+  DP_REQUIRE (saved >= 0 && t_dup2 (p[0], 0) == 0);
+  t_close (p[0]);
+
+  static const uint8_t zero[1] = { 0 };
+  wfm_source_t         src     = data_line ();
+  src.data_from_file           = "-";
+  src.fill = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+  wfm_segment_t seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+  /* compose_create builds every source once, just to validate it: with
+     stdin as the source, that build must not read a byte. */
+  dp_wfm_compose_state_t *c = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE_MSG (c != NULL, "a stdin source composes");
+
+  float complex out[400];
+  uint8_t       want[48], got[48];
+  six_bits (want);
+  const size_t n = dp_wfm_compose_execute (c, out, 400);
+  DP_CHECK_MSG (n == 48,
+                "the stream's 3 frames and no more: the run ends at the "
+                "frame boundary where stdin ends, with no count");
+  DP_CHECK_MSG (as_bits (out, 16, got) == 0 && memcmp (got, want, 16) == 0,
+                "the FIRST frame out is the pipe's first 16 bits: the "
+                "validation build consumed none of them");
+  DP_CHECK_MSG (as_bits (out, 48, got) == 0 && memcmp (got, want, 48) == 0,
+                "and every frame after it, in order");
+  DP_CHECK_MSG (dp_wfm_compose_execute (c, out, 400) == 0,
+                "then the run is done");
+  dp_wfm_compose_destroy (c);
+
+  t_dup2 (saved, 0);
+  t_close (saved);
+  return 0;
+}
+
+/* What only the scene can say about a stream, and the pair's refusal on the
+   object face -- both decided before anything is built. */
+static int
+test_a_scene_refuses_what_a_stream_cannot_do (void)
+{
+  static const uint8_t zero[1] = { 0 };
+  wfm_source_t         src     = data_line ();
+  src.data_from_file           = "-";
+  src.fill = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+  wfm_segment_t seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+  const char   *why = dp_wfm_scene_error (&seg, 1, 1, 0);
+  DP_CHECK_MSG (why && strstr (why, "--repeat"),
+                "a stream has no end to repeat: --repeat refused by name");
+  why = dp_wfm_scene_error (&seg, 1, 0, 1);
+  DP_CHECK_MSG (why && strstr (why, "--continuous"), "nor --continuous");
+  seg.repeats = 2;
+  why         = dp_wfm_scene_error (&seg, 1, 0, 0);
+  DP_CHECK_MSG (why && strstr (why, "--repeats"),
+                "nor a segment played twice");
+  seg.repeats         = 0;
+  wfm_source_t two[2] = { src, src };
+  seg.sources         = two;
+  seg.n_sources       = 2;
+  why                 = dp_wfm_scene_error (&seg, 1, 0, 0);
+  DP_CHECK_MSG (why && strstr (why, "stdin"), "stdin feeds one source");
+  seg.sources   = &src;
+  seg.n_sources = 1;
+  DP_CHECK_MSG (dp_wfm_scene_error (&seg, 1, 0, 0) == NULL,
+                "once, unrepeated, it is a scene");
+
+  /* The exclusive pair, on the object face: ONE declaration in the
+     manifest, refused here from the row it generates. */
+  uint8_t b[16] = { 1 };
+  src.data      = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = b, .len = 16 };
+  why           = dp_wfm_source_error (&src);
+  DP_CHECK_MSG (why && strstr (why, "data_from_file"),
+                "data and data_from_file are refused together, by name");
+  return 0;
+}
+
+/* Every refusal a data source declares, each asserting its sentence: a
+   refusal is a claim, and its words are what a user reads. */
+static int
+test_every_data_refusal_names_its_fix (void)
+{
+  uint8_t bits[48];
+  six_bits (bits);
+  static const uint8_t zero[1] = { 0 };
+  const wfm_seq_t data = { .kind = WFM_SEQ_LITERAL, .bits = bits, .len = 48 };
+  const wfm_seq_t fill = { .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+  wfm_source_t    s;
+  const char     *why;
+#define REFUSED(words, what)                                                  \
+  do                                                                          \
+    {                                                                         \
+      why = dp_wfm_source_error (&s);                                         \
+      DP_CHECK_MSG (why && strstr (why, words), what);                        \
+    }                                                                         \
+  while (0)
+
+  s      = data_line ();
+  s.data = data;
+  s.type = 0; /* a tone frames nothing */
+  REFUSED ("--type bits", "a type that cannot frame: names the types");
+  s      = data_line ();
+  s.data = (wfm_seq_t){ .kind = WFM_SEQ_DATA, .len = 8 };
+  REFUSED ("no bits of its own", "data:LEN as the data itself");
+
+  /* A carried frame: it must have a data field, and --data-len agrees. */
+  wfm_frame_desc_t     plain, df;
+  static const uint8_t two[2] = { 1, 0 };
+  const wfm_seq_t lit2   = { .kind = WFM_SEQ_LITERAL, .bits = two, .len = 2 };
+  const wfm_seq_t data16 = { .kind = WFM_SEQ_DATA, .len = 16 };
+  DP_REQUIRE (dp_wfm_frame_fixed (&plain, NULL, 0, &lit2, &lit2, 0) == 0);
+  DP_REQUIRE (dp_wfm_frame_fixed (&df, NULL, 0, NULL, &data16, 0) == 0);
+  s       = data_line ();
+  s.data  = data;
+  s.frame = &plain;
+  REFUSED ("has none", "a carried frame with no data:LEN field");
+  s.frame    = &df;
+  s.data_len = 8;
+  REFUSED ("--data-len must be 0", "--data-len against the frame's LEN");
+
+  /* stdin and files: what each needs before a byte is read. */
+  s                = data_line ();
+  s.data_from_file = "-";
+  s.fill           = fill;
+  s.data_len       = 0;
+  REFUSED ("give --data-len", "stdin has no length to take whole");
+  s.data_from_file = "/no/such/dp_wfm_data_file.bin";
+  REFUSED ("cannot be opened", "a missing file, taken whole");
+  s.data_len = 8;
+  REFUSED ("cannot be opened", "a missing file, in frames");
+
+  /* data_len 0 takes a finite source whole, as ONE frame. */
+  s                           = data_line ();
+  s.data                      = data;
+  s.data_len                  = 0;
+  wfm_segment_t           seg = { .sources = &s, .n_sources = 1, .fs = 1e6 };
+  dp_wfm_compose_state_t *c   = dp_wfm_compose_create (&seg, 1, 0, 0);
+  DP_REQUIRE (c != NULL);
+  float complex out[100];
+  DP_CHECK_MSG (dp_wfm_compose_execute (c, out, 100) == 48,
+                "data_len 0: the whole 48-bit source is one frame");
+  dp_wfm_compose_destroy (c);
+
+  /* A C caller that skips dp_wfm_source_error: the attach and the length
+     helpers refuse rather than build over nothing. */
+  dp_wfm_synth_state_t *syn = dp_wfm_synth_create (
+      WFM_SYNTH_BITS, 1e6, 0.0, 200.0, 0, 1, 1, 7, 0, 0, 0.0);
+  DP_REQUIRE (syn != NULL);
+  s       = data_line ();
+  s.data  = data;
+  s.frame = &plain;
+  DP_CHECK_MSG (dp_wfm_source_attach_frame (syn, &s) == -1,
+                "attach: a frame with no data field is not built");
+  DP_CHECK_MSG (dp_wfm_source_data_frames (&s) == 0, "nor counted in frames");
+  s.frame    = NULL;
+  s.data_len = 40; /* 48 bits leave 8 over, and there is no fill */
+  DP_CHECK_MSG (dp_wfm_source_attach_frame (syn, &s) == -1,
+                "attach: a source create refuses is not attached");
+  dp_wfm_synth_destroy (syn);
+  wfm_frame_desc_t bad = { 0 };
+  DP_REQUIRE (dp_wfm_frame_add_field (&bad, "payload", &data16, 0) == 0);
+  bad.field[bad.n_fields].bits = 16u; /* a derived field with no producer */
+  bad.n_fields++;
+  s.frame = &bad;
+  DP_CHECK_MSG (dp_wfm_source_data_samples (&s, 1e6, 1) == 0,
+                "a frame that does not lay out has no samples per frame");
+
+  /* The scene reader: a "data_from_file" is a non-empty path, and a count
+     beside a FINITE source is refused. */
+  why = NULL;
+  DP_CHECK_MSG (
+      dp_wfm_compose_from_json_why (
+          "{\"segments\":[{\"type\":\"bpsk\",\"data_from_file\":5}]}", &why)
+              == NULL
+          && why && strstr (why, "path of a file"),
+      "a non-string data_from_file is refused by name");
+  why = NULL;
+  DP_CHECK_MSG (
+      dp_wfm_compose_from_json_why (
+          "{\"segments\":[{\"type\":\"bpsk\",\"data_from_file\":\"\"}]}", &why)
+              == NULL
+          && why && strstr (why, "path of a file"),
+      "and so is an empty one");
+  why = NULL;
+  DP_CHECK_MSG (dp_wfm_compose_from_json_why (
+                    "{\"segments\":[{\"type\":\"bpsk\",\"data\":\"0xABCD\","
+                    "\"data_len\":8,\"num_samples\":64}]}",
+                    &why)
+                        == NULL
+                    && why && strstr (why, "num_samples"),
+                "a scene's count beside a finite source is refused by name");
+
+  /* doppler#1153: a key no level takes is refused by name and place, at
+     each of the seven objects a scene is made of. Before, every level
+     dropped it in silence -- a top-level "fs" left every segment at 1.0. */
+  {
+    static const struct
+    {
+      const char *json, *says;
+    } UNKNOWN[] = {
+      { "{\"bogus\":1,\"segments\":[{\"type\":\"tone\"}]}",
+        "the scene: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"type\":\"tone\",\"bogus\":1}]}",
+        "segments[0]: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"type\":\"tone\"},{\"bogus\":1,"
+        "\"sum\":[{\"type\":\"tone\"}]}]}",
+        "segments[1]: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"sum\":[{\"type\":\"tone\"},"
+        "{\"type\":\"tone\",\"bogus\":1}]}]}",
+        "segments[0].sum[1]: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"type\":\"bits\",\"frame\":{\"bogus\":1,"
+        "\"fields\":[{\"spec\":\"0x5\"}]}}]}",
+        "segments[0].frame: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"type\":\"bits\",\"frame\":{\"fields\":"
+        "[{\"spec\":\"0x5\"},{\"spec\":\"0x3\",\"bogus\":1}]}}]}",
+        "segments[0].frame.fields[1]: unknown key \"bogus\"" },
+      { "{\"segments\":[{\"sum\":[{\"type\":\"bits\",\"frame\":{\"fields\":"
+        "[{\"spec\":\"0x5\"}],\"stages\":[{\"kind\":\"crc16\","
+        "\"first_field\":0,\"n_fields\":1,\"bogus\":1}]}}]}]}",
+        "segments[0].sum[0].frame.stages[0]: unknown key \"bogus\"" },
+    };
+    for (size_t k = 0; k < sizeof UNKNOWN / sizeof *UNKNOWN; k++)
+      {
+        why = NULL;
+        dp_wfm_compose_state_t *c
+            = dp_wfm_compose_from_json_why (UNKNOWN[k].json, &why);
+        DP_CHECK_MSG (c == NULL && why && strstr (why, UNKNOWN[k].says),
+                      UNKNOWN[k].says);
+        dp_wfm_compose_destroy (c);
+      }
+    /* The same reader under `--frame FILE`: the frame is its root. */
+    wfm_frame_desc_t *fd = dp_wfm_frame_from_json (
+        "{\"fields\":[{\"spec\":\"0x5\"}],\"bogus\":1}", &why);
+    DP_CHECK_MSG (fd == NULL && why
+                      && strstr (why, "the frame: unknown key \"bogus\""),
+                  "a frame file's unknown key is refused by name");
+    dp_wfm_frame_free (fd);
+
+    /* The one #1153 was: a top-level "fs" names where fs goes. */
+    why = NULL;
+    DP_CHECK_MSG (dp_wfm_compose_from_json_why (
+                      "{\"fs\":1e6,\"segments\":[{\"type\":\"tone\"}]}", &why)
+                          == NULL
+                      && why && strstr (why, "set segments[].fs"),
+                  "a top-level fs is refused, naming segments[].fs");
+  }
+#undef REFUSED
+  return 0;
+}
+
+/* A relative "data_from_file" is the SCENE's: read from the scene's own
+   directory, wherever the scene is read from. */
+static int
+test_a_scene_data_file_is_relative_to_the_scene (void)
+{
+  char      dir[512], data[600], scene[600];
+  const int pid = (int)getpid ();
+  snprintf (dir, sizeof dir, "%s", dp_test_tmpdir ());
+  snprintf (data, sizeof data, "%s/dp_wfm_f6a_%d.bin", dir, pid);
+  snprintf (scene, sizeof scene, "%s/dp_wfm_f6a_%d.json", dir, pid);
+  FILE *f = fopen (data, "wb");
+  DP_REQUIRE (f != NULL);
+  DP_REQUIRE (fwrite (SIX, 1, 6, f) == 6);
+  fclose (f);
+  f = fopen (scene, "wb");
+  DP_REQUIRE (f != NULL);
+  fprintf (f,
+           "{\"segments\":[{\"type\":\"bits\",\"modulation\":\"none\","
+           "\"sps\":1,\"snr\":200,\"crc\":\"none\",\"data_len\":16,"
+           "\"data_from_file\":\"dp_wfm_f6a_%d.bin\"}]}",
+           pid);
+  fclose (f);
+  const char             *why = NULL;
+  dp_wfm_compose_state_t *c   = dp_wfm_compose_from_file_why (scene, &why);
+  DP_CHECK_MSG (c != NULL, why ? why : "a scene beside its data composes");
+  if (c)
+    {
+      float complex out[100];
+      uint8_t       got[48], want[48];
+      six_bits (want);
+      DP_CHECK_MSG (dp_wfm_compose_execute (c, out, 100) == 48
+                        && as_bits (out, 48, got) == 0
+                        && memcmp (got, want, 48) == 0,
+                    "the relative path read the scene's file: its 3 frames");
+      dp_wfm_compose_destroy (c);
+    }
+  DP_CHECK (remove (scene) == 0 && remove (data) == 0);
+  return 0;
+}
+
+/* doppler#1733: a scene whose segments differ in fs, read by rate. Every
+   block is at one rate and says which; together the blocks are the same
+   samples, byte for byte, as dp_wfm_compose_execute()'s; a run of
+   segments that SHARE a rate (here a repeated one, then the loop back to
+   segment 0 with --repeat) is never cut; and dp_wfm_scene_fs() answers 0.0
+   for the scene and the shared rate for one that agrees. */
+static int
+test_a_mixed_rate_scene_reads_one_rate_a_block (void)
+{
+  wfm_source_t  src = { .type = WFM_SYNTH_TONE, .freq = 1e3, .snr = 100.0 };
+  wfm_segment_t segs[3] = {
+    { .sources     = &src,
+      .n_sources   = 1,
+      .fs          = 6e6,
+      .num_samples = 300,
+      .repeats     = 2,
+      .off_samples = 7 },
+    { .sources = &src, .n_sources = 1, .fs = 2e6, .num_samples = 200 },
+    { .sources = &src, .n_sources = 1, .fs = 2e6, .num_samples = 100 },
+  };
+  DP_CHECK_MSG (dp_wfm_scene_fs (segs, 3) == 0.0, "a mixed scene: no fs");
+  DP_CHECK_MSG (dp_wfm_scene_fs (segs + 1, 2) == 2e6, "an agreeing one: it");
+
+  /* two passes (repeat): 2 x 307 at 6e6, then 300 at 2e6, then again */
+  const size_t    n = 2 * (2 * 307 + 300);
+  float _Complex *a = malloc (n * sizeof *a), *b = malloc (n * sizeof *b);
+  dp_wfm_compose_state_t *ca = dp_wfm_compose_create (segs, 3, 1, 0);
+  dp_wfm_compose_state_t *cb = dp_wfm_compose_create (segs, 3, 1, 0);
+  DP_REQUIRE (a && b && ca && cb);
+  DP_CHECK (dp_wfm_compose_execute (ca, a, n) == n);
+
+  static const struct
+  {
+    size_t n;
+    double fs;
+  } want[]   = { { 614, 6e6 }, { 300, 2e6 }, { 614, 6e6 }, { 300, 2e6 } };
+  size_t got = 0, k = 0;
+  int    blocks_ok = 1;
+  while (got < n)
+    {
+      double fs = -1.0;
+      size_t m  = dp_wfm_compose_execute_rate (cb, b + got, n - got, &fs);
+      if (m == 0 || k >= 4 || m != want[k].n || fs != want[k].fs)
+        blocks_ok = 0;
+      if (m == 0)
+        break;
+      got += m;
+      k++;
+    }
+  DP_CHECK_MSG (blocks_ok && k == 4,
+                "one rate a block, cut only where the rate changes");
+  DP_CHECK_MSG (got == n && memcmp (a, b, n * sizeof *a) == 0,
+                "the same samples as execute(), byte for byte");
+  free (a);
+  free (b);
+  dp_wfm_compose_destroy (ca);
+  dp_wfm_compose_destroy (cb);
+  return 0;
+}
+
+/* The early end, consumed a few samples at a time: the run stops on the
+   frame boundary however the reads are chunked, and with an RRC shaper --
+   which pulls symbols ahead of the output -- it still stops there. */
+static int
+test_a_stream_ends_on_its_frame_however_it_is_read (void)
+{
+  for (int shaped = 0; shaped < 2; shaped++)
+    {
+      int p[2];
+      DP_REQUIRE (t_pipe (p) == 0);
+      DP_REQUIRE (t_write (p[1], SIX, 6) == 6);
+      t_close (p[1]);
+      const int saved = t_dup (0);
+      DP_REQUIRE (saved >= 0 && t_dup2 (p[0], 0) == 0);
+      t_close (p[0]);
+
+      static const uint8_t zero[1] = { 0 };
+      wfm_source_t         src     = data_line ();
+      src.data_from_file           = "-";
+      src.fill
+          = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = zero, .len = 1 };
+      src.sps = 4;
+      if (shaped)
+        {
+          src.pulse    = 1; /* rrc */
+          src.rrc_beta = 0.35;
+          src.rrc_span = 2;
+        }
+      wfm_segment_t seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+      dp_wfm_compose_state_t *c = dp_wfm_compose_create (&seg, 1, 0, 0);
+      DP_REQUIRE (c != NULL);
+      float complex out[8];
+      size_t        total = 0, n;
+      while ((n = dp_wfm_compose_execute (c, out, 3)) > 0)
+        total += n;
+      DP_CHECK_MSG (total == 3u * 16u * 4u,
+                    shaped ? "rrc, read 3 at a time: 3 frames, then the end"
+                           : "read 3 at a time: 3 frames, then the end");
+      dp_wfm_compose_destroy (c);
+      t_dup2 (saved, 0);
+      t_close (saved);
+    }
   return 0;
 }
 
@@ -1654,19 +2635,19 @@ main (void)
     uint8_t sync[2]  = { 1, 0 };
     uint8_t pay[5]   = { 1, 0, 0, 1, 1 };
 
-    wfm_source_t dsss = { .type         = WFM_SYNTH_DSSS,
-                          .snr          = 6.0,
-                          .snr_mode     = 3, /* esno: outer data symbol */
-                          .seed         = 7,
-                          .sps          = 2,
-                          .pn_length    = 7,
-                          .acq_code     = { .bits = acq, .len = 8 },
-                          .acq_reps     = 3,
-                          .data_code    = { .bits = dcode, .len = 4 },
-                          .sync         = { .bits = sync, .len = 2 },
-                          .payload.bits = pay, /* payload */
-                          .payload.len  = 5,
-                          .crc          = 1 };
+    wfm_source_t dsss = { .type      = WFM_SYNTH_DSSS,
+                          .snr       = 6.0,
+                          .snr_mode  = 3, /* esno: outer data symbol */
+                          .seed      = 7,
+                          .sps       = 2,
+                          .pn_length = 7,
+                          .acq_code  = { .bits = acq, .len = 8 },
+                          .acq_reps  = 3,
+                          .data_code = { .bits = dcode, .len = 4 },
+                          .sync      = { .bits = sync, .len = 2 },
+                          .data.bits = pay, /* payload */
+                          .data.len  = 5,
+                          .crc       = 1 };
     /* deliberately wrong num_samples: the intrinsic on-time must win */
     wfm_segment_t g = { .sources     = &dsss,
                         .n_sources   = 1,
@@ -1709,13 +2690,13 @@ main (void)
                     "hand chips");
     wfm_source_t            bits = { .type = WFM_SYNTH_BITS,
                                      .snr  = 6.0 - 10.0 * log10 (4.0 * 2.0),
-                                     .snr_mode     = 1, /* fs */
-                                     .seed         = 7,
-                                     .sps          = 2,
-                                     .pn_length    = 7,
-                                     .payload.bits = chips,
-                                     .payload.len  = nchips,
-                                     .modulation   = 1 };
+                                     .snr_mode   = 1, /* fs */
+                                     .seed       = 7,
+                                     .sps        = 2,
+                                     .pn_length  = 7,
+                                     .data.bits  = chips,
+                                     .data.len   = nchips,
+                                     .modulation = 1 };
     wfm_segment_t           gb   = { .sources     = &bits,
                                      .n_sources   = 1,
                                      .fs          = 1e6,
@@ -1743,8 +2724,7 @@ main (void)
     dp_wfm_compose_destroy (c); /* json built; the borrow ends here */
     DP_REQUIRE_MSG (js && strstr (js, "\"dsss\""), "dsss type name");
     DP_REQUIRE_MSG (strstr (js, "acq_code") && strstr (js, "data_code")
-                        && strstr (js, "\"payload\"")
-                        && strstr (js, "\"crc\""),
+                        && strstr (js, "\"data\"") && strstr (js, "\"crc\""),
                     "dsss geometry keys");
     dp_wfm_compose_state_t *jc2 = dp_wfm_compose_from_json (js);
     DP_REQUIRE_MSG (jc2, "dsss from_json");
@@ -1761,19 +2741,26 @@ main (void)
         "dsss json round-trip byte-identical");
     dp_wfm_compose_destroy (jc2);
 
-    /* "pattern" USED to be an alias for "payload". A Field replaced every
-     * spelling of its field, and the old ones are refused by name -- never
-     * read as aliases (frame-description.md F.3). Rename the emitted key in
-     * place (same length) and the scene must be refused, naming the key. */
-    char *pat = strstr (js, "\"payload\"");
-    DP_REQUIRE_MSG (pat, "payload key present");
-    memcpy (pat, "\"pattern\"", 9);
-    const char             *why = NULL;
-    dp_wfm_compose_state_t *jp  = dp_wfm_compose_from_json_why (js, &why);
-    DP_CHECK_MSG (jp == NULL, "a retired \"pattern\" key is refused");
-    DP_CHECK_MSG (why && strstr (why, "\"pattern\""),
-                  "and the refusal names the key it refused");
-    dp_wfm_compose_destroy (jp);
+    /* "payload", and "pattern" before it, are retired: a payload is a data
+     * source, "data" (doppler#1718). Each is refused by name, pointing at
+     * its replacement -- never read as an alias (frame-description.md F.3).
+     */
+    static const char *const old[2] = { "payload", "pattern" };
+    for (size_t k = 0; k < 2; k++)
+      {
+        char scene[96];
+        (void)snprintf (scene, sizeof scene,
+                        "{\"segments\":[{\"type\":\"bits\",\"%s\":"
+                        "\"0101\"}]}",
+                        old[k]);
+        const char             *why = NULL;
+        dp_wfm_compose_state_t *jp
+            = dp_wfm_compose_from_json_why (scene, &why);
+        DP_CHECK_MSG (jp == NULL, "a retired payload key is refused");
+        DP_CHECK_MSG (why && strstr (why, old[k]) && strstr (why, "\"data\""),
+                      "naming the key it refused, and \"data\"");
+        dp_wfm_compose_destroy (jp);
+      }
     free (js);
 
     /* ebno on a dsss burst is esno (BPSK payload, 1 bit/symbol): same
@@ -1831,9 +2818,9 @@ main (void)
      */
     {
       wfm_frame_desc_t cvd;
-      DP_REQUIRE (dp_wfm_frame_fixed (&cvd, NULL, 0, &dsss.sync, &dsss.payload,
-                                      dsss.crc)
-                  == 0);
+      DP_REQUIRE (
+          dp_wfm_frame_fixed (&cvd, NULL, 0, &dsss.sync, &dsss.data, dsss.crc)
+          == 0);
       const int cst
           = dp_wfm_frame_add_stage (&cvd, WFM_STAGE_CONV, "sync", "crc");
       DP_REQUIRE (cst >= 0);
@@ -1841,6 +2828,8 @@ main (void)
       cvd.stage[cst].emit_den = 1u;
       wfm_source_t cv         = dsss;
       memset (&cv.sync, 0, sizeof cv.sync);
+      /* The payload is a field of the description too (doppler#1683). */
+      memset (&cv.data, 0, sizeof cv.data);
       cv.frame = &cvd;
       wfm_segment_t gcv
           = { .sources = &cv, .n_sources = 1, .fs = 1e6, .off_samples = 0 };
@@ -1971,6 +2960,167 @@ main (void)
       pn.seed      = 128;
       DP_CHECK_MSG (dp_wfm_source_error (&pn) == NULL,
                     "a seed that masks to zero is not a source error");
+    }
+
+    /* doppler#1696: a dsss source missing a code. The composer refused
+     * these with a bare NULL -- "dp_wfm_compose_create failed", naming no
+     * field -- and each now has its own reason, reported by
+     * dp_wfm_compose_create_why() and every face that asks
+     * dp_wfm_scene_error(). Compared by IDENTITY with the exported arrays,
+     * so a test cannot pass on another sentence that shares a word, and
+     * each new sentence is pinned word for word. A preamble alone is the
+     * documented valid edge, and must still compose. */
+    {
+      DP_CHECK_MSG (strcmp (dp_wfm_why_dsss_empty,
+                            "a dsss burst has nothing to send: give "
+                            "acq_code, the preamble a receiver acquires on, "
+                            "or a payload spread by data_code, or both")
+                        == 0,
+                    "the empty-burst sentence");
+      DP_CHECK_MSG (strcmp (dp_wfm_why_dsss_frame_no_data_code,
+                            "a dsss burst spreads its frame (sync, payload, "
+                            "crc) with data_code, and none is given: give "
+                            "data_code, a spreading code such as pn:31:5 -- "
+                            "or no sync and no payload, for a preamble-only "
+                            "burst")
+                        == 0,
+                    "the frame-no-data_code sentence");
+      DP_CHECK_MSG (strcmp (dp_wfm_why_dsss_cont_no_data_code,
+                            "a continuous dsss stream (symbol_rate > 0) is "
+                            "its spreading code, and no data_code is given: "
+                            "give data_code, a code such as pn:31:5")
+                        == 0,
+                    "the continuous-no-data_code sentence");
+      static const uint8_t acq[7] = { 1, 1, 1, 0, 0, 1, 0 };
+      static const uint8_t dat[3] = { 1, 0, 1 };
+      static const uint8_t pay[4] = { 1, 0, 1, 1 };
+      const wfm_seq_t      A
+          = { .kind = WFM_SEQ_LITERAL, .bits = acq, .len = sizeof acq };
+      const wfm_seq_t D
+          = { .kind = WFM_SEQ_LITERAL, .bits = dat, .len = sizeof dat };
+      const wfm_seq_t P
+          = { .kind = WFM_SEQ_LITERAL, .bits = pay, .len = sizeof pay };
+      const wfm_seq_t Z = { 0 };
+      struct
+      {
+        const char *name;
+        wfm_seq_t   acq, data, payload;
+        double      symbol_rate;
+        const char *want; /* NULL: composes */
+      } cases[] = {
+        { "no codes, no frame", Z, Z, Z, 0.0, dp_wfm_why_dsss_empty },
+        { "data_code, no frame", Z, D, Z, 0.0, dp_wfm_why_dsss_empty },
+        { "a preamble and a payload, no data_code", A, Z, P, 0.0,
+          dp_wfm_why_dsss_frame_no_data_code },
+        { "a payload alone, no data_code", Z, Z, P, 0.0,
+          dp_wfm_why_dsss_frame_no_data_code },
+        { "continuous, no data_code", Z, Z, Z, 1e3,
+          dp_wfm_why_dsss_cont_no_data_code },
+        { "a preamble alone", A, Z, Z, 0.0, NULL },
+        { "a payload, no preamble", Z, D, P, 0.0, NULL },
+        { "the whole burst", A, D, P, 0.0, NULL },
+      };
+      for (size_t c = 0; c < sizeof cases / sizeof *cases; c++)
+        {
+          wfm_source_t  src = { .type        = WFM_SYNTH_DSSS,
+                                .sps         = 2,
+                                .acq_reps    = 2,
+                                .acq_code    = cases[c].acq,
+                                .data_code   = cases[c].data,
+                                .data        = cases[c].payload,
+                                .symbol_rate = cases[c].symbol_rate };
+          wfm_segment_t g   = {
+            .sources = &src, .n_sources = 1, .fs = 1e6, .num_samples = 64
+          };
+          const char             *why = "untouched";
+          dp_wfm_compose_state_t *st
+              = dp_wfm_compose_create_why (&g, 1, 0, 0, &why);
+          if (cases[c].want)
+            {
+              DP_CHECK_MSG (st == NULL, cases[c].name);
+              DP_CHECK_MSG (why == cases[c].want, cases[c].name);
+              DP_CHECK_MSG (dp_wfm_source_error (&src) == cases[c].want,
+                            cases[c].name);
+              DP_CHECK_MSG (dp_wfm_source_to_synth_error (&src, 1e6)
+                                == cases[c].want,
+                            cases[c].name);
+            }
+          else
+            {
+              DP_CHECK_MSG (st != NULL, cases[c].name);
+              DP_CHECK_MSG (strcmp (why, "untouched") == 0, cases[c].name);
+            }
+          dp_wfm_compose_destroy (st);
+        }
+    }
+
+    /* doppler#1706: a continuous dsss stream needs at least one chip per
+     * data symbol, fs / sps >= symbol_rate. At the default fs = 1.0 a
+     * symbol_rate in Hz was refused by the synth with a bare NULL. The rule
+     * needs the segment's fs, so it is dp_wfm_scene_error()'s, not the
+     * source's; the edge (exactly one chip per symbol) is allowed, and the
+     * same source at a real fs composes. */
+    {
+      DP_CHECK_MSG (strcmp (dp_wfm_why_dsss_cont_rate,
+                            "a continuous dsss stream sends at least one "
+                            "chip per data symbol, and its chip rate fs / "
+                            "sps is below symbol_rate: give fs in Hz (a "
+                            "segment's default 1.0 is a normalised rate), "
+                            "lower sps, or lower symbol_rate")
+                        == 0,
+                    "the chip-rate sentence");
+      static const uint8_t code[3] = { 1, 0, 1 };
+      wfm_source_t         cs      = { .type        = WFM_SYNTH_DSSS,
+                                       .sps         = 2,
+                                       .symbol_rate = 1000.0,
+                                       .pn_length   = 15, /* PRBS data */
+                                       .data_code   = { .kind = WFM_SEQ_LITERAL,
+                                                        .bits = code,
+                                                        .len  = sizeof code } };
+      wfm_segment_t        gc
+          = { .sources = &cs, .n_sources = 1, .fs = 1.0, .num_samples = 64 };
+      DP_CHECK_MSG (dp_wfm_source_error (&cs) == NULL,
+                    "the rate rule is not a source-only rule");
+      DP_CHECK_MSG (dp_wfm_scene_error (&gc, 1, 0, 0)
+                        == dp_wfm_why_dsss_cont_rate,
+                    "fs 1.0, sps 2, symbol_rate 1000: the rate reason");
+      const char *why = NULL;
+      DP_CHECK_MSG (dp_wfm_compose_create_why (&gc, 1, 0, 0, &why) == NULL
+                        && why == dp_wfm_why_dsss_cont_rate,
+                    "...and the composer refuses it, saying so");
+      DP_CHECK_MSG (dp_wfm_source_to_synth_error (&cs, 1.0)
+                        == dp_wfm_why_dsss_cont_rate,
+                    "...and so does the standalone bridge");
+      DP_CHECK_MSG (dp_wfm_source_to_synth (&cs, 1.0) == NULL,
+                    "...which refuses to build it");
+      gc.fs = 1999.0;
+      DP_CHECK_MSG (dp_wfm_scene_error (&gc, 1, 0, 0)
+                        == dp_wfm_why_dsss_cont_rate,
+                    "just under one chip per symbol is refused");
+      gc.fs = 2000.0;
+      DP_CHECK_MSG (dp_wfm_scene_error (&gc, 1, 0, 0) == NULL,
+                    "exactly one chip per symbol is allowed");
+      gc.fs                     = 1e6;
+      dp_wfm_compose_state_t *c = dp_wfm_compose_create (&gc, 1, 0, 0);
+      DP_CHECK_MSG (c != NULL, "the same source at fs 1e6 composes");
+      dp_wfm_compose_destroy (c);
+    }
+
+    /* create_why carries ANY scene refusal through unchanged, not only the
+     * dsss ones: it is the scene validator's sentence, whichever rule. */
+    {
+      wfm_source_t pn = {
+        .type = WFM_SYNTH_PN, .sps = 1, .pn_length = 5, .pn_poly = 0x40
+      };
+      wfm_segment_t gpn
+          = { .sources = &pn, .n_sources = 1, .fs = 1e6, .num_samples = 64 };
+      const char *why = NULL;
+      DP_CHECK_MSG (dp_wfm_compose_create_why (&gpn, 1, 0, 0, &why) == NULL
+                        && why == dp_wfm_why_pn_poly,
+                    "create_why passes the pn_poly reason through");
+      DP_CHECK_MSG (dp_wfm_compose_create_why (NULL, 0, 0, 0, &why) == NULL
+                        && why == dp_wfm_why_pn_poly,
+                    "bad arguments leave why as it was");
     }
 
     /* Same answer inside a multi-source sum: one source that cannot be built
@@ -2543,13 +3693,13 @@ main (void)
     static const uint8_t acq_bits[8] = { 1, 0, 1, 0, 1, 0, 1, 0 };
     static const uint8_t payload[16]
         = { 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0 };
-    wfm_source_t plain   = { .type         = WFM_SYNTH_BITS,
-                             .snr          = 100.0,
-                             .sps          = 1,
-                             .pn_length    = 7,
-                             .payload.bits = (uint8_t *)payload,
-                             .payload.len  = sizeof payload,
-                             .modulation   = 1 /* bpsk */ };
+    wfm_source_t plain   = { .type       = WFM_SYNTH_BITS,
+                             .snr        = 100.0,
+                             .sps        = 1,
+                             .pn_length  = 7,
+                             .data.bits  = (uint8_t *)payload,
+                             .data.len   = sizeof payload,
+                             .modulation = 1 /* bpsk */ };
     wfm_source_t framed  = plain;
     framed.acq_code.bits = acq_bits;
     framed.acq_code.len  = sizeof acq_bits;
@@ -2558,13 +3708,18 @@ main (void)
     framed.sync.len      = sizeof sync_bits;
     framed.crc           = 1;
 
-    DP_REQUIRE_MSG (!dp_wfm_source_has_frame (&plain),
-                    "a preamble-less, sync-less source is not framed");
-    DP_REQUIRE_MSG (dp_wfm_source_has_frame (&framed), "this one is");
+    /* A data source IS a frame's payload: [data:LEN | crc] at the least,
+       so a source with one is framed (doppler#1718 retired the unframed
+       pattern it replaces). */
+    DP_REQUIRE_MSG (dp_wfm_source_has_frame (&plain),
+                    "a data source frames its source");
+    DP_REQUIRE_MSG (dp_wfm_source_has_frame (&framed), "and so does this");
     /* `crc` alone must NOT read as a frame: it defaults to crc16 on every
-       source, so treating it as intent would append a trailer to every
-       unframed pattern ever generated. */
+       source, so treating it as intent would frame every waveform ever
+       generated. */
     wfm_source_t crc_only = plain;
+    crc_only.data         = (wfm_seq_t){ 0 };
+    crc_only.type         = WFM_SYNTH_BPSK;
     crc_only.crc          = 1;
     DP_REQUIRE_MSG (!dp_wfm_source_has_frame (&crc_only),
                     "crc alone is a default, not an intent to frame");
@@ -2591,7 +3746,7 @@ main (void)
     /* The same source with a GENERATED payload -- the shape `--bits pn:N:REG`
        resolves to, and what makes a 100k-bit frame six numbers in a record. */
     wfm_source_t framed_gen = framed_pn;
-    framed_gen.payload
+    framed_gen.data
         = (wfm_seq_t){ .kind = WFM_SEQ_PN, .len = 64, .reg_bits = 7 };
     DP_REQUIRE_MSG (dp_wfm_source_frame_error (&framed_gen) == NULL,
                     "a generated payload is a payload -- tested on LENGTH, "
@@ -2626,9 +3781,9 @@ main (void)
 
       wfm_source_t ub          = WFM_SOURCE_DEFAULTS;
       ub.type                  = WFM_SYNTH_BITS;
-      ub.payload               = gen;
+      ub.data                  = gen;
       dp_wfm_synth_state_t *ga = dp_wfm_source_to_synth (&ub, 1e6);
-      ub.payload               = litq;
+      ub.data                  = litq;
       dp_wfm_synth_state_t *la = dp_wfm_source_to_synth (&ub, 1e6);
       DP_REQUIRE_MSG (ga && la, "an unframed bits source builds from a "
                                 "GENERATED payload, not only a literal one");
@@ -2652,11 +3807,11 @@ main (void)
                                     defect put back */
       cd.data_code
           = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .len = 4, .bits = dcode };
-      cd.payload               = gen;
+      cd.data                  = gen;
       dp_wfm_synth_state_t *gc = dp_wfm_source_to_synth (&cd, 1e6);
-      cd.payload               = litq;
+      cd.data                  = litq;
       dp_wfm_synth_state_t *lc = dp_wfm_source_to_synth (&cd, 1e6);
-      cd.payload               = (wfm_seq_t){ 0 };
+      cd.data                  = (wfm_seq_t){ 0 };
       dp_wfm_synth_state_t *pc = dp_wfm_source_to_synth (&cd, 1e6);
       static float _Complex c[N];
       DP_REQUIRE_MSG (gc && lc && pc, "continuous dsss builds all three");
@@ -2674,8 +3829,8 @@ main (void)
     }
 
     wfm_source_t framed_empty = framed;
-    framed_empty.payload.bits = NULL;
-    framed_empty.payload.len  = 0;
+    framed_empty.data.bits    = NULL;
+    framed_empty.data.len     = 0;
     DP_REQUIRE_MSG (dp_wfm_source_frame_error (&framed_empty) != NULL,
                     "a frame with no payload is refused");
 
@@ -2746,15 +3901,20 @@ main (void)
                         "the framed stream IS the assembly of its own "
                         "description, symbol for symbol");
       }
-    /* One frame, then it CYCLES — which is what turns a one-frame description
-       into a multi-frame record without a repeat count in the descriptor. */
+    /* One frame -- the data is one chunk -- and then SILENCE: the frame is
+       not cycled (doppler#1718). More frames are more data, each pulled
+       from the source; a frame sent again is a line nobody sent. */
     float _Complex       *c2 = malloc (2 * nb * sizeof *c2);
     dp_wfm_synth_state_t *sc = dp_wfm_compose_build_synth (
         &framed, 1.0, 2 * nb, 0.0, 100.0, 0.0, 0, 0, 0);
-    DP_REQUIRE_MSG (c2 && sc, "cycle alloc");
+    DP_REQUIRE_MSG (c2 && sc, "two-frame alloc");
     dp_wfm_synth_steps (sc, c2, 2 * nb);
-    DP_REQUIRE_MSG (memcmp (c2, c2 + nb, nb * sizeof *c2) == 0,
-                    "the frame repeats verbatim");
+    int silent = 1;
+    for (size_t i = nb; i < 2 * nb; i++)
+      if (cabsf (c2[i]) != 0.0f)
+        silent = 0;
+    DP_REQUIRE_MSG (memcmp (c2, b, nb * sizeof *c2) == 0 && silent,
+                    "the frame once, then silence: no cycle");
 
     /* ── an UNBUILDABLE frame must FAIL the build, on both paths ──────────
      *
@@ -2787,6 +3947,29 @@ main (void)
     DP_REQUIRE_MSG (!dp_wfm_source_to_synth (&broken, 1.0),
                     "and the standalone bridge agrees — they share the attach "
                     "for exactly this reason");
+
+    /* `data:LEN` as the data source ITSELF has no bits: it is the frame's
+       field a data source fills, so it is refused by name, framed or not,
+       and nothing is built from it. */
+    wfm_source_t dsrc = framed;
+    dsrc.data         = (wfm_seq_t){ .kind = WFM_SEQ_DATA, .len = 64 };
+    const char *dwhy  = dp_wfm_source_error (&dsrc);
+    DP_REQUIRE_MSG (dwhy && strstr (dwhy, "no bits of its own"),
+                    "data:LEN as a source's data is refused by name");
+    DP_REQUIRE_MSG (!dp_wfm_source_to_synth (&dsrc, 1.0),
+                    "and nothing is built from it");
+    wfm_source_t bare = { 0 };
+    bare.type         = WFM_SYNTH_BITS;
+    bare.data         = (wfm_seq_t){ .kind = WFM_SEQ_DATA, .len = 64 };
+    const char *pwhy  = dp_wfm_source_error (&bare);
+    DP_REQUIRE_MSG (pwhy && strstr (pwhy, "no bits of its own"),
+                    "and with no frame around it");
+    wfm_source_t syn = framed;
+    syn.sync         = (wfm_seq_t){ .kind = WFM_SEQ_DATA, .len = 16 };
+    const char *swhy = dp_wfm_source_error (&syn);
+    DP_REQUIRE_MSG (swhy && strstr (swhy, "only a frame's payload"),
+                    "a data:LEN sync word is refused: only a payload draws "
+                    "from a data source");
 
     dp_wfm_synth_destroy (sp);
     dp_wfm_synth_destroy (sf);
@@ -2826,6 +4009,7 @@ main (void)
                           .pn_length  = 7,
                           .modulation = 1,
                           .crc        = 0,
+                          .data       = pl,
                           .frame      = &d5 };
     DP_REQUIRE_MSG (dp_wfm_source_frame_error (&cadu) == NULL,
                     "223 octets + RS parity is 2040 bits, which 5 x 8 "
@@ -2860,6 +4044,7 @@ main (void)
     DP_REQUIRE (coded_frame (&cshort, &dshort) == 0);
     wfm_source_t short_rs = cadu;
     short_rs.frame        = &dshort;
+    short_rs.data         = s16;
     DP_REQUIRE_MSG (dp_wfm_source_frame_error (&short_rs) != NULL,
                     "an outer code over 16 bits is refused, not padded");
 
@@ -2870,6 +4055,7 @@ main (void)
     DP_REQUIRE (coded_frame (&cno, &dno) == 0);
     wfm_source_t no_outer = cadu;
     no_outer.frame        = &dno;
+    no_outer.data         = s16;
     DP_REQUIRE_MSG (dp_wfm_source_frame_error (&no_outer) == NULL,
                     "with no outer code the group is payload + CRC");
   }
@@ -2962,6 +4148,7 @@ main (void)
                                    .sps        = 1,
                                    .pn_length  = 7,
                                    .modulation = 1,
+                                   .data       = pls,
                                    .frame      = &d };
         DP_REQUIRE_MSG (dp_wfm_source_frame_error (&src) == NULL,
                         CASES[c].what);
@@ -2980,7 +4167,8 @@ main (void)
         DP_REQUIRE (got != NULL);
         wfm_frame_ops_t ops;
         dp_ccsds_tm_frame_ops (&ops, NULL);
-        const size_t ng = dp_wfm_frame_assemble (&d, &ops, got, la.out_bits);
+        const size_t ng
+            = dp_wfm_frame_assemble_data (&d, &ops, payload, got, la.out_bits);
 
         /* The oracle. Sized for the largest case: marker, preamble reps,
            sync and a 255-octet codeblock, doubled by the inner code. */
@@ -3104,8 +4292,8 @@ main (void)
     memset (&src, 0, sizeof src);
     src.type          = WFM_SYNTH_BITS;
     src.sps           = 2;
-    src.payload.bits  = pay;
-    src.payload.len   = sizeof pay;
+    src.data.bits     = pay;
+    src.data.len      = sizeof pay;
     src.sync.kind     = WFM_SEQ_PN;
     src.sync.len      = 31u; /* one period of a 5-bit register */
     src.sync.reg_bits = 5u;
@@ -3177,8 +4365,8 @@ main (void)
     memset (&src, 0, sizeof src);
     src.type          = WFM_SYNTH_BITS;
     src.sps           = 2;
-    src.payload.bits  = pay;
-    src.payload.len   = sizeof pay;
+    src.data.bits     = pay;
+    src.data.len      = sizeof pay;
     src.sync.kind     = WFM_SEQ_PN;
     src.sync.len      = 31u;
     src.sync.reg_bits = 5u;
@@ -3236,8 +4424,8 @@ main (void)
       memset (&g, 0, sizeof g);
       g.type               = WFM_SYNTH_DSSS;
       g.sps                = 2;
-      g.payload.bits       = pay;
-      g.payload.len        = 8;
+      g.data.bits          = pay;
+      g.data.len           = 8;
       g.acq_reps           = 2;
       g.acq_code.kind      = WFM_SEQ_DOTTED;
       g.acq_code.len       = 8u;
@@ -3281,7 +4469,7 @@ main (void)
       const wfm_source_t *gr = &gseg2[0].sources[0];
       wfm_frame_desc_t    gd;
       DP_REQUIRE (
-          dp_wfm_frame_fixed (&gd, NULL, 0, &gr->sync, &gr->payload, gr->crc)
+          dp_wfm_frame_fixed (&gd, NULL, 0, &gr->sync, &gr->data, gr->crc)
           == 0);
       const int gi = dp_wfm_frame_field_index (&gd, "sync");
       DP_REQUIRE (gi >= 0);
@@ -3306,8 +4494,8 @@ main (void)
        refused, and it is not the recorded one -- which is the one failure a
        record exists to prevent. */
 #define BITS_SCENE(EXTRA)                                                     \
-  "{\"segments\":[{\"fs\":1e6,\"num_samples\":16,\"type\":\"bits\","          \
-  "\"payload\":\"0101\"," EXTRA "}]}"
+  "{\"segments\":[{\"fs\":1e6,\"type\":\"bits\","                             \
+  "\"data\":\"0101\"," EXTRA "}]}"
     DP_REQUIRE_MSG (
         !dp_wfm_compose_from_json (BITS_SCENE ("\"sync\":\"martian:8\"")),
         "an unknown kind is refused, not silently dropped -- a newer writer's "
@@ -3345,8 +4533,8 @@ main (void)
         {
           char scene[256];
           (void)snprintf (scene, sizeof scene,
-                          "{\"segments\":[{\"fs\":1e6,\"num_samples\":16,"
-                          "\"type\":\"bits\",\"payload\":\"0101\",%s}]}",
+                          "{\"segments\":[{\"fs\":1e6,"
+                          "\"type\":\"bits\",\"data\":\"0101\",%s}]}",
                           coding[k]);
           const char             *why = NULL;
           dp_wfm_compose_state_t *rc
@@ -3407,9 +4595,9 @@ main (void)
                                     .pn_length = 7,
                                     .data_code = { .bits = dcode4, .len = 4 },
                                     .sync      = { .bits = sync2, .len = 2 },
-                                    .payload.bits = pay5,
-                                    .payload.len  = 5,
-                                    .crc          = 1 };
+                                    .data.bits = pay5,
+                                    .data.len  = 5,
+                                    .crc       = 1 };
     dp_wfm_synth_state_t *ns    = dp_wfm_source_to_synth (&nopre, 1e6);
     DP_REQUIRE_MSG (ns, "a burst with a sync word and no preamble is a burst");
     dp_wfm_synth_destroy (ns);
@@ -3924,9 +5112,33 @@ main (void)
     return 1;
   if (test_a_carried_frame_survives_the_scene_json ())
     return 1;
+  if (test_a_finite_data_source_sets_the_run ())
+    return 1;
+  if (test_a_data_stream_ends_the_run_on_a_frame ())
+    return 1;
+  if (test_a_dsss_burst_draws_a_chunk_per_burst ())
+    return 1;
+  if (test_continuous_dsss_draws_a_bit_per_symbol ())
+    return 1;
+  if (test_a_scene_refuses_what_a_stream_cannot_do ())
+    return 1;
+  if (test_every_data_refusal_names_its_fix ())
+    return 1;
+  if (test_a_scene_data_file_is_relative_to_the_scene ())
+    return 1;
+  if (test_a_mixed_rate_scene_reads_one_rate_a_block ())
+    return 1;
+  if (test_a_stream_ends_on_its_frame_however_it_is_read ())
+    return 1;
   if (test_a_framed_pn_type_sends_its_frame ())
     return 1;
   if (test_frame_from_json_directly ())
+    return 1;
+  if (test_source_bits_refuse_text ())
+    return 1;
+  if (test_frame_refuse_text ())
+    return 1;
+  if (test_frame_to_json_copy ())
     return 1;
 
   printf (
@@ -3966,8 +5178,8 @@ main (void)
     bits.modulation             = 2;
     bits.sps                    = 4;
     bits.pulse                  = 1;
-    bits.payload.bits           = pat;
-    bits.payload.len            = 8;
+    bits.data.bits              = pat;
+    bits.data.len               = 8;
     wfm_source_t tone           = WFM_SOURCE_DEFAULTS;
     tone.freq                   = 0.125;
     tone.doppler                = 2.5;
@@ -4004,7 +5216,6 @@ main (void)
                                "\t\t\t\"span\":\t256\n"
                                "\t\t}, {\n"
                                "\t\t\t\"fs\":\t1,\n"
-                               "\t\t\t\"num_samples\":\t1024,\n"
                                "\t\t\t\"off_samples\":\t64,\n"
                                "\t\t\t\"repeats\":\t3,\n"
                                "\t\t\t\"gap_noise\":\t\"off\",\n"
@@ -4018,11 +5229,12 @@ main (void)
                                "\t\t\t\t\t\"pn_length\":\t15,\n"
                                "\t\t\t\t\t\"pn_poly\":\t0,\n"
                                "\t\t\t\t\t\"lfsr\":\t\"galois\",\n"
-                               "\t\t\t\t\t\"payload\":\t\"0xb2\",\n"
                                "\t\t\t\t\t\"modulation\":\t\"qpsk\",\n"
                                "\t\t\t\t\t\"pulse\":\t\"rrc\",\n"
                                "\t\t\t\t\t\"rrc_beta\":\t0.35,\n"
-                               "\t\t\t\t\t\"rrc_span\":\t8\n"
+                               "\t\t\t\t\t\"rrc_span\":\t8,\n"
+                               "\t\t\t\t\t\"data\":\t\"0xb2\",\n"
+                               "\t\t\t\t\t\"crc\":\t\"crc16\"\n"
                                "\t\t\t\t}, {\n"
                                "\t\t\t\t\t\"type\":\t\"tone\",\n"
                                "\t\t\t\t\t\"freq\":\t0.125,\n"

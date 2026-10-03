@@ -418,3 +418,24 @@ def test_json_splitter_unwraps_nested_json_only_when_enabled():
     assert on["response_body"]["data"] == {"id": 7, "tags": ["a"]}  # recursive
     assert on["response_body"]["plain"] == "{not json"            # malformed kept
     assert on["response_body"]["n"] == "7"                        # only {/[ strings
+
+
+def test_json_splitter_also_applies_under_normalization():
+    # auteur applies both: normalized envelope AND the opt-in unwrap (Java/C#/TS parity).
+    import httpx
+    import json as _json
+    payload = {"data": _json.dumps({"id": 7}), "n": "7"}
+
+    def fake_get(url, **kw):
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    with patch("httpx.get", fake_get):
+        on = execute_api(method="GET", url="https://example.com/api",
+                         settings={"normalization": True, "enable_json_splitter": True})
+        off = execute_api(method="GET", url="https://example.com/api",
+                          settings={"normalization": True})
+    assert isinstance(on["headers"], dict)                       # still the normalized envelope
+    assert on["response_body"]["data"] == {"id": 7}
+    assert on["body"]["data"] == {"id": 7}
+    assert on["response_body"]["n"] == "7"
+    assert isinstance(off["response_body"]["data"], str)         # splitter stays opt-in

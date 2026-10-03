@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-openai
-Version: 1.14.4
+Version: 1.15.0
 Summary: OpenAI integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.19.0,<2
+Requires-Dist: agent-framework-core>=1.20.0,<2
 Requires-Dist: openai>=2.25.0,<4
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -48,6 +48,18 @@ Use `OpenAIChatClient` for new work unless you specifically need the Chat Comple
   existing Chat Completions-based integrations.
 
 The previous deprecated Responses alias has been removed. Use `OpenAIChatClient` directly.
+
+## Citations and annotations
+
+`OpenAIChatClient` exposes Responses API URL, file, file-path, and container-file citations through
+`Content.annotations`, using the provider-neutral `Annotation(type="citation", ...)` representation.
+URL citations retain their title, URL, and text-span indices, including SharePoint grounding citations.
+
+Inspect `content.annotations` in response messages or streaming `update.contents`. Annotations can arrive
+in an update whose `content.text` is empty: completed content parts and output messages supply citations
+without repeating text that was already streamed. Annotation-added and completion events are deduplicated
+by item, content part, and annotation position, so separate references to the same source remain distinct.
+Foundry clients that inherit the Responses parser receive the same behavior.
 
 ## Hosted function results
 

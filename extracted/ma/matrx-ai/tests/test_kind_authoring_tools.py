@@ -814,6 +814,7 @@ async def test_kind_create_refuses_title_key_missing_from_schema() -> None:
             "label": "Wine Tasting",
             "sample_data": {"wine_name": "Opus One", "rating": 95},
             "title_key": "winename",  # typo — not a schema property
+            "disposition": "record",
         },
         make_ctx(),
     )
@@ -1171,6 +1172,8 @@ def _composed_args(**extra: Any) -> dict[str, Any]:
             "title": "Deck",
             "cards": [{"__kind": "b6_platform_card", "front": "Q", "back": "A"}],
         },
+        "disposition": "record",
+        "child_dispositions": {"b6_platform_card": "record"},
         **extra,
     }
 
@@ -1224,6 +1227,7 @@ async def test_kind_create_large_receipt_stays_below_result_gate(
             "name": "large_receipt",
             "label": "Large Receipt",
             "sample_data": {"body": "x" * 40_000},
+            "disposition": "prose",
         },
         make_ctx(),
     )
@@ -1500,3 +1504,97 @@ async def test_every_code_writing_component_tool_asks_the_platform_staff_door(
         assert result.success is False, f"{fn.__name__} wrote without asking the door"
         assert result.error.error_type == "forbidden", fn.__name__
     assert len(asked) == 3, f"only {len(asked)} of 3 tools asked the door"
+
+
+# ---------------------------------------------------------------------------
+# KINDS-GLUE wave 1b — a kind is never born without saying what its output is
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", [None, "", "table", "Record"])
+async def test_kind_create_refuses_a_kind_without_a_disposition(
+    monkeypatch: pytest.MonkeyPatch, bad: Any
+) -> None:
+    """No disposition (or one outside the closed set) → refused in a plain sentence, and
+    NOT ONE row written."""
+    from matrx_ai.tools.implementations import kind_authoring
+
+    created = _install_fake_kind_db(monkeypatch)
+    args = _composed_args()
+    if bad is None:
+        args.pop("disposition")
+    else:
+        args["disposition"] = bad
+    if bad is None:
+        result = await kind_authoring.kind_create(args, make_ctx())
+    else:
+        from pydantic import ValidationError
+
+        # Outside the closed set never reaches the tool body: the contract is
+        # Literal[KIND_DISPOSITIONS] itself.
+        with pytest.raises(ValidationError):
+            await kind_authoring.kind_create(args, make_ctx())
+        assert all(not rows for rows in created.values())
+        return
+    assert result.success is False
+    assert result.error is not None and result.error.error_type == "validation"
+    assert "does not say what its output is" in result.error.message
+    assert all(not rows for rows in created.values()), created
+
+
+@pytest.mark.asyncio
+async def test_kind_create_refuses_a_new_nested_kind_without_a_disposition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A nested kind this call would CREATE must be declared too — refused before the
+    first write, so no half-composed shape is left behind."""
+    from matrx_ai.tools.implementations import kind_authoring
+
+    created = _install_fake_kind_db(monkeypatch)
+    result = await kind_authoring.kind_create(
+        _composed_args(child_dispositions={}), make_ctx()
+    )
+    assert result.success is False
+    assert result.error is not None
+    assert "'b6_platform_card'" in result.error.message
+    assert "without saying what their output is" in result.error.message
+    assert all(not rows for rows in created.values()), created
+
+
+@pytest.mark.asyncio
+async def test_kind_create_writes_the_stated_disposition_on_every_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from matrx_ai.tools.implementations import kind_authoring
+
+    created = _install_fake_kind_db(monkeypatch)
+    result = await kind_authoring.kind_create(
+        _composed_args(disposition="proposal", child_dispositions={"b6_platform_card": "record"}),
+        make_ctx(),
+    )
+    assert result.success, result.error
+    by_slug = {row["kind"]: row["metadata"]["disposition"] for row in created["kind_definition"]}
+    assert by_slug == {"b6_platform_root": "proposal", "b6_platform_card": "record"}
+    assert "as a proposal" in result.output.message
+
+
+def test_kind_create_literals_are_the_sdk_disposition_set() -> None:
+    """The arg contract spells the five literals out (a type form cannot be computed): pin them."""
+    from typing import get_args
+
+    from matrx_ai.tools._generated_declarations import KindCreateArgs
+    from matrx_graph.content_ir.sdk import KIND_DISPOSITIONS
+
+    def literal_values(annotation: Any) -> tuple[str, ...]:
+        for arg in get_args(annotation):
+            if get_args(arg) and all(isinstance(v, str) for v in get_args(arg)):
+                return get_args(arg)
+            inner = literal_values(arg)
+            if inner:
+                return inner
+        return ()
+
+    fields = KindCreateArgs.model_fields
+    assert literal_values(fields["disposition"].annotation) == KIND_DISPOSITIONS
+    assert literal_values(fields["child_dispositions"].annotation) == KIND_DISPOSITIONS

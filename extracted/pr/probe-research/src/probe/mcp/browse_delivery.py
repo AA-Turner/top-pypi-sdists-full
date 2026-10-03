@@ -14,6 +14,10 @@ from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
+from .contract import BrowseMode, EnvelopeState, MissingMarker
+
+_TREE = BrowseMode.TREE
+
 _FIELDS = (
     "entity_type",
     "uuid",
@@ -148,7 +152,94 @@ def _smaller(row: dict):
     yield {key: row[key] for key in ("uuid", "experiments", "runs") if key in row}
 
 
+def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
+    """Deliver a FLAT listing (every browse mode but `tree`) in whole rows.
+
+    The service answers one backend page and names, per row, the cursor that
+    resumes AFTER it (`_list_after`) plus the cursor after the whole page
+    (`_list_end`). This sends the longest prefix of whole rows that fits the
+    budget -- measured exactly, with the real cursor in place -- and continues
+    from the last row it sent, so a row is never skipped and never cut in half.
+    A cut is `truncated_by_token_budget`; reaching the end of a page that has a
+    next one is ordinary pagination (a cursor, state complete), as on `entity`.
+    """
+    from .budget import Budget
+    from .continuation import ContinuationError, binding, decode, encode, omit_defaults
+
+    budget = Budget(arguments.get("token_budget", 2000))
+    request_id = binding("browse", arguments, scope)
+    state = decode(arguments.get("cursor"), request_id)  # harness-literal-ok: the pagination cursor
+    payload = call({**arguments, "cursor": state.get("native")})  # harness-literal-ok: the pagination cursor
+    after = payload.pop("_list_after", None)
+    end = payload.pop("_list_end", None)
+    data = payload.get("data")
+    key = str(arguments.get("mode"))
+    if not isinstance(after, list) or not isinstance(data, dict) or not isinstance(
+        data.get(key), list
+    ):
+        # Not a listing (an error envelope, or a service without the contract):
+        # pass it through rather than invent a shape around it.
+        return payload
+    rows = data[key]
+    if len(after) != len(rows) or any(
+        position is not None and not isinstance(position, str) for position in [*after, end]
+    ):
+        raise ContinuationError("Browse listing positions are malformed; restart the read.")
+    source = payload.get("completeness") or {}
+    source_missing = [
+        m for m in source.get("missing", []) if m != MissingMarker.TRUNCATED_BY_TOKEN_BUDGET
+    ]
+    views = data.get("available_views")
+
+    def result(count: int, *, with_views: bool = True) -> dict:
+        native = end if count == len(rows) else after[count - 1]
+        missing = list(source_missing)
+        if count < len(rows):
+            missing.append(MissingMarker.TRUNCATED_BY_TOKEN_BUDGET)
+        sent = rows[:count]
+        out_data = {k: v for k, v in data.items() if k != "available_views"}
+        out_data[key] = sent
+        if with_views and isinstance(views, dict):
+            kinds = {row.get("entity_type") for row in sent if isinstance(row, dict)}
+            kept = {kind: views[kind] for kind in kinds if kind in views}
+            if kept:
+                out_data["available_views"] = kept
+        return omit_defaults(
+            {
+                "data": out_data,
+                "completeness": {
+                    "state": EnvelopeState.PARTIAL if missing else EnvelopeState.COMPLETE,
+                    "missing": missing,
+                },
+                "next_cursor": encode({"native": native}, request_id) if native else None,
+            }
+        )
+
+    if not rows:
+        return result(0)
+    low, high, best = 1, len(rows), None
+    while low <= high:
+        mid = (low + high) // 2
+        candidate = result(mid)
+        if budget.fits(candidate):
+            best, low = candidate, mid + 1
+        else:
+            high = mid - 1
+    if best is not None:
+        return best
+    # One row and the per-kind views do not fit together: the views are the
+    # optional part (they say what `entity` can do next), the row is the answer.
+    lean = result(1, with_views=False)
+    if budget.fits(lean):
+        return lean
+    raise ContinuationError("Browse row exceeds this budget; use a larger token_budget.")
+
+
 def invoke(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
+    # The flat listings deliver rows of ONE kind from ONE route; everything
+    # below is the tree's depth-first traversal and does not apply to them.
+    if arguments.get("mode") not in (None, _TREE):
+        return _invoke_list(arguments, call, scope)
     # Import lazily: ordinary SDK imports must not initialize tokenizer assets.
     from .budget import Budget
     from .continuation import ContinuationError, binding, decode, omit_defaults

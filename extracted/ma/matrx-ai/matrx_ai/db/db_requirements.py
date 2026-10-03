@@ -70,16 +70,16 @@ DB_REQUIREMENTS = {
         {"key": "UserFeedback", "table": "users.user_feedback"},
         # write-failure recovery engine (persistence/replay.py).
         {"key": "SystemWriteFailure", "table": "ops.system_write_failure"},
-        # workbench (notes). The older data tables and pick lists moved to the graveyard at step two of the
+        # workbench (notes). The older data tables and pick lists moved to the deprecated schema at step two of the
         # final switch (2026-10-01); their keys left with them and their callers read the record store.
         {"key": "Notes", "table": "workbench.notes"},
         # DataRef context injection (data_ref.py) — projects + organizations.
-        {"key": "Projects", "table": "workspace.projects"},
+        {"key": "Projects", "table": "projects.projects"},
         {"key": "Organizations", "table": "iam.organizations"},
-        # workspace.tasks — three vocabulary keys, one class.
-        {"key": "WsTasks", "table": "workspace.tasks"},
-        {"key": "CtxTasks", "table": "workspace.tasks"},
-        {"key": "Tasks", "table": "workspace.tasks"},
+        # projects.tasks — three vocabulary keys, one class.
+        {"key": "WsTasks", "table": "projects.tasks"},
+        {"key": "CtxTasks", "table": "projects.tasks"},
+        {"key": "Tasks", "table": "projects.tasks"},
         # agent.
         {"key": "Definition", "table": "agent.definition"},
         {"key": "DefinitionVersion", "table": "agent.definition_version"},
@@ -110,10 +110,10 @@ DB_REQUIREMENTS = {
         {"key": "AiEndpointBase", "table": "ai.endpoint"},
         {"key": "AiModelBase", "table": "ai.model_definition"},
         {"key": "ProviderBase", "table": "ai.provider"},
-        # workspace.tasks — three base keys, one class.
-        {"key": "WsTasksBase", "table": "workspace.tasks"},
-        {"key": "CtxTasksBase", "table": "workspace.tasks"},
-        {"key": "TasksBase", "table": "workspace.tasks"},
+        # projects.tasks — three base keys, one class.
+        {"key": "WsTasksBase", "table": "projects.tasks"},
+        {"key": "CtxTasksBase", "table": "projects.tasks"},
+        {"key": "TasksBase", "table": "projects.tasks"},
         # workbench.
         {"key": "NotesBase", "table": "workbench.notes"},
         # agent.

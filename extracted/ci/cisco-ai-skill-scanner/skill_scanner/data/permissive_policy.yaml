@@ -167,11 +167,11 @@ pipeline:
   benign_pipe_targets:
     - 'ps\s.*\|\s*grep'
     - 'grep\s.*\|\s*grep\s+-v'
-    - 'cat\s.*\|\s*(sort|uniq|wc|head|tail|grep|cut|awk|sed)'
+    - 'cat\s.*\|\s*(sort|uniq|wc|head|tail|grep|cut|awk|sed|jq|python3?\s+-m\s+json\.tool)'
     - 'find\s.*\|\s*(sort|head|wc|xargs\s+ls)'
     - 'ls\s.*\|\s*(sort|head|grep|wc)'
     - 'echo\s.*\|\s*(tr|sed|awk|cut|base64)'
-    - 'curl\s.*\|\s*(jq|python\s+-m\s+json\.tool|json_pp|yq|xmllint)'
+    - 'curl\s.*\|\s*(jq|python3?\s+-m\s+json\.tool|json_pp|yq|xmllint)'
     # Extras for permissive
     - 'docker\s.*\|\s*(grep|head|tail|jq)'
     - 'kubectl\s.*\|\s*(grep|jq|head)'
@@ -595,3 +595,13 @@ disabled_rules:
   - embedded_shebang_in_binary
   # JS/TS network calls are extremely common; disable in permissive to minimise FPs
   - DATA_EXFIL_JS_NETWORK
+  # Destination-oriented undeclared-network check is FP-prone; off in this
+  # noise-reduction preset (on in the balanced default and strict presets).
+  - UNDECLARED_NETWORK_DESTINATION
+
+# ---------------------------------------------------------------------------
+# Scoped suppressions – narrow an exception to named skills or paths
+# ---------------------------------------------------------------------------
+# Preferred over widening `disabled_rules` when a rule is only noisy in one
+# place; see default_policy.yaml for the entry shape.
+suppressions: []

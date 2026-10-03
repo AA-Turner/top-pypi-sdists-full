@@ -103,6 +103,17 @@ if ws_major_version >= 13:
     websockets.legacy.http.MAX_LINE_LENGTH = int(os.environ.get("WEBSOCKETS_MAX_LINE_LENGTH", str(1024 * 32)))  # type: ignore
 else:
     websockets.legacy.http.MAX_LINE = 1024 * 32  # type: ignore
+# Since uvicorn 0.54, its default websocket implementation lets the sans-I/O code of websockets parse
+# the handshake, and that code has its own copy of the limit.
+try:
+    import websockets.http11
+except ImportError:  # very old websockets has no websockets.http11
+    pass
+else:
+    if ws_major_version >= 13:
+        websockets.http11.MAX_LINE_LENGTH = websockets.legacy.http.MAX_LINE_LENGTH  # type: ignore
+    else:
+        websockets.http11.MAX_LINE = 1024 * 32  # type: ignore
 
 
 class WebsocketDebugInfo:
@@ -468,7 +479,13 @@ async def evict(request: Request):
     session_id = request.cookies.get(server.COOKIE_KEY_SESSION_ID)
     if not session_id or session_id != context.session_id:
         return Response(status_code=403)
-    context.close(reason="evicted")
+    if settings.kernel.threaded:
+        # close() waits for context.lock, and a kernel thread can hold that lock while its
+        # websocket send waits for this event loop, so close on a worker thread
+        await anyio.to_thread.run_sync(lambda: context.close(reason="evicted"))
+    else:
+        # without kernel threads no send waits for the loop, and closing a websocket needs it
+        context.close(reason="evicted")
     return Response(status_code=200)
 
 

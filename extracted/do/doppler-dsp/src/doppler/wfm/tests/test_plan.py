@@ -209,7 +209,7 @@ def test_accepts_bundled_dsss_source_with_owned_arrays() -> None:
             acq_reps=4,
             data_code=dat,
             sync=sync,
-            payload=pay,
+            data=pay,
         )
 
     scene = Composer(_seg(10.0))
@@ -546,3 +546,125 @@ def test_fixed_gap_scene_draws_one_rectangular_length() -> None:
     draws = list(plan.monte_carlo(6.0, 4, seed0=1))
     assert len({int(d.shape[0]) for d in draws}) == 1
     assert np.array(draws).shape == (4, len(plan))
+
+
+def _header_why_no_noise() -> str:
+    """DP_WFM_PLAN_WHY_NO_NOISE, read from wfm_plan.h: the one sentence."""
+    import re
+
+    from doppler.tests._repo import repo_root
+
+    text = (
+        repo_root(__file__)
+        / "native"
+        / "inc"
+        / "doppler"
+        / "wfm"
+        / "wfm_plan.h"
+    ).read_text(encoding="utf-8")
+    body = text.split("#define DP_WFM_PLAN_WHY_NO_NOISE", 1)[1]
+    body = body.split("\n\n", 1)[0]
+    return "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', body))
+
+
+def _clean_plan() -> Plan:
+    """A scene whose every source is clean: no noise floor anywhere."""
+    return prepare(Composer(type="tone", fs=1e6, num_samples=256))
+
+
+def test_a_clean_scene_refuses_an_snr_naming_the_fix() -> None:
+    # #1695: at(snr) on a scene with no noise returned the clean signal at
+    # EVERY snr, so a BER sweep over it read a perfect receiver. It is
+    # refused, and the reason is the C header's sentence, word for word.
+    why = _header_why_no_noise()
+    assert why.startswith("this scene carries no noise")
+    plan = _clean_plan()
+    for draw in (
+        lambda: plan.at(6.0),
+        lambda: plan.at(6.0, seed=3),
+        lambda: plan.render(snr=6.0),
+        lambda: next(plan.sweep([0.0, 6.0])),
+        lambda: next(plan.monte_carlo(6.0, 2)),
+    ):
+        with pytest.raises(ValueError) as exc:
+            draw()
+        assert str(exc.value).startswith(why), str(exc.value)
+
+
+def test_a_clean_scene_still_renders_what_it_can() -> None:
+    # The baseline and a seed (which redraws a ranged gap) mean something on
+    # a clean scene, so they are not refused.
+    plan = _clean_plan()
+    clean = Composer(type="tone", fs=1e6, num_samples=256).compose()
+    assert np.array_equal(plan.render(), clean)
+    assert plan.render(seed=5).shape == clean.shape
+
+
+def test_a_noisy_scene_moves_its_floor() -> None:
+    # The refusal's edge: one noisy source is enough, and at() honours snr.
+    plan = prepare(Composer(type="tone", fs=1e6, num_samples=256, snr=10.0))
+    lo, hi = plan.at(0.0, seed=1), plan.at(30.0, seed=1)
+    assert np.mean(np.abs(lo - hi) ** 2) > 1e-3
+
+
+# ── #1619 F6a: a FINITE data source through Plan ─────────────────────────────
+
+
+def _data_scene(snr: float) -> Composer:
+    """One bpsk source whose payload is drawn from a 40-bit data source,
+    16 bits a frame with a CRC: its length is the frames', derived."""
+    bits = np.array([1, 0, 1, 1, 0, 0, 1, 0] * 5, np.uint8)
+    return Composer(
+        [
+            Segment(
+                type="bpsk",
+                fs=1e6,
+                sps=4,
+                snr=snr,
+                seed=11,
+                data=bits,
+                data_len=16,
+                fill=np.array([0, 1], np.uint8),
+            )
+        ]
+    )
+
+
+def test_a_finite_data_source_plans_like_compose() -> None:
+    """Plan accepts a finite data source, and at(snr, anchor_seed) is the
+    compose at that SNR byte for byte. The noisy case is the BUNDLED path,
+    whose noise copy must not keep the data source's borrowed pointers
+    (wfm_plan.c drop_borrowed): they point into the composer plan_build
+    destroys, and a later render would read freed memory."""
+    plan = prepare(_data_scene(snr=12.0))
+    ref = _data_scene(snr=6.0).compose()
+    assert ref.size == 3 * (16 + 16) * 4  # 3 frames, derived
+    np.testing.assert_array_equal(plan.at(6.0, plan.anchor_seed), ref)
+    np.testing.assert_array_equal(plan.at(6.0), plan.at(6.0, plan.anchor_seed))
+
+
+def test_a_continuous_dsss_data_source_plans_like_compose() -> None:
+    """Continuous dsss over a finite data source: Plan derives the same
+    run and renders the compose byte for byte (doppler#1719)."""
+    code = np.array([1, 1, 0, 1, 0], np.uint8)
+    bits = np.array([1, 0, 1, 1, 0, 0, 1, 0] * 3, np.uint8)
+
+    def scene(snr: float) -> Composer:
+        return Composer(
+            [
+                Segment(
+                    type="dsss",
+                    fs=1e6,
+                    sps=2,
+                    snr=snr,
+                    seed=5,
+                    data_code=code,
+                    symbol_rate=1e6 / 2 / 3.7,
+                    data=bits,
+                )
+            ]
+        )
+
+    plan = prepare(scene(12.0))
+    ref = scene(6.0).compose()
+    np.testing.assert_array_equal(plan.at(6.0, plan.anchor_seed), ref)

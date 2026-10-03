@@ -42,6 +42,7 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # dynamic mutations, and host-policy transition markers across turns.
     # Exposing them through LLMParams would let a caller forge internal state.
     "system_prompt_frozen",
+    "system_prompt_spans",
     "authored_tools",
     "dynamic_tools",
     "tool_authority_filtered",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-orchestrations
-Version: 1.2.0
+Version: 1.3.0
 Summary: Orchestration patterns for Microsoft Agent Framework. Includes SequentialBuilder, ConcurrentBuilder, HandoffBuilder, GroupChatBuilder, and MagenticBuilder.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -71,6 +71,19 @@ workflow = (
     HandoffBuilder()
     .participants([triage, billing, support])
     .with_start_agent(triage)
+    .build()
+)
+```
+
+By default, each user response returns to the agent that requested it. To have the start agent re-evaluate every user
+turn, disable return-to-previous routing:
+
+```python
+workflow = (
+    HandoffBuilder()
+    .participants([triage, billing, support])
+    .with_start_agent(triage)
+    .enable_return_to_previous(False)
     .build()
 )
 ```

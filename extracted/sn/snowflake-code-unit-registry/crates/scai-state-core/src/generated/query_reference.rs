@@ -78,6 +78,7 @@ QUERYABLE FIELDS
   planning.generatedBy                           string      The person who generated the assessment
   planning.topologicalRank                       integer     Dependency rank hint used for sorting with dependencies. Valid ranks are >= 0. A value of -1 indicates a cycle or downstream dependency on a cycle.
   planning.wave                                  integer     1-based wave assignment
+  planning.waveRank                              integer     Authored rank within a custom wave, used for UI ordering. Not derived from the dependency graph.
   scriptBindings                                 object      Shell-injected variable bindings the script body and its dependencies reference. Populated at conversion time from the script AST. Field is omitted entirely for non-script kinds.
   source                                         object      Source database object metadata
   source.canonicalName                           string      Computed canonical identifier. Shape varies by kind. databaseObject uses 'database.schema[.package].name' (or 'database.schema[.package].name(paramTypes)' for procedures/functions). script uses 'platform:format:path' where path is files.source.path on this side (e.g. 'teradata:bteq:source/etl/daily/load_sales.bteq'). etl uses the same shape.

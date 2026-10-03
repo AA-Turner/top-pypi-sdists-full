@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from asgiref.compatibility import guarantee_single_callable
 from asgiref.typing import HTTPResponseBodyEvent, HTTPResponseStartEvent
 
 from servestatic.base import ServeStaticBase
-from servestatic.utils import decode_path_info, get_block_size
+from servestatic.utils import decode_path_info, get_block_size, run_async_in_thread
 
 if TYPE_CHECKING:
     from asgiref.typing import (
@@ -32,7 +31,7 @@ class ServeStaticASGI(ServeStaticBase):
             http_scope = cast("HTTPScope", scope)
             path = decode_path_info(http_scope["path"])
             if self.autorefresh:
-                static_file = await asyncio.to_thread(self.find_file, path)
+                static_file = await run_async_in_thread(self.find_file, path)
             else:
                 static_file = self.files.get(path)
 
@@ -69,8 +68,17 @@ class FileServerASGI:
         }
         wsgi_headers["QUERY_STRING"] = scope["query_string"].decode("latin-1")
 
+        # Check which efficient file-transmission extensions the ASGI server
+        # advertises (e.g. os.sendfile). `zerocopysend` supports slicing, so it is
+        # preferred when available; `pathsend` is a full-file-only fallback.
+        extensions = scope.get("extensions") or {}
+        pathsend_supported = "http.response.pathsend" in extensions
+        zerocopysend_supported = "http.response.zerocopysend" in extensions
+
         # Get the ServeStatic file response
-        response = await self.static_file.aget_response(scope["method"], wsgi_headers)
+        response = await self.static_file.aget_response(
+            scope["method"], wsgi_headers, pathsend=pathsend_supported, zerocopysend=zerocopysend_supported
+        )
 
         # Start a new HTTP response for the file
         await send(
@@ -86,6 +94,32 @@ class FileServerASGI:
                 trailers=False,
             )
         )
+
+        # A pathsend response has no body streamed by us: the server sends the
+        # file located at `response.path` (a full-file send only).
+        # `http.response.pathsend` is not part of asgiref's `ASGISendEvent` union,
+        # and `HTTPResponsePathsendEvent` is only available on asgiref >= 3.8, so
+        # construct the event inline and cast it to satisfy the send callable's
+        # type signature without a hard runtime dependency on that symbol.
+        if response.file is None and response.path is not None:
+            await send(cast("Any", {"type": "http.response.pathsend", "path": response.path}))
+            return
+
+        # A zero-copy response carries a real fd-backed file object that the server
+        # transmits via `os.sendfile`. The ASGI spec requires the application to
+        # close the descriptor once the send completes.
+        if response.offset is not None and response.file is not None:
+            event: dict[str, object] = {
+                "type": "http.response.zerocopysend",
+                "file": response.file,
+                "offset": response.offset,
+                "more_body": False,
+            }
+            if response.count is not None:
+                event["count"] = response.count
+            await send(cast("Any", event))
+            response.file.close()
+            return
 
         # Head responses have no body, so we terminate early
         if response.file is None:

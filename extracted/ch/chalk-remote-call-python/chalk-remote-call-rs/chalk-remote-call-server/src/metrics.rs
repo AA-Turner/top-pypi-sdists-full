@@ -120,6 +120,10 @@ pub fn record_completed_call(
     elapsed: Duration,
     mode: Mode,
 ) {
+    let queue_name = std::env::var("CHALK_FNQ_FUNCTION_NAME")
+        .ok()
+        .filter(|name| !name.is_empty());
+    let function_name = queue_name.as_deref().unwrap_or(function_name);
     let status = if success {
         MetricStatus::Success
     } else {

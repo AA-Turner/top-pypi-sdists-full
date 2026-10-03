@@ -84,7 +84,7 @@ class Dispute(UniversalBaseModel):
 
     plan_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The plan the disputed payment was made on, prefixed `plan_`.
+    The variant the disputed payment was made on, prefixed `plan_`.
     """
 
     product_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -104,7 +104,7 @@ class Dispute(UniversalBaseModel):
 
     status: DisputeStatus = pydantic.Field()
     """
-    Where the dispute stands. `needs_response` is awaiting evidence, `under_review` is with the processor, `won` returned the funds to the seller, `lost` returned them to the customer, and `closed` ended without a ruling. A dispute past its `evidence_due_at` reports `under_review` — the window to respond has closed.
+    Where the dispute stands. `needs_response` is awaiting evidence, `under_review` is with the processor, `won` returned the funds to the seller, `lost` returned them to the customer, and `prevented` means the customer was refunded before any ruling, so it settles like `lost`. The `warning_` statuses are the same stages for an inquiry, which moves no funds. A dispute past its `evidence_due_at` reports `under_review` — the window to respond has closed.
     """
 
     updated_at: str = pydantic.Field()

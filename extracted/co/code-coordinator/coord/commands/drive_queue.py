@@ -67,8 +67,10 @@ from coord.drive_queue import (
     STATE_PARKED,
     STATE_RUNNING,
     STATE_WAITING,
+    STUCK_QUEUE_STATES,
     TERMINAL_QUEUE_STATES,
     BoardView,
+    ExistingPrMatch,
     IssueFacts,
     ProbeResult,
     QueueEntry,
@@ -79,11 +81,13 @@ from coord.drive_queue import (
     add_preflight_notice,
     apply_gate_status,
     build_board_view,
+    conventional_branch_patterns,
     detect_unreachable_waits,
     diagnose_blocked_after,
     effective_max_fix_rounds,
     entries_from_rows,
     entry_key,
+    existing_pr_relaunch_remedy,
     find_cycle,
     fired_holds,
     flag_shadows_config_warning,
@@ -464,6 +468,52 @@ def drive_queue_add(
             "(entries-only). Pass --scope fleet again if the fleet-wide stop was still needed."
         )
 
+    # #2377: refuse OUTRIGHT — never just advise — when an OPEN PR already
+    # exists on this entry's conventional branch name(s), but ONLY for the
+    # two shapes that can actually relaunch a drive over it: a true fresh
+    # insert (`previous is None` — including the `coord drive-queue remove
+    # <k> && coord drive-queue add <k>` remedy, which drops the row entirely
+    # before this `add` runs, so by then there is no `previous` left either)
+    # and a requeue-style `add` over an already-stuck row (`previous.state`
+    # in `STUCK_QUEUE_STATES` — the #2972 "bump --max-fix-rounds and re-add"
+    # pattern `_requeue_command` documents). `_enqueue_drive_queue_local`
+    # is a pure metadata upsert for every OTHER case — `waiting`/`running`
+    # entries that pushed their own (healthy, simply not-yet-green) PR on the
+    # expected path through Work -> Test -> Review -> Merge — and routine
+    # `--hold-after`/`--machine`/`--after` edits to those must keep working
+    # even though a matching PR already exists, since no relaunch of any
+    # kind is happening on that path. Merging (or fixing forward) a
+    # discovered PR is deliberately left to the operator — see
+    # `existing_pr_relaunch_remedy`'s own docstring.
+    existing_pr_resume_note = ""
+    if previous is None or previous.state in STUCK_QUEUE_STATES:
+        existing_match = _existing_pr_match(config_path, repo, issue)
+        existing_remedy = existing_pr_relaunch_remedy(repo, issue, existing_match)
+        if existing_remedy is not None:
+            raise click.ClickException(
+                f"refusing to queue {entry_key(repo, issue)} — "
+                f"{existing_remedy['what_happens']} Run instead: "
+                f"{existing_remedy['command_or_action']}"
+            )
+        # #3539: `existing_remedy is None` with a real *existing_match* is
+        # ambiguous on its own — "no PR found, start fresh" and "PR found,
+        # green, but still missing a gate — resume on it" both return
+        # `None` from `existing_pr_relaunch_remedy` (see its docstring).
+        # Say which one happened: silently queuing a resume with no echo
+        # at all would read identically to a fresh `add` and hide the exact
+        # trap #3539 reports (an operator with no way to tell this add is
+        # about to drive the SAME branch, not a new one).
+        if existing_match is not None and existing_match.missing_gates:
+            gates_list = " and ".join(existing_match.missing_gates)
+            existing_pr_resume_note = (
+                f"\nresuming on existing PR #{existing_match.number} "
+                f"({existing_match.branch}) — CI is green but {gates_list} "
+                f"{'gate is' if len(existing_match.missing_gates) == 1 else 'gates are'} "
+                "not yet recorded; this add will dispatch only the missing "
+                f"stage(s) on that branch, never a new Work leg (coord "
+                f"gates {repo} {issue} shows the live detail)."
+            )
+
     # #2247: predicted file overlap ORDERS, never refuses. Anything that goes
     # wrong in here (unreadable body, unreachable board, a failed compare)
     # yields an empty prediction and this add behaves exactly as it did before
@@ -614,6 +664,7 @@ def drive_queue_add(
     click.echo(
         f"queued {entry_key(repo, issue)}{pinned}{suffix}{gate}{fix_rounds_note}"
         f"{no_acceptance_note}{scope_downgrade_warning}{overlap_note}"
+        f"{existing_pr_resume_note}"
     )
 
     # #2339: say out loud when this add cannot possibly accomplish anything —
@@ -898,6 +949,140 @@ def _repo_coordinates(config_path: Path, repo: str) -> tuple[str, str] | None:
     if repo_cfg is None:
         return None
     return str(repo_cfg.github or ""), str(getattr(repo_cfg, "default_branch", "") or "main")
+
+
+def _existing_pr_match(
+    config_path: Path, repo: str, issue: int,
+) -> "ExistingPrMatch | None":
+    """#2377: resolve *repo*#*issue*'s conventional-branch PR, if any, to a
+    go/no-go CI verdict — the one place that owns the `gh pr list` + checks
+    read `coord.drive_queue.ExistingPrMatch` stays pure of.
+
+    Fail-open at every layer (unreadable config, no GitHub slug, `gh`
+    error, unreadable checks) — the same posture #2247's overlap prediction
+    takes: a false "nothing found" costs an operator a wasted relaunch, but
+    a false block on a healthy queue would be strictly worse (it IS the
+    queue). `coord.github_ops.find_open_pr_for_branch_patterns` and
+    `coord.ci_github.GitHubCi.list_checks_for_pr` already fail open on a
+    transient `gh` error on their own; this only adds the same posture
+    around the config/slug lookup wrapping them.
+
+    `all_green` here is a narrower "safe to merge instead of relaunching"
+    answer than `coord.merge_queue.plan()`'s own `PLAN_READY` verdict — it
+    reads raw `failed_checks`/`in_flight_checks` only and does not account
+    for `merge_queue._ci_checks_are_stale` (a green check that silently
+    outlived a base move). The issue's own design accepted either condition
+    ("all green OR `coord merge --plan` reads READY"), and `coord merge
+    --only` re-runs its own full gate check before actually merging either
+    way, so the worst case from the gap is a confusing round trip
+    (recommended here, still BLOCKED there), never an incorrect merge.
+    Wiring the fuller verdict in would need this call site to assemble
+    `plan()`'s board/GhOps/smoke-verdict inputs for a single PR lookup — a
+    bigger, riskier change than this fix-round's scope; left as a known gap
+    rather than attempted half-wired.
+
+    `missing_gates` (#3539), unlike `all_green`, DOES reuse the real gate
+    decision — `coord.gates.build_gate_report`, the exact function `coord
+    gates` prints and that wraps `coord.merge_queue`'s own
+    `requires_review`/`scan_approved_reviews`/`requires_smoke`/
+    `evaluate_smoke_verdict` — rather than a second guess, closing the
+    quadraui#1109 gap: a PR can be all-green on CI while `coord gates`
+    still reports `review`/`test` BLOCKED, and the #2377 guard's old
+    "merge it" advice for an all-green PR was then impossible (`coord merge
+    --only` itself refused with `enqueue blocked by review gate`). Only
+    computed when `all_green` — a red PR's gate state is moot, the caller
+    refuses on CI alone either way. Fails open toward "missing" (NEVER
+    toward "satisfied"): an unreadable board/config, or a PR whose work
+    chain `build_gate_report` can't resolve a decision for, reports every
+    gate as still missing rather than claiming a merge is ready when a live
+    `coord merge --only` might still refuse it (#2096: unconfirmed success
+    is a defect).
+    """
+    coordinates = _repo_coordinates(config_path, repo)
+    if coordinates is None:
+        return None
+    repo_github, _base_branch = coordinates
+    if not repo_github:
+        return None
+    try:
+        from coord import github_ops  # noqa: PLC0415
+
+        pr = github_ops.find_open_pr_for_branch_patterns(
+            repo_github, conventional_branch_patterns(issue)
+        )
+    except Exception:  # noqa: BLE001 — fail-open, see docstring
+        pr = None
+    if not pr:
+        return None
+    number = pr.get("number")
+    if not isinstance(number, int):
+        return None
+    try:
+        from coord.ci_github import GitHubCi  # noqa: PLC0415
+        from coord.ci_store import failed_checks, in_flight_checks  # noqa: PLC0415
+
+        checks = GitHubCi().list_checks_for_pr(repo_github, number)
+    except Exception:  # noqa: BLE001 — fail-open: an unreadable check list
+        # is not evidence of green OR red — treat it the same as "no checks
+        # reported", which `all_green` below already reads as not-green.
+        checks = []
+    all_green = bool(checks) and not failed_checks(checks) and not in_flight_checks(checks)
+    missing_gates = _missing_required_gates(config_path, repo, issue) if all_green else ()
+    return ExistingPrMatch(
+        number=number,
+        branch=str(pr.get("headRefName") or ""),
+        url=str(pr.get("url") or ""),
+        all_green=all_green,
+        missing_gates=missing_gates,
+    )
+
+
+def _missing_required_gates(config_path: Path, repo: str, issue: int) -> tuple[str, ...]:
+    """#3539: which of ``("review", "test")`` are still required-but-not-ok
+    for *repo*#*issue*, per `coord.gates.build_gate_report` — the SAME
+    review/test decision `coord gates` prints and `coord merge` itself
+    gates on (#2096: one question, one answer; never a second, driftable
+    guess at "is this PR actually ready").
+
+    Fails open toward "missing", never toward "satisfied": any read failure
+    (unreadable config, no board, an exception inside `build_gate_report`
+    itself) or a report with no resolved decisions at all (no work-like
+    assignment `build_gate_report` could select a winner from) reports
+    BOTH gates missing. A false "missing" here costs one operator-visible
+    resume note on an add that may turn out to be a no-op once the real
+    gates are read live again a moment later; a false "satisfied" would
+    reproduce the exact #3539 incident — advising ``coord merge --only``
+    over a PR a live merge attempt still refuses.
+
+    The board comes from ``coord.board_service.read_board()``, NOT
+    ``coord.state.build_board()`` (#615/#906): `coord drive-queue add` has
+    no whole-command daemon reroute, so a thin client reading the local DB
+    here would see an empty board, resolve no decisions, and fail open to
+    "both gates missing" on every add — technically safe, uselessly noisy.
+    `read_board()` is the one place the local-vs-daemon decision is made
+    (GET /board on a thin client, the local DB otherwise), which is also
+    why no entry is needed in `tests/test_thin_client_board_audit.py`'s
+    ``COMMANDS_ALLOWLIST``: there is no direct local-board call site to
+    allowlist.
+    """
+    try:
+        from coord import github_ops  # noqa: PLC0415
+        from coord.board_service import read_board  # noqa: PLC0415
+        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.gates import build_gate_report  # noqa: PLC0415
+
+        cfg = _load_config(config_path)
+        board = read_board()
+        report = build_gate_report(board, cfg, repo, issue, gh_ops=github_ops)
+    except (Exception, SystemExit):  # noqa: BLE001 — fail-open to "missing"
+        return ("review", "test")
+    by_gate = {d.gate: d for d in report.decisions}
+    missing = []
+    for gate in ("review", "test"):
+        decision = by_gate.get(gate)
+        if decision is None or (decision.required and not decision.ok):
+            missing.append(gate)
+    return tuple(missing)
 
 
 def _predict_overlap(
@@ -6299,7 +6484,13 @@ def _requeue_command(entry: QueueEntry | None, key: str) -> str:
     )
 
 
-def _blocked_escalation_command(entry: QueueEntry | None, key: str, reason: str) -> str:
+def _blocked_escalation_command(
+    entry: QueueEntry | None,
+    key: str,
+    reason: str,
+    *,
+    config_path: Path | None = None,
+) -> str:
     """The command a `blocked`/`oscillating` escalation should propose
     (#3016) — `_requeue_command` ONLY for a genuinely never-dispatched entry;
     a gate-specific remedy (or the safe read-only inspect fallback) whenever
@@ -6315,11 +6506,48 @@ def _blocked_escalation_command(entry: QueueEntry | None, key: str, reason: str)
     one place that maps a merge-gate reason to its safe one-line fix (or, if
     none is known blind, the inspect command); this only decides WHICH of
     the two families applies.
+
+    #2377: even when nothing names a merge-gate block, "nothing left to
+    lose" from a blind requeue is only true when nothing ELSE has since
+    fixed this entry by hand — the claude-coordinator#2283 incident: a
+    manual `coord acceptance author` run outside the drive loop had already
+    produced a green, ready-to-merge PR for this exact entry while it sat
+    `blocked` on the empty-branch-death signature. So before falling back to
+    `_requeue_command`, check GitHub for an OPEN PR on this entry's
+    conventional branch name(s) and propose THAT remedy instead — merge it
+    when every check is green, inspect it otherwise — never the requeue.
+    *config_path* is optional (defaults to no check, i.e. today's unchanged
+    behaviour) purely so every OTHER existing caller/test of this function
+    that has no config to hand keeps working unchanged; the real `tick`
+    call sites below always pass their own.
+
+    #3539: `existing_pr_relaunch_remedy` returning ``None`` is no longer
+    proof that *match* itself is ``None`` — a green PR with Test and/or
+    Review never recorded ALSO returns ``None`` (see that function's own
+    docstring), on purpose, so a plain `add` can resume on it. That case
+    still HAS a PR and HAS been dispatched, so it must not fall through to
+    `_requeue_command`'s blind ``remove && add`` either — remove would
+    discard a completed, green work cycle for no reason. Propose the plain
+    `add` (no `remove` first) instead; `_requeue_command` stays reserved for
+    the one case its own docstring names: *match* itself is ``None``,
+    i.e. nothing was ever dispatched for this row at all.
     """
     if is_merge_gate_block_reason(reason):
         parsed = parse_key(key)
         if parsed is not None:
             return merge_gate_remedy_command(reason, parsed[0], parsed[1])
+    if config_path is not None:
+        parsed = parse_key(key)
+        if parsed is not None:
+            repo, issue = parsed
+            match = _existing_pr_match(config_path, repo, issue)
+            remedy = existing_pr_relaunch_remedy(repo, issue, match)
+            if remedy is not None:
+                return remedy["command_or_action"]
+            if match is not None:
+                # #3539: green PR, gate(s) not yet recorded — resume via a
+                # plain `add`, never the blind `remove && add` requeue below.
+                return f"coord drive-queue add {repo} {issue}"
     return _requeue_command(entry, key)
 
 
@@ -7121,7 +7349,9 @@ def drive_queue_tick(
                     f"{entry.position if entry else '?'} | after="
                     f"{','.join(entry.after) if entry and entry.after else '(none)'}"
                 ),
-                command=_blocked_escalation_command(entry, item.key, item.reason),
+                command=_blocked_escalation_command(
+                    entry, item.key, item.reason, config_path=config_path,
+                ),
             )
 
         # #2230: an entry #2230's sweep would have resumed, but has already
@@ -7148,7 +7378,9 @@ def drive_queue_tick(
                     f"/{MAX_BLOCKED_RESUMES} | position="
                     f"{entry.position if entry else '?'}"
                 ),
-                command=_blocked_escalation_command(entry, item.key, item.reason),
+                command=_blocked_escalation_command(
+                    entry, item.key, item.reason, config_path=config_path,
+                ),
             )
 
         # #2806: a `blocked` entry #2230's sweep targeted this tick, but whose
@@ -7310,7 +7542,14 @@ def drive_queue_tick(
                 target.issue,
                 reason=reason,
                 gates=f"queue_state=blocked | attempts={attempts}",
-                command=_requeue_command(target, target.key),
+                # #2377: route through the same existing-PR check as the
+                # `plan.blocked`/`oscillating` escalations above — a launch
+                # subprocess failing to even start says nothing about
+                # whether a PR from an earlier attempt (or a manual
+                # recovery) already landed the fix.
+                command=_blocked_escalation_command(
+                    target, target.key, reason, config_path=config_path,
+                ),
             )
             # #2235 Phase 0: a launch that never reached tmux is #2235's own
             # `stick-demo#1` row. It blocks OUTSIDE the plan (the subprocess

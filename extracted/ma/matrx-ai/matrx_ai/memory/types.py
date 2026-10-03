@@ -37,6 +37,9 @@ class ModelConfig:
     """
     mandate_key: str
     model: Optional[str] = None
+    #: The chosen CLASS of ``model`` (an ai.offering of it) — rides only with
+    #: ``model``; ``None`` = its preferred class (or the Holder's own pin).
+    offering_id: str | None = None
 
 
 # ---------------------------------------------------------------------------

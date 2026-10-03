@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/scai-error-derive", "crates/scai-log", "crates/scai-state-core", "crates/scai-state-python"]
 
 [workspace.package]
-version = "0.8.78"
+version = "0.8.83"
 edition = "2021"
 license = "SEE LICENSE IN LICENSE"
 repository = "https://github.com/snowflake-eng/scai-state"

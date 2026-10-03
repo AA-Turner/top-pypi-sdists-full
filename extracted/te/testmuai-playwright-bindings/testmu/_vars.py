@@ -655,6 +655,34 @@ def _atms_get_totp_seed(variable_name):
     return resp.json()["data"]
 
 
+def _coerce_schema(content):
+    if isinstance(content, str):
+        return json.loads(content)
+    return content
+
+
+def _atms_get_schema(schema_id):
+    try:
+        import requests
+
+        atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com")
+        from urllib.parse import quote
+        url = f"{atms_url}/api/v1/schema/{quote(str(schema_id), safe='')}?form=canonical"
+        resp = requests.get(url=url, headers=_atms_auth_headers())
+        if resp.status_code == 200:
+            return _coerce_schema(resp.json()["data"]["canonical_content"])
+        _log.warning(
+            "schema %s live fetch failed (%s): %s",
+            schema_id, resp.status_code, resp.text[:200],
+        )
+    except Exception as exc:
+        _log.warning("schema %s live fetch error: %s", schema_id, exc)
+
+    raise RuntimeError(
+        f"Schema '{schema_id}' could not be fetched from ATMS at runtime"
+    )
+
+
 def _atms_persist_global_variable(name, value):
     """Write a global variable's new value back to ATMS so it shows on the
     variables page — V2 parity with update_variable_value_by_name.

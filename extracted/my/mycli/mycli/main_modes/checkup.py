@@ -34,8 +34,8 @@ def _dependencies_checkup() -> None:
         ('pygments', 'required'),
         ('pymysql', 'required'),
         ('sqlglot', 'required'),
-        ('sqlglotc', 'required'),
         ('tabulate', 'required'),
+        ('sqlglotc', 'optional for performance'),
         ('llm', 'optional for /llm command'),
         ('polars', 'optional for .| operator'),
         ('altair', 'optional for .| operator'),
@@ -71,8 +71,8 @@ def _environment_checkup() -> None:
     print('\n### Environment variables:\n')
     table = []
     for variable, purpose in [
-        ('EDITOR', r'optional for \edit and C-x C-e'),
-        ('VISUAL', r'optional for \edit and C-x C-e'),
+        ('EDITOR', r'optional for /edit and C-x C-e'),
+        ('VISUAL', r'optional for /edit and C-x C-e'),
     ]:
         if value := os.environ.get(variable):
             table.append([f'${variable}', value, purpose])

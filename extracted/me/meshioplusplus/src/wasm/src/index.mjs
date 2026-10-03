@@ -256,6 +256,10 @@ export class MeshioPlusPlusLoadError extends Error {
  *   featureEdges: (mesh: Mesh, featureAngle?: number, feature?: boolean, boundary?: boolean, nonManifold?: boolean, inconsistent?: boolean, region?: string) => {mesh: Mesh, numFeature: number, numBoundary: number, numNonManifold: number, numInconsistent: number},
  *   hausdorffDistance: (a: Mesh, b: Mesh, faceSamples?: number, regionA?: string, regionB?: string) => {distance: number, aToB: number, bToA: number, meanAToB: number, rmsAToB: number, meanBToA: number, rmsBToA: number, numSamplesA: number, numSamplesB: number, worstPointA: Float64Array, worstPointB: Float64Array},
  *   editRegions: (mesh: Mesh, edits: Array<{op: string, inputs: Array<string | {name: string, kind?: string, dim?: number, tag?: number}>, output?: string, dim?: number, tag?: number, keepInputs?: boolean}>) => Mesh,
+ *   regionAdjacency: (mesh: Mesh, regions?: Array<string | {name: string, kind?: string, dim?: number, tag?: number}>) => Mesh,
+ *   findInterface: (meshA: Mesh, regionA: string | object, regionB: string | object, options?: {meshB?: Mesh, mode?: 'conforming'|'proximity', master?: 'a'|'b', gapTolerance?: number, angleTolerance?: number, overlapTolerance?: number}) => {mesh: Mesh, report: object},
+ *   contactPairs: (slaveMesh: Mesh, slavePoints: string | object, masterCells: string | object, options?: {masterMesh?: Mesh, tolerance?: number, requireComplete?: boolean}) => object,
+ *   splitInterface: (mesh: Mesh, side: string | object, options?: {addCohesive?: boolean}) => {mesh: Mesh, report: object},
  *   matchPeriodicNodes: (mesh: Mesh, slave: string | {name: string, kind?: string, dim?: number, tag?: number}, master: string | {name: string, kind?: string, dim?: number, tag?: number}, matrix: ArrayLike<number>, atol?: number, requireComplete?: boolean) => {slave: Int32Array, master: Int32Array, unmatched: Int32Array, numFixed: number, maxResidual: number},
  *   repair: (mesh: Mesh, fixOrientation?: boolean, orientOutward?: boolean, fillHoles?: boolean, splitNonManifold?: boolean, maxHoleEdges?: number, weldTolerance?: number, recordProvenance?: boolean) => {mesh: Mesh, qualityBefore: object, qualityAfter: object, numFlipped: number, numComponents: number, largestComponent: number, numOrientedOutward: number, numUnorientable: number, numVerticesSplit: number, numHolesDetected: number, numHolesFilled: number, numHolesSkipped: number, numFacesAdded: number, numPointsAdded: number, pointsWelded: number},
  *   shrinkwrap: (mesh: Mesh, target: Mesh, offset?: number, maxDistance?: number, weights?: string, targetRegion?: string, normalWeight?: string, recordDistance?: boolean, recordClosestCell?: boolean) => {mesh: Mesh, quality: object, numProjected: number, numMissed: number, numSkipped: number, maxDisplacement: number},
@@ -281,6 +285,8 @@ export class MeshioPlusPlusLoadError extends Error {
  *   dataDrop: (mesh: Mesh, location: string, names?: string[], ignoreMissing?: boolean) => Mesh,
  *   dataKeep: (mesh: Mesh, location: string, names?: string[], ignoreMissing?: boolean) => Mesh,
  *   dataRename: (mesh: Mesh, location: string, from: string, to: string) => Mesh,
+ *   setsToData: (mesh: Mesh, location: string, options?: object) => Mesh,
+ *   dataToSets: (mesh: Mesh, location: string, key: string) => Mesh,
  *   dataPointToCell: (mesh: Mesh, names?: string[], suffix?: string) => Mesh,
  *   dataCellToPoint: (mesh: Mesh, names?: string[], weight?: string, suffix?: string) => Mesh,
  *   dataCalc: (mesh: Mesh, expression: string, location: string, outputName: string, overwrite?: boolean) => Mesh,
@@ -289,6 +295,11 @@ export class MeshioPlusPlusLoadError extends Error {
  *   dataInfo: (mesh: Mesh) => object[],
  *   dataIntegrate: (mesh: Mesh, arrays?: string[]) => object[],
  *   createXdmfTimeSeriesWriter: (path: string, options?: {dataFormat?: string, gzipLevel?: number, mode?: 'truncate'|'append', autoFlush?: boolean}) => XdmfTimeSeriesWriter,
+ *   createExodusTimeSeriesWriter: (path: string) => ExodusTimeSeriesWriter,
+ *   medMeshNames: (path: string) => string[],
+ *   readMedNamed: (path: string, name: string, options?: object) => Mesh,
+ *   writeMedMulti: (path: string, meshes: Mesh[], names: string[], options?: object) => void,
+ *   writeGltf: (path: string, mesh: Mesh, options?: object) => string[],
  *   openSequence: (source: string|string[], options?: object) => SequenceReader,
  * }>}
  * @throws {MeshioPlusPlusLoadError} if the WASM module fails to instantiate.
@@ -361,6 +372,11 @@ export async function loadMeshioPlusPlus(moduleOverrides = {}, { variant = 'auto
     return {
         FS: Module.FS,
         readMesh: (path, format = '') => Module.readMesh(path, format),
+        medMeshNames: (path) => Module.medMeshNames(path),
+        readMedNamed: (path, name, { timeStep = 0, lenient = false } = {}) =>
+            Module.readMedNamed(path, name, timeStep, lenient),
+        writeMedMulti: (path, meshes, names, { version = '4.1.0' } = {}) =>
+            Module.writeMedMulti(path, meshes, names, version),
         // Selective reads (see doc/selective_read.md). `arrays: null` reads
         // every data array, `arrays: []` reads none -- the distinction is
         // deliberate. Formats without a native selective path are read whole
@@ -415,6 +431,7 @@ export async function loadMeshioPlusPlus(moduleOverrides = {}, { variant = 'auto
         // an OpenFOAM `polyMesh` directory's files, ...).
         writeMesh: (path, mesh, format = '', options = undefined) =>
             Module.writeMesh(path, mesh, format, options),
+        writeGltf: (path, mesh, options = undefined) => Module.writeGltf(path, mesh, options),
         // `options` adds `encoding`/`codec`/`floatFormat` to `inFormat`/
         // `outFormat` (see `writeMesh`). Returns the written paths, as
         // `writeMesh` does.
@@ -805,6 +822,12 @@ export async function loadMeshioPlusPlus(moduleOverrides = {}, { variant = 'auto
             Module.hausdorffDistance(a, b, faceSamples, regionA, regionB),
         editRegions: (mesh, edits) =>
             Module.editRegions(mesh, Array.isArray(edits) ? edits : [edits]),
+        regionAdjacency: (mesh, regions = []) => Module.regionAdjacency(mesh, regions),
+        findInterface: (meshA, regionA, regionB, options = {}) =>
+            Module.findInterface(meshA, regionA, regionB, options),
+        contactPairs: (slaveMesh, slavePoints, masterCells, options = {}) =>
+            Module.contactPairs(slaveMesh, slavePoints, masterCells, options),
+        splitInterface: (mesh, side, options = {}) => Module.splitInterface(mesh, side, options),
         matchPeriodicNodes: (mesh, slave, master, matrix, atol = 1e-8, requireComplete = true) =>
             Module.matchPeriodicNodes(mesh, slave, master, Array.from(matrix), atol,
                 requireComplete),
@@ -992,6 +1015,9 @@ export async function loadMeshioPlusPlus(moduleOverrides = {}, { variant = 'auto
         dataKeep: (mesh, location, names = [], ignoreMissing = false) =>
             Module.dataKeep(mesh, location, names, ignoreMissing),
         dataRename: (mesh, location, from, to) => Module.dataRename(mesh, location, from, to),
+        setsToData: (mesh, location, {dataName = null, joinChar = '-', order = []} = {}) =>
+            Module.setsToData(mesh, location, dataName, joinChar, order),
+        dataToSets: (mesh, location, key) => Module.dataToSets(mesh, location, key),
         dataPointToCell: (mesh, names = [], suffix = '') =>
             Module.dataPointToCell(mesh, names, suffix),
         dataCellToPoint: (mesh, names = [], weight = 'uniform', suffix = '') =>
@@ -1035,6 +1061,24 @@ export async function loadMeshioPlusPlus(moduleOverrides = {}, { variant = 'auto
         // dataFormat 'HDF' the series is TWO files in the virtual FS: `<path>`
         // and its sibling `<path minus extension>.h5`. Copy BOTH out of
         // Module.FS. `mode: 'append'` continues a series already at `path`.
+        createExodusTimeSeriesWriter: (path) => {
+            const handle = Module.exodusSeriesCreate(path);
+            let open = true;
+            const action = (name, time = 0, mesh = null) => Module.exodusSeriesAction(handle, name, time, mesh);
+            return {
+                writePointsCells: (mesh) => action('grid', 0, mesh),
+                writeData: (time, mesh) => action('data', time, mesh),
+                flush: () => action('flush'),
+                finalize: () => action('finalize'),
+                numSteps: () => action('steps'),
+                finalized: () => action('finalized'),
+                close: () => {
+                    if (!open) return;
+                    open = false;
+                    try { action('finalize'); } finally { action('free'); }
+                },
+            };
+        },
         createXdmfTimeSeriesWriter: (
             path,
             { dataFormat = 'HDF', gzipLevel = -1, mode = 'truncate', autoFlush = false } = {},

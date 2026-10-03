@@ -33,6 +33,7 @@ from sarj_python_lint.rules.no_analytical_aggregation_in_postgres_store import (
     NoAnalyticalAggregationInPostgresStore,
 )
 from sarj_python_lint.rules.no_any_mapping_types import NoAnyMappingTypes
+from sarj_python_lint.rules.no_broad_keyword_capture import NoBroadKeywordCapture
 from sarj_python_lint.rules.no_comment_cruft import NoCommentCruft
 from sarj_python_lint.rules.no_conftest_test_module_import import NoConftestTestModuleImport
 from sarj_python_lint.rules.no_copied_inherited_docstring import NoCopiedInheritedDocstring
@@ -88,6 +89,7 @@ from sarj_python_lint.rules.no_unique_violation_message_match import (
     NoUniqueViolationMessageMatch,
 )
 from sarj_python_lint.rules.no_unnecessary_docstring import NoUnnecessaryDocstring
+from sarj_python_lint.rules.no_unused_underscored_keyword_parameter import NoUnusedUnderscoredKeywordParameter
 from sarj_python_lint.rules.no_unused_value_marker import NoUnusedValueMarker
 from sarj_python_lint.rules.no_vague_suppression_description import (
     NoVagueSuppressionDescription,
@@ -132,6 +134,7 @@ from sarj_python_lint.rules.prefer_non_nullable_collection import (
 )
 from sarj_python_lint.rules.prefer_or_pattern import PreferOrPattern
 from sarj_python_lint.rules.prefer_pydantic_json_value import PreferPydanticJsonValue
+from sarj_python_lint.rules.prefer_pytest_fixture_injection import PreferPytestFixtureInjection
 from sarj_python_lint.rules.prefer_regex_fullmatch import PreferRegexFullmatch
 from sarj_python_lint.rules.prefer_self_documenting_constant import (
     PreferSelfDocumentingConstant,
@@ -277,6 +280,7 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoRepeatedTestBody.id: NoRepeatedTestBody,
         UnusedMockSetup.id: UnusedMockSetup,
         UnusedTestFactoryOption.id: UnusedTestFactoryOption,
+        PreferPytestFixtureInjection.id: PreferPytestFixtureInjection,
         PreferFstringOverConcat.id: PreferFstringOverConcat,
         PreferOrPattern.id: PreferOrPattern,
         PreferPydanticJsonValue.id: PreferPydanticJsonValue,
@@ -294,6 +298,7 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoDuplicateDunderAllEntry.id: NoDuplicateDunderAllEntry,
         NoDunderAll.id: NoDunderAll,
         NoDeleteStatement.id: NoDeleteStatement,
+        NoBroadKeywordCapture.id: NoBroadKeywordCapture,
         NoCopiedInheritedDocstring.id: NoCopiedInheritedDocstring,
         RedundantClassDocstring.id: RedundantClassDocstring,
         RedundantModuleDocstring.id: RedundantModuleDocstring,
@@ -306,6 +311,7 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoTypedDocSections.id: NoTypedDocSections,
         NoUnnecessaryDocstring.id: NoUnnecessaryDocstring,
         NoUnusedValueMarker.id: NoUnusedValueMarker,
+        NoUnusedUnderscoredKeywordParameter.id: NoUnusedUnderscoredKeywordParameter,
         PreferNominalIdTypes.id: PreferNominalIdTypes,
         NoAnyMappingTypes.id: NoAnyMappingTypes,
         NoUniqueViolationMessageMatch.id: NoUniqueViolationMessageMatch,

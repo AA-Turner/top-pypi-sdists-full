@@ -5,6 +5,7 @@ from types import ModuleType
 from typing import Sequence
 
 from skylos.core.safe_cache_io import write_text_no_symlink
+from skylos.constants import RIPGREP_INSTALL_URL
 
 
 _DIFF_FINDING_CATEGORIES = (
@@ -204,6 +205,17 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             "diff-scoped results cannot be uploaded as a full scan; "
             "run a separate scan without --diff or --diff-base to upload"
         )
+    done_receipt = None
+    if getattr(args, "done_receipt", None):
+        if not args.upload:
+            parser.error("--done-receipt is sent with an upload; add --upload")
+        from skylos.done.receipt import load_receipt_for_upload
+
+        done_receipt, receipt_error = load_receipt_for_upload(
+            args.done_receipt, args.path[0]
+        )
+        if receipt_error:
+            parser.error(receipt_error)
     gitlab_output = getattr(args, "format", "rich") == "gitlab"
     if getattr(args, "baseline_ref", None) is not None:
         args.baseline = True
@@ -229,10 +241,19 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     config = context.config
     config_file = context.config_file
     machine_output = _is_main_machine_output(args)
+    explicit_rich_upload = (
+        getattr(args, "_explicit_upload_requested", False)
+        and getattr(args, "format", "rich") == "rich"
+        and not machine_output
+    )
     selected_prerequisite_ids = _selected_rule_prerequisite_ids(args.select)
 
     if _print_main_scan_banner(args, console, final_exclude_folders):
         return
+    if explicit_rich_upload:
+        console.print(
+            "[muted]Analyzing locally; Cloud upload starts after the scan completes.[/muted]"
+        )
 
     with redirect_stdout(sys.stderr) if gitlab_output else nullcontext():
         pre_analysis = _run_pre_analysis_steps(args, project_root, console)
@@ -283,6 +304,17 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 include_review_context=include_review_context,
             )
 
+        def run_main_analysis_with_notice(progress_callback=None):
+            try:
+                return run_main_analysis(progress_callback)
+            except KeyboardInterrupt:
+                if explicit_rich_upload:
+                    console.print(
+                        "[warn]Scan interrupted before upload; no Cloud scan was created.[/warn]"
+                    )
+                    raise SystemExit(130) from None
+                raise
+
         quiet_analysis_output = (
             machine_output or getattr(args, "format", "rich") == "pretty"
         )
@@ -293,7 +325,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             analyzer_logger.setLevel(logging.WARNING)
             try:
                 with redirect_stdout(sys.stderr) if gitlab_output else nullcontext():
-                    result_json = run_main_analysis()
+                    result_json = run_main_analysis_with_notice()
             finally:
                 analyzer_logger.setLevel(analyzer_logger_level)
         else:
@@ -310,9 +342,21 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                         task, description=f"[{current}/{total}] {file.name}"
                     )
 
-                result_json = run_main_analysis(update_progress)
+                result_json = run_main_analysis_with_notice(update_progress)
 
         result = json.loads(result_json)
+
+        grep_report = (result.get("analysis_summary") or {}).get("grep_verify") or {}
+        if (
+            not machine_output
+            and getattr(args, "format", "rich") in {"rich", "pretty"}
+            and grep_report.get("backend") in {"in_process", "serial_grep"}
+        ):
+            console.print(
+                "[warn]ripgrep (rg) unavailable to Skylos; using fallback "
+                "verification. For faster scans, install ripgrep and ensure "
+                f"rg is on PATH: {RIPGREP_INSTALL_URL}[/warn]"
+            )
 
         if getattr(args, "sca", False) and "dependency_vulnerabilities" not in result:
             try:
@@ -776,6 +820,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             if not args.upload:
                 return
             _attach_upload_project_context(result, project_root)
+            if done_receipt is not None:
+                result["done_receipt"] = done_receipt
             upload_resp = upload_report(
                 result,
                 is_forced=args.force,
@@ -793,7 +839,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 cloud_gate_passed = (upload_resp.get("quality_gate") or {}).get(
                     "passed", True
                 )
-            if cloud_gate_passed is False and not args.force:
+            if cloud_gate_passed is False and (args.strict or args.gate) and not args.force:
                 raise SystemExit(1)
 
         if args.sarif:
@@ -1054,6 +1100,10 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     if args.gate:
         incomplete_exit_code = _strict_scan_exit_code(result, args)
         if incomplete_exit_code:
+            if explicit_rich_upload:
+                console.print(
+                    "[bad]Scan incomplete; Cloud upload was not started.[/bad]"
+                )
             render_results(
                 console,
                 result,
@@ -1063,6 +1113,11 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 copy_badge=not getattr(args, "no_clipboard", False),
             )
             raise SystemExit(incomplete_exit_code)
+
+        if explicit_rich_upload:
+            console.print(
+                "[muted]Source analysis complete; preparing Cloud upload.[/muted]"
+            )
 
         should_upload_gate = bool(getattr(args, "upload", False)) and not bool(
             getattr(args, "no_upload", False)
@@ -1074,6 +1129,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
         if should_upload_gate:
             _attach_upload_project_context(result, project_root)
+            if done_receipt is not None:
+                result["done_receipt"] = done_receipt
             upload_resp = upload_report(
                 result,
                 is_forced=args.force,
@@ -1093,7 +1150,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     cloud_gate_passed = (upload_resp.get("quality_gate") or {}).get(
                         "passed", True
                     )
-                if cloud_gate_passed is False and not args.force:
+                if cloud_gate_passed is False and (args.strict or args.gate) and not args.force:
                     raise SystemExit(1)
 
         exit_code = run_gate_interaction(
@@ -1281,7 +1338,32 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
     strict_exit_code = _strict_scan_exit_code(result, args)
     if strict_exit_code:
+        if explicit_rich_upload:
+            from skylos.core.gatekeeper import _analysis_incomplete_reasons
+
+            reasons = _analysis_incomplete_reasons(result)
+            console.print(
+                "[bad]Scan incomplete; Cloud upload was not started.[/bad]"
+                if reasons
+                else "[bad]Scan did not pass --strict; Cloud upload was not started.[/bad]"
+            )
+            for reason in reasons:
+                console.print(f"[warn]{reason}[/warn]")
+            if reasons and result.get("analysis_errors"):
+                from skylos.ui.rich_report import _render_analysis_errors
+
+                _render_analysis_errors(
+                    console,
+                    result,
+                    root_path=project_root,
+                    limit=getattr(args, "limit", None),
+                )
         raise SystemExit(strict_exit_code)
+
+    if explicit_rich_upload:
+        console.print(
+            "[muted]Source analysis complete; preparing Cloud upload.[/muted]"
+        )
 
     if (
         not args.json
@@ -1413,6 +1495,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
         _print_main_upload_manifest(console, args, result)
         _attach_upload_project_context(result, project_root)
+        if done_receipt is not None:
+            result["done_receipt"] = done_receipt
         upload_resp = upload_report(
             result,
             is_forced=args.force,
@@ -1439,7 +1523,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     f"[bold red]  {new_v} new violation{'s' if new_v != 1 else ''}[/bold red]"
                 )
 
-            if passed is False and not args.force:
+            if passed is False and (args.strict or args.gate) and not args.force:
                 raise SystemExit(1)
 
     if args.command and not args.gate:

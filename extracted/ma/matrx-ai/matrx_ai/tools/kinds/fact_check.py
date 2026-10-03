@@ -78,6 +78,7 @@ class FactCheckReview(KindSubModel):
 
 @kind(
     "fact_check_review_set",
+    disposition="record",
     label="Fact-Check Reviews",
     family="verification",
     # A REAL measured payload, captured from the Google Fact Check Tools API

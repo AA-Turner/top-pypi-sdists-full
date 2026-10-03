@@ -14,7 +14,11 @@ here) and is exercised at the operator level instead — the same split
 from __future__ import annotations
 
 import base64
+import ctypes
 import os
+import select
+import subprocess
+import sys
 import time
 
 import pytest
@@ -27,6 +31,8 @@ from coord.win_native_driver import (
     WinNativeSpecError,
     Win32Calls,
     _find_a11y_match,
+    _is_unc_path,
+    _popen_command_and_cwd,
     _summarize_elements,
     _vkey_for,
     parse_native_spec,
@@ -795,6 +801,620 @@ class TestWin32CallsPlatformGuard:
             pytest.skip("this guard only fires off Windows")
         with pytest.raises(WinNativeRuntimeError, match="Windows"):
             Win32Calls()
+
+
+class _FakeUser32:
+    """``OpenInputDesktop``/``CloseDesktop`` stand-in — desktop unlocked."""
+
+    def OpenInputDesktop(self, *_args, **_kwargs):
+        return 0x1234  # truthy handle
+
+    def CloseDesktop(self, _hdesk) -> None:
+        pass
+
+
+class _ProcessEntry32Mirror(ctypes.Structure):
+    """Field-for-field mirror of the ``PROCESSENTRY32`` defined inline in
+    :meth:`Win32Calls._logonui_running_in_session` — not the same Python
+    class, but same layout, so ``ctypes.cast`` on the ``byref`` pointer the
+    real method passes in reads/writes the same memory the fakes below
+    populate."""
+
+    _fields_ = [
+        ("dwSize", ctypes.c_uint32), ("cntUsage", ctypes.c_uint32),
+        ("th32ProcessID", ctypes.c_uint32),
+        ("th32DefaultHeapID", ctypes.c_void_p),
+        ("th32ModuleID", ctypes.c_uint32), ("cntThreads", ctypes.c_uint32),
+        ("th32ParentProcessID", ctypes.c_uint32),
+        ("pcPriClassBase", ctypes.c_long), ("dwFlags", ctypes.c_uint32),
+        ("szExeFile", ctypes.c_char * 260),
+    ]
+
+
+class _FakeKernel32NoSession:
+    """Mimics the *real* kernel32 (#3521): ``WTSGetActiveConsoleSessionId``
+    is present and callable here — unlike the old, wrong ``wtsapi32``
+    lookup, which would raise ``AttributeError`` on real Windows."""
+
+    exe_name = b"explorer.exe"
+
+    def __init__(self, session_id: int = 1) -> None:
+        self._session_id = session_id
+
+    def WTSGetActiveConsoleSessionId(self) -> int:
+        return self._session_id
+
+    def CreateToolhelp32Snapshot(self, *_args, **_kwargs):
+        return 1  # non-zero, non -1 "handle"
+
+    def Process32First(self, _snapshot, entry_ref) -> bool:
+        entry = ctypes.cast(entry_ref, ctypes.POINTER(_ProcessEntry32Mirror)).contents
+        entry.szExeFile = self.exe_name
+        return True
+
+    def Process32Next(self, _snapshot, _entry_ref) -> bool:
+        return False  # only the one process — no LogonUI.exe
+
+    def ProcessIdToSessionId(self, _pid, session_ref) -> bool:
+        session_ref._obj.value = self._session_id
+        return True
+
+    def CloseHandle(self, _handle) -> None:
+        pass
+
+
+def _ensure_mbcs_codec_available() -> None:
+    """``_logonui_running_in_session`` decodes ``szExeFile`` with Windows'
+    ``mbcs`` codec, which only exists on real Windows. Register an
+    ascii-compatible alias off-Windows so these tests can exercise that
+    real decode path (all the fake exe names here are ASCII) instead of
+    mocking around it — a no-op if ``mbcs`` is already natively available."""
+    import codecs
+
+    try:
+        codecs.lookup("mbcs")
+    except LookupError:
+        codecs.register(lambda name: codecs.lookup("ascii") if name == "mbcs" else None)
+
+
+def _make_win32_calls(user32, kernel32) -> Win32Calls:
+    """Build a :class:`Win32Calls` bypassing ``__init__``'s platform guard
+    (construction requires real Windows) with real ``ctypes``/``ctypes.
+    wintypes`` — both work fine off-Windows — but faked ``user32``/
+    ``kernel32`` handles, exactly mirroring what ``__init__`` would have
+    set on a real Windows host."""
+    import ctypes.wintypes  # noqa: F401 - imported for side effect, used by the class
+
+    _ensure_mbcs_codec_available()
+    calls = object.__new__(Win32Calls)
+    calls._ctypes = ctypes
+    calls._user32 = user32
+    calls._kernel32 = kernel32
+    return calls
+
+
+class _FakeKernel32ProcessTree:
+    """``CreateToolhelp32Snapshot``/``Process32First``/``Process32Next``
+    stand-in that replays a scripted list of ``(pid, parent_pid,
+    exe_name)`` rows — enough for :meth:`Win32Calls._snapshot_processes`
+    and :meth:`Win32Calls._descendant_pids` (#3542) to walk a fake process
+    tree exactly the way they'd walk a real one."""
+
+    def __init__(self, processes: list[tuple[int, int, bytes]]) -> None:
+        self._processes = processes
+        self._iter = iter(())
+
+    def CreateToolhelp32Snapshot(self, *_args, **_kwargs):
+        return 1  # non-zero, non -1 "handle"
+
+    def Process32First(self, _snapshot, entry_ref) -> bool:
+        self._iter = iter(self._processes)
+        return self._advance(entry_ref)
+
+    def Process32Next(self, _snapshot, entry_ref) -> bool:
+        return self._advance(entry_ref)
+
+    def _advance(self, entry_ref) -> bool:
+        try:
+            pid, ppid, name = next(self._iter)
+        except StopIteration:
+            return False
+        entry = ctypes.cast(entry_ref, ctypes.POINTER(_ProcessEntry32Mirror)).contents
+        entry.th32ProcessID = pid
+        entry.th32ParentProcessID = ppid
+        entry.szExeFile = name
+        return True
+
+    def CloseHandle(self, _handle) -> None:
+        pass
+
+
+class _FakeUser32Windows:
+    """``EnumWindows``/``GetWindowThreadProcessId``/``IsWindowVisible``
+    stand-in: *windows* maps a fake ``hwnd`` to ``(owner_pid, visible)``.
+    ``EnumWindows`` replays them in insertion order and stops as soon as
+    the real callback returns ``False`` (a match), exactly like the real
+    Win32 ``EnumWindows`` short-circuiting on its callback's return value.
+    """
+
+    def __init__(self, windows: dict[int, tuple[int, bool]]) -> None:
+        self._windows = windows
+
+    def EnumWindows(self, callback, lparam) -> None:
+        for hwnd, (_owner_pid, _visible) in self._windows.items():
+            if not callback(hwnd, lparam):
+                break
+
+    def GetWindowThreadProcessId(self, hwnd, owner_pid_ref) -> None:
+        owner_pid_ref._obj.value = self._windows[hwnd][0]
+
+    def IsWindowVisible(self, hwnd) -> bool:
+        return self._windows[hwnd][1]
+
+
+class TestFindTopWindowFollowsDescendantProcesses:
+    """#3542: ``Win32Calls.launch()`` is ``subprocess.Popen(command,
+    shell=True)``, which on Windows always spawns ``cmd.exe`` as the
+    immediate child and returns *its* pid — the real GUI app
+    (``vimcode.exe``) is a grandchild with a different pid, and ``cmd.exe``
+    itself never owns a window. These tests reproduce that exact shape with
+    a fake process tree + fake window table and confirm
+    ``find_top_window`` now searches the whole descendant tree rather than
+    matching the returned pid alone."""
+
+    def test_follows_shell_wrapped_launch_to_the_real_apps_window(self) -> None:
+        cmd_pid, vimcode_pid = 4242, 4321
+        kernel32 = _FakeKernel32ProcessTree([
+            (1, 0, b"System"),
+            (cmd_pid, 1, b"cmd.exe"),
+            (vimcode_pid, cmd_pid, b"vimcode.exe"),
+        ])
+        # cmd.exe (cmd_pid) owns no window at all — only its child does.
+        user32 = _FakeUser32Windows({777: (vimcode_pid, True)})
+        calls = _make_win32_calls(user32, kernel32)
+        assert calls.find_top_window(cmd_pid, timeout_s=1.0) == 777
+
+    def test_follows_a_grandchild_process_two_levels_deep(self) -> None:
+        wt_pid, conhost_pid, app_pid = 10, 20, 30
+        kernel32 = _FakeKernel32ProcessTree([
+            (wt_pid, 1, b"wt.exe"),
+            (conhost_pid, wt_pid, b"OpenConsole.exe"),
+            (app_pid, conhost_pid, b"vimcode.exe"),
+        ])
+        user32 = _FakeUser32Windows({99: (app_pid, True)})
+        calls = _make_win32_calls(user32, kernel32)
+        assert calls.find_top_window(wt_pid, timeout_s=1.0) == 99
+
+    def test_still_matches_when_the_launched_pid_owns_the_window_directly(
+        self,
+    ) -> None:
+        """Backward-compatible: an exe launched without an intervening
+        shell still has its own pid in its own descendant set (the root is
+        always included), so the pre-#3542 direct-match case keeps
+        working."""
+        pid = 555
+        kernel32 = _FakeKernel32ProcessTree([(pid, 1, b"vimcode.exe")])
+        user32 = _FakeUser32Windows({1: (pid, True)})
+        calls = _make_win32_calls(user32, kernel32)
+        assert calls.find_top_window(pid, timeout_s=1.0) == 1
+
+    def test_ignores_invisible_windows_even_on_a_matching_descendant(
+        self,
+    ) -> None:
+        cmd_pid, vimcode_pid = 1, 2
+        kernel32 = _FakeKernel32ProcessTree([
+            (cmd_pid, 0, b"cmd.exe"), (vimcode_pid, cmd_pid, b"vimcode.exe"),
+        ])
+        user32 = _FakeUser32Windows({9: (vimcode_pid, False)})
+        calls = _make_win32_calls(user32, kernel32)
+        with pytest.raises(WinNativeRuntimeError, match="no visible top-level window"):
+            calls.find_top_window(cmd_pid, timeout_s=0.05)
+
+    def test_raises_when_no_descendant_owns_any_window(self) -> None:
+        cmd_pid = 1
+        kernel32 = _FakeKernel32ProcessTree([(cmd_pid, 0, b"cmd.exe")])
+        user32 = _FakeUser32Windows({})
+        calls = _make_win32_calls(user32, kernel32)
+        with pytest.raises(WinNativeRuntimeError, match=f"pid={cmd_pid}"):
+            calls.find_top_window(cmd_pid, timeout_s=0.05)
+
+    def test_unrelated_processes_window_is_not_matched(self) -> None:
+        """A visible window owned by some other, unrelated process must
+        never be treated as a match just because it exists."""
+        cmd_pid, vimcode_pid, unrelated_pid = 1, 2, 999
+        kernel32 = _FakeKernel32ProcessTree([
+            (cmd_pid, 0, b"cmd.exe"), (vimcode_pid, cmd_pid, b"vimcode.exe"),
+        ])
+        user32 = _FakeUser32Windows({8: (unrelated_pid, True)})
+        calls = _make_win32_calls(user32, kernel32)
+        with pytest.raises(WinNativeRuntimeError):
+            calls.find_top_window(cmd_pid, timeout_s=0.05)
+
+
+class TestDescendantPids:
+    def test_includes_root_and_all_transitive_children(self) -> None:
+        kernel32 = _FakeKernel32ProcessTree([
+            (1, 0, b"System"),
+            (10, 1, b"cmd.exe"),
+            (20, 10, b"vimcode.exe"),
+            (30, 20, b"helper.exe"),
+            (999, 1, b"unrelated.exe"),
+        ])
+        calls = _make_win32_calls(_FakeUser32Windows({}), kernel32)
+        assert calls._descendant_pids(10) == {10, 20, 30}
+
+    def test_pid_with_no_children_returns_itself_only(self) -> None:
+        kernel32 = _FakeKernel32ProcessTree([(10, 1, b"vimcode.exe")])
+        calls = _make_win32_calls(_FakeUser32Windows({}), kernel32)
+        assert calls._descendant_pids(10) == {10}
+
+
+class TestSessionAvailable:
+    """#3521: ``WTSGetActiveConsoleSessionId`` lives on kernel32, not
+    wtsapi32 — the old code crashed every win-native run with an
+    uncaught ``AttributeError`` before this fix. These tests fake
+    ``Win32Calls`` so the wtsapi32-shaped mistake would raise if
+    reintroduced, and confirm the probe is defensive end to end."""
+
+    def test_uses_kernel32_and_reports_available_when_unlocked(self) -> None:
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        available, reason = calls.session_available()
+        assert available is True
+        assert reason == ""
+
+    def test_a_raising_probe_yields_unavailable_with_reason_not_an_exception(
+        self,
+    ) -> None:
+        class _ExplodingUser32:
+            def OpenInputDesktop(self, *_args, **_kwargs):
+                raise AttributeError(
+                    "function 'WTSGetActiveConsoleSessionId' not found"
+                )
+
+        calls = _make_win32_calls(_ExplodingUser32(), _FakeKernel32NoSession())
+        available, reason = calls.session_available()
+        assert available is False
+        assert "failed" in reason.lower()
+        assert "WTSGetActiveConsoleSessionId" in reason
+
+    def test_invalid_session_id_reports_unavailable(self) -> None:
+        INVALID_SESSION_ID = 0xFFFFFFFF
+        calls = _make_win32_calls(
+            _FakeUser32(), _FakeKernel32NoSession(session_id=INVALID_SESSION_ID),
+        )
+        available, reason = calls.session_available()
+        assert available is False
+        assert "no active console session" in reason
+
+    def test_logonui_running_reports_locked(self) -> None:
+        class _FakeKernel32Locked(_FakeKernel32NoSession):
+            exe_name = b"LogonUI.exe"
+
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32Locked())
+        available, reason = calls.session_available()
+        assert available is False
+        assert "LogonUI.exe" in reason
+
+    def test_open_input_desktop_failure_reports_unavailable(self) -> None:
+        class _FakeUser32Locked:
+            def OpenInputDesktop(self, *_args, **_kwargs):
+                return 0  # falsy handle — no interactive desktop
+
+        calls = _make_win32_calls(_FakeUser32Locked(), _FakeKernel32NoSession())
+        available, reason = calls.session_available()
+        assert available is False
+        assert "OpenInputDesktop" in reason
+
+
+# ── UNC cwd (#3543) ──────────────────────────────────────────────────────────
+
+
+class TestIsUncPath:
+    def test_unc_path_is_detected(self) -> None:
+        assert _is_unc_path(r"\\wsl.localhost\Ubuntu-24.04\home\me\repo")
+
+    def test_drive_letter_path_is_not_unc(self) -> None:
+        assert not _is_unc_path(r"C:\Users\me\repo")
+
+    def test_empty_string_is_not_unc(self) -> None:
+        assert not _is_unc_path("")
+
+
+class TestPopenCommandAndCwd:
+    """#3543: `translate_to_windows_path` renders a WSL-hosted repo's `cwd`
+    as a UNC path (`\\wsl.localhost\\...`), but `cmd.exe` — what
+    `subprocess.Popen(..., shell=True)` always launches on Windows —
+    categorically refuses a UNC current directory at its own startup and
+    silently falls back to `%windir%`, breaking every relative path in the
+    launched command. These are the "fails first" unit-level reproduction
+    the issue's acceptance bar asks for: without the `pushd` fold-in below,
+    `_popen_command_and_cwd` would hand `Popen` a `cwd=` cmd.exe cannot
+    use."""
+
+    def test_unc_cwd_is_folded_into_a_pushd_prefix_and_cwd_is_cleared(self) -> None:
+        unc = r"\\wsl.localhost\Ubuntu-24.04\home\me\repo"
+        command, cwd = _popen_command_and_cwd("../target/app.exe sample.txt", unc)
+        assert command == f'pushd "{unc}" && ../target/app.exe sample.txt'
+        # Never hand cmd.exe a UNC `cwd=` — it refuses it regardless of
+        # what the command string itself does.
+        assert cwd is None
+
+    def test_drive_letter_cwd_passes_through_unchanged(self) -> None:
+        command, cwd = _popen_command_and_cwd("app.exe", r"C:\Users\me\repo")
+        assert command == "app.exe"
+        assert cwd == r"C:\Users\me\repo"
+
+    def test_empty_cwd_passes_through_as_none(self) -> None:
+        command, cwd = _popen_command_and_cwd("app.exe", "")
+        assert command == "app.exe"
+        assert cwd is None
+
+
+class TestWin32CallsLaunchAvoidsUncCwd:
+    """#3543: `Win32Calls.launch`/`launch_in_terminal` must never hand
+    `subprocess.Popen(..., shell=True)` a UNC `cwd=` — reproduces the exact
+    bridge-to-Windows shape (`run_native_spec_via_bridge` translates this
+    repo's WSL-hosted worktree to a UNC path and hands it to `launch`)
+    against a scripted fake `subprocess.Popen`, since the real cmd.exe
+    UNC-refusal behaviour can only be observed on a real Windows host."""
+
+    def test_launch_never_passes_a_unc_cwd_to_popen(self, monkeypatch) -> None:
+        unc = r"\\wsl.localhost\Ubuntu-24.04\home\me\repo"
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 4242
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured["command"] = command
+            captured["cwd"] = cwd
+            captured["shell"] = shell
+            return _FakeProc()
+
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", fake_popen,
+        )
+        pid = calls.launch("cd .smoke && ../target/app.exe sample.txt", unc)
+        assert pid == 4242
+        assert captured["shell"] is True
+        assert captured["cwd"] is None  # never a UNC cwd handed to Popen
+        assert captured["command"] == (
+            f'pushd "{unc}" && cd .smoke && ../target/app.exe sample.txt'
+        )
+
+    def test_launch_in_terminal_never_passes_a_unc_cwd_to_popen(
+        self, monkeypatch,
+    ) -> None:
+        unc = r"\\wsl.localhost\Ubuntu-24.04\home\me\repo"
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 9999
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured["command"] = command
+            captured["cwd"] = cwd
+            return _FakeProc()
+
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", fake_popen,
+        )
+        pid = calls.launch_in_terminal("app.exe", unc, "windows-terminal")
+        assert pid == 9999
+        assert captured["cwd"] is None
+        assert captured["command"] == f'pushd "{unc}" && wt.exe app.exe'
+
+    def test_launch_with_drive_letter_cwd_still_uses_popens_cwd(
+        self, monkeypatch,
+    ) -> None:
+        """Backward-compatible: the common (non-WSL) case keeps relying on
+        `Popen`'s own `cwd=`, not a `pushd` prefix."""
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 1
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured["command"] = command
+            captured["cwd"] = cwd
+            return _FakeProc()
+
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", fake_popen,
+        )
+        calls.launch("app.exe", r"C:\Users\me\repo")
+        assert captured["command"] == "app.exe"
+        assert captured["cwd"] == r"C:\Users\me\repo"
+
+
+class TestWin32CallsLaunchDoesNotInheritStdHandles:
+    """#3544: `Win32Calls.launch`/`launch_in_terminal` must never hand
+    `subprocess.Popen(..., shell=True)` its own inherited stdin/stdout/
+    stderr — reproduces the exact bridge shape (the Windows-side bridge
+    runner's own stdout is a pipe the WSL-side `subprocess.run(
+    capture_output=True)` is reading; without an explicit redirect here,
+    `cmd.exe` and the GUI exe it execs duplicate that same pipe handle and
+    never let it see EOF, so the bridge call hangs for the full
+    `bridge_timeout` and the launched exe is left orphaned — see
+    `coord.win_native_driver._NO_HANDLE_INHERITANCE` and
+    `coord.win_native_bridge.run_native_spec_via_bridge`). These two tests
+    only characterize *which kwargs* reach a scripted fake `Popen` — they
+    cannot demonstrate the redirect actually prevents the hang.
+    `TestLaunchPipeInheritanceRealSubprocess` below does that with a real,
+    unmocked OS pipe + subprocess tree; the real handle-inheritance hang on
+    the exact Windows/WSL topology the issue reports can still only be
+    observed on a real WSL<->Windows pairing (confirmed on dell64 per
+    #3544's repro, not re-run against this fix)."""
+
+    def test_launch_redirects_all_three_std_handles_to_devnull(
+        self, monkeypatch,
+    ) -> None:
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 4242
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured.update(kwargs)
+            return _FakeProc()
+
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", fake_popen,
+        )
+        calls.launch("vimcode.exe sample.txt", r"C:\Users\me\repo")
+        assert captured.get("stdin") is subprocess.DEVNULL
+        assert captured.get("stdout") is subprocess.DEVNULL
+        assert captured.get("stderr") is subprocess.DEVNULL
+
+    def test_launch_in_terminal_redirects_all_three_std_handles_to_devnull(
+        self, monkeypatch,
+    ) -> None:
+        calls = _make_win32_calls(_FakeUser32(), _FakeKernel32NoSession())
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 9999
+
+        def fake_popen(command, *, shell, cwd=None, **kwargs):
+            captured.update(kwargs)
+            return _FakeProc()
+
+        monkeypatch.setattr(
+            "coord.win_native_driver.subprocess.Popen", fake_popen,
+        )
+        calls.launch_in_terminal("vimcode.exe", r"C:\Users\me\repo", "windows-terminal")
+        assert captured.get("stdin") is subprocess.DEVNULL
+        assert captured.get("stdout") is subprocess.DEVNULL
+        assert captured.get("stderr") is subprocess.DEVNULL
+
+
+class TestLaunchPipeInheritanceRealSubprocess:
+    """#3544 review follow-up: a real, unmocked reproduction of the exact
+    EOF-blocking mechanism the issue describes, using real OS pipes and a
+    real subprocess tree instead of a scripted fake `Popen`.
+
+    This is the closest in-repo stand-in for the issue's own mandatory
+    acceptance line ("a Tier-1 shared conformance scenario or a Tier-2
+    smoke-spec step that fails first, covering this exact behaviour") that
+    this repo can host on its own: the actual Tier-2 `win-native` smoke
+    spec (`tests/smoke-spec/win-gui.yaml`-style) lives in the *app* repo
+    (vimcode) that declares the `win-native` acceptance driver, not here —
+    `coord` only ships the driver engine, and this worktree runs on Linux
+    with no real Windows/WSL pairing available. What *is* reproducible
+    here, with no Windows dependency at all, is the general OS mechanism:
+    an un-redirected standard handle can be inherited by a long-lived
+    child and keep a reader from ever seeing EOF, independent of platform.
+    That is the behaviour `Win32Calls.launch` must avoid, whatever the
+    exact Win32-side inheritance rule turns out to be (see the review
+    discussion captured in `_NO_HANDLE_INHERITANCE`'s own docstring, which
+    is honest that the Windows mechanism remains unconfirmed on real
+    hardware).
+
+    - `test_shell_true_with_no_redirect_leaks_stdout_to_grandchild`
+      reproduces the pre-fix shape in isolation (a bare
+      `subprocess.Popen(cmd, shell=True)` with no stdin=/stdout=/stderr=,
+      exactly what `Win32Calls.launch` did before #3544) and shows it
+      really does let a long-lived grandchild hold the runner's own stdout
+      pipe open past the runner's own exit — i.e. this test *fails first*
+      against the pre-fix code shape (and would fail again if someone
+      reintroduced it).
+    - `test_real_launch_does_not_leak_stdout_to_grandchild` drives the
+      actual production `Win32Calls.launch` (called unbound — it never
+      touches `self`) through the identical pipe setup and asserts EOF
+      arrives promptly even with its own long-lived grandchild still
+      running: revert `_NO_HANDLE_INHERITANCE` and this test fails the
+      same way the one above does.
+    """
+
+    @staticmethod
+    def _read_until_eof_or_timeout(fd: int, timeout: float) -> tuple[bytes, bool]:
+        """Read *fd* until EOF (empty read) or *timeout* seconds elapse.
+
+        Returns ``(data_read, hit_eof)`` — ``hit_eof`` is `False` when the
+        deadline passed with the pipe's write end still open (some writer
+        — e.g. a leaked grandchild — is still holding it), `True` once a
+        zero-length read confirms every write end has closed.
+        """
+        deadline = time.monotonic() + timeout
+        data = b""
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return data, False
+            ready, _, _ = select.select([fd], [], [], remaining)
+            if not ready:
+                continue
+            chunk = os.read(fd, 4096)
+            if not chunk:
+                return data, True
+            data += chunk
+
+    def test_shell_true_with_no_redirect_leaks_stdout_to_grandchild(self) -> None:
+        """Pre-fix shape in isolation: a bare `Popen(cmd, shell=True)` with
+        no std-handle redirection really does let a long-lived grandchild
+        hold the parent's own stdout pipe open past the parent's exit."""
+        r, w = os.pipe()
+        try:
+            runner = subprocess.Popen(
+                [
+                    sys.executable, "-c",
+                    "import subprocess, sys\n"
+                    "subprocess.Popen('sleep 2', shell=True)\n"
+                    "sys.stdout.write('runner-done\\n')\n"
+                    "sys.stdout.flush()\n",
+                ],
+                stdout=w,
+            )
+            os.close(w)
+            w = -1
+            assert runner.wait(timeout=10) == 0
+            data, hit_eof = self._read_until_eof_or_timeout(r, timeout=0.8)
+            assert data == b"runner-done\n"
+            assert not hit_eof, (
+                "expected the un-redirected grandchild to still be holding "
+                "the pipe open at this point — if this starts passing, the "
+                "repro no longer demonstrates the mechanism #3544 reports"
+            )
+        finally:
+            if w != -1:
+                os.close(w)
+            os.close(r)
+
+    def test_real_launch_does_not_leak_stdout_to_grandchild(self) -> None:
+        """The actual fix: the real `Win32Calls.launch` (called unbound —
+        it never touches `self`) must not let its own long-lived `sleep`
+        grandchild hold the runner's stdout pipe open."""
+        r, w = os.pipe()
+        try:
+            runner = subprocess.Popen(
+                [
+                    sys.executable, "-c",
+                    "import sys\n"
+                    "from coord.win_native_driver import Win32Calls\n"
+                    "Win32Calls.launch(None, 'sleep 2', '.')\n"
+                    "sys.stdout.write('runner-done\\n')\n"
+                    "sys.stdout.flush()\n",
+                ],
+                stdout=w,
+            )
+            os.close(w)
+            w = -1
+            assert runner.wait(timeout=10) == 0
+            data, hit_eof = self._read_until_eof_or_timeout(r, timeout=0.8)
+            assert data == b"runner-done\n"
+            assert hit_eof, (
+                "pipe never hit EOF while the launched grandchild was "
+                "still alive — Win32Calls.launch is leaking a standard "
+                "handle to it again (#3544)"
+            )
+        finally:
+            if w != -1:
+                os.close(w)
+            os.close(r)
 
 
 class TestImportUia:

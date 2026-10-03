@@ -26,6 +26,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "word_frequency",
+    disposition="record",
     label="Word Frequency",
     family="text_tools",
     example={"word": "platform", "count": 7},
@@ -40,6 +41,7 @@ class WordFrequency(KindModel):
 
 @kind(
     "text_analysis",
+    disposition="record",
     label="Text Analysis",
     family="text_tools",
     example={

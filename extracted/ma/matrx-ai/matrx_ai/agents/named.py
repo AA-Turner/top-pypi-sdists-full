@@ -70,6 +70,7 @@ from enum import StrEnum
 from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar
 
 from matrx_utils import vcprint
+from matrx_utils.text_case import humanize_identifier
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 
 from matrx_ai.agents.definition import Agent
@@ -553,7 +554,7 @@ def resolve_variable_mapping(
         if code_name in consumed:
             continue
         if code_name in (spill or set()):
-            spill_lines.append(f"{code_name.replace('_', ' ').title()}: {to_template_value(value)}")
+            spill_lines.append(f"{humanize_identifier(code_name)}: {to_template_value(value)}")
             verdicts.append(
                 VariableVerdict(
                     variable=code_name,

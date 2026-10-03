@@ -58,6 +58,7 @@ from .. import (
     compute_sdf,
     compute_stats,
     conservative_interpolate,
+    contact_pairs,
     convert_cells,
     crop,
     data_calc,
@@ -74,6 +75,7 @@ from .. import (
     extract_skin,
     extract_surface,
     feature_edges,
+    find_interface,
     geometry_descriptors,
     gradient,
     grid,
@@ -91,6 +93,7 @@ from .. import (
     read,
     read_metadata,
     refine,
+    region_adjacency,
     remesh,
     remesh_volume,
     reorder,
@@ -109,6 +112,7 @@ from .. import (
     sniff_format,
     sobolev_deform,
     split,
+    split_interface,
     subdivide,
     subsample_points,
     surface_watertight_check,
@@ -747,6 +751,48 @@ def _variant_kwargs(out_fmt, mode, compression):
     return kwargs
 
 
+def tool_med_multi(
+    input_path=None,
+    output_path=None,
+    input_paths=None,
+    mesh_name=None,
+    mesh_names=None,
+    output_format=None,
+    med_version="4.1.0",
+):
+    """List/extract a MED named mesh, or combine single-mesh files into MED.
+
+    All input/output paths are sandbox-resolved before reading or writing.
+    """
+    from .. import med
+
+    if input_paths is not None:
+        if input_path is not None or mesh_name is not None or not input_paths:
+            raise ValueError("MED: use nonempty input_paths alone to combine meshes")
+        if output_path is None or output_format not in (None, "med"):
+            raise ValueError("MED: combining requires a MED output_path")
+        sources = [_resolve(path, must_exist=True) for path in input_paths]
+        target = _resolve(output_path)
+        meshes = [_load(path) for path in sources]
+        med.write_med_multi(target, meshes, mesh_names, med_version)
+        _cache_invalidate(target)
+        return {"output_path": str(target), "mesh_names": med.read_med_multi(target)[1]}
+    if input_path is None or mesh_names is not None:
+        raise ValueError("MED: provide input_path to list or extract a mesh")
+    source = _resolve(input_path, must_exist=True)
+    target = _resolve(output_path) if output_path is not None else None
+    if mesh_name is None:
+        if target is not None:
+            raise ValueError("MED: mesh_name is required to extract to output_path")
+        _, names = med.read_med_multi(source)
+        return {"input_path": str(source), "mesh_names": names}
+    if target is None:
+        raise ValueError("MED: extraction requires output_path")
+    mesh = med.read(source, mesh_name=mesh_name)
+    _store(mesh, target, output_format)
+    return {"output_path": str(target), "mesh_name": mesh_name}
+
+
 def tool_convert(
     input_path,
     output_path,
@@ -765,6 +811,16 @@ def tool_convert(
     patran_results=None,
 ):
     """Convert between mesh formats, optionally selecting variant/compression.
+
+    XDMF time-series reads preserve fixed shared point/cell/side regions.
+
+    MDPA-to-MDPA conversion preserves nested geometry/constraint membership
+    as raw file ids; constraints remain opaque and other formats may drop it.
+    Gmsh input versions 2.2/4.0/4.1, including periodic links, use the native
+    reader. Gmsh output is 4.1, or 2.2 via gmsh22; both preserve periodic links.
+    Serial VTK XML inputs (VTU/VTP/VTS/VTR/VTI) accept appended raw/base64
+    arrays and multiple pieces natively, without welding; VTP/VTS/VTR/VTI
+    retain inline output. Legacy VTK structured datasets also read natively.
 
     ``grid_functions`` (``{name: path}``) reads MFEM ``.gf`` files onto an MFEM
     input mesh; ``patran_results`` (``{name: path}``) reads Patran 2.5 result
@@ -964,7 +1020,11 @@ def tool_sequence(
     input_format=None,
     output_format=None,
 ):
-    """Run a multi-file / transient sequence: fan-in, fan-out or N->N."""
+    """Run a multi-file / transient sequence: fan-in, fan-out or N->N.
+
+    XDMF fan-in stores the first input mesh's fixed point/cell/side regions;
+    later step meshes do not change their membership.
+    """
     from .. import run_sequence_pipeline, sequence_entries
 
     resolved_in, resolved_out = _resolve_sequence_io(
@@ -1071,7 +1131,7 @@ def tool_blend_steps(
 
 
 def tool_pipeline(settings_path, input_path=None, output_path=None):
-    """Run a settings.json operation pipeline (read -> ops chain -> write)."""
+    """Run a v1/v2 pipeline, sandboxing auxiliary Inputs and fan-out patterns."""
     with open(_resolve(settings_path, must_exist=True), "r", encoding="utf-8") as f:
         doc = json.load(f)
     if not isinstance(doc, dict):
@@ -1081,15 +1141,36 @@ def tool_pipeline(settings_path, input_path=None, output_path=None):
     # would. Overrides take precedence exactly like the CLI's --input/--output.
     raw_in = input_path if input_path is not None else doc.get("Input", {}).get("Path")
     raw_out = (
-        output_path if output_path is not None else doc.get("Output", {}).get("Path")
+        output_path
+        if output_path is not None
+        else doc.get("Output", {}).get("Pattern", doc.get("Output", {}).get("Path"))
     )
     if not raw_in:
         raise ValueError("meshio++: pipeline: Input.Path is required")
     if not raw_out:
         raise ValueError("meshio++: pipeline: Output.Path is required")
     resolved_in = _resolve(raw_in, must_exist=True)
-    resolved_out = _resolve(raw_out, for_write=True)
-    report = run_pipeline(doc, input_path=resolved_in, output_path=resolved_out)
+    fanout = any(token in str(raw_out) for token in ("{key}", "{part}"))
+    resolved_out = _resolve(raw_out, for_write=not fanout)
+    for step in doc.get("Operations", []):
+        if isinstance(step, dict) and step.get("Op") in (
+            "Merge",
+            "Interpolate",
+            "UndoGreen",
+        ):
+            paths = step.get("Inputs", [])
+            if not isinstance(paths, list) or any(
+                not isinstance(p, str) for p in paths
+            ):
+                raise ValueError("meshio++: pipeline: Inputs must be an array of paths")
+            step["Inputs"] = [_resolve(path, must_exist=True) for path in paths]
+    from .._pipeline import _OUTPUT_PATH_GUARD
+
+    token = _OUTPUT_PATH_GUARD.set(lambda path: _resolve(path, for_write=True))
+    try:
+        report = run_pipeline(doc, input_path=resolved_in, output_path=resolved_out)
+    finally:
+        _OUTPUT_PATH_GUARD.reset(token)
     _cache_invalidate()  # the pipeline writes its own outputs, possibly several
     report["output_path"] = resolved_out
     return _json_safe(report)
@@ -1789,6 +1870,153 @@ def tool_feature_edges(
         out,
         num_edges=int(len(out.cells[0].data)) if out.cells else 0,
         **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_region_adjacency(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    regions=None,
+):
+    """Write conforming facets shared by selected Cell regions or cell blocks.
+
+    The output carries per-facet parent cell/facet ids and measure. With no
+    region names, every Cell region is considered; if fewer than two exist,
+    each cell block is a group.
+    """
+    out = region_adjacency(_load(input_path, input_format), regions)
+    facets = sum(len(block.data) for block in out.cells)
+    measure = sum(float(values.sum()) for values in out.cell_data["interface:measure"])
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        facets=int(facets),
+        measure=float(measure),
+    )
+
+
+def tool_find_interface(
+    input_path,
+    output_path,
+    region_a,
+    region_b,
+    input_format=None,
+    output_format=None,
+    mesh_b_path=None,
+    format_b=None,
+    mode="conforming",
+    master="a",
+    gap_tolerance=0.0,
+    angle_tolerance=30.0,
+    overlap_tolerance=0.0,
+):
+    """Write matched interface facets and report both source Side regions."""
+    mesh = _load(input_path, input_format)
+    mesh_b = _load(mesh_b_path, format_b) if mesh_b_path else None
+    out, report = find_interface(
+        mesh,
+        region_a,
+        region_b,
+        mesh_b=mesh_b,
+        mode=mode,
+        master=master,
+        gap_tolerance=gap_tolerance,
+        angle_tolerance=angle_tolerance,
+        overlap_tolerance=overlap_tolerance,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_pairs=int(report["num_pairs"]),
+        area=float(report["area"]),
+        max_gap=float(report["max_gap"]),
+        unmatched_a=int(report["unmatched_a"]),
+        unmatched_b=int(report["unmatched_b"]),
+        side_a=np.asarray(report["side_a"].entries, dtype=np.int64)
+        .reshape(-1, 2)
+        .tolist(),
+        side_b=np.asarray(report["side_b"].entries, dtype=np.int64)
+        .reshape(-1, 2)
+        .tolist(),
+    )
+
+
+def tool_contact_pairs(
+    slave_path,
+    slave_region,
+    master_region,
+    master_path=None,
+    slave_format=None,
+    master_format=None,
+    tolerance=0.0,
+    require_complete=False,
+):
+    """Return node-to-facet projections as a JSON-safe table."""
+    slave = _load(slave_path, slave_format)
+    master = _load(master_path, master_format) if master_path else slave
+    result = contact_pairs(
+        slave,
+        slave_region,
+        master_region,
+        master_mesh=master,
+        tolerance=tolerance,
+        require_complete=require_complete,
+    )
+    count = len(result["slave_point"])
+    pairs = []
+    for i in range(count):
+        pairs.append(
+            {
+                "slave_point": int(result["slave_point"][i]),
+                "master_cell": int(result["master_cell"][i]),
+                "master_facet": int(result["master_facet"][i]),
+                "master_subfacet": int(result["master_subfacet"][i]),
+                "local_coordinates": result["local_coordinates"][i].tolist(),
+                "closest_point": result["closest_point"][i].tolist(),
+                "gap": float(result["gap"][i]),
+                "normal": result["normal"][i].tolist(),
+            }
+        )
+    return _json_safe(
+        {"num_pairs": count, "pairs": pairs, "unmatched": result["unmatched"].tolist()}
+    )
+
+
+def tool_split_interface(
+    input_path,
+    output_path,
+    side_region=None,
+    side_entries=None,
+    side_name="interface:side_a",
+    input_format=None,
+    output_format=None,
+    add_cohesive=False,
+):
+    """Split point fans along a Side region and optionally add cohesive cells."""
+    from .._regions import Region
+
+    mesh = _load(input_path, input_format)
+    if side_entries is not None:
+        side = Region(
+            side_name,
+            "side",
+            np.asarray(side_entries, dtype=np.int64).reshape(-1, 2),
+        )
+    elif side_region:
+        side = side_region
+    else:
+        raise ValueError("split_interface needs side_region or side_entries")
+    out, report = split_interface(
+        mesh, side, add_cohesive=add_cohesive, return_report=True
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        num_duplicated_points=int(report["num_duplicated_points"]),
+        num_cohesive_cells=int(report["num_cohesive_cells"]),
     )
 
 
@@ -2651,6 +2879,45 @@ def tool_data_manage(
         dropped=result["dropped"],
         renamed=[list(pair) for pair in result["renamed"]],
     )
+
+
+def tool_sets_data(
+    input_path,
+    output_path,
+    direction="sets_to_data",
+    location="cell",
+    key=None,
+    data_name=None,
+    join_char="-",
+    order=None,
+    input_format=None,
+    output_format=None,
+):
+    """Convert region-backed sets and scalar integer data without changing geometry."""
+    from .._pipeline import _apply_sets_data
+
+    if direction not in ("sets_to_data", "data_to_sets"):
+        raise ValueError("direction must be 'sets_to_data' or 'data_to_sets'")
+    step = {
+        "Op": "SetsToData" if direction == "sets_to_data" else "DataToSets",
+        "Location": location,
+    }
+    if direction == "sets_to_data":
+        if key is not None:
+            raise ValueError("key is only used with data_to_sets")
+        step.update(Join=join_char, Order=order)
+        if data_name is not None:
+            step["Name"] = data_name
+    else:
+        if key is None:
+            raise ValueError("data_to_sets requires key")
+        if data_name is not None or order is not None or join_char != "-":
+            raise ValueError(
+                "data_name, join_char and order are only used with sets_to_data"
+            )
+        step["Key"] = key
+    mesh = _apply_sets_data(_load(input_path, input_format), step)
+    return _result(_store(mesh, output_path, output_format), mesh)
 
 
 def tool_data_convert(
@@ -3828,6 +4095,38 @@ TOOL_REGISTRY = OrderedDict(
             {"fn": tool_feature_edges, "wraps": ("feature_edges",), "gated": None},
         ),
         (
+            "region_adjacency",
+            {
+                "fn": tool_region_adjacency,
+                "wraps": ("region_adjacency",),
+                "gated": None,
+            },
+        ),
+        (
+            "find_interface",
+            {
+                "fn": tool_find_interface,
+                "wraps": ("find_interface",),
+                "gated": None,
+            },
+        ),
+        (
+            "contact_pairs",
+            {
+                "fn": tool_contact_pairs,
+                "wraps": ("contact_pairs",),
+                "gated": None,
+            },
+        ),
+        (
+            "split_interface",
+            {
+                "fn": tool_split_interface,
+                "wraps": ("split_interface",),
+                "gated": None,
+            },
+        ),
+        (
             "hausdorff",
             {"fn": tool_hausdorff, "wraps": ("hausdorff_distance",), "gated": None},
         ),
@@ -3982,6 +4281,8 @@ TOOL_REGISTRY = OrderedDict(
                 "gated": None,
             },
         ),
+        ("sets_data", {"fn": tool_sets_data, "wraps": (), "gated": None}),
+        ("med_multi", {"fn": tool_med_multi, "wraps": (), "gated": None}),
         ("data_calc", {"fn": tool_data_calc, "wraps": ("data_calc",), "gated": None}),
         (
             "data_condition",

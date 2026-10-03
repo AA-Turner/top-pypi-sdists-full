@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 
 MEMBER = "matrx_ai/tools/implementations/kind_instance.py"
-EXPECTED_TIER = "ai"
+EXPECTED_TIER = "agent"
 EXPECTED_SYSTEM = "tool:instance_create"
 
 
@@ -64,7 +64,7 @@ def verify_wheel(path: Path) -> None:
         node = parents.get(node)
     raise AssertionError(
         "instance_create's durable KindInstance.create_item is outside "
-        "declared_actor('ai', 'tool:instance_create')"
+        "declared_actor('agent', 'tool:instance_create')"
     )
 
 

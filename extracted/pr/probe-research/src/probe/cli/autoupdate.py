@@ -365,6 +365,39 @@ def record_skip(reason: str, *, available: str | None = None, now: int | None = 
 
 #: The spawner puts its own pid here so the detached child can wait for it.
 WAIT_FOR_PID_ENV = "PROBE_AUTOUPDATE_WAIT_PID"
+#: The coding agent whose session start spawned the update (pi, which has no
+#: hook): the update runs after IT exits, because it rewrites the package folder
+#: that agent loads from. Waited on before the update lock is taken, so a long
+#: session never holds up any other agent's update.
+WAIT_FOR_HARNESS_PID_ENV = "PROBE_AUTOUPDATE_WAIT_HARNESS_PID"
+WAIT_FOR_HARNESS_TIMEOUT = 12 * 3600
+
+#: Set while pi's package update is owed: the pi step skipped it because pi was
+#: running. Without it the only retry was the NEXT CLI release, since every
+#: trigger fires on "the CLI is behind" -- so the update that skipped because pi
+#: was open left pi's package behind until then. pi's session start retries
+#: while it is set, CLI current or not.
+PI_UPDATE_PENDING_FILENAME = "pi-update-pending"
+
+
+def pi_update_pending() -> bool:
+    try:
+        return (version_policy.state_dir() / PI_UPDATE_PENDING_FILENAME).exists()
+    except OSError:
+        return False
+
+
+def mark_pi_update_pending(pending: bool) -> None:
+    """Fail-soft: a marker that cannot be written costs one retry, not an update."""
+    try:
+        path = version_policy.state_dir() / PI_UPDATE_PENDING_FILENAME
+        if pending:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        else:
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 #: Upper bound on that wait. The parent is the CLI invocation that spawned us,
 #: which is short-lived -- the one long-running command, `probe exec`, is on the

@@ -11,7 +11,7 @@ from matrx_connect.reservations import try_get_tracker
 from matrx_utils import vcprint
 
 from matrx_ai.db.ownership_fields import stamp_row_owner
-from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult
+from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult, tool_output_text
 from matrx_ai.tools.turn_ledger import record_tool_outcome, record_tool_started
 from matrx_ai.utils.cache import TTLCache
 
@@ -1577,12 +1577,9 @@ class ToolExecutionLogger:
         """
         if output is None:
             return None, "text", 0
-        if isinstance(output, str):
-            serialized, output_type = output, "text"
-        elif isinstance(output, dict | list):
-            serialized, output_type = json.dumps(output, default=str), "json"
-        else:
-            serialized, output_type = str(output), "text"
+        # The text the model receives for this output — never a Python repr
+        # (``tool_output_text``): a rebuilt turn replays this column.
+        serialized, output_type = tool_output_text(output)
 
         char_count = len(serialized)
 
@@ -1615,6 +1612,11 @@ class ToolExecutionLogger:
         max_chars = ToolExecutionLogger._MAX_PREVIEW_CHARS
 
         if output_type == "json":
+            if not isinstance(output, dict | list):
+                # A kind model / dataclass: preview the JSON the row stores.
+                from matrx_ai.tools.models import to_json_safe
+
+                output = to_json_safe(output)
             if isinstance(output, dict):
                 if len(output) <= max_keys:
                     candidate = {str(k): v for k, v in output.items()}

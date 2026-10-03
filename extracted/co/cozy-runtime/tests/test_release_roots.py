@@ -12,10 +12,11 @@ from __future__ import annotations
 import base64
 import dataclasses
 import json
+import os
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,7 +27,13 @@ import pytest
 import tensorfs
 
 from cozy_runtime import canonical_json
-from cozy_runtime.internal import canonical, hostfacts, storage_admission
+from cozy_runtime.internal import (
+    canonical,
+    hostfacts,
+    package_environment,
+    package_installation,
+    storage_admission,
+)
 from cozy_runtime.internal.worker import (
     machine_model_defaults,
     machine_model_resolve,
@@ -42,6 +49,7 @@ from cozy_runtime.internal.worker.workspace_rpc import WorkspaceRPC
 from cozy_runtime.protocol import documents
 from cozy_runtime.protocol import worker_pb2 as pb
 from test_diffusers_upload_configs import PROFILE, _registry, _repository
+from test_model_runtime_closure import _ASSET, _HEADER, _ref
 from test_same_release_placements import (
     LANE,
     LOCKED,
@@ -81,11 +89,36 @@ class Catalog:
         self.private = False
         self.grant = ("worker", "token")  # the machine's registration at this Hub
         self.presented: list[tuple[str, str, str]] = []
+        self.closures: list[str] = []  # each checkpoint TensorFS asked this Hub to name
         catalog = self
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_: Any) -> None:
                 pass
+
+            def do_POST(self) -> None:
+                asked = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                assert self.path == "/v1/tensorfs/closure", self.path  # nothing is presigned
+                catalog.closures.append(asked["ref"])
+                raw = json.dumps(
+                    {
+                        "complete": True,
+                        "lane": "",
+                        "release": "",
+                        "model": asked["ref"].partition("@")[0],
+                        "manifest": {"sha256": manifest.removeprefix("sha256:"), "length": length},
+                        "objects": sorted(
+                            (_ref(_HEADER), _ref(_ASSET)), key=lambda row: row["sha256"]
+                        ),
+                        "presign_max_digests": 10,
+                        "scope": "runtime",
+                        "server_time_unix": int(time.time()),
+                    }
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
 
             def do_GET(self) -> None:
                 catalog.reads.append(self.path)
@@ -138,8 +171,12 @@ class Catalog:
                 elif url.path == f"/v1/models/{PACKAGE}/checkpoints/{manifest}":
                     body = catalog.served
                 else:
+                    missing = {"code": "route.not_found", "message": "no route GET " + url.path}
+                    raw = json.dumps({"error": missing}).encode()
                     self.send_response(404)
+                    self.send_header("Content-Length", str(len(raw)))
                     self.end_headers()
+                    self.wfile.write(raw)
                     return
                 raw = body if isinstance(body, bytes) else json.dumps(body).encode()
                 self.send_response(200)
@@ -297,6 +334,19 @@ def test_a_release_root_is_installed_resolved_and_prepared_by_the_machine(
             for event in machine.executions.events(OWNER, "first").events
             if event.kind == "resolved"
         ]
+        # Each admission step's wall time rides with the run, for `cozy run show`.
+        admission = resolved[0].pop("admission_ms")
+        assert admission.keys() == {
+            "closure",
+            "install",
+            "capture",
+            "resolve",
+            "prepare",
+            "builtins",
+            "submit",
+            "total",
+        }
+        assert admission["total"] >= admission["install"] + admission["prepare"]
         assert resolved == [
             {
                 "installation_id": state_installation(machine, "first"),
@@ -388,7 +438,13 @@ def test_a_release_root_is_installed_resolved_and_prepared_by_the_machine(
             for event in machine.executions.events(OWNER, "pinned").events
             if event.kind == "resolved"
         ] == [{"digest": machine.manifest, "length": length}]
-        # An observer holds one read open until the next event, instead of polling.
+        # An observer holds one read open until the next event, instead of polling. Each
+        # call placed on its own GPU imported ahead there; those processes (which cannot dial
+        # back here) say so on their calls first.
+        bound = time.monotonic() + 120  # a hang bound on a loaded box, not a budget
+        while machine.worker.prespawns.slots:
+            assert time.monotonic() < bound
+            time.sleep(0.01)
         head = machine.executions.events(OWNER, "second").head_sequence
         query = pb.MachineExecutionEventsQuery(
             execution=pb.MachineExecutionQuery(
@@ -616,6 +672,130 @@ def test_a_placement_built_against_another_runtime_is_prepared_again(
         catalog.close()
 
 
+def _owned(machine: Machine) -> package_installation.InstalledEnvironment:
+    """The release as a machine owns a published installation: its generation inside its
+    directory, its lock retained, built against this machine's SDK."""
+    identifier = package_installation.PUBLISHED_PREFIX + "owned"
+    directory = machine.install_root / "installations" / identifier
+    directory.mkdir(parents=True)
+    generation = directory / "venv"
+    generation.symlink_to(machine.installed.generation, target_is_directory=True)
+    (directory / "requirements.txt").write_bytes(LOCKED)
+    site = machine.installed.site_packages.relative_to(machine.installed.generation)
+    record = {
+        "package": PACKAGE,
+        "release": RELEASE,
+        "python": str(generation / "bin" / "python"),
+        "generation": str(generation),
+        "site_packages": str(generation / site),
+        "machine": package_installation.machine_sdk(),
+    }
+    (directory / "installation.json").write_text(json.dumps(record))
+    return package_installation.open_installation(machine.install_root, identifier)
+
+
+def test_a_restarted_runtime_holds_the_releases_it_prepared(
+    published: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A published root prepared once outlives a Runtime restart: the first run after it
+    reads nothing at the Hub, installs nothing and checks no model again. What is kept
+    belongs to the installation's incarnation: a rebuilt installation is prepared anew."""
+    machine = published
+    monkeypatch.setattr(
+        hostfacts,
+        "measure",
+        lambda *_: hostfacts.HostFacts(gpu_name="NVIDIA H100 80GB HBM3", gpu_count=4),
+    )
+    owned = _owned(machine)
+    installs: list[str] = []
+
+    def install(request: pb.PreparePackageSetRequest, **seams: Any) -> Any:
+        installs.append(request.hub)
+        models = documents.read(request.download_delegation, pb.DownloadDelegation)["models"]
+        return package_prepare._prepare_published(
+            package_name=PACKAGE,
+            release=RELEASE,
+            locked=package_environment.read_locked_requirements(LOCKED),
+            models=package_prepare.selections(models),
+            artifact_cache=seams["artifact_cache"],
+            tensorfs_root=seams["tensorfs_root"],
+            install_root=seams["install_root"],
+            python=owned.python,
+            interface=lambda _installed, _distribution: machine.interface,
+            verified=seams["verified"],
+            job_plan_root=seams["job_plan_root"],
+            base=None,
+            installed_environment=owned,
+            materialized=seams["materialized"],
+        )
+
+    monkeypatch.setattr(package_prepare, "prepare_package_set", install)
+    checks: list[str] = []
+    check = package_prepare.prepare_model_placement
+
+    def checked(**arguments: Any) -> Any:
+        checks.append(str(arguments["installed"].installation_id))
+        return check(**arguments)
+
+    monkeypatch.setattr(package_prepare, "prepare_model_placement", checked)
+    length = len(
+        tensorfs.Store.open(str(machine.store_root)).manifest(machine.manifest)["manifest"]
+    )
+    catalog = Catalog(
+        machine.manifest, length, [{"gpu": "H100", "lane": LANE}], interface=machine.interface
+    )
+    # A release with no published callee: every read is its own.
+    catalog.releases[f"/v1/packages/{PACKAGE}/releases/{RELEASE}/locked-requirements"] = LOCKED
+
+    def run(name: str) -> tuple[list[str], list[str], dict[str, float]]:
+        catalog.serve(machine)
+        catalog.reads.clear()
+        receipt, progress = submit(machine, submission(machine, name))
+        assert receipt.request_id == name
+        (resolved,) = [
+            canonical_json.decode(event.body)
+            for event in machine.executions.events(OWNER, name).events
+            if event.kind == "resolved"
+        ]
+        assert resolved["installation_id"] == owned.installation_id
+        return [urlsplit(path).path for path in catalog.reads], progress, resolved["admission_ms"]
+
+    try:
+        reads, progress, admission = run("cold")
+        assert reads[:2] == [
+            f"/v1/packages/{PACKAGE}/releases/{RELEASE}",
+            f"/v1/packages/{PACKAGE}/releases/{RELEASE}/locked-requirements",
+        ]
+        assert progress[0].startswith("installing ") and "install" in admission
+        assert (installs, checks) == ([""], [owned.installation_id])
+
+        _, _, warm_admission = run("warm")
+        assert "install" not in warm_admission and "install" in admission
+        assert (installs, checks) == ([""], [owned.installation_id])
+
+        kept = package_installation.kept_placements(machine.install_root, owned)
+        assert kept is not None
+        (kept / "malformed.json").write_bytes(b"{")
+        (kept / "obsolete.json").write_bytes(
+            b'{"format":"cozy.worker.v1.PlacementSet/1","placements":[{"package_interface":{}}]}'
+        )
+        machine.worker.shutdown()
+        machine.boot()
+        reads, progress, admission = run("restarted")
+        assert (reads, progress, installs, len(checks)) == ([], [], [""], 1)
+        assert "install" not in admission
+
+        # The installation was rebuilt (its record replaced): what was kept is not its own.
+        record = owned.generation.parent / "installation.json"
+        os.utime(record, ns=(time.time_ns(), time.time_ns() + 1_000_000))
+        machine.worker.shutdown()
+        machine.boot()
+        _, progress, _ = run("rebuilt")
+        assert progress[0].startswith("installing ") and len(installs) == 2
+    finally:
+        catalog.close()
+
+
 def test_a_newer_callee_release_serves_the_callee_a_lock_names(
     published: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -649,6 +829,43 @@ def test_a_newer_callee_release_serves_the_callee_a_lock_names(
         capture = machine.executions.capture(OWNER, "newer")
         assert [row["key"] for row in capture["deferred_installations"]] == [f"{CALLEE}@1.1.0"]
         assert f"{path}/releases/{RELEASE}" not in [urlsplit(row).path for row in catalog.reads]
+    finally:
+        catalog.close()
+
+
+def test_a_wheel_a_release_carries_is_installed_not_called(
+    published: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tenant's lock also names a third-party wheel on its org's index (the build of a
+    pinned commit). The Hub publishes no package by that name, so it is a dependency: the
+    closure holds the one real callee, and the catalog is asked about the wheel once."""
+    machine = published
+    monkeypatch.setattr(
+        hostfacts,
+        "measure",
+        lambda *_: hostfacts.HostFacts(gpu_name="NVIDIA H100 80GB HBM3", gpu_count=4),
+    )
+    length = len(
+        tensorfs.Store.open(str(machine.store_root)).manifest(machine.manifest)["manifest"]
+    )
+    catalog = Catalog(
+        machine.manifest, length, [{"gpu": "H100", "lane": LANE}], interface=machine.interface
+    )
+    wheel = f"sha256:{'d' * 64}/diffusers-0.41.0.dev0-py3-none-any.whl"
+    carried = f"{catalog.origin}/v1/index/cozytest/files/{wheel}"
+    lock = f"/v1/packages/{PACKAGE}/releases/{RELEASE}/locked-requirements"
+    catalog.releases[lock] += f"diffusers @ {carried} --hash=sha256:{'d' * 64}\n".encode()
+    catalog.serve(machine)
+    try:
+        for request in ("carried", "again"):
+            receipt, _ = submit(machine, submission(machine, request))
+            assert receipt.request_id == request
+            capture = machine.executions.capture(OWNER, request)
+            assert [row["key"] for row in capture["deferred_installations"]] == [
+                f"{CALLEE}@{RELEASE}"
+            ]
+        asked = [urlsplit(row).path for row in catalog.reads]
+        assert asked.count("/v1/packages/cozytest/diffusers") == 1
     finally:
         catalog.close()
 
@@ -926,6 +1143,10 @@ def test_a_roots_catalog_slots_resolve_beside_each_other(
     finally:
         catalog.close()
     assert [row["parameter"] for row in rows] == ["model", "second"]
+    # A lane-pinned override of a second slot (H3's `turbo_lora`) is exactly that checkpoint.
+    assert [(r["repository"], r["release"], r["lane"], r["manifest"]) for r in rows] == [
+        (PACKAGE, RELEASE, LANE, {"digest": published.manifest, "length": 1})
+    ] * 2
     assert [urlsplit(path).path for path in catalog.reads] == [
         "/v1/models/resolve",
         "/v1/models/resolve",
@@ -1054,6 +1275,42 @@ def test_the_owners_unpublished_checkpoint_resolves_with_the_worker_capability(
         catalog.close()
 
 
+def test_a_pinned_checkpoint_held_without_its_repository_is_taken_at_the_runs_hub(
+    published: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The machine that uploaded a checkpoint holds its manifest and bytes but no custody of
+    the repository it published into. A run pinning that checkpoint reads no catalog and
+    takes custody at the run's Hub with one closure read: no download step, no byte moved."""
+    machine = published
+    monkeypatch.setattr(
+        hostfacts,
+        "measure",
+        lambda *_: hostfacts.HostFacts(gpu_name="NVIDIA H100 80GB HBM3", gpu_count=4),
+    )
+    store = tensorfs.Store.open(str(machine.store_root))
+    length = len(store.manifest(machine.manifest)["manifest"])
+    catalog = Catalog(machine.manifest, length, [], interface=machine.interface)
+    catalog.serve(machine)
+    uploaded = "cozytest/uploaded"
+    with pytest.raises(tensorfs.errors.Refusal):
+        store.verify_checkpoint_source(uploaded, machine.manifest, length)
+    request = submission(machine, "pinned")
+    request.release_root.models.append(
+        pb.ModelChoice(
+            parameter="model",
+            repository=uploaded,
+            manifest=pb.Ref(digest=documents.raw(machine.manifest)),
+        )
+    )
+    try:
+        assert submit(machine, request)[0].request_id == "pinned"
+        assert catalog.closures == [uploaded + "@" + machine.manifest]
+        assert not any("/v1/models/" in path for path in catalog.reads), catalog.reads
+        store.verify_checkpoint_source(uploaded, machine.manifest, length)
+    finally:
+        catalog.close()
+
+
 def test_a_root_names_an_unpublished_installation_the_machine_holds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1120,6 +1377,69 @@ def test_a_root_names_an_unpublished_installation_the_machine_holds(
             finally:
                 catalog.close()
         finally:
+            machine.worker.shutdown()
+
+
+def test_a_captured_roots_model_is_read_once_and_kept_across_restarts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A captured root naming its Model's repository without a lane reads that release's lanes
+    and the lane's checkpoint once. A warm run, and the first run of a restarted Runtime, read
+    nothing: the reads outlive the process. A controller that changes the model names it to
+    `forget` (in any case), and the next run reads it once more."""
+    monkeypatch.setattr(
+        hostfacts,
+        "measure",
+        lambda *_: hostfacts.HostFacts(gpu_name="NVIDIA H100 80GB HBM3", gpu_count=4),
+    )
+    with tempfile.TemporaryDirectory(prefix="cz-root.", dir="/tmp") as directory:
+        machine = Machine(Path(directory), monkeypatch, "private")
+        machine.running = _Held()
+        raw = tensorfs.Store.open(str(machine.store_root)).manifest(machine.manifest)["manifest"]
+        catalog = Catalog(
+            machine.manifest, len(raw), [{"gpu": "H100", "lane": LANE}], interface=machine.interface
+        )
+
+        def run(name: str) -> list[str]:
+            # What the controller sends first whenever the machine answers the root absent.
+            captured = machine.worker.prepare_local_package(
+                pb.PrepareLocalPackageRequest(
+                    operation_id="sync",
+                    package=pb.DevelopmentPackage(
+                        package=PACKAGE,
+                        release=RELEASE,
+                        installation_id=machine.installed.installation_id,
+                    ),
+                    files=[pb.LocalPackageFile(filename="tenant-1.0.0-py3-none-any.whl")],
+                    install_root=str(machine.install_root),
+                )
+            ).installed_package
+            catalog.serve(machine)
+            root = submission(machine, name)
+            root.release_root.ClearField("release")
+            root.release_root.installation_id = captured.installation_id
+            root.release_root.models.add(parameter="model", repository=PACKAGE)
+            catalog.reads.clear()
+            receipt, _ = submit(machine, root)
+            assert receipt.request_id == name
+            return [urlsplit(path).path for path in catalog.reads]
+
+        read = [f"/v1/models/{PACKAGE}", "/v1/models/resolve"]
+        try:
+            assert run("cold") == read
+            assert run("warm") == []
+            machine.worker.shutdown()
+            machine.boot()
+            assert run("restarted") == []
+            machine.worker.resolutions.forget("other/model")
+            assert run("unrelated") == []
+            machine.worker.resolutions.forget(PACKAGE.upper())
+            assert run("changed") == read
+            machine.worker.shutdown()
+            machine.boot()
+            assert run("changed-restarted") == []
+        finally:
+            catalog.close()
             machine.worker.shutdown()
 
 
@@ -1203,11 +1523,11 @@ def test_the_compatibility_check_overlaps_the_weight_download(
     def slow_download(
         worker: Any,
         rows: Any,
-        access: Any,
         *,
         cancellation: Any = None,
         progress: Any = None,
         downloading: Any = None,
+        waiting: Any = None,
     ) -> None:
         began = time.monotonic()
         for step in range(15):  # 1.5 s of weights, reported as they land
@@ -1238,5 +1558,142 @@ def test_the_compatibility_check_overlaps_the_weight_download(
         # Together they take about the longer one: 1.5 s each, never back to back.
         window = max(check_ended, download_ended) - min(check_began, download_began)
         assert window < 2.4, f"the check and the download took {window:.2f} s: one after the other"
+    finally:
+        catalog.close()
+
+
+def test_warm_serving_keeps_ordered_lora_views_and_reuses_the_same_preparation(
+    published: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real shared serving preparation, native LoRA writer and source custody.
+
+    The existing routing fixture supplies device facts and the construction census;
+    its accepted roots are held without executing. This is no GPU qualification.
+    """
+    from cozy_runtime.internal import census_cache
+    from test_lora_composition import Value, model
+
+    monkeypatch.setattr(
+        hostfacts,
+        "measure",
+        lambda *_: hostfacts.HostFacts(gpu_name="NVIDIA H100 80GB HBM3", gpu_count=4),
+    )
+    machine = published
+    store = tensorfs.Store.open(str(machine.store_root))
+    base = model(
+        store,
+        machine.root,
+        "reuse-base",
+        "transformer",
+        {"proj.weight": Value((2, 3), (1, 2, 3, 4, 5, 6))},
+        b'{"input":3,"output":2}',
+    )
+    first = model(
+        store,
+        machine.root,
+        "reuse-first",
+        "adapter",
+        {
+            "proj.lora_A.weight": Value((1, 3), (1, 0, 2)),
+            "proj.lora_B.weight": Value((2, 1), (3, 4)),
+        },
+    )
+    second = model(
+        store,
+        machine.root,
+        "reuse-second",
+        "adapter",
+        {
+            "proj.lora_A.weight": Value((2, 3), (1, 1, 0, 0, 1, 2), "f16"),
+            "proj.lora_B.weight": Value((2, 2), (1, 2, 3, 4), "f16"),
+        },
+    )
+    monkeypatch.setattr(
+        package_prepare,
+        "_census",
+        lambda *_: (
+            lambda wanted: {
+                path: census_cache.Census(("transformer",), (), True, "") for path in wanted
+            }
+        ),
+    )
+    for name, artifact in (("reuse-base", base), ("reuse-first", first), ("reuse-second", second)):
+        store.replace_local(
+            None,
+            name,
+            artifact.tensorfs_receipt_digest,
+            artifact.manifest.digest,
+            artifact.manifest.length,
+        )
+    length = base.manifest.length
+    catalog = Catalog(base.manifest.digest, length, [], interface=machine.interface)
+    catalog.serve(machine)
+    preparations = 0
+
+    def counted[**P, R](function: Callable[P, R]) -> Callable[P, R]:
+        def observe(*args: P.args, **kwargs: P.kwargs) -> R:
+            nonlocal preparations
+            preparations += 1
+            return function(*args, **kwargs)
+
+        return observe
+
+    monkeypatch.setattr(
+        package_prepare, "prepare_model_placement", counted(package_prepare.prepare_model_placement)
+    )
+    views: dict[str, str] = {}
+    try:
+        for name, stack, expected_preparations in (
+            ("baseline", (), 1),
+            ("stack", ((first, "0.5"), (second, "-0.25")), 2),
+            ("repeat", ((first, "0.5"), (second, "-0.25")), 2),
+            ("reverse", ((second, "-0.25"), (first, "0.5")), 3),
+            ("zero", ((first, "0"), (second, "-0.25")), 4),
+            ("baseline-after", (), 4),
+        ):
+            request = submission(machine, "lora-" + name)
+            choice = request.release_root.models.add(
+                parameter="model",
+                repository="local/reuse-base",
+                manifest=pb.Ref(digest=documents.raw(base.manifest.digest), length=length),
+            )
+            for adapter, scale in stack:
+                choice.adapters.add(
+                    component="transformer",
+                    model="local/reuse-first" if adapter == first else "local/reuse-second",
+                    manifest=adapter.manifest.digest,
+                    source_component="adapter",
+                    scale=scale,
+                )
+            receipt, progress = submit(machine, request)
+            # Creator records each new answer as a `machine preparation` stage of the run.
+            recorded = [line for i, line in enumerate(progress) if line not in progress[:i][-1:]]
+            assert [line for line in recorded if line.startswith("adapter_")] == [
+                f"adapter_{index}: local/reuse-{'first' if artifact == first else 'second'} "
+                f"{artifact.manifest.digest} scale {scale} on transformer"
+                for index, (artifact, scale) in enumerate(stack)
+            ], recorded
+            prepared = machine.executions.preparation(OWNER, receipt.request_id)
+            placement = next(iter(prepared["installations"].values()))["placement"]
+            models = {row["id"]: row for row in placement["models"]}
+            slot = next(entry for entry in placement["entrypoints"] if entry["name"] == "touch")[
+                "slots"
+            ][0]
+            assert models[slot["reference_model_id"]]["manifest"]["digest"] == base.manifest.digest
+            adapters = slot.get("adapters", [])
+            assert [
+                (models[row["model_id"]]["manifest"]["digest"], row["scale"]) for row in adapters
+            ] == [(artifact.manifest.digest, scale) for artifact, scale in stack]
+            views[name] = models[slot["components"][0]["model_id"]]["manifest"]["digest"]
+            assert (views[name] != base.manifest.digest) == bool(stack)
+            assert preparations == expected_preparations, f"{name}: unexpected preparation count"
+        # The composition Runtime 0.18.100's canary candidate (55e5ce82) served for this stack.
+        assert views["stack"] == (
+            "sha256:14b8c0fd2191dc429831dc3e8a36348b7ff8aab213c89dccda47b7ff87cee397"
+        )
+        assert views["repeat"] == views["stack"]
+        assert views["reverse"] != views["stack"] and views["zero"] != views["stack"]
+        assert views["baseline-after"] == views["baseline"]
+        assert preparations == 4, "baseline or adapted warm preparation was not reused"
     finally:
         catalog.close()

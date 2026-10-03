@@ -50,12 +50,28 @@ pub use autostart::{
 pub(crate) mod process_inspect;
 pub use process_inspect::{
     process_executable_path, process_force_kill, process_same_executable_path,
-    process_signal_terminate, ProcessLiveness,
+    process_fault_code_name, process_signal_terminate, ProcessLiveness,
+};
+
+#[path = "platform_win/loaded_images.rs"]
+mod loaded_images;
+pub use loaded_images::{
+    loaded_images as process_loaded_images,
+    open_loaded_image_file as process_open_loaded_image_file,
 };
 
 #[path = "platform_win/raw_write.rs"]
 pub(crate) mod raw_write;
 pub use raw_write::write_all_to_descriptor as fs_write_all_to_descriptor;
+
+/// Whether a handle another process holds open keeps a file from being removed.
+///
+/// Windows refuses to remove a file another process holds open, so
+/// callers use the answer to decide whether releasing handles before a
+/// recursive delete means anything here.
+pub const fn fs_open_handles_block_removal() -> bool {
+    true
+}
 
 #[path = "platform_win/shutdown_request.rs"]
 pub(crate) mod shutdown_request;
@@ -80,12 +96,18 @@ pub use host::{
 };
 pub use host::login_environment_block as host_login_environment_block;
 
+/// Windows has no control groups.
+pub fn host_process_cgroup() -> Option<io::Result<String>> {
+    None
+}
+
 #[cfg(feature = "fs")]
 #[path = "platform_win/fs.rs"]
 pub(crate) mod fs;
 #[cfg(feature = "fs")]
 pub use fs::{
     create_private_file as fs_create_private_file,
+    is_link_handle as fs_is_link_handle, open_read_no_follow as fs_open_read_no_follow,
     decode_path_bytes as fs_decode_path_bytes,
     replace_file as fs_replace_file, sync_directory as fs_sync_directory,
     user_config_dir as fs_user_config_dir,
@@ -94,8 +116,24 @@ pub use fs::{
     open_lock_file as fs_open_lock_file, path_identity as fs_path_identity,
     try_lock_exclusive as fs_try_lock_exclusive, unlock as fs_unlock,
     user_run_data_root as fs_user_run_data_root, user_runtime_dir as fs_user_runtime_dir,
-    user_state_dir as fs_user_state_dir, FileIdentity as FsFileIdentity,
+    user_state_dir as fs_user_state_dir,
+    user_state_dir_from_environment as fs_user_state_dir_from_environment,
+    state_home_from_environment as fs_state_home_from_environment,
+    FileIdentity as FsFileIdentity,
 };
+
+#[path = "platform_win/ape.rs"]
+pub(crate) mod ape;
+pub use ape::{
+    default_loader_dirs as ape_default_loader_dirs, is_exec_format_error as ape_is_exec_format_error,
+    is_executable as ape_is_executable, mark_executable as ape_mark_executable,
+    anonymous_executable as ape_anonymous_executable,
+    private_exec_dir as ape_private_exec_dir,
+    route_through_execvp as ape_route_through_execvp, APE_LOADER_HOST,
+    APE_EXECVP_SHELL_FALLBACK, APE_NEEDS_LOADER, APE_SHELL, APE_SYSTEM_LOADERS,
+};
+#[cfg(feature = "async-process")]
+pub use ape::route_tokio_through_execvp as ape_route_tokio_through_execvp;
 
 #[path = "platform_win/executable.rs"]
 pub(crate) mod executable;
@@ -115,6 +153,7 @@ mod ipc_private_dir;
 pub use ipc::{
     current_user_id as ipc_current_user_id, Endpoint as IpcEndpoint,
     endpoint_is_filesystem_backed as ipc_endpoint_is_filesystem_backed,
+    handoff_transport_available as ipc_handoff_transport_available,
     nonblocking_zero_read_is_pending as ipc_nonblocking_zero_read_is_pending,
     select_endpoint_address as ipc_select_endpoint_address,
     InheritedListener as IpcInheritedListener, Listener as IpcListener,
@@ -156,7 +195,40 @@ pub use ipc_private_dir::{
 };
 #[cfg(feature = "ipc")]
 pub fn ipc_broker_endpoint_name(bare_name: &str, _path_scoped: bool) -> std::io::Result<String> {
-    Ok(format!(r"\\.\pipe\{bare_name}"))
+    Ok(ipc_component_endpoint_path("broker-v2", bare_name))
+}
+
+/// Named-pipe path for `bare_name`. The kernel pipe namespace is already
+/// per-machine and name-keyed, so `component` needs no directory of its own;
+/// callers keep their services apart with the name prefix (`rpp-probe-...`).
+#[cfg(feature = "ipc")]
+pub fn ipc_component_endpoint_path(_component: &str, bare_name: &str) -> String {
+    format!(r"\\.\pipe\{bare_name}")
+}
+
+/// Per-user runtime directory of `component`, for runtime files a service
+/// publishes (its pipes need none). `LOCALAPPDATA` is per-user and
+/// non-roaming; the per-user temp directory stands in when it is unset. Pure.
+#[cfg(feature = "ipc")]
+pub fn ipc_component_runtime_dir(component: &str) -> std::path::PathBuf {
+    component_runtime_dir_in(
+        crate::env_vars::LOCALAPPDATA.os(),
+        std::env::temp_dir(),
+        component,
+    )
+}
+
+#[cfg(feature = "ipc")]
+fn component_runtime_dir_in(
+    local_app_data: Option<std::ffi::OsString>,
+    temp_dir: std::path::PathBuf,
+    component: &str,
+) -> std::path::PathBuf {
+    local_app_data
+        .map(std::path::PathBuf::from)
+        .unwrap_or(temp_dir)
+        .join("running-process")
+        .join(component)
 }
 
 /// Windows named-pipe names are capped by `MAX_PATH` while the long-path
@@ -258,6 +330,9 @@ pub use window_icon::{icon_support as window_icon_support_impl, set_icon as set_
 #[path = "platform_win_descendants.rs"]
 mod descendants;
 pub use descendants::{assign_child_to_windows_job, WindowsJobHandle};
+
+/// Attach to an already-running root by polling the process table (#1015).
+pub use descendants::start_snapshot_descendant_monitor as start_attached_descendant_monitor;
 
 pub fn exact_trace_capability() -> crate::platform::process::ExactTraceCapability {
     crate::platform::process::ExactTraceCapability {
@@ -442,6 +517,12 @@ pub fn exit_code(status: std::process::ExitStatus) -> i32 {
     status.code().unwrap_or(1)
 }
 
+/// The signal that terminated `status`'s process. Windows processes do not
+/// die from signals, so there is never one to report.
+pub fn exit_signal(_status: &std::process::ExitStatus) -> Option<i32> {
+    None
+}
+
 pub fn set_process_name(_name: &str) {}
 
 pub fn configure_trampoline_command(command: &mut std::process::Command) {
@@ -560,6 +641,64 @@ pub fn observer_backend(scope: crate::platform::process::ObserverScope, category
     }
 }
 
+/// Apply a process priority expressed as a Unix nice value by mapping it to
+/// the nearest Windows priority class.
+pub fn apply_process_priority(pid: u32, nice: i32) -> io::Result<()> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, SetPriorityClass, ABOVE_NORMAL_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS,
+        HIGH_PRIORITY_CLASS, IDLE_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS,
+        PROCESS_QUERY_INFORMATION, PROCESS_SET_INFORMATION,
+    };
+    let priority_class = if nice >= 15 {
+        IDLE_PRIORITY_CLASS
+    } else if nice >= 1 {
+        BELOW_NORMAL_PRIORITY_CLASS
+    } else if nice <= -15 {
+        HIGH_PRIORITY_CLASS
+    } else if nice <= -1 {
+        ABOVE_NORMAL_PRIORITY_CLASS
+    } else {
+        NORMAL_PRIORITY_CLASS
+    };
+    // SAFETY: OpenProcess takes plain values; the returned handle is closed
+    // below on every path that obtains one.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: `handle` is a live process handle owned by this function.
+    let set_ok = unsafe { SetPriorityClass(handle, priority_class) };
+    // SAFETY: `handle` is closed exactly once.
+    let close_ok = unsafe { CloseHandle(handle) };
+    if close_ok == 0 || set_ok == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// Windows `CREATE_NEW_PROCESS_GROUP`.
+const CREATE_NEW_PROCESS_GROUP_FLAG: u32 = 0x0000_0200;
+
+/// Deliver Ctrl+Break to the child-owned console process group `pid`.
+///
+/// Windows can only target a process group, so the child must have been
+/// created with `CREATE_NEW_PROCESS_GROUP`; `create_process_group` is a Unix
+/// notion and is ignored here.
+pub fn send_interrupt(pid: u32, creationflags: Option<u32>, _create_process_group: bool) -> io::Result<()> {
+    if creationflags.unwrap_or(0) & CREATE_NEW_PROCESS_GROUP_FLAG == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "send_interrupt on Windows requires CREATE_NEW_PROCESS_GROUP",
+        ));
+    }
+    // SAFETY: the Windows API receives only a numeric process-group id.
+    if unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 pub fn unix_set_priority(_pid: u32, _nice: i32) -> io::Result<()> { Err(io::Error::new(io::ErrorKind::Unsupported, "Unix priority is unavailable on Windows")) }
 pub fn unix_signal_process(_pid: u32, _signal: crate::platform::process::UnixSignalKind) -> io::Result<()> { Err(io::Error::new(io::ErrorKind::Unsupported, "Unix signals are unavailable on Windows")) }
 pub fn unix_signal_process_group(_pid: i32, _signal: crate::platform::process::UnixSignalKind) -> io::Result<()> { Err(io::Error::new(io::ErrorKind::Unsupported, "Unix signals are unavailable on Windows")) }
@@ -569,9 +708,9 @@ pub fn unix_signal_raw(_signal: crate::platform::process::UnixSignalKind) -> i32
 pub fn configure_compat_tokio_command(
     command: &mut Command,
     show_console: bool,
-    _kill_when_owner_dies: bool,
+    kill_when_owner_dies: bool,
 ) -> io::Result<()> {
-    let flags = compat_tokio_creation_flags(show_console);
+    let flags = compat_tokio_creation_flags(show_console, kill_when_owner_dies);
     if flags != 0 {
         command.creation_flags(flags);
     }
@@ -579,18 +718,107 @@ pub fn configure_compat_tokio_command(
 }
 
 #[cfg(feature = "async-process")]
-fn compat_tokio_creation_flags(show_console: bool) -> u32 {
-    if show_console {
+const CREATE_SUSPENDED: u32 = 0x0000_0004;
+
+/// `CREATE_SUSPENDED` when the child must join the owner-death job before it
+/// runs a single instruction (#887). Assigning it after `CreateProcess` returns
+/// leaves a window in which the child can start a grandchild that never joins
+/// the job.
+#[cfg(feature = "async-process")]
+fn compat_tokio_creation_flags(show_console: bool, kill_when_owner_dies: bool) -> u32 {
+    let console = if show_console {
         0
     } else {
         0x0800_0000 // CREATE_NO_WINDOW
+    };
+    let suspended = if kill_when_owner_dies { CREATE_SUSPENDED } else { 0 };
+    console | suspended
+}
+
+/// Put a child spawned `CREATE_SUSPENDED` into the owner-death job, then let it
+/// run.
+///
+/// If containment or the resume fails, the child is terminated: it has not run
+/// a single instruction, so killing it is strictly safer than letting it run
+/// outside the job.
+#[cfg(feature = "async-process")]
+fn contain_and_resume(child: &Child) -> io::Result<()> {
+    let process = child.raw_handle();
+    let outcome = assign(process).and_then(|()| match child.id() {
+        Some(pid) => resume_primary_thread(pid),
+        None => Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "the child exited before it could be resumed",
+        )),
+    });
+    if outcome.is_err() {
+        if let Some(process) = process {
+            // SAFETY: `process` is the live handle Tokio owns for this child.
+            unsafe { TerminateProcess(process, 1) };
+        }
     }
+    outcome
+}
+
+/// Resume the one thread of a process created `CREATE_SUSPENDED`.
+///
+/// A freshly created suspended process has exactly one thread, so the first
+/// thread owned by `pid` is the primary thread. Uses documented Win32 calls
+/// only; std and Tokio do not expose the primary-thread handle.
+#[cfg(feature = "async-process")]
+fn resume_primary_thread(pid: u32) -> io::Result<()> {
+    use winapi::um::handleapi::{CloseHandle as CloseWinHandle, INVALID_HANDLE_VALUE};
+    use winapi::um::processthreadsapi::{OpenThread, ResumeThread};
+    use winapi::um::tlhelp32::{
+        CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+    };
+    use winapi::um::winnt::THREAD_SUSPEND_RESUME;
+
+    // SAFETY: a plain snapshot call; the handle is closed on every path below.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: THREADENTRY32 is plain data; `dwSize` is set before first use.
+    let mut entry: THREADENTRY32 = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<THREADENTRY32>() as u32;
+    let mut outcome = Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "no thread found for the suspended child",
+    ));
+    // SAFETY: `snapshot` is live and `entry` is initialised as required.
+    let mut more = unsafe { Thread32First(snapshot, &mut entry) } != 0;
+    while more {
+        if entry.th32OwnerProcessID == pid {
+            // SAFETY: opening a thread by id; the handle is closed right after.
+            let thread = unsafe { OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID) };
+            if thread.is_null() {
+                outcome = Err(io::Error::last_os_error());
+            } else {
+                // SAFETY: `thread` is a live handle with suspend/resume access.
+                let previous = unsafe { ResumeThread(thread) };
+                outcome = if previous == u32::MAX {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(())
+                };
+                // SAFETY: closes the handle opened above.
+                unsafe { CloseWinHandle(thread) };
+            }
+            break;
+        }
+        // SAFETY: as for `Thread32First`.
+        more = unsafe { Thread32Next(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: closes the snapshot created above.
+    unsafe { CloseWinHandle(snapshot) };
+    outcome
 }
 
 #[cfg(feature = "async-process")]
 pub fn after_compat_tokio_spawn(child: &Child, kill_when_owner_dies: bool) -> io::Result<()> {
     if kill_when_owner_dies {
-        assign(child.raw_handle())
+        contain_and_resume(child)
     } else {
         Ok(())
     }
@@ -622,12 +850,53 @@ fn process_start_key(pid: sysinfo::Pid, _process: &sysinfo::Process) -> io::Resu
 
 #[cfg(feature = "async-process")]
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+#[cfg(feature = "async-process")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// A console-less parent (e.g. a daemon) makes Windows give every child its
+/// own visible console unless `CREATE_NO_WINDOW` is set.
+#[cfg(feature = "async-process")]
+fn spawn_creation_flags(
+    group: u32,
+    priority: u32,
+    parent_has_console: bool,
+    kill_when_owner_dies: bool,
+) -> u32 {
+    let no_window = if parent_has_console { 0 } else { CREATE_NO_WINDOW };
+    // Owner-death children start suspended and are resumed once they are in the
+    // job (#887); see `contain_and_resume`.
+    let suspended = if kill_when_owner_dies { CREATE_SUSPENDED } else { 0 };
+    group | priority | no_window | suspended
+}
+
+/// Configure a caller-built command for [`crate::SpawnSpec::from_std_command`].
+///
+/// Windows owner-death containment for these commands is the per-spawn
+/// kill-on-close Job Object (with its descendant observer and memory limit)
+/// that `NativeProcess` assigns after spawn. `SpawnSpec` cannot express that
+/// job yet (#850), so the combination is refused rather than launched
+/// uncontained.
+#[cfg(feature = "async-process")]
+pub(crate) fn configure_override_command(
+    command: &mut std::process::Command,
+    config: crate::platform::process::ProcessCommandConfig,
+    kill_when_owner_dies: bool,
+) -> io::Result<()> {
+    if kill_when_owner_dies {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "owner-death containment of a caller-built command needs the per-spawn Job Object, \
+             which SpawnSpec cannot express yet",
+        ));
+    }
+    configure_process_command(command, config)
+}
 
 #[cfg(feature = "async-process")]
 pub(crate) fn configure_command(
     command: &mut Command,
     create_process_group: bool,
-    _kill_when_owner_dies: bool,
+    kill_when_owner_dies: bool,
     nice: Option<i32>,
 ) -> io::Result<()> {
     let group = if create_process_group {
@@ -644,16 +913,21 @@ pub(crate) fn configure_command(
         Some(value) if value <= -1 => 0x0000_8000,
         _ => 0,
     };
-    if (group | priority) != 0 {
-        command.creation_flags(group | priority);
+    let flags = spawn_creation_flags(group, priority, parent_has_console(), kill_when_owner_dies);
+    if flags != 0 {
+        command.creation_flags(flags);
     }
     Ok(())
 }
 
 #[cfg(feature = "async-process")]
-pub(crate) fn after_spawn(child: &Child, kill_when_owner_dies: bool) -> io::Result<()> {
+pub(crate) fn after_spawn(
+    child: &Child,
+    kill_when_owner_dies: bool,
+    _nice: Option<i32>,
+) -> io::Result<()> {
     if kill_when_owner_dies {
-        assign(child.raw_handle())
+        contain_and_resume(child)
     } else {
         Ok(())
     }
@@ -935,8 +1209,143 @@ mod tests {
     #[cfg(feature = "async-process")]
     #[test]
     fn tokio_spawn_owns_console_creation_flags() {
-        assert_eq!(compat_tokio_creation_flags(false), 0x0800_0000);
-        assert_eq!(compat_tokio_creation_flags(true), 0);
+        assert_eq!(compat_tokio_creation_flags(false, false), 0x0800_0000);
+        assert_eq!(compat_tokio_creation_flags(true, false), 0);
+    }
+
+    #[cfg(feature = "async-process")]
+    #[test]
+    fn owner_death_children_start_suspended_so_they_join_the_job_before_running() {
+        const CREATE_SUSPENDED: u32 = 0x0000_0004;
+        assert_eq!(compat_tokio_creation_flags(false, true) & CREATE_SUSPENDED, CREATE_SUSPENDED);
+        assert_eq!(compat_tokio_creation_flags(true, true), CREATE_SUSPENDED);
+        assert_eq!(compat_tokio_creation_flags(false, false) & CREATE_SUSPENDED, 0);
+        assert_eq!(super::spawn_creation_flags(0, 0, true, true), CREATE_SUSPENDED);
+        assert_eq!(super::spawn_creation_flags(0, 0, true, false), 0);
+    }
+
+    #[cfg(feature = "async-process")]
+    #[test]
+    fn console_less_parent_spawns_children_without_a_window() {
+        use super::{spawn_creation_flags, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
+
+        // #1214: a parent with no console (a daemon) must not let Windows give
+        // every child its own visible console.
+        assert_eq!(spawn_creation_flags(0, 0, false, false), CREATE_NO_WINDOW);
+        assert_eq!(
+            spawn_creation_flags(CREATE_NEW_PROCESS_GROUP, 0x0000_0040, false, false),
+            CREATE_NEW_PROCESS_GROUP | 0x0000_0040 | CREATE_NO_WINDOW
+        );
+        assert_eq!(spawn_creation_flags(0, 0, true, false), 0);
+    }
+
+    #[cfg(feature = "async-process")]
+    fn cmd_child(script: &str, kill_when_owner_dies: bool) -> tokio::process::Command {
+        let mut command = tokio::process::Command::new("cmd.exe");
+        command.args(["/c", script]).kill_on_drop(true);
+        super::configure_compat_tokio_command(&mut command, false, kill_when_owner_dies).unwrap();
+        command
+    }
+
+    #[cfg(feature = "async-process")]
+    fn runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(feature = "async-process")]
+    #[test]
+    fn suspended_owner_death_child_is_resumed_and_runs_to_its_own_exit_code() {
+        runtime().block_on(async {
+            let mut child = cmd_child("exit 7", true).spawn().unwrap();
+            super::after_compat_tokio_spawn(&child, true).unwrap();
+            let status = tokio::time::timeout(std::time::Duration::from_secs(30), child.wait())
+                .await
+                .expect("a child left suspended would hang here")
+                .unwrap();
+            assert_eq!(status.code(), Some(7));
+        });
+    }
+
+    #[cfg(feature = "async-process")]
+    #[test]
+    fn owner_death_child_is_in_a_job_by_the_time_spawn_returns() {
+        use windows_sys::Win32::System::JobObjects::IsProcessInJob;
+
+        runtime().block_on(async {
+            let mut child = cmd_child("ping -n 6 127.0.0.1 > nul", true).spawn().unwrap();
+            super::after_compat_tokio_spawn(&child, true).unwrap();
+            let mut in_job = 0;
+            // SAFETY: the handle is the live child handle Tokio owns; a null job
+            // asks whether the process is in any job.
+            let ok = unsafe {
+                IsProcessInJob(child.raw_handle().unwrap(), std::ptr::null_mut(), &mut in_job)
+            };
+            assert_ne!(ok, 0, "IsProcessInJob failed");
+            assert_ne!(in_job, 0, "the child must already be contained");
+            child.kill().await.unwrap();
+        });
+    }
+
+    #[cfg(feature = "async-process")]
+    #[test]
+    fn non_owner_death_child_is_not_suspended_or_contained() {
+        runtime().block_on(async {
+            let mut child = cmd_child("exit 3", false).spawn().unwrap();
+            super::after_compat_tokio_spawn(&child, false).unwrap();
+            let status = tokio::time::timeout(std::time::Duration::from_secs(30), child.wait())
+                .await
+                .expect("an ordinary child must run without being resumed")
+                .unwrap();
+            assert_eq!(status.code(), Some(3));
+        });
+    }
+
+    #[test]
+    fn fault_code_names_are_byte_exact() {
+        // #974 PR 2: moved out of probe-daemon's crash store, spelling unchanged.
+        assert_eq!(super::process_fault_code_name(0xC000_0005), "0xC0000005");
+        assert_eq!(super::process_fault_code_name(0x8000_0003), "0x80000003");
+    }
+
+    #[cfg(feature = "ipc")]
+    #[test]
+    fn component_runtime_dir_is_byte_exact_for_the_probe() {
+        // #974 PR 2: probe-daemon's discovery directory, formerly derived in
+        // the daemon from `LOCALAPPDATA` with the temp directory as fallback.
+        assert_eq!(
+            super::component_runtime_dir_in(
+                Some(std::ffi::OsString::from(r"C:\Users\u\AppData\Local")),
+                std::path::PathBuf::from(r"C:\Temp"),
+                "probe",
+            ),
+            std::path::PathBuf::from(r"C:\Users\u\AppData\Local\running-process\probe")
+        );
+        assert_eq!(
+            super::component_runtime_dir_in(None, std::path::PathBuf::from(r"C:\Temp"), "probe"),
+            std::path::PathBuf::from(r"C:\Temp\running-process\probe")
+        );
+    }
+
+    #[cfg(feature = "ipc")]
+    #[test]
+    fn component_endpoint_path_is_the_bare_pipe_name_whatever_the_component() {
+        // #974: the pipe namespace is machine-wide and name-keyed, so the
+        // component needs no directory; services stay apart by name prefix.
+        assert_eq!(
+            super::ipc_component_endpoint_path("probe", "rpp-probe-abc-0"),
+            r"\\.\pipe\rpp-probe-abc-0"
+        );
+        assert_eq!(
+            super::ipc_component_endpoint_path("broker-v2", "rpb-v2-x-0"),
+            r"\\.\pipe\rpb-v2-x-0"
+        );
+        assert_eq!(
+            super::ipc_broker_endpoint_name("rpb-v2-x-0", false).unwrap(),
+            super::ipc_component_endpoint_path("broker-v2", "rpb-v2-x-0")
+        );
     }
 
     #[test]
@@ -1019,4 +1428,39 @@ mod endpoint_naming_tests {
         assert_eq!(mixed, other);
     }
 
+}
+
+/// Pins the per-host answers that facade callers branch on, so a change to
+/// either is a visible, reviewed edit rather than a silent behaviour change.
+#[cfg(test)]
+mod host_semantics_tests {
+    const ABSENT_PID: u32 = 0x7fff_fffe;
+
+    #[test]
+    fn priority_on_absent_pid_reports_the_os_error() {
+        assert!(super::apply_process_priority(ABSENT_PID, 0).is_err());
+    }
+
+    #[test]
+    fn interrupt_requires_a_new_process_group() {
+        for flags in [None, Some(0)] {
+            let error = super::send_interrupt(1, flags, true).unwrap_err();
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+            assert_eq!(
+                error.to_string(),
+                "send_interrupt on Windows requires CREATE_NEW_PROCESS_GROUP"
+            );
+        }
+    }
+
+    #[test]
+    fn open_handles_block_removal_matches_this_host() {
+        assert!(super::fs_open_handles_block_removal());
+    }
+
+    #[cfg(feature = "ipc")]
+    #[test]
+    fn handoff_transport_is_available() {
+        assert!(super::ipc_handoff_transport_available());
+    }
 }

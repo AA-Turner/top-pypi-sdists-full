@@ -210,6 +210,12 @@ _HAVE_FIELD_GALERKIN_ROW_OF = _HAVE_FIELD_GALERKIN_STRIDED and getattr(
 # available cross-check on the fused one's index arithmetic. Tests flip it;
 # nothing else should.
 _FIELD_GALERKIN_FUSED = True
+# momwire#1224: a block whose observer and source axes are the SAME nodes
+# (the below/below remainder's square fill) projects each unordered pair once
+# and assembles its mirror through the transposed target. False takes the
+# full rectangle, which is the reference the halved route is gated against;
+# tests flip it, nothing else should.
+_FIELD_GALERKIN_SYMMETRIC = True
 _HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL = _acc is not None and hasattr(
     _acc, "assemble_Z_bspline_swept"
 )
@@ -370,6 +376,35 @@ _BASIS_POLY_CACHE_MAX = 32
 # keyed `(eps_t, k, r1_bucket, omega, mu)`, r1_max bucketed UP in ~25%
 # geometric steps) so SinusoidalSolver and the fast solvers share fills
 # with this module — docs/sommerfeld-everywhere-plan.md Phase 1.
+
+
+def _lu_solve(Z, rhs, overwrite_a=False, overwrite_b=False):
+    """Solve Z·x = rhs through `lu_factor` + `lu_solve` (momwire#1290).
+
+    The same getrf on the same matrix, then the same getrs, so the answer is
+    `scipy.linalg.solve`'s to the bit: scipy 1.18's `solve` with no
+    `assume_a` only takes another factorization when Z is EXACTLY symmetric,
+    triangular or banded, and these Z are not (|Z - Zᵀ| is roundoff). What
+    `solve` adds is its reciprocal-condition estimate: a 1-norm of Z (lange)
+    before the factorization and gecon after it. Both are memory-bound
+    O(N²) passes that do not thread, and they were the whole gap to
+    `lu_factor`: measured on Skylake at N = 2816, `solve` 0.390 s,
+    `lu_factor` + `lu_solve` 0.290 s, gecon alone 0.052 s. That estimate
+    only drove an ill-conditioning `LinAlgWarning` that nothing here reads;
+    it is dropped, as SG's `_solve_in_place` and the point-matched solve
+    already do. `check_finite` stays, so a NaN in Z is still a `ValueError`.
+
+    `overwrite_a=True` factors Z's own storage when Z is F-contiguous (the
+    fills arrange it), so Z holds its LU factors afterwards and callers must
+    not read it; a C-ordered Z is copied, as `solve` did. `overwrite_b` lets
+    a locally built F-ordered rhs take the solution. An EXACTLY singular Z
+    still raises `LinAlgError`, as `solve` did, where `lu_factor` alone only
+    warns and the solve would return inf/NaN.
+    """
+    lu_piv = scipy.linalg.lu_factor(Z, overwrite_a=overwrite_a)
+    if not np.all(np.diagonal(lu_piv[0])):
+        raise np.linalg.LinAlgError("singular matrix")
+    return scipy.linalg.lu_solve(lu_piv, rhs, overwrite_b=overwrite_b)
 
 
 def _evict_fifo(cache: dict, limit: int) -> None:
@@ -2405,20 +2440,56 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
     def _kcl_row_junctions(self):
         """The junctions that carry a KCL row, in index order: every
-        non-grounded junction, plus the crossing junctions of a TWO-RADIUS
-        crossing deck (antennaknobs plan U5), whose continuity the two-radius
-        fill closes with the multiplier — at two radii the split fill's own
-        continuity does not converge. One helper, so `_build_basis_polynomials`
-        and `_split_kcl_ports` cannot count the rows differently."""
+        non-grounded junction, plus two kinds of crossing junction —
+
+        * every crossing junction of a TWO-RADIUS crossing deck (antennaknobs
+          plan U5), whose continuity the two-radius fill closes with the
+          multiplier — at two radii the split fill's own continuity does not
+          converge;
+        * a crossing junction a node gap sits on (momwire#1282,
+          `_node_gap_crossing_junctions`).
+
+        One helper, so `_build_basis_polynomials` and `_split_kcl_ports`
+        cannot count the rows differently."""
         grounded = self._grounded_junctions()
         closed = (
             set(self._crossing_junctions())
             if self._two_radius_crossing() is not None
             else set()
         )
+        closed |= self._node_gap_crossing_junctions()
         return [
             j for j in range(len(self.junctions)) if j not in grounded or j in closed
         ]
+
+    def _node_gap_crossing_junctions(self):
+        """Indices of the CROSSING junctions a node gap names (momwire#1282).
+
+        At a crossing node the members' end bases are independent unknowns
+        and the crossing fill's own physics closes the current through the
+        node (`_crossing_fill`, "split ≡ merged ≡ V-constrained"). That is a
+        statement about a node nothing drives. A node gap's column is ONE
+        member's end basis, so without the row the source sits between the
+        node and that member alone and the current on the far side is free to
+        differ: the two members name two different ports (Dan AC6LA's deck,
+        0.25 + 0.54j Ω apart). With the row the K = 2 constrained space has one
+        through-current dof and the two σ-signed columns are minus each other
+        on it, so either member names the same port — the series EMF NEC-5
+        puts on the node.
+
+        Empty without node gaps or ground, so no other deck reaches the
+        crossing scope from here."""
+        if not self.node_gaps or self.ground_z is None or not self.junctions:
+            return frozenset()
+        named = {(w, e) for w, e, _v in self.node_gaps}
+        candidates = {
+            j
+            for j in self._grounded_junctions()
+            if {tuple(m) for m in self.junctions[j]} & named
+        }
+        if not candidates or _medium_spec.BELOW not in self._wire_media():
+            return frozenset()
+        return frozenset(candidates & set(self._crossing_junctions()))
 
     def _split_kcl_ports(self, kcl_A):
         """Split the assembled KCL matrix into (constraint rows, port rows,
@@ -2506,6 +2577,9 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # A two-radius crossing junction keeps its KCL row (U5), and the
             # radii are not part of the geometry key.
             self._two_radius_crossing() is not None,
+            # So does a crossing junction a node gap sits on (momwire#1282),
+            # and the node gaps are not part of it either.
+            tuple(sorted(self._node_gap_crossing_junctions())),
         )
         cached_entry = _BASIS_POLY_CACHE.get(basis_key)
         if cached_entry is not None:
@@ -4307,7 +4381,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         ek = self._ek_spec(geom) if self.extended_kernel else None
         ek_se = _EK_SAME_EDGE if self.extended_kernel else None
 
-        # Fortran order: scipy.linalg.solve(overwrite_a=True) can only
+        # Fortran order: `_lu_solve(overwrite_a=True)` can only
         # factor in place on a column-major matrix — C order would silently
         # cost a full n_basis-squared copy at solve time (issue #136).
         if restrict is None:
@@ -5153,13 +5227,13 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         locally-built rhs is always overwritten; the caller's `v` never is.
         """
         if kcl_A.shape[0] == 0:
-            return scipy.linalg.solve(Z, v, overwrite_a=overwrite)
+            return _lu_solve(Z, v, overwrite_a=overwrite)
         n_b = Z.shape[0]
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_b, 1 + n_c), dtype=np.complex128, order="F")
         rhs[:, 0] = v
         rhs[:, 1:] = kcl_A.T
-        sol = scipy.linalg.solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
+        sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
         w = sol[:, 0]
         X = sol[:, 1:]
         lam = scipy.linalg.solve(kcl_A @ X, kcl_A @ w)
@@ -5173,13 +5247,13 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         caller's V is never overwritten.
         """
         if kcl_A.shape[0] == 0:
-            return scipy.linalg.solve(Z, V, overwrite_a=overwrite)
+            return _lu_solve(Z, V, overwrite_a=overwrite)
         n_b, n_p = V.shape
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_b, n_p + n_c), dtype=np.complex128, order="F")
         rhs[:, :n_p] = V
         rhs[:, n_p:] = kcl_A.T
-        sol = scipy.linalg.solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
+        sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
         W = sol[:, :n_p]
         X = sol[:, n_p:]
         Lam = scipy.linalg.solve(kcl_A @ X, kcl_A @ W)
@@ -5960,6 +6034,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         out=None,
         scale=1.0,
         row_of=None,
+        symmetric=False,
     ):
         """`Q[m, n]` — the FIELD-form Galerkin block of a projected pair
         table, over a rectangular (observer segments × source segments)
@@ -6027,6 +6102,41 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         pos_s[src_idx] = np.arange(n_src)
 
         chunk = max(1, (1 << 19) // max(n_src * q * q, 1))
+        if symmetric:
+            # The caller's claim, checked rather than trusted: a mirror
+            # assembled over two DIFFERENT axes is a wrong block, not a slow one.
+            same = (
+                np.array_equal(obs_idx, src_idx)
+                and (obs is src or np.array_equal(obs, src))
+                and (t_obs is t_src or np.array_equal(t_obs, t_src))
+                and (W_obs is W_src or np.array_equal(W_obs, W_src))
+            )
+            if not same:
+                raise ValueError(
+                    "symmetric=True needs the observer and source axes to be "
+                    "the same nodes, tangents and moment weights"
+                )
+        if (
+            symmetric
+            and _FIELD_GALERKIN_SYMMETRIC
+            and row_of is None
+            and _HAVE_FIELD_GALERKIN_STRIDED
+        ):
+            self._field_galerkin_block_symmetric(
+                supp_seg,
+                polys,
+                proj_fn,
+                obs,
+                t_obs,
+                W_obs,
+                pos_o,
+                n_obs,
+                q,
+                chunk,
+                Q,
+                scale,
+            )
+            return Q
         for i0 in range(0, n_obs, chunk):
             self._checkpoint()
             i1 = min(i0 + chunk, n_obs)
@@ -6090,6 +6200,97 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                         polys[cols, b, :],
                     )
         return Q
+
+    def _field_galerkin_block_symmetric(
+        self,
+        supp_seg,
+        polys,
+        proj_fn,
+        nodes,
+        tangents,
+        W,
+        pos,
+        n_axis,
+        q,
+        chunk,
+        Q,
+        scale,
+    ):
+        """`_field_galerkin_block` over ONE axis (observers = sources), each
+        unordered pair projected once (momwire#1224).
+
+        Why it is licensed. The projected table is reciprocal,
+        t_m·F(r_m, r_n)·t_n = t_n·F(r_n, r_m)·t_m: the below/below remainder
+        depends on the pair through rho and the depth SUM, both symmetric, and
+        the dyad is its own transpose. Measured on the hub x8 deck's real
+        chunks: max|P - P^T| / max|P| = 6e-17 (bs2), i.e. rounding. With the
+        two axes' moment weights also identical, the row-wing and column-wing
+        q-vectors the assembler builds (`g` and `h` in
+        `assemble_field_galerkin`) are one function, so the block contributed
+        by observer segment m and source segment n is the transpose of the one
+        contributed by n and m.
+
+        So chunk c (segments [i0, i1)) projects only against sources from i0
+        on, which is every ordered pair (m, n) with n's segment at or past
+        i0 -- the diagonal block in both orders, and the upper rectangle once.
+        That table is assembled twice: as itself into Q, and, with the
+        chunk's own columns masked out, into Q.T, which writes the lower
+        rectangle (n, m) for n past i1. Each ordered segment pair lands
+        exactly once. The kernel projects sum_c c·(n - i0) pairs instead of
+        n², i.e. 1/2 + chunk/(2n) of them.
+
+        Not bit-identical to the rectangle, and not meant to be: a lower
+        entry is the upper pair's projection rather than its own (the two
+        differ at the rounding above), and each Q entry's adds arrive in a
+        different chunk order. The gate is the reference route at 1e-12.
+        """
+        QT = Q.T
+        for i0 in range(0, n_axis, chunk):
+            self._checkpoint()
+            i1 = min(i0 + chunk, n_axis)
+            proj = proj_fn(
+                nodes[i0 * q : i1 * q],
+                tangents[i0 * q : i1 * q],
+                nodes[i0 * q :],
+                tangents[i0 * q :],
+            )
+            W_rows = np.ascontiguousarray(W[:, i0:i1])
+            W_cols = np.ascontiguousarray(W[:, i0:])
+            # Source positions relative to the table's first column; a
+            # segment before i0 (or off this axis) drops out as -1.
+            pos_from_i0 = np.where(pos >= i0, pos - i0, -1)
+            _acc.assemble_field_galerkin(
+                proj,
+                W_rows,
+                W_cols,
+                supp_seg,
+                polys,
+                pos,
+                pos_from_i0,
+                i0,
+                Q,
+                _FIELD_GALERKIN_FUSED,
+                scale,
+            )
+            if i1 < n_axis:
+                # The mirror: the same table with the chunk's own columns
+                # masked (the diagonal block is already in, in both orders),
+                # written through the transposed target.
+                pos_past_i1 = np.where(pos >= i1, pos - i0, -1)
+                _acc.assemble_field_galerkin(
+                    proj,
+                    W_rows,
+                    W_cols,
+                    supp_seg,
+                    polys,
+                    pos,
+                    pos_past_i1,
+                    i0,
+                    QT,
+                    _FIELD_GALERKIN_FUSED,
+                    scale,
+                )
+            del proj
 
     def _build_J_blocks_subset(
         self, geom, k, seg_idx, mirror_sources=False, *, obs_idx=None
@@ -6776,7 +6977,12 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         volts = np.zeros(len(self.node_gaps), dtype=np.complex128)
         if not self.node_gaps:
             return cols, volts
-        grounded = self._grounded_junctions()
+        # A crossing junction is grounded by geometry (its node is in the
+        # plane) but is not shorted to the plane: one member is in the soil
+        # and the node is a through-junction between the two media. Its gap
+        # is a series EMF between those members (momwire#1282), served with
+        # the junction's KCL row kept (`_node_gap_crossing_junctions`).
+        grounded = self._grounded_junctions() - self._node_gap_crossing_junctions()
         end_to_junction = {}
         for j, jw in enumerate(self.junctions):
             for member in jw:

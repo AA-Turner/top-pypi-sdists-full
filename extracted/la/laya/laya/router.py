@@ -34,7 +34,7 @@ import os
 import threading
 import time
 from collections.abc import Sequence as SequenceABC
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from .confidence import apply_confidence_gate, check_min_confidence
 from .hooks import (
@@ -116,6 +116,22 @@ def normalise_name(name: str) -> str:
         raise ValueError("unknown model %r; choose one of %s (or an alias: %s)"
                          % (name, sorted(DEFAULT_MODELS), sorted(_ALIASES)))
     return key
+
+
+def resolve_model_spec(name: str) -> Optional[Tuple[str, Optional[str]]]:
+    """Registry spec for a checkpoint name or alias, or None when it is not one.
+
+    The non-raising sibling of :func:`normalise_name`, for callers that also accept
+    things the registry knows nothing about -- a Hub repo id, a local directory, an
+    ONNX export. Those pass through untouched; a name or alias the registry does know
+    resolves to its ``(repo, subfolder)`` pair, so ``load("typed-decisions")`` and
+    ``Router(model="typed-decisions")`` name the same checkpoint from one table.
+    """
+    try:
+        key = normalise_name(name)
+    except ValueError:
+        return None
+    return tuple(_split(DEFAULT_MODELS[key]))
 
 
 def match_typed_decisions_workflow(questions: Dict[str, Any]) -> Optional[str]:
@@ -358,6 +374,20 @@ def _merge_expected_digests(
     return merged
 
 
+class _InFlightBuild:
+    """Private synchronization descriptor for an in-flight checkpoint build.
+
+    `done` is signalled once the build finishes (or fails), releasing callers waiting
+    for this specific checkpoint. `error` records any exception raised during the build
+    so concurrent waiting callers unblock and receive the failure instead of deadlocking.
+    """
+    __slots__ = ("done", "error")
+
+    def __init__(self):
+        self.done = threading.Event()
+        self.error: Optional[BaseException] = None
+
+
 class Router(HookRegistry):
     """Lazily loads Laya checkpoints and sends each request to the right one.
 
@@ -450,7 +480,7 @@ class Router(HookRegistry):
     against, read it back: the map handed to each `Agent` is the merge described above.
 
     Both `agent_kwargs` and `sha256_digests` are public and mutable, and a checkpoint's entry is read
-    on the load rather than at construction, so a pin assigned in afterwards -- or added to an
+    on the load rather than at construction, so a pin assigned afterwards -- or added to an
     existing entry in place -- counts.
 
     The names the Router sets for itself -- `model_id_or_path`, `device`, `token`, `subfolder`,
@@ -554,11 +584,21 @@ class Router(HookRegistry):
         self.lang_guess = lang_guess
         self._agents: Dict[str, Any] = {}
         self._order: List[str] = []          # least-recently-used first
-        # Re-entrant lock guarding model lifecycle (load/unload/attach/preload) and the
-        # LRU bookkeeping. RLock so the public methods can call the private `_touch`/`_evict`
-        # helpers without deadlocking. Inference (`Agent.system_one`) is deliberately left
-        # outside the lock so concurrent predictions share a checkpoint without serialising.
+        # Synchronization invariants:
+        # - `_lock`: Re-entrant lock guarding Router shared state: `_agents`, `_order`,
+        #   the `_loading` registry, and lifecycle bookkeeping. Never held during expensive
+        #   checkpoint construction (Agent download/init), nor while waiting on in-flight events.
+        # - `_build_lock`: Non-reentrant lock serializing expensive Agent construction globally
+        #   (one build at a time across all checkpoints to preserve peak memory bounds).
+        #   Acquired outside `_lock` (never inside) to prevent deadlocks, and released before
+        #   dispatching lifecycle hooks.
+        # - `_loading[name]`: Private per-checkpoint in-flight build registry. Maps normalized
+        #   model names to their `_InFlightBuild` descriptor so concurrent loads deduplicate (#95)
+        #   and `unload(name)` waits only for builds of the SAME checkpoint without stalling
+        #   on unrelated builds holding `_build_lock`.
         self._lock = threading.RLock()
+        self._build_lock = threading.Lock()
+        self._loading: Dict[str, _InFlightBuild] = {}
         if preload:
             self.preload()
 
@@ -569,11 +609,65 @@ class Router(HookRegistry):
         Concurrent callers share a single Agent instead of building duplicates.
         """
         key = normalise_name(name)
+        while True:
+            with self._lock:
+                if key in self._agents:
+                    self._touch(key)
+                    return self._agents[key]
+                inflight = self._loading.get(key)
+                if inflight is None:
+                    inflight = _InFlightBuild()
+                    self._loading[key] = inflight
+                    break
+            inflight.done.wait()
+            if inflight.error is not None:
+                raise inflight.error
+
+        agent = None
+        evicted = []
+        try:
+            with self._build_lock:
+                with self._lock:
+                    # Built (or attached) while this caller waited for the build lock.
+                    if key in self._agents:
+                        self._touch(key)
+                        agent = self._agents[key]
+                        if self._loading.get(key) is inflight:
+                            self._loading.pop(key, None)
+                        inflight.done.set()
+                        return agent
+                built_agent = self._build(key)
+                with self._lock:
+                    if key in self._agents:      # attached while it was building: keep that one
+                        self._touch(key)
+                        agent = self._agents[key]
+                    else:
+                        agent = built_agent
+                        self._agents[key] = agent
+                        self._order.append(key)
+                        evicted = self._evict_locked()
+                    if self._loading.get(key) is inflight:
+                        self._loading.pop(key, None)
+                    inflight.done.set()
+        except BaseException as e:
+            with self._lock:
+                if self._loading.get(key) is inflight:
+                    self._loading.pop(key, None)
+                inflight.error = e
+                inflight.done.set()
+            raise
+
+        # Lifecycle hooks fire after the lock is released, so a hook can safely call the Router.
+        self._dispatch_lifecycle("on_evict", evicted)
+        dispatch(compose_hooks(self.hooks), "on_load",
+                 PredictContext(states=[], questions={}, model=key, agent=agent, router=self),
+                 raise_errors=self.hooks_raise, lock=self._hooks_lock, timeout=self.hooks_timeout)
+        return agent
+
+    def _build(self, key: str):
+        """Construct the Agent for `key`: config is read under `_lock`, the build runs outside it."""
+        from .agent import Agent
         with self._lock:
-            if key in self._agents:
-                self._touch(key)
-                return self._agents[key]
-            from .agent import Agent
             repo, sub = _split(self.models[key])
             kwargs = {"device": self.device, "token": self.token, "subfolder": sub}
             # A None or blank entry in `revisions` is "no pin of its own", so the checkpoint
@@ -591,16 +685,7 @@ class Router(HookRegistry):
                                                _digest_entry(self.sha256_digests, key))
             if expected is not None:
                 kwargs["expected_sha256"] = expected
-            agent = Agent(repo, **kwargs)
-            self._agents[key] = agent
-            self._order.append(key)
-            evicted = self._evict_locked()
-        # Lifecycle hooks fire after the lock is released, so a hook can safely call the Router.
-        self._dispatch_lifecycle("on_evict", evicted)
-        dispatch(compose_hooks(self.hooks), "on_load",
-                 PredictContext(states=[], questions={}, model=key, agent=agent, router=self),
-                 raise_errors=self.hooks_raise, lock=self._hooks_lock, timeout=self.hooks_timeout)
-        return agent
+        return Agent(repo, **kwargs)
 
     def _touch(self, key: str):
         with self._lock:
@@ -679,27 +764,53 @@ class Router(HookRegistry):
 
     def unload(self, name: Optional[str] = None):
         """Free one model, or all of them."""
-        with self._lock:
-            if name is None:
-                freed = list(self._order)
-                self._agents.clear()
-                self._order.clear()
-            else:
-                key = normalise_name(name)
-                agent = self._agents.pop(key, None)
-                if key in self._order:
-                    self._order.remove(key)
-                freed = [key] if agent is not None else []
-                del agent
-            gc.collect()
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                if hasattr(torch, "xpu") and torch.xpu.is_available():
-                    torch.xpu.empty_cache()
-            except Exception:
-                pass
+        # When unloading a specific checkpoint, wait only for an in-flight build of THAT
+        # checkpoint so unrelated builds holding `_build_lock` do not stall this unload.
+        # When unloading all checkpoints (`name is None`), wait for all in-flight builds.
+        freed: List[str] = []
+        if name is not None:
+            key = normalise_name(name)
+            while True:
+                with self._lock:
+                    inflight = self._loading.get(key)
+                    if inflight is None:
+                        agent = self._agents.pop(key, None)
+                        if key in self._order:
+                            self._order.remove(key)
+                        freed = [key] if agent is not None else []
+                        del agent
+                        gc.collect()
+                        try:
+                            import torch
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                            if hasattr(torch, "xpu") and torch.xpu.is_available():
+                                torch.xpu.empty_cache()
+                        except Exception:
+                            pass
+                        break
+                inflight.done.wait()
+        else:
+            while True:
+                with self._lock:
+                    inflights = list(self._loading.values())
+                    if not inflights:
+                        freed = list(self._order)
+                        self._agents.clear()
+                        self._order.clear()
+                        gc.collect()
+                        try:
+                            import torch
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                            if hasattr(torch, "xpu") and torch.xpu.is_available():
+                                torch.xpu.empty_cache()
+                        except Exception:
+                            pass
+                        break
+                for inflight in inflights:
+                    inflight.done.wait()
+
         self._dispatch_lifecycle("on_evict", freed)
 
     @property

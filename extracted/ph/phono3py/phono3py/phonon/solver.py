@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
 from typing import Literal
 
@@ -13,7 +14,61 @@ from phonopy.harmonic.dynamical_matrix import (
     DynamicalMatrixNAC,
     diagonalize_dynamical_matrices,
 )
+from phonopy.phonon.degeneracy import get_degenerate_ids
 from phonopy.physical_units import get_physical_units
+
+
+@dataclasses.dataclass
+class PhononData:
+    """Phonons on the BZ grid.
+
+    The arrays are shared by reference when a PhononData instance is passed
+    between objects, e.g., from Interaction to Isotope.
+
+    Attributes
+    ----------
+    frequencies : ndarray
+        Phonon frequencies in THz (or the unit given by the frequency
+        conversion factor). shape=(bz_grid_points, num_band), dtype='double'
+    eigenvectors : ndarray
+        Phonon eigenvectors. The columns are the eigenvectors.
+        shape=(bz_grid_points, num_band, num_band), dtype='cdouble'
+    phonon_done : ndarray
+        1 at the grid points where the phonons have been calculated, otherwise
+        0. shape=(bz_grid_points,), dtype='byte'
+    degenerate_ids : ndarray
+        Smallest band index in the degenerate set of each band, see phonopy's
+        get_degenerate_ids. Bands i and j at a grid point are degenerate when
+        their elements are equal. It is updated by the phonon solvers at the
+        solved grid points. shape=(bz_grid_points, num_band), dtype='int64'
+
+    """
+
+    frequencies: NDArray[np.double]
+    eigenvectors: NDArray[np.cdouble]
+    phonon_done: NDArray[np.byte]
+    degenerate_ids: NDArray[np.int64]
+
+    def copy(self) -> PhononData:
+        """Return PhononData with copies of the arrays."""
+        return PhononData(
+            frequencies=self.frequencies.copy(),
+            eigenvectors=self.eigenvectors.copy(),
+            phonon_done=self.phonon_done.copy(),
+            degenerate_ids=self.degenerate_ids.copy(),
+        )
+
+    @classmethod
+    def allocate(cls, num_grid: int, num_band: int) -> PhononData:
+        """Return PhononData with zero-filled arrays."""
+        return cls(
+            frequencies=np.zeros((num_grid, num_band), dtype="double", order="C"),
+            eigenvectors=np.zeros(
+                (num_grid, num_band, num_band), dtype="cdouble", order="C"
+            ),
+            phonon_done=np.zeros(num_grid, dtype="byte"),
+            degenerate_ids=np.zeros((num_grid, num_band), dtype="int64"),
+        )
 
 
 def run_phonon_solver_c(
@@ -30,6 +85,7 @@ def run_phonon_solver_c(
     | None = None,  # in reduced coordinates
     lapack_zheev_uplo: Literal["L", "U"] = "L",
     exclude_gamma_acoustic: bool = False,
+    degenerate_ids: NDArray[np.int64] | None = None,
 ) -> None:
     """Build and solve dynamical matrices on grid in C-API.
 
@@ -44,7 +100,7 @@ def run_phonon_solver_c(
     dm : DynamicalMatrix
         DynamicalMatrix instance.
     frequencies, eigenvectors, phonon_done :
-        See Interaction.get_phonons().
+        See PhononData.
     grid_points : ndarray
         Grid point indices.
         shape=(grid_points, ), dtype='int64'
@@ -59,6 +115,12 @@ def run_phonon_solver_c(
         See Interaction.nac_q_direction. Default is None.
     lapack_zheev_uplo : str, optional
         'U' or 'L' for lapack zheev solver. Default is 'L'.
+    exclude_gamma_acoustic : bool, optional
+        Set the acoustic frequencies at Gamma to zero. Default is False.
+    degenerate_ids : ndarray, optional
+        When given, the degenerate sets at the solved grid points are written
+        after the frequencies, see phonopy's get_degenerate_ids.
+        shape=(bz_grid_points, num_band), dtype='int64'
 
     """
     import phono3py._phono3py as phono3c  # type: ignore[import-untyped]
@@ -165,6 +227,9 @@ def run_phonon_solver_c(
 
     if exclude_gamma_acoustic:
         _zero_gamma_acoustic_at(frequencies, phonon_done, grid_points, grid_address)
+    if degenerate_ids is not None:
+        gps = np.asarray(grid_points, dtype="int64")
+        degenerate_ids[gps] = get_degenerate_ids(frequencies[gps])
 
 
 def run_phonon_solver_rust(
@@ -181,6 +246,7 @@ def run_phonon_solver_rust(
     | None = None,  # in reduced coordinates
     lapack_zheev_uplo: Literal["L", "U"] = "L",
     exclude_gamma_acoustic: bool = False,
+    degenerate_ids: NDArray[np.int64] | None = None,
 ) -> None:
     """Build and solve dynamical matrices on grid in Rust + python.
 
@@ -333,6 +399,8 @@ def run_phonon_solver_rust(
 
     if exclude_gamma_acoustic:
         _zero_gamma_acoustic_at(frequencies, phonon_done, undone, grid_address)
+    if degenerate_ids is not None:
+        degenerate_ids[undone] = get_degenerate_ids(frequencies[undone])
 
 
 def run_phonon_solver_py(
@@ -346,6 +414,7 @@ def run_phonon_solver_py(
     frequency_conversion_factor: float | None = None,
     lapack_zheev_uplo: Literal["L", "U"] = "L",
     exclude_gamma_acoustic: bool = False,
+    degenerate_ids: NDArray[np.int64] | None = None,
 ) -> None:
     """Build and solve dynamical matrices on grid in python."""
     if frequency_conversion_factor is None:
@@ -368,6 +437,8 @@ def run_phonon_solver_py(
         eigenvectors[gp] = eigvecs
         if exclude_gamma_acoustic:
             _zero_gamma_acoustic_at(frequencies, phonon_done, [gp], grid_address)
+        if degenerate_ids is not None:
+            degenerate_ids[gp] = get_degenerate_ids(frequencies[gp : gp + 1])[0]
 
 
 def zero_gamma_acoustic_frequencies(

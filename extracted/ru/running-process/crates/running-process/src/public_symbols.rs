@@ -235,17 +235,15 @@ mod tests {
     }
 }
 
-#[cfg(windows)]
 #[unsafe(no_mangle)]
 #[inline(never)]
 pub extern "C" fn rp_assign_child_to_windows_kill_on_close_job_public(
-    child: &Child,
+    child: &std::process::Child,
     address_space_limit_bytes: Option<u64>,
 ) -> Result<WindowsJobHandle, std::io::Error> {
     assign_child_to_windows_kill_on_close_job_impl(child, address_space_limit_bytes)
 }
 
-#[cfg(windows)]
 #[inline(never)]
 /// #539 slice 2 — observer-aware Job Object setup. When
 /// `descendant_sink` is `Some`, the returned handle also owns an IOCP and
@@ -253,7 +251,7 @@ pub extern "C" fn rp_assign_child_to_windows_kill_on_close_job_public(
 /// "Rust"` (not "C") because the `Sender<ObserverEvent>` parameter is not
 /// ABI-stable; the older `_public` symbol is the C-ABI export.
 pub fn rp_assign_child_to_windows_kill_on_close_job_with_observer_public(
-    child: &Child,
+    child: &std::process::Child,
     descendant_sink: Option<std::sync::mpsc::Sender<crate::observer::ObserverEvent>>,
     process_watch: Option<std::sync::Arc<crate::observer::ProcessWatchEmitter>>,
     direct_pid: u32,

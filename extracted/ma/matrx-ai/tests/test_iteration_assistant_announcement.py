@@ -353,3 +353,65 @@ async def test_tool_rows_are_not_announced(persist_harness):
         "tool data from cx_tool_call observability, and message-row stubs "
         "pollute the transcript"
     )
+
+
+def _build_prefill_completed() -> CompletedRequest:
+    """A variables-only first turn of an agent whose template ends with an
+    authored assistant prefill ("Dear"): user trigger(0) → prefill(1, an INPUT
+    row, consumed into the reply and hidden from the person) → reply(2). The
+    executor reserves the trigger and the reply; the prefill is a fresh INSERT."""
+    messages = [
+        UnifiedMessage(role="user", content=[TextContent(text="Customer message: zipper split")]),
+        UnifiedMessage(
+            role="assistant",
+            content=[TextContent(text="Dear")],
+            metadata={"is_visible_to_user": False},
+        ),
+        UnifiedMessage(
+            role="assistant",
+            content=[TextContent(text="Dear Marcus, a replacement ships today.")],
+            metadata={"provider_iteration": 1},
+        ),
+    ]
+    cfg = UnifiedConfig(model="claude-test", messages=MessageList(_messages=messages))
+    req = AIMatrixRequest(conversation_id=CONVERSATION_ID, config=cfg, request_id=REQUEST_ID)
+    return CompletedRequest(
+        request=req,
+        iterations=1,
+        final_response=UnifiedResponse(messages=[messages[-1]]),
+        trigger_message_position=0,
+        result_start_position=2,
+        result_end_position=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_authored_prefill_row_is_written_but_never_announced(persist_harness):
+    """Model / Settings battle, 2026-10-01: the prefill was announced as an
+    `iteration_persist` assistant row at a position BEFORE the reply's own
+    reservation, so the client wrote the streamed answer onto the hidden
+    prefill row and left the reply row pending and empty (a blank answer)."""
+    persistence_mod, creates, _updates, _request_creates, tracker = persist_harness
+    completed = _build_prefill_completed()
+    state = ExecutionState()
+    reply_id = str(uuid4())
+    state.reserved_message_ids = {0: str(uuid4()), 2: reply_id}
+
+    await persistence_mod.persist_completed_request(
+        completed, conversation_id=CONVERSATION_ID, state=state
+    )
+
+    announced = [
+        r for r in tracker.reserved
+        if r["table"] == "message" and r["metadata"].get("role") == "assistant"
+    ]
+    assert announced == [], (
+        "an input row (the authored prefill) must not be announced as an "
+        "iteration — the client would write the answer onto it"
+    )
+    # The prefill is still written (hidden from the person), and the reply
+    # stays on its own reservation.
+    prefill_rows = [kw for kw in creates if kw.get("role") == "assistant"]
+    assert len(prefill_rows) == 1
+    assert prefill_rows[0].get("is_visible_to_user") is False
+    assert state.reserved_message_ids[2] == reply_id

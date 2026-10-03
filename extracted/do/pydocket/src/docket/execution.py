@@ -272,12 +272,17 @@ class Execution:
         self.message_id = message_id
 
         # True once the stream message identified by ``message_id`` has been
-        # XACKed (by ``_terminal``, ``_claim`` on SUPERSEDED, or ``_schedule``
-        # when re-routing this same message).  The worker uses this as a
+        # XACKed (by ``_terminal``, ``_claim`` on SUPERSEDED or CANCELLED, or
+        # ``_schedule`` when re-routing this same message).  The worker uses this as a
         # safety-net signal: anything that calls a ``FailureHandler`` whose
         # ``handle_failure`` returns True without rescheduling will leave this
         # False, and the worker can ack defensively.
         self._acked: bool = False
+
+        # True when the last claim() refused this task as cancelled.  The worker
+        # reads it because a superseded task's state is also CANCELLED when the
+        # newer generation was cancelled.
+        self._refused_as_cancelled: bool = False
 
         # Lifecycle state (mutable)
         self.state: ExecutionState = ExecutionState.SCHEDULED
@@ -597,6 +602,7 @@ class Execution:
         This consolidates worker operations when claiming a task into a single
         atomic Lua script that:
         - Checks if the task has been superseded by a newer generation
+        - Refuses a cancelled task and publishes its cancelled state
         - Sets state to RUNNING with worker name and timestamp
         - Initializes progress tracking (current=0, total=100)
         - Deletes known/stream_id fields to allow task rescheduling
@@ -607,21 +613,26 @@ class Execution:
         the claim leaves this execution's lifecycle attributes exactly where a
         ``sync()`` would.  That holds on both paths: a claimed task reports its
         own running state and reset progress, and a refused one reports what
-        the newer generation left on the key (or the ``sync()`` defaults, if
-        the key is gone).  Callers on the delivery path can therefore skip the
-        ``sync()`` in ``from_message`` and let the claim fill the attributes in.
+        the newer generation or the cancel left on the key (or the ``sync()``
+        defaults, if the key is gone).  Callers on the delivery path can
+        therefore skip the ``sync()`` in ``from_message`` and let the claim
+        fill the attributes in.
 
         Args:
             worker: Name of the worker claiming the task
 
         Returns:
-            True if the task was claimed, False if it was superseded.
+            True if the task was claimed, False if it was superseded or
+            cancelled.
         """
         started_at = datetime.now(timezone.utc)
         started_at_iso = started_at.isoformat()
 
-        # Pre-build the running-state payload; Lua only publishes it on the
-        # non-SUPERSEDED path.
+        # Pre-build the running-state payload, because cjson isn't available on
+        # the in-memory backend.  Lua publishes it when the claim succeeds.  A
+        # claim that refuses a cancelled key publishes the cancelled state, and
+        # Lua builds that payload from the runs hash.  So this passes the key
+        # already JSON-encoded, and Lua does no escaping of its own.
         state_payload = json.dumps(
             {
                 "type": "state",
@@ -646,17 +657,19 @@ class Execution:
                     started_at=started_at_iso,
                     generation=self._generation,
                     state_payload=state_payload,
+                    key_json=json.dumps(self.key),
                     worker_group_name=self.docket.worker_group_name,
                     message_id=self.message_id or b"",
                 )
 
         self._apply_runs_data(_hash_reply(runs_data))
         self.progress._apply(_hash_reply(progress_data))  # pyright: ignore[reportPrivateUsage]
+        self._refused_as_cancelled = status == b"CANCELLED"
 
-        if status == b"SUPERSEDED":
-            # The `_claim` Lua XACKed and XDELed the stale stream message
-            # before returning SUPERSEDED (skipping the ack when message_id
-            # is empty -- harmless either way).
+        if status in (b"SUPERSEDED", b"CANCELLED"):
+            # The `_claim` Lua XACKed and XDELed the stream message before
+            # returning SUPERSEDED or CANCELLED.  It skips both when
+            # message_id is empty, which is harmless.
             self._acked = True
             return False
 
@@ -915,7 +928,7 @@ class Execution:
         """
         with self._maybe_suppress_instrumentation():
             async with self.docket.redis() as redis:
-                async with redis.pipeline() as pipe:
+                async with redis.pipeline() as pipe:  # pragma: no branch
                     pipe.hgetall(self._redis_key)
                     self.progress._read(pipe)  # pyright: ignore[reportPrivateUsage]
                     data, progress_data = await pipe.execute()
@@ -943,31 +956,9 @@ class Execution:
         current_gen = int(current) if current is not None else 0
         return current_gen > self._generation
 
-    async def subscribe(
-        self, *, ready: asyncio.Event | None = None
-    ) -> AsyncGenerator[StateEvent | ProgressEvent, None]:
-        """Subscribe to both state and progress updates for this task.
-
-        Emits the current state as the first event, then subscribes to real-time
-        state and progress updates via Redis pub/sub.
-
-        Args:
-            ready: Optional ``asyncio.Event`` that is ``set()`` once the
-                Redis ``SUBSCRIBE`` has been acknowledged.  Lets callers
-                deterministically wait until the subscription is live
-                before publishing -- avoids the race where early events
-                are dropped because the subscriber hadn't connected yet.
-
-        Yields:
-            Dict containing state or progress update events with a 'type' field:
-            - For state events: type="state", state, worker, timestamps, error
-            - For progress events: type="progress", current, total, message, updated_at
-        """
-        # First, emit the current state
-        await self.sync()
-
-        # Build initial state event from current attributes
-        initial_state: StateEvent = {
+    def _state_event(self) -> StateEvent:
+        """Build a state event from this execution's current attributes."""
+        return {
             "type": "state",
             "key": self.key,
             "state": self.state,
@@ -980,9 +971,9 @@ class Execution:
             "error": self.error,
         }
 
-        yield initial_state
-
-        progress_event: ProgressEvent = {
+    def _progress_event(self) -> ProgressEvent:
+        """Build a progress event from this execution's current progress."""
+        return {
             "type": "progress",
             "key": self.key,
             "current": self.progress.current,
@@ -993,16 +984,70 @@ class Execution:
             else None,
         }
 
+    async def subscribe(
+        self, *, ready: asyncio.Event | None = None
+    ) -> AsyncGenerator[StateEvent | ProgressEvent, None]:
+        """Subscribe to both state and progress updates for this task.
+
+        Reads the current state and progress and emits them as the first two
+        events.  It subscribes to the task's state and progress channels only
+        when the caller asks for a third event.  Then it reads the state and
+        progress again, and emits each one that differs from the first read.
+        After those, it emits real-time updates from Redis pub/sub.
+
+        Redis does not deliver a message published before the subscription, so
+        a change between the first read and the subscription arrives from the
+        second read.  A change after the subscription arrives as a real-time
+        update.  A change between the subscription and the second read can
+        appear twice: once from the second read and once as a real-time update.
+        A cancel can also arrive twice as real-time updates: once from
+        ``Docket.cancel()`` and once from a worker that refuses to claim the
+        cancelled task.
+
+        Args:
+            ready: Optional ``asyncio.Event``.  ``subscribe()`` sets it after
+                Redis acknowledges the ``SUBSCRIBE`` and after the second read.
+                Both happen only when the caller asks for a third event.  A
+                change after that arrives only as a real-time update, so a
+                caller that waits on it before publishing does not also see
+                that change from a read.
+
+        Yields:
+            Dict containing state or progress update events with a 'type' field:
+            - For state events: type="state", state, worker, timestamps, error
+            - For progress events: type="progress", current, total, message, updated_at
+        """
+        # Read before subscribing, so a caller that stops at the first event,
+        # like get_result() on a finished task, opens no pub/sub connection.
+        # Opening one costs a dedicated connection and extra round trips, and
+        # it fails when the pub/sub pool is full.
+        await self.sync()
+        state_event = self._state_event()
+        progress_event = self._progress_event()
+        yield state_event
         yield progress_event
 
-        # Then subscribe to real-time updates
         state_channel = self.docket.key(f"state:{self.key}")
         progress_channel = self.docket.key(f"progress:{self.key}")
         async with self.docket._pubsub() as pubsub:
             await pubsub.subscribe(state_channel, progress_channel)
             await confirm_subscriptions(pubsub, 2)
+
+            # Redis delivers a message only to current subscribers, so this read
+            # finds any change published between the first read and the
+            # subscription.  Without it, a task that finishes in that window
+            # leaves get_result() waiting forever.
+            await self.sync()
             if ready is not None:
                 ready.set()
+
+            latest_state = self._state_event()
+            latest_progress = self._progress_event()
+            if latest_state != state_event:
+                yield latest_state
+            if latest_progress != progress_event:
+                yield latest_progress
+
             async for message in pubsub.listen():  # pragma: no cover
                 if message["type"] == "message":
                     message_data = json.loads(message["data"])

@@ -6,7 +6,7 @@ and to extract metadata.
 
 from lxml.etree import XPath
 
-regexpNS = "http://exslt.org/regular-expressions"
+REGEXP_NS = "http://exslt.org/regular-expressions"
 
 
 def _alt(tokens: tuple[str, ...]) -> str:
@@ -69,7 +69,7 @@ BODY_XPATH = [
         re:test(@class, '{_alt(_ARTICLE_CONTENT_CLASS_TOKENS)}')
         ][1]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     # (…)[1] = first occurrence
     XPath("(.//article)[1]"),
@@ -84,7 +84,7 @@ BODY_XPATH = [
         re:test(@class, '{_alt(_STORY_CLASS_TOKENS)}')
         ])[1]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         f"""
@@ -96,7 +96,7 @@ BODY_XPATH = [
         contains(translate(@class, 'CP','cp'), 'page-content')
         ])[1]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         """
@@ -123,7 +123,7 @@ COMMENTS_XPATH = [
         re:test(@id|@class, 'comment-?list') or
         re:test(@class, 'comment-page|comments-content|post-comments')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         """
@@ -131,14 +131,14 @@ COMMENTS_XPATH = [
         re:test(@id|@class, '^comment[s-]') or
         re:test(@class, '^Comments|article-comments')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         """
         .//*[self::div or self::section or self::list][
         re:test(@id, '^(?:comol|disqus_thread|dsq-comments)')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         """
@@ -156,11 +156,31 @@ REMOVE_COMMENTS_XPATH = [
         re:test(@id, '^(?:[Cc]omment|comol|disqus_thread|dsq-comments)') or
         re:test(@class, '^[Cc]omment|(?:article|post)-comments')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     )
 ]
 # or self::span
 # or contains(@class, 'comment') or contains(@id, 'comment')
+
+# Infinite-scroll containers holding whole follow-up articles ("mvp-post-add": Zox News theme).
+# Not in OVERALL_DISCARD_XPATH: such pages are mostly appended articles, which trips
+# prune_unwanted_nodes()'s over-pruning guard.
+REMOVE_APPENDED_ARTICLES_XPATH = [
+    XPath(
+        """
+        .//*[self::div or self::section or self::aside][
+        re:test(@id, 'mvp-post-add-(?:box|wrap)|infinite-?scroll') or
+        re:test(@class, 'mvp-post-add-(?:box|wrap)|infinite-?scroll')]
+        """,
+        namespaces={"re": REGEXP_NS},
+    )
+]
+
+# Not in OVERALL_DISCARD_XPATH: its "share-" token matches these already, but its "widget" token
+# also matches the article body ("elementor-widget"), so the over-pruning guard reverts both.
+REMOVE_SHARE_WIDGETS_XPATH = [
+    XPath(".//*[self::div or self::section or self::aside][contains(@class, 'elementor-share-buttons')]")
+]
 
 
 # OVERALL_DISCARD_XPATH boilerplate token vocabulary, grouped by concept, composed via _alt()
@@ -179,15 +199,26 @@ _NAV_ID_TOKENS = ("nav", "Nav", "menu")
 _RELATED_ID_TOKENS = ("related",)
 _UI_CHROME_ID_TOKENS = ("message-container",)
 _PAYWALL_ID_TOKENS = ("premium",)
+_AD_ID_TOKENS = ("^ad-",)
 
 _NAV_CLASS_TOKENS = ("^(?:nav|post-nav|ZendeskForm)", "subnav", "avigation", "navbar", "navbox", "menu", "bar")
-_AD_CLASS_TOKENS = (" ad ", "-ad-", "outbrain", "taboola", "criteo", "paid-?content", "widget")
+_AD_CLASS_TOKENS = (
+    " ad ",
+    "-ad-",
+    "(?:^| )ad-",
+    "dfp[Aa]d",
+    "outbrain",
+    "taboola",
+    "criteo",
+    "paid-?content",
+    "widget",
+)
 _FOOTER_CLASS_TOKENS = ("footer", "Footer")
 _AUTHOR_CLASS_TOKENS = ("byline", "Byline")
 _SHARE_CLASS_TOKENS = ("share-", "sociable", "embedded", "embed")
 _TAGS_CLASS_TOKENS = ("tag-list",)
 _CONSENT_CLASS_TOKENS = ("consent", "modal-content", "permission")
-_RELATED_CLASS_TOKENS = ("elated", "next-", "-stories", "most-popular")
+_RELATED_CLASS_TOKENS = ("elated", "next-", "-stories", "most-popular", "more-on")
 _UI_META_CLASS_TOKENS = (
     "meta",
     "rating",
@@ -224,6 +255,7 @@ _OVERALL_DISCARD_ID_TOKENS = (
     + _RELATED_ID_TOKENS
     + _UI_CHROME_ID_TOKENS
     + _PAYWALL_ID_TOKENS
+    + _AD_ID_TOKENS
 )
 _OVERALL_DISCARD_CLASS_TOKENS = (
     _NAV_CLASS_TOKENS
@@ -250,7 +282,7 @@ OVERALL_DISCARD_XPATH = [
         re:test(@id, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_ID_TOKENS)}') or
         re:test(@class, '{_alt(_OVERALL_DISCARD_BOTH_TOKENS + _OVERALL_DISCARD_CLASS_TOKENS)}')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         """
@@ -261,7 +293,7 @@ OVERALL_DISCARD_XPATH = [
         re:test(@id, 'reader-comments|akismet') or
         re:test(@class, '^hide-|comments-title|nocomments|-reply-|message|akismet|suggest-links|-hide-|hide-print| hidden| hide|noprint|notloaded') or @aria-hidden='true']
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
 ]
 
@@ -290,13 +322,17 @@ TEASER_DISCARD_XPATH = [
 PRECISION_DISCARD_XPATH = [
     XPath(""".//header"""),
     # 'link' matched as a whole class token, not a substring (that dropped permalink/headline-link/
-    # etc.); still drops class="link" (guarded by test_precision_recall). 'bottom'/'border' = substrings.
+    # etc.); still drops class="link" (guarded by test_precision_recall). 'border' = substring.
+    # 'bottom' must start or end a token: page-bottom chrome is named 'bottom'/'bottom-bar'/
+    # 'article-bottom', whereas a mid-token 'bottom' is a CSS spacing utility
+    # ('Padding-bottom-lg-30', 'border-bottom-0') that layout wrappers put on real content.
     XPath(
         r"""
     .//*[self::div or self::item or self::list or self::p or self::section or self::span][
-    contains(@id|@class, 'bottom') or re:test(@id|@class, '(^|\s)link(\s|$)') or contains(@style, 'border')]
+    re:test(@id|@class, '(^|\s)bottom|bottom(\s|$)') or re:test(@id|@class, '(^|\s)link(\s|$)') or
+    contains(@style, 'border')]
     """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
 ]
 # or contains(@id, "-comments") or contains(@class, "-comments")
@@ -318,12 +354,12 @@ COMMENTS_DISCARD_XPATH = [
     XPath(
         """
         .//*[
-        @class='comments-title' or 
+        @class='comments-title' or
         contains(@style, 'display:none') or
         re:test(@class, 'comments-title|nocomments|-reply-|message|signin') or
         re:test(@id|@class, '^reply-|akismet')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
 ]
 
@@ -341,7 +377,7 @@ AUTHOR_XPATHS = [
         @data-testid='AuthorCard' or @data-testid='AuthorURL' or
         re:test(@class, 'author-?name|AuthorName|authorName')]|//author
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         # almost generic and generic, last ones not common
@@ -352,7 +388,7 @@ AUTHOR_XPATHS = [
         re:test(@id, 'author|zuozhe|bianji|xiaobian') or
         re:test(@class, 'author|channel-name|zuozhe|bianji|xiaobian|submitted-by|posted-by|journalist-name')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath(
         # last resort: any element
@@ -362,7 +398,7 @@ AUTHOR_XPATHS = [
         re:test(@id, '[Aa]uthor') or
         re:test(@class, '[Aa]uthor|screenname|writer|[Bb]yline')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
 ]
 
@@ -376,7 +412,7 @@ AUTHOR_DISCARD_XPATHS = [
         re:test(@class, '^[Cc]omments|commentlist|comments-list|sidebar|is-hidden|quote|embedly-instagram|article-(?:share|support)|print|category|meta-date|meta-reviewer') or
         contains(@data-component, 'Figure')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath("//time|//figure"),
 ]
@@ -389,7 +425,7 @@ CATEGORIES_XPATHS = [
         re:test(@class, '^(?:post-?info|post-?meta|meta|entry-meta|entry-info|entry-utility)') or
         starts-with(@id, 'postpath')]//a[@href]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath("""//p[starts-with(@class, 'postmeta') or starts-with(@class, 'entry-categories') or
      @class='postinfo' or @id='filedunder']//a[@href]"""),
@@ -408,7 +444,7 @@ TAGS_XPATHS = [
     XPath(
         """//div[@class='row' or @class='jp-relatedposts' or @class='entry-utility' or
     re:test(@class, '^(?:tag|postmeta|meta)')]//a[@href]""",
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath("""//*[@class='entry-meta' or contains(@class, 'topics') or
      contains(@class, 'tags-links')]//a[@href]"""),
@@ -421,10 +457,10 @@ TITLE_XPATHS = [
     XPath(
         """
         //*[self::h1 or self::h2][
-        re:test(@class, '(?:post-|entry-|article-|post__)title|headline') or 
+        re:test(@class, '(?:post-|entry-|article-|post__)title|headline') or
         contains(@id, 'headline') or contains(@itemprop, 'headline')]
         """,
-        namespaces={"re": regexpNS},
+        namespaces={"re": REGEXP_NS},
     ),
     XPath("""//*[@class='entry-title' or @class='post-title']"""),
     XPath("""//*[self::h1 or self::h2 or self::h3][

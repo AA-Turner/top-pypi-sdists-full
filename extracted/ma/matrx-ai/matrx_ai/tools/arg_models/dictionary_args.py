@@ -8,7 +8,7 @@ live only in the DB (Rule 4). The discriminated union ``DictionaryArgs`` is what
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, RootModel
 
@@ -85,17 +85,7 @@ class DictFetchUserContentWire(ToolArgs):
 class DictionaryArgs(
     RootModel[
         Annotated[
-            Union[
-                DictListOwnersWire,
-                DictListEntriesWire,
-                DictResolveWire,
-                DictUpsertEntriesWire,
-                DictDeleteEntriesWire,
-                DictRestoreEntriesWire,
-                DictGetSettingsWire,
-                DictSetSettingsWire,
-                DictFetchUserContentWire,
-            ],
+            DictListOwnersWire | DictListEntriesWire | DictResolveWire | DictUpsertEntriesWire | DictDeleteEntriesWire | DictRestoreEntriesWire | DictGetSettingsWire | DictSetSettingsWire | DictFetchUserContentWire,
             Field(discriminator="action"),
         ]
     ]

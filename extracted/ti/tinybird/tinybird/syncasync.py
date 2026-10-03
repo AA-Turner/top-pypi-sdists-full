@@ -260,49 +260,6 @@ def _iscoroutinefunction_or_partial(func: Any) -> bool:
     return asyncio.iscoroutinefunction(func)
 
 
-class ThreadSensitiveContext:
-    """Async context manager to manage context for thread sensitive mode
-    This context manager controls which thread pool executor is used when in
-    thread sensitive mode. By default, a single thread pool executor is shared
-    within a process.
-    In Python 3.7+, the ThreadSensitiveContext() context manager may be used to
-    specify a thread pool per context.
-    In Python 3.6, usage of this context manager has no effect.
-    This context manager is re-entrant, so only the outer-most call to
-    ThreadSensitiveContext will set the context.
-    """
-
-    def __init__(self):
-        self.token = None
-
-    if contextvars:
-
-        async def __aenter__(self):
-            try:
-                SyncToAsync.thread_sensitive_context.get()
-            except LookupError:
-                self.token = SyncToAsync.thread_sensitive_context.set(self)
-
-            return self
-
-        async def __aexit__(self, exc, value, tb):
-            if not self.token:
-                return
-
-            executor = SyncToAsync.context_to_thread_executor.pop(self, None)
-            if executor:
-                executor.shutdown()
-            SyncToAsync.thread_sensitive_context.reset(self.token)
-
-    else:
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc, value, tb):
-            pass
-
-
 class AsyncToSync:
     """
     Utility class which turns an awaitable that only works on the thread with

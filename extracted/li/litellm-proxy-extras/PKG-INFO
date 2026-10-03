@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: litellm-proxy-extras
-Version: 0.4.103
+Version: 0.4.104
 Summary: Additional files for the LiteLLM Proxy. Reduces the size of the main litellm package.
 Author: BerriAI
 License-Expression: MIT
 License-File: LICENSE
+Requires-Dist: psycopg>=3.2,<4.0
+Requires-Dist: psycopg-binary>=3.2,<4.0
 Requires-Python: >=3.9
 Project-URL: Homepage, https://litellm.ai
 Project-URL: Repository, https://github.com/BerriAI/litellm

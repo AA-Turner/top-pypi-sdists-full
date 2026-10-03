@@ -25,6 +25,8 @@ from arthur_client.api_bindings.models.discovery_source_config import DiscoveryS
 from arthur_client.api_bindings.models.discovery_source_config_sort import DiscoverySourceConfigSort
 from arthur_client.api_bindings.models.discovery_source_health import DiscoverySourceHealth
 from arthur_client.api_bindings.models.discovery_source_sort import DiscoverySourceSort
+from arthur_client.api_bindings.models.discovery_source_test import DiscoverySourceTest
+from arthur_client.api_bindings.models.discovery_source_test_result import DiscoverySourceTestResult
 from arthur_client.api_bindings.models.discovery_source_type_schema import DiscoverySourceTypeSchema
 from arthur_client.api_bindings.models.discovery_source_vendor import DiscoverySourceVendor
 from arthur_client.api_bindings.models.patch_discovery_source import PatchDiscoverySource
@@ -33,6 +35,8 @@ from arthur_client.api_bindings.models.post_discovery_scan import PostDiscoveryS
 from arthur_client.api_bindings.models.post_discovery_source import PostDiscoverySource
 from arthur_client.api_bindings.models.post_discovery_source_config import PostDiscoverySourceConfig
 from arthur_client.api_bindings.models.post_discovery_source_config_engines import PostDiscoverySourceConfigEngines
+from arthur_client.api_bindings.models.post_discovery_source_test import PostDiscoverySourceTest
+from arthur_client.api_bindings.models.put_discovery_source_test_result import PutDiscoverySourceTestResult
 from arthur_client.api_bindings.models.resource_list_discovery_source import ResourceListDiscoverySource
 from arthur_client.api_bindings.models.resource_list_discovery_source_config import ResourceListDiscoverySourceConfig
 from arthur_client.api_bindings.models.resource_list_discovery_source_type_schema import ResourceListDiscoverySourceTypeSchema
@@ -2268,6 +2272,291 @@ class DiscoverySourcesV1Api:
 
 
     @validate_call
+    def get_discovery_source_test(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        test_id: Annotated[StrictStr, Field(description="The ID of the test.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> DiscoverySourceTest:
+        """Get Discovery Source Test
+
+        Returns one Test Connection request and each engine's result: whether the source was reachable from that engine, the preview rows, the output-column check and the vendor's error, credentials removed. Complete once every engine has reported or its job has ended. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param test_id: The ID of the test. (required)
+        :type test_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_source_test_serialize(
+            discovery_source_id=discovery_source_id,
+            test_id=test_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_discovery_source_test_with_http_info(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        test_id: Annotated[StrictStr, Field(description="The ID of the test.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[DiscoverySourceTest]:
+        """Get Discovery Source Test
+
+        Returns one Test Connection request and each engine's result: whether the source was reachable from that engine, the preview rows, the output-column check and the vendor's error, credentials removed. Complete once every engine has reported or its job has ended. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param test_id: The ID of the test. (required)
+        :type test_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_source_test_serialize(
+            discovery_source_id=discovery_source_id,
+            test_id=test_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_discovery_source_test_without_preload_content(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        test_id: Annotated[StrictStr, Field(description="The ID of the test.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Discovery Source Test
+
+        Returns one Test Connection request and each engine's result: whether the source was reachable from that engine, the preview rows, the output-column check and the vendor's error, credentials removed. Complete once every engine has reported or its job has ended. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param test_id: The ID of the test. (required)
+        :type test_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_source_test_serialize(
+            discovery_source_id=discovery_source_id,
+            test_id=test_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_discovery_source_test_serialize(
+        self,
+        discovery_source_id,
+        test_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if discovery_source_id is not None:
+            _path_params['discovery_source_id'] = discovery_source_id
+        if test_id is not None:
+            _path_params['test_id'] = test_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/discovery_sources/{discovery_source_id}/tests/{test_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_discovery_source_type(
         self,
         vendor: Annotated[DiscoverySourceVendor, Field(description="The vendor to fetch.")],
@@ -3634,6 +3923,316 @@ class DiscoverySourcesV1Api:
 
 
     @validate_call
+    def put_discovery_source_test_result(
+        self,
+        job_id: StrictStr,
+        job_run_id: StrictStr,
+        put_discovery_source_test_result: PutDiscoverySourceTestResult,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> DiscoverySourceTestResult:
+        """Put Discovery Source Test Result
+
+        Stores one engine's Test Connection result for an attempt of a test job dispatched to that engine. Only that engine's own account may call it. Identical retries are idempotent; a different report for the same attempt conflicts. Does not update job state.
+
+        :param job_id: (required)
+        :type job_id: str
+        :param job_run_id: (required)
+        :type job_run_id: str
+        :param put_discovery_source_test_result: (required)
+        :type put_discovery_source_test_result: PutDiscoverySourceTestResult
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_discovery_source_test_result_serialize(
+            job_id=job_id,
+            job_run_id=job_run_id,
+            put_discovery_source_test_result=put_discovery_source_test_result,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTestResult",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def put_discovery_source_test_result_with_http_info(
+        self,
+        job_id: StrictStr,
+        job_run_id: StrictStr,
+        put_discovery_source_test_result: PutDiscoverySourceTestResult,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[DiscoverySourceTestResult]:
+        """Put Discovery Source Test Result
+
+        Stores one engine's Test Connection result for an attempt of a test job dispatched to that engine. Only that engine's own account may call it. Identical retries are idempotent; a different report for the same attempt conflicts. Does not update job state.
+
+        :param job_id: (required)
+        :type job_id: str
+        :param job_run_id: (required)
+        :type job_run_id: str
+        :param put_discovery_source_test_result: (required)
+        :type put_discovery_source_test_result: PutDiscoverySourceTestResult
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_discovery_source_test_result_serialize(
+            job_id=job_id,
+            job_run_id=job_run_id,
+            put_discovery_source_test_result=put_discovery_source_test_result,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTestResult",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def put_discovery_source_test_result_without_preload_content(
+        self,
+        job_id: StrictStr,
+        job_run_id: StrictStr,
+        put_discovery_source_test_result: PutDiscoverySourceTestResult,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Put Discovery Source Test Result
+
+        Stores one engine's Test Connection result for an attempt of a test job dispatched to that engine. Only that engine's own account may call it. Identical retries are idempotent; a different report for the same attempt conflicts. Does not update job state.
+
+        :param job_id: (required)
+        :type job_id: str
+        :param job_run_id: (required)
+        :type job_run_id: str
+        :param put_discovery_source_test_result: (required)
+        :type put_discovery_source_test_result: PutDiscoverySourceTestResult
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._put_discovery_source_test_result_serialize(
+            job_id=job_id,
+            job_run_id=job_run_id,
+            put_discovery_source_test_result=put_discovery_source_test_result,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTestResult",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _put_discovery_source_test_result_serialize(
+        self,
+        job_id,
+        job_run_id,
+        put_discovery_source_test_result,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if job_id is not None:
+            _path_params['job_id'] = job_id
+        if job_run_id is not None:
+            _path_params['job_run_id'] = job_run_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if put_discovery_source_test_result is not None:
+            _body_params = put_discovery_source_test_result
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v1/jobs/{job_id}/runs/{job_run_id}/discovery_source_test_result',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def remove_discovery_source_config_engine(
         self,
         discovery_source_config_id: StrictStr,
@@ -4170,6 +4769,304 @@ class DiscoverySourcesV1Api:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v1/discovery_source_configs/{discovery_source_config_id}/credentials',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def test_discovery_source(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        post_discovery_source_test: PostDiscoverySourceTest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> DiscoverySourceTest:
+        """Test Discovery Source Connection
+
+        Runs one of this source's configs from each selected engine as a real, bounded query and reports the first rows it returns, mapped onto the discovery output contract, together with any columns the contract does not describe and the vendor's error if it failed. Nothing is published to inventory. Returns at once with one job per engine; poll the returned test for each engine's result. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param post_discovery_source_test: (required)
+        :type post_discovery_source_test: PostDiscoverySourceTest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._test_discovery_source_serialize(
+            discovery_source_id=discovery_source_id,
+            post_discovery_source_test=post_discovery_source_test,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def test_discovery_source_with_http_info(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        post_discovery_source_test: PostDiscoverySourceTest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[DiscoverySourceTest]:
+        """Test Discovery Source Connection
+
+        Runs one of this source's configs from each selected engine as a real, bounded query and reports the first rows it returns, mapped onto the discovery output contract, together with any columns the contract does not describe and the vendor's error if it failed. Nothing is published to inventory. Returns at once with one job per engine; poll the returned test for each engine's result. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param post_discovery_source_test: (required)
+        :type post_discovery_source_test: PostDiscoverySourceTest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._test_discovery_source_serialize(
+            discovery_source_id=discovery_source_id,
+            post_discovery_source_test=post_discovery_source_test,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def test_discovery_source_without_preload_content(
+        self,
+        discovery_source_id: Annotated[StrictStr, Field(description="The ID of the discovery source.")],
+        post_discovery_source_test: PostDiscoverySourceTest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Test Discovery Source Connection
+
+        Runs one of this source's configs from each selected engine as a real, bounded query and reports the first rows it returns, mapped onto the discovery output contract, together with any columns the contract does not describe and the vendor's error if it failed. Nothing is published to inventory. Returns at once with one job per engine; poll the returned test for each engine's result. Requires organization_trigger_discovery_scan permission.
+
+        :param discovery_source_id: The ID of the discovery source. (required)
+        :type discovery_source_id: str
+        :param post_discovery_source_test: (required)
+        :type post_discovery_source_test: PostDiscoverySourceTest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._test_discovery_source_serialize(
+            discovery_source_id=discovery_source_id,
+            post_discovery_source_test=post_discovery_source_test,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoverySourceTest",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _test_discovery_source_serialize(
+        self,
+        discovery_source_id,
+        post_discovery_source_test,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if discovery_source_id is not None:
+            _path_params['discovery_source_id'] = discovery_source_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if post_discovery_source_test is not None:
+            _body_params = post_discovery_source_test
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/discovery_sources/{discovery_source_id}/test',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

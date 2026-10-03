@@ -5,8 +5,8 @@ API -- ``choice`` / ``score`` / ``noul`` answers and a ``{input_tokens,
 output_tokens}`` usage block -- so a client written against Jev (for example the
 `hs-jev` Haskell client) can point its ``baseUrl`` at this server and keep
 working unchanged. All this module adds is the HTTP surface Laya itself does not
-ship: a ``POST /v1/systemone`` route, an optional bearer check, and a health
-probe.
+ship: a ``POST /v1/systemone`` route and its ``POST /v1/systemone/batch`` sibling,
+an optional bearer check, and a health probe.
 
 Configuration is entirely via environment variables so the same entry point
 serves a laptop dev run and a systemd unit:
@@ -34,6 +34,11 @@ env var                    meaning                                        defaul
 ``LAYA_MAX_CONCURRENT``    cap on requests past auth at once; excess      16
                            gets 503 (see below)
 ``LAYA_MAX_TOKEN_BUDGET``  cap on per-request max_len / head_max_len       8192
+``LAYA_JEV_STRICT``        if set, serve the strict Jev wire contract: no   0
+                           root `routing`, no per-answer `action` /
+                           `answer_confidence`, no `confidence` on noul
+                           answers, and `usage` reduced to
+                           `input_tokens` + `output_tokens`
 =========================  ============================================  =========
 
 ``LAYA_DEVICE`` is a preference, not a guarantee: an ``Agent`` that asks for a
@@ -118,6 +123,44 @@ def _env_bool(name: str, default: bool) -> bool:
     if v is None:
         return default
     return v.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _project_jev_strict(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Project a result onto the strict Jev wire contract (`LAYA_JEV_STRICT`).
+
+    The Jev `/v1/systemone` response defines exactly three top-level fields
+    (`model`, `answers`, `usage`), and each answer carries only its type's fields:
+    choice = `choice` + `probabilities` + `confidence`, score = `score` +
+    `probabilities` + `confidence` + `legend`, noul = `noul` only, and `usage` the
+    two token counts. Laya's full payload adds more: a root `routing` report, a
+    per-answer `action` head plus the calibrated `answer_confidence`, a
+    `confidence` on noul answers, and a usage report extended with the truncation
+    facts and the collapsed-options ceiling. Those additions are what a client
+    validating the response against the contract with no extra fields may reject,
+    so this keeps only the contracted keys. Nothing is recomputed: every value is
+    the one the result already carries, and an answer of an unknown shape passes
+    through unchanged so a caller still sees what it would have seen before.
+    """
+    answers: Dict[str, Any] = {}
+    for qid, answer in (result.get("answers") or {}).items():
+        kind = answer.get("type") if isinstance(answer, dict) else None
+        if kind == "choice":
+            answers[qid] = {"type": "choice", "choice": answer["choice"],
+                            "confidence": answer["confidence"],
+                            "probabilities": answer["probabilities"]}
+        elif kind == "score":
+            answers[qid] = {"type": "score", "score": answer["score"],
+                            "confidence": answer["confidence"],
+                            "probabilities": answer["probabilities"],
+                            "legend": answer["legend"]}
+        elif kind == "noul":
+            answers[qid] = {"type": "noul", "noul": answer["noul"]}
+        else:
+            answers[qid] = answer
+    usage = result.get("usage") or {}
+    return {"model": result["model"], "answers": answers,
+            "usage": {"input_tokens": usage.get("input_tokens", 0),
+                      "output_tokens": usage.get("output_tokens", 0)}}
 
 
 def _published_model_ids() -> Dict[str, str]:
@@ -530,6 +573,15 @@ def _check_request_limits(state: Any, questions: Any) -> None:
                     status_code=413,
                     detail="too many score levels for %r (%d > %d)" % (qid, count, MAX_SCORE_LEVELS),
                 )
+            # A null level is a hole in the rubric: the answer's `legend` would carry
+            # `{"<i>": null}`, which a Jev client's schema refuses to parse (#302). Reject it as a
+            # malformed request rather than answering 200 with an unparseable legend.
+            if None in crit:
+                raise HTTPException(
+                    status_code=422,
+                    detail="score question %r has a null level at index %d; give every level a "
+                           "description" % (qid, crit.index(None)),
+                )
     if total_options > MAX_TOTAL_OPTIONS:
         raise HTTPException(
             status_code=413,
@@ -559,6 +611,11 @@ def _check_batch_limits(states: Any, questions: Any) -> None:
 # strings, and `re.search` scans each at C speed, where the per-character Python loop this
 # replaced cost ~170 ms on a near-cap body on the event loop.
 _LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+
+# The answer both decision routes give to the same malformed body, written once so they cannot
+# drift: `tests/test_serve.py` asserts this text on `/v1/systemone` and on `/v1/systemone/batch`.
+_LONE_SURROGATE_DETAIL = ("request body contains an unpaired surrogate escape; "
+                          "those cannot be encoded as UTF-8")
 
 
 def _has_lone_surrogate(value: Any) -> bool:
@@ -832,9 +889,7 @@ def create_app(router: Optional[Any] = None):
         # "inference failed". A *paired* surrogate is an ordinary astral character (an emoji) by
         # the time `json.loads` is done, so only lone ones are rejected here.
         if _has_lone_surrogate(body):
-            raise HTTPException(status_code=400,
-                                detail="request body contains an unpaired surrogate escape; "
-                                       "those cannot be encoded as UTF-8")
+            raise HTTPException(status_code=400, detail=_LONE_SURROGATE_DETAIL)
         model = _resolve_model(body.get("model"))
         max_budget_cap = _resolve_max_token_budget()
         max_len = _validate_budget_param(body, "max_len", max_budget_cap)
@@ -874,6 +929,8 @@ def create_app(router: Optional[Any] = None):
                     result = await loop.run_in_executor(
                         pool, lambda: router.predict(state, questions, model=model))
                 infer_ms = (time.perf_counter() - t0) * 1000.0
+                if _env_bool("LAYA_JEV_STRICT", False):
+                    result = _project_jev_strict(result)
                 from fastapi.responses import JSONResponse
                 return JSONResponse(
                     content=result,
@@ -921,6 +978,15 @@ def create_app(router: Optional[Any] = None):
         # so without this call a batch body would silently hand a caller a shorter deadline for
         # the operator's own hooks.
         _refuse_body_refusals(body)
+        # The same guard `/v1/systemone` runs, for the same reason, and it has to walk the whole
+        # body rather than one state because that is what the batch carries: `predict_batch`
+        # tokenizes every state and every question here, so a lone `\udXXX` escape in any of them
+        # raises `TypeError` from the tokenizer and this route's `except Exception` reports the
+        # caller's own string as a 500 "inference failed" -- with a traceback per request. Ordered
+        # as on the single route: after the size checks, so `MAX_BATCH_STATES`, `MAX_STATE_CHARS`
+        # and `MAX_QUESTIONS` bound what the walk can reach.
+        if _has_lone_surrogate(body):
+            raise HTTPException(status_code=400, detail=_LONE_SURROGATE_DETAIL)
         model = _resolve_model(body.get("model"))
         max_budget_cap = _resolve_max_token_budget()
         max_len = _validate_budget_param(body, "max_len", max_budget_cap)
@@ -981,15 +1047,18 @@ def create_app(router: Optional[Any] = None):
                                    for s in states]
                     else:
                         results = [router.predict(s, questions, model=model) for s in states]
-                    total_tokens = sum(r.get("usage", {}).get("input_tokens", 0) for r in results)
+                    total_in = sum(r.get("usage", {}).get("input_tokens", 0) for r in results)
+                    total_out = sum(r.get("usage", {}).get("output_tokens", 0) for r in results)
                     return {
                         "results": results,
-                        "total_usage": {"input_tokens": total_tokens, "output_tokens": 0},
+                        "total_usage": {"input_tokens": total_in, "output_tokens": total_out},
                     }
 
                 t0 = time.perf_counter()
                 batch_res = await loop.run_in_executor(pool, _do_batch)
                 infer_ms = (time.perf_counter() - t0) * 1000.0
+                if _env_bool("LAYA_JEV_STRICT", False):
+                    batch_res["results"] = [_project_jev_strict(item) for item in batch_res["results"]]
                 from fastapi.responses import JSONResponse
                 return JSONResponse(
                     content=batch_res,

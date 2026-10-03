@@ -5,12 +5,18 @@ from .content_blocks_manager import (
 )
 from .core import SystemInstruction
 from .matrx_fetcher import MatrxFetcher, is_valid_uuid
-from .pattern_parser import MatrxPattern, MatrxPatternParser, resolve_matrx_patterns
+from .pattern_parser import (
+    MatrxPattern,
+    MatrxPatternParser,
+    expand_matrx_patterns,
+    resolve_matrx_patterns,
+)
 
 __all__ = [
     "SystemInstruction",
     "MatrxPattern",
     "MatrxPatternParser",
+    "expand_matrx_patterns",
     "resolve_matrx_patterns",
     "MatrxFetcher",
     "is_valid_uuid",

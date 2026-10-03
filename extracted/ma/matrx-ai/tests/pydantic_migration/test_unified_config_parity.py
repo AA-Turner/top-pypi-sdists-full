@@ -31,7 +31,7 @@ def test_same_fields_in_the_same_order():
 
 
 def test_field_count_matches_dataclass():
-    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 98
+    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 99
 
 
 def test_annotations_are_identical_except_the_staged_two():

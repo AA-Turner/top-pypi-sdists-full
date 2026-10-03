@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clai
-Version: 2.53.0
+Version: 2.54.0
 Summary: Pydantic AI CLI: command line interface to chat to LLMs
 Author-email: Samuel Colvin <samuel@pydantic.dev>, Marcelo Trylesinski <marcelotryle@gmail.com>, David Montague <david@pydantic.dev>, Alex Hall <alex@pydantic.dev>, Douwe Maan <douwe@pydantic.dev>
 License-Expression: MIT
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai==2.53.0
+Requires-Dist: pydantic-ai==2.54.0
 Description-Content-Type: text/markdown
 
 # clai

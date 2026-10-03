@@ -704,6 +704,49 @@ _NearCells = collections.namedtuple("_NearCells", "entry seg vals")
 _BandRows = collections.namedtuple("_BandRows", "G Ms i_of_entry last carry")
 
 
+# Source bytes `_ordered_row_scatter` gathers per fancy-indexed add: its
+# scratch stays a few MB rather than a copy of the band it scatters.
+_ROW_SCATTER_CHUNK_BYTES = 8 << 20
+
+
+def _ordered_row_scatter(dest, idx, src):
+    """`np.add.at(dest, idx, src)` for a 1-D index along dest's first axis,
+    to the bit, without ufunc.at's element-at-a-time loop (momwire#1290:
+    1.28 s of a 6.9 s free-space solve at N = 2816).
+
+    `np.add.at` is unbuffered: `dest[idx[e]] += src[e]` for e ascending, so
+    each destination row receives its entries' rows one addition at a time,
+    in entry order — the order the fused fill's bit-identity rests on
+    (`_scatter_band`). Rank each entry among the entries sharing its
+    destination (a stable sort, so rank r IS the r-th addition that row
+    receives) and add rank 0's rows, then rank 1's, and so on. Within a
+    rank the destinations are distinct, so a buffered fancy-indexed `+=`
+    loses nothing; across ranks every row meets its entries in ascending
+    order. Each addition is an elementwise IEEE add of the same two
+    operands, with no reduction to reassociate, so the sums cannot depend
+    on the platform's SIMD width or library either. The rank count is a
+    basis's support size: 2 on a plain wire, the member count at a
+    junction."""
+    n = idx.shape[0]
+    if n == 0:
+        return
+    order = np.argsort(idx, kind="stable")
+    srt = idx[order]
+    pos = np.arange(n, dtype=np.int64)
+    new = np.empty(n, dtype=bool)
+    new[0] = True
+    np.not_equal(srt[1:], srt[:-1], out=new[1:])
+    rank = np.empty(n, dtype=np.int64)
+    rank[order] = pos - np.maximum.accumulate(np.where(new, pos, 0))
+    by_rank = np.argsort(rank, kind="stable")
+    cuts = np.searchsorted(rank[by_rank], np.arange(int(rank.max()) + 2))
+    chunk = max(1, _ROW_SCATTER_CHUNK_BYTES // max(1, src.itemsize * (src.size // n)))
+    for r0, r1 in zip(cuts[:-1], cuts[1:]):
+        for c0 in range(r0, r1, chunk):
+            sel = by_rank[c0 : min(c0 + chunk, r1)]
+            dest[idx[sel]] += src[sel]
+
+
 def _solve_in_place(G, rhs):
     """Solve G·x = rhs, factoring G IN PLACE — G holds its LU factors after.
 
@@ -730,6 +773,35 @@ def _solve_in_place(G, rhs):
     if not np.all(np.diagonal(lu_piv[0])):
         raise np.linalg.LinAlgError("singular matrix")
     return scipy.linalg.lu_solve(lu_piv, rhs)
+
+
+def _solve_constrained(G, rhs, C):
+    """Solve G·x = rhs on the subspace C·x = 0 (Galerkin: the constrained
+    trial functions are the test functions too), or `_solve_in_place` when C
+    is None — the unconstrained path, bit for bit.
+
+    Eliminates one unknown per row of C: pivots p from a column-pivoted QR of
+    C, the rest r, and x_p = T·x_r with T = −C_p⁻¹·C_r. The reduced system
+    is PᵀGP with P = [I; T] stacked over (r, p), assembled from G's four
+    blocks in O(n²·m) rather than as a dense product. The transpose and not
+    the adjoint: the bilinear form is the un-conjugated one this family
+    assembles G with.
+    """
+    if C is None:
+        return _solve_in_place(G, rhs)
+    m, n = C.shape
+    _q, _r, perm = scipy.linalg.qr(C, mode="economic", pivoting=True)
+    p, r = np.sort(perm[:m]), np.setdiff1d(np.arange(n), perm[:m])
+    T = -np.linalg.solve(C[:, p], C[:, r])
+    Grp = G[np.ix_(r, p)]
+    Gpr = G[np.ix_(p, r)]
+    Gc = G[np.ix_(r, r)] + T.T @ Gpr + Grp @ T + T.T @ G[np.ix_(p, p)] @ T
+    rhs_c = rhs[r] + T.T @ rhs[p]
+    x_r = _solve_in_place(np.asfortranarray(Gc), rhs_c)
+    x = np.empty((n,) + x_r.shape[1:], dtype=np.result_type(x_r, T))
+    x[r] = x_r
+    x[p] = T @ x_r
+    return x
 
 
 def _graded_endpoint_rule(eps, n_per_panel, leggauss):
@@ -1390,12 +1462,15 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
           that a node source has an identically zero RHS in the point-matched
           solver, read as a statement about the TESTING rather than the basis.
         """
-        N = geom["n_segs"]
-        n_basis = N + self._n_extra_cols()
-        grounded = geom["grounded_junctions"]
-        out = np.zeros((n_basis, len(self.node_ports)), dtype=np.complex128)
-        starts = seg_view["starts"]
-        seg_h = np.asarray(geom["seg_h"], dtype=float)
+        # A crossing junction is grounded by geometry but is not shorted to
+        # the plane — one member is in the soil — and its node port is served
+        # with the continuity `_crossing_continuity_rows` imposes, which is
+        # what restores the identity above there (momwire#1282).
+        grounded = geom["grounded_junctions"] - self._node_port_crossing_junctions()
+        out = np.zeros(
+            (geom["n_segs"] + self._n_extra_cols(), len(self.node_ports)),
+            dtype=np.complex128,
+        )
         for p, (j_idx, side_a, _v) in enumerate(self.node_ports):
             if j_idx in grounded:
                 raise ValueError(
@@ -1404,23 +1479,72 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                     "image (#151), so the members' currents do not close on "
                     "each other and there is no through-current to drive"
                 )
-            members = self._junction_members(geom, j_idx)
-            for mi in side_a:
-                m, sgn = members[mi]
-                half = 0.5 * float(seg_h[m])
-                s, e = starts[m], starts[m + 1]
-                sig = seg_view["sigma"][s:e]
-                # ξ = σ_m·h_m/2; cos is even in ξ so the folded sin² term
-                # needs no sign, and B's sin(kξ) carries it (#203).
-                val = _basis_value(
-                    sig * seg_view["AC"][s:e],
-                    seg_view["B"][s:e],
-                    sig * seg_view["C"][s:e],
-                    _entry_k(seg_view, s, e, k),
-                    half * sgn,
-                )
-                np.add.at(out[:, p], seg_view["jbasis"][s:e], sgn * val)
+            out[:, p] = self._node_inflow(geom, seg_view, k, j_idx, side_a)
         return out
+
+    def _node_inflow(self, geom, seg_view, k, j_idx, member_indices):
+        """(n_basis,) — each basis's current flowing INTO junction `j_idx`'s
+        node along the members named by `member_indices` (see
+        `_node_cut_vectors` for the shape and the sign)."""
+        out = np.zeros(geom["n_segs"] + self._n_extra_cols(), dtype=np.complex128)
+        starts = seg_view["starts"]
+        seg_h = np.asarray(geom["seg_h"], dtype=float)
+        members = self._junction_members(geom, j_idx)
+        for mi in member_indices:
+            m, sgn = members[mi]
+            half = 0.5 * float(seg_h[m])
+            s, e = starts[m], starts[m + 1]
+            sig = seg_view["sigma"][s:e]
+            # ξ = σ_m·h_m/2; cos is even in ξ so the folded sin² term
+            # needs no sign, and B's sin(kξ) carries it (#203).
+            val = _basis_value(
+                sig * seg_view["AC"][s:e],
+                seg_view["B"][s:e],
+                sig * seg_view["C"][s:e],
+                _entry_k(seg_view, s, e, k),
+                half * sgn,
+            )
+            np.add.at(out, seg_view["jbasis"][s:e], sgn * val)
+        return out
+
+    def _node_port_crossing_junctions(self):
+        """Indices of the CROSSING junctions a node port names (momwire#1282).
+
+        Empty without node ports or ground, so no other deck reaches the
+        crossing scope from here."""
+        if not self.node_ports or self.ground_z is None:
+            return frozenset()
+        named = {j for j, _side, _v in self.node_ports}
+        candidates = named & set(self._grounded_junctions())
+        if not candidates:
+            return frozenset()
+        return frozenset(candidates & set(self._crossing_junction_indices()))
+
+    def _crossing_continuity_rows(self, geom, seg_view, k):
+        """(m, n_basis) — the current-continuity row of every crossing
+        junction a node port names, or None when there is none (momwire#1282).
+
+        A crossing node is C0 in this family: each member's end basis is
+        value 1 there and couples to no partner, and continuity through the
+        node emerges from the crossing fill's wings and corner rather than
+        being imposed. That is a statement about a node nothing drives. A
+        node port's drive is one side's through-current, so with the members
+        free the source sits between the node and that side alone and the
+        far side's current is free to differ — Dan AC6LA's deck answered
+        0.25 + 0.46j ohm apart between its two spellings. The row is the net
+        inflow over ALL members, which an ordinary junction satisfies
+        identically (#177); imposing it makes the two sides' cut vectors
+        minus each other on the solution space, so either member names the
+        same port — the series EMF NEC-5 puts on the node."""
+        crossing = sorted(self._node_port_crossing_junctions())
+        if not crossing:
+            return None
+        return np.stack(
+            [
+                self._node_inflow(geom, seg_view, k, j, range(len(self.junctions[j])))
+                for j in crossing
+            ]
+        )
 
     @property
     def n_ports(self):
@@ -3253,27 +3377,40 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         def _reduce_masked(i0, i1, block):
             # `i0:i1` index the KEPT observers; map back to whole test
             # segments of the full deck and reduce into their own entries.
+            #
+            # One reduction per chunk, not one per kept segment (momwire#1224:
+            # the per-segment loop was ~4200 small calls and ~0.6 s of the SG
+            # buried x8 fill). Each entry's row is still its own nq-term sum
+            # in node order -- `_tested_contrib_rows` never mixes entries --
+            # and the subtraction is elementwise, so batching moves no bits.
             m0, m1 = i0 // nq, i1 // nq
-            for j, m in enumerate(seg_keep[m0:m1]):
-                e0, e1 = starts_pad[m], starts_pad[m + 1]
-                if e1 == e0:
-                    continue
-                w = w_entry[e0:e1]
-                m_loc = np.zeros(e1 - e0, dtype=np.int64)
-                for dest, sblk in zip(subtract_from, block):
-                    rows = self._tested_contrib_rows(
-                        w, m_loc, nq, sblk[j * nq : (j + 1) * nq].reshape(1, nq, -1)
-                    )
-                    if src_cols is None:
-                        np.subtract(dest[e0:e1], rows, out=dest[e0:e1])
-                    else:
-                        # The remainder was prepared over ONE medium's
-                        # geometry, so its source axis is that class's, while
-                        # `dest` is full width. Place it on the class's own
-                        # columns; every other column of this block stays as
-                        # the image left it, which the caller's quadrant mask
-                        # then discards.
-                        dest[np.ix_(np.arange(e0, e1), src_cols)] -= rows
+            segs = seg_keep[m0:m1]
+            e_lo = starts_pad[segs]
+            counts = starts_pad[segs + 1] - e_lo
+            n_ent = int(counts.sum())
+            if n_ent == 0:
+                return
+            # The entries of every kept segment in the chunk, in segment
+            # order, and each one's chunk-local segment index.
+            m_loc = np.repeat(np.arange(segs.size, dtype=np.int64), counts)
+            ent = e_lo[m_loc] + (
+                np.arange(n_ent, dtype=np.int64)
+                - np.repeat(np.cumsum(counts) - counts, counts)
+            )
+            w = w_entry[ent]
+            for dest, sblk in zip(subtract_from, block):
+                rows = self._tested_contrib_rows(
+                    w, m_loc, nq, sblk.reshape(segs.size, nq, -1)
+                )
+                if src_cols is None:
+                    dest[ent] -= rows
+                else:
+                    # The remainder was prepared over ONE medium's geometry,
+                    # so its source axis is that class's, while `dest` is
+                    # full width. Place it on the class's own columns; every
+                    # other column of this block stays as the image left it,
+                    # which the caller's quadrant mask then discards.
+                    dest[np.ix_(ent, src_cols)] -= rows
 
         _ = sub_starts
         fg.remainder("cos-1").replay(
@@ -4323,9 +4460,10 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         with `T[i] = R[i] @ contrib`: scipy's csr product starts each row at
         zero and adds basis i's entries' rows in ascending entry order (the
         unit weights multiply exactly). So T rows are accumulated here the
-        same way — the basis's carried partial row, or zeros, then
-        `np.add.at` over this band's entries in ascending order, which is
-        unbuffered and walks them in index order — and since every band
+        same way — the basis's carried partial row, or zeros, then this
+        band's entries added one at a time in ascending order
+        (`_ordered_row_scatter`, `np.add.at`'s order without its per-element
+        loop) — and since every band
         follows every earlier one, a basis that straddles bands meets its
         entries in the sequence the whole product did. A basis is finished at
         the band holding its LAST entry; its rows of the three products
@@ -4344,7 +4482,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 for t, g in zip(T, got):
                     t[r] = g
         for t, c in zip(T, band):
-            np.add.at(t, local, c)
+            _ordered_row_scatter(t, local, c)
         done = rows.last[touched] < e1
         if done.any():
             fin = np.flatnonzero(done)
@@ -4738,8 +4876,9 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
           and the band buffer dies. Banding over TEST segments (not source
           columns, and not per block) is what keeps it bit-exact: a matrix
           cell's writers are its own test segment's entries, so a cell is
-          finished inside one band and `np.add.at` reaches it in the same
-          ascending-entry order the whole-triple scatter did. Folding per
+          finished inside one band and the scatter (`_ordered_row_scatter`)
+          reaches it in the same ascending-entry order the whole-triple
+          scatter did. Folding per
           BLOCK instead — the other shape momwire#355 floated — would have
           re-associated the free-space and image writes into G, which is not
           the same float64 sum.
@@ -4797,12 +4936,12 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             rows = i_of_entry[e0:e1]
             for dest, c in zip(T, corr):
                 # The scatter's own accumulation, reached one band early.
-                # `np.add.at` is unbuffered and walks the band in ascending
-                # entry order, which is the order `R @ corr` sums a basis
+                # `_ordered_row_scatter` adds the band's rows one at a time in
+                # ascending entry order, which is the order `R @ corr` sums a basis
                 # row's entries in — and the bands are ascending too, so every
                 # T cell sees exactly the sequence of additions the
                 # whole-triple product performed.
-                np.add.at(dest, rows, c)
+                _ordered_row_scatter(dest, rows, c)
         if not any(np.any(t) for t in T):
             return
         if not self._band_fill_serves(N):
@@ -5435,7 +5574,11 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             voltages = self._port_voltages()
             self._checkpoint()  # after assembly, before the dense solve
 
-            alpha = _solve_in_place(G, U @ voltages)
+            alpha = _solve_constrained(
+                G,
+                U @ voltages,
+                self._crossing_continuity_rows(geom, seg_view, self.k),
+            )
 
             # Inside the medium too (momwire#1159): an off-centre point gap's
             # readout writes the shapes at `self.k`, which is k_m only here.
@@ -5506,7 +5649,9 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 geom, self.k, self._medium_eta(medium)
             )
             U = self._drive_columns(geom, seg_view, self.k)
-            alphas = _solve_in_place(G, U)
+            alphas = _solve_constrained(
+                G, U, self._crossing_continuity_rows(geom, seg_view, self.k)
+            )
             Y = np.stack(
                 [
                     self._port_currents(alphas[:, j], geom, seg_view, U)

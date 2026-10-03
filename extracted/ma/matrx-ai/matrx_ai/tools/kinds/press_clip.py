@@ -32,6 +32,7 @@ PressClipLogoSource = Literal[
 
 @kind(
     "press_clip_render",
+    disposition="record",
     label="Press Clip Render",
     family="press",
     # A REAL measured render: Waste Dive, 2026-09-27, client "Recycle Coach",

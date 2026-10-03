@@ -69,6 +69,7 @@ from matrx_ai.config.output_ceiling import (
     enforce_document_ceiling,
     model_output_maximum,
 )
+from matrx_ai.graph_nodes.class_pin import CLASS_FIELD, node_class_pin
 
 #: The Mandate that holds every runtime AI step of an authored workflow.
 #: Declared in ``aidream/workflows/mandates.py``; spelled here once.
@@ -135,6 +136,47 @@ def _holder_identity(resolution: Any, agent: Any) -> dict[str, Any]:
         "is_version": bool(getattr(source, "is_version", False)),
         "name": getattr(agent, "name", None),
     }
+
+
+def _settle_step_class(
+    merged: dict[str, Any],
+    step: dict[str, Any],
+    *,
+    holder_config: Any,
+    binding_overrides: dict[str, Any],
+    filled: list[str],
+    where: str,
+) -> None:
+    """The step's class pin, settled WITH the model it belongs to.
+
+    An author's ``offering_id`` beside the author's own ``model`` runs (dropped
+    loudly when it names no model or another model's class). Left unset, the
+    binding's / Holder's pin fills it ONLY when that layer also chose the
+    model (the author left ``model`` unset) — a class goes with whoever chose
+    the model, and never crosses to another model. An author's own model with
+    no class runs that model's preferred class."""
+    authored = step.get(CLASS_FIELD)
+    if authored is not None:
+        merged[CLASS_FIELD] = node_class_pin(step.get("model"), authored, where=where)
+        return
+    if step.get("model") is not None:
+        return
+    from matrx_ai.config.llm_params import merge_llm_overrides
+
+    holder_layer: dict[str, Any] = {}
+    if holder_config is not None:
+        holder_layer = {
+            "model": getattr(holder_config, "model", None),
+            CLASS_FIELD: getattr(holder_config, CLASS_FIELD, None),
+        }
+    binding_layer = {
+        key: binding_overrides[key] for key in ("model", CLASS_FIELD) if key in binding_overrides
+    }
+    effective = merge_llm_overrides(holder_layer, binding_layer)
+    pin = effective.get(CLASS_FIELD)
+    if pin and effective.get("model") and str(effective["model"]) == str(merged.get("model")):
+        merged[CLASS_FIELD] = str(pin)
+        filled.append(CLASS_FIELD)
 
 
 async def hold_step(
@@ -224,11 +266,12 @@ async def hold_step(
 
     merged = dict(step)
     filled: list[str] = []
+    holder_config = getattr(agent, "config", None) if resolution is not None else None
+    binding_overrides = dict(resolution.config_overrides or {}) if resolution is not None else {}
     if resolution is not None:
-        holder_config = getattr(agent, "config", None)
-        binding_overrides = dict(resolution.config_overrides or {})
         for key, value in step.items():
-            if value is not None:
+            if value is not None or key == CLASS_FIELD:
+                # The class is settled below, WITH the model it belongs to.
                 continue
             candidate = binding_overrides.get(key)
             if candidate is None and holder_config is not None:
@@ -239,6 +282,16 @@ async def hold_step(
                 continue
             merged[key] = candidate
             filled.append(key)
+
+    if CLASS_FIELD in step:
+        _settle_step_class(
+            merged,
+            step,
+            holder_config=holder_config,
+            binding_overrides=binding_overrides,
+            filled=filled,
+            where=f"{spec_type} step ({consumer})",
+        )
 
     # THE DOCUMENT-CEILING FLOOR FOR AUTHORED STEPS. A step whose output is a
     # DOCUMENT — free prose, or a declared schema carrying an array or a

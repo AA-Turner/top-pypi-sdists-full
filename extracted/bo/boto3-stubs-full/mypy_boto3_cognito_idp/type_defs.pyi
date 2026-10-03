@@ -92,6 +92,7 @@ __all__ = (
     "AccountTakeoverActionTypeTypeDef",
     "AccountTakeoverActionsTypeTypeDef",
     "AccountTakeoverRiskConfigurationTypeTypeDef",
+    "AcrLevelConfigTypeTypeDef",
     "AddCustomAttributesRequestTypeDef",
     "AddUserPoolClientSecretRequestTypeDef",
     "AddUserPoolClientSecretResponseTypeDef",
@@ -436,6 +437,9 @@ class AccountTakeoverActionTypeTypeDef(TypedDict):
     Notify: bool
     EventAction: AccountTakeoverEventActionTypeType
 
+class AcrLevelConfigTypeTypeDef(TypedDict):
+    AcrValue: str
+
 class AddUserPoolClientSecretRequestTypeDef(TypedDict):
     UserPoolId: str
     ClientId: str
@@ -701,6 +705,7 @@ class CreateIdentityProviderRequestTypeDef(TypedDict):
     ProviderDetails: Mapping[str, str]
     AttributeMapping: NotRequired[Mapping[str, str]]
     IdpIdentifiers: NotRequired[Sequence[str]]
+    AcrMapping: NotRequired[Mapping[str, str]]
 
 class IdentityProviderTypeTypeDef(TypedDict):
     UserPoolId: NotRequired[str]
@@ -709,6 +714,7 @@ class IdentityProviderTypeTypeDef(TypedDict):
     ProviderDetails: NotRequired[dict[str, str]]
     AttributeMapping: NotRequired[dict[str, str]]
     IdpIdentifiers: NotRequired[list[str]]
+    AcrMapping: NotRequired[dict[str, str]]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
 
@@ -1224,6 +1230,7 @@ class UpdateIdentityProviderRequestTypeDef(TypedDict):
     ProviderDetails: NotRequired[Mapping[str, str]]
     AttributeMapping: NotRequired[Mapping[str, str]]
     IdpIdentifiers: NotRequired[Sequence[str]]
+    AcrMapping: NotRequired[Mapping[str, str]]
 
 class UpdateTermsRequestTypeDef(TypedDict):
     TermsId: str
@@ -1991,6 +1998,7 @@ class AdminRespondToAuthChallengeResponseTypeDef(TypedDict):
     Session: str
     ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
+    AvailableChallenges: list[ChallengeNameTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTokensFromRefreshTokenResponseTypeDef(TypedDict):
@@ -2010,6 +2018,7 @@ class RespondToAuthChallengeResponseTypeDef(TypedDict):
     Session: str
     ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
+    AvailableChallenges: list[ChallengeNameTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CompromisedCredentialsRiskConfigurationTypeUnionTypeDef = Union[
@@ -2185,6 +2194,7 @@ class UserPoolTypeTypeDef(TypedDict):
     UserPoolTier: NotRequired[UserPoolTierTypeType]
     KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
     IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
+    AcrConfiguration: NotRequired[dict[str, AcrLevelConfigTypeTypeDef]]
 
 UserPoolPolicyTypeUnionTypeDef = Union[UserPoolPolicyTypeTypeDef, UserPoolPolicyTypeOutputTypeDef]
 
@@ -2297,6 +2307,7 @@ class CreateUserPoolRequestTypeDef(TypedDict):
     UserPoolTier: NotRequired[UserPoolTierTypeType]
     KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
     IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
+    AcrConfiguration: NotRequired[Mapping[str, AcrLevelConfigTypeTypeDef]]
 
 class UpdateUserPoolRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -2322,6 +2333,7 @@ class UpdateUserPoolRequestTypeDef(TypedDict):
     UserPoolTier: NotRequired[UserPoolTierTypeType]
     KeyConfiguration: NotRequired[KeyConfigurationTypeTypeDef]
     IssuerConfiguration: NotRequired[IssuerConfigurationTypeTypeDef]
+    AcrConfiguration: NotRequired[Mapping[str, AcrLevelConfigTypeTypeDef]]
 
 class DescribeRiskConfigurationResponseTypeDef(TypedDict):
     RiskConfiguration: RiskConfigurationTypeTypeDef

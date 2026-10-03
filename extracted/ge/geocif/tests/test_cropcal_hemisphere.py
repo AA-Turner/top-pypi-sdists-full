@@ -174,3 +174,24 @@ def test_season_blocks_follow_the_latitude_not_the_zone_label():
     july_warm = 20.0 + 10.0 * np.cos(2 * np.pi * (doy - 200) / 365.0)
     row = _bare_row(tmean=july_warm)                    # 9 N, labelled S: July is summer
     assert row["tmean_summer_max"] > row["tmean_winter_max"] + 10
+
+
+def test_predict_is_pinned_to_default_sklearn_output(monkeypatch):
+    """In-context models work at predict time; a global "pandas" setting must not reach them."""
+    import sklearn
+
+    seen = []
+
+    class _Checks(_Mean):
+        def predict(self, X):
+            seen.append(sklearn.get_config()["transform_output"])
+            return super().predict(X)
+
+    monkeypatch.setattr(models, "_fit_one", lambda name, X, y, names: _Checks(y))
+    previous = sklearn.get_config()["transform_output"]
+    sklearn.set_config(transform_output="pandas")
+    try:
+        _evaluate(_two_hemisphere_frame())
+    finally:
+        sklearn.set_config(transform_output=previous)
+    assert seen and set(seen) == {"default"}

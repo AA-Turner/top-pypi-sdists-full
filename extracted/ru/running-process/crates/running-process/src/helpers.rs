@@ -1,8 +1,8 @@
 use std::fs::OpenOptions;
 use std::io::Write;
-#[cfg(any(test, unix))]
+#[cfg(test)]
 use std::sync::Mutex;
-#[cfg(any(test, unix))]
+#[cfg(test)]
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -22,7 +22,10 @@ pub(crate) fn kill_drain_deadline() -> Instant {
     Instant::now() + crate::env_vars::KILL_DRAIN_TIMEOUT_MS.millis_or(DEFAULT_KILL_DRAIN_TIMEOUT)
 }
 
-#[cfg(any(test, unix))]
+// Test-only: the child no longer lives behind a mutex that callers poll
+// (#850); its actor owns it. The helpers stay as the regression fixtures that
+// pin "a poll never holds a lock between attempts" for sync-baselined tests.
+#[cfg(test)]
 pub(crate) fn poll_until<T>(
     deadline: Instant,
     interval: Duration,
@@ -40,7 +43,7 @@ pub(crate) fn poll_until<T>(
     }
 }
 
-#[cfg(any(test, unix))]
+#[cfg(test)]
 pub(crate) fn poll_mutex_until<S, T>(
     state: &Mutex<S>,
     deadline: Instant,
@@ -61,7 +64,6 @@ pub(crate) fn completed_reap_after_signal<T>(result: std::io::Result<Option<T>>)
     result.ok().flatten()
 }
 
-#[cfg(any(test, unix))]
 pub(crate) fn child_try_wait_error_is_retryable(error: &std::io::Error) -> bool {
     error.kind() == std::io::ErrorKind::Interrupted
 }
@@ -135,6 +137,7 @@ pub(crate) fn feed_chunk(pending: &mut Vec<u8>, chunk: &[u8]) -> Vec<Vec<u8>> {
 /// no signals and always has a code. Both spellings already live in
 /// `platform::process`, which is where the difference belongs -- this used
 /// to be a second copy of them.
+#[cfg(test)]
 pub(crate) fn exit_code(status: std::process::ExitStatus) -> i32 {
     crate::platform::process::exit_code(status)
 }

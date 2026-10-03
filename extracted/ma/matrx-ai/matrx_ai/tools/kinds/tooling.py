@@ -12,6 +12,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "tool_bundle_listing",
+    disposition="record",
     label="Tool Bundle Listing",
     family="tooling",
     example={

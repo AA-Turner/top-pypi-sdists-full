@@ -34,7 +34,7 @@ else:
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, Tracer
 
-from ._cancellation import CANCEL_MSG_CLEANUP, _wait_for_event, cancel_task
+from ._cancellation import CANCEL_MSG_CLEANUP, _wait_for_event, cancel_task, cancelling
 from ._lua import Arg, Key, redis_script
 from ._redelivery import RedeliverySweep, renew_leases
 from ._redis import RedisClient, redis_is_unavailable
@@ -131,6 +131,11 @@ class _ProcessingSession:
 
     stopping: asyncio.Event
     cancellation_ready: asyncio.Event
+    # The task that runs the worker loop, and its cancel requests when this session
+    # started.  A graceful shutdown leaves its request in place, so the count starts
+    # above zero when the same task runs the worker again.
+    loop_task: asyncio.Task[Any] | None = None
+    loop_task_cancelling: int = 0
 
 
 async def default_fallback_task(
@@ -326,6 +331,8 @@ class Worker:
         self._stack.callback(lambda: delattr(self, "_execution_counts"))
         self._tasks_by_key: dict[TaskKey, asyncio.Task[None]] = {}
         self._stack.callback(lambda: delattr(self, "_tasks_by_key"))
+        self._cancelled_by_docket: set[asyncio.Task[None]] = set()
+        self._stack.callback(lambda: delattr(self, "_cancelled_by_docket"))
 
         # The heartbeat task is owned by each processing attempt, not the
         # Worker context.  It starts only after that attempt can claim work.
@@ -641,6 +648,8 @@ class Worker:
         session = _ProcessingSession(
             stopping=asyncio.Event(),
             cancellation_ready=asyncio.Event(),
+            loop_task=asyncio.current_task(),
+            loop_task_cancelling=cancelling(asyncio.current_task()),
         )
         self._processing_session = session
         stopping = self._worker_stopping
@@ -707,7 +716,7 @@ class Worker:
             )
 
             task = asyncio.create_task(
-                self._execute(execution),
+                self._execute(execution, session),
                 name=f"{self.docket.name} - task:{execution.key}",
             )
             active_tasks[task] = message_id
@@ -723,6 +732,21 @@ class Worker:
                 message_id = active_tasks.pop(task)
                 execution = task_executions.pop(task)
                 self._tasks_by_key.pop(execution.key, None)
+                cancelled_by_docket = task in self._cancelled_by_docket
+                self._cancelled_by_docket.discard(task)
+                if task.cancelled():
+                    # A cancel before the claim, or one during shutdown that
+                    # docket.cancel() did not send, ends the task cancelled.
+                    # Awaiting the task would raise that CancelledError here,
+                    # and this loop would stop as if it were shut down.  For a
+                    # docket.cancel(), marking the task cancelled acknowledges
+                    # its message.  It also publishes the cancelled state, which
+                    # docket.cancel() leaves to the worker once the claim has
+                    # run.  After any other cancel, the loop writes nothing, and
+                    # the message stays pending for redelivery.
+                    if cancelled_by_docket:
+                        await execution.mark_as_cancelled()
+                    continue
                 try:
                     await task
                 except AdmissionBlocked as e:
@@ -774,7 +798,14 @@ class Worker:
                     if cm is not None:
                         await dependency_stack.enter_async_context(cm)
 
-                async with TaskGroup() as infra:
+                async with TaskGroup() as infra, AsyncExitStack() as on_exit:
+                    # However this block ends, the infrastructure tasks see
+                    # session.stopping before the group waits for them.  They
+                    # must not depend on the group's cancel: on Python 3.10,
+                    # redis-py's read timeout can swallow a cancel that lands
+                    # in the same step, and the group would wait forever.
+                    on_exit.callback(session.stopping.set)
+
                     # Start cancellation listener and wait for it to be ready
                     infra.create_task(
                         self._cancellation_listener(),
@@ -786,7 +817,6 @@ class Worker:
                     ):
                         await _wait_for_event(session.cancellation_ready, 0.1)
                     if stopping.is_set():
-                        session.stopping.set()
                         return
                     if self.schedule_automatic_tasks:
                         try:
@@ -802,7 +832,9 @@ class Worker:
                                 self._reseed_automatic_perpetual_tasks_loop(),
                                 name=f"{self.docket.name} - automatic perpetual reseed",
                             )
-                    if redis_error is None:
+                    # The false branch jumps to the end of the async with,
+                    # and how coverage sees that exit varies across interpreters.
+                    if redis_error is None:  # pragma: no branch
                         infra.create_task(
                             self._scheduler_loop(redis),
                             name=f"{self.docket.name} - scheduler",
@@ -860,8 +892,6 @@ class Worker:
                                 redis_error = error
                                 break
 
-                    session.stopping.set()
-
             # A Redis error caught above leaves the TaskGroup intact (no
             # exception escaped it), so re-raise it here on its own for _run
             # to catch and retry on.
@@ -883,7 +913,7 @@ class Worker:
             if active_tasks:
                 await asyncio.gather(*active_tasks, return_exceptions=True)
                 await process_completed_tasks()
-            if self._processing_session is session:
+            if self._processing_session is session:  # pragma: no branch
                 self._processing_session = None
 
     async def _scheduler_loop(self, redis: Redis) -> None:
@@ -1034,7 +1064,7 @@ class Worker:
         stream_id_key = self.docket.stream_id_key(execution.key)
         await redis.delete(known_task_key, stream_id_key)
 
-    async def _execute(self, execution: Execution) -> None:
+    async def _execute(self, execution: Execution, session: _ProcessingSession) -> None:
         log_context = {**self._log_context(), **execution.specific_labels()}
         counter_labels = {**self.labels(), **execution.general_labels()}
 
@@ -1049,8 +1079,12 @@ class Worker:
             TASKS_STRICKEN.add(1, counter_labels | {"docket.where": "worker"})
             return
 
-        # Atomically check supersession and claim task in a single round-trip
+        # Atomically check supersession and claim task in a single round-trip.
+        # docket.cancel() already counted a cancelled task, so skip the counter.
         if not await execution.claim(self.name):
+            if execution._refused_as_cancelled:
+                logger.info("✗ %s (cancelled)", call, extra=log_context)
+                return
             logger.info("↬ %s (superseded)", call, extra=log_context)
             TASKS_SUPERSEDED.add(1, counter_labels | {"docket.where": "worker"})
             return
@@ -1187,8 +1221,16 @@ class Worker:
                 span.set_status(Status(StatusCode.OK))
                 raise
             except asyncio.CancelledError:
-                # Task was cancelled externally via docket.cancel()
                 duration = log_context["duration"] = time.time() - start
+                # A cancel during shutdown leaves the message pending for redelivery,
+                # unless docket.cancel() sent it.  asyncio.run() cancels the loop task
+                # and this task at once, before the drain starts.  Only Python 3.11 and
+                # later count cancel requests, so on 3.10 this task ends cancelled.
+                if asyncio.current_task() not in self._cancelled_by_docket and (
+                    session.stopping.is_set()
+                    or cancelling(session.loop_task) > session.loop_task_cancelling
+                ):
+                    raise
                 span.set_status(Status(StatusCode.OK))
                 await execution.mark_as_cancelled()
                 logger.info(
@@ -1380,12 +1422,12 @@ class Worker:
             try:
                 async with self.docket._pubsub() as pubsub:
                     await pubsub.psubscribe(cancel_pattern)
-                    while not session.stopping.is_set():
+                    while not session.stopping.is_set():  # pragma: no branch
                         message = await pubsub.get_message(
                             ignore_subscribe_messages=False, timeout=0.1
                         )
                         if message is None:
-                            continue
+                            continue  # pragma: no cover - CPython gh-106749
                         if message["type"] == "pmessage":
                             await self._handle_cancellation(message)
                         else:
@@ -1425,4 +1467,5 @@ class Worker:
                 key,
                 extra=self._log_context(),
             )
+            self._cancelled_by_docket.add(task)
             task.cancel()

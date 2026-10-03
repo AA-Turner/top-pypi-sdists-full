@@ -24,7 +24,7 @@ import httpx
 
 from matrx_scraper.seo_audit import audit_html, build_page_check_report, evidence_from_audit
 from matrx_scraper.url_utils import accept_url_input
-from matrx_scraper.utils.url import validate_public_http_url
+from matrx_scraper.utils.url import public_http_client, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
@@ -225,7 +225,7 @@ async def quick_preview(raw_url: str) -> dict[str, Any]:
     robots_url = urljoin(homepage_url, "/robots.txt")
 
     headers = {"User-Agent": "MatrxScraperBot/preview (+https://aimatrx.com)"}
-    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
+    async with public_http_client(timeout=8.0, follow_redirects=True, headers=headers) as client:
         robots_task = asyncio.create_task(_fetch_text(client, robots_url))
         home_task = asyncio.create_task(_fetch_text(client, url))
         robots_fetch = await robots_task

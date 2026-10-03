@@ -25,6 +25,7 @@ accessed.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from raindrop.evals.client import EvalClient
     from raindrop.client import Raindrop
     from raindrop.app_git import AppGitOptions
     from raindrop.handoff import TraceContext
@@ -34,6 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 __all__ = [
     "Raindrop",
+    "EvalClient",
     "AppGitOptions",
     "Interaction",
     "Attachment",
@@ -45,6 +47,10 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
+    if name == "EvalClient":
+        from raindrop.evals.client import EvalClient
+
+        return EvalClient
     if name == "AppGitOptions":
         from raindrop.app_git import AppGitOptions
 

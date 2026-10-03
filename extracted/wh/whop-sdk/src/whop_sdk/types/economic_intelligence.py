@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .economic_intelligence_input import EconomicIntelligenceInput
 from .economic_intelligence_operation import EconomicIntelligenceOperation
 from .economic_intelligence_sentiment import EconomicIntelligenceSentiment
 from .economic_intelligence_status import EconomicIntelligenceStatus
@@ -15,6 +16,11 @@ class EconomicIntelligence(UniversalBaseModel):
     ID of the account this recommendation is for, prefixed `biz_`, or null for personal onboarding.
     """
 
+    acknowledged_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the executed run was first marked as seen, as an ISO 8601 timestamp, or `null` if it has not been.
+    """
+
     action_type: typing.Optional[str] = pydantic.Field(default=None)
     """
     Type of action recommended, or `null` when no type is assigned. New values may be added; handle unknown types gracefully.
@@ -22,7 +28,7 @@ class EconomicIntelligence(UniversalBaseModel):
 
     ai_chat_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The chat to resume after its initial message is accepted, or null before a chat is ready.
+    The chat that ran the recommendation, shown only to the user who ran it, or `null` otherwise.
     """
 
     created_at: typing.Optional[str] = pydantic.Field(default=None)
@@ -32,7 +38,7 @@ class EconomicIntelligence(UniversalBaseModel):
 
     executed_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the recommendation was approved, as an ISO 8601 timestamp, or `null` if it has not been approved.
+    When the recommendation was carried out, as an ISO 8601 timestamp, or `null` if it has not been.
     """
 
     expected_tool_calls: typing.Optional[typing.List[EconomicIntelligenceOperation]] = None
@@ -46,6 +52,7 @@ class EconomicIntelligence(UniversalBaseModel):
     What you requested, in your own words, or `null` for recommendations generated without your input.
     """
 
+    inputs: typing.List[EconomicIntelligenceInput]
     prompt: typing.Optional[str] = pydantic.Field(default=None)
     """
     Step-by-step instructions for Whop AI, or `null` when no instructions are available.
@@ -56,6 +63,26 @@ class EconomicIntelligence(UniversalBaseModel):
     Evidence and metrics supporting the recommendation, or `null` when no reasoning was provided.
     """
 
+    result_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Where to view what the run produced, such as the published website or created product, or `null` when the result is only in the chat.
+    """
+
+    run_by_user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The user who started the run, prefixed `user_`, or `null` if it has not run or was started without a user, such as with an API key.
+    """
+
+    run_ended_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When Whop AI's run ended, whether executed or incomplete, as an ISO 8601 timestamp, or `null` if it has not ended.
+    """
+
+    run_started_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When Whop AI started carrying out the recommendation, as an ISO 8601 timestamp, or `null` if it has not run.
+    """
+
     sentiment: typing.Optional[EconomicIntelligenceSentiment] = pydantic.Field(default=None)
     """
     How the user rated this recommendation, or `null` if they have not rated it
@@ -63,7 +90,7 @@ class EconomicIntelligence(UniversalBaseModel):
 
     status: EconomicIntelligenceStatus = pydantic.Field()
     """
-    `queued` when awaiting generation; `pending` while generating; `ready` when available for approval; `executed` when approved; `superseded` when rejected or replaced.
+    `queued` when awaiting generation; `pending` while generating; `ready` when available to run; `running` while Whop AI carries it out; `executed` when carried out; `incomplete` when Whop AI's run ended without carrying it out; `superseded` when rejected or replaced.
     """
 
     superseded_at: typing.Optional[str] = pydantic.Field(default=None)

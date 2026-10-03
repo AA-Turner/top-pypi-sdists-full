@@ -76,7 +76,11 @@ def add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     group2.add_argument("--keep-dirs", help="keep input directory structure and file names", action="store_true")
 
     group3_ex.add_argument(
-        "--feed", help="look for feeds and/or pass a feed URL as input", nargs="?", const=True, default=False
+        "--feed",
+        help="look for feeds and/or pass a feed URL as input",
+        nargs="?",
+        const=True,
+        default=False,
     )
     group3_ex.add_argument(
         "--sitemap",
@@ -93,13 +97,23 @@ def add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         default=False,
     )
     group3_ex.add_argument(
-        "--explore", help="explore the given websites (combination of sitemap and crawl)", nargs="?", const=True, default=False
+        "--explore",
+        help="explore the given websites (combination of sitemap and crawl)",
+        nargs="?",
+        const=True,
+        default=False,
     )
     group3_ex.add_argument(
-        "--probe", help="probe for extractable content (works best with target language)", nargs="?", const=True, default=False
+        "--probe",
+        help="probe for extractable content (works best with target language)",
+        nargs="?",
+        const=True,
+        default=False,
     )
     group3.add_argument(
-        "--archived", help="try to fetch URLs from the Internet Archive if downloads fail", action="store_true"
+        "--archived",
+        help="try to fetch URLs from the Internet Archive if downloads fail",
+        action="store_true",
     )
     group3.add_argument(
         "--url-filter",
@@ -113,12 +127,14 @@ def add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
     group4.add_argument("-f", "--fast", help="fast (without fallback detection)", action="store_true")
     group4.add_argument("--formatting", help="include text formatting (bold, italic, etc.)", action="store_true", default=None)
-    group4.add_argument("--links", help="include links along with their targets (experimental)", action="store_true")
-    group4.add_argument("--images", help="include image sources in output (experimental)", action="store_true")
+    group4.add_argument("--links", help="include links along with their targets", action="store_true")
+    group4.add_argument("--images", help="include image sources in output", action="store_true")
     group4.add_argument("--no-comments", dest="comments", help="don't output any comments", action="store_false")
     group4.add_argument("--no-tables", dest="tables", help="don't output any table elements", action="store_false")
     group4.add_argument(
-        "--only-with-metadata", help="only output those documents with title, URL and date", action="store_true"
+        "--only-with-metadata",
+        help="only output those documents with title, URL and date",
+        action="store_true",
     )
     group4.add_argument("--with-metadata", help="extract and add metadata to the output", action="store_true")
     group4.add_argument("--target-language", help="select a target language (ISO 639-1 codes)", type=str)

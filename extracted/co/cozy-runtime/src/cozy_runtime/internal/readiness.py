@@ -76,14 +76,24 @@ def certificate(path: Path) -> bytes:
     return der
 
 
-def runtime_gpus(child_env: tuple[tuple[str, str], ...], *, required: bool) -> list[RuntimeGPU]:
+def runtime_gpus(
+    child_env: tuple[tuple[str, str], ...], visible: tuple[str, ...] | None, *, required: bool
+) -> list[RuntimeGPU]:
     """Measure the driver's GPU inventory; the Runtime's own Python needs no torch for it.
 
     `required` is a CUDA base: an absent or unreadable driver refuses the boot. Otherwise a
     machine without NVIDIA tooling has no GPUs, and an unreadable driver serves CPU only
     with the reason on the worker's log.
-    """
 
+    `visible` is the host's `CUDA_VISIBLE_DEVICES` (`WorkerHostConfig.visible_devices`), where
+    the machine's operator sets it: the inventory keeps only the entries it names, by index or
+    GPU UUID. Empty is no GPU, served CPU only without asking the driver, whatever the base.
+    """
+    if visible == ():
+        print(
+            "[worker] CUDA_VISIBLE_DEVICES is empty; serving CPU only", file=sys.stderr, flush=True
+        )
+        return []
     command = [
         "nvidia-smi",
         "--query-gpu=index,name,uuid,pci.bus_id,memory.total,driver_version",
@@ -131,7 +141,10 @@ def runtime_gpus(child_env: tuple[tuple[str, str], ...], *, required: bool) -> l
             )
     except ValueError as exc:
         raise LaunchRefusal("runtime_gpus_invalid", "nvidia-smi returned an invalid row") from exc
-    return validated_gpus(rows, required=required)
+    if visible is not None:
+        named = set(visible)
+        rows = [row for row in rows if {str(row["device_index"]), row["device_uuid"]} & named]
+    return validated_gpus(rows, required=required and visible is None)
 
 
 def validated_gpus(rows: list[RuntimeGPU], *, required: bool) -> list[RuntimeGPU]:

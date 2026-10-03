@@ -465,6 +465,11 @@ class CompletedRequest:
             request_metadata["known_cost_subtotal"] = round(total_cost, 6)
         if self.metadata.get("response_id"):
             request_metadata["response_id"] = self.metadata["response_id"]
+        # Time-to-first-token in ms (request accepted → first text/reasoning
+        # chunk emitted), stamped by the executor's finalize. Absent when no
+        # output ever reached the client.
+        if isinstance(self.metadata.get("ttft_ms"), int):
+            request_metadata["ttft_ms"] = self.metadata["ttft_ms"]
         if self.total_usage.by_model:
             request_metadata["usage_by_model"] = {
                 k: asdict(v) for k, v in self.total_usage.by_model.items()

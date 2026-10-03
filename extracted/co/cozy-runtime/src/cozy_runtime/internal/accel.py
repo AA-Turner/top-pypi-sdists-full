@@ -22,8 +22,13 @@ from __future__ import annotations
 import ctypes
 import subprocess
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
-from typing import Any, Literal
+from types import ModuleType
+from typing import Any, Literal, cast
+
+from cozy_runtime.internal.config import sees_no_gpu
 
 #: The #450 law, imposed on every MPS executor's sealed environment: enabling the fallback
 #: silently runs unsupported operations on CPU, which violates the CPU-refusal law. Forced,
@@ -59,6 +64,19 @@ class ProcessMemory:
     bytes: int = -1
 
 
+def _smi(*query: str) -> subprocess.CompletedProcess[str]:
+    """One `nvidia-smi` query, run to completion. A process that sees no GPU has no driver to
+    ask, as on a host without the tool."""
+    if sees_no_gpu():
+        raise FileNotFoundError("this process sees no GPU: nvidia-smi is not asked")
+    return subprocess.run(
+        ["nvidia-smi", *query, "--format=csv,noheader,nounits"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
 def process_memory(pid: int, kind: str) -> ProcessMemory:
     """Read per-process device memory from outside the executor.
 
@@ -85,16 +103,7 @@ def process_memories(pids: set[int], kind: str) -> dict[int, ProcessMemory]:
     table = _nvml_compute_table()
     if table is None:
         try:
-            out = subprocess.run(
-                [
-                    "nvidia-smi",
-                    "--query-compute-apps=pid,used_memory",
-                    "--format=csv,noheader,nounits",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+            out = _smi("--query-compute-apps=pid,used_memory")
         except (OSError, subprocess.SubprocessError):
             return {pid: ProcessMemory("unreadable") for pid in pids}
         table = {}
@@ -129,7 +138,7 @@ def _nvml_library() -> ctypes.CDLL | None:
     host has none — a CPU box, or a container without the driver mounted."""
     global _nvml, _nvml_absent
     with _nvml_lock:
-        if _nvml is not None or _nvml_absent:
+        if _nvml is not None or _nvml_absent or sees_no_gpu():
             return _nvml
         try:
             library = ctypes.CDLL("libnvidia-ml.so.1")
@@ -239,17 +248,7 @@ def process_memories_by_device(
         else:
             try:
                 lines = (
-                    subprocess.run(
-                        [
-                            "nvidia-smi",
-                            f"--id={device}",
-                            "--query-compute-apps=pid,used_memory",
-                            "--format=csv,noheader,nounits",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    )
+                    _smi(f"--id={device}", "--query-compute-apps=pid,used_memory")
                     .stdout.strip()
                     .splitlines()
                 )
@@ -351,17 +350,7 @@ def device_memory(device: str, kind: str) -> DeviceMemory:
     if through_nvml is not None:
         return through_nvml
     try:
-        out = subprocess.run(
-            [
-                "nvidia-smi",
-                f"--id={device}",
-                "--query-gpu=memory.free,memory.total",
-                "--format=csv,noheader,nounits",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        out = _smi(f"--id={device}", "--query-gpu=memory.free,memory.total")
         line = out.stdout.strip().splitlines()[0]
         free, total = (int(part.strip()) * 1024 * 1024 for part in line.split(","))
     except (OSError, subprocess.SubprocessError, ValueError, IndexError):
@@ -377,13 +366,57 @@ def synchronize(torch: Any, kind: str) -> None:
         torch.cuda.synchronize()
 
 
+@contextmanager
+def readable[*Ts](*tensors: *Ts) -> Iterator[tuple[*Ts]]:
+    """The operands of a kernel launched outside torch's dispatch (Triton, the compiled
+    extension), which reads them by pointer. A weight with no plane bytes bound is a stand-in
+    with nothing behind its pointer: its plane maps and holds it for the launch, or refuses
+    (`weights.Unbound.reading`). Every such launch goes through here, so none is handed one."""
+    standins = [t for t in tensors if hasattr(type(t), "reading")]
+    if not standins:
+        yield tensors
+        return
+    reading = getattr(type(standins[0]), "reading")  # noqa: B009
+    with reading(standins, "a kernel launch") as read:
+        yield cast("tuple[*Ts]", tuple(read.operand(t) for t in tensors))
+
+
+def drain(torch: Any, kind: str) -> None:
+    """Wait for the CURRENT stream only: the caller's own queued work, not other streams'."""
+    if kind == "mps":
+        raise AcceleratorUnsupported("mps", "drain")
+    if kind == "cuda":
+        torch.cuda.current_stream().synchronize()
+
+
 def initialize(torch: Any, kind: str) -> None:
     """Bring the accelerator context up EAGERLY, so its cost is a measured prepare step
     rather than a surprise inside the first kernel."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "initialize")
+    if sees_no_gpu():
+        raise RuntimeError("this process sees no GPU (CUDA_VISIBLE_DEVICES is empty)")
     if kind == "cuda":
         torch.cuda.init()
+
+
+def first_launches(torch: ModuleType, kind: str) -> None:
+    """Create the GPU libraries' handles, workspaces and first kernels while the device has
+    room. cuBLAS and cuDNN take device memory for themselves at a first launch, and inside a
+    stage whose budget left none they fail under names that are not out-of-memory (run 3095:
+    CUBLAS_STATUS_INTERNAL_ERROR in a block's first Linear, beside another model's weights)."""
+    if kind != "cuda":
+        return
+    conv = torch.nn.functional
+    with torch.inference_mode():
+        for dtype in (torch.bfloat16, torch.float16, torch.float32):
+            a = torch.ones(8, 8, dtype=dtype, device="cuda")
+            kernel = a[:3, :3]
+            with suppress(RuntimeError):  # a card without this dtype
+                torch.mm(a, a)
+                conv.conv2d(a.view(1, 1, 8, 8), kernel.reshape(1, 1, 3, 3))
+                conv.conv3d(a.view(1, 1, 1, 8, 8), kernel.reshape(1, 1, 1, 3, 3))
+        torch.cuda.synchronize()
 
 
 def initialized(torch: Any, kind: str) -> bool:
@@ -478,7 +511,7 @@ def present(torch: Any, kind: str) -> bool:
     refusal: a torch-bearing process with no card is a legitimate weightless executor."""
     if kind == "mps":
         raise AcceleratorUnsupported("mps", "present")
-    return bool(torch.cuda.is_available())
+    return not sees_no_gpu() and bool(torch.cuda.is_available())
 
 
 def device_identity(torch: Any, kind: str, index: int = 0) -> dict[str, Any]:

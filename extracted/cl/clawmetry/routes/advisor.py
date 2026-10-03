@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 import urllib.error
@@ -29,6 +28,7 @@ import urllib.request
 
 from flask import Blueprint, jsonify, request
 from clawmetry.config import is_local_store_read_enabled
+from clawmetry.english import GENERATION_INSTRUCTIONS, explanation_or_fallback
 
 bp_advisor = Blueprint("advisor", __name__)
 
@@ -153,7 +153,8 @@ def _load_anthropic_auth() -> tuple[str | None, str | None]:
 
     # 3. claude CLI OAuth fallback. The binary uses whatever profile the
     # user already authenticated, so OAuth-only users still work.
-    claude_bin = shutil.which("claude")
+    from clawmetry.harness import find_claude_cli
+    claude_bin = find_claude_cli()
     if claude_bin:
         profile_path = os.path.expanduser(
             "~/.openclaw/agents/main/agent/auth-profiles.json"
@@ -414,7 +415,7 @@ def _build_prompt(question: str, ctx: dict) -> str:
     return "\n".join(parts)
 
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT = GENERATION_INSTRUCTIONS + " Use at most 20 words in each sentence. " + (
     "You are ClawMetry Advisor. You help operators of OpenClaw AI agents "
     "understand what their agents are doing, why a run cost what it did, "
     "which tools are failing, and what to fix next. "
@@ -504,7 +505,8 @@ def _extract_answer(api_response: dict) -> str:
     if api_response.get("_error"):
         return ""
     blocks = api_response.get("content") or []
-    parts = [b.get("text", "") for b in blocks if isinstance(b, dict)]
+    parts = [b["text"] for b in blocks
+             if isinstance(b, dict) and isinstance(b.get("text"), str)]
     return "".join(parts).strip()
 
 
@@ -555,10 +557,10 @@ def api_advisor_ask():
             502,
         )
 
-    answer = _extract_answer(resp)
+    answer = explanation_or_fallback(_extract_answer(resp), "advisor")
     usage = resp.get("usage") or {}
     body = {
-        "answer": answer or "(no answer returned)",
+        "answer": answer,
         "model": resp.get("model", DEFAULT_MODEL),
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),

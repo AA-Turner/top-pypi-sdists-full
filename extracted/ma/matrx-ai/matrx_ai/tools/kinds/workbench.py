@@ -23,6 +23,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "task_tool_result",
+    disposition="record",
     label="Task Tool Result",
     family="workbench",
     example={"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "title": "Ship the report", "status": "open", "priority": "high"},
@@ -62,6 +63,7 @@ class TaskToolResult(KindModel):
 
 @kind(
     "skill_tool_result",
+    disposition="record",
     label="Skill Tool Result",
     family="skills",
     example={
@@ -105,6 +107,7 @@ class SkillToolResult(KindModel):
 
 @kind(
     "picklist_tool_result",
+    disposition="record",
     label="Picklist Tool Result",
     family="picklists",
     example={"list_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "list_name": "Industries", "item_count": 12, "already_existed": False, "message": "List 'Industries' created with 12 items."},

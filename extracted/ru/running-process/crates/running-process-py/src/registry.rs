@@ -8,8 +8,6 @@ use sysinfo::{ProcessRefreshKind, System};
 use crate::daemon_client;
 use crate::helpers::system_pid;
 
-const PID_DB_ENV: &str = "RUNNING_PROCESS_PID_DB";
-
 #[derive(Clone)]
 pub(crate) struct ActiveProcessRecord {
     pub(crate) pid: u32,
@@ -91,29 +89,17 @@ pub(crate) fn same_process_identity(pid: u32, created_at: f64, tolerance_seconds
 }
 
 pub(crate) fn tracked_process_db_path() -> PyResult<PathBuf> {
-    if let Ok(value) = std::env::var(PID_DB_ENV) {
+    if let Some(value) = crate::env_vars::PID_DB.string() {
         let trimmed = value.trim();
         if !trimmed.is_empty() {
             return Ok(PathBuf::from(trimmed));
         }
     }
 
-    #[cfg(windows)]
-    let base_dir = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-
-    #[cfg(not(windows))]
-    let base_dir = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| {
-                let mut path = PathBuf::from(home);
-                path.push(".local");
-                path.push("state");
-                path
-            })
-        })
+    // LOCALAPPDATA on Windows; XDG_STATE_HOME, then $HOME/.local/state
+    // elsewhere. The platform layer owns that choice; the temp-dir fallback
+    // and the leaf below are this registry's own.
+    let base_dir = running_process_platform_internal::platform::fs::state_home_from_environment()
         .unwrap_or_else(std::env::temp_dir);
 
     Ok(base_dir

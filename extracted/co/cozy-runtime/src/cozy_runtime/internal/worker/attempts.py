@@ -16,8 +16,8 @@ worker-protocol/02 fixes:
 Two things are deliberately NOT here, because they are not the worker's: retryability (a
 RecordOwner projection over status/cause/origin) and attempt-selection order beyond this
 worker (dispatch is the RecordOwner's; below that boundary service class does not exist and
-there is no field to carry it). Two attempts assigned to this worker SERIALIZE on the single
-device lease, in arrival order, and that is the whole of local arbitration.
+there is no field to carry it). Who runs on which GPU, and when, is the stage scheduler's
+(`stage_scheduler.py`): one turn per GPU at a time, in acceptance order.
 
 Metric attestation lives here too: what the executor reports is a CLAIM. Wall-clock is
 clamped to the worker-observed dispatch->result window, and the fields the worker
@@ -50,14 +50,20 @@ from cozy_runtime.author._assets import InputMetadata
 from cozy_runtime.author._errors import DEVICE_OOM, OutputError
 from cozy_runtime.author._executor_requests import (
     Answer,
+    BudgetCell,
     Checkpoint,
     CheckpointReceipt,
     DeviceRoom,
     Handler,
+    HostTier,
     Publish,
     Published,
     Reply,
     Request,
+    StageEnter,
+    StageExit,
+    StageMemoLookup,
+    StageMemoStore,
     TreeMember,
     WriterAdopt,
     WriterOutput,
@@ -104,6 +110,7 @@ from cozy_runtime.internal.worker.child import Executor, ExecutorGone, ExecutorS
 from cozy_runtime.internal.worker.ledger import Ledger
 from cozy_runtime.internal.worker.machine_publication import output_destination
 from cozy_runtime.internal.worker.plan import (
+    PLANE_PLACEMENT,
     AttemptPlan,
     DeclaredBinding,
     JobBinding,
@@ -113,6 +120,7 @@ from cozy_runtime.internal.worker.plan import (
 )
 from cozy_runtime.internal.worker.products import Products
 from cozy_runtime.internal.worker.records import WorkerRecords
+from cozy_runtime.internal.worker.stage_memo import MachineMemo
 from cozy_runtime.internal.worker.tree_members import project as project_tree_member
 from cozy_runtime.internal.worker.weights import WeightsExchange
 from cozy_runtime.internal.worker.workspace import Workspace
@@ -275,6 +283,11 @@ class AttemptRefusal(Exception):
         self.origin = origin
 
 
+class DeviceExhausted(AttemptRefusal):
+    """Every idle byte of the GPU was given and nothing is ahead of the attempt, and it still
+    does not fit: a FAILED terminal naming what did not fit, never a refusal for size."""
+
+
 @dataclass(frozen=True, slots=True)
 class JobModel:
     """One descriptor parameter joined to one held TensorFS Manifest for this attempt."""
@@ -327,6 +340,10 @@ class AttemptRecord:
     plan: AttemptPlan | None = None
     #: the memory manager made room for this call's measured need on every device
     room: bool = True
+    #: the plane budget the memory manager granted a plane executor; -1: it derives it
+    plane_budget_bytes: int = -1
+    #: each component-use scope takes its own turn (`stage/1`); else one turn holds it all
+    stage_turns: bool = False
     declared: DeclaredBinding | None = None
     #: what THIS worker's prepare resolved for that binding — never what it declared
     prepared_model: PreparedModel | None = None
@@ -596,6 +613,8 @@ class AttemptEngine:
         self.inventory = tuple(inventory)
         #: the run output log: `Outputs.publish` mid-run and the returned result at post
         self.products: Products | None = None
+        #: the machine tier of memoized Model methods, when this Worker keeps one
+        self.stage_memo: MachineMemo | None = None
         #: the demand falsifier. It ships first, it counts, and it decides nothing — the
         #: `timing-decides-nothing` fence proves the module it lives in cannot reach the
         #: planner, the ledger or the fill plane.
@@ -739,6 +758,15 @@ class AttemptEngine:
             origin,
             f"{code}: {detail}",
         )
+
+    def end_held(self, attempt: AttemptRecord, exc: AttemptRefusal) -> pb.AttemptOutcome:
+        """The terminal of a held attempt stopped before it ran: FAILED when the GPU could not
+        hold it (`DeviceExhausted`), else REFUSED."""
+        if isinstance(exc, DeviceExhausted):
+            return self.outcome(
+                attempt, STATUS.OUTCOME_STATUS_FAILED, exc.cause, exc.origin, str(exc)
+            )
+        return self.refuse_held(attempt, exc.code, exc.detail, exc.cause, exc.origin)
 
     # ------------------------------------------------------------------ prepare/accept
 
@@ -1409,8 +1437,11 @@ class AttemptEngine:
             return self.finish_cancel(attempt, attempt.canceling)
         return self._run(attempt)
 
-    def reconcile(self, attempt: AttemptRecord) -> dict[str, Any]:
-        """Every byte class, before and after, with the executor's after-state re-read.
+    def reconcile(
+        self, attempt: AttemptRecord, after: Mapping[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Every byte class, before and after, with the executor's after-state: the one its
+        attempt reply carried, or read by a `Probe` when there is none.
 
         The device numbers come from the process that owns the CUDA context, so a dead
         executor makes them UNREADABLE rather than zero (§3.6). That distinction is the
@@ -1435,10 +1466,21 @@ class AttemptEngine:
                 return self._unavailable_reconciliation(attempt, key)
             if not executor.poisoned and attempt.spool:
                 try:
-                    with executor.watched("probe"):
-                        probe = executor.call(Probe(), timeout=None)
-                        ledger.observe_probe(probe)
-                        processes = list(probe.get("processes") or [])
+                    if after is None:
+                        with executor.watched("probe"):
+                            after = executor.call(Probe(), timeout=None)
+                    ledger.observe_probe(after)
+                    if held := ledger.unaccounted(attempt.opened):
+                        # Cyclic garbage holding a device tensor reads as a leak until it is
+                        # collected: collect, then read again, on a mismatch only.
+                        with executor.watched("probe"):
+                            after = executor.call(Probe(collect=True), timeout=None)
+                        ledger.observe_probe(after)
+                        if not ledger.unaccounted(attempt.opened):
+                            _LOG.warning(
+                                "%s: %d B of device memory were held by cyclic garbage", key, held
+                            )
+                    processes = list(after.get("processes") or [])
                     ledger.device_process = self.device_process(executor.pid)
                 except ExecutorGone:
                     ledger.device_unreadable("the executor died before the ledger was read")
@@ -1603,12 +1645,14 @@ class AttemptEngine:
                 return self.publish(attempt, request)
             case Checkpoint():
                 return self.checkpoint_exchange(attempt, request)
-            case DeviceRoom():
-                return refuse("no_durable_exchange", "a job's executor is granted no device room")
+            case DeviceRoom() | HostTier() | BudgetCell() | StageEnter() | StageExit():
+                return refuse("no_durable_exchange", "a job's executor holds its whole turn")
             case TreeMember():
                 if self.calls is None:
                     return refuse("child_broker_absent", "no RecordOwner call lane")
                 return project_tree_member(self.calls, attempt, request)
+            case StageMemoLookup() | StageMemoStore():
+                return self.memo_exchange(attempt, request)
             case WriterSource() | WriterOutput() | WriterAdopt():
                 return self._writer(attempt, request)
             case _:
@@ -1630,11 +1674,24 @@ class AttemptEngine:
             attempt.moved()
             if isinstance(request, Publish):
                 return self.publish(attempt, request)
+            if isinstance(request, (StageMemoLookup, StageMemoStore)):
+                return self.memo_exchange(attempt, request)
             if room is None:
                 return refuse("no_durable_exchange", "a serving attempt asks only for room")
             return room(request)
 
         return answer
+
+    def memo_exchange(
+        self, attempt: AttemptRecord, request: StageMemoLookup | StageMemoStore
+    ) -> Reply:
+        """A memoized method's lookup or outcome, against the machine tier."""
+        if self.stage_memo is None or attempt.spool is None:
+            return refuse("stage_memo_unavailable", "this worker keeps no machine memo tier")
+        owner = f"{attempt.request_id}#{attempt.attempt}"
+        if isinstance(request, StageMemoLookup):
+            return self.stage_memo.lookup(owner, attempt.spool, request)
+        return self.stage_memo.store(owner, attempt.spool, request)
 
     def _writer(self, attempt: AttemptRecord, request: WriterRequest) -> Reply:
         if self.weights is None or attempt.spool is None:
@@ -1793,6 +1850,8 @@ class AttemptEngine:
             executor.worst_pause = max(executor.worst_pause, attempt.pace.worst_pause)
             if self.weights is not None:
                 self.weights.writer_broker.close_attempt(attempt)
+            if self.stage_memo is not None:
+                self.stage_memo.release(f"{attempt.request_id}#{attempt.attempt}")
         return self.release(attempt, reply, spool, key)
 
     @staticmethod
@@ -1851,7 +1910,8 @@ class AttemptEngine:
                 ),
             )
         assert attempt.declared is not None and attempt.plan is not None
-        return Invoke(
+        plan = attempt.plan
+        invoke = Invoke(
             construction=attempt.declared.construction_key(),
             capture=attempt.spec.get("capture"),
             attention_kernel=str(attempt.spec.get("attention_kernel") or ""),
@@ -1859,10 +1919,8 @@ class AttemptEngine:
             entrypoint=attempt.declared.entrypoint,
             deadline_s=seconds,
             spool=str(spool),
-            placement=attempt.plan.placement,
-            headroom_bytes=attempt.plan.headroom_bytes,
-            scope_headroom_bytes=dict(attempt.plan.scope_headroom_bytes),
-            measured_scopes=tuple(attempt.plan.measured_scopes),
+            plane_budget_bytes=attempt.plane_budget_bytes,
+            stages=attempt.stage_turns,
             # cr-012: the VERIFIED inputs, by their stable identity. Paths into this
             # attempt's own spool and nothing else — no URL, no credential and no fetch
             # reaches the executor. What the executor CAN still do is dial one of its own,
@@ -1872,6 +1930,16 @@ class AttemptEngine:
             trees=trees,
             max_input_bytes=attempt.declared.max_input_bytes,
             max_output_bytes=max_output_bytes,
+        )
+        if plan.placement == PLANE_PLACEMENT:
+            return invoke
+        # Placement and headroom drive only executors before the plane.
+        return msgspec.structs.replace(
+            invoke,
+            placement=plan.placement,
+            headroom_bytes=plan.headroom_bytes,
+            scope_headroom_bytes=dict(plan.scope_headroom_bytes),
+            measured_scopes=tuple(plan.measured_scopes),
         )
 
     def release(
@@ -1948,7 +2016,8 @@ class AttemptEngine:
         # ONE ENVELOPE, ONE CLOSE, at release: the probe reads the executor's after-state
         # for THIS attempt, before the lane hands the device to the next one.
         if attempt.opened:
-            self.reconcile(attempt)
+            after = None if reply.after is None else {"residency": reply.residency, **reply.after}
+            self.reconcile(attempt, after)
             attempt.opened = {}
         attempt.state = "released"
         attempt.poke()

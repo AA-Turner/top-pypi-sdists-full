@@ -7,11 +7,15 @@ import os
 import re
 import socket
 from functools import lru_cache
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import tldextract
 from pydantic import BaseModel
 from matrx_scraper.utils.proxy import redact_url_secrets
+
+if TYPE_CHECKING:
+    import httpx
 
 
 class URLInfo(BaseModel):
@@ -250,6 +254,12 @@ def validate_and_correct_url(url: str) -> str:
     if not hostname:
         raise ValueError("URL domain is missing")
 
+    # The ONE host-parsing rule (matrx_utils.outbound_guard): a numeric-looking
+    # host in any non-canonical form ("0177.0.0.1", "0x7f.1", "017700000001")
+    # reads differently to the resolver, curl and Chromium — refused outright.
+    from matrx_utils.outbound_guard import assert_canonical_host
+
+    assert_canonical_host(hostname)
     if hostname == "localhost" or hostname.startswith("127."):
         raise ValueError(f"URL points to localhost: {redact_url_secrets(url)}")
     if hostname.endswith((".local", ".internal", ".intranet", ".corp")):
@@ -289,6 +299,21 @@ def validate_and_correct_url(url: str) -> str:
             url = urlunparse(modified_parsed)
 
     return url
+
+
+def public_http_client(**client_kwargs: Any) -> httpx.AsyncClient:
+    """The ONE client this package fetches a crawl/user URL with.
+
+    ``validate_public_http_url`` checks the name, but a plain client resolves it
+    AGAIN to connect, so a host that answers public then private (DNS
+    rebinding) slips through. This client re-checks every request and every
+    redirect hop and connects to the exact IP it checked
+    (``matrx_utils.outbound_guard``). Plain http stays allowed — crawling http
+    sites is this package's job — and is passed explicitly, never inferred.
+    """
+    from matrx_utils.outbound_guard import public_only_client
+
+    return public_only_client(allow_http=True, **client_kwargs)
 
 
 async def validate_public_http_url(url: str) -> str:

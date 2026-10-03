@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.72
+Version: 0.0.73
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -11,11 +11,16 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: portable
+Provides-Extra: pytest
 Requires-Dist: httpx (>=0.24,<1)
 Requires-Dist: opentelemetry-sdk (>=1.36.0)
 Requires-Dist: protobuf (>=5.29.6,<7)
 Requires-Dist: pydantic (>=2.09,<3)
+Requires-Dist: pytest (>=7.4,<10) ; extra == "pytest"
+Requires-Dist: quickjs (>=1.19.4,<2) ; extra == "portable"
 Requires-Dist: requests (>=2.32.3,<3.0.0)
+Requires-Dist: rfc8785 (>=0.1.4,<1)
 Requires-Dist: traceloop-sdk (>=0.46.0)
 Description-Content-Type: text/markdown
 
@@ -48,6 +53,12 @@ raindrop.track_ai(
     convo_id="conv-456",
 )
 ```
+
+## Evals
+
+Replay local agents against datasets, use hosted or local evaluators, and save
+results in Raindrop. Python accepts the same manifests as the UI and JavaScript.
+See [Evals in Python](EVALS.md) for setup, pytest, and examples.
 
 ## Application Git provenance
 

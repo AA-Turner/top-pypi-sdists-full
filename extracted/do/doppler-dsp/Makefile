@@ -28,6 +28,29 @@ HAS_COVERAGE = 1
 HAS_RELEASE  = 1
 HAS_EXAMPLES = 1
 
+# The CI toolchain image (gh-885), now the org standard's shared one
+# (just-buildit.github.io#86): every Linux CI job runs inside it, pinned with
+# every input it was built from in .github/ci-images.env. The flag vendors
+# docker/ci.Dockerfile, scripts/ci-image.py and .github/workflows/ci-image.yml
+# and hangs `ci-image-check` off lint; doppler's own copy of all three is gone.
+# doppler's extras (clang's profile runtime, nats-server) are
+# docker/ci-extra.sh, canonical's extension point.
+#
+# TWO BASES, and the pair is load-bearing rather than thorough: build-and-test
+# runs ubuntu-22.04 and ubuntu-24.04 on purpose (two glibcs). One image for
+# both would leave the matrix naming two environments while testing one.
+# `docs` is doxygen + graphviz for the doxygen job. NOT `runtime`: doppler
+# has no [runtime.*] tables (its FFT is vendored), and install-deps.sh
+# refuses a named group with nothing in it. LANDING=branch because the org
+# forbids Actions from opening PRs: a weekly repin is pushed to
+# ci/repin-image, and that run stays red until a human lands it.
+HAS_CI_IMAGE          = 1
+CI_IMAGE_REPO         = ghcr.io/doppler-dsp/doppler-ci
+CI_IMAGE_BASES        = ubuntu:22.04 ubuntu:24.04
+CI_IMAGE_GROUPS       = dev docs
+CI_IMAGE_LANDING      = branch
+CI_IMAGE_SMOKE_TARGET = build
+
 # ── Layout ───────────────────────────────────────────────────────────────────
 BUILD_DIR   ?= build
 BUILD_TYPE  ?= Release
@@ -126,7 +149,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                retired-names ci-pipefail rust-abi header-example-arity \
                wfm-enum-tables fmod-fold lgamma-reentrant full-scale \
                bench-timer bare-libm gnu-flags workflow-tag-triggers \
-               version-literals text-encoding cmake-script-policy
+               version-literals text-encoding cmake-script-policy \
+               why-param doc-claims public-symbols curl-fail
 FORMAT_TOOLS = ruff-format ruff mdformat clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -340,6 +364,33 @@ LINT_cmake-script-policy = python3 scripts/check_cmake_script_policy.py
 LINT_header-example-arity = \
     $(UV) run python scripts/check_header_example_arity.py
 
+# A refusal names its cause through `const char **why` -- a static sentence,
+# written only on refusal, NULL allowed, never freed. Every public refusal API
+# already did, and nothing said so, so the next one proposed a second shape
+# (`char *why, size_t why_cap`). Derived from native/inc/**, never a list:
+# every parameter named `why` or `*_why` must be exactly `const char **`.
+# Rule: docs/dev/contributing/error-convention.md. Plain python3: stdlib only.
+LINT_why-param = python3 scripts/check_why_param.py
+
+# The shared libraries export what native/inc/** publishes and nothing else
+# (doppler#1164). cmake/public-symbols.txt is that set, read by the build
+# without Python; this holds it to the headers. `make public-symbols`
+# rewrites it. Plain python3: stdlib only.
+LINT_public-symbols = python3 scripts/gen_public_symbols.py --check
+
+public-symbols: ## Rewrite cmake/public-symbols.txt from native/inc (the export list's source)
+	@python3 scripts/gen_public_symbols.py
+
+# The snippet runners execute every docs fence and test_examples.py every
+# example, so broken code is caught. Code that checks NOTHING is not: a bare
+# `np.array_equal(a, b)` statement runs, discards its answer, and the page
+# still tells the reader a and b are equal. This refuses a claim computed and
+# dropped, and an example with no assert/raise/sys.exit(<expr>) at all
+# (doppler#1682). Discovery is the snippet runners' own, imported. Plain
+# `python3`: the script needs nothing outside the standard library and the
+# source tree.
+LINT_doc-claims = python3 scripts/check_doc_claims.py
+
 # A waveform name table's ORDER is the C enum value, so a second copy does not
 # fail to compile -- it maps a flag to the wrong waveform. just-makeit.toml has
 # claimed to be the tables' one source since gh-285; measured, that was true of
@@ -363,6 +414,12 @@ LINT_ci-pipefail = $(UV) run python scripts/check_workflow_pipelines.py
 # A push trigger with only `paths:` fires on every TAG push (GitHub ignores
 # paths for tags): ci-image.yml rebuilt the image on each release tag.
 LINT_workflow-tag-triggers = $(UV) run python scripts/check_workflow_tag_triggers.py
+
+# A curl without --fail saves an HTTP error page as the file and exits 0: the
+# CI image build failed in `tar`, naming the wrong thing, on a transient error
+# body, and `curl | bash` runs one (doppler#1738). Every curl in
+# deploy/docker/ and .github/ must say --fail.
+LINT_curl-fail = $(UV) run python scripts/check_curl_fail.py
 
 # ffi/rust/ is the one binding jm does not generate, so `jm status --check`
 # has nothing to say about it and an `extern "C"` block is a promise no
@@ -649,11 +706,22 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
                 test-all test-sweep test-stubs test-api-docs test-snippets \
                 test-rust \
                 abi-check link-check installed-headers-check \
-                exported-link-check symbol-prefix-check vendored-collision-check \
+                exported-link-check symbol-prefix-check export-check \
+                vendored-collision-check \
                 test-asan test-ubsan test-tsan \
                 consumer-faces-check burst-pipeline-check uno-q-check uno-q-nats-check glibc-gate \
                 check-isotime-parity coverage coverage-gate \
-                docker-examples ci-image-repin-check package-linux-smoke
+                docker-examples package-linux-smoke \
+                issues-check
+
+# Gates whose execution home is a workflow other than ci.yml, which is all
+# gates-home-check scans. `issues-check` is the live tier-map reconcile; it
+# runs DAILY in .github/workflows/issues.yml and on no pull request, because
+# the drift it finds is made by filing or closing an issue rather than by a
+# diff (doppler#1716). Naming a target here is a CLAIM, so
+# gates-extra-home-check (on lint) holds it: every name must be a `make`
+# line in some workflow, or gates-home-check would pass on the declaration.
+GATES_CI_EXTRA = issues-check
 
 # ── Build ────────────────────────────────────────────────────────────────────
 # Compile through ccache when it is installed, and silently not when it is
@@ -1361,7 +1429,7 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 print-jm-version nats-up nats-down nats-purge \
                 docs-relink docs-drift-check drift-check changelog-check \
                 release-notes-size-check workflow-syntax-check \
-                ci-aggregator-check \
+                ci-aggregator-check python-versions-check \
                 jm-pin \
                 issue-link-check \
                 validate validate-c validate-check \
@@ -1383,16 +1451,18 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 compile_commands.json \
                 install-docs-deps install-deps-ci install-docs-deps-ci \
                 apt-stall-config deps-budget-check cargo-floor-check \
-                bench-coverage-check kwarg-parity-check issues \
+                bench-coverage-check kwarg-parity-check issues issues-check \
+                gates-extra-home-check \
                 doc-sections-check \
                 installed-headers-check exported-link-check symbol-prefix-check \
+                export-check public-symbols \
                 vendored-collision-check \
-                ci-image ci-image-check ci-image-repin-check \
+                ci-image-refs-check \
                 ccsds-isolation-check instrumented-sweep-check \
                 container-mount-check \
-                cargo-lock-check design-pages-check \
-                ci-image-shell ci-image-source-hash \
-                ci-shell ci-run ci-gates ccache-stats pr-watch \
+                cargo-lock-check design-pages-check wfmgen-flag-matrix \
+                gallery-scripts-check \
+                ci-run ci-gates ccache-stats pr-watch \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
                 release-smoke-packages \
                 bench-python \
@@ -1406,6 +1476,13 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
 # itself. Edit canonical and re-vendor; never edit these in place.
 VENDORED_FILES = scripts/release-watch.sh scripts/pr-watch.sh
 
+# Pre-commit hooks that run their own tool rather than `make -s lint-<tool>`
+# (standard.mk's hook-dispatch-check refuses any other). All four are
+# pre-commit/pre-commit-hooks' fixers and syntax checks, pinned by that repo's
+# `rev:` -- the second source of truth the rule exists to end, kept as named
+# exceptions until each gets a lint target. The list may only shrink.
+HOOK_DISPATCH_EXEMPT = check-yaml check-toml end-of-file-fixer trailing-whitespace
+
 # What `ci-changes` may IGNORE when it asks "is this a version bump and
 # nothing else?" (standard.mk's knob, extended rather than copied). A release
 # PR carries more than the bump: the gallery PNGs `make gallery` re-rendered
@@ -1416,6 +1493,15 @@ VENDORED_FILES = scripts/release-watch.sh scripts/pr-watch.sh
 # already passed. The Docs workflow still builds the site from them, so a
 # broken asset is still caught -- just not by re-running the C/Python tests.
 CI_INERT_RE = ^(CHANGELOG\.md|changelog\.d/.+|docs/assets/[^/]+\.png|benchmarks/published/.+|docs/benchmarks\.md)$$
+
+# THE one declaration of what doppler's docs are, for standard.mk's
+# `make ci-docs` (canonical; just-makeit#1801). A diff touching any of these
+# builds the site; a diff touching ONLY these is docs-only, and skips every
+# job docs cannot break (CODE_ONLY in ci.yml). A deletion outside
+# CI_DOCS_DIRS is never docs-only. README.md is generated from
+# docs/index.md, so the two move together; benchmarks/published/ feeds the
+# site and nothing compiled.
+CI_DOCS_RE = ^(docs/|benchmarks/published/|mkdocs[^/]*\.yml$$|CHANGELOG\.md$$|changelog\.d/|README\.md$$|CONTRIBUTING\.md$$)
 
 include standard.mk
 
@@ -1460,18 +1546,20 @@ include standard.mk
 # Docker whenever local doxygen is not exactly DOXYGEN_VERSION (1.9.8), which
 # is every box measured so far (this one ships 1.18.0). That is a deliberate,
 # recorded trade -- doppler development assumes Docker, and it is already
-# required by docker-examples, glibc-gate and ci-image-repin-check. It is the
+# required by docker-examples and glibc-gate. It is the
 # reason to re-open this line if that ever stops being true: the failure mode
 # is `lint` refusing to report on a contributor's own change for a reason
 # that has nothing to do with it. Pinning local doxygen to 1.9.8 makes it
 # run natively and skip Docker entirely.
 lint: tests-ssot characterization-check validation-report-check changelog-check \
-      workflow-syntax-check ci-aggregator-check release-notes-size-check \
-      issue-link-check deps-budget-check ci-image-check cargo-floor-check \
+      workflow-syntax-check ci-aggregator-check python-versions-check \
+      gates-extra-home-check \
+      release-notes-size-check \
+      issue-link-check deps-budget-check ci-image-refs-check cargo-floor-check \
       bench-coverage-check kwarg-parity-check doc-sections-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check \
-      design-pages-check drift-check doxygen-check
+      design-pages-check gallery-scripts-check drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
 # no test file may end up with FEWER assertions than the base ref has. A
@@ -1512,6 +1600,9 @@ workflow-syntax-check: ## Verify every workflow `run:` block is valid shell
 # aggregator (2026-09-14) moved the gate into a hand-kept YAML list; this reads it.
 ci-aggregator-check: ## Verify every ci.yml job feeds the required `CI passed` check
 	@uv run python scripts/check_ci_aggregator.py
+
+python-versions-check: ## Verify the Python classifiers match requires-python
+	@uv run python scripts/python_versions.py
 
 kwarg-parity-check: ## Verify each binding accepts the keywords its stub publishes
 	@uv run python scripts/check_kwarg_parity.py
@@ -1560,6 +1651,13 @@ exported-link-check: build ## Verify the exported CMake link interface names no 
 # `nm`, so it needs the build; plain python3, standard library only.
 symbol-prefix-check: build ## Verify every exported symbol carries the dp_ prefix
 	@DOPPLER_BUILD_DIR=$(BUILD_DIR) python3 scripts/check_symbol_prefix.py
+
+# Each shared library exports exactly what a public header publishes and its
+# archive defines -- nothing leaks (vendored cJSON/PFFFT/nats.c, internals),
+# nothing is missing (doppler#1164). The static archives' half is
+# symbol-prefix-check above. Reads `nm -D`, so it needs the build.
+export-check: build ## Verify the shared libraries export exactly the public headers' symbols
+	@DOPPLER_BUILD_DIR=$(BUILD_DIR) python3 scripts/check_exports.py
 
 # Hung off `lint` rather than `validate-check` deliberately. `validate-check`
 # re-runs each validator and compares -- a STALENESS gate, and staleness is
@@ -1717,6 +1815,12 @@ cargo-floor-check: ## Fail if the Rust lockfile or MSRV leaves the distro floor
 # mid-download. Derived from the real numbers on both sides -- DEPS_* here, the
 # `timeout-minutes:` the workflows actually carry -- so moving either one
 # without the other fails here instead of four minutes into a CI retry.
+# Every workflow but the VENDORED ones: canonical owns their ceilings, and none
+# of them provisions through install-deps-ci, so DEPS_* says nothing about
+# them (ci-image.yml builds the image the provisioning moved into). A vendored
+# workflow that started provisioning would be canonical's to budget.
+DEPS_BUDGET_WORKFLOWS = $(filter-out $(VENDORED_FILES),\
+                          $(wildcard .github/workflows/*.yml))
 deps-budget-check: ## Verify DEPS_DEADLINE x DEPS_TRIES fits the workflow ceiling
 	@budget=$$(( $(DEPS_DEADLINE) * $(DEPS_TRIES) )); \
 	 backoff=0; i=1; \
@@ -1724,8 +1828,8 @@ deps-budget-check: ## Verify DEPS_DEADLINE x DEPS_TRIES fits the workflow ceilin
 	     backoff=$$(( backoff + i * 10 )); i=$$(( i + 1 )); \
 	 done; \
 	 need=$$(( budget + backoff )); \
-	 ceilings=$$(grep -rhoE '^[[:space:]]*timeout-minutes: [0-9]+' \
-	     .github/workflows/*.yml | grep -oE '[0-9]+' | LC_ALL=C sort -un); \
+	 ceilings=$$(grep -hoE '^[[:space:]]*timeout-minutes: [0-9]+' \
+	     $(DEPS_BUDGET_WORKFLOWS) | grep -oE '[0-9]+' | LC_ALL=C sort -un); \
 	 if [ -z "$$ceilings" ]; then \
 	     echo "ERROR: deps-budget-check found no timeout-minutes in"; \
 	     echo "  .github/workflows — the scan found nothing, so it did not"; \
@@ -1771,11 +1875,8 @@ record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
 #
 # A characterization subject with a published page belongs here too, and is
 # invoked SEPARATELY below rather than joined to the two lists that follow.
-# Those lists are hand-maintained and must agree with each other — 35 script
-# paths, then 35 PNG names in one `mv` — so a subject added to them would be
-# two more edits that can silently disagree. It takes an explicit destination
-# instead (the argv its `__main__` accepts), which needs neither list and
-# writes straight to docs/assets/.
+# It takes an explicit destination (the argv its `__main__` accepts) and
+# writes straight to docs/assets/, so it needs no move.
 #
 # Why it is regenerated here at all: `docs/assets/dsss_acq_characterization.png`
 # was a hand-committed file from 2026-07-11 that NOTHING refreshed — not
@@ -1789,6 +1890,13 @@ record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
 GALLERY_CHARACTERIZATIONS := \
     src/doppler/acquire/tests/characterization/burst_acquisition/characterize.py
 
+# ONE list. The PNGs `make gallery` moves into docs/assets/ are DERIVED from
+# it (`check_gallery_scripts.py --outputs`, each script's quoted "<name>.png").
+# A second, hand-kept list of those names used to sit in the recipe, and it
+# moved plan_background_demo.png on every run while its script was never here
+# -- so the plot went stale unseen and v0.59.0 shipped it (#1644).
+# `gallery-scripts-check` (on `lint`) closes the other direction: an example
+# whose plot is committed under docs/assets/ but which is missing from here.
 GALLERY_SCRIPTS := \
     src/doppler/examples/agc_demo.py \
     src/doppler/examples/ccsds_link_demo.py \
@@ -1812,21 +1920,38 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/symbols_demo.py \
     src/doppler/examples/wfm_composition_demo.py \
     src/doppler/examples/wcdma_carriers_demo.py \
-    src/doppler/examples/plan_demo.py \
+    src/doppler/examples/plan_background_demo.py \
     src/doppler/examples/crowded_band_demo.py \
     src/doppler/examples/measure_demo.py \
     src/doppler/examples/measure_imd_npr_demo.py \
-    src/doppler/examples/wfm_write_demo.py \
     src/doppler/examples/awgn_demo.py \
     src/doppler/examples/doppler_channel_demo.py \
     src/doppler/examples/wfm_io_demo.py \
-    src/doppler/examples/dsss_burst_pipeline_demo.py \
     src/doppler/examples/dsss_burst_receiver_demo.py \
+    src/doppler/examples/dsss_burst_ber_demo.py \
     src/doppler/examples/async_dsss_receiver_spec_demo.py \
     src/doppler/examples/dsss_receiver_demo.py \
     src/doppler/examples/carrier_acq_rrc_demo.py \
     src/doppler/examples/mpsk_receiver_demo.py \
-    src/doppler/examples/mpsk_receiver_performance_demo.py
+    src/doppler/examples/mpsk_receiver_performance_demo.py \
+    src/doppler/examples/async_despread_demo.py \
+    src/doppler/examples/async_despreader_study.py \
+    src/doppler/examples/async_dsss_pool_demo.py \
+    src/doppler/examples/coding_demo.py \
+    src/doppler/examples/costas_demo.py \
+    src/doppler/examples/costas_theory_demo.py \
+    src/doppler/examples/cvt_quantization_demo.py \
+    src/doppler/examples/dll_demo.py \
+    src/doppler/examples/dll_theory_demo.py \
+    src/doppler/examples/farrow_demo.py \
+    src/doppler/examples/mpsk_carrier_theory_demo.py \
+    src/doppler/examples/mpsk_constellation_demo.py \
+    src/doppler/examples/mpsk_doppler_profile_demo.py \
+    src/doppler/examples/mpsk_nda_theory_demo.py \
+    src/doppler/examples/q15_uq15_demo.py \
+    src/doppler/examples/receiver_lock_demo.py \
+    src/doppler/examples/symsync_demo.py \
+    src/doppler/examples/symsync_theory_demo.py
 
 # The receiver-dynamics figure. NOT a gallery script: the measurement is C
 # (validate_rx_dynamics) and this only renders the telemetry that harness
@@ -1834,6 +1959,13 @@ GALLERY_SCRIPTS := \
 # writes straight to docs/assets/ instead of the gallery's mv dance.
 plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness's telemetry
 	uv run python scripts/plot_rx_dynamics.py
+
+# The direction a derived move list cannot close: an example whose plot is
+# committed under docs/assets/ but which nothing re-renders, because it was
+# never added to GALLERY_SCRIPTS. Passed IN, like release-freshness-check.
+# No waiver list: the 19 orphans it once held were drained in #1647.
+gallery-scripts-check: ## Verify every committed gallery plot has a script `make gallery` runs
+	@$(UV) run python scripts/check_gallery_scripts.py $(GALLERY_SCRIPTS)
 
 # EXAMPLES_SKIP is the same list src/doppler/tests/test_examples.py reads, and
 # it is read here rather than restated: a script the smoke gate deliberately
@@ -1857,7 +1989,8 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 	    printf "  %-45s" "$$script"; \
 	    uv run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
 	done
-	@for png in agc_convergence.png ccsds_link_demo.png agc_settling_design.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png mpsk_telemetry_capture_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png awgn_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png dsss_burst_receiver_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png; do \
+	@for png in $$($(UV) run python scripts/check_gallery_scripts.py \
+	        --outputs $(GALLERY_SCRIPTS)); do \
 	    [ -e "$$png" ] && mv -f "$$png" docs/assets/ || true; \
 	done
 	# The demos that WRITE a capture leave it in the repo root. burst.blue
@@ -2586,20 +2719,63 @@ endif
 # docs/api/*.md, README.md's synced body from docs/index.md, the per-distro
 # install scripts from bootstrap.toml, and the release version stamped into
 # doc-version regions.
-# NOT part of docs-relink, and not in CI, for one reason: this is the only
-# generator whose input is off the machine. `--write` reads the live issue
-# list through `gh`, so it needs the network and an authenticated CLI, and a
-# CI job built on it would fail on a rate limit rather than on the tree.
+# NOT part of docs-relink, and not on any pull request, for one reason: this
+# is the only generator whose input is off the machine. `--write` reads the
+# live issue list through `gh`, and the drift it can find is made by filing
+# or closing an issue, not by any diff -- as a PR gate it would turn every
+# open PR red the moment anyone filed one.
 #
-# What IS gated is the half that can be: `--check` re-renders from the
+# Two halves are gated, each where it can be. `--check` re-renders from the
 # committed docs/dev/issue-tiers.toml and diffs the page, offline and
 # deterministic, so a hand-edit of a generated page is caught (docs-check).
-# Freshness against GitHub is not checkable offline, so the page carries the
-# date it was derived and the command that derives it -- the same
-# date-plus-derivation the rest of this repo requires of a recorded live
-# value.
+# `issues-check` reconciles the map against the live list and fails on an
+# open issue with no tier or a tier naming a closed one; it runs daily in
+# .github/workflows/issues.yml. Until doppler#1716 nothing ran it, and the
+# map drifted to 66 untiered and 3 stale in ten days. The fix for a red run
+# is always: tier the new issues, then `make issues`, which drops a closed
+# issue's row itself (no judgement) and refuses while one is untiered.
 issues: ## Refresh docs/dev/issues.md from the live issue list (needs gh)
 	uv run python scripts/gen_issue_tracker.py --write
+
+issues-check: ## Fail if the tier map has drifted from the live issues (needs gh)
+	uv run python scripts/gen_issue_tracker.py --reconcile $(if $(ISSUES_LIVE),--live $(ISSUES_LIVE),)
+
+# GATES_CI_EXTRA is a declaration gates-home-check takes on trust. This holds
+# it: each name must be a `make <name>` line -- comments stripped -- in some
+# workflow. WORKFLOW_DIR is overridable so the check can be sabotaged on a
+# copy of the workflows. A PRIVATE copy of a check that belongs in the
+# vendored standard.mk: filed upstream as just-buildit/just-makeit#1768, and
+# deleted here on the re-vendor that carries it.
+WORKFLOW_DIR ?= .github/workflows
+gates-extra-home-check: ## Verify each GATES_CI_EXTRA target is run by a workflow
+	@rc=0; n=0; \
+	 for t in $(GATES_CI_EXTRA); do \
+	     n=$$((n+1)); home=""; \
+	     for w in $(WORKFLOW_DIR)/*.yml; do \
+	         if sed -E 's/(^|[[:space:]])#.*$$//' "$$w" \
+	            | grep -qE "(^|[[:space:];&|]|run:)[[:space:]]*make[[:space:]]+$$t([[:space:]]|$$)"; \
+	         then home="$$w"; break; fi; \
+	     done; \
+	     if [ -z "$$home" ]; then \
+	         echo "ERROR: GATES_CI_EXTRA names '$$t', and no workflow in $(WORKFLOW_DIR) runs 'make $$t'"; \
+	         rc=1; \
+	     else echo "  $$t <- $$home"; fi; \
+	 done; \
+	 if [ $$rc -ne 0 ]; then \
+	     echo "  gates-home-check counts it as having a home; it has none."; \
+	     exit 1; \
+	 fi; \
+	 echo "gates-extra-home-check: $$n declared home(s), each a real workflow line"
+
+# The wfmgen flag-matrix golden is GATED by ctest (`wfmgen_flag_matrix`,
+# native/src/wfmcompose/CMakeLists.txt, which runs the script with --check)
+# and REGENERATED only here: the same script, through uv, against the binary
+# `build` just made. Before this target every PR that changed a case ran the
+# script by hand with whatever interpreter and build path it had (#1627), and
+# the script's docstring and its failure message both name this target.
+WFMGEN_EXE = $(BUILD_DIR)/native/src/wfmcompose/wfmgen
+wfmgen-flag-matrix: build ## Regenerate native/tests/wfmgen_flag_matrix.json
+	$(UV) run python scripts/gen_wfmgen_flag_matrix.py --exe $(WFMGEN_EXE)
 
 docs-relink: ## Regenerate every generated doc region
 	uv run python scripts/gen_related_pages.py --write
@@ -3348,12 +3524,20 @@ abi-check: ## Verify the built libraries are portable and C++-free (Linux)
 # definition of 'cJSON_Parse'` -- which is exactly what it did when sabotaged
 # by reversing the rename on copies of the two archives. POSIX-only, like
 # libdoppler_stream (#1575).
-vendored-collision-check: build ## A consumer with its own cJSON/nats.c still links doppler statically
-	@t=$$(mktemp -d); \
+#
+# And SHARED (doppler#1164): there a clash is no link error at all -- the
+# loader binds one cJSON_Parse for the program and both libraries, and before
+# the export lists doppler called the consumer's (exit 2, measured).
+vendored-collision-check: build ## A consumer with its own cJSON/nats.c still links doppler, static and shared
+	@t=$$(mktemp -d); b=$$(cd $(BUILD_DIR) && pwd); \
 	 if cc tests/install/vendored-collision/app.c -Inative/inc \
 	       -I$(BUILD_DIR)/native/inc $(BUILD_DIR)/libdoppler_stream.a \
 	       $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/vc" \
-	    && "$$t/vc"; then \
+	    && "$$t/vc" \
+	    && cc tests/install/vendored-collision/app.c -Inative/inc \
+	       -I$(BUILD_DIR)/native/inc -L"$$b" -ldoppler_stream -ldoppler \
+	       -Wl,-rpath,"$$b" -lm -lpthread -o "$$t/vc-shared" \
+	    && "$$t/vc-shared"; then \
 	     rm -rf "$$t"; \
 	 else \
 	     echo "vendored-collision-check: FAIL -- a consumer's own cJSON or" \
@@ -3574,29 +3758,11 @@ glibc-gate: glibc-image ## Build in a glibc $(GLIBC_MAX) container, then run gli
 
 # ── The CI toolchain image (gh-885) ──────────────────────────────────────────
 # Beside the glibc image above and for the same reason: this is a build
-# ENVIRONMENT for gates, not one of the images doppler ships. Every Linux CI
-# job used to open by apt-installing the dev group -- ~112 MB per job, ten
-# jobs a run, and most of it already on the runner outside dpkg. That download
-# was the whole exposure to mirror weather; baking it removes the step.
-#
-# TWO BASES, and the pair is load-bearing rather than thorough: build-and-test
-# runs ubuntu-22.04 and ubuntu-24.04 on purpose. One image for both would
-# leave the matrix naming two environments while testing one.
-CI_IMAGE_REPO  ?= ghcr.io/doppler-dsp/doppler-ci
-CI_IMAGE_BASES ?= ubuntu:22.04 ubuntu:24.04
-CI_DOCKERFILE  := deploy/docker/Dockerfile.ci
-# The pin. `include`d rather than parsed so make reads the digests directly,
-# and `-` so a fresh clone before the first publish is a clear gate failure
-# rather than a parse error.
-CI_IMAGE_PIN   := .github/ci-images.env
--include $(CI_IMAGE_PIN)
+# ENVIRONMENT for gates, not one of the images doppler ships. Building,
+# pinning, repinning and `ci-image-check` are canonical's (HAS_CI_IMAGE, set
+# with its settings at the top of this file); what stays here is what only
+# doppler does with the image -- run its gates inside it.
 
-# What the pinned image was built FROM. Hashing the two inputs is what makes
-# the gate offline and instant: it answers "has anyone changed the dependency
-# list or the image recipe since this digest was taken", which is the drift a
-# developer can actually cause. Whether UPSTREAM packages moved is a different
-# question, and the nightly rebuild in ci-image.yml is what asks it -- it
-# compares the package fingerprint baked into the image, not this.
 # Make the cache's effect VISIBLE. CI calls this after its build steps, so
 # the hit rate is in the log rather than being an assumption about a tool
 # nobody can see working -- if the cache silently stopped hitting, the only
@@ -3608,24 +3774,6 @@ ccache-stats: ## Print compiler-cache hit statistics (no-op without ccache)
 	 else \
 	    echo "ccache-stats: ccache not installed — builds are uncached"; \
 	 fi
-
-# Plain `python3`, not `$(UV) run python`, and deliberately: the script is
-# stdlib-only, and ci-image.yml shells out to THIS target so the workflow and
-# the check cannot compute different numbers. That workflow builds the image
-# the rest of CI runs inside, so it is the one place that cannot assume a
-# synced uv environment -- it has neither a setup-python nor a uv install step.
-# Nothing is unpinned by this: `uv run` pins dependencies, and this script has
-# none.
-ci-image-source-hash: ## Print the hash of the CI image's inputs (plumbing)
-	@python3 scripts/ci_image_source_hash.py
-
-ci-image: ## Build the CI toolchain image locally, one per base
-	@for b in $(CI_IMAGE_BASES); do \
-	     tag="doppler-ci:$$(echo $$b | tr ':' '-')"; \
-	     echo "=== $$b -> $$tag"; \
-	     docker build -f $(CI_DOCKERFILE) --build-arg BASE=$$b -t "$$tag" . \
-	         || exit 1; \
-	 done
 
 # Run it like CI runs it, in the SAME image CI pins -- by digest, not by a
 # local tag that happens to share a name. This is the payoff of baking the
@@ -3643,10 +3791,6 @@ ci-image: ## Build the CI toolchain image locally, one per base
 CI_IMAGE     ?= $(CI_IMAGE_2404)
 CI_BUILD_DIR ?= build-ci
 CI_DOCKER_RUN = docker run --rm $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR))
-
-ci-shell: ## Interactive shell in the PINNED CI image, checkout at /w
-	@docker run --rm -it $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR)) \
-	    $(CI_IMAGE) bash
 
 ci-run: ## Run `make TARGET=<goals>` inside the PINNED CI image
 	@if [ -z "$(TARGET)" ]; then \
@@ -3679,8 +3823,9 @@ ci-run: ## Run `make TARGET=<goals>` inside the PINNED CI image
 # names /w/... — paths that do not exist here, which breaks clangd silently.
 	@ln -sfn $(BUILD_DIR)/compile_commands.json compile_commands.json
 
-# The composition a developer actually wants before pushing: the gate set
-# CI runs, in the environment CI runs it in. `gates` is already "every gate CI
+# The gate set CI runs, in the environment CI runs it in: how to reproduce a
+# CI red locally. Not a pre-push ritual -- before pushing, run what proves the
+# change and let CI be the gate (docs/dev/release.md, #1646). `gates` is already "every gate CI
 # runs" (gates-check enforces that against ci.yml); this is that list with the
 # environment question removed too.
 #
@@ -3688,12 +3833,9 @@ ci-run: ## Run `make TARGET=<goals>` inside the PINNED CI image
 # ~10 minutes -- a hook that slow is one people pass --no-verify to, and a
 # gate routinely bypassed is decoration. It is a target you run when you mean
 # it, and CI remains the thing that is not optional.
-ci-gates: ## Run the full gate set inside the PINNED CI image (pre-push check)
+ci-gates: ## Run the full gate set inside the PINNED CI image (reproduce CI)
 	@$(MAKE) --no-print-directory ci-run TARGET=gates
 
-ci-image-shell: ## A shell in the LOCALLY BUILT CI image (see ci-image)
-	@docker run --rm -it $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR)) \
-	    doppler-ci:ubuntu-24.04 bash
 # Report what a PR's checks did. It NEVER authorizes a merge -- that is
 # `gh pr merge <n> --auto --rebase`, which evaluates the repo's required set
 # SERVER-side and cannot be got wrong by a poll loop. Arm auto-merge first;
@@ -3722,57 +3864,18 @@ pr-watch: ## Watch PR=<n>'s checks to a settled verdict (never merges)
 	@bash scripts/pr-watch.sh $(PR)
 
 
-# The gate. Two questions, both answerable with no network and no docker:
-#
-#   1. Does every image a workflow can run in trace back to the pin file? A
-#      `container:` naming anything else is how a run stops being
-#      reproducible -- including a tag, which is mutable by definition.
-#      Delegated to scripts/ci_image_refs_check.py: the refs are expressions
-#      now, so answering this means RESOLVING `${{ … }}` rather than
-#      skipping it, which is more than a grep should be asked to do. Its own
-#      header carries why the previous shell scan could not survive the
-#      change (#1215).
-#   2. Is the pin still describing the current inputs? bootstrap.toml gaining
-#      a package with no rebuild means CI provisions an environment the repo
-#      no longer describes, and the failure would land later, somewhere else,
-#      as a missing tool.
-ci-image-check: ## Fail when the pinned CI image no longer matches its inputs
-	@rc=0; \
-	 if [ ! -f "$(CI_IMAGE_PIN)" ]; then \
-	     echo "ci-image-check: $(CI_IMAGE_PIN) is missing — the CI image has"; \
-	     echo "  never been published, or the pin was deleted. Run the"; \
-	     echo "  ci-image workflow and commit the pin it prints."; \
-	     exit 1; \
-	 fi; \
-	 have=$$($(MAKE) -s ci-image-source-hash); \
-	 if [ "$$have" != "$(CI_IMAGE_SOURCE_HASH)" ]; then \
-	     echo "ci-image-check: the CI image's inputs changed since the"; \
-	     echo "  pinned image was built (bootstrap.toml's package/tool"; \
-	     echo "  tables, or $(CI_DOCKERFILE) -- NOT [project], which"; \
-	     echo "  no layer reads; see scripts/ci_image_source_hash.py)."; \
-	     echo "    pinned inputs: $(CI_IMAGE_SOURCE_HASH)"; \
-	     echo "    this tree:     $$have"; \
-	     echo "  Push the branch (ci-image.yml builds on those paths), then"; \
-	     echo "  commit the pin block it prints into $(CI_IMAGE_PIN)."; \
-	     rc=1; \
-	 fi; \
-	 $(UV) run python scripts/ci_image_refs_check.py || rc=1; \
-	 [ $$rc -eq 0 ] || exit 1; \
-	 echo "ci-image-check: OK — pin matches its inputs"
-
-# The OTHER half of the same question, and the half `ci-image-check` above
-# deliberately cannot answer: it is a no-network gate, so it compares OUR
-# inputs (CI_IMAGE_SOURCE_HASH) and never the package fingerprints the image
-# actually came out with. Upstream moving underneath an unchanged Dockerfile
-# is exactly the drift the nightly exists to find, and until doppler#1212
-# nothing gated it -- the nightly's only delivery mechanism was a PR the org
-# forbids Actions from opening, so it force-pushed `ci/repin-image` and died.
-#
-# Logic in a script rather than an inline recipe for the same reason
-# `issue-link-check` is: the gate's own test drives it over two seeded pin
-# blocks instead of fabricating a scratch repository and a remote.
-ci-image-repin-check: ## Fail when a rebuilt CI-image pin is pending and unmerged
-	@bash scripts/ci-image-repin-check.sh
+# Does every image a workflow can run in trace back to the pin file? A
+# `container:` naming anything else is how a run stops being reproducible --
+# including a tag, which is mutable by definition. Canonical's
+# `ci-image-check` asks the other question (is the pin built from this
+# tree's image sources); this one is doppler's, because only doppler's ci.yml
+# reads the pin through a `pin` job. Delegated to
+# scripts/ci_image_refs_check.py: the refs are expressions, so answering this
+# means RESOLVING `${{ … }}` rather than skipping it, which is more than a
+# grep should be asked to do. Its own header carries why the previous shell
+# scan could not survive the change (#1215).
+ci-image-refs-check: ## Fail when a workflow container image is not the pin's
+	@$(UV) run python scripts/ci_image_refs_check.py
 
 # The layering `wfm/wfm_frame.h` states about itself -- "`ccsds_tm` must depend
 # on this file ... so this file must not call `ccsds_tm`'s kernels" -- is a
@@ -3953,7 +4056,8 @@ test-api-docs: ## Doctest the docs/api/*.md reference pages
 # earns.
 test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 	@fail=0; empty=0; n=0; \
-	 for t in test_doc_snippets test_c_doc_snippets test_sh_doc_snippets; do \
+	 for t in test_doc_snippets test_c_doc_snippets test_c_header_code \
+	              test_sh_doc_snippets; do \
 	     echo "=== $$t ==="; \
 	     n=$$((n + 1)); \
 	     $(LEAK_CHECK) -- uv run python -m pytest -m docs_snippets -q \

@@ -8,6 +8,7 @@
  * compose; the per-axis tests re-materialize a variation and memcmp it against
  * a full compose of the equivalently-modified spec.
  */
+#include "doppler/clib_common.h"
 #include "doppler/wfm/wfm_compose.h"
 #include "doppler/wfm/wfm_plan.h"
 #include "dp_test.h"
@@ -259,9 +260,8 @@ compose_n (const char *json, float _Complex *out, size_t n)
   return total;
 }
 
-/* 240 payload bits, spelled once: the segment's `pattern` and the frame's
- * `payload` field are the same bits, and a framed source takes them from
- * the description. */
+/* 240 payload bits: the segment's data source, which fills the frame's
+ * `payload` field, data:240 -- one frame of it. */
 #define PAY_BITS_LIT                                                          \
   "1010101010101010101010101010101010101010101010101010101010101010101010101" \
   "0101010101010101010101010101010101010101010101010101010101010101010101010" \
@@ -292,11 +292,10 @@ test_framed_scene_matches_compose (void)
       = "{\"version\":1,\"segments\":[{"
         "\"type\":\"bits\",\"fs\":1000000,\"snr\":12,\"snr_mode\":\"fs\","
         "\"seed\":7,\"sps\":4,\"modulation\":\"bpsk\","
-        "\"num_samples\":1088,\"off_samples\":512,"
-        "\"payload\":\"" PAY_BITS_LIT "\","
+        "\"off_samples\":512,\"data\":\"" PAY_BITS_LIT "\","
         "\"frame\":{\"fields\":["
         "{\"name\":\"hdr\",\"spec\":\"0101010101010101\"},"
-        "{\"name\":\"payload\",\"spec\":\"" PAY_BITS_LIT "\"},"
+        "{\"name\":\"payload\",\"spec\":\"data:240\"},"
         "{\"name\":\"crc\",\"bits\":16,\"derived_by\":1}],"
         "\"stages\":[{\"kind\":\"crc16\",\"first_field\":1,\"n_fields\":2}]"
         "}}]}";
@@ -513,13 +512,86 @@ test_background_bundled_is_not_folded (void)
   return 0;
 }
 
+/* A finite DATA SOURCE (#1619) through a Plan, on both noise branches.
+ *
+ * `data`, `fill` and `data_from_file` are BORROWED: they point into the
+ * composer plan_build() destroys once the Plan is built. The noise copy is
+ * a struct copy of a source, so it inherits them unless drop_borrowed()
+ * clears them, and build_gap_synth() hands that copy to the bridge on every
+ * render -- which attaches the data source, reading the freed bits. Only
+ * ASan sees it (a freed block usually still holds the bytes), so this test
+ * is the sabotage target under `make test-asan`.
+ *
+ * BUNDLED is the branch that can carry it: the lone source with a real snr
+ * IS the noise copy. SHARED copies the trailing noise source, and a noise
+ * source cannot carry data (data_error refuses it), so there the data
+ * source rides beside the copy; it is rendered too, so both branches stay
+ * pinned against compose. */
+static int
+data_scene_matches_compose (int shared)
+{
+  static const uint8_t bits[16]
+      = { 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1 };
+  static const uint8_t fill[2] = { 0, 1 };
+  wfm_source_t         src[2]  = { { 0 }, { 0 } };
+  src[0].type                  = WFM_SYNTH_BPSK;
+  src[0].sps                   = 4;
+  src[0].snr                   = shared ? 100.0 : 12.0;
+  src[0].seed                  = 7;
+  src[0].pn_length             = 7;
+  src[0].crc                   = 1;
+  src[0].data                  = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL,
+                                              .bits = bits,
+                                              .len  = sizeof bits };
+  src[0].data_len = 6; /* 3 frames, the last one padded from the fill */
+  src[0].fill     = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL,
+                                 .bits = fill,
+                                 .len  = sizeof fill };
+  src[1].type     = WFM_SYNTH_NOISE;
+  src[1].snr      = 100.0;
+  src[1].seed     = 7;
+  src[1].level    = -20.0;
+  wfm_segment_t seg
+      = { .sources = src, .n_sources = shared ? 2u : 1u, .fs = 1e6 };
+  char *json = dp_wfm_spec_to_json (&seg, 1, 0, 0, 0, 0.0);
+  DP_REQUIRE_MSG (json, "DATA: the scene serializes");
+
+  int             rc  = 1;
+  wfm_plan_t     *p   = dp_wfm_plan_prepare (json);
+  float _Complex *ref = NULL, *got = NULL;
+  DP_REQUIRE_MSG (p, "DATA: a finite data source is in scope for a Plan");
+  const size_t n = dp_wfm_plan_len (p);
+  DP_REQUIRE_MSG (n == 3u * (6u + 16u) * 4u,
+                  "DATA: the run is the frames, derived");
+  ref = malloc (n * sizeof *ref);
+  got = malloc (n * sizeof *got);
+  DP_REQUIRE_MSG (ref && got, "DATA: alloc");
+  DP_REQUIRE_MSG (compose_n (json, ref, n) == n, "DATA: compose baseline");
+  DP_REQUIRE_MSG (dp_wfm_plan_render (p, "{}", got) == n,
+                  "DATA: the Plan renders the full run");
+  DP_REQUIRE_MSG (memcmp (ref, got, n * sizeof *ref) == 0,
+                  "DATA: the render is byte-identical to compose");
+  rc = 0;
+  free (ref);
+  free (got);
+  dp_wfm_plan_destroy (p);
+  free (json);
+  return rc;
+}
+
+static int
+test_data_source_scene (void)
+{
+  return data_scene_matches_compose (0) || data_scene_matches_compose (1);
+}
+
 int
 main (void)
 {
   if (test_noise_anchor_position () || test_background_fold ()
       || test_background_must_be_prefix ()
       || test_background_bundled_is_not_folded ()
-      || test_framed_scene_matches_compose ())
+      || test_framed_scene_matches_compose () || test_data_source_scene ())
     return 1;
   if (test_parallel_build_bit_exact ())
     return 1;
@@ -711,6 +783,30 @@ main (void)
   DP_REQUIRE_MSG (pclean, "accept clean (no-noise) scene");
   DP_REQUIRE_MSG (dp_wfm_plan_anchor_seed (pclean) == 0,
                   "anchor_seed == 0 for a no-noise scene");
+
+  /* #1695: a clean scene has no noise floor for an snr to move. at() and a
+   * render "snr" key used to return the clean signal at EVERY snr, so a BER
+   * sweep over it read a perfect receiver; now both are refused, 0 samples
+   * and `out` untouched, and dp_wfm_plan_check_snr says so. What still has a
+   * meaning on a clean scene -- the baseline, and a seed (which redraws a
+   * ranged gap) -- still renders. The sentinel makes "untouched" evidence. */
+  DP_REQUIRE_MSG (dp_wfm_plan_check_snr (pclean) == DP_ERR_INVALID,
+                  "CLEAN: check_snr refuses a scene with no noise");
+  DP_REQUIRE_MSG (dp_wfm_plan_check_snr (NULL) == DP_ERR_INVALID,
+                  "CLEAN: check_snr(NULL) refuses");
+  for (size_t i = 0; i < L; i++)
+    got[i] = 1.0f + 2.0f * I;
+  DP_REQUIRE_MSG (dp_wfm_plan_at (pclean, 6.0, 1, got) == 0,
+                  "CLEAN: at(snr) is refused: 0 samples");
+  DP_REQUIRE_MSG (dp_wfm_plan_render (pclean, "{\"snr\":6.0}", got) == 0,
+                  "CLEAN: render({snr}) is refused: 0 samples");
+  for (size_t i = 0; i < L; i++)
+    DP_REQUIRE_MSG (got[i] == 1.0f + 2.0f * I,
+                    "CLEAN: a refused draw leaves out untouched");
+  DP_REQUIRE_MSG (dp_wfm_plan_render (pclean, "{}", got) == L,
+                  "CLEAN: the baseline still renders");
+  DP_REQUIRE_MSG (dp_wfm_plan_render (pclean, "{\"seed\":5}", got) == L,
+                  "CLEAN: a seed alone still renders");
   dp_wfm_plan_destroy (pclean);
   free (jclean);
 
@@ -726,6 +822,8 @@ main (void)
   DP_REQUIRE_MSG (compose_collect (jsolo, ref) == L, "compose solo baseline");
   wfm_plan_t *psolo = dp_wfm_plan_prepare (jsolo);
   DP_REQUIRE_MSG (psolo, "accept bundled noisy source");
+  DP_REQUIRE_MSG (dp_wfm_plan_check_snr (psolo) == DP_OK,
+                  "NOISY: check_snr accepts a scene with a noisy source");
   DP_REQUIRE_MSG (dp_wfm_plan_n_sources (psolo) == 1,
                   "bundled n_sources == 1");
   DP_REQUIRE_MSG (dp_wfm_plan_render (psolo, "{}", got) == L,

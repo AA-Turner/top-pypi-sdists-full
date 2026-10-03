@@ -28,6 +28,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "kind_instance_write_result",
+    disposition="receipt",
     label="Kind Instance Write",
     family="kind_instances",
     example={
@@ -76,6 +77,7 @@ class KindInstanceSummary(KindSubModel):
 
 @kind(
     "kind_instance_page",
+    disposition="record",
     label="Kind Instances",
     family="kind_instances",
     example={
@@ -131,6 +133,7 @@ class KindInstanceRecord(KindSubModel):
 
 @kind(
     "kind_instance_detail",
+    disposition="record",
     label="Kind Instance",
     family="kind_instances",
     example={

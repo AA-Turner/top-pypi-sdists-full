@@ -24,6 +24,7 @@ from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
     MAX_ITERATIONS_DESCRIPTION,
@@ -46,8 +47,9 @@ class ChatManualInput(BaseModel):
     model: str = Field(
         min_length=1,
         description="Model identifier (e.g. 'claude-opus-4-7', 'gpt-5'). Resolved by matrx-ai's UnifiedAIClient.",
-        json_schema_extra=field_extras(widget="model_picker"),
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
+    offering_id: str | None = offering_id_field()
     messages: list[AiMessage] = Field(
         default_factory=list,
         description="Full conversation to send. Use `system_instruction` for the system prompt instead of a role='system' message.",
@@ -141,6 +143,7 @@ async def chat_manual(
     held = await hold_step(
         {
             "model": inputs.model,
+            "offering_id": inputs.offering_id,
             "messages": messages,
             "system_instruction": inputs.system_instruction,
             "tools": inputs.tools,

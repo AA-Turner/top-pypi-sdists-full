@@ -39,6 +39,7 @@ from pydantic import JsonValue
 
 @kind(
     "google_workspace_result",
+    disposition="record",
     label="Google Workspace Result",
     family="google_workspace",
     example={
@@ -163,6 +164,7 @@ class GoogleWorkspaceResult(KindModel):
 
 @kind(
     "google_marketing_result",
+    disposition="record",
     label="Google Marketing Result",
     family="google_marketing",
     example={

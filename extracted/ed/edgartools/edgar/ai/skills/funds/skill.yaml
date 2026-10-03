@@ -53,6 +53,10 @@ patterns:
       investments = arcc.portfolio_investments() # Parsed individual investments
       investments.filter(industry="software")    # by industry as filed or normalized sector
       investments.by_industry()                  # sector | num_investments | total_fair_value | pct_of_portfolio
+      investments.reported_total_fair_value      # The filer's balance-sheet total: use this for the portfolio size
+      investments.reconciliation_gap             # Rows vs reported total, e.g. 0.003; check before trusting sums
+      investments.unfunded_commitments_fair_value  # Negative; FSK nets -1,448.1M out of its total, the gap allows for it
+      investments.excluded                       # Subtotal / duplicate rows left out, each with .reason
       inv = investments[0]
       inv.industry / inv.sector / inv.industry_source   # as filed / normalized / axis|enumeration|identifier|peer|None
 
@@ -61,7 +65,7 @@ patterns:
       dataset.soi                                # Schedule of investments data
       dataset.summary_by_industry()              # industry | total_fair_value | num_bdcs | num_investments
       dataset.summary_by_industry(by='sector')   # spellings folded: "Software Sector" + "Software & Services" -> Software
-      dataset.summary_by_company()               # cik | name | form | filed | num_investments | total_fair_value
+      dataset.summary_by_company()               # cik | name | form | filed | num_investments | total_fair_value | total_source
       dataset.schedule_of_investments.search("Ivy Hill")   # Which BDCs hold a company
       dataset.schedule_of_investments.to_dataframe(clean=True)  # fair_value, cost, industry, industry_source, sector
     note: |
@@ -74,6 +78,21 @@ patterns:
       and from a peer BDC's tag for the same issuer; industry_source says
       which. An investment with no recoverable industry has industry, sector
       and industry_source all None, never an empty string.
+
+  - name: BDC Non-Accrual
+    when: Which BDC loans are on non-accrual, or the non-accrual rate
+    code: |
+      from edgar.bdc import extract_nonaccrual
+      result = extract_nonaccrual(filing)        # a BDC 10-K/10-Q Filing, or a BDCEntity
+      result.nonaccrual_rate                     # non-accrual FV / portfolio FV
+      result.evidence_level                      # 'investment' | 'aggregate' | 'none'
+      result.num_nonaccrual                      # int only when 'investment'; else None
+      result.investments                         # NonAccrualInvestment rows (company_name, fair_value, cost)
+    note: |
+      num_nonaccrual None means the filing does not itemize non-accruals: an
+      aggregate rate (evidence_level 'aggregate') proves some exist without a
+      count, and 'none' means no XBRL signal. Never read None as zero. The count
+      is of schedule rows, so one company with two loans counts twice.
 
   - name: Report Backlinks
     when: Navigate from report to filing

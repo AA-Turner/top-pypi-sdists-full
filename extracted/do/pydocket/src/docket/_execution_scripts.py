@@ -237,6 +237,7 @@ async def _claim(
     started_at: Arg[str],
     generation: Arg[int],
     state_payload: Arg[str],
+    key_json: Arg[str],
     worker_group_name: Arg[str],
     message_id: Arg[bytes],
 ) -> list[Any]:
@@ -268,6 +269,39 @@ async def _claim(
                 redis.call('HGETALL', progress_key)
             }
         end
+    end
+
+    -- A cancel does not change the generation.  It also cannot XDEL an entry
+    -- the scheduler moved from the queue, because the runs hash has no
+    -- stream_id for it.  So refuse a cancelled key here, and ACK and XDEL
+    -- its message.
+    if redis.call('HGET', runs_key, 'state') == 'cancelled' then
+        if message_id ~= '' then
+            redis.call('XACK', stream_key, worker_group_name, message_id)
+            redis.call('XDEL', stream_key, message_id)
+        end
+        -- docket.cancel() leaves a running task's cancelled state to its
+        -- worker.  If that worker died, the redelivery sweep reclaims its
+        -- message for another worker, whose claim takes this branch.  So
+        -- this claim publishes the cancelled state.  Without it, a waiter in
+        -- get_result() waits until its timeout, or forever without one.  For
+        -- a task that was queued at the cancel, docket.cancel() published
+        -- the same event already, so a subscriber can receive it twice.
+        --
+        -- The event takes completed_at from the runs hash, so it matches what
+        -- sync() reads.  cjson isn't available on the in-memory backend, so
+        -- this builds the JSON with string concatenation.  Python passes the
+        -- key already JSON-encoded, and an ISO timestamp needs no escaping.
+        local completed_at = redis.call('HGET', runs_key, 'completed_at')
+            or started_at
+        redis.call('PUBLISH', state_channel,
+            '{"type": "state", "key": ' .. key_json ..
+            ', "state": "cancelled", "completed_at": "' .. completed_at .. '"}')
+        return {
+            'CANCELLED',
+            redis.call('HGETALL', runs_key),
+            redis.call('HGETALL', progress_key)
+        }
     end
 
     -- Update execution state to running
@@ -393,8 +427,10 @@ async def _cancel_task(
     stream_id_key: Key[str],
     runs_key: Key[str],
     progress_key: Key[str],
+    state_channel: Key[str],
     task_key: Arg[str],
     completed_at: Arg[str],
+    state_payload: Arg[str],
 ) -> bytes:
     """
     -- TODO: Remove known_key / parked_key / stream_id_key handling in
@@ -430,6 +466,14 @@ async def _cancel_task(
     local current_state = redis.call('HGET', runs_key, 'state')
     if current_state ~= 'completed' and current_state ~= 'failed' and current_state ~= 'cancelled' then
         redis.call('HSET', runs_key, 'state', 'cancelled', 'completed_at', completed_at)
+    end
+
+    -- No worker holds a task that has not started, so this script publishes
+    -- its cancelled state.  A running task's worker publishes the terminal
+    -- state itself, and Perpetual cancels its own key before the worker
+    -- marks the run completed.
+    if current_state == 'scheduled' or current_state == 'queued' then
+        redis.call('PUBLISH', state_channel, state_payload)
     end
 
     return 'OK'

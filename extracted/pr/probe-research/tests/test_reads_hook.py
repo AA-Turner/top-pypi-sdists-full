@@ -683,11 +683,11 @@ def test_the_fast_path_starts_python_for_a_new_status_only(fake_python):
 
 
 def test_the_pi_extension_mirrors_the_mailbox_texts():
-    """pi delivers from TypeScript (`probe-research-pi/src/reads.ts`); its
+    """pi delivers from TypeScript (`probe-research-pi/src/core/reads.ts`); its
     copies of the texts are the mailbox's, word for word."""
     import re
 
-    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "reads.ts").read_text()
+    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "core" / "reads.ts").read_text()
 
     def ts(name: str) -> str:
         return json.loads(re.search(rf'export const {name} = ("(?:[^"\\]|\\.)*");', source).group(1))
@@ -726,7 +726,7 @@ def test_a_long_turn_gets_one_more_unasked_message_every_ten_minutes():
 def test_the_pi_extension_mirrors_the_unasked_window():
     import re
 
-    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "reads.ts").read_text()
+    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "core" / "reads.ts").read_text()
     assert int(re.search(r"export const UNASKED_WINDOW_S = (\d+);", source).group(1)) == mailbox.UNASKED_WINDOW_S
 
 

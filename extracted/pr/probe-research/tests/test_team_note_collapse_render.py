@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from probe.cli import team_note_file
+from probe.cli import agent_rules, team_note_file
 
 
 @dataclass
@@ -36,7 +36,11 @@ def harnesses(tmp_path, monkeypatch):
     monkeypatch.setenv("CODEX_HOME", str(codex))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.delenv("PROBE_AGENT", raising=False)
-    return claude / "CLAUDE.md", codex / "AGENTS.md"
+    files = claude / "CLAUDE.md", codex / "AGENTS.md"
+    # Opted in: the note renders only beside the pointer block.
+    for path in files:
+        agent_rules.install(path)
+    return files
 
 
 _STRUCK = """## decisions
@@ -106,7 +110,8 @@ def test_render_records_health_for_the_audit_trigger(harnesses) -> None:
 
 def test_health_reflects_a_degraded_render(harnesses, tmp_path) -> None:
     claude_md, agents_md = harnesses
-    filler = "x" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 2_000)
+    rules = claude_md.read_text(encoding="utf-8")
+    filler = rules + "x" * (team_note_file.INSTRUCTION_FILE_MAX_BYTES - 2_000 - len(rules.encode("utf-8")))
     claude_md.write_text(filler, encoding="utf-8")
     agents_md.write_text(filler, encoding="utf-8")
 
@@ -114,6 +119,7 @@ def test_health_reflects_a_degraded_render(harnesses, tmp_path) -> None:
         "## rules\n\n" + "content line\n" * 300, settings=_Settings()
     )
     payload = json.loads(team_note_file.note_health_path().read_text(encoding="utf-8"))
+    assert set(report.pointer_only) == {"claude_code", "codex"}, report
     for source in report.pointer_only:
         entry = payload["sources"][source]
         assert entry["degraded"] is True

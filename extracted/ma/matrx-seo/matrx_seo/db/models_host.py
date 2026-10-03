@@ -2,7 +2,7 @@
 """Package-owned models for the HOST surfaces matrx-seo is granted.
 
 These are minimal, deliberately narrow mirrors of canonical host tables the
-SEO vertical reads (``web.site`` / ``web.page`` / ``workspace.projects``) plus
+SEO vertical reads (``web.site`` / ``web.page`` / ``projects.projects``) plus
 the platform association edge table it writes keyword→project links through.
 The read surfaces are ``_read_only`` — the vertical never mutates a host row.
 All bind to the ``matrx_seo`` database name (hosted alias or svc_seo pool).
@@ -56,7 +56,7 @@ class WorkspaceProject(Model):
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "projects"
-    _db_schema = "workspace"
+    _db_schema = "projects"
     _read_only = True
 
 

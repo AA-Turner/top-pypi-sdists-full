@@ -50,6 +50,7 @@ from cozy_runtime.internal.worker.session import Worker, WorkerOptions, read_pla
 from cozy_runtime.internal.worker.supervisor import Unit
 from cozy_runtime.protocol import WIRE_MINOR, documents
 from cozy_runtime.protocol import worker_pb2 as pb
+from test_gpu_scheduler import VIRTUAL, driverless
 from test_job_slot_paths import _ASSET, _HEADER, _ref
 
 GiB = 1 << 30
@@ -160,11 +161,18 @@ class Machine:
 
         monkeypatch.setattr(Worker, "dispatch_machine", dispatch_job)
         monkeypatch.setattr(package_prepare, "_census", census)
+        driverless(monkeypatch)
         monkeypatch.setattr(
             accel,
             "device_memory",
             lambda entry, kind: accel.DeviceMemory("measured", 80 * GiB, 80 * GiB),
         )
+        self.root, self.monkeypatch = root, monkeypatch
+        self.boot()
+
+    def boot(self) -> None:
+        """This machine's Runtime over its roots: a second call is a restarted Runtime."""
+        root, monkeypatch = self.root, self.monkeypatch
         base = {
             k: v for k, v in os.environ.items() if not child_env.erased(k) and k != "PYTHONPATH"
         }
@@ -183,7 +191,7 @@ class Machine:
                 tensorfs_root=self.store_root,
                 install_root=self.install_root,
                 artifact_cache=root / "artifacts",
-                devices="0,1,2,3",
+                devices=VIRTUAL,
             ),
             InMemoryControlHost(),
         )
@@ -441,7 +449,8 @@ def test_a_serving_root_waits_behind_a_job_of_its_own_release(machine: Machine) 
         ),
     )
     machine.tick()
-    assert machine.worker.gpu.view()["leases"] == {"A": [0, 1, 2, 3]}
+    holders = machine.worker.stages.view()["holders"]
+    assert holders == {"0": "A#1", "1": "A#1", "2": "A#1", "3": "A#1"}
 
     # The serving root reuses its own earlier preparation, as a pod host answers an
     # identical preparation from its retained result without reaching Runtime.
@@ -462,15 +471,11 @@ def test_a_serving_root_waits_behind_a_job_of_its_own_release(machine: Machine) 
     assert held["placement"]["bindings_digest"] == documents.spell(served.bindings_digest)
     machine.tick()
     waits = [body for _, kind, body in machine.journal("B") if kind == "gpu.wait"]
-    assert waits == [{"key": "B#1", "width": 1, "blocked_by": ["A"]}]
+    assert waits == [{"key": "B#1", "width": 1, "ordinals": [], "blocked_by": ["A"]}]
 
     machine.finish("A")
     machine.tick()
-    released = next(
-        seq
-        for seq, kind, body in machine.journal("A")
-        if kind == "gpu.lease" and not body["ordinals"]
-    )
+    released = next(seq for seq, kind, _ in machine.journal("A") if kind == "gpu.release")
     grant = next(body for _, kind, body in machine.journal("B") if kind == "gpu.grant")
     assert grant["key"] == "B#1" and len(grant["ordinals"]) == 1
     at = {e.sequence: e.at_ms for e in machine.executions.events(OWNER, "A").events}

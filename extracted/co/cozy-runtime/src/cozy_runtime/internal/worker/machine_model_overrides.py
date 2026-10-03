@@ -139,6 +139,7 @@ def apply(
     credentials: Mapping[str, str],
     note: machine_source_models.Note,
     check: Callable[[], None],
+    cancellation: machine_model_defaults.Cancellation | None = None,
     native_base: bool = False,
 ) -> dict[str, Json]:
     if not choice.adapters:
@@ -166,17 +167,24 @@ def apply(
             credentials=credentials,
             note=note,
         )
+        chosen = msgspec.convert(row, machine_model_defaults.Selected)
+        scale = requested.scale or "1"
+        ref = chosen.repository + (f"@{chosen.release}" if chosen.release else "")
+        ref += f"/{chosen.lane}" if chosen.lane else ""
+        note(
+            f"{selected.parameter}: {ref} {chosen.manifest.digest} "
+            f"scale {scale} on {requested.component}",
+            0,
+            0,
+        )
         adapters.append(
             machine_adapter_views.Adapter(
-                msgspec.convert(row, machine_model_defaults.Selected),
-                requested.component,
-                requested.source_component or "adapter",
-                requested.scale or "1",
+                chosen, requested.component, requested.source_component or "adapter", scale
             )
         )
     note("preparing model adapters", 0, 0)
     return machine_adapter_views.compose(
-        worker, base, adapters, check=check, native_base=native_base
+        worker, base, adapters, check=check, cancellation=cancellation, native_base=native_base
     )
 
 

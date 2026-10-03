@@ -88,7 +88,7 @@ async fn streaming_protobuf_charges_discovered_bytes_and_preserves_concurrent_mm
     let second_bytes = second_value.len();
 
     let mut first = hydrator.begin_protobuf_hydration(source_url);
-    first.register_spec_references(&first_spec).unwrap();
+    assert!(!first.register_spec_references(&first_spec).unwrap());
     assert_eq!(
         budget.bytes.available_permits(),
         MAX_IN_FLIGHT_HYDRATION_BYTES
@@ -105,7 +105,7 @@ async fn streaming_protobuf_charges_discovered_bytes_and_preserves_concurrent_mm
     let mut concurrent_scopes = Vec::new();
     for _ in 0..7 {
         let mut session = hydrator.begin_protobuf_hydration(source_url);
-        session.register_spec_references(&first_spec).unwrap();
+        assert!(!session.register_spec_references(&first_spec).unwrap());
         assert!(session.seed_verified_values(HashMap::from([(
             first_sha.clone(),
             Arc::clone(&first_value),
@@ -122,7 +122,7 @@ async fn streaming_protobuf_charges_discovered_bytes_and_preserves_concurrent_mm
         MAX_IN_FLIGHT_HYDRATION_BYTES
     );
 
-    first.register_spec_references(&second_spec).unwrap();
+    assert!(!first.register_spec_references(&second_spec).unwrap());
     assert!(first.seed_verified_values(HashMap::from([(second_sha, second_value)])));
     assert_eq!(
         budget.bytes.available_permits(),
@@ -1229,7 +1229,7 @@ async fn streaming_protobuf_keeps_its_response_reservation_after_download_comple
         ..Default::default()
     };
     let mut session = hydrator.begin_protobuf_hydration(&source_url);
-    session.register_spec_references(&spec).unwrap();
+    assert!(!session.register_spec_references(&spec).unwrap());
     let mut hydration = Box::pin(session.download_registered_references());
 
     assert!(
@@ -1261,6 +1261,57 @@ async fn streaming_protobuf_keeps_its_response_reservation_after_download_comple
 }
 
 #[tokio::test]
+async fn streaming_protobuf_reuses_verified_values_without_waiting_for_response_budget() {
+    let body = br#"{"large":"reused"}"#;
+    let sha = lowercase_hex(&Sha256::digest(body));
+    let spec = pb::Spec {
+        default_value: Some(raw_return_value(
+            serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{sha}")).unwrap(),
+        )),
+        remote_config_metadata: Some(protobuf_metadata(sha.clone(), body.len())),
+        ..Default::default()
+    };
+    let budget = Arc::new(ResponseHydrationBudget::new(body.len()));
+    let mut hydrator = test_hydrator("streaming-reused-response-budget");
+    hydrator.response_budget = Arc::clone(&budget);
+    let source_url = "https://statsigcdn.openai.com/v2/download_config_specs/key.json";
+
+    let mut first = hydrator.begin_protobuf_hydration(source_url);
+    assert!(!first.register_spec_references(&spec).unwrap());
+    assert!(first.seed_verified_values(HashMap::from([(sha, Arc::new(body.to_vec()),)])));
+    let mut first_spec = spec.clone();
+    let previous_values = first
+        .take_verified_spec_values(&mut first_spec)
+        .unwrap()
+        .provenance;
+    first.finish(Ok(()));
+
+    let occupied = budget.reserve(body.len() as u64).await.unwrap();
+    let mut refresh = hydrator.begin_protobuf_hydration(source_url);
+    refresh.set_previous_values(previous_values);
+    assert!(refresh.register_spec_references(&spec).unwrap());
+
+    timeout(Duration::from_millis(25), async {
+        refresh.advance_download_window().await?;
+        refresh.download_registered_references().await
+    })
+    .await
+    .expect("a fully reused refresh must not wait for blob byte permits")
+    .unwrap();
+    assert_eq!(budget.bytes.available_permits(), 0);
+
+    let mut refreshed_spec = spec.clone();
+    let values = refresh
+        .take_verified_spec_values(&mut refreshed_spec)
+        .unwrap();
+    assert!(values.default_value.is_some());
+    assert_eq!(values.provenance.len(), 1);
+    refresh.finish(Ok(()));
+    drop(occupied);
+    assert_eq!(budget.bytes.available_permits(), body.len());
+}
+
+#[tokio::test]
 async fn streaming_protobuf_grows_beyond_its_in_flight_hydration_budget() {
     let server = MockServer::start().await;
     let body = br#"{"large":"shared streaming value"}"#;
@@ -1282,15 +1333,15 @@ async fn streaming_protobuf_grows_beyond_its_in_flight_hydration_budget() {
     };
     let mut session = hydrator.begin_protobuf_hydration(&source_url);
 
-    session.register_spec_references(&spec).unwrap();
+    assert!(!session.register_spec_references(&spec).unwrap());
     session.download_registered_references().await.unwrap();
     assert_eq!(budget.bytes.available_permits(), capacity - body.len());
 
-    session.register_spec_references(&spec).unwrap();
+    assert!(session.register_spec_references(&spec).unwrap());
     session.download_registered_references().await.unwrap();
     assert_eq!(budget.bytes.available_permits(), 0);
 
-    session.register_spec_references(&spec).unwrap();
+    assert!(session.register_spec_references(&spec).unwrap());
     session.download_registered_references().await.unwrap();
     assert_eq!(budget.bytes.available_permits(), 0);
 
@@ -1325,7 +1376,7 @@ fn streaming_protobuf_accepts_snapshots_larger_than_the_process_hydration_window
     );
 
     for _ in 0..65 {
-        session.register_spec_references(&spec).unwrap();
+        assert!(!session.register_spec_references(&spec).unwrap());
     }
     assert!(body.len() * 65 > MAX_IN_FLIGHT_HYDRATION_BYTES);
     assert!(session.seed_verified_values(HashMap::from([(sha, Arc::clone(&body))])));
@@ -1377,13 +1428,13 @@ async fn streaming_protobuf_scopes_share_downloads_under_separate_response_reser
         ..Default::default()
     };
     let mut first = hydrator.begin_protobuf_hydration(&source_url);
-    first.register_spec_references(&spec).unwrap();
+    assert!(!first.register_spec_references(&spec).unwrap());
     let mut second = hydrator.begin_protobuf_hydration(&source_url);
-    second.register_spec_references(&spec).unwrap();
+    assert!(!second.register_spec_references(&spec).unwrap());
     let mut third = hydrator.begin_protobuf_hydration(&source_url);
-    third.register_spec_references(&spec).unwrap();
+    assert!(!third.register_spec_references(&spec).unwrap());
     let mut fourth = hydrator.begin_protobuf_hydration(&source_url);
-    fourth.register_spec_references(&spec).unwrap();
+    assert!(!fourth.register_spec_references(&spec).unwrap());
 
     let (first_result, second_result, third_result, fourth_result) = tokio::join!(
         first.download_registered_references(),
@@ -1436,13 +1487,13 @@ async fn streaming_protobuf_growth_uses_cancellation_safe_deadlock_free_expansio
     let source_url = format!("{}/v2/download_config_specs/key.json", server.uri());
 
     let mut first = hydrator.begin_protobuf_hydration(&source_url);
-    first.register_spec_references(&first_spec).unwrap();
+    assert!(!first.register_spec_references(&first_spec).unwrap());
     assert!(first.seed_verified_values(HashMap::from([(
         first_sha.clone(),
         Arc::new(first_body.to_vec()),
     )])));
     let mut second = hydrator.begin_protobuf_hydration(&source_url);
-    second.register_spec_references(&first_spec).unwrap();
+    assert!(!second.register_spec_references(&first_spec).unwrap());
     assert!(
         second.seed_verified_values(HashMap::from([(first_sha, Arc::new(first_body.to_vec()),)]))
     );
@@ -1453,14 +1504,14 @@ async fn streaming_protobuf_growth_uses_cancellation_safe_deadlock_free_expansio
         .unwrap();
     assert_eq!(budget.bytes.available_permits(), 0);
 
-    first.register_spec_references(&second_spec).unwrap();
+    assert!(!first.register_spec_references(&second_spec).unwrap());
     assert!(first.seed_verified_values(HashMap::from([(
         second_sha.clone(),
         Arc::new(second_body.to_vec()),
     )])));
     assert_eq!(budget.expansion.available_permits(), first_body.len());
 
-    second.register_spec_references(&second_spec).unwrap();
+    assert!(!second.register_spec_references(&second_spec).unwrap());
     assert!(!second.seed_verified_values(HashMap::from([(
         second_sha,
         Arc::new(second_body.to_vec()),

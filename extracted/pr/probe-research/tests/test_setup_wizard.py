@@ -279,6 +279,72 @@ def test_turning_capture_back_on_clears_the_killswitch(isolate):
     assert not (isolate / "tap" / ".disabled").exists()
 
 
+def _pi_marker(text: str):
+    pi_dir = capabilities_mod.tap_plugin_dir("pi")
+    pi_dir.mkdir(parents=True, exist_ok=True)
+    marker = pi_dir / ".disabled"
+    marker.write_text(text)
+    return pi_dir, marker
+
+
+def test_stray_pi_sign_in_marker_is_swept_when_pi_holds_no_token(isolate, monkeypatch):
+    """D4: a pre-D3 sign-in left "Awaiting confirmation" in pi's folder with no
+    pi token behind it. Nothing for that barrier to protect, so it goes."""
+    monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
+    (isolate / "probe" / "config.json").write_text(json.dumps({"ingest_token": "ros_ing_claude"}))
+    _, marker = _pi_marker(capture.AWAITING_CONFIRMATION)
+
+    assert capture.clear_stray_pi_killswitch() is True
+    assert not marker.exists()
+
+
+def test_pi_sign_in_marker_is_kept_while_pi_holds_an_unconfirmed_token(isolate, monkeypatch):
+    """The same text is a real consent barrier when pi has a token the person
+    has not confirmed yet: an installed hook must not upload with it."""
+    monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
+    pi_dir, marker = _pi_marker(capture.AWAITING_CONFIRMATION)
+    (pi_dir / ".token").write_text("ros_ing_paired_pi")
+
+    assert capture.clear_stray_pi_killswitch() is False
+    assert marker.exists()
+
+
+def test_a_deliberate_pi_off_is_never_swept(isolate, monkeypatch):
+    monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
+    _, marker = _pi_marker("disabled by the Probe Research wizard\n")
+
+    assert capture.clear_stray_pi_killswitch() is False
+    assert marker.exists()
+
+
+def test_another_agents_sign_in_marker_is_never_swept(isolate, monkeypatch):
+    """Only pi's folder is ever swept: Claude Code's and Codex's markers are
+    consent barriers for tokens they really read."""
+    monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
+    cc_marker = capabilities_mod.tap_plugin_dir("claude_code") / ".disabled"
+    cc_marker.parent.mkdir(parents=True, exist_ok=True)
+    cc_marker.write_text(capture.AWAITING_CONFIRMATION)
+
+    assert capture.clear_stray_pi_killswitch() is False
+    assert cc_marker.exists()
+
+
+def test_the_wizard_sweeps_the_stray_pi_marker_on_every_run(isolate, monkeypatch):
+    """Wired at the top of `probe wizard`, before any action, so a machine
+    that never touches pi in the wizard still gets pi capture back."""
+    from typer.testing import CliRunner
+
+    from probe.cli.main import app
+
+    monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
+    calls = []
+    monkeypatch.setattr(capture, "clear_stray_pi_killswitch", lambda: calls.append(1) or True)
+
+    CliRunner().invoke(app, ["wizard", "--who-records", "bogus"])
+
+    assert calls == [1]
+
+
 def test_killswitch_alone_means_capture_is_not_on(isolate):
     """A paired device with the killswitch set ships nothing, so the menu must
     not show capture as on."""
@@ -454,7 +520,7 @@ def test_wizard_doctor_copies_all_selected_agents_and_troubleshooting(monkeypatc
     from probe.cli.main import app
 
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=None)
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
     )
     monkeypatch.setattr(plugin_cli, "available", lambda source: source in ("claude_code", "codex"))
     monkeypatch.setattr(
@@ -702,19 +768,19 @@ def test_off_clears_a_context_scoped_token_and_verifies(isolate):
 
 # --- an uninstall only uninstalls the coding agents we select --------------
 #
-# The probe-config `ingest_token` is machine-wide, not source-scoped (see
-# capture.py's module docstring): every source's tap falls back to the SAME
-# ~/.config/probe/config.json. Clearing it unconditionally the moment any one
-# source ran `turn_off` broke every OTHER source's capture silently --
-# `probe wizard --agent pi --no-capture --uninstall` took out Claude Code
-# capture on the same machine. Proven live 2026-08-28 (project note 18).
+# The probe-config `ingest_token` sits in a machine-wide file. Clearing it the
+# moment any one source ran `turn_off` once broke Claude Code capture from a pi
+# uninstall (proven live 2026-08-28, project note 18). Since D3 only Claude
+# Code reads that token (`consumes_cli_capture_token`), so pi and Codex never
+# touch it, and Claude Code turning off has no other reader to keep it for.
 
 
 def test_off_preserves_the_shared_config_token_when_another_source_still_has_capture(
     isolate, monkeypatch
 ):
     """pi turning its own capture off must not strand Claude Code's, which
-    reads the very same probe-config `ingest_token`."""
+    reads the probe-config `ingest_token`. pi never reads it (D3), so its
+    teardown leaves it alone without needing to "preserve" anything."""
     monkeypatch.setenv("PROBE_AGENT", "pi")
     (isolate / "probe" / "config.json").write_text(
         json.dumps(
@@ -746,10 +812,9 @@ def test_off_preserves_the_shared_config_token_when_another_source_still_has_cap
     result = capture.turn_off(capture.OffMode.DISABLE)
 
     assert result.verified is True
-    assert result.preserved_for == ["Claude Code"]
-    summary = result.summary()
-    assert summary == (
-        "Session capture is off for pi. The shared capture credential remains for: Claude Code."
+    assert result.preserved_for == []
+    assert result.summary() == (
+        "Session capture is off for pi: none of its credentials resolves on this device."
     )
 
     # The shared credential survives -- top level AND every context.
@@ -763,10 +828,10 @@ def test_off_preserves_the_shared_config_token_when_another_source_still_has_cap
     assert (pi_dir / ".disabled").exists()
 
 
-def test_off_clears_the_shared_config_token_when_pi_is_the_last_source(isolate, monkeypatch):
-    """Symmetric case: when NO other source still has capture installed, pi
-    turning its own capture off is the last one out and the shared credential
-    clears exactly as it always did -- today's wording included, byte-for-byte."""
+def test_off_for_pi_never_clears_claude_codes_config_token(isolate, monkeypatch):
+    """Even with no other source installed, pi turning its own capture off
+    leaves the probe-config `ingest_token` alone: it is Claude Code's capture
+    token, which pi never reads (D3). pi's own teardown still runs in full."""
     monkeypatch.setenv("PROBE_AGENT", "pi")
     (isolate / "probe" / "config.json").write_text(
         json.dumps(
@@ -789,18 +854,20 @@ def test_off_clears_the_shared_config_token_when_pi_is_the_last_source(isolate, 
 
     assert result.verified is True
     assert result.preserved_for == []
-    assert result.summary() == "Session capture is off. No credential resolves on this device."
+    assert result.summary() == (
+        "Session capture is off for pi: none of its credentials resolves on this device."
+    )
 
     surviving = json.loads((isolate / "probe" / "config.json").read_text())
-    assert "ingest_token" not in surviving["contexts"]["work"]
+    assert surviving["contexts"]["work"]["ingest_token"] == "ros_ing_work"
     assert not (pi_dir / ".token").exists()
     assert (pi_dir / ".disabled").exists()
 
 
-def test_off_preserves_the_shared_config_token_when_pi_still_has_capture(isolate, monkeypatch):
-    """The rule is symmetric, not pi-special: Claude Code turning its own
-    capture off must not strand a pi capture install that depends on the same
-    shared credential."""
+def test_off_for_claude_code_clears_the_config_token_even_with_pi_installed(isolate, monkeypatch):
+    """pi no longer reads the probe-config `ingest_token` (D3), so Claude Code
+    turning its own capture off is the last reader out and clears it, even
+    while pi's package is installed."""
     from probe.cli import pi_config
 
     (isolate / "probe" / "config.json").write_text(
@@ -817,27 +884,26 @@ def test_off_preserves_the_shared_config_token_when_pi_still_has_capture(isolate
     result = capture.turn_off(capture.OffMode.DISABLE)
 
     assert result.verified is True
-    assert result.preserved_for == ["pi"]
+    assert result.preserved_for == []
     assert result.summary() == (
-        "Session capture is off for Claude Code. The shared capture credential remains for: pi."
+        "Session capture is off for Claude Code: none of its credentials resolves on this device."
     )
 
     surviving = json.loads((isolate / "probe" / "config.json").read_text())
-    assert surviving["ingest_token"] == "ros_ing_cfg"
+    assert "ingest_token" not in surviving
     assert not (isolate / "tap" / ".token").exists()
     assert (isolate / "tap" / ".disabled").exists()
 
 
-def test_capture_token_sources_pi_falls_back_to_probe_config_but_codex_does_not(isolate):
-    """tap/config.py::load_token() excludes ONLY codex from the probe CLI
-    config fallback (`if capture_source() == "codex": return None`); pi falls
-    through to it exactly like claude_code -- see that module's docstring and
-    the pi extension README's documented token precedence. The gate here used
-    to read `selected == "claude_code"`, which agreed with production only
-    because codex and claude_code were the entire universe of sources."""
+def test_only_claude_code_falls_back_to_the_probe_config_token(isolate):
+    """The probe CLI config's `ingest_token` is Claude Code's capture token;
+    the server refuses it on pi's and Codex's routes (D3). Mirrors
+    tap/config.py::load_token() and pairing.ts, which make the same cut."""
     (isolate / "probe" / "config.json").write_text(json.dumps({"ingest_token": "ros_ing_cfg"}))
-    assert TokenSource.PROBE_CONFIG in capture_token_sources("pi")
+    assert TokenSource.PROBE_CONFIG in capture_token_sources("claude_code")
+    assert TokenSource.PROBE_CONFIG not in capture_token_sources("pi")
     assert TokenSource.PROBE_CONFIG not in capture_token_sources("codex")
+    assert capabilities_mod.resolved_capture_credential("pi") is None
 
 
 def test_capture_token_sources_reads_the_pi_specific_env_var(isolate, monkeypatch):
@@ -1832,7 +1898,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
     pi_state = tmp_path / "pi-state"
     monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(pi_state))
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message="")
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message="")
     )
     # doctor.collect() runs for REAL in this test (see the docstring) --
     # everything except this one call: verify_capture_credential() does a
@@ -1900,7 +1966,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
 
         # The daemon's OWN load_token() (not a paraphrase of it) must find this
         # token, under the exact env the daemon runs with (PROBE_TAP_SOURCE=pi,
-        # set by spawnDaemon() -- see probe-research-pi/src/daemon.ts).
+        # set by spawnDaemon() -- see probe-research-pi/src/core/daemon.ts).
         assert tap_config.load_token() == "ros_ing_pi_e2e"
     finally:
         del os.environ["PROBE_TAP_SOURCE"]
@@ -1935,7 +2001,7 @@ def test_agent_both_still_means_exactly_claude_and_codex_not_pi(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
         doctor_impl,
         "collect",
@@ -2166,7 +2232,7 @@ def test_a_pi_run_schedules_tracking_and_agent_rules_work(monkeypatch):
 
     cli_main = sys.modules["probe.cli.main"]
     seen: list = []
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(agent_source="pi"))
     monkeypatch.setattr(wizard, "plan", lambda caps, selection: seen.append(selection) or [])
 
@@ -2185,6 +2251,43 @@ def test_a_pi_run_schedules_tracking_and_agent_rules_work(monkeypatch):
     # it here was what forced every pi user through interactive OAuth.
     assert selection.tracking is True
     assert selection.agent_rules is True
+
+
+def test_an_explicit_opt_out_cleans_a_note_an_older_opt_out_left(monkeypatch, tmp_path):
+    """An older opt-out removed the pointer and left the team note. The pointer
+    is what `agent_rules_installed` reads, so `--no-agent-rules` saw nothing to
+    change and the note stayed."""
+    import sys
+    from types import SimpleNamespace
+
+    from typer.testing import CliRunner
+
+    from probe.cli import agent_rules, bootstrap
+    from probe.cli import doctor as doctor_impl
+    from probe.cli import setup as wizard
+    import probe.cli.main  # noqa: F401
+
+    cli_main = sys.modules["probe.cli.main"]
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    path = agent_rules.memory_path("claude_code")
+    path.write_text("mine\n", encoding="utf-8")
+    agent_rules.install(path, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+    calls: list = []
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
+    monkeypatch.setattr(
+        doctor_impl,
+        "collect",
+        lambda: _caps(agent_source="claude_code", tracking_plugin_installed=True, auto_update_enabled=True),
+    )
+    monkeypatch.setattr(wizard, "apply_agent_rules", lambda want, stale=False: calls.append(want) or [])
+
+    result = CliRunner().invoke(
+        cli_main.app,
+        ["wizard", "--agent", "claude", "--action", "configure", "--no-agent-rules", "--yes"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == [False]
 
 
 def test_capture_credentials_are_indexed_by_source_without_collapsing():
@@ -2785,7 +2888,7 @@ def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {})
     monkeypatch.setattr(
         "probe.cli.bootstrap.ensure_persistent_install",
-        lambda: __import__("probe.cli.bootstrap", fromlist=["x"]).BootstrapResult(
+        lambda **_: __import__("probe.cli.bootstrap", fromlist=["x"]).BootstrapResult(
             installed=True, already_persistent=False, message="Installed `probe` (uv tool)."
         ),
     )
@@ -2811,7 +2914,7 @@ def _ephemeral_update(monkeypatch, boot, *, latest=None, installed=(), reinstall
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: manifest)
     attempts: list = []
     monkeypatch.setattr(upgrading.autoupdate, "record_attempt", attempts.append)
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: boot)
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: boot)
     reads = iter(installed)
     monkeypatch.setattr(bootstrap, "installed_version", lambda: next(reads, None))
     specs: list[str] = []
@@ -3256,7 +3359,7 @@ def test_install_is_a_verb_that_skips_the_action_menu(monkeypatch, selected_sour
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
         doctor_impl,
@@ -3355,7 +3458,7 @@ def test_the_agent_rules_flag_actually_parses(monkeypatch):
     from probe.cli.main import app
 
     seen: list = []
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
     monkeypatch.setattr(wizard, "interactive", lambda: False)
     monkeypatch.setattr(wizard, "plan", lambda caps, selection: seen.append(selection) or [])
@@ -3379,7 +3482,7 @@ def test_agent_both_runs_one_shared_authorization_then_configures_each_agent(mon
 
     cli_main = sys.modules["probe.cli.main"]
 
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
         doctor_impl,
         "collect",
@@ -3438,7 +3541,7 @@ def test_adding_codex_to_a_configured_claude_machine_keeps_claude_switched_on(mo
     fresh_codex = _caps(agent_source="codex", logged_in_as="richard@prbe.ai")
     assert configured_claude.capture_on and not fresh_codex.capture_on, "fixture is wrong"
 
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
         doctor_impl,
         "collect",
@@ -3480,7 +3583,7 @@ def test_agent_both_uses_one_dual_agent_uninstall_confirmation(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(
         doctor_impl,
         "collect",
@@ -3529,7 +3632,7 @@ def test_interactive_wizard_asks_action_then_agent_then_runs_features(monkeypatc
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
         doctor_impl,
@@ -3592,7 +3695,7 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
         doctor_impl,
@@ -3724,7 +3827,7 @@ def test_interactive_install_is_force_on_even_over_a_killswitch(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
         doctor_impl,
@@ -4497,7 +4600,7 @@ def test_the_wizard_survives_the_no_bindings_fallback_end_to_end(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: True)
     monkeypatch.setattr(
         doctor_impl,
@@ -4775,14 +4878,33 @@ def test_a_pi_update_never_touches_claude_or_codex_plugins(isolate, monkeypatch)
 
     monkeypatch.setattr(upgrading.updater, "update_plugin", _boom)
     monkeypatch.setattr(upgrading.updater, "update_codex_plugins", _boom)
+    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
     assert outcome.ok is True
     assert outcome.restart_needed is False
-    assert any("not managed by this CLI" in line for line in outcome.lines)
+    assert "  updated 0.2.3 → 0.3.0" in outcome.lines, "pi's own package is pi's update"
     assert "Claude Code" not in "\n".join(outcome.lines)
     assert "Codex" not in "\n".join(outcome.lines)
+
+
+def test_an_update_from_claude_code_moves_pis_package_too(isolate, monkeypatch):
+    """An Update from a plain terminal (claude_code by default) or Claude
+    Code's auto-update used to skip pi, so pi stayed on the package it was
+    installed with (2026-10-02)."""
+    from probe.cli import updater, upgrading
+
+    monkeypatch.setenv("PROBE_AGENT", "claude_code")
+    _stub_cli_upgrade(monkeypatch, upgrading, updater)
+    monkeypatch.setattr(
+        upgrading.updater, "update_plugin", lambda target: _plugin_result(confirmed=True, message="current")
+    )
+    monkeypatch.setattr(upgrading, "_update_pi_package", lambda: upgrading._PiUpdate(["pi package:", "  updated 0.2.3 → 0.3.0"]))
+
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+
+    assert "  updated 0.2.3 → 0.3.0" in outcome.lines
 
 
 def test_a_codex_update_still_uses_the_codex_path(isolate, monkeypatch):
@@ -7152,7 +7274,7 @@ def test_the_agent_screen_is_skipped_when_there_is_no_choice(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(
         doctor_impl,
@@ -7451,7 +7573,7 @@ def test_install_on_a_pluginless_machine_matches_the_degraded_screen(monkeypatch
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: False)  # the GPU-pod shape
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
     monkeypatch.setattr(wizard, "interactive", lambda: True)
@@ -7504,7 +7626,7 @@ def test_a_degraded_install_preserves_what_it_never_disclosed(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: False)  # binaries gone
     configured = _caps(
         tracking_plugin_installed=True,
@@ -7597,7 +7719,7 @@ def test_back_on_a_one_agent_machine_lands_on_the_action_menu(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
     monkeypatch.setattr(wizard, "interactive", lambda: True)
@@ -7663,7 +7785,7 @@ def test_the_wizard_names_the_absent_half_of_a_both_selection(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
     monkeypatch.setattr(wizard, "interactive", lambda: True)
@@ -7710,7 +7832,7 @@ def test_a_pi_only_machine_auto_selects_pi_without_the_agent_flag(monkeypatch):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda _source: False)
     monkeypatch.setattr(wizard, "pi_binary_available", lambda: True)
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(agent_source="pi"))
@@ -7840,7 +7962,7 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     from probe.sdk.config import save_context
 
@@ -7923,7 +8045,7 @@ def test_canceled_or_failed_install_never_starts_selected_imports(monkeypatch, s
     from probe.cli import bootstrap, plugin_cli, tui
 
     cli_main = importlib.import_module("probe.cli.main")
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: True)
     monkeypatch.setattr(doctor, "collect", lambda: _caps())
     monkeypatch.setattr(setup, "interactive", lambda: True)
@@ -7981,7 +8103,7 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps(claude_available=True))
     monkeypatch.setattr(wizard, "interactive", lambda: True)
@@ -8160,7 +8282,7 @@ def _headless(monkeypatch, argv, *, detected=()):
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
-    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=""))
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(doctor_impl, "collect", lambda: _caps())
     monkeypatch.setattr(wizard, "interactive", lambda: False)
     monkeypatch.setattr(plugin_cli, "available", lambda source: source in detected)
@@ -8461,9 +8583,10 @@ def test_a_relocated_uv_cache_is_still_a_cache(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# The daemon is a paid-plan feature (Richard 2026-09-28: "build the gate in the
-# install wizard"): the "Who records" rows are offered only where the server
-# would serve it. The tracking row has no `daemon` since 2026-09-29.
+# The wizard asks the server before it offers the daemon (Richard 2026-09-28:
+# "build the gate in the install wizard"): the "Who records" rows are offered
+# only where the server would serve it (every plan since 2026-10-02). The
+# tracking row has no `daemon` since 2026-09-29.
 # ---------------------------------------------------------------------------
 
 
@@ -8489,7 +8612,7 @@ def test_the_defaults_picker_offers_on_read_off_and_asks_no_server(isolate, monk
 
 def test_the_settings_screen_asks_the_server_nothing(isolate, monkeypatch):
     """Who records left this screen for the main menu (Richard 2026-09-29), so
-    the paid-plan answer is asked on the switch, never before this screen."""
+    the server's answer is asked on the switch, never before this screen."""
     from probe.cli import tui
 
     cli_main = _settings_main()
@@ -8514,11 +8637,6 @@ def test_the_settings_screen_asks_the_server_nothing(isolate, monkeypatch):
         (200, {"available": True, "code": None, "message": None}, (True, None)),
         (
             200,
-            {"available": False, "code": "companion_paid_plan_required", "message": "x"},
-            (False, "Daemon recording is on paid plans."),
-        ),
-        (
-            200,
             {"available": False, "code": "companion_disabled", "message": "x"},
             (False, "Daemon recording is not enabled for this team."),
         ),
@@ -8531,7 +8649,7 @@ def test_the_settings_screen_asks_the_server_nothing(isolate, monkeypatch):
             (False, "Daemon recording is not available for this team."),
         ),
     ],
-    ids=["yes", "paid-only", "disabled", "older-server", "server-error", "garbled", "new-reason"],
+    ids=["yes", "disabled", "older-server", "server-error", "garbled", "new-reason"],
 )
 def test_daemon_availability_reads_the_server_and_never_guesses_no(isolate, monkeypatch, status, body, answer):
     import httpx

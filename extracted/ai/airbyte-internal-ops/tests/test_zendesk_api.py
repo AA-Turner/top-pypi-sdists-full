@@ -481,6 +481,63 @@ def test_add_ticket_tags_rejects_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
+def test_set_ticket_email_ccs_puts_only_email_ccs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    email_ccs = [{"user_email": "cc@example.com", "user_name": "CC", "action": "put"}]
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    def _fake_put(
+        credentials: ZendeskCredentials,
+        path: str,
+        json_body: dict[str, Any],
+    ) -> dict[str, Any]:
+        captured["path"] = path
+        captured["json_body"] = json_body
+        return {"ticket": {"id": 42, "email_cc_ids": [101]}}
+
+    monkeypatch.setattr(zendesk_api, "_put", _fake_put)
+
+    result = zendesk_api.set_ticket_email_ccs(42, email_ccs, credentials=creds)
+
+    assert captured["path"] == "/tickets/42.json"
+    assert captured["json_body"] == {"ticket": {"email_ccs": email_ccs}}
+    assert result == {"id": 42, "email_cc_ids": [101]}
+
+
+@pytest.mark.unit
+def test_set_ticket_email_ccs_rejects_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args, **kwargs: pytest.fail(
+            "empty CC lists must not make an API request"
+        ),
+    )
+
+    with pytest.raises(ZendeskAPIError, match="email CC"):
+        zendesk_api.set_ticket_email_ccs(42, [])
+
+
+@pytest.mark.unit
+def test_set_ticket_email_ccs_rejects_missing_ticket_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(zendesk_api, "_put", lambda *args, **kwargs: {})
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError, match="missing a `ticket` object"):
+        zendesk_api.set_ticket_email_ccs(
+            42,
+            [{"user_email": "cc@example.com", "user_name": "CC", "action": "put"}],
+            credentials=creds,
+        )
+
+
+@pytest.mark.unit
 def test_add_zendesk_ticket_tags_tool_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -693,6 +750,7 @@ def test_create_zendesk_outreach_ticket_builds_private_idempotent_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
+    cc_update_calls: list[dict[str, object]] = []
     monkeypatch.setattr(zendesk_ops, "list_tickets_by_external_id", lambda value: [])
     monkeypatch.setattr(
         zendesk_ops,
@@ -714,7 +772,22 @@ def test_create_zendesk_outreach_ticket_builds_private_idempotent_payload(
             "tags": ["outreach", "prospect"],
         }
 
+    def _set_ccs(ticket_id: int | str, email_ccs: list[dict[str, str]]) -> dict:
+        cc_update_calls.append({"ticket_id": ticket_id, "email_ccs": email_ccs})
+        return {
+            "id": ticket_id,
+            "url": "https://airbyte1416.zendesk.com/api/v2/tickets/42.json",
+            "status": "new",
+            "type": "incident",
+            "requester_id": 21,
+            "submitter_id": 7,
+            "ticket_form_id": 11,
+            "email_cc_ids": [101],
+            "tags": ["outreach", "prospect"],
+        }
+
     monkeypatch.setattr(zendesk_ops, "create_ticket", _create)
+    monkeypatch.setattr(zendesk_ops, "set_ticket_email_ccs", _set_ccs)
 
     result = zendesk_ops.create_zendesk_outreach_ticket(
         external_id="outreach:airbyte-org-1",
@@ -751,18 +824,66 @@ def test_create_zendesk_outreach_ticket_builds_private_idempotent_payload(
         "external_id": "outreach:airbyte-org-1",
         "ticket_form_id": 11,
         "submitter_id": 7,
-        "email_ccs": [
-            {"user_email": "cc@example.com", "user_name": "CC", "action": "put"}
-        ],
         "requester": {"name": "Requester", "email": "requester@example.com"},
         "assignee_email": "agent@example.com",
     }
     assert "organization_id" not in payload
+    assert cc_update_calls == [
+        {
+            "ticket_id": 42,
+            "email_ccs": [
+                {"user_email": "cc@example.com", "user_name": "CC", "action": "put"}
+            ],
+        }
+    ]
     assert result.success is True
     assert result.created is True
     assert result.ticket_id == 42
     assert result.submitter_id == 7
+    assert result.email_cc_ids == [101]
     assert result.url == "https://airbyte1416.zendesk.com/agent/tickets/42"
+
+
+@pytest.mark.unit
+def test_create_zendesk_outreach_ticket_reports_cc_update_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(zendesk_ops, "list_tickets_by_external_id", lambda value: [])
+    monkeypatch.setattr(
+        zendesk_ops,
+        "get_current_user",
+        lambda: {"id": 7, "email": "agent@example.com"},
+    )
+    monkeypatch.setattr(zendesk_ops, "find_ticket_form_id", lambda name: 11)
+    monkeypatch.setattr(zendesk_ops, "create_ticket", lambda payload: {"id": 42})
+
+    def _fail_cc_update(
+        ticket_id: int | str,
+        email_ccs: list[dict[str, str]],
+    ) -> dict:
+        raise ZendeskAPIError("Zendesk unavailable")
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_email_ccs", _fail_cc_update)
+
+    result = zendesk_ops.create_zendesk_outreach_ticket(
+        external_id="outreach:cc-update-failure",
+        ticket_type="incident",
+        problem_id=99,
+        subject="Support outreach",
+        internal_note_html="<p>Private context</p>",
+        requester=zendesk_ops.OutreachContact(
+            email="requester@example.com",
+            name="Requester",
+        ),
+        cc=[zendesk_ops.OutreachContact(email="cc@example.com", name="CC")],
+    )
+
+    assert result.success is False
+    assert result.created is True
+    assert result.ticket_id == 42
+    assert result.message == (
+        "Created ticket 42 but failed to add CCs: Zendesk unavailable; re-run to retry."
+    )
 
 
 @pytest.mark.unit
@@ -790,6 +911,11 @@ def test_create_zendesk_outreach_ticket_existing_external_id_is_idempotent(
         "create_ticket",
         lambda payload: pytest.fail("existing tickets must not be created again"),
     )
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_email_ccs",
+        lambda *args, **kwargs: pytest.fail("tickets without CCs must not be updated"),
+    )
 
     result = zendesk_ops.create_zendesk_outreach_ticket(
         external_id="outreach:test",
@@ -801,6 +927,169 @@ def test_create_zendesk_outreach_ticket_existing_external_id_is_idempotent(
     assert result.success is True
     assert result.created is False
     assert result.ticket_id == 42
+
+
+@pytest.mark.unit
+def test_create_zendesk_outreach_ticket_existing_incident_ensures_ccs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = {"id": 42, "status": "open", "external_id": "outreach:test"}
+    cc_update_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        zendesk_ops,
+        "list_tickets_by_external_id",
+        lambda external_id: [existing],
+    )
+    monkeypatch.setattr(
+        zendesk_ops,
+        "create_ticket",
+        lambda payload: pytest.fail("existing tickets must not be created again"),
+    )
+
+    def _set_ccs(ticket_id: int | str, email_ccs: list[dict[str, str]]) -> dict:
+        cc_update_calls.append({"ticket_id": ticket_id, "email_ccs": email_ccs})
+        return {
+            "id": 42,
+            "status": "open",
+            "type": "incident",
+            "problem_id": 99,
+            "email_cc_ids": [101],
+        }
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_email_ccs", _set_ccs)
+
+    result = zendesk_ops.create_zendesk_outreach_ticket(
+        external_id="outreach:test",
+        ticket_type="incident",
+        problem_id=99,
+        subject="A subject",
+        internal_note_html="<p>A note</p>",
+        requester=zendesk_ops.OutreachContact(
+            email=" requester@example.com ", name="Requester"
+        ),
+        cc=[
+            zendesk_ops.OutreachContact(email=" CC@example.com ", name="CC"),
+            zendesk_ops.OutreachContact(
+                email="requester@example.com", name="Requester"
+            ),
+            zendesk_ops.OutreachContact(email="cc@example.com", name="Duplicate"),
+        ],
+    )
+
+    assert cc_update_calls == [
+        {
+            "ticket_id": 42,
+            "email_ccs": [
+                {"user_email": "CC@example.com", "user_name": "CC", "action": "put"}
+            ],
+        }
+    ]
+    assert result.success is True
+    assert result.created is False
+    assert result.message == "Found existing Zendesk ticket 42; ensured 1 CCs."
+    assert result.email_cc_ids == [101]
+
+
+@pytest.mark.unit
+def test_create_zendesk_outreach_ticket_existing_incident_requires_requester_for_ccs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cc_update_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        zendesk_ops,
+        "list_tickets_by_external_id",
+        lambda external_id: [{"id": 42, "external_id": "outreach:test"}],
+    )
+
+    def _set_ccs(ticket_id: int | str, email_ccs: list[dict[str, str]]) -> dict:
+        cc_update_calls.append({"ticket_id": ticket_id, "email_ccs": email_ccs})
+        return {"id": ticket_id, "email_cc_ids": [101]}
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_email_ccs", _set_ccs)
+
+    result = zendesk_ops.create_zendesk_outreach_ticket(
+        external_id="outreach:test",
+        ticket_type="incident",
+        problem_id=99,
+        subject="A subject",
+        internal_note_html="<p>A note</p>",
+        cc=[zendesk_ops.OutreachContact(email="cc@example.com", name="CC")],
+    )
+
+    assert result.success is False
+    assert result.created is False
+    assert result.message == "`requester` is required for an incident."
+    assert cc_update_calls == []
+
+
+@pytest.mark.unit
+def test_create_zendesk_outreach_ticket_existing_incident_skips_requester_cc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "list_tickets_by_external_id",
+        lambda external_id: [{"id": 42, "external_id": "outreach:test"}],
+    )
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_email_ccs",
+        lambda *args, **kwargs: pytest.fail("empty CC updates must be skipped"),
+    )
+
+    result = zendesk_ops.create_zendesk_outreach_ticket(
+        external_id="outreach:test",
+        ticket_type="incident",
+        problem_id=99,
+        subject="A subject",
+        internal_note_html="<p>A note</p>",
+        requester=zendesk_ops.OutreachContact(
+            email="cc@example.com",
+            name="Requester",
+        ),
+        cc=[zendesk_ops.OutreachContact(email="CC@example.com", name="CC")],
+    )
+
+    assert result.success is True
+    assert result.created is False
+    assert result.message == "Found existing Zendesk ticket 42; ensured 0 CCs."
+
+
+@pytest.mark.unit
+def test_create_zendesk_outreach_ticket_existing_incident_reports_cc_update_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "list_tickets_by_external_id",
+        lambda external_id: [{"id": 42, "external_id": "outreach:test"}],
+    )
+
+    def _fail_cc_update(
+        ticket_id: int | str,
+        email_ccs: list[dict[str, str]],
+    ) -> dict:
+        raise ZendeskAPIError("Zendesk unavailable")
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_email_ccs", _fail_cc_update)
+
+    result = zendesk_ops.create_zendesk_outreach_ticket(
+        external_id="outreach:test",
+        ticket_type="incident",
+        problem_id=99,
+        subject="A subject",
+        internal_note_html="<p>A note</p>",
+        requester=zendesk_ops.OutreachContact(
+            email="requester@example.com",
+            name="Requester",
+        ),
+        cc=[zendesk_ops.OutreachContact(email="cc@example.com", name="CC")],
+    )
+
+    assert result.success is False
+    assert result.created is False
+    assert result.ticket_id == 42
+    assert "Zendesk unavailable" in result.message
 
 
 @pytest.mark.unit
@@ -965,6 +1254,11 @@ def test_create_zendesk_outreach_ticket_problem_uses_current_user_as_requester(
         lambda: {"id": 7, "email": "moonbot@example.com"},
     )
     monkeypatch.setattr(zendesk_ops, "find_ticket_form_id", lambda name: 11)
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_email_ccs",
+        lambda *args, **kwargs: pytest.fail("tickets without CCs must not be updated"),
+    )
 
     def _create(payload: dict[str, object]) -> dict:
         captured["payload"] = payload

@@ -200,7 +200,6 @@ import builtins
 import datetime
 import linecache
 import os.path
-import posixpath
 import re
 import threading
 from io import StringIO
@@ -465,28 +464,6 @@ class Loader(BaseLoader):
             return Template(f.read(), name=name, loader=self)
 
 
-class DictLoader(BaseLoader):
-    """A template loader that loads from a dictionary."""
-
-    def __init__(self, dict, **kwargs):
-        super().__init__(**kwargs)
-        self.dict = dict
-
-    def resolve_path(self, name, parent_path=None):
-        if (
-            parent_path
-            and not parent_path.startswith("<")
-            and not parent_path.startswith("/")
-            and not name.startswith("/")
-        ):
-            file_dir = posixpath.dirname(parent_path)
-            name = posixpath.normpath(posixpath.join(file_dir, name))
-        return name
-
-    def _create_template(self, name):
-        return Template(self.dict[name], name=name, loader=self)
-
-
 class _Node:
     def each_child(self):
         return ()
@@ -554,43 +531,6 @@ class _ExtendsBlock(_Node):
         self.name = name
 
 
-class _IncludeBlock(_Node):
-    def __init__(self, name, reader, line):
-        self.name = name
-        self.template_name = reader.name
-        self.line = line
-
-    def find_named_blocks(self, loader, named_blocks):
-        included = loader.load(self.name, self.template_name)
-        included.file.find_named_blocks(loader, named_blocks)
-
-    def generate(self, writer):
-        included = writer.loader.load(self.name, self.template_name)
-        with writer.include(included, self.line):
-            included.file.body.generate(writer)
-
-
-class _ApplyBlock(_Node):
-    def __init__(self, method, line, body=None):
-        self.method = method
-        self.line = line
-        self.body = body
-
-    def each_child(self):
-        return (self.body,)
-
-    def generate(self, writer):
-        method_name = "_tt_apply%d" % writer.apply_counter
-        writer.apply_counter += 1
-        writer.write_line("def %s():" % method_name, self.line)
-        with writer.indent():
-            writer.write_line("_tt_buffer = []", self.line)
-            writer.write_line("_tt_append = _tt_buffer.append", self.line)
-            self.body.generate(writer)
-            writer.write_line("return _tt_utf8('').join(_tt_buffer)", self.line)
-        writer.write_line("_tt_append(_tt_utf8(%s(%s())))" % (self.method, method_name), self.line)
-
-
 class _ControlBlock(_Node):
     def __init__(self, statement, line, body=None):
         if not disable_template_security_validation.get(False):
@@ -652,11 +592,6 @@ class _Expression(_Node):
             # so we have to convert to utf8 again.
             writer.write_line("_tt_tmp = _tt_utf8(%s(_tt_tmp))" % writer.current_template.autoescape, self.line)
         writer.write_line("_tt_append(_tt_tmp)", self.line)
-
-
-class _Module(_Expression):
-    def __init__(self, expression, line):
-        super().__init__("_tt_modules." + expression, line, raw=True)
 
 
 class _Text(_Node):
@@ -1125,6 +1060,10 @@ def check_valid_code(code):
     Traceback (most recent call last):
     ...
     tinybird.tornado_template.SecurityException: Invalid expression type: Attribute(value=Name(id='len', ctx=Load()), attr='__self__', ctx=Load())
+    >>> check_valid_code('''String(__builtins__)''')
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid name: __builtins__
     """
     body = ast.parse(code).body
     for expr in body:
@@ -1148,9 +1087,11 @@ def check_valid_expr(expr):
             raise SecurityException(f"Invalid function: {ast.dump(expr)}")
         for subexpr in expr.args:
             check_valid_expr(subexpr)
-        # Keyword values are evaluated before the call, so they need the same checks as positional args
+        # Keyword values never went through the allowlist and customers call functions it doesn't list
+        # there, so they only get the checks that block reaching interpreter internals
         for keyword in expr.keywords:
-            check_valid_expr(keyword.value)
+            for node in ast.walk(keyword.value):
+                _check_node_is_safe(node)
     elif isinstance(expr, ast.Constant):
         if isinstance(expr.value, int):
             return
@@ -1162,7 +1103,9 @@ def check_valid_expr(expr):
             return
         raise SecurityException(f"Invalid Constant: {ast.dump(expr)}")
     elif isinstance(expr, ast.Name):
-        return
+        # Same rule as control blocks: dunder names such as __builtins__ only reach interpreter internals
+        if _is_dunder(expr.id):
+            raise SecurityException(f"Invalid name: {expr.id}")
     elif isinstance(expr, ast.UnaryOp):
         if not isinstance(expr.op, ast.USub) and not isinstance(expr.op, ast.Not):
             raise SecurityException(f"Invalid UnaryOp: {ast.dump(expr.op)}")
@@ -1182,6 +1125,8 @@ def check_valid_expr(expr):
                 check_valid_expr(expr.slice.lower)
             if expr.slice.upper is not None:
                 check_valid_expr(expr.slice.upper)
+            if expr.slice.step is not None:
+                check_valid_expr(expr.slice.step)
         elif isinstance(expr.slice, (ast.Constant, ast.Subscript)):
             check_valid_expr(expr.slice)
         else:
@@ -1199,6 +1144,9 @@ def check_valid_expr(expr):
             check_valid_expr(x)
     elif isinstance(expr, ast.FormattedValue):
         check_valid_expr(expr.value)
+        # f"{x:{expr}}" nests expressions in the format spec, which JoinedStr.values doesn't include
+        if expr.format_spec is not None:
+            check_valid_expr(expr.format_spec)
     elif isinstance(expr, ast.IfExp):
         check_valid_expr(expr.test)
         check_valid_expr(expr.body)
@@ -1208,7 +1156,9 @@ def check_valid_expr(expr):
 
 
 # Names that allow evaluating code, reflection or reading attributes by string. They are not part of
-# SAFE_BUILTINS either; rejecting them while parsing gives a clear error instead of a NameError.
+# SAFE_BUILTINS, so they can only resolve to template parameters (customers use `type`, `dir`, `property`
+# or `object` as parameter names). Reading them is allowed; calling them is rejected while parsing to give
+# a clear error instead of a NameError or "'str' object is not callable".
 UNSAFE_NAMES = frozenset(
     {
         "eval",
@@ -1234,11 +1184,6 @@ UNSAFE_NAMES = frozenset(
         "quit",
     }
 )
-
-# Common customer parameter names that collide with unsafe builtins (e.g. a `dir` sort-direction
-# parameter, or a `type` filter). Reads are allowed so `defined(dir)` keeps working; only calling the
-# builtin itself (`dir(...)`) is rejected.
-NAMES_ALLOWED_AS_PARAMETERS = frozenset({"type", "dir"})
 
 # Attributes that reach interpreter internals without a leading underscore (frames and code objects of
 # generators, coroutines and tracebacks) or that read arbitrary attributes through a format string
@@ -1298,29 +1243,28 @@ def _is_dunder(name: str) -> bool:
     return len(name) > 4 and name.startswith("__") and name.endswith("__")
 
 
+def _check_node_is_safe(node: ast.AST) -> None:
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in UNSAFE_NAMES:
+        raise SecurityException(f"Invalid function name: {node.func.id}")
+    if isinstance(node, ast.Attribute):
+        if node.attr.startswith("_") or node.attr in UNSAFE_ATTRIBUTE_NAMES:
+            raise SecurityException(f"Invalid attribute: {node.attr}")
+    elif isinstance(node, ast.Name):
+        if _is_dunder(node.id):
+            raise SecurityException(f"Invalid name: {node.id}")
+    elif isinstance(node, ast.ExceptHandler):
+        if node.name and _is_dunder(node.name):
+            raise SecurityException(f"Invalid name: {node.name}")
+    elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
+        raise SecurityException(f"Invalid expression type: {ast.dump(node)}")
+
+
 def _check_valid_statement_tree(tree: ast.Module, expected_statements: int, statement: str) -> None:
     statements = 0
     for node in ast.walk(tree):
         if isinstance(node, ast.stmt):
             statements += 1
-        # Customer pipes use `type`/`dir` as parameters; allow reads but forbid calls to the unsafe builtin.
-        elif (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in NAMES_ALLOWED_AS_PARAMETERS
-        ):
-            raise SecurityException(f"Invalid function name: {node.func.id}")
-        elif isinstance(node, ast.Attribute):
-            if node.attr.startswith("_") or node.attr in UNSAFE_ATTRIBUTE_NAMES:
-                raise SecurityException(f"Invalid attribute: {node.attr}")
-        elif isinstance(node, ast.Name):
-            if _is_dunder(node.id) or (node.id in UNSAFE_NAMES and node.id not in NAMES_ALLOWED_AS_PARAMETERS):
-                raise SecurityException(f"Invalid name: {node.id}")
-        elif isinstance(node, ast.ExceptHandler):
-            if node.name and _is_dunder(node.name):
-                raise SecurityException(f"Invalid name: {node.name}")
-        elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
-            raise SecurityException(f"Invalid expression type: {ast.dump(node)}")
+        _check_node_is_safe(node)
     if statements != expected_statements:
         raise SecurityException(f"Invalid control block: {statement}")
 
@@ -1342,7 +1286,8 @@ def check_valid_control_statement(statement: str) -> None:
     >>> check_valid_control_statement("elif eval('1')")
     Traceback (most recent call last):
     ...
-    tinybird.tornado_template.SecurityException: Invalid name: eval
+    tinybird.tornado_template.SecurityException: Invalid function name: eval
+    >>> check_valid_control_statement("if defined(property) and object != 'x'")
     >>> check_valid_control_statement("for x in (i for i in [1]).gi_frame.f_builtins")
     Traceback (most recent call last):
     ...

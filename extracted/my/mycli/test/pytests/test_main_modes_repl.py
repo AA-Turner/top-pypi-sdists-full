@@ -22,6 +22,8 @@ from mycli.output import OutputMixin
 from mycli.packages.special import iocommands
 from mycli.packages.sqlresult import SQLResult
 from mycli.query_runner import QueryRunner
+from mycli.sqlexecute import SQLExecute
+from test.utils import make_streaming_cursor  # type: ignore[attr-defined]
 
 
 class DummyLogger:
@@ -288,10 +290,10 @@ def test_complete_while_typing_filter_covers_threshold_and_word_rules(monkeypatc
     monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='source x/')))
     assert repl_mode.complete_while_typing_filter() is False
 
-    monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='\\. abc')))
+    monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='/. abc')))
     assert repl_mode.complete_while_typing_filter() is True
 
-    monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='\\. a/')))
+    monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='/. a/')))
     assert repl_mode.complete_while_typing_filter() is False
 
     monkeypatch.setattr(repl_mode, 'get_app', lambda: SimpleNamespace(current_buffer=SimpleNamespace(text='select abc')))
@@ -423,7 +425,7 @@ def test_repl_picker_helpers_cover_present_and_missing_resources(monkeypatch: py
     monkeypatch.setattr(repl_mode.resources, 'files', lambda package: FakeResourceTree({}))
     assert repl_mode._contributors_picker() == 'our contributors'
     assert repl_mode._sponsors_picker() == 'our sponsors'
-    assert repl_mode._tips_picker() == r'\? or "help" for help!'
+    assert repl_mode._tips_picker() == r'/? or /help for help!'
 
 
 def test_configure_editor_uses_configured_editor(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -854,6 +856,123 @@ def test_render_prompt_string_ansi() -> None:
     assert to_plain_text(ansi_prompt) == 'red'
 
 
+@pytest.mark.parametrize('paged', [False, True])
+def test_output_results_keeps_state_visible_between_formatting_and_output(monkeypatch: pytest.MonkeyPatch, paged: bool) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    runner = QueryRunner(0)
+    runner.show_state = True
+    runner.interval = 60
+    runner.started = 0.0
+    runner.visible = True
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+    cli.main_formatter = TabularOutputFormatter(format_name='csv')
+    cli.helpers_style = cli.helpers_warnings_style = None
+    cli.explicit_pager = paged
+    cli.get_output_margin = lambda status: 0
+    monkeypatch.setattr(repl_mode.special, 'is_explorer_output', lambda: False)
+    monkeypatch.setattr(repl_mode.special, 'is_pager_enabled', lambda: paged)
+    monkeypatch.setattr(repl_mode.special, 'is_show_warnings_enabled', lambda: False)
+    printed: list[str] = []
+
+    def format_result(result: SQLResult, **kwargs: Any) -> Iterator[str]:
+        thread = runner._render_thread
+        assert thread is not None
+        formatted = OutputMixin.format_sqlresult(cli, result, **kwargs)
+        assert runner.visible
+        assert runner._render_thread is thread
+
+        def consume() -> Iterator[str]:
+            assert runner.visible
+            assert runner._render_thread is thread
+            yield from formatted
+
+        return consume()
+
+    def print_line(line: str, **kwargs: Any) -> None:
+        assert not runner.visible
+        assert runner._render_thread is None
+        printed.append(line)
+
+    cli.format_sqlresult = format_result
+    cli.output = lambda *args, **kwargs: OutputMixin.output(cli, *args, **kwargs)
+    monkeypatch.setattr(repl_mode.click, 'secho', print_line)
+    monkeypatch.setattr(repl_mode.click, 'echo_via_pager', lambda lines: print_line(''.join(lines)))
+    try:
+        repl_mode._output_results(cli, repl_mode.ReplState(), [SQLResult(header=['id'], rows=[(1,)])], 0.0)
+        assert printed == (['"id"\n"1"\n'] if paged else ['"id"', '"1"'])
+        assert runner._render_depth == 0
+    finally:
+        runner.close()
+
+
+@pytest.mark.parametrize('phase', ['format_sqlresult', 'output'])
+@pytest.mark.parametrize('error', [RuntimeError('failed'), KeyboardInterrupt()])
+def test_output_results_cleans_up_shared_rendering_scope_on_error(
+    monkeypatch: pytest.MonkeyPatch, phase: str, error: BaseException
+) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    runner = QueryRunner(0)
+    runner.show_state = True
+    runner.interval = 60
+    runner.visible = True
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+    setattr(cli, phase, Mock(side_effect=error))
+    try:
+        with pytest.raises(type(error)):
+            repl_mode._output_results(cli, repl_mode.ReplState(), [SQLResult(header=['id'], rows=[(1,)])], 0.0, raise_interrupts=True)
+        assert not runner.visible
+        assert runner._render_thread is None
+        assert runner._render_depth == 0
+    finally:
+        runner.close()
+
+
+def test_output_results_stops_rendering_before_result_separator(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    runner = QueryRunner(0)
+    runner.show_state = True
+    runner.interval = 60
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+    separators: list[str] = []
+
+    def format_result(result: SQLResult, **kwargs: Any) -> Iterator[str]:
+        assert runner._render_thread is not None
+        runner.visible = True
+        return iter(['row'])
+
+    def echo(message: str, **kwargs: Any) -> None:
+        assert not runner.visible
+        assert runner._render_thread is None
+        assert runner._render_stop.is_set()
+        separators.append(message)
+
+    cli.format_sqlresult = format_result
+    cli.echo = echo
+    try:
+        repl_mode._output_results(cli, repl_mode.ReplState(), [SQLResult(), SQLResult()], 0.0)
+        assert separators == ['']
+    finally:
+        runner.close()
+
+
+def test_output_results_stops_rendering_before_timing(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_repl_runtime_defaults(monkeypatch)
+    monkeypatch.setattr(repl_mode.special, 'is_timing_enabled', lambda: True)
+    runner = QueryRunner(0)
+    runner.visible = True
+    cli = make_repl_cli(SimpleNamespace(query_runner=runner))
+
+    def timing(message: str) -> None:
+        assert not runner.visible
+        assert runner._render_stop.is_set()
+
+    cli.output_timing = timing
+    try:
+        repl_mode._output_results(cli, repl_mode.ReplState(), [SQLResult()], 0.0)
+    finally:
+        runner.close()
+
+
 def test_output_results_covers_watch_warning_timing_beep_and_interrupts(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeSQLExecute:
         def run(self, text: str) -> list[SQLResult]:
@@ -1137,6 +1256,20 @@ def patch_single_paged_output_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(repl_mode.special, 'write_once', lambda line: None)
     monkeypatch.setattr(repl_mode.special, 'write_pipe_once', lambda line: None)
     monkeypatch.setattr(repl_mode, 'is_mutating', lambda status: False)
+
+
+def test_single_paged_output_reports_final_streaming_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_repl_cli(SimpleNamespace())
+    patch_single_paged_output_runtime(monkeypatch)
+    monkeypatch.setattr(repl_mode.special, 'is_explorer_output', lambda: False)
+    cli.main_formatter = TabularOutputFormatter(format_name='csv')
+    cli.helpers_style = cli.helpers_warnings_style = None
+    cli.format_sqlresult = lambda *args, **kwargs: OutputMixin.format_sqlresult(cli, *args, **kwargs)
+    result = SQLExecute.__new__(SQLExecute).get_result(make_streaming_cursor([(1,), (2,)]))
+
+    output = list(repl_mode._single_paged_output_results(cli, repl_mode.ReplState(), iter([result]), 0))
+
+    assert output[-1] == '2 rows in set\n'
 
 
 def test_single_paged_output_handles_set_buffer_command() -> None:
@@ -1450,7 +1583,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     click_output: list[str] = []
     monkeypatch.setattr(repl_mode.click, 'echo', lambda message='', **kwargs: click_output.append(str(message)))
     monkeypatch.setattr(repl_mode.special, 'is_timing_enabled', lambda: True)
-    monkeypatch.setattr(repl_mode.special, 'is_llm_command', lambda text: text.startswith('\\llm'))
+    monkeypatch.setattr(repl_mode.special, 'is_llm_command', lambda text: text.startswith('/llm'))
 
     class FakeSQLExecute:
         def __init__(self) -> None:
@@ -1466,7 +1599,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
         lambda text, cur, dbname, field_truncate, section_truncate: ('context', 'select 1', 1.25),
     )
     cli = make_repl_cli(FakeSQLExecute())
-    cli.prompt_session = FakePromptSession(['\\llm ask', 'select 1'])
+    cli.prompt_session = FakePromptSession(['/llm ask', 'select 1'])
     repl_mode._one_iteration(
         cli,
         repl_mode.ReplState(),
@@ -1475,7 +1608,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     assert cli.output_calls[0][0] == ['None', 'ran:select 1']
 
     cli_finish = make_repl_cli(FakeSQLExecute())
-    cli_finish.prompt_session = FakePromptSession(['\\llm finish'])
+    cli_finish.prompt_session = FakePromptSession(['/llm finish'])
     cli_finish.format_sqlresult = lambda result, **kwargs: iter([result.status_plain or 'row'])
     monkeypatch.setattr(
         repl_mode.special,
@@ -1486,7 +1619,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     assert cli_finish.output_calls[0][0] == ['done']
 
     cli_empty = make_repl_cli(FakeSQLExecute())
-    cli_empty.prompt_session = FakePromptSession(['\\llm empty'])
+    cli_empty.prompt_session = FakePromptSession(['/llm empty'])
     monkeypatch.setattr(
         repl_mode.special,
         'handle_llm',
@@ -1496,7 +1629,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     assert cli_empty.output_calls == []
 
     cli_err = make_repl_cli(FakeSQLExecute())
-    cli_err.prompt_session = FakePromptSession(['\\llm err'])
+    cli_err.prompt_session = FakePromptSession(['/llm err'])
     monkeypatch.setattr(
         repl_mode.special,
         'handle_llm',
@@ -1506,7 +1639,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     assert 'llm boom' in cli_err.echo_calls[-1]
 
     cli_interrupt = make_repl_cli(FakeSQLExecute())
-    cli_interrupt.prompt_session = FakePromptSession(['\\llm stop'])
+    cli_interrupt.prompt_session = FakePromptSession(['/llm stop'])
     monkeypatch.setattr(
         repl_mode.special,
         'handle_llm',
@@ -1516,7 +1649,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
     assert cli_interrupt.output_calls == []
 
     cli_quiet = make_repl_cli(FakeSQLExecute())
-    cli_quiet.prompt_session = FakePromptSession(['\\llm quiet', 'select 2'])
+    cli_quiet.prompt_session = FakePromptSession(['/llm quiet', 'select 2'])
     monkeypatch.setattr(repl_mode.special, 'is_timing_enabled', lambda: False)
     monkeypatch.setattr(
         repl_mode.special,
@@ -1538,7 +1671,7 @@ def test_one_iteration_covers_llm_paths(monkeypatch: pytest.MonkeyPatch) -> None
         ("set password = 'newpass'", True),
         ('quit', True),
         ('exit', True),
-        ('\\q', True),
+        ('/q', True),
         ('SELECT 1', False),
         ('DROP TABLE t', False),
         ('USE mydb', False),

@@ -41,6 +41,7 @@ from .extractors.content_extractor import ContentExtractor
 from .loader import SkillLoader, SkillLoadError
 from .models import Finding, Report, ScanResult, Severity, Skill, SkillManifest, ThreatCategory
 from .scan_policy import ScanPolicy
+from .suppressions import apply_suppressions, build_suppression_summary
 
 if TYPE_CHECKING:
     from .rule_registry import RuleRegistry
@@ -230,6 +231,9 @@ class SkillScanner:
         # disables decisions but does not bypass pack validation.
         self.cel_gate = CelGate(resolved_cel_rules, self.policy.cel.mode)
 
+        # Track expired entries per scan so directory scans warn once.
+        self._warned_expired_suppressions: set[int] = set()
+
     @staticmethod
     def _cel_rules_from_registry(rule_registry: RuleRegistry | None) -> list[CelRule]:
         """Extract manifest CEL gates without coupling to pack loading.
@@ -355,6 +359,8 @@ class SkillScanner:
         """
         if not isinstance(skill_directory, Path):
             skill_directory = Path(skill_directory)
+
+        self._warned_expired_suppressions.clear()
 
         try:
             skill, load_telemetry = self._load_skill_for_scan(
@@ -546,13 +552,22 @@ class SkillScanner:
         )
 
         checked, invalid_ids, contract_errors, _ = self._validate_bundled_python_findings([finding])
+        suppressed_findings: list[Finding] = []
+        findings = self._apply_scoped_suppressions(
+            [finding],
+            synthetic_skill.name,
+            suppressed_findings,
+            invalid_ids,
+        )
         findings, cel_telemetry = self._apply_cel_with_contract(
             synthetic_skill,
-            [finding],
+            findings,
             invalid_ids,
         )
         policy_meta: dict[str, Any] = self._policy_fingerprint_metadata()
         policy_meta["cel"] = cel_telemetry.to_dict()
+        if suppressed_findings:
+            policy_meta["suppressions"] = build_suppression_summary(suppressed_findings)
         policy_meta["rule_contract"] = {
             "status": "failed" if invalid_ids else "passed",
             "schema_version": 2,
@@ -561,7 +576,7 @@ class SkillScanner:
             "errors": contract_errors[:100],
         }
         policy_meta["loader"] = dict(proof)
-        self._annotate_findings_with_policy(findings, policy_meta)
+        self._annotate_findings_with_policy([*findings, *suppressed_findings], policy_meta)
 
         analyzability = AnalyzabilityReport(
             score=0.0,
@@ -574,6 +589,7 @@ class SkillScanner:
             skill_name=skill_directory.name,
             skill_directory=str(skill_directory.absolute()),
             findings=findings,
+            suppressed_findings=suppressed_findings,
             scan_duration_seconds=time.time() - started,
             analyzers_used=["skill_loader"],
             analyzers_failed=[],
@@ -621,6 +637,9 @@ class SkillScanner:
         (non-LLM → LLM w/ enrichment) behaviour regardless of entry point.
         """
         start_time = time.time()
+
+        # Collect findings suppressed before and after the LLM phase.
+        suppressed_findings: list[Finding] = []
 
         # Pre-processing: Extract archives and add extracted files to skill
         extraction_result = self.content_extractor.extract_skill_archives(skill.files)
@@ -723,6 +742,15 @@ class SkillScanner:
                 ]
             if self.policy.disabled_rules:
                 all_findings = [f for f in all_findings if f.rule_id not in self.policy.disabled_rules]
+            # Scoped suppressions run here for the same reason as disabled_rules:
+            # a candidate the operator has already excluded must never reach CEL,
+            # so CEL decision counts only describe findings that could be emitted.
+            all_findings = self._apply_scoped_suppressions(
+                all_findings,
+                skill.name,
+                suppressed_findings,
+                contract_invalid_ids,
+            )
 
             # Phase 1.5: Bounded CEL decision layer.  It sees only concrete
             # deterministic candidates and runs before any LLM-based pass so
@@ -874,6 +902,13 @@ class SkillScanner:
             # Global safety net: enforce disabled_rules across ALL analyzers
             if self.policy.disabled_rules:
                 all_findings = [f for f in all_findings if f.rule_id not in self.policy.disabled_rules]
+            # Cover findings created during the LLM phase.
+            all_findings = self._apply_scoped_suppressions(
+                all_findings,
+                skill.name,
+                suppressed_findings,
+                contract_invalid_ids,
+            )
 
             # Apply severity overrides from policy
             self._apply_severity_overrides(all_findings)
@@ -887,6 +922,8 @@ class SkillScanner:
             # Attach policy fingerprint metadata for traceability (policy-controlled).
             policy_meta: dict[str, Any] = self._policy_fingerprint_metadata()
             policy_meta["cel"] = cel_telemetry.to_dict()
+            if suppressed_findings:
+                policy_meta["suppressions"] = build_suppression_summary(suppressed_findings)
             policy_meta["rule_contract"] = {
                 "status": "failed" if contract_invalid_ids else "passed",
                 "schema_version": 2,
@@ -905,7 +942,8 @@ class SkillScanner:
                     "demoted": len(demoted),
                     "audit": adjudicator_audit,
                 }
-            self._annotate_findings_with_policy(all_findings, policy_meta)
+            # Preserve policy provenance on suppressed findings.
+            self._annotate_findings_with_policy([*all_findings, *suppressed_findings], policy_meta)
 
         finally:
             # Always cleanup temporary extraction directories, even if an
@@ -918,6 +956,7 @@ class SkillScanner:
             skill_name=skill.name,
             skill_directory=str(skill_directory.absolute()),
             findings=all_findings,
+            suppressed_findings=suppressed_findings,
             scan_duration_seconds=scan_duration,
             analyzers_used=analyzer_names,
             analyzers_failed=analyzers_failed,
@@ -1067,9 +1106,16 @@ class SkillScanner:
         ``metadata['adjudication']['demoted_to']``) are exempt — the
         adjudicator's INFO verdict is load-bearing for downstream verdict
         computation and must not be re-raised by a per-rule override.
+
+        Findings already re-rated by a scoped suppression are exempt too: the
+        scoped entry is the more specific decision and must win over the
+        rule-wide one.
         """
         for finding in findings:
-            if (finding.metadata or {}).get("adjudication", {}).get("demoted_to"):
+            metadata = finding.metadata or {}
+            if metadata.get("adjudication", {}).get("demoted_to"):
+                continue
+            if metadata.get("suppression", {}).get("severity"):
                 continue
             override = self.policy.get_severity_override(finding.rule_id)
             if override:
@@ -1077,6 +1123,57 @@ class SkillScanner:
                     finding.severity = Severity(override)
                 except (ValueError, KeyError):
                     logger.warning("Invalid severity override '%s' for rule %s", override, finding.rule_id)
+
+    def _apply_scoped_suppressions(
+        self,
+        findings: list[Finding],
+        skill_name: str,
+        suppressed: list[Finding],
+        contract_invalid_ids: set[int],
+    ) -> list[Finding]:
+        """Apply scoped suppressions and collect removed findings.
+
+        Expired rules are logged once per scan.
+
+        Args:
+            findings: Candidate findings for this skill.
+            skill_name: Name the ``skills`` selectors are matched against.
+            suppressed: Accumulator for removed findings, mutated in place.
+            contract_invalid_ids: Object IDs that must remain active fail-open.
+
+        Returns:
+            The findings that survive suppression, in their original order.
+        """
+        if not self.policy.suppressions:
+            return findings
+
+        eligible = [finding for finding in findings if id(finding) not in contract_invalid_ids]
+        outcome = apply_suppressions(eligible, self.policy.suppressions, skill_name)
+        suppressed.extend(outcome.suppressed)
+        for entry_index, rule in outcome.expired_suppressions:
+            if entry_index in self._warned_expired_suppressions:
+                continue
+            self._warned_expired_suppressions.add(entry_index)
+            logger.warning(
+                "Scoped suppression entry %d for rule %s has expired and is no longer applied; "
+                "remove it or extend its 'expires' date",
+                entry_index + 1,
+                rule.rule_id,
+            )
+        kept_ids = {id(finding) for finding in outcome.kept}
+        return [finding for finding in findings if id(finding) in contract_invalid_ids or id(finding) in kept_ids]
+
+    @staticmethod
+    def _mark_re_rating_superseded(finding: Finding) -> None:
+        """Mark a scoped re-rating overridden by a merged sibling.
+
+        A suppression covers one rule ID, so merging must retain a higher
+        severity from an unsuppressed sibling without leaving a misleading
+        active re-rating record.
+        """
+        suppression = (finding.metadata or {}).get("suppression")
+        if isinstance(suppression, dict) and suppression.get("severity"):
+            suppression["superseded_by_merge"] = True
 
     @staticmethod
     def _normalize_snippet(snippet: str | None) -> str:
@@ -1166,6 +1263,7 @@ class SkillScanner:
             )
             max_severity = max((f.severity for f in group), key=self._severity_rank)
             if self._severity_rank(max_severity) > self._severity_rank(winner.severity):
+                self._mark_re_rating_superseded(winner)
                 winner.metadata["deduped_original_severity"] = winner.severity.value
                 winner.severity = max_severity
 
@@ -1426,7 +1524,11 @@ class SkillScanner:
             check_overlap: If True, check for description overlap between skills
             lenient: Tolerate malformed YAML / missing fields in skills.
                 When True, directories containing ``.md`` files (but no
-                ``SKILL.md``) are also discovered as candidate skills.
+                ``SKILL.md``) are also discovered as candidate skills. In a
+                recursive scan, a Markdown-only candidate is skipped when it
+                sits inside, or contains, a skill found by its manifest: that
+                skill already scans its files, so the candidate would only
+                repeat its findings against a synthesized ``SKILL.md``.
             skill_file: Optional custom metadata filename (e.g. ``"README.md"``).
 
         Returns:
@@ -1438,11 +1540,18 @@ class SkillScanner:
         if not skills_directory.exists():
             raise FileNotFoundError(f"Directory does not exist: {skills_directory}")
 
+        self._warned_expired_suppressions.clear()
+
         skill_dirs = self._find_skill_directories(skills_directory, recursive, lenient=lenient, skill_file=skill_file)
         report = Report()
 
         # Keep track of loaded skills for cross-skill analysis
         loaded_skills: list[Skill] = []
+        # Files owned by each manifest skill that scanned cleanly, keyed by its
+        # resolved root. Manifest skills come first in ``skill_dirs``, so this is
+        # complete before any Markdown-only (lenient) candidate is reached.
+        manifest_coverage: dict[Path, set[Path]] = {}
+        track_manifest_coverage = recursive and lenient
 
         for skill_dir in skill_dirs:
             try:
@@ -1451,8 +1560,24 @@ class SkillScanner:
                     lenient=lenient,
                     skill_file=skill_file,
                 )
+                synthetic = bool(skill.load_metadata.get("synthetic_instruction_body"))
+                skill_root = skill.directory.resolve()
+                skill_files = {file.path for file in skill.files}
+                if (
+                    track_manifest_coverage
+                    and synthetic
+                    and self._covered_by_manifest_skill(skill, skill_root, skill_files, manifest_coverage)
+                ):
+                    logger.debug("Skipping %s: covered by a manifest skill", skill_dir)
+                    continue
+
                 result = self._scan_single_skill(skill, skill_dir, load_telemetry=load_telemetry)
                 report.add_scan_result(result)
+
+                # A manifest skill whose analysis failed does not claim its files,
+                # so the Markdown inside it is still scanned on its own.
+                if track_manifest_coverage and not synthetic and not result.analyzers_failed:
+                    manifest_coverage[skill_root] = skill_files
 
                 if check_overlap and skill.manifest_complete:
                     loaded_skills.append(skill)
@@ -1502,7 +1627,8 @@ class SkillScanner:
                         failure["analyzer"],
                         failure["error"],
                     )
-                # Apply policy filters to cross-skill findings (mirrors _scan_single_skill lines 279-283)
+                # Scoped suppressions do not apply: cross-skill findings have no
+                # owning skill or matchable path.
                 if self.policy.disabled_rules:
                     all_cross_findings = [f for f in all_cross_findings if f.rule_id not in self.policy.disabled_rules]
                 self._apply_severity_overrides(all_cross_findings)
@@ -1678,6 +1804,26 @@ class SkillScanner:
                 # directory as a skill, but do not wander into its external
                 # siblings/children (containment, see docstring).
                 dirs[:] = []
+
+    @staticmethod
+    def _covered_by_manifest_skill(
+        skill: Skill,
+        skill_root: Path,
+        skill_files: set[Path],
+        manifest_coverage: dict[Path, set[Path]],
+    ) -> bool:
+        """Whether a Markdown-only candidate duplicates a manifest skill.
+
+        It does when a manifest skill above it already scanned every file it
+        holds, or when it contains a manifest skill: a parent folder's
+        pseudo-skill would rescan that skill's files and add findings against a
+        ``SKILL.md`` that does not exist.
+        """
+        for parent in skill_root.parents:
+            covered = manifest_coverage.get(parent)
+            if covered is not None and skill.skill_md_path in covered and skill_files <= covered:
+                return True
+        return any(skill_root in root.parents for root in manifest_coverage)
 
     def _find_skill_directories(
         self,

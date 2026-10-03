@@ -160,6 +160,9 @@ __all__ = (
     "MultiviewConfigurationOutputTypeDef",
     "MultiviewConfigurationTypeDef",
     "MultiviewConfigurationUnionTypeDef",
+    "MultiviewFilterConfigurationOutputTypeDef",
+    "MultiviewFilterConfigurationTypeDef",
+    "MultiviewFilterConfigurationUnionTypeDef",
     "OriginEndpointListConfigurationTypeDef",
     "OutputHeaderConfigurationTypeDef",
     "PaginatorConfigTypeDef",
@@ -366,13 +369,9 @@ class EncryptionMethodTypeDef(TypedDict):
     IsmEncryptionMethod: NotRequired[Literal["CENC"]]
 
 
-class FilterConfigurationOutputTypeDef(TypedDict):
-    ManifestFilter: NotRequired[str]
-    DrmSettings: NotRequired[str]
-    Start: NotRequired[datetime]
-    End: NotRequired[datetime]
-    TimeDelaySeconds: NotRequired[int]
-    ClipStartTime: NotRequired[datetime]
+class MultiviewFilterConfigurationOutputTypeDef(TypedDict):
+    Layout: MultiviewLayoutTypeType
+    Sources: list[str]
 
 
 class ForceEndpointErrorConfigurationTypeDef(TypedDict):
@@ -491,6 +490,11 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class MultiviewConfigurationTypeDef(TypedDict):
     AvailableSources: Sequence[str]
     AvailableLayouts: Sequence[MultiviewLayoutTypeType]
+
+
+class MultiviewFilterConfigurationTypeDef(TypedDict):
+    Layout: MultiviewLayoutTypeType
+    Sources: Sequence[str]
 
 
 class PutChannelPolicyRequestTypeDef(TypedDict):
@@ -702,15 +706,6 @@ class DashAvailabilityStartTimeConfigurationTypeDef(TypedDict):
     FixedAvailabilityStartTime: NotRequired[TimestampTypeDef]
 
 
-class FilterConfigurationTypeDef(TypedDict):
-    ManifestFilter: NotRequired[str]
-    DrmSettings: NotRequired[str]
-    Start: NotRequired[TimestampTypeDef]
-    End: NotRequired[TimestampTypeDef]
-    TimeDelaySeconds: NotRequired[int]
-    ClipStartTime: NotRequired[TimestampTypeDef]
-
-
 class HarvesterScheduleConfigurationTypeDef(TypedDict):
     StartTime: TimestampTypeDef
     EndTime: TimestampTypeDef
@@ -756,38 +751,14 @@ class SpekeKeyProviderTypeDef(TypedDict):
     ContentKeyPeriodConfiguration: NotRequired[ContentKeyPeriodConfigurationTypeDef]
 
 
-class GetHlsManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    Url: str
-    ChildManifestName: NotRequired[str]
-    ManifestWindowSeconds: NotRequired[int]
-    ProgramDateTimeIntervalSeconds: NotRequired[int]
-    ScteHls: NotRequired[ScteHlsTypeDef]
-    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
-    StartTag: NotRequired[StartTagTypeDef]
-    UrlEncodeChildManifest: NotRequired[bool]
-    UriPathType: NotRequired[UriPathTypeType]
-
-
-class GetLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    Url: str
-    ChildManifestName: NotRequired[str]
-    ManifestWindowSeconds: NotRequired[int]
-    ProgramDateTimeIntervalSeconds: NotRequired[int]
-    ScteHls: NotRequired[ScteHlsTypeDef]
-    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
-    StartTag: NotRequired[StartTagTypeDef]
-    UrlEncodeChildManifest: NotRequired[bool]
-    UriPathType: NotRequired[UriPathTypeType]
-
-
-class GetMssManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    Url: str
-    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
-    ManifestWindowSeconds: NotRequired[int]
-    ManifestLayout: NotRequired[MssManifestLayoutType]
+class FilterConfigurationOutputTypeDef(TypedDict):
+    ManifestFilter: NotRequired[str]
+    DrmSettings: NotRequired[str]
+    Start: NotRequired[datetime]
+    End: NotRequired[datetime]
+    TimeDelaySeconds: NotRequired[int]
+    ClipStartTime: NotRequired[datetime]
+    Multiview: NotRequired[MultiviewFilterConfigurationOutputTypeDef]
 
 
 ForceEndpointErrorConfigurationUnionTypeDef = Union[
@@ -859,6 +830,9 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
 MultiviewConfigurationUnionTypeDef = Union[
     MultiviewConfigurationTypeDef, MultiviewConfigurationOutputTypeDef
 ]
+MultiviewFilterConfigurationUnionTypeDef = Union[
+    MultiviewFilterConfigurationTypeDef, MultiviewFilterConfigurationOutputTypeDef
+]
 
 
 class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
@@ -879,13 +853,26 @@ DashAvailabilityStartTimeConfigurationUnionTypeDef = Union[
     DashAvailabilityStartTimeConfigurationTypeDef,
     DashAvailabilityStartTimeConfigurationOutputTypeDef,
 ]
-FilterConfigurationUnionTypeDef = Union[
-    FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
-]
 HarvesterScheduleConfigurationUnionTypeDef = Union[
     HarvesterScheduleConfigurationTypeDef, HarvesterScheduleConfigurationOutputTypeDef
 ]
 DashDvbSettingsUnionTypeDef = Union[DashDvbSettingsTypeDef, DashDvbSettingsOutputTypeDef]
+
+
+class EncryptionOutputTypeDef(TypedDict):
+    EncryptionMethod: EncryptionMethodTypeDef
+    SpekeKeyProvider: SpekeKeyProviderOutputTypeDef
+    ConstantInitializationVector: NotRequired[str]
+    KeyRotationIntervalSeconds: NotRequired[int]
+    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
+
+
+class EncryptionTypeDef(TypedDict):
+    EncryptionMethod: EncryptionMethodTypeDef
+    SpekeKeyProvider: SpekeKeyProviderTypeDef
+    ConstantInitializationVector: NotRequired[str]
+    KeyRotationIntervalSeconds: NotRequired[int]
+    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
 
 
 class GetDashManifestConfigurationTypeDef(TypedDict):
@@ -914,20 +901,38 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     ]
 
 
-class EncryptionOutputTypeDef(TypedDict):
-    EncryptionMethod: EncryptionMethodTypeDef
-    SpekeKeyProvider: SpekeKeyProviderOutputTypeDef
-    ConstantInitializationVector: NotRequired[str]
-    KeyRotationIntervalSeconds: NotRequired[int]
-    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
+class GetHlsManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    Url: str
+    ChildManifestName: NotRequired[str]
+    ManifestWindowSeconds: NotRequired[int]
+    ProgramDateTimeIntervalSeconds: NotRequired[int]
+    ScteHls: NotRequired[ScteHlsTypeDef]
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
+    StartTag: NotRequired[StartTagTypeDef]
+    UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
 
 
-class EncryptionTypeDef(TypedDict):
-    EncryptionMethod: EncryptionMethodTypeDef
-    SpekeKeyProvider: SpekeKeyProviderTypeDef
-    ConstantInitializationVector: NotRequired[str]
-    KeyRotationIntervalSeconds: NotRequired[int]
-    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
+class GetLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    Url: str
+    ChildManifestName: NotRequired[str]
+    ManifestWindowSeconds: NotRequired[int]
+    ProgramDateTimeIntervalSeconds: NotRequired[int]
+    ScteHls: NotRequired[ScteHlsTypeDef]
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
+    StartTag: NotRequired[StartTagTypeDef]
+    UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
+
+
+class GetMssManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    Url: str
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
+    ManifestWindowSeconds: NotRequired[int]
+    ManifestLayout: NotRequired[MssManifestLayoutType]
 
 
 class CreateHarvestJobResponseTypeDef(TypedDict):
@@ -1017,60 +1022,14 @@ class UpdateChannelRequestTypeDef(TypedDict):
     MultiviewConfiguration: NotRequired[MultiviewConfigurationUnionTypeDef]
 
 
-class CreateHlsManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    ChildManifestName: NotRequired[str]
-    ScteHls: NotRequired[ScteHlsTypeDef]
-    StartTag: NotRequired[StartTagTypeDef]
-    ManifestWindowSeconds: NotRequired[int]
-    ProgramDateTimeIntervalSeconds: NotRequired[int]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    UrlEncodeChildManifest: NotRequired[bool]
-    UriPathType: NotRequired[UriPathTypeType]
-
-
-class CreateLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    ChildManifestName: NotRequired[str]
-    ScteHls: NotRequired[ScteHlsTypeDef]
-    StartTag: NotRequired[StartTagTypeDef]
-    ManifestWindowSeconds: NotRequired[int]
-    ProgramDateTimeIntervalSeconds: NotRequired[int]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    UrlEncodeChildManifest: NotRequired[bool]
-    UriPathType: NotRequired[UriPathTypeType]
-
-
-class CreateMssManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    ManifestWindowSeconds: NotRequired[int]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    ManifestLayout: NotRequired[MssManifestLayoutType]
-
-
-class CreateDashManifestConfigurationTypeDef(TypedDict):
-    ManifestName: str
-    ManifestWindowSeconds: NotRequired[int]
-    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
-    MinUpdatePeriodSeconds: NotRequired[int]
-    MinBufferTimeSeconds: NotRequired[int]
-    SuggestedPresentationDelaySeconds: NotRequired[int]
-    SegmentTemplateFormat: NotRequired[Literal["NUMBER_WITH_TIMELINE"]]
-    PeriodTriggers: NotRequired[Sequence[DashPeriodTriggerType]]
-    ScteDash: NotRequired[ScteDashTypeDef]
-    DrmSignaling: NotRequired[DashDrmSignalingType]
-    UtcTiming: NotRequired[DashUtcTimingTypeDef]
-    Profiles: NotRequired[Sequence[Literal["DVB_DASH"]]]
-    BaseUrls: NotRequired[Sequence[DashBaseUrlTypeDef]]
-    ProgramInformation: NotRequired[DashProgramInformationTypeDef]
-    DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
-    Compactness: NotRequired[DashCompactnessType]
-    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
-    SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
-    UriPathType: NotRequired[UriPathTypeType]
-    AvailabilityStartTimeConfiguration: NotRequired[
-        DashAvailabilityStartTimeConfigurationUnionTypeDef
-    ]
+class FilterConfigurationTypeDef(TypedDict):
+    ManifestFilter: NotRequired[str]
+    DrmSettings: NotRequired[str]
+    Start: NotRequired[TimestampTypeDef]
+    End: NotRequired[TimestampTypeDef]
+    TimeDelaySeconds: NotRequired[int]
+    ClipStartTime: NotRequired[TimestampTypeDef]
+    Multiview: NotRequired[MultiviewFilterConfigurationUnionTypeDef]
 
 
 class SegmentOutputTypeDef(TypedDict):
@@ -1112,6 +1071,11 @@ class CreateHarvestJobRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     HarvestJobName: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+
+
+FilterConfigurationUnionTypeDef = Union[
+    FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
+]
 
 
 class CreateOriginEndpointResponseTypeDef(TypedDict):
@@ -1185,6 +1149,62 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
 
 
 SegmentUnionTypeDef = Union[SegmentTypeDef, SegmentOutputTypeDef]
+
+
+class CreateDashManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ManifestWindowSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    MinUpdatePeriodSeconds: NotRequired[int]
+    MinBufferTimeSeconds: NotRequired[int]
+    SuggestedPresentationDelaySeconds: NotRequired[int]
+    SegmentTemplateFormat: NotRequired[Literal["NUMBER_WITH_TIMELINE"]]
+    PeriodTriggers: NotRequired[Sequence[DashPeriodTriggerType]]
+    ScteDash: NotRequired[ScteDashTypeDef]
+    DrmSignaling: NotRequired[DashDrmSignalingType]
+    UtcTiming: NotRequired[DashUtcTimingTypeDef]
+    Profiles: NotRequired[Sequence[Literal["DVB_DASH"]]]
+    BaseUrls: NotRequired[Sequence[DashBaseUrlTypeDef]]
+    ProgramInformation: NotRequired[DashProgramInformationTypeDef]
+    DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
+    Compactness: NotRequired[DashCompactnessType]
+    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
+    SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
+    UriPathType: NotRequired[UriPathTypeType]
+    AvailabilityStartTimeConfiguration: NotRequired[
+        DashAvailabilityStartTimeConfigurationUnionTypeDef
+    ]
+
+
+class CreateHlsManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ChildManifestName: NotRequired[str]
+    ScteHls: NotRequired[ScteHlsTypeDef]
+    StartTag: NotRequired[StartTagTypeDef]
+    ManifestWindowSeconds: NotRequired[int]
+    ProgramDateTimeIntervalSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
+
+
+class CreateLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ChildManifestName: NotRequired[str]
+    ScteHls: NotRequired[ScteHlsTypeDef]
+    StartTag: NotRequired[StartTagTypeDef]
+    ManifestWindowSeconds: NotRequired[int]
+    ProgramDateTimeIntervalSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    UrlEncodeChildManifest: NotRequired[bool]
+    UriPathType: NotRequired[UriPathTypeType]
+
+
+class CreateMssManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ManifestWindowSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    ManifestLayout: NotRequired[MssManifestLayoutType]
 
 
 class CreateOriginEndpointRequestTypeDef(TypedDict):

@@ -119,12 +119,13 @@ module-root = ""
 module-name = "python_utils"
 source-include = [
     "_python_utils_tests/**/*.py",
+    "conftest.py",
     "tox.ini",
 ]
 
 [project]
 name = "python-utils"
-version = "4.0.1"
+version = "4.1.0"
 description = "Python Utils is a module with some convenient utilities not included with the standard Python install"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -165,6 +166,7 @@ Homepage = "https://github.com/WoLpH/python-utils"
 Documentation = "https://python-utils.readthedocs.io/"
 Repository = "https://github.com/WoLpH/python-utils"
 Changelog = "https://github.com/WoLpH/python-utils/releases"
+Funding = "https://github.com/sponsors/wolph"
 
 [project.optional-dependencies]
 loguru = ["loguru"]

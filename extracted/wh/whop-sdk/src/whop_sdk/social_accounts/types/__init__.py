@@ -16,10 +16,14 @@ if typing.TYPE_CHECKING:
     from .list_social_accounts_request_order import ListSocialAccountsRequestOrder
     from .list_social_accounts_request_platform import ListSocialAccountsRequestPlatform
     from .list_social_accounts_request_scopes_item import ListSocialAccountsRequestScopesItem
+    from .list_social_accounts_request_trust_level import ListSocialAccountsRequestTrustLevel
     from .list_social_accounts_response import ListSocialAccountsResponse
     from .list_social_accounts_response_page_info import ListSocialAccountsResponsePageInfo
+    from .partners_social_accounts_response import PartnersSocialAccountsResponse
+    from .partners_social_accounts_response_page_info import PartnersSocialAccountsResponsePageInfo
     from .posts_social_accounts_response import PostsSocialAccountsResponse
     from .posts_social_accounts_response_page_info import PostsSocialAccountsResponsePageInfo
+    from .remove_partner_social_accounts_response import RemovePartnerSocialAccountsResponse
 _dynamic_imports: typing.Dict[str, str] = {
     "ConnectSocialAccountsRequestPlatform": ".connect_social_accounts_request_platform",
     "ConnectSocialAccountsRequestScopesItem": ".connect_social_accounts_request_scopes_item",
@@ -31,10 +35,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSocialAccountsRequestOrder": ".list_social_accounts_request_order",
     "ListSocialAccountsRequestPlatform": ".list_social_accounts_request_platform",
     "ListSocialAccountsRequestScopesItem": ".list_social_accounts_request_scopes_item",
+    "ListSocialAccountsRequestTrustLevel": ".list_social_accounts_request_trust_level",
     "ListSocialAccountsResponse": ".list_social_accounts_response",
     "ListSocialAccountsResponsePageInfo": ".list_social_accounts_response_page_info",
+    "PartnersSocialAccountsResponse": ".partners_social_accounts_response",
+    "PartnersSocialAccountsResponsePageInfo": ".partners_social_accounts_response_page_info",
     "PostsSocialAccountsResponse": ".posts_social_accounts_response",
     "PostsSocialAccountsResponsePageInfo": ".posts_social_accounts_response_page_info",
+    "RemovePartnerSocialAccountsResponse": ".remove_partner_social_accounts_response",
 }
 
 
@@ -70,8 +78,12 @@ __all__ = [
     "ListSocialAccountsRequestOrder",
     "ListSocialAccountsRequestPlatform",
     "ListSocialAccountsRequestScopesItem",
+    "ListSocialAccountsRequestTrustLevel",
     "ListSocialAccountsResponse",
     "ListSocialAccountsResponsePageInfo",
+    "PartnersSocialAccountsResponse",
+    "PartnersSocialAccountsResponsePageInfo",
     "PostsSocialAccountsResponse",
     "PostsSocialAccountsResponsePageInfo",
+    "RemovePartnerSocialAccountsResponse",
 ]

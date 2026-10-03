@@ -187,7 +187,7 @@ def pi_agent_dir(env: Mapping[str, str] | None = None) -> Path:
     """pi's own global agent directory: `PI_CODING_AGENT_DIR`, else `~/.pi/agent`.
 
     Moved here from `agent_rules.memory_path`'s pi branch (this logic must not
-    exist in a third place -- `agent/plugins/probe-research-pi/src/paths.ts`'s
+    exist in a third place -- `agent/plugins/probe-research-pi/src/core/paths.ts`'s
     `piAgentDir` is the second). `PI_CODING_AGENT_DIR` is not a guess: pi
     0.86.0's own `dist/config.js` (as 0.84.3's) derives it as
     `${APP_NAME.toUpperCase()}_CODING_AGENT_DIR` and `getAgentDir()` -- read by
@@ -832,3 +832,207 @@ def migrate_legacy_symlink(
         )
 
     return claude_cli.Result(ok=True, detail=f"no legacy symlink at {link}; nothing to migrate")
+
+
+# --- The daemon profile ("Who records" = daemon) ------------------------------
+#
+# Claude Code and Codex get the daemon profile by swapping in a second, lean
+# plugin. pi has one package (from one git repo: pi identifies a git package by
+# its repo URL), so the profile is the package's settings entry instead:
+# narrowed to the daemon profile's skills, which pi honours as a real unload
+# (verified on pi 1.0.0: `"skills": ["skills/instrument-code"]` loads exactly
+# that one). The extension does the rest at runtime from the profile `probe
+# session initialize` reports: no MCP bridge, the guard, the daemon's own
+# `probe` skill (its daemon-skills/ copy, added through `resources_discover`),
+# and the pi dialog for the daemon's questions.
+
+#: The package version whose extension runs the daemon profile. Older ones
+#: ignore `profile` and would connect the MCP bridge in a daemon session.
+DAEMON_MIN_PACKAGE_VERSION = (0, 3, 0)
+
+#: Skills the package's settings entry loads in the daemon profile: the
+#: `daemon` profile of agent/skills/profiles.json minus `probe`, whose daemon
+#: wording the extension adds itself (the package's own `skills/probe` is the
+#: agent profile's switch text). tests/test_pi_daemon_profile.py pins this to
+#: profiles.json.
+DAEMON_PACKAGE_SKILLS = ("instrument-code",)
+
+#: How long the wizard waits for `pi update` before saying what to run.
+UPDATE_TIMEOUT_S = 30
+
+
+def _our_entry_index(data: dict, *, root: Path | None, agent_dir: Path) -> int | None:
+    for index, entry in enumerate(data.get("packages") or []):
+        source = _entry_source(entry)
+        if source is not None and _identifies_ours(source, package_root=root, agent_dir=agent_dir):
+            return index
+    return None
+
+
+def _skill_prefix(source: str) -> str:
+    """Where skills sit inside the package an entry names: the mirror's root
+    package.json points into plugins/probe-research-pi/, a local checkout IS the
+    package directory."""
+    return "plugins/probe-research-pi/skills/" if _git_repo_identity(source) else "skills/"
+
+
+def installed_package_dir(env: Mapping[str, str] | None = None) -> Path | None:
+    """The package directory pi loads our entry from, or None: pi's clone of the
+    mirror (`<agent dir>/git/<host>/<owner>/<repo>/plugins/probe-research-pi`)
+    or the local path the entry names."""
+    active = env if env is not None else os.environ
+    agent_dir = pi_agent_dir(active)
+    try:
+        data = _load_settings(settings_path(active))
+        root = local_package_root(active)
+    except (_SettingsRefusal, PackageRootError):
+        return None
+    index = _our_entry_index(data, root=root, agent_dir=agent_dir)
+    if index is None:
+        return None
+    source = _entry_source(data["packages"][index]) or ""
+    identity = _git_repo_identity(source)
+    if identity is not None:
+        host, repo = identity
+        return agent_dir / "git" / host / repo / "plugins" / PACKAGE_NAME
+    candidate = Path(source)
+    return candidate if candidate.is_absolute() else agent_dir / candidate
+
+
+def installed_package_version(env: Mapping[str, str] | None = None) -> tuple[int, ...] | None:
+    """The installed package's `version`, or None when it cannot be read."""
+    directory = installed_package_dir(env)
+    if directory is None:
+        return None
+    try:
+        raw = json.loads((directory / "package.json").read_text(encoding="utf-8")).get("version")
+        return tuple(int(part) for part in str(raw).split(".")[:3])
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
+def update_package(env: Mapping[str, str] | None = None) -> claude_cli.Result:
+    """`pi update <our source>`: pi re-fetches an unpinned git package."""
+    active = env if env is not None else os.environ
+    binary = shutil.which("pi", path=active.get("PATH"))
+    if not binary:
+        return claude_cli.Result(ok=False, detail="pi is not on PATH", reachable=False)
+    try:
+        data = _load_settings(settings_path(active))
+        index = _our_entry_index(data, root=local_package_root(active), agent_dir=pi_agent_dir(active))
+    except (_SettingsRefusal, PackageRootError) as exc:
+        return claude_cli.Result(ok=False, detail=str(exc))
+    if index is None:
+        return claude_cli.Result(ok=False, detail="probe-research-pi is not installed")
+    source = _entry_source(data["packages"][index]) or MIRROR_GIT_SOURCE
+    command = ["pi", "update", source]
+    try:
+        completed = subprocess.run(
+            [binary, "update", source], capture_output=True, text=True, timeout=UPDATE_TIMEOUT_S,
+            stdin=subprocess.DEVNULL, env=dict(active), check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return claude_cli.Result(ok=False, detail=f"{' '.join(command)}: {exc}", command=" ".join(command))
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip() or f"exit {completed.returncode}"
+        return claude_cli.Result(ok=False, detail=detail, command=" ".join(command))
+    return claude_cli.Result(ok=True, detail="updated", command=" ".join(command))
+
+
+def _loads_our_extension(extensions: object) -> bool:
+    if not isinstance(extensions, list):
+        return True  # no filter: pi loads every extension the package declares
+    return any(
+        isinstance(p, str) and not p.strip().startswith(("!", "-")) and p.strip().lstrip("+").endswith("index.ts")
+        for p in extensions
+    )
+
+
+#: Where `set_profile` keeps the researcher's own `skills` filter while the
+#: daemon profile's replaces it, beside it in the same entry (pi ignores a key
+#: it does not know; verified on pi 1.0.0 with `pi list`).
+AGENT_SKILLS_STASH_KEY = "probeAgentSkills"
+
+
+def _daemon_filter(source: str) -> list[str]:
+    return [_skill_prefix(source) + skill for skill in DAEMON_PACKAGE_SKILLS]
+
+
+def _is_daemon_filter(skills: object, source: str) -> bool:
+    return (
+        isinstance(skills, list)
+        and all(isinstance(path, str) for path in skills)
+        and sorted(path.strip() for path in skills) == sorted(_daemon_filter(source))
+    )
+
+
+def set_profile(daemon: bool, env: Mapping[str, str] | None = None) -> claude_cli.Result:
+    """Narrow (daemon) or restore (agent) our settings entry's skills.
+
+    Daemon: `{"source": ..., "skills": [<daemon skills>]}`, every other key of
+    the entry kept, except an `extensions` filter that would stop pi loading
+    our extension (the extension IS the daemon profile's runtime). A `skills`
+    filter the researcher set themselves is kept under
+    `AGENT_SKILLS_STASH_KEY`. Agent: the daemon filter goes and theirs comes
+    back (none if they had none), and an entry left with nothing but its source
+    goes back to the plain string it most likely was. A filter they changed
+    while on the daemon is theirs and stays. Refuses an unreadable settings
+    file without writing, like every other write here.
+    """
+    active = env if env is not None else os.environ
+    agent_dir = pi_agent_dir(active)
+    path = settings_path(active)
+    try:
+        root = local_package_root(active)
+        data = _load_settings(path)
+    except (_SettingsRefusal, PackageRootError) as exc:
+        return claude_cli.Result(ok=False, detail=str(exc))
+    index = _our_entry_index(data, root=root, agent_dir=agent_dir)
+    if index is None:
+        return claude_cli.Result(ok=False, detail=f"probe-research-pi is not installed in {path}")
+    packages = list(data["packages"])
+    entry = packages[index]
+    source = _entry_source(entry) or ""
+    updated = dict(entry) if isinstance(entry, dict) else {"source": source}
+    if daemon:
+        current = updated.get("skills")
+        if current is not None and not _is_daemon_filter(current, source):
+            updated.setdefault(AGENT_SKILLS_STASH_KEY, current)
+        updated["skills"] = _daemon_filter(source)
+        if not _loads_our_extension(updated.get("extensions")):
+            updated.pop("extensions", None)
+    else:
+        stashed = updated.pop(AGENT_SKILLS_STASH_KEY, None)
+        if _is_daemon_filter(updated.get("skills"), source):
+            if stashed is not None:
+                updated["skills"] = stashed
+            else:
+                updated.pop("skills", None)
+    packages[index] = source if set(updated) == {"source"} else updated
+    if packages[index] == entry:
+        return claude_cli.Result(ok=True, detail="no change")
+    data["packages"] = packages
+    try:
+        _write_settings(path, data)
+    except _SettingsRefusal as exc:
+        return claude_cli.Result(ok=False, detail=str(exc))
+    return claude_cli.Result(ok=True, detail=f"pi loads the {'daemon' if daemon else 'agent'} profile ({path})")
+
+
+def entry_profile(env: Mapping[str, str] | None = None) -> str | None:
+    """"daemon" when our global entry carries the daemon profile's skills
+    filter, "agent" when it is installed without it, None when not installed."""
+    active = env if env is not None else os.environ
+    try:
+        data = _load_settings(settings_path(active))
+        index = _our_entry_index(data, root=local_package_root(active), agent_dir=pi_agent_dir(active))
+    except (_SettingsRefusal, PackageRootError):
+        return None
+    if index is None:
+        return None
+    entry = data["packages"][index]
+    if not isinstance(entry, dict):
+        return "agent"
+    # Only the daemon profile's exact filter is the daemon: a researcher's own
+    # filter is the agent profile, narrowed by them.
+    return "daemon" if _is_daemon_filter(entry.get("skills"), _entry_source(entry) or "") else "agent"

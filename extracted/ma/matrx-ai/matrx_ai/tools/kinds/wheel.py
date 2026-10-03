@@ -29,6 +29,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "wheel_choice",
+    disposition="record",
     label="Wheel Choice",
     family="tool_execution",
     example={"label": "The contrarian view", "value": "The contrarian view"},
@@ -45,6 +46,7 @@ class WheelChoice(KindModel):
 
 @kind(
     "wheel_image",
+    disposition="record",
     label="Wheel Image",
     family="tool_execution",
     example={
@@ -70,6 +72,7 @@ class WheelImage(KindModel):
 
 @kind(
     "wheel_spin_result",
+    disposition="record",
     label="Wheel Spin",
     family="tool_execution",
     example={

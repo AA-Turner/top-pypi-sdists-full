@@ -234,6 +234,12 @@ def allow_fixture_origins(monkeypatch: Any, origins: list[str]) -> None:
     defaults["validate_url"] = validate_public
     monkeypatch.setattr(image_evidence.enrich_image_inventory, "__kwdefaults__", defaults)
 
+    # Every send-time layer of the address check (guarded clients, fetch(),
+    # curl's per-hop pin, the browser request guard): exactly these origins.
+    from fixture_origins import allow_fixture_origins
+
+    allow_fixture_origins(monkeypatch, *sorted(allowed))
+
 
 def _origin(url: str) -> str:
     parts = urlsplit(url)

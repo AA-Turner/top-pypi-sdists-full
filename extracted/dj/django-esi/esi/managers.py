@@ -1,19 +1,22 @@
+__lazy_modules__ = ["esi.models"]  # py3,15
+
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import requests
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTError
-from requests_oauthlib import OAuth2Session
 
 from django.db import models
 from django.utils import timezone
 
-from . import app_settings
-from .errors import IncompleteResponseError, TokenError
+from esi import app_settings, sso
+from esi.errors import IncompleteResponseError, SSOUnavailableError, TokenError
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # py3.14
+    from esi.models import Token
 
 
 def _process_scopes(scopes) -> set[str]:
@@ -49,18 +52,23 @@ class TokenQueryset(models.QuerySet["Token"]):
         Returns:
             All refreshed tokens
         """
-        session = OAuth2Session(app_settings.ESI_SSO_CLIENT_ID)
-        auth = requests.auth.HTTPBasicAuth(
-            app_settings.ESI_SSO_CLIENT_ID, app_settings.ESI_SSO_CLIENT_SECRET
-        )
         incomplete = []
-        for model in self.filter(refresh_token__isnull=False):
+        tokens = list(self.filter(refresh_token__isnull=False))
+        for i, model in enumerate(tokens):
             try:
-                model.refresh(session=session, auth=auth)
+                model.refresh()
                 logging.debug("Successfully refreshed %r", model)
             except TokenError:
                 logger.info("Refresh failed for %r. Deleting.", model)
                 model.delete()
+            except SSOUnavailableError:
+                # Don't keep hitting an SSO that is down, try the rest next time
+                logger.warning(
+                    "SSO unavailable, skipping refresh of %d remaining tokens.",
+                    len(tokens) - i
+                )
+                incomplete.extend(t.pk for t in tokens[i:])
+                break
             except IncompleteResponseError:
                 incomplete.append(model.pk)
         self.filter(refresh_token__isnull=True).get_expired().delete()
@@ -163,6 +171,19 @@ class TokenManager(models.Manager["Token"]):
         return token_data
 
     @staticmethod
+    def _select_jwk(jwk_sets: list[dict[str, Any]], kid: str | None) -> dict[str, Any] | None:
+        """The key a token was signed with, by its key ID, else the RS256 key"""
+        if kid:
+            for jwk_set in jwk_sets:
+                if jwk_set.get("kid") == kid:
+                    return jwk_set
+            return None
+        for jwk_set in jwk_sets:
+            if jwk_set.get("alg") == "RS256":
+                return jwk_set
+        return None
+
+    @staticmethod
     def validate_access_token(token: str) -> dict[str, Any] | None:
         """
         Validate a JWT token retrieved from the EVE SSO.
@@ -171,9 +192,12 @@ class TokenManager(models.Manager["Token"]):
             there are no validation errors
         """
 
-        res = requests.get(app_settings.ESI_TOKEN_JWK_SET_URL)
-        res.raise_for_status()
-        data = res.json()
+        try:
+            kid = jwt.get_unverified_header(token).get("kid")
+        except JWTError:
+            kid = None
+
+        data = sso.get_jwks()
 
         try:
             jwk_sets = data["keys"]
@@ -187,7 +211,14 @@ class TokenManager(models.Manager["Token"]):
             )
             return None
 
-        jwk_set = [item for item in jwk_sets if item["alg"] == "RS256"].pop()
+        jwk_set = TokenManager._select_jwk(jwk_sets, kid)
+        if jwk_set is None and kid:
+            # The SSO may have rotated its keys since we cached them
+            jwk_set = TokenManager._select_jwk(sso.get_jwks(force_refresh=True).get("keys", []), kid)
+        if jwk_set is None:
+            logger.warning("No JWK found to validate token signed with key %s", kid)
+            return None
+
         try:
             return TokenManager._decode_jwt(
                 token,
@@ -211,15 +242,7 @@ class TokenManager(models.Manager["Token"]):
 
         # perform code exchange
         logger.debug("Creating new token from code %s", code[:-5])
-        oauth = OAuth2Session(
-            app_settings.ESI_SSO_CLIENT_ID,
-            redirect_uri=app_settings.ESI_SSO_CALLBACK_URL
-        )
-        token = oauth.fetch_token(
-            app_settings.ESI_TOKEN_URL,
-            client_secret=app_settings.ESI_SSO_CLIENT_SECRET,
-            code=code
-        )
+        token = sso.exchange_code(code)
 
         token_data = TokenManager.validate_access_token(token.get('access_token', None))
 

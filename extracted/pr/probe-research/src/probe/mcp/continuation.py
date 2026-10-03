@@ -14,7 +14,7 @@ import zlib
 from collections.abc import Callable
 
 from .budget import Budget, serialize
-from .contract import EnvelopeState, MissingMarker
+from .contract import EntityType, EnvelopeState, MissingMarker
 from .delivery_context import delivery_context
 
 PREFIX = "prb2_"
@@ -212,6 +212,10 @@ def _text_document(tool: str, args: dict, payload: dict) -> tuple[list, str] | N
             doc = data.get(key)
             if isinstance(doc, dict) and isinstance(doc.get("document"), str):
                 return prefix + [key, "document"], doc["document"]
+    if view == "readme":
+        doc = data.get("readme")
+        if isinstance(doc, dict) and isinstance(doc.get("markdown"), str):
+            return prefix + ["readme", "markdown"], doc["markdown"]
     if view == "notes":
         for key in ("project_notes", "experiment_notes", "run_notes", "group_notes", "notes"):
             doc = data.get(key)
@@ -225,7 +229,13 @@ def _text_document(tool: str, args: dict, payload: dict) -> tuple[list, str] | N
     if (
         view != "record"
         and len(refs) == 1
-        and (refs[0] == "team-note" or refs[0].startswith(("team_note:", "team-note:")))
+        and (
+            refs[0] == "team-note"
+            # A sub-note's card IS its document, as the team note's is.
+            or refs[0].startswith(
+                ("team_note:", "team-note:", f"{EntityType.SUB_NOTE.value}:")
+            )
+        )
     ):
         entity = data.get("entity")
         if isinstance(entity, dict) and isinstance(entity.get("body"), str):
@@ -293,11 +303,24 @@ def page(
         raise ContinuationError("Invalid continuation position; restart the read.")
 
     context = None
-    if offset == 0 and tool == "entity" and args.get("view") in {"notes", "summary"}:
+    if offset == 0 and tool == "entity" and args.get("view") in {"notes", "summary", "readme"}:
         data = stable.get("data", {})
         context = {key: data[key] for key in ("entity_type", "entity", "view") if key in data}
         if args.get("view") == "summary" and isinstance(data.get("notes"), dict):
             context["notes"] = data["notes"]
+        if args.get("view") == "readme" and isinstance(data.get("readme"), dict):
+            # Which repo and commit the text is from: everything but the text.
+            context["readme"] = {k: v for k, v in data["readme"].items() if k != "markdown"}
+    elif offset == 0 and path == ["data", "entity", "body"]:
+        # A sub-note's TITLE says what the caveat is about; a body fragment
+        # without it is text with no subject. (The team note has no title.)
+        data = stable.get("data", {})
+        entity = data.get("entity")
+        if data.get("entity_type") == EntityType.SUB_NOTE and isinstance(entity, dict):
+            context = {
+                "entity_type": data["entity_type"],
+                "entity": {k: v for k, v in entity.items() if k != "body"},
+            }
 
     def candidate(end: int) -> dict:
         more = end < len(content)

@@ -484,7 +484,7 @@ WRITE_GROUP_WRITES = frozenset(
         "edge add",
         "experiment create", "experiment freeze", "experiment set", "experiment tag",
         "group create", "group set",
-        "notes create", "notes push", "notes rename", "notes write",
+        "notes append", "notes create", "notes edit", "notes push", "notes rename", "notes write",
         "paper add", "paper tag", "paper update",
         "project code attach", "project code confirm", "project code detach",
         "project create", "project move", "project patch", "project reference add", "project set",
@@ -495,7 +495,7 @@ WRITE_GROUP_WRITES = frozenset(
         "run input dismiss", "run input pin", "run input reset",
         "span add",
         "trial add", "trial drain", "trial expand", "trial reconcile", "trial set", "trial stage", "trial watch",
-        "views create", "views rename",
+        "views create", "views rename", "views update",
         "wandb import-hosted", "wandb import-local",
     }
 )

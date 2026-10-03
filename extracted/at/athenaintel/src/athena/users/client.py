@@ -5,6 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.delete_ssh_key_response_out import DeleteSshKeyResponseOut
+from ..types.me_email_preferences_response_out import MeEmailPreferencesResponseOut
 from ..types.me_sources_response_out import MeSourcesResponseOut
 from ..types.ssh_key_list_response_out import SshKeyListResponseOut
 from ..types.ssh_key_out import SshKeyOut
@@ -55,6 +56,35 @@ class UsersClient:
         client.users.me()
         """
         _response = self._raw_client.me(request_options=request_options)
+        return _response.data
+
+    def me_email_preferences(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> MeEmailPreferencesResponseOut:
+        """
+        The caller's email preferences for agent-sent mail in their current workspace: the domains and specific addresses they have approved as recipients, plus their custom drafting instruction. Built for computer-asset apps that compose or send email on the user's behalf, so they apply the same recipient policy the chat email tools enforce — a recipient is approved when its full address is in `approved_emails` or its domain is in `approved_domains` (both compared case-insensitively). Read-only: the policy is edited from Settings → Email & Meetings (`manage_url`).
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MeEmailPreferencesResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.users.me_email_preferences()
+        """
+        _response = self._raw_client.me_email_preferences(request_options=request_options)
         return _response.data
 
     def me_sources(self, *, request_options: typing.Optional[RequestOptions] = None) -> MeSourcesResponseOut:
@@ -235,6 +265,43 @@ class AsyncUsersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.me(request_options=request_options)
+        return _response.data
+
+    async def me_email_preferences(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> MeEmailPreferencesResponseOut:
+        """
+        The caller's email preferences for agent-sent mail in their current workspace: the domains and specific addresses they have approved as recipients, plus their custom drafting instruction. Built for computer-asset apps that compose or send email on the user's behalf, so they apply the same recipient policy the chat email tools enforce — a recipient is approved when its full address is in `approved_emails` or its domain is in `approved_domains` (both compared case-insensitively). Read-only: the policy is edited from Settings → Email & Meetings (`manage_url`).
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MeEmailPreferencesResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.users.me_email_preferences()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.me_email_preferences(request_options=request_options)
         return _response.data
 
     async def me_sources(self, *, request_options: typing.Optional[RequestOptions] = None) -> MeSourcesResponseOut:

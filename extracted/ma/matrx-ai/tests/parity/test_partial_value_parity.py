@@ -376,7 +376,7 @@ def test_the_declared_asymmetry_is_still_true(measured):
             f"{FE_EMITS_NO_STREAMING_VALUE_FOR_LEGACY_JSON}\n\n"
             "Two progressive renders now exist for one region. Decide which one "
             "the user sees and reconcile the wire contract: "
-            "common-docs/systems/content-ir-system/STREAMING_PARTIAL_KINDS.md"
+            "common-docs/systems/architecture/content-ir/FEATURE.md"
         )
 
     assert checked, (

@@ -32,7 +32,6 @@ from typing import Any, Protocol
 from urllib import robotparser
 from urllib.parse import urljoin, urlparse
 
-import httpx
 import tldextract
 
 from matrx_scraper.unreachable import UNREACHABLE_ERROR_SIGNATURES as _UNREACHABLE_ERROR_SIGNATURES
@@ -95,7 +94,7 @@ from matrx_scraper.scraper import (
 )
 from matrx_scraper.seo_audit import IMAGE_INVENTORY_LIMIT, audit_html
 from matrx_scraper.user_agents import normalize_user_agent
-from matrx_scraper.utils.url import normalize_url, validate_public_http_url
+from matrx_scraper.utils.url import normalize_url, public_http_client, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
@@ -377,7 +376,7 @@ class _RobotsCache:
         rp = robotparser.RobotFileParser()
         rp.set_url(f"{host_key}/robots.txt")
         try:
-            async with httpx.AsyncClient(
+            async with public_http_client(
                 timeout=self.fetch_timeout, follow_redirects=True
             ) as client:
                 resp = await client.get(
@@ -427,7 +426,7 @@ async def _discover_sitemap_urls(
     seen_sitemaps: set[str] = set()
     max_sitemaps = 200
 
-    async with httpx.AsyncClient(
+    async with public_http_client(
         timeout=request_timeout,
         follow_redirects=True,
         headers={"User-Agent": user_agent},
@@ -834,7 +833,7 @@ class SiteCrawler:
             # like any other: skipping it here would have handed the crawler a
             # second, ungated way to reach an internal address.
             await validate_public_http_url(url)
-            async with httpx.AsyncClient(
+            async with public_http_client(
                 timeout=PACING_PROBE_TIMEOUT_SECONDS, follow_redirects=True
             ) as client:
                 resp = await client.get(url, headers={"User-Agent": self.user_agent})
@@ -855,7 +854,7 @@ class SiteCrawler:
 
         try:
             await validate_public_http_url(self.seed_url)
-            async with httpx.AsyncClient(
+            async with public_http_client(
                 timeout=PACING_PROBE_TIMEOUT_SECONDS, follow_redirects=True
             ) as client:
                 resp = await client.get(self.seed_url, headers={"User-Agent": self.user_agent})

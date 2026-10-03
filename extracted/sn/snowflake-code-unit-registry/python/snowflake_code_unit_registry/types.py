@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel, constr
 
@@ -41,6 +41,10 @@ class Planning(BaseModel):
         extra='allow',
     )
     wave: int | None = Field(None, description='1-based wave assignment')
+    waveRank: int | None = Field(
+        None,
+        description='Authored rank within a custom wave, used for UI ordering. Not derived from the dependency graph.',
+    )
     topologicalRank: int | None = Field(
         None,
         description='Dependency rank hint used for sorting with dependencies. Valid ranks are >= 0. A value of -1 indicates a cycle or downstream dependency on a cycle.',
@@ -437,9 +441,6 @@ class CloudStatus(BaseModel):
     model_config = ConfigDict(
         extra='allow',
     )
-    __annotations__ = {
-        '__pydantic_extra__': Dict[str, Any],
-    }
     testing: TestingStatus | None = Field(None, title='TestingStatus')
     deployment: DeploymentStatus | None = Field(None, title='DeploymentStatus')
     dataMigration: DataMigrationStatus | None = Field(None, title='DataMigrationStatus')
@@ -780,9 +781,6 @@ class CodeStatus(BaseModel):
     model_config = ConfigDict(
         extra='allow',
     )
-    __annotations__ = {
-        '__pydantic_extra__': Dict[str, Any],
-    }
     registration: RegistrationStatus | None = Field(None, title='RegistrationStatus')
     conversion: ConversionStatus | None = Field(None, title='ConversionStatus')
     resync: ResyncStatus | None = Field(

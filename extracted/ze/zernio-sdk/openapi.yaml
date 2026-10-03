@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.196.2"
+  version: "1.206.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -868,15 +868,15 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Unauthorized:
-      description: Unauthorized
+      description: 'Missing or invalid API key. `code` is `missing_credentials` when no Authorization header was sent and `invalid_credentials` when the key is unknown, revoked or expired.'
       content:
         application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: string
-                example: Unauthorized
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            error: 'Missing API key. Send it as Authorization: Bearer <your API key>.'
+            type: authentication_error
+            code: missing_credentials
+            docUrl: https://docs.zernio.com
     NotFound:
       description: Resource not found
       content:
@@ -2872,6 +2872,9 @@ components:
         param:
           type: string
           description: The request field that caused the error, when applicable.
+        docUrl:
+          type: string
+          description: Documentation page for resolving the error, when one applies.
         platform:
           type: string
           description: "Upstream platform (e.g. meta, google, tiktok), present when type is platform_error."
@@ -9893,7 +9896,7 @@ components:
       properties:
         postId: { type: string }
         latePostId: { type: [string, "null"], description: 'Original Zernio post ID if scheduled via Zernio' }
-        status: { type: string, enum: [published, failed, partial, scheduled, publishing, draft, cancelled], description: 'Overall post status. "partial" when some platforms published and others failed. While any platform is still pending or processing, the post''s own status is returned instead (usually scheduled or publishing), even if another platform already published.' }
+        status: { type: string, enum: [published, failed, partial, scheduled, publishing, draft, cancelled], description: 'Overall post status. "partial" when some platforms published and others failed. While any platform is still pending or processing, the post''s own status is returned instead (usually scheduled or publishing), even if another platform already published. A post with no published or failed platform (for example every platform cancelled) returns its own status with syncStatus unavailable and no platformAnalytics.' }
         content: { type: string }
         scheduledFor: { type: string, format: date-time }
         publishedAt: { type: [string, "null"], format: date-time }
@@ -12325,6 +12328,10 @@ components:
             body: { type: string, description: Ad copy/text }
             googleHeadline: { type: string, description: Google Ads headline }
             googleDescription: { type: string, description: Google Ads description }
+            youtubeVideoIds:
+              type: array
+              items: { type: string }
+              description: "Google only. YouTube video ids behind a Video campaign ad (video and responsive video ads) or a Demand Gen video ad, same id as `youtubeVideoId` on Performance Max asset groups. When the ad has no image, `thumbnailUrl` is the first video's YouTube thumbnail. Absent on ads without a video."
             linkUrl: { type: string, description: Destination URL }
             whatsappPhoneNumber: { type: string, description: 'Explicit E.164 WhatsApp number supplied when creating a Meta boost or messaging ad. Absent when omitted by the caller or on older records.', example: '+12025550123' }
             pinterestImageUrl: { type: string }
@@ -12521,6 +12528,14 @@ components:
           type: [string, "null"]
           format: date-time
           description: "Only on GET /v1/ads/campaigns with `live=true`. When `platformCampaignStatus` was read from the platform; null when this campaign could not be read live."
+        nativeSettings:
+          type: object
+          additionalProperties: true
+          description: "TikTok only, only on GET /v1/ads/campaigns with `live=true` and only on campaigns read live. TikTok's campaign/get record verbatim: operation_status, objective_type, budget_mode (BUDGET_MODE_INFINITE means no campaign budget, so budget lives on the ad groups), budget, and budget_optimize_on when TikTok returns it. Plus advertiser_currency and advertiser_timezone from TikTok's advertiser/info."
+        configReadAt:
+          type: [string, "null"]
+          format: date-time
+          description: "Only on GET /v1/ads/campaigns with `live=true`. When `nativeSettings` was read from the platform. Null whenever native settings were not read now."
         campaignIssuesInfo:
           type: [array, "null"]
           description: "Platform-reported campaign issues (Meta `issues_info[]`)."
@@ -22140,6 +22155,32 @@ paths:
             enum: [connected, disconnected]
           description: |
             Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
+        - name: search
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: 'Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [social, ads, communication, blogs]
+          description: 'Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [account, platform, profile, status, connected]
+          description: 'Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.'
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Direction for `sort`.
         - name: includeOverLimit
           in: query
           required: false
@@ -25087,14 +25128,25 @@ paths:
           application/json:
             schema:
               type: object
-              required: [profileId, locationId, pendingDataToken]
+              required: [profileId, pendingDataToken]
               properties:
                 profileId:
                   type: string
                   description: Profile ID from your connection flow
                 locationId:
                   type: string
-                  description: The Google Business Profile location ID selected by the user
+                  description: "The Google Business Profile location ID selected by the user. Send this or locations, not both."
+                locations:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  description: "Several locations to connect from one sign-in, each as its own account. The sign-in is used once for the whole batch and handed back only if none connected. With two or more distinct locations the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect. A single location behaves exactly like locationId."
+                  items:
+                    type: object
+                    required: [locationId]
+                    properties:
+                      locationId: { type: string }
+                      accountId: { type: string, description: 'The location''s Google Business Profile Account resource name, as for the top-level accountId.' }
                 accountId:
                   type: string
                   description: >
@@ -25143,6 +25195,19 @@ paths:
                       isActive: { type: boolean }
                       selectedLocationName: { type: string, description: 'Human-readable location display name, NOT a resource name. Do not use it to build API paths.' }
                       selectedLocationId: { type: string, description: 'Bare Google Business Profile location id. Combine with the Google Business Profile account id as accounts/{gbpAccountId}/locations/{selectedLocationId} to form the location resource names that gmb-reviews/batch expects in locationNames.' }
+                  accounts:
+                    type: array
+                    description: "locations with two or more distinct entries only. The connected accounts, same shape as `account`. The redirect_url then carries `accountIds` (comma-separated) and `accountId` of the first."
+                    items: { type: object }
+                  failed:
+                    type: array
+                    description: "locations only. The locations that could not be connected while the others were."
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "The location ID." }
+                        code: { type: string }
+                        message: { type: string }
               example:
                 message: "Google Business location connected successfully"
                 redirect_url: "https://yourdomain.com/integrations/callback?connected=googlebusiness&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&username=My+Coffee+Shop"
@@ -25161,6 +25226,11 @@ paths:
           description: User does not have access to the specified profile
         '404':
           description: Selected location not found in available locations
+        '422':
+          description: "locations only. None of the locations could be connected; `details.failed` lists each one with its reason."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
           description: Failed to save Google Business Profile connection
 
@@ -28499,21 +28569,33 @@ paths:
       operationId: connectDiscordChannel
       tags: [Connect]
       summary: Connect a Discord channel
-      description: 'Finalize a Discord connect by binding one channel to a profile. Served by a dedicated route, so it is not reachable through POST /v1/connect/{platform}. One connected account per channel: repeat the call with a different channelId to add another.'
+      description: 'Finalize a Discord connect by binding channels to a profile. Served by a dedicated route, so it is not reachable through POST /v1/connect/{platform}. One connected account per channel: send channelIds to connect several channels of the server at once, or repeat the call with a different channelId.'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [guildId, channelId, profileId]
+              required: [guildId, profileId]
               properties:
                 guildId: { type: string, description: 'Discord server (guild) the channel belongs to' }
-                channelId: { type: string, description: 'Text, announcement or forum channel to publish to' }
+                channelId: { type: string, description: 'Text, announcement or forum channel to publish to. Send this or channelIds, not both.' }
+                channelIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  items: { type: string }
+                  description: "Several channels of the server to connect, each as its own account. With two or more distinct ids the response lists `accounts` and `failed` instead of `account`. A single id behaves exactly like channelId."
                 profileId: { type: string, description: 'Profile to connect the channel to' }
+                redirect_url: { type: string, description: 'channelIds only: a URL to return in `redirect_url`, with `connected`, `profileId`, `accountId` and `accountIds` appended.' }
       responses:
         '200': { description: Channel connected }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: "channelIds only. None of the channels could be connected; `details.failed` lists each one with its reason."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '404': { description: Profile not found }
@@ -28622,10 +28704,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [profileId, channelId]
+              required: [profileId]
               properties:
                 profileId: { type: string }
-                channelId: { type: string, description: 'Slack channel id, C... or G...' }
+                channelId: { type: string, description: 'Slack channel id, C... or G.... Send this or channelIds, not both.' }
+                channelIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  items: { type: string }
+                  description: "Several channels of the workspace to connect, each as its own account. With two or more distinct ids the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect. A single id behaves exactly like channelId."
+                redirect_url: { type: string, description: 'channelIds only: a URL to return in `redirect_url`, with `connected`, `profileId`, `accountId` and `accountIds` appended.' }
                 pendingDataToken: { type: string, description: 'Nonce from the OAuth redirect. Required unless accountId is sent.' }
                 accountId: { type: string, description: 'Existing Slack account whose workspace token is reused. Required unless pendingDataToken is sent.' }
       responses:
@@ -28635,6 +28724,11 @@ paths:
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { description: Slack connections are temporarily unavailable }
         '404': { description: Profile not found }
+        '422':
+          description: "channelIds only. None of the channels could be connected; `details.failed` lists each one with its reason."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/connect/telegram:
     get:
@@ -39879,7 +39973,7 @@ paths:
                   account: { $ref: '#/components/schemas/ImessageSender' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '402': { description: 'A valid payment method is required (code: payment_method_required)' }
+        '402': { description: 'A valid payment method is required (code: payment_method_required), or the last payment failed and is still unpaid (code: payment_required). Pay the open invoice or update the card in Billing, then retry.' }
         '404': { description: Profile not found or access denied }
         '409': { description: 'Sender already registered to another profile (code: imessage_sender_conflict), or billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
 
@@ -39915,7 +40009,8 @@ paths:
         the response is 202 with the lifecycle object; poll
         GET /v1/imessage/senders/{senderId} or subscribe to the
         account.connected webhook. Billing starts at activation (monthly per
-        sender, no proration). Requires usage-based billing and a valid
+        sender, no proration); when the account spend threshold is below the
+        sender price, the first month is charged before the number is bought. Requires usage-based billing and a valid
         payment method. Pass purchaseIntentId to make retries idempotent —
         the provider-side order is never retried automatically. Ordered phone
         senders include SMS/RCS fallback with call forwarding and the ability
@@ -39960,12 +40055,12 @@ paths:
                   sender: { $ref: '#/components/schemas/ImessageSenderLifecycle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '402': { description: 'A valid payment method is required (code: payment_method_required)' }
+        '402': { description: 'A valid payment method is required (code: payment_method_required); the last payment failed and is still unpaid, or the card was declined for the first month (code: payment_required). Nothing is ordered; update the card in Billing, then order again.' }
         '403': { description: 'Sender limit reached (code: imessage_sender_limit)' }
         '404': { description: Profile not found or access denied }
-        '409': { description: 'Billing setup is incomplete and support must finish it (code: billing_setup_incomplete)' }
+        '409': { description: 'Billing setup is incomplete and support must finish it (code: billing_setup_incomplete), or the first-month payment was not confirmed in time (code: invalid_resource_state; details.purchase_intent_id): nothing was ordered, retry with that purchaseIntentId within the hour and you are not charged twice.' }
         '422': { description: 'Workspace is not on usage-based billing (code: usage_billing_required)' }
-        '502': { description: 'The provider rejected the order; nothing was charged' }
+        '502': { description: 'The provider rejected the order. Nothing was charged, or a first month already billed is given back as account credit.' }
 
   /v1/imessage/senders/{senderId}:
     get:
@@ -43084,7 +43179,15 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: WhatsApp account ID }
         - { name: start, in: query, required: true, schema: { type: string, format: date-time }, description: 'Range start, ISO 8601 date or date-time.' }
         - { name: end, in: query, required: true, schema: { type: string, format: date-time }, description: 'Range end, ISO 8601 date or date-time. Must be after start.' }
-        - { name: granularity, in: query, required: true, schema: { type: string, enum: [HALF_HOUR, DAILY, MONTHLY] } }
+        - name: granularity
+          in: query
+          required: true
+          schema: { type: string, enum: [HALF_HOUR, DAILY, MONTHLY] }
+          description: |
+            Size of each data point. Meta refuses MONTHLY when the range is too short for a
+            monthly bucket (for example a range that starts at the beginning of the current
+            month and ends today); that is a 400 with `param: granularity` and Meta's reason
+            in `error`. Use DAILY for short or month-to-date ranges.
         - name: dimensions
           in: query
           required: false
@@ -43148,7 +43251,17 @@ paths:
                 dataPoints:
                   - { start: '2026-09-01T00:00:00.000Z', end: '2026-09-02T00:00:00.000Z', phoneNumber: null, country: ES, tier: null, pricingType: null, pricingCategory: MARKETING, volume: 12, cost: 0.73 }
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: |
+            Invalid query, or Meta refused it. When Meta refuses, `error` carries Meta's own
+            reason (for example "Too small time window to get monthly granularity data." or
+            that COST is not shown for businesses billed through a partner), `code` is
+            `invalid_field_value`, `platformError` holds Meta's raw error, and `param` is
+            `granularity` when the range is too short for MONTHLY. Retrying the same query
+            fails the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -46789,6 +46902,68 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
         '409': { description: No existing SMS registration to reuse for this number }
+
+  /v1/phone-numbers/{id}/whatsapp/request-code:
+    post:
+      x-resource-group: "telephony"
+      operationId: requestPhoneNumberWhatsAppCode
+      tags: [Phone Numbers]
+      summary: Request the WhatsApp verification code for a number
+      description: |
+        Starts (or restarts) WhatsApp verification of a Zernio-hosted number:
+        adds it to Meta's pre-verified pool when needed and asks Meta to send
+        the verification code, which Zernio captures on the number itself.
+        Used to connect WhatsApp on a number bought for calls or SMS.
+        `/v1/whatsapp/phone-numbers/{id}/request-code` is a deprecated alias
+        with the same contract.
+
+        When Meta refuses the number for WhatsApp (Meta error 136021):
+        a number that is already live (`active` or `suspended`) is left
+        untouched and keeps working for calls and SMS, and the call answers
+        409 `number_not_whatsapp_eligible`; buy a new number with WhatsApp
+        enabled instead. A number that was never live (still verifying) is
+        replaced at no extra cost with a WhatsApp-eligible number on the same
+        record, answered as 200 with `replaced: true`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: "Phone number record ID (from GET /v1/phone-numbers)." }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method: { type: string, enum: [SMS, VOICE], description: "Delivery method for the code. Omit to let Zernio pick (SMS when the number can receive it, else VOICE)." }
+      responses:
+        '200':
+          description: 'Code requested, or the number was already verified, or a never-live number was replaced.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  method: { type: string, enum: [SMS, VOICE] }
+                  alreadyVerified: { type: boolean, description: 'Meta already reports the number as verified. No code is sent and the number is activated.' }
+                  replaced: { type: boolean, description: 'Meta refused the original number, which had never been live, so it was replaced on the same record.' }
+                  newPhoneNumber: { type: string, description: 'The replacement number, present when `replaced` is true.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            The number cannot be verified for WhatsApp right now. `code` says why:
+            - `number_not_whatsapp_eligible`: Meta does not allow this already-live number on WhatsApp. It keeps working for calls and SMS and is not replaced. Buy a new number for WhatsApp.
+            - `whatsapp_number_in_use`: Meta reports the number is registered to another WhatsApp account.
+            - `META_INVALID_NUMBER`: Meta refused a never-live number and no replacement could be sourced.
+            - `PENDING_REGULATORY`: the number is still in carrier regulatory review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { description: 'Meta paused verification for this number. `retryAt` says when it lifts.' }
+        '503': { description: 'The number is not ready for verification yet, retry shortly.' }
 
   /v1/phone-numbers/{id}/whatsapp/calling:
     get:
@@ -52552,7 +52727,16 @@ paths:
         With `live=true` (which needs a `campaignId` or `adSetId` filter) each listed ad set's own
         switch (`platformAdSetStatus`) is read live, for the first 20 rows; later rows keep their
         synced value with `statusReadAt: null`. Live reads cover TikTok, Meta, Google and OpenAI.
-        The rolled-up `status` is not re-derived by a live read.
+        The rolled-up `status` is not re-derived by a live read. On TikTok the same live read also
+        returns the ad group's applied `optimizationGoal` and `billingEvent`, as TikTok's adgroup/get
+        reports them, so you can verify the goal TikTok applied rather than the one you requested.
+        It also returns `nativeSettings`: TikTok's own adgroup/get record for the ad group, verbatim and
+        read in that same call (budget, budget_mode, schedule, placements, locations, ages, gender,
+        languages, interests, actions, audiences and exclusions), plus the advertiser's currency and
+        timezone. TikTok's `schedule_start_time` / `schedule_end_time` are UTC wall clocks
+        ("YYYY-MM-DD HH:MM:SS", no offset); Ads Manager displays them in `advertiser_timezone`. `configReadAt` says when it was read; it
+        is null on every row whose native settings were not read now, so never treat a null as a match.
+        These are read, not retained create payloads, and are not stored.
       security:
         - bearerAuth: []
       parameters:
@@ -52615,6 +52799,10 @@ paths:
                         isExternal: { type: [boolean, "null"] }
                         platformCreatedAt: { type: [string, "null"], format: date-time }
                         statusReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `platformAdSetStatus` was read from the platform; null when this row was not read live." }
+                        optimizationGoal: { type: [string, "null"], description: "TikTok only, only with `live=true` and only on rows read live. The ad group's `optimization_goal` exactly as TikTok's adgroup/get returns it now (for example ENGAGED_VIEW, ENGAGED_VIEW_FIFTEEN, CLICK, CONVERT). Absent on rows not read live and on other platforms." }
+                        billingEvent: { type: [string, "null"], description: "TikTok only, only with `live=true` and only on rows read live. The ad group's `billing_event` exactly as TikTok's adgroup/get returns it now (for example CPV, CPC, OCPM)." }
+                        nativeSettings: { type: object, additionalProperties: true, description: "TikTok only, only with `live=true` and only on rows read live. TikTok's adgroup/get record verbatim (snake_case, TikTok's own names and enums): operation_status, optimization_goal, optimization_event, billing_event, bid_type, bid_price, budget, budget_mode, pacing, schedule_type, schedule_start_time, schedule_end_time, dayparting, placement_type, placements, location_ids, age_groups, gender, languages, interest_category_ids, interest_keyword_ids, actions, audience_ids, excluded_audience_ids, operating_systems, frequency, frequency_schedule, smart_audience_enabled, smart_interest_behavior_enabled. schedule_start_time and schedule_end_time are UTC wall clocks (YYYY-MM-DD HH:MM:SS). location_ids holds TikTok's native location ids (GeoNames ids for countries); GET /v1/ads/targeting/search?dimension=geo returns them as `platformId` on country results. Plus advertiser_currency and advertiser_timezone from TikTok's advertiser/info. A field TikTok does not return is absent." }
+                        configReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `nativeSettings` was read from the platform. Null on every row whose native settings were not read now (row past the cap, failed read, or a platform without a native read)." }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
@@ -54739,6 +54927,72 @@ paths:
         '404': { description: Ad not found }
         '429': { description: Meta rate limit reached }
         '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/{adId}/review:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdReview
+      tags: ["Ad Campaigns"]
+      x-platforms: ["tiktok"]
+      summary: Read the platform's review verdict for an ad
+      description: |-
+        Reads the ad's review verdict from the platform now: whether it was approved, where it may
+        not deliver, and every rejection reason with TikTok's suggestion and the piece of content it
+        refers to. Read-only, so it works on a paused ad without re-enabling it.
+
+        TikTok only (`/ad/review_info/`); every other platform returns 501. Use it alongside the ad's
+        `platformStatus`: TikTok reports `AD_STATUS_AUDIT` while the ad is in review and
+        `AD_STATUS_AD_PRE_ONLINE` once it passed and is about to deliver (both map to
+        `status: pending_review`); `AD_STATUS_AUDIT_DENY` maps to `rejected`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string }, description: "Zernio ad id (24-char hex) or the platform ad id." }
+      responses:
+        '200':
+          description: The review verdict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adId: { type: string }
+                  platform: { type: string }
+                  platformAdId: { type: string }
+                  review:
+                    type: object
+                    properties:
+                      approved: { type: [boolean, "null"], description: "TikTok `is_approved`." }
+                      reviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim: ALL_AVAILABLE (approved everywhere), PART_AVAILABLE (approved for part of the targeting), UNAVAILABLE (rejected)." }
+                      forbiddenPlacements: { type: array, items: { type: string } }
+                      forbiddenAges: { type: array, items: { type: string } }
+                      forbiddenLocations: { type: array, items: { type: string } }
+                      forbiddenOperatingSystems: { type: array, items: { type: string } }
+                      rejections:
+                        type: array
+                        description: "One entry per rejected piece of content (TikTok `reject_info`). Empty when the ad was approved."
+                        items:
+                          type: object
+                          properties:
+                            reasons: { type: array, items: { type: string } }
+                            suggestion: { type: [string, "null"], description: "TikTok's advice for fixing the rejection." }
+                            forbiddenPlacements: { type: array, items: { type: string } }
+                            forbiddenAges: { type: array, items: { type: string } }
+                            forbiddenLocations: { type: array, items: { type: string } }
+                            content:
+                              type: [object, "null"]
+                              description: "The content TikTok reviewed."
+                              properties:
+                                type: { type: [string, "null"], description: "MODE_STRING, MODE_IMAGE, MODE_VIDEO or MODE_CAROUSEL_MUSIC." }
+                                text: { type: [string, "null"] }
+                                imageId: { type: [string, "null"] }
+                                videoId: { type: [string, "null"] }
+                                musicId: { type: [string, "null"] }
+                      readAt: { type: string, format: date-time, description: "When the verdict was read from TikTok." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Ad not found, it has no TikTok ad id yet, or TikTok has no review record for it" }
+        '501': { description: Only supported on TikTok }
 
   /v1/ads/{adId}/media:
     get:
@@ -62730,6 +62984,7 @@ paths:
                         path: { type: array, items: { type: string }, description: "Optional breadcrumb of parent labels (e.g. ['United States', 'California', 'Los Angeles']). Disambiguates same-named results." }
                         audienceSize: { type: [integer, "null"], description: "Optional estimated reachable users for this option, when the platform returns it." }
                         countryCode: { type: string, description: "ISO-3166 alpha-2 of the country a sub-country geo result (city, region, zip, metro) belongs to, when the platform reports it (Meta does). Useful to know whether a location falls under the EU DSA disclosure rules before creating the ad." }
+                        platformId: { type: string, description: "Only on `country` results: the platform's own id for the country, which `id` replaced with the ISO code (TikTok's native location_id, a GeoNames id such as 2635167 for GB; Meta's country key; Google's geo target constant id; X's targeting value; LinkedIn's geo URN). Use it to match a country against what the platform reports back, e.g. `location_ids` in a TikTok `nativeSettings` read." }
         '400':
           description: Missing or invalid query parameters
         '401': { $ref: '#/components/responses/Unauthorized' }

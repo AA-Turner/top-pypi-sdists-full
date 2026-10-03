@@ -12,6 +12,9 @@ from .raw_client import AsyncRawPartnersClient, RawPartnersClient
 from .types.create_partners_response import CreatePartnersResponse
 from .types.leaderboard_partners_request_period import LeaderboardPartnersRequestPeriod
 from .types.leaderboard_partners_response import LeaderboardPartnersResponse
+from .types.referred_users_partners_request_direction import ReferredUsersPartnersRequestDirection
+from .types.referred_users_partners_request_order import ReferredUsersPartnersRequestOrder
+from .types.referred_users_partners_request_user_id import ReferredUsersPartnersRequestUserId
 from .types.referred_users_partners_response import ReferredUsersPartnersResponse
 from .types.referred_users_partners_response_data_item import ReferredUsersPartnersResponseDataItem
 
@@ -55,7 +58,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -91,7 +94,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -103,9 +106,14 @@ class PartnersClient:
     def referred_users(
         self,
         *,
+        user_id: typing.Optional[ReferredUsersPartnersRequestUserId] = None,
+        earning_partner_id: typing.Optional[str] = None,
+        earning_partner_username: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
         has_businesses: typing.Optional[bool] = None,
         has_earning_businesses: typing.Optional[bool] = None,
+        order: typing.Optional[ReferredUsersPartnersRequestOrder] = None,
+        direction: typing.Optional[ReferredUsersPartnersRequestDirection] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -113,18 +121,33 @@ class PartnersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ReferredUsersPartnersResponseDataItem, ReferredUsersPartnersResponse]:
         """
-        Lists the users the caller referred onto Whop (newest first), each with the second-tier earnings the caller has made from that user's businesses.
+        Lists the users the caller referred onto Whop, newest first by default, each with the caller's total affiliate earnings from that user across all tiers. Earnings sorting uses cached totals. Authorized staff can set user_id=global to list referrals across partners, with earnings for each user's current primary referrer.
 
         Parameters
         ----------
+        user_id : typing.Optional[ReferredUsersPartnersRequestUserId]
+            Set to global to view referred users across partners with each primary referrer's cached total earnings. Requires an admin or partner manager session; OAuth tokens and company API keys cannot use global mode. Optionally narrow to one earning_partner_id or earning_partner_username.
+
+        earning_partner_id : typing.Optional[str]
+            The selected referring partner's user_ ID. Requires user_id=global; cannot be combined with earning_partner_username.
+
+        earning_partner_username : typing.Optional[str]
+            The selected referring partner's exact username. Requires user_id=global; cannot be combined with earning_partner_id.
+
         query : typing.Optional[str]
-            Search referred users by name or username.
+            Search referred users by name or username. In global mode, matches the beginning of usernames only.
 
         has_businesses : typing.Optional[bool]
             When true, only referred users who brought at least one business onto Whop.
 
         has_earning_businesses : typing.Optional[bool]
             When true, only referred users with at least one business that has generated earnings.
+
+        order : typing.Optional[ReferredUsersPartnersRequestOrder]
+            The field to sort by. created_at uses the user's signup date; earnings_usd uses the current primary referrer's cached total affiliate earnings from that user.
+
+        direction : typing.Optional[ReferredUsersPartnersRequestDirection]
+            The direction to sort results.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -151,7 +174,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -163,9 +186,14 @@ class PartnersClient:
             yield page
         """
         return self._raw_client.referred_users(
+            user_id=user_id,
+            earning_partner_id=earning_partner_id,
+            earning_partner_username=earning_partner_username,
             query=query,
             has_businesses=has_businesses,
             has_earning_businesses=has_earning_businesses,
+            order=order,
+            direction=direction,
             first=first,
             after=after,
             last=last,
@@ -195,7 +223,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -253,7 +281,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -297,7 +325,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -315,9 +343,14 @@ class AsyncPartnersClient:
     async def referred_users(
         self,
         *,
+        user_id: typing.Optional[ReferredUsersPartnersRequestUserId] = None,
+        earning_partner_id: typing.Optional[str] = None,
+        earning_partner_username: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
         has_businesses: typing.Optional[bool] = None,
         has_earning_businesses: typing.Optional[bool] = None,
+        order: typing.Optional[ReferredUsersPartnersRequestOrder] = None,
+        direction: typing.Optional[ReferredUsersPartnersRequestDirection] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -325,18 +358,33 @@ class AsyncPartnersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ReferredUsersPartnersResponseDataItem, ReferredUsersPartnersResponse]:
         """
-        Lists the users the caller referred onto Whop (newest first), each with the second-tier earnings the caller has made from that user's businesses.
+        Lists the users the caller referred onto Whop, newest first by default, each with the caller's total affiliate earnings from that user across all tiers. Earnings sorting uses cached totals. Authorized staff can set user_id=global to list referrals across partners, with earnings for each user's current primary referrer.
 
         Parameters
         ----------
+        user_id : typing.Optional[ReferredUsersPartnersRequestUserId]
+            Set to global to view referred users across partners with each primary referrer's cached total earnings. Requires an admin or partner manager session; OAuth tokens and company API keys cannot use global mode. Optionally narrow to one earning_partner_id or earning_partner_username.
+
+        earning_partner_id : typing.Optional[str]
+            The selected referring partner's user_ ID. Requires user_id=global; cannot be combined with earning_partner_username.
+
+        earning_partner_username : typing.Optional[str]
+            The selected referring partner's exact username. Requires user_id=global; cannot be combined with earning_partner_id.
+
         query : typing.Optional[str]
-            Search referred users by name or username.
+            Search referred users by name or username. In global mode, matches the beginning of usernames only.
 
         has_businesses : typing.Optional[bool]
             When true, only referred users who brought at least one business onto Whop.
 
         has_earning_businesses : typing.Optional[bool]
             When true, only referred users with at least one business that has generated earnings.
+
+        order : typing.Optional[ReferredUsersPartnersRequestOrder]
+            The field to sort by. created_at uses the user's signup date; earnings_usd uses the current primary referrer's cached total affiliate earnings from that user.
+
+        direction : typing.Optional[ReferredUsersPartnersRequestDirection]
+            The direction to sort results.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -365,7 +413,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -384,9 +432,14 @@ class AsyncPartnersClient:
         asyncio.run(main())
         """
         return await self._raw_client.referred_users(
+            user_id=user_id,
+            earning_partner_id=earning_partner_id,
+            earning_partner_username=earning_partner_username,
             query=query,
             has_businesses=has_businesses,
             has_earning_businesses=has_earning_businesses,
+            order=order,
+            direction=direction,
             first=first,
             after=after,
             last=last,
@@ -418,7 +471,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

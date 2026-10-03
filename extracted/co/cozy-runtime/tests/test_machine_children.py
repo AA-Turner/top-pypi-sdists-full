@@ -19,7 +19,7 @@ import pytest
 import signed_claims
 from cozy_runtime import canonical_json
 from cozy_runtime.author._executor_requests import CallRequest, Reply
-from cozy_runtime.internal import child_env
+from cozy_runtime.internal import accel, child_env
 from cozy_runtime.internal.config import Credentials, RuntimeConfig
 from cozy_runtime.internal.worker import activity
 from cozy_runtime.internal.worker.attempts import AttemptRecord
@@ -357,8 +357,8 @@ def native_origin(worker: Worker) -> tuple[ThreadingHTTPServer, threading.Thread
         "byte_inputs_serving",
         "byte_input_admission",
         "serving",
-        "serving_model",
-        "serving_media",
+        pytest.param("serving_model", marks=pytest.mark.real_gpu),
+        pytest.param("serving_media", marks=pytest.mark.real_gpu),
     ],
 )
 def test_nested_capture_and_leaf_memoization_without_control_stream(
@@ -377,7 +377,7 @@ def test_nested_capture_and_leaf_memoization_without_control_stream(
             pytest.skip("modeled serving requires the Torch image qualification environment")
         import torch
 
-        if torch.version.cuda is None or not torch.cuda.is_available():
+        if torch.version.cuda is None or not accel.present(torch, "cuda"):
             pytest.skip("modeled serving requires a CUDA-capable qualification environment")
 
     with tempfile.TemporaryDirectory(prefix="cz-child.") as directory:

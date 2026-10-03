@@ -90,7 +90,7 @@ async def sync_server(
     """
     from matrx_orm import declared_actor
 
-    async with declared_actor("code", "mcp_sync"):
+    async with declared_actor("system", "mcp_sync"):
         return await _sync_server(slug, force=force, discovery_auth=discovery_auth)
 
 

@@ -55,6 +55,9 @@ SESSION_TAGS: dict[ZendeskAction, list[str]] = {
     ZendeskAction.resolution: ["zendesk-resolution"],
 }
 
+# Tickets carrying these tags are never auto-triaged.
+TRIAGE_SKIP_TAGS: frozenset[str] = frozenset({"triaged", "outreach"})
+
 _ACTION_PLAYBOOKS: dict[ZendeskAction, str] = {
     ZendeskAction.triage: ZENDESK_TRIAGE_PLAYBOOK_ID,
     ZendeskAction.resolution: ZENDESK_RESOLUTION_PLAYBOOK_ID,
@@ -72,6 +75,7 @@ class TicketData(BaseModel):
         description="Which playbook action this webhook should trigger",
     )
     comments: list[str] = Field(default_factory=list, description="Ticket comment texts")
+    tags: list[str] = Field(default_factory=list, description="Zendesk ticket tags")
 
 
 class DevinSessionResult(BaseModel):
@@ -185,20 +189,23 @@ def extract_ticket_data(payload: dict[str, Any]) -> TicketData | None:
       `{"action": "...", "ticket_id": "...", "subject": "...", ...}`.
       `action` is case-insensitive, defaults to `triage`, and an unknown
       value returns `None` so the webhook is skipped with reason
-      `unknown_action`.
+      `unknown_action`. Tags may be a list or whitespace-separated string;
+      nested `ticket.tags` is used when top-level tags are absent.
     - Nested trigger format: `{"ticket": {...}}` fallback.
 
     Args:
         payload: The parsed JSON webhook payload from Zendesk.
 
     Returns:
-        A TicketData instance, or `None` if the payload cannot be parsed.
+        A TicketData instance with normalized tags, or `None` if the payload
+        cannot be parsed.
     """
     action = ZendeskAction.triage
     ticket_id: Any = None
     subject = ""
     status = ""
     description = ""
+    raw_tags: Any = None
     comments: Any = []
     latest_comment = ""
 
@@ -210,6 +217,7 @@ def extract_ticket_data(payload: dict[str, Any]) -> TicketData | None:
             ticket_id = top_subject.removeprefix("zen:ticket:")
         if isinstance(payload.get("detail"), dict):
             detail = payload["detail"]
+        raw_tags = detail.get("tags")
         ticket_id = ticket_id or detail.get("id")
     else:
         # Trigger webhook: resolve the action first — an unknown action
@@ -226,6 +234,7 @@ def extract_ticket_data(payload: dict[str, Any]) -> TicketData | None:
         subject = payload.get("subject") or payload.get("title", "")
         status = str(payload.get("status") or "")
         description = payload.get("description", "")
+        raw_tags = payload.get("tags")
         comments = payload.get("comments", [])
         latest_comment = payload.get("latest_comment") or ""
 
@@ -237,6 +246,8 @@ def extract_ticket_data(payload: dict[str, Any]) -> TicketData | None:
             status = status or str(ticket.get("status") or "")
             description = description or ticket.get("description", "")
             comments = comments or ticket.get("comments", [])
+            if raw_tags is None:
+                raw_tags = ticket.get("tags")
 
     subject = subject or str(detail.get("subject") or detail.get("title") or "")
     status = status or str(detail.get("status") or "")
@@ -261,7 +272,25 @@ def extract_ticket_data(payload: dict[str, Any]) -> TicketData | None:
         status=status,
         action=action,
         comments=comment_texts,
+        tags=_normalize_tags(raw_tags),
     )
+
+
+def _normalize_tags(tags: Any) -> list[str]:
+    """Normalize a Zendesk tag list or whitespace-separated string."""
+    if isinstance(tags, str):
+        tag_values = tags.split()
+    elif isinstance(tags, list) and all(isinstance(tag, str) for tag in tags):
+        tag_values = tags
+    else:
+        return []
+
+    normalized: list[str] = []
+    for tag in tag_values:
+        value = tag.strip().lower()
+        if value:
+            normalized.append(value)
+    return normalized
 
 
 def format_playbook_prompt(ticket_data: TicketData) -> str:
@@ -454,7 +483,8 @@ def handle_zendesk_webhook(payload: dict[str, Any]) -> ZendeskWebhookResult:
 
     Extracts ticket data and the requested action from the payload,
     formats it as a playbook prompt, and triggers a new Devin session
-    with the matching playbook (triage or resolution).
+    with the matching playbook (triage or resolution). Triage tickets tagged
+    `triaged` or `outreach` are skipped.
 
     Args:
         payload: The parsed JSON webhook payload from Zendesk.
@@ -466,6 +496,21 @@ def handle_zendesk_webhook(payload: dict[str, Any]) -> ZendeskWebhookResult:
     if not ticket_data:
         reason = "unknown_action" if _unknown_action(payload) else "no_ticket_data"
         return ZendeskWebhookResult(status="skipped", reason=reason)
+
+    if ticket_data.action is ZendeskAction.triage:
+        matched_tags = sorted(set(ticket_data.tags) & TRIAGE_SKIP_TAGS)
+        if matched_tags:
+            logger.info(
+                "Skipping Zendesk triage for ticket %s; matched tags: %s",
+                ticket_data.ticket_id,
+                ", ".join(matched_tags),
+            )
+            return ZendeskWebhookResult(
+                status="skipped",
+                reason="triage_skip_tag",
+                action=str(ticket_data.action),
+                ticket_id=ticket_data.ticket_id,
+            )
 
     logger.info(
         "Processing Zendesk ticket %s (action=%s): %s",

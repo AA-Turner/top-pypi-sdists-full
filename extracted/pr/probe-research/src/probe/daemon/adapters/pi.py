@@ -26,7 +26,7 @@ class Pi(Adapter):
         question_tool=False,
         permission_mode=False,
         instruction_files=("AGENTS.md",),
-        inject_tool=True,  # the extension steers a message in mid-run (probe-research-pi/src/reads.ts)
+        inject_tool=True,  # the extension steers a message in mid-run (probe-research-pi/src/core/reads.ts)
         wake=True,  # an extension message with triggerTurn starts a turn for an answer
     )
 

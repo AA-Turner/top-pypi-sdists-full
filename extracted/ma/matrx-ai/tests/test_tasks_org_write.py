@@ -1,6 +1,6 @@
 """Regression: TasksManager.create_task() must carry organization_id.
 
-``workspace.tasks.organization_id`` is NOT NULL. Before this fix,
+``projects.tasks.organization_id`` is NOT NULL. Before this fix,
 ``create_task()`` built its insert payload from user_id/title/etc. with no
 organization_id parameter at all — the tool caller (``tasks.py``'s
 ``task_create``) had no way to supply one even if it wanted to. This asserts

@@ -13,7 +13,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use file_guard::Lock;
-use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -196,7 +196,7 @@ fn create_merge_key(event: &StatsigEventInternal) -> String {
 // PHP initializes per request, so we get a diagnostics event per request.
 // This samples quite aggressively to compensate for that
 fn should_sample_sdk_diagnostics() -> bool {
-    let random_number = rand::thread_rng().gen_range(0..10000);
+    let random_number = crate::utils::random::rng().random_range(0..10000);
     random_number < 1
 }
 

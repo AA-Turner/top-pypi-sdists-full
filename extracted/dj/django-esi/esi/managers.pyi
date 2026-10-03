@@ -1,7 +1,8 @@
 from typing import Any
-from django.db.models import QuerySet, Manager
-from .models import Token
 
+from django.db.models import Manager, QuerySet
+
+from .models import Token
 
 class TokenQueryset(QuerySet[Token]):
     def get_expired(self) -> "TokenQueryset":

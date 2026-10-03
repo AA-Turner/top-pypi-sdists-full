@@ -322,7 +322,7 @@ async def _resolve_bundle_members(bundle_name: str) -> list[tuple[str, str]]:
     of the given bundle, via the ``tool_resolve_bundle(p_bundle_name)``
     RPC. The RPC returns ``SETOF tool_def`` rows; we additionally read
     the bundle's member edges (the old ``tool`` schema ``bundle_member`` table,
-    retired to graveyard — membership now lives in ``platform.associations``:
+    retired to deprecated — membership now lives in ``platform.associations``:
     ``source_type='tool' -> target_type='tool_bundle', role='member'``) to
     recover ``local_alias`` (the RPC doesn't carry it in the tool_def
     projection). ``local_alias`` now rides the edge's ``metadata`` and the

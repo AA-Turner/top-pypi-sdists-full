@@ -42,6 +42,7 @@ use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress
 
 #[cfg(feature = "conpty-sidecar")]
 use super::conpty_acquire;
+
 use super::win_version;
 
 /// `LOAD_LIBRARY_SEARCH_APPLICATION_DIR`. Restricts the DLL search to
@@ -129,8 +130,8 @@ static API: OnceLock<(ConPtyApi, ConPtySource)> = OnceLock::new();
 /// build. The crate has never supported such hosts.
 pub(super) fn get() -> &'static (ConPtyApi, ConPtySource) {
     API.get_or_init(|| {
-        let force_system = std::env::var_os("RUNNING_PROCESS_USE_SYSTEM_CONPTY").is_some();
-        let diagnostics = std::env::var_os("RUNNING_PROCESS_CONPTY_DIAGNOSTICS").is_some();
+        let force_system = crate::env_vars::USE_SYSTEM_CONPTY.is_present();
+        let diagnostics = crate::env_vars::CONPTY_DIAGNOSTICS.is_present();
 
         let resolved = resolve_production(force_system);
 

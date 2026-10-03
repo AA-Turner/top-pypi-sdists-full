@@ -162,7 +162,7 @@ class Payment(UniversalBaseModel):
 
     plan_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The plan that was charged, prefixed `plan_`.
+    The variant that was charged, prefixed `plan_`.
     """
 
     presentment_total: typing.Optional[Money] = pydantic.Field(default=None)
@@ -172,12 +172,17 @@ class Payment(UniversalBaseModel):
 
     product_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The product the plan belongs to, prefixed `prod_`. Null for a plan with no product.
+    The product the variant belongs to, prefixed `prod_`. Null for a variant with no product.
     """
 
     promo_code_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The promo code applied at checkout, prefixed `promo_`, or null.
+    """
+
+    quote_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The payment quote this payment charged, prefixed `pq_`: its purchase, promo code and `tax_amount` are the quote's. Null when the payment named no quote and tax was calculated at charge time.
     """
 
     recovery_url: typing.Optional[str] = pydantic.Field(default=None)

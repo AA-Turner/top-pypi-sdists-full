@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-ollama
-Version: 1.0.0b260813
+Version: 1.0.0b261002
 Summary: Ollama integration for Microsoft Agent Framework.
 Author: Microsoft
 Author-email: Microsoft <af-support@microsoft.com>
@@ -34,6 +34,6 @@ pip install agent-framework-ollama --pre
 
 and see the [README](https://github.com/microsoft/agent-framework/tree/main/python/README.md) for more information.
 
-# Run samples with the Ollama Conector
+# Run samples with the Ollama Connector
 
 You can find samples how to run the connector in the [Ollama provider samples](../../samples/02-agents/providers/ollama).

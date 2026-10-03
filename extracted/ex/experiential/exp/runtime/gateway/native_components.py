@@ -97,8 +97,14 @@ class SyncWriteLedger(Protocol):
         *,
         authorization: AuthorizationSnapshot,
         failure: GatewayFailure,
-    ) -> None:
-        """Durably finalize one request that produced no billable attempt."""
+        certify_no_effects: bool = False,
+    ) -> bool:
+        """Finalize work and certify no paid effects under the dispatch write fence.
+
+        Certification defaults false and requires trusted admission without paid prework.
+        Return true only after commit. Any prior attempt or uncertified terminal failure
+        returns false; persistence failures raise instead of certifying.
+        """
         ...
 
 

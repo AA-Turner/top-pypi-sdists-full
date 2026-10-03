@@ -10,7 +10,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from matrx_scraper.utils.url import validate_public_http_url
+from matrx_scraper.utils.url import public_http_client, validate_public_http_url
 
 IMAGE_EVIDENCE_MAX_REQUESTS = 20
 IMAGE_EVIDENCE_MAX_BYTES = 2 * 1024 * 1024
@@ -184,7 +184,7 @@ async def enrich_image_inventory(
             item["capture_status"] = "skipped_limit" if capture_url else "missing_url"
 
     owns_client = client is None
-    http = client or httpx.AsyncClient(
+    http = client or public_http_client(
         timeout=IMAGE_EVIDENCE_TIMEOUT_S,
         follow_redirects=False,
         headers={"User-Agent": IMAGE_EVIDENCE_USER_AGENT},

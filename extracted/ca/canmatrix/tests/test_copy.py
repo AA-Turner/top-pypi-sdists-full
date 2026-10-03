@@ -1,21 +1,16 @@
 # -*- coding: utf-8 -*-
-
-
-
-from canmatrix.CanMatrix import CanMatrix
-from canmatrix.Signal import Signal
-from canmatrix.Frame import Frame
+import canmatrix.canmatrix
 import canmatrix.copy
 
 
 def test_merge():
-    matrix1 = CanMatrix()
-    frame1 = Frame("Frame1", arbitration_id=1)
-    frame1.add_signal(Signal("SomeSignal"))
+    matrix1 = canmatrix.canmatrix.CanMatrix()
+    frame1 = canmatrix.canmatrix.Frame("Frame1", arbitration_id=1)
+    frame1.add_signal(canmatrix.canmatrix.Signal("SomeSignal"))
     matrix1.add_frame(frame1)
 
-    matrix2 = CanMatrix()
-    frame2 = Frame("Frame2", arbitration_id=2)
+    matrix2 = canmatrix.canmatrix.CanMatrix()
+    frame2 = canmatrix.canmatrix.Frame("Frame2", arbitration_id=2)
     matrix2.add_frame(frame2)
 
     matrix1.merge([matrix2])
@@ -23,13 +18,13 @@ def test_merge():
 
 
 def test_copy_ecu_with_frames():
-    matrix1 = CanMatrix()
-    frame1 = Frame("Frame1", arbitration_id=1)
-    frame1.add_signal(Signal("SomeSignal"))
+    matrix1 = canmatrix.canmatrix.CanMatrix()
+    frame1 = canmatrix.canmatrix.Frame("Frame1", arbitration_id=1)
+    frame1.add_signal(canmatrix.canmatrix.Signal("SomeSignal"))
     matrix1.add_frame(frame1)
 
-    matrix2 = CanMatrix()
-    frame2 = Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
+    matrix2 = canmatrix.canmatrix.CanMatrix()
+    frame2 = canmatrix.canmatrix.Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
     matrix2.add_frame(frame2)
     matrix2.update_ecu_list()
 
@@ -40,13 +35,13 @@ def test_copy_ecu_with_frames():
 
 
 def test_copy_ecu_without_frames():
-    matrix1 = CanMatrix()
-    frame1 = Frame("Frame1", arbitration_id=1)
-    frame1.add_signal(Signal("SomeSignal"))
+    matrix1 = canmatrix.canmatrix.CanMatrix()
+    frame1 = canmatrix.canmatrix.Frame("Frame1", arbitration_id=1)
+    frame1.add_signal(canmatrix.canmatrix.Signal("SomeSignal"))
     matrix1.add_frame(frame1)
 
-    matrix2 = CanMatrix()
-    frame2 = Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
+    matrix2 = canmatrix.canmatrix.CanMatrix()
+    frame2 = canmatrix.canmatrix.Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
     matrix2.add_frame(frame2)
     matrix2.update_ecu_list()
     matrix2.add_ecu_defines("attrib", "STRING")
@@ -60,14 +55,14 @@ def test_copy_ecu_without_frames():
 
 
 def test_copy_ecu_with_attributes():
-    matrix1 = CanMatrix()
-    frame1 = Frame("Frame1", arbitration_id=1)
-    frame1.add_signal(Signal("SomeSignal"))
+    matrix1 = canmatrix.canmatrix.CanMatrix()
+    frame1 = canmatrix.canmatrix.Frame("Frame1", arbitration_id=1)
+    frame1.add_signal(canmatrix.canmatrix.Signal("SomeSignal"))
     matrix1.add_frame(frame1)
     matrix1.add_ecu_defines("some_ecu_define", "STRING")
 
-    matrix2 = CanMatrix()
-    frame2 = Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
+    matrix2 = canmatrix.canmatrix.CanMatrix()
+    frame2 = canmatrix.canmatrix.Frame("Frame2", arbitration_id=2, transmitters= ["ECU"])
     matrix2.add_frame(frame2)
     matrix2.update_ecu_list()
     matrix2.add_ecu_defines("Node Address", "INT 0 255")
@@ -87,10 +82,10 @@ def test_copy_ecu_with_attributes():
 
 
 def test_copy_frame_default_attributes():
-    source = CanMatrix()
-    frame1 = Frame("Frame1", arbitration_id=1)
-    signal = Signal("Signal1")
-    frame1.add_signal(Signal("SomeSignal"))
+    source = canmatrix.canmatrix.CanMatrix()
+    frame1 = canmatrix.canmatrix.Frame("Frame1", arbitration_id=1)
+    signal = canmatrix.canmatrix.Signal("Signal1")
+    frame1.add_signal(canmatrix.canmatrix.Signal("SomeSignal"))
     frame1.add_signal(signal)
     source.add_frame(frame1)
     source.add_frame_defines("some_attribute", "STRING")
@@ -100,7 +95,7 @@ def test_copy_frame_default_attributes():
     source.add_frame_defines("some_attribute_without_default", "STRING")
 
     #test if default value only defined in source and copied to target
-    target = CanMatrix()
+    target = canmatrix.canmatrix.CanMatrix()
     target.add_frame_defines("some_attribute_without_default", "STRING")
     target.add_define_default("some_attribute_without_default", "0")
     canmatrix.copy.copy_frame(frame1.arbitration_id, source, target)
@@ -109,7 +104,7 @@ def test_copy_frame_default_attributes():
     assert target.frames[0].attribute("some_attribute_without_default", target) == "0"
 
     # test if define already exists, but has another default value:
-    target2 = CanMatrix()
+    target2 = canmatrix.canmatrix.CanMatrix()
     target2.add_frame_defines("some_attribute", "STRING")
     target2.add_define_default("some_attribute", "target_frame_default")
     target2.add_signal_defines("some_signal_attribute", "STRING")

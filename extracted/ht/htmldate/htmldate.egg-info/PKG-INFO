@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: htmldate
-Version: 1.10.0
+Version: 1.11.0
 Summary: Fast and robust extraction of original and updated publication dates from URLs and web pages.
 Author-email: Adrien Barbaresi <adrien.barbaresi@gmail.com>
 License-Expression: Apache-2.0
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Text Processing :: Linguistic
@@ -32,23 +33,21 @@ Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: charset_normalizer>=3.4.0
-Requires-Dist: dateparser>=1.1.2
-Requires-Dist: lxml>=5.3.0
+Requires-Dist: charset_normalizer>=3.5.2
+Requires-Dist: dateparser>=1.4.3
+Requires-Dist: lxml>=6.1.3
 Requires-Dist: python-dateutil>=2.9.0.post0
-Requires-Dist: urllib3<3,>=1.26
+Requires-Dist: urllib3<3,>=2.8.0
 Provides-Extra: dev
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: types-dateparser; extra == "dev"
-Requires-Dist: types-python-dateutil; extra == "dev"
-Requires-Dist: types-lxml; extra == "dev"
-Requires-Dist: types-urllib3; extra == "dev"
+Requires-Dist: mypy==2.3.1; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
+Requires-Dist: pytest-cov==7.1.0; extra == "dev"
+Requires-Dist: ruff==0.16.9; extra == "dev"
+Requires-Dist: types-dateparser==1.4.3.20260907; extra == "dev"
+Requires-Dist: types-python-dateutil==2.9.0.20260807; extra == "dev"
+Requires-Dist: types-lxml==2026.2.16; extra == "dev"
 Provides-Extra: speed
-Requires-Dist: backports-datetime-fromisoformat; python_version < "3.11" and extra == "speed"
-Requires-Dist: faust-cchardet>=2.1.19; extra == "speed"
+Requires-Dist: faust-cchardet<3,>=2.2.1; extra == "speed"
 Requires-Dist: urllib3[brotli]; extra == "speed"
 Provides-Extra: all
 Requires-Dist: htmldate[dev]; extra == "all"
@@ -61,7 +60,7 @@ Dynamic: license-file
 [![Python versions](https://img.shields.io/pypi/pyversions/htmldate.svg)](https://pypi.python.org/pypi/htmldate)
 [![Documentation Status](https://readthedocs.org/projects/htmldate/badge/?version=latest)](https://htmldate.readthedocs.org/en/latest/?badge=latest)
 [![Code Coverage](https://img.shields.io/codecov/c/github/adbar/htmldate.svg)](https://codecov.io/gh/adbar/htmldate)
-[![Downloads](https://img.shields.io/pypi/dm/htmldate?color=informational)](https://pepy.tech/project/htmldate)
+[![Downloads](https://static.pepy.tech/badge/htmldate/month)](https://pepy.tech/project/htmldate)
 [![JOSS article reference DOI: 10.21105/joss.02439](https://img.shields.io/badge/JOSS-10.21105%2Fjoss.02439-brightgreen)](https://doi.org/10.21105/joss.02439)
 
 <br/>
@@ -134,17 +133,17 @@ Finally, the output is validated and converted to the chosen format.
 
 ## Performance
 
-1000 web pages containing identifiable dates (as of 2026-06-01 on Python 3.13)
+1000 web pages containing identifiable dates (as of 2026-10-01 on Python 3.13)
 
 | Python Package | Precision | Recall | Accuracy | F-Score | Time |
 | -------------- | --------- | ------ | -------- | ------- | ---- |
-| articleDateExtractor 0.20 | 0.846 | 0.745 | 0.656 | 0.792 | 3x |
-| date_guesser 2.1.4 | 0.832 | 0.611 | 0.544 | 0.705 | 11x |
-| goose3 3.1.21 | **0.930** | 0.568 | 0.545 | 0.706 | 14x |
-| htmldate\[all\] 1.10.0 (fast) | 0.924 | 0.927 | 0.861 | 0.925 | **1x** |
-| htmldate\[all\] 1.10.0 (extensive) | 0.908 | **0.993** | **0.903** | **0.949** | 1.8x |
-| newspaper4k 0.9.5 | 0.912 | 0.728 | 0.680 | 0.810 | 2.5x |
-| news-please 1.6.16 | 0.845 | 0.777 | 0.680 | 0.810 | 29x |
+| articleDateExtractor 0.20 | 0.846 | 0.745 | 0.656 | 0.792 | 6.4x |
+| date_guesser 2.1.4 | 0.832 | 0.611 | 0.544 | 0.705 | 20x |
+| goose3 3.1.22 | **0.930** | 0.569 | 0.546 | 0.706 | 26x |
+| htmldate\[all\] 1.11.0 (fast) | 0.924 | 0.929 | 0.863 | 0.926 | **1x** |
+| htmldate\[all\] 1.11.0 (extensive) | 0.908 | **0.993** | **0.903** | **0.949** | 1.8x |
+| newspaper4k 0.9.6 | 0.912 | 0.728 | 0.680 | 0.810 | 4.3x |
+| news-please 1.6.16 | 0.845 | 0.778 | 0.681 | 0.810 | 52x |
 
 For the complete results and explanations see [evaluation
 page](https://htmldate.readthedocs.io/en/latest/evaluation.html).

@@ -19,7 +19,7 @@ from prompt_toolkit.selection import SelectionType
 
 from mycli.constants import DOCS_URL
 from mycli.packages import key_binding_utils
-from mycli.packages.ptoolkit.fzf import search_history
+from mycli.packages.ptoolkit.fzf_history import search_history
 from mycli.packages.ptoolkit.utils import safe_invalidate_display
 
 _logger = logging.getLogger(__name__)
@@ -43,9 +43,9 @@ def print_f1_help():
     app.print_text('\n')
     app.print_text([
         ('', 'Inline help — type "'),
-        ('bold', 'help'),
+        ('bold', '/help'),
         ('', '" or "'),
-        ('bold', r'\?'),
+        ('bold', r'/?'),
         ('', '"\n'),
     ])
     app.print_text([

@@ -300,7 +300,7 @@ PhoneNumberFilterNameType = Literal[
     "two-way-channel-arn",
     "two-way-enabled",
 ]
-PhoneNumberTypeType = Literal["INVALID", "LANDLINE", "MOBILE", "OTHER"]
+PhoneNumberTypeType = Literal["INVALID", "LANDLINE", "MOBILE", "OTHER", "PREPAID", "VOIP"]
 PoolFilterNameType = Literal[
     "deletion-protection-enabled",
     "message-type",

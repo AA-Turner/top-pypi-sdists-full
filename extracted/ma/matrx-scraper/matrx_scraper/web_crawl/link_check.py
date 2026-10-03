@@ -40,6 +40,7 @@ from datetime import timedelta
 from urllib.parse import urlsplit
 
 import httpx
+from matrx_scraper.utils.url import public_http_client
 
 from matrx_orm import Now, transaction
 from matrx_orm.operations.bulk_update_values import bulk_update_by_pk
@@ -409,7 +410,9 @@ async def check_urls(
     if not targets:
         return {}
     statuses: dict[str, int] = {}
-    async with httpx.AsyncClient(
+    # Every checked link is a page's own outbound href: never an address inside
+    # our network, each redirect hop re-checked and pinned to the checked IP.
+    async with public_http_client(
         timeout=_REQUEST_TIMEOUT_S,
         follow_redirects=True,
         headers={"User-Agent": _USER_AGENT},

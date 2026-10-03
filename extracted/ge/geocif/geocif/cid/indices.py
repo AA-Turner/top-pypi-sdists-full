@@ -836,6 +836,23 @@ def enso_available(iname: str, window_end, harvest_year) -> bool:
     return (ts.year, ts.month) >= (int(harvest_year) + end[0], end[1])
 
 
+def fpar_auc_per_gdd(df: pd.DataFrame, base: float = 10.0, cap: float = 30.0) -> float:
+    """FPAR area under the curve per growing degree day over one stage window.
+
+    AUC is the same trapezoid over the dekadal ``fpar_mo6`` values as ``AUC_FPAR``. GDD sums the window's days with
+    Tmax and Tmin clipped to [base, cap] (86/50 convention). NaN when either part is missing or GDD is zero.
+    """
+    if not {"fpar_mo6", "tasmax", "tasmin"} <= set(df.columns) or df.empty:
+        return float("nan")
+    auc = aggregate_eo_values(df["fpar_mo6"].to_numpy(dtype=float), "AUC")
+    tmax = np.clip(df["tasmax"].to_numpy(dtype=float), base, cap)
+    tmin = np.clip(df["tasmin"].to_numpy(dtype=float), base, cap)
+    gdd = np.nansum(np.maximum((tmax + tmin) / 2.0 - base, 0.0))
+    if not np.isfinite(auc) or gdd <= 0:
+        return float("nan")
+    return float(auc / gdd)
+
+
 def aggregate_eo_values(eo_vals: np.ndarray, agg_type: str) -> float:
     """
     Apply a specified aggregation (min, max, mean, std, AUC, H-INDEX) to an array of values.
@@ -1893,6 +1910,8 @@ class CIDs:
                 eo_vars.append("FPAR")
             if "fpar_mo6_5km" in df_group.columns:
                 eo_vars.append("FPAR5K")
+            if {"fpar_mo6", "tasmax", "tasmin"} <= set(df_group.columns):
+                eo_vars.append("FPARGDD")
             if "cci" in df_group.columns:
                 eo_vars.append("CCI")
             if "cci_ge" in df_group.columns:
@@ -2058,12 +2077,30 @@ class CIDs:
             dict_eo = di.dict_fpar
         elif var == "FPAR5K":
             dict_eo = di.dict_fpar5k
+        elif var == "FPARGDD":
+            dict_eo = di.dict_fpargdd
         else:
             return pd.DataFrame()  # unknown var
 
         # Each dict is: "NDVI_MEAN" -> ("EO", "NDVI mean over period"), etc.
         for iname, (itype, idesc) in dict_eo.items():
             # Map index name to actual column in df_time_period
+            if var == "FPARGDD":
+                df_result.append({
+                    "Description": idesc,
+                    "CID": fpar_auc_per_gdd(df_time_period),
+                    "Country": key[0].replace("_", " ").title(),
+                    "Region": key[1].replace("_", " ").title(),
+                    "Area": df_harvest_year_region["Area"].unique()[0],
+                    "Crop": self.crop.replace("_", " ").title(),
+                    "Season": self.season,
+                    "Method": self.method,
+                    "Stage": "_".join(str(int(s)) for s in stage) if len(stage) else None,
+                    "Harvest Year": self.harvest_year,
+                    "Index": iname,
+                    "Type": itype,
+                })
+                continue
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
             elif iname.endswith("_CCIGE"):
@@ -2582,6 +2619,7 @@ def validate_index_definitions():
         di.dict_hindex,
         di.dict_gcvi,
         di.dict_fpar,
+        di.dict_fpargdd,
         di.dict_fpar5k,
     ]:
         for key in dict_name.keys():

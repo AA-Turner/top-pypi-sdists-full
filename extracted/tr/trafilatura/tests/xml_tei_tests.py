@@ -8,12 +8,12 @@ from lxml.etree import Element, SubElement, XMLParser, fromstring, tostring
 
 from trafilatura.metadata import Document
 from trafilatura.xml import (
-    check_tei,
-    replace_element_text,
-    write_fullheader,
     _handle_unwanted_tails,
     _move_element_one_level_up,
     _wrap_unwanted_siblings_of_div,
+    check_tei,
+    replace_element_text,
+    write_fullheader,
 )
 
 
@@ -45,7 +45,14 @@ def test_sanity():
     assert result == head
 
 
-def test_publisher_added_before_availability_in_publicationStmt():
+def test_wrap_unwanted_siblings_of_div_runs():
+    "Each run of block siblings after a div gets its own wrapper, up to the next div."
+    body = fromstring("<body><div/><p>a</p><p>b</p><lb/><p>c</p><div/><p>d</p></body>")
+    _wrap_unwanted_siblings_of_div(body[0])
+    assert tostring(body) == b"<body><div/><div><p>a</p><p>b</p></div><lb/><div><p>c</p></div><div/><p>d</p></body>"
+
+
+def test_publisher_added_before_availability_in_publicationStmt():  # noqa: N802 — TEI element name
     # add publisher string
     teidoc = Element("TEI", xmlns="http://www.tei-c.org/ns/1.0")
     metadata = Document()
@@ -308,14 +315,17 @@ def test_ab_with_p_parent_resolved():
     parser = XMLParser(remove_blank_text=True)
     xml_doc = fromstring("<text><p><head>text1</head></p></text>")
     cleaned = check_tei(xml_doc, "fake_url")
-    assert cleaned.find(".//ab") is not None and cleaned.find(".//p") is None
+    assert cleaned.find(".//ab") is not None
+    assert cleaned.find(".//p") is None
     xml_doc = fromstring("<body><p>text1<head>text2</head></p></body>")
     cleaned = check_tei(xml_doc, "fake_url")
     result = cleaned.find(".//ab")
-    assert result.getparent().tag == "body" and result.text == "text2"
+    assert result.getparent().tag == "body"
+    assert result.text == "text2"
     xml_doc = fromstring("<TEI><text><body><p><head>text1</head></p>text2</body></text></TEI>")
     cleaned = check_tei(xml_doc, "fake_url")
-    assert cleaned.find(".//ab").text == "text1" and cleaned.find(".//p").text == "text2"
+    assert cleaned.find(".//ab").text == "text1"
+    assert cleaned.find(".//p").text == "text2"
     xml_doc = fromstring("<text><p><head rend='h3'>text</head></p></text>")
     cleaned = check_tei(xml_doc, "fake_url")
     assert cleaned.find("ab").attrib == {"type": "header", "rend": "h3"}
@@ -337,7 +347,8 @@ def test_ab_with_p_parent_resolved():
     assert cleaned.find(".//ab").getnext().text == "text2"
     xml_doc = fromstring("<TEI><text><body><p>text0<list/><head>text1</head>text2</p>text3</body></text></TEI>")
     cleaned = check_tei(xml_doc, "fake_url")
-    assert "text2" in tostring(cleaned, encoding="unicode") and cleaned.find(".//p/list") is not None
+    assert "text2" in tostring(cleaned, encoding="unicode")
+    assert cleaned.find(".//p/list") is not None
     xml_doc = fromstring("""
     <TEI>
       <text><body>
@@ -488,7 +499,7 @@ def test_replace_element_text():
     elem = Element("item")
     elem.text = "Test text"
     elem.tag = "item"
-    assert replace_element_text(elem, True) == "- Test text"
+    assert replace_element_text(elem, True) == "Test text"  # the list marker is added by the serializer
 
     elem = Element("ref")
     elem.text = "Link"
@@ -498,3 +509,10 @@ def test_replace_element_text():
     elem = Element("ref")
     elem.text = "Link"
     assert replace_element_text(elem, True) == "[Link]"
+
+
+def test_no_markdown_marker_in_merged_item_content():
+    "Merging an invalid element into its list item must not inject a markdown list marker into the TEI tree."
+    doc = fromstring("<TEI><text><body><div><list><item><foo>bar</foo></item></list></div></body></text></TEI>")
+    check_tei(doc, None)
+    assert tostring(doc, encoding="unicode").endswith("<list><item>bar</item></list></div></body></text></TEI>")

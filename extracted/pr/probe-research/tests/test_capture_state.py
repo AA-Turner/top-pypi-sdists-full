@@ -252,7 +252,7 @@ def test_every_uploader_identity_check_asks_ps_for_the_whole_line():
         agent / "src/probe/cli/capture.py",
         agent / "src/probe/cli/capture_state.py",
         agent / "plugins/probe-research-tap/tap/start.py",
-        agent / "plugins/probe-research-pi/src/daemon.ts",
+        agent / "plugins/probe-research-pi/src/core/daemon.ts",
     ]
     for path in copies:
         src = path.read_text(encoding="utf-8")

@@ -114,6 +114,12 @@ pub fn endpoint_is_filesystem_backed() -> bool {
     crate::ipc_endpoint_is_filesystem_backed()
 }
 
+/// Whether this host can hand a live connection to another process.
+#[cfg(feature = "ipc")]
+pub const fn handoff_transport_available() -> bool {
+    crate::ipc_handoff_transport_available()
+}
+
 /// Host-neutral classification of a failed connection-transfer primitive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HandoffTransferErrorKind {
@@ -242,6 +248,31 @@ pub fn endpoint_scope_bytes(path: &std::path::Path) -> Vec<u8> {
 #[cfg(feature = "ipc")]
 pub fn broker_v2_runtime_dir() -> std::path::PathBuf {
     crate::ipc_broker_v2_runtime_dir()
+}
+
+/// Concrete socket path for `bare_name` in `component`'s per-user runtime
+/// directory (#974).
+///
+/// The selected host owns directory placement and the leaf spelling; the
+/// caller owns the component name and the bare endpoint name (including any
+/// service prefix such as `rpp-probe-`). Derivation is pure: it creates
+/// nothing, and it does not check the host's length limit — pair it with
+/// [`endpoint_name_limit`] when the caller needs that.
+#[cfg(feature = "ipc")]
+pub fn component_endpoint_path(component: &str, bare_name: &str) -> String {
+    crate::ipc_component_endpoint_path(component, bare_name)
+}
+
+/// Per-user runtime directory of `component` (#974).
+///
+/// On hosts whose endpoints are filesystem-backed this is the directory
+/// [`component_endpoint_path`] places sockets in; elsewhere it is a per-user
+/// location for runtime files the component publishes (discovery records and
+/// the like). The caller owns the component name and everything beneath the
+/// directory. Derivation is pure: nothing is created.
+#[cfg(feature = "ipc")]
+pub fn component_runtime_dir(component: &str) -> std::path::PathBuf {
+    crate::ipc_component_runtime_dir(component)
 }
 
 /// Derive the v1 broker endpoint address for `bare_name`.

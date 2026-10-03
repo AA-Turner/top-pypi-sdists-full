@@ -80,6 +80,20 @@ def _resolve_device(device):
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def _generator(device, seed):
+    """Seeded torch generator on the model's device.
+
+    sdm draws its estimator permutations on the model's device, so a default
+    (CPU) generator fails on CUDA with "Expected a 'cuda' device type for
+    generator but found 'cpu'" -- the first GPU run (crop calendars,
+    2026-10-02) hit it on every fit; the CPU smoke never could.
+    """
+    import torch
+
+    kind = "cuda" if str(device).startswith("cuda") else "cpu"
+    return torch.Generator(device=kind).manual_seed(int(seed))
+
+
 def _model(size, device):
     key = (size, device)
     if key not in _MODEL_CACHE:
@@ -163,7 +177,7 @@ class KumoTabularRegressor:
                 y_context=table[:n, _TARGET],
                 x_query=x[n:],
                 num_estimators=self.num_estimators,
-                generator=torch.Generator().manual_seed(self.seed),
+                generator=_generator(device, self.seed),
             )
         q = out.to_pandas()
         return np.column_stack([q[_quantile_column(p)].to_numpy(dtype=float) for p in quantiles])

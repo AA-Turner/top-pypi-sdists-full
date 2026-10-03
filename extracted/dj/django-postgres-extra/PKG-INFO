@@ -1,19 +1,17 @@
 Metadata-Version: 2.4
 Name: django-postgres-extra
-Version: 2.0.9
+Version: 3.0.0
 Summary: Bringing all of PostgreSQL's awesomeness to Django.
-Home-page: https://github.com/SectorLabs/django-postgres-extra
-Author: Sector Labs
-Author-email: open-source@sectorlabs.ro
+Author-email: Sector Labs <open-source@sectorlabs.ro>
 License: MIT License
-Keywords: django,postgres,extra,hstore,ltree
+Project-URL: Homepage, https://github.com/SectorLabs/django-postgres-extra
+Keywords: django,postgres,extra,hstore,upsert,partioning,materialized,view
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -21,71 +19,73 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django<6.0,>=2.0
 Requires-Dist: python-dateutil<=3.0.0,>=2.8.0
-Requires-Dist: dataclasses; python_version <= "3.6"
-Provides-Extra: docs
-Requires-Dist: Sphinx==2.2.0; extra == "docs"
-Requires-Dist: sphinx-rtd-theme==0.4.3; extra == "docs"
-Requires-Dist: docutils<0.18; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: poethepoet==0.34.0; python_version >= "3.9" and extra == "dev"
+Requires-Dist: poethepoet==0.30.0; (python_version >= "3.8" and python_version < "3.9") and extra == "dev"
+Requires-Dist: poethepoet==0.19.0; (python_version >= "3.7" and python_version < "3.8") and extra == "dev"
 Provides-Extra: test
-Requires-Dist: psycopg2<3.0.0,>=2.8.4; extra == "test"
-Requires-Dist: dj-database-url==0.5.0; extra == "test"
-Requires-Dist: pytest==6.2.5; extra == "test"
-Requires-Dist: pytest-benchmark==3.4.1; extra == "test"
-Requires-Dist: pytest-django==4.4.0; extra == "test"
-Requires-Dist: pytest-cov==3.0.0; extra == "test"
-Requires-Dist: pytest-lazy-fixture==0.6.3; extra == "test"
-Requires-Dist: pytest-freezegun==0.4.2; extra == "test"
-Requires-Dist: tox==3.24.4; extra == "test"
-Requires-Dist: freezegun==1.1.0; extra == "test"
-Requires-Dist: coveralls==3.3.0; extra == "test"
-Requires-Dist: snapshottest==0.6.0; extra == "test"
+Requires-Dist: psycopg2==2.9.10; python_version >= "3.8" and extra == "test"
+Requires-Dist: psycopg2==2.9.9; (python_version >= "3.7" and python_version < "3.8") and extra == "test"
+Requires-Dist: types-psycopg2==2.9.21.20250516; python_version >= "3.9" and extra == "test"
+Requires-Dist: types-psycopg2==2.9.8; python_version < "3.9" and extra == "test"
+Requires-Dist: pytest==8.4.0; python_version > "3.8" and extra == "test"
+Requires-Dist: pytest==7.0.1; python_version <= "3.8" and extra == "test"
+Requires-Dist: pytest-benchmark==5.1.0; python_version > "3.8" and extra == "test"
+Requires-Dist: pytest-benchmark==3.4.1; python_version <= "3.8" and extra == "test"
+Requires-Dist: pytest-django==4.11.1; python_version > "3.7" and extra == "test"
+Requires-Dist: pytest-django==4.5.2; python_version <= "3.7" and extra == "test"
+Requires-Dist: pytest-cov==6.1.1; python_version > "3.8" and extra == "test"
+Requires-Dist: pytest-cov==4.0.0; python_version <= "3.8" and extra == "test"
+Requires-Dist: coverage==7.8.2; python_version > "3.8" and extra == "test"
+Requires-Dist: coverage==7.6.1; (python_version >= "3.8" and python_version <= "3.8") and extra == "test"
+Requires-Dist: coverage==6.2; python_version <= "3.7" and extra == "test"
+Requires-Dist: tox==4.26.0; python_version > "3.8" and extra == "test"
+Requires-Dist: tox==3.28.0; python_version <= "3.8" and extra == "test"
+Requires-Dist: freezegun==1.5.2; python_version > "3.7" and extra == "test"
+Requires-Dist: freezegun==1.2.2; python_version <= "3.7" and extra == "test"
+Requires-Dist: syrupy==4.9.1; python_version >= "3.9" and extra == "test"
+Requires-Dist: syrupy==2.3.1; python_version <= "3.8" and extra == "test"
+Provides-Extra: test-report
+Requires-Dist: coveralls==4.0.1; extra == "test-report"
 Provides-Extra: analysis
 Requires-Dist: black==22.3.0; extra == "analysis"
-Requires-Dist: flake8==4.0.1; extra == "analysis"
-Requires-Dist: autoflake==1.4; extra == "analysis"
-Requires-Dist: autopep8==1.6.0; extra == "analysis"
-Requires-Dist: isort==5.10.0; extra == "analysis"
-Requires-Dist: docformatter==1.4; extra == "analysis"
-Requires-Dist: mypy==1.2.0; python_version > "3.6" and extra == "analysis"
-Requires-Dist: mypy==0.971; python_version <= "3.6" and extra == "analysis"
-Requires-Dist: django-stubs==1.16.0; python_version > "3.6" and extra == "analysis"
-Requires-Dist: django-stubs==1.9.0; python_version <= "3.6" and extra == "analysis"
-Requires-Dist: typing-extensions==4.5.0; python_version > "3.6" and extra == "analysis"
-Requires-Dist: typing-extensions==4.1.0; python_version <= "3.6" and extra == "analysis"
-Requires-Dist: types-dj-database-url==1.3.0.0; extra == "analysis"
-Requires-Dist: types-psycopg2==2.9.21.9; extra == "analysis"
-Requires-Dist: types-python-dateutil==2.8.19.12; extra == "analysis"
+Requires-Dist: flake8==7.2.0; extra == "analysis"
+Requires-Dist: autoflake==2.3.1; extra == "analysis"
+Requires-Dist: autopep8==2.3.2; extra == "analysis"
+Requires-Dist: isort==6.0.1; extra == "analysis"
+Requires-Dist: docformatter==1.7.7; extra == "analysis"
+Requires-Dist: mypy==1.16.0; extra == "analysis"
+Requires-Dist: django-stubs==4.2.7; extra == "analysis"
+Requires-Dist: typing-extensions==4.14.0; extra == "analysis"
+Requires-Dist: types-dj-database-url==1.3.0.4; extra == "analysis"
+Requires-Dist: types-python-dateutil==2.9.0.20250516; extra == "analysis"
+Provides-Extra: docs
+Requires-Dist: Sphinx==8.2.3; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "docs"
+Requires-Dist: docutils==0.21.2; extra == "docs"
+Requires-Dist: Jinja2==3.1.6; extra == "docs"
 Provides-Extra: publish
 Requires-Dist: build==0.7.0; extra == "publish"
 Requires-Dist: twine==3.7.1; extra == "publish"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
+<h1 align="center">
+  <img width="400" src="https://i.imgur.com/79S6OVM.png" alt="django-postgres-extra">
+</h1>
   
 |  |  |  |
 |--------------------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: | **Tests** | [![CircleCI](https://circleci.com/gh/SectorLabs/django-postgres-extra/tree/master.svg?style=svg)](https://circleci.com/gh/SectorLabs/django-postgres-extra/tree/master) |
+| :white_check_mark: | **Tests** | [![Verify](https://github.com/SectorLabs/django-postgres-extra/actions/workflows/test.yml/badge.svg)](https://github.com/SectorLabs/django-postgres-extra/actions/workflows/test.yml) |
 | :memo: | **License** | [![License](https://img.shields.io/:license-mit-blue.svg)](http://doge.mit-license.org) |
 | :package: | **PyPi** | [![PyPi](https://badge.fury.io/py/django-postgres-extra.svg)](https://pypi.python.org/pypi/django-postgres-extra) |
 | :four_leaf_clover: | **Code coverage** | [![Coverage Status](https://coveralls.io/repos/github/SectorLabs/django-postgres-extra/badge.svg?branch=coveralls)](https://coveralls.io/github/SectorLabs/django-postgres-extra?branch=master) |
-| <img src="https://cdn.iconscout.com/icon/free/png-256/django-1-282754.png" width="22px" height="22px" align="center" /> | **Django Versions** | 2.0, 2.1, 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0 |
-| <img src="https://cdn3.iconfinder.com/data/icons/logos-and-brands-adobe/512/267_Python-512.png" width="22px" height="22px" align="center" /> | **Python Versions** | 3.6, 3.7, 3.8, 3.9, 3.10, 3.11 |
+| <img src="https://cdn.iconscout.com/icon/free/png-256/django-1-282754.png" width="22px" height="22px" align="center" /> | **Django Versions** | 2.0, 2.1, 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2 |
+| <img src="https://cdn3.iconfinder.com/data/icons/logos-and-brands-adobe/512/267_Python-512.png" width="22px" height="22px" align="center" /> | **Python Versions** | 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 |
 | <img src="https://pbs.twimg.com/profile_images/1152122059/psycopg-100_400x400.png" width="22px" height="22px" align="center" /> | **Psycopg Versions** | 2, 3 |
 | :book: | **Documentation** | [Read The Docs](https://django-postgres-extra.readthedocs.io/en/master/) |
 | :warning: | **Upgrade** | [Upgrade from v1.x](https://django-postgres-extra.readthedocs.io/en/master/major_releases.html#new-features)
@@ -107,37 +107,48 @@ With seamless we mean that any features we add will work truly seamlessly. You s
 
 [See the full list](http://django-postgres-extra.readthedocs.io/#features)
 
-* **Native upserts**
+* **Conflict handling (atomic upsert)**
 
-    * Single query
-    * Concurrency safe
-    * With bulk support (single query)
+    Adds support for PostgreSQL's `ON CONFLICT` syntax for inserts. Supports `DO UPDATE` and `DO NOTHING`. Single statement, atomic and concurrency safe upserts. Supports conditional updates as well.
 
-* **Extended support for HStoreField**
+* **Table partitioning**
 
-    * Unique constraints
-    * Null constraints
-    * Select individual keys using ``.values()`` or ``.values_list()``
+    Adds support for PostgreSQL 11.x declarative table partitioning. Integrated into Django migrations. Supports all types of partitioning. Includes a command to automatically create time-based partitions.
 
-* **PostgreSQL 11.x declarative table partitioning**
+* **Views & materialized views**
 
-    * Supports both range and list partitioning
+    Adds support for creating views & materialized views as any other model. Integrated into Django migrations.
 
-* **Faster deletes**
+* **Locking models & tables**
 
-    * Truncate tables (with cascade)
+    Support for explicit table-level locks.
 
-* **Indexes**
+* **Creating/dropping schemas**
 
-    * Conditional unique index.
-    * Case sensitive unique index.
+    Support for managing PostgreSQL schemas.
+
+* **Truncating tables**
+
+   Support for ``TRUNCATE TABLE`` statements (including cascading).
+
+For Django 3.1 and older:
+
+* **Conditional unique index**
+* **Case insensitive index**
+
+For Django 2.2 and older:
+
+* **Unique index**
+* **HStore unique and required constraints on specific HStore keys**
 
 ## Working with the code
 ### Prerequisites
 
-* PostgreSQL 10 or newer.
-* Django 2.0 or newer (including 3.x, 4.x).
-* Python 3.6 or newer.
+* PostgreSQL 14 or newer.
+* Django 5.x or newer.
+* Python 3.11 or newer.
+
+These are just for local development. CI for code analysis etc runs against these. Tests will pass on all Python, Django and PostgreSQL versions documented. Linting, formatting and type-checking the code might not work on other Python and/or Django versions.
 
 ### Getting started
 
@@ -145,13 +156,21 @@ With seamless we mean that any features we add will work truly seamlessly. You s
 
         λ git clone https://github.com/SectorLabs/django-postgres-extra.git
 
-2. Create a virtual environment:
+2. Install [uv](https://docs.astral.sh/uv/) if you don't have it:
+
+       λ curl -LsSf https://astral.sh/uv/install.sh | sh
+
+3. Sync the development/test dependencies (creates `.venv` and installs from `uv.lock`):
 
        λ cd django-postgres-extra
-       λ virtualenv env
-       λ source env/bin/activate
+       λ uv sync --extra dev --extra test
+       λ source .venv/bin/activate
 
-3. Create a postgres user for use in tests (skip if your default user is a postgres superuser):
+   `uv.lock` enforces a 3-day dependency cooldown via `[tool.uv] exclude-newer`
+   in `pyproject.toml`, so newly-published versions cannot enter your
+   environment until the community has had time to flag malicious releases.
+
+4. Create a postgres user for use in tests (skip if your default user is a postgres superuser):
 
        λ createuser --superuser psqlextra --pwprompt
        λ export DATABASE_URL=postgres://psqlextra:<password>@localhost/psqlextra
@@ -160,18 +179,14 @@ With seamless we mean that any features we add will work truly seamlessly. You s
    the ``export`` line in ``$VIRTUAL_ENV/bin/postactivate`` so that it's always
    available when using this virtualenv.
 
-4. Install the development/test dependencies:
-
-       λ pip install .[test] .[analysis]
-
 5. Run the tests:
 
-       λ tox
+       λ poe test
 
 6. Run the benchmarks:
 
-       λ py.test -c pytest-benchmark.ini
+       λ poe benchmark
 
 7. Auto-format code, sort imports and auto-fix linting errors:
 
-       λ python setup.py fix
+       λ poe fix

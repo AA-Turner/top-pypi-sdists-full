@@ -235,7 +235,9 @@ class OpenAIChatCompletionsModel(Model):
         with (
             generation_span(
                 model=str(self.model),
-                model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
+                model_config=model_config_for_trace(
+                    model_settings, tracing, base_url=self._client.base_url
+                ),
                 disabled=tracing.is_disabled(),
             ) as span_generation,
             model_span_errors(
@@ -286,9 +288,9 @@ class OpenAIChatCompletionsModel(Model):
             usage = (
                 Usage(
                     requests=1,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    total_tokens=response.usage.total_tokens,
+                    input_tokens=response.usage.prompt_tokens or 0,
+                    output_tokens=response.usage.completion_tokens or 0,
+                    total_tokens=response.usage.total_tokens or 0,
                     # BeforeValidator in Usage normalizes these from Chat Completions types
                     input_tokens_details=response.usage.prompt_tokens_details,  # type: ignore[arg-type]
                     output_tokens_details=response.usage.completion_tokens_details,  # type: ignore[arg-type]
@@ -447,7 +449,9 @@ class OpenAIChatCompletionsModel(Model):
         with (
             generation_span(
                 model=str(self.model),
-                model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
+                model_config=model_config_for_trace(
+                    model_settings, tracing, base_url=self._client.base_url
+                ),
                 disabled=tracing.is_disabled(),
             ) as span_generation,
             model_span_errors(
@@ -490,6 +494,7 @@ class OpenAIChatCompletionsModel(Model):
                     model=self.model,
                     strict_feature_validation=self._strict_feature_validation,
                     raise_on_length_truncation=True,
+                    require_finish_reason=ChatCmplHelpers.is_openai(self._client),
                     **raw_usage_options,
                 ):
                     if chunk.type == "response.completed":

@@ -126,6 +126,7 @@ from local_operator.harness.render import (
 from local_operator.harness.replay_bound import bound_replay_payloads
 from local_operator.harness.subagent import (
     SubagentModelUnavailable,
+    is_inherit_tier_sentinel,
     read_effort_tier_selectors,
     resolve_launch_target,
     run_subagent,
@@ -1502,13 +1503,27 @@ def _paired_prefix(messages: Sequence[AgentMessage], *, strict: bool = False) ->
         if item.role == "tool":
             if item.tool_call_id not in pending:
                 if strict:
-                    raise ValueError("history has an unmatched tool result; cannot fork safely")
+                    # THE STRICT ARM IS THE SNAPSHOT/CUT VALIDATION, not a general
+                    # strictness: its only caller is ``Transcript.fork_snapshot``
+                    # (the persist path passes ``strict=False``, where this shape
+                    # is trimmed instead of refused). So it raises the TYPED
+                    # refusal the cut needs rather than a bare ``ValueError``,
+                    # which crossed the attach transport with no state and left the
+                    # owner answering a malformed interior as an unreachable
+                    # runtime. A future NON-fork caller that wants strictness has
+                    # to move the typing up to itself rather than inherit a fork
+                    # refusal.
+                    from local_operator.session.errors import ForkRefused
+
+                    raise ForkRefused(reason="unmatched_tool_result")
             else:
                 pending.remove(item.tool_call_id)
             continue
         if pending:
             if strict:
-                raise ValueError("history has incomplete tool calls before later messages")
+                from local_operator.session.errors import ForkRefused
+
+                raise ForkRefused(reason="incomplete_tool_calls")
             break
         if item.role == "assistant" and item.tool_calls:
             start = index
@@ -5660,6 +5675,13 @@ class Session:
                     withdraw()
                 self._journal_effort_if_selection_in_force(previous, model)
                 self.refresh_frontend_state()
+                # The label moved even though the pair did not (the pin came
+                # off), so the baked tier descriptions are stale for the same
+                # reason they are on a genuine switch — see the call on that
+                # path below. Reached only on an EXPLICIT re-selection, never
+                # on an ``/effort`` knob change, so it adds nothing to that
+                # hot path.
+                self._rebuild_effort_tier_tools()
                 return
             # Same model, different knobs (effort, sampling): nothing routing
             # or quota related has moved, so leave the frozen per-message state
@@ -5752,6 +5774,21 @@ class Session:
         # "now running as X (was Y)", so a "Reason: model switched" line would
         # only repeat it. ``reason`` is reserved for failover causes (R3).
         self.refresh_frontend_state()
+        # The tier tools bake the session's model label into their schema text
+        # at BUILD time (``describe_effort_tiers``), while a sentinel tier
+        # resolves to ``self.model`` at LAUNCH. Without this the two drift the
+        # moment the operator follows the command that motivated the sentinel:
+        # after ``/model B`` the enum still advertises A as the model a
+        # ``default`` tier runs on, and only an unrelated config edit happens
+        # to re-render it. Routing was never wrong — the disclosure was, which
+        # is the one surface this feature exists to make honest.
+        #
+        # Placed after the fallback withdrawal above so the label it renders is
+        # the settled one, and only on this path: the same-pair early returns
+        # above cover ``/effort`` and the server's per-request sampling
+        # overrides, which run on every call and must not each pay a tool
+        # rebuild for a label that did not move.
+        self._rebuild_effort_tier_tools()
         if not announced:
             # Every host keys its model display off this event, and a genuine
             # switch used to emit NONE: the runtime's projection (and so the
@@ -7909,23 +7946,40 @@ class Session:
         self._steering_queue.put_nowait(message)
         self.refresh_frontend_state()
 
-    async def fork_snapshot(self, message: str = "") -> dict[str, Any]:
+    async def fork_snapshot(
+        self, message: str = "", *, through_entry_id: str | None = None
+    ) -> dict[str, Any]:
         """Fork the committed prefix without interrupting the live agent loop.
 
         Both in-process callers and socket-attached front ends use this same admission path.
         The transcript lock, not a viewer or a turn interruption, defines the
         copy boundary; active history rewrites are refused explicitly.
+
+        ``through_entry_id`` names the entry the copy stops at (see
+        :meth:`Transcript.fork_snapshot`): the child keeps the committed prefix
+        up to it and loses everything after. A named cut point is already
+        committed, so it needs no turn boundary — which is why this method is
+        also the correct one for a mid-turn fork, unlike the deferred
+        :meth:`request_fork` below.
+
+        ``cut_entry_id`` in the result is the row the copy actually stopped at:
+        equal to ``through_entry_id`` unless the cut landed at-or-before an
+        unfinished tool batch, and ``None`` when nothing was retained (or when no
+        cut point was named).
         """
         busy = self._is_streaming or self._turn_lock.locked()
         await self._ensure_selected_model()
-        fork_id, omitted = await self._transcript.fork_snapshot(
-            message=message, is_compacting=lambda: self._compacting
+        fork_id, omitted, cut_entry_id = await self._transcript.fork_snapshot(
+            message=message,
+            is_compacting=lambda: self._compacting,
+            through_entry_id=through_entry_id,
         )
         return {
             "fork_id": fork_id,
             "parent_id": self.session_id,
             "busy": busy,
             "incomplete": busy or omitted,
+            "cut_entry_id": cut_entry_id,
         }
 
     def request_fork(
@@ -13129,7 +13183,18 @@ class Session:
             # "this child owns no model and inherits" is only sayable if the
             # caller can see what inheriting means. Re-read per turn, so a
             # ``/model`` switch is reflected on the next call.
-            session_model_label=self.effective_model_label,
+            #
+            # The SELECTED model, not ``effective_model_label``: every
+            # consumer of this label names what a child that owns no model
+            # will RUN, and that is ``self.model`` — the spec
+            # ``run_subagent`` builds an inherit child with, and the spec a
+            # sentinel tier resolves to. Under a pinned provider fallback the
+            # effective label is the FALLBACK, so the two disagreed exactly
+            # when a delegating model is deciding on cost: a `hi: default`
+            # tier was advertised as a model the child would not run on, and
+            # the inherit line named the fallback for a child that would run
+            # the selected spec (review round 2, MINOR 1).
+            session_model_label=self.model_label,
             agent_id=self._agent_id,
             # The delegated name, on a subagent only. Empty on every top-level
             # session, which is what keeps ``_browser_subagent_label``'s
@@ -13269,6 +13334,26 @@ class Session:
         shipped default that silently downgraded review quality could not be
         traced to anything the operator decided.
 
+        A tier whose VALUE is the inherit sentinel (``default``, matched by
+        :func:`~local_operator.harness.subagent.is_inherit_tier_sentinel`)
+        resolves to the session's own model (``self.model``) instead of being
+        refused. It is
+        the explicit opt-in to "this tier runs on whatever this session is on":
+        absent and empty still remove the tier and still refuse under
+        ``strict``, so nothing an operator already has configured changes
+        behaviour, while a tier they deliberately set to the sentinel is
+        honoured rather than read as an unset one. ``None`` keeps its separate
+        meaning ("no tier was asked for") — the two used to be the same
+        spelling and are now distinguishable, which is the point of the
+        sentinel.
+
+        The resolved SPEC is what makes the sentinel cheap to disclose: every
+        surface downstream (:attr:`AsyncJob.model_label`,
+        ``requested_model_label``, the child stream's launch pin,
+        :class:`SubagentStartEvent`, :func:`_describe_child_failure`) is fed
+        the model this method returned, so all of them name a real
+        ``provider/model`` without a single edit of their own.
+
         ``strict`` (the launch path) turns "tier named but unresolvable" from a
         warning-and-inherit into :class:`SubagentModelUnavailable`. The
         lenient default stays for callers that merely PREFER a tier and have
@@ -13357,6 +13442,25 @@ class Session:
             return _unavailable(f"subagents.models.{wanted}={selector!r} lacks provider/model")
         if not selector:
             return _unavailable(f"no model configured at subagents.models.{wanted}", quiet=True)
+        if is_inherit_tier_sentinel(selector):
+            # The explicit opt-in, resolved at LAUNCH and not at write time:
+            # ``self.model`` is the accessor the rest of the session uses to
+            # name the model every provider call is built from, and the SAME
+            # one ``run_subagent`` reaches for when a child owns no model
+            # (``model=model_spec if model_spec is not None else
+            # parent_session.model``). Reading it here rather than recording
+            # the model into the config is what makes a later default move
+            # every pin on this tier — the requirement the sentinel exists to
+            # satisfy, and the pinned test in
+            # ``tests/unit/session/test_pinned_subagent_model.py`` holds it.
+            #
+            # Because this returns a SPEC and not ``None``, ``owns_model`` is
+            # stamped True and the child's routing is pinned to it: an
+            # operator-configured tier is a deliberate pin even when it points
+            # at the session's own model, and the disclosure code already
+            # anticipates exactly that (a pin whose label equals the parent's
+            # is why ``owns_model`` is a separate field).
+            return self.model
         provider, _, model_id = selector.partition("/")
         # BOTH halves, to the same standard ``configured_effort_tiers`` applies
         # (review R3-F11). Checking only the model let a leading-slash selector
@@ -18652,13 +18756,74 @@ class Session:
         Overwrites the resume catch-up shim if one is installed, deliberately: a
         runtime that is leaving does not owe a catch-up of its own — the
         successor loads the same index and folds the same overdue wakes.
+
+        THE HOOK THIS REPLACES IS KEPT, so the overwrite is reversible: the one
+        give-up arm that ends up STILL SERVING (``process._abandon_move``)
+        releases this divert again through :meth:`resume_wakes_from_inbox`,
+        which puts back exactly what a fire would have used here before the
+        drain committed. Saved only while the current hook is not already the
+        spool, so a second retire cannot overwrite the pre-drain hook with the
+        spool itself.
         """
+        # ``getattr`` like ``_wake_rearms`` below: the cell harnesses bind these
+        # methods one at a time, so a host can reach here without the hook the
+        # real session owns in ``__init__`` — and ``None`` is the honest thing
+        # to save for it.
+        previous = getattr(self, "_wake_deliver_hook", None)
+        if previous != self._spool_wake_to_inbox:
+            self._wake_hook_before_drain: Callable[[DueWake], Awaitable[None]] | None = previous
         #: One-shot schedules this drain swallowed, written to the index by
         #: :meth:`hand_wakes_to_successor` at the exit. Owned here rather than in
         #: ``__init__`` because a session that never drains never has any, and
         #: the hook that fills it is installed on this same line.
         self._wake_rearms: list[WakeSchedule] = []
         self._wake_deliver_hook = self._spool_wake_to_inbox
+
+    def resume_wakes_from_inbox(self) -> bool:
+        """Undo :meth:`retire_wakes_to_inbox` — the departure was ABANDONED, not made.
+
+        The mirror of the retire, and it exists for one caller: ``end_drain``,
+        the give-up arm of a build handover (``process._abandon_move``, reached
+        from ``_drain_for`` when the drain cannot reach idle). The wake divert's
+        premise is that this runtime is leaving for a build whose files are
+        being replaced, and a fire that opens a turn in that window only loads
+        the departing tree — but an abandoned move KEEPS the build, so the
+        premise is gone and a runtime that serves again must DELIVER again.
+        Without this the spool hook stands for the rest of the process's life:
+        every fire is diverted to an inbox nobody drains until a successor
+        boots, and nothing on any surface says so (measured 2026-10-01/02: a
+        desk session lost ~14 h of fires while `lop wake list` showed a fresh
+        "last fired" and the supervisor saw a live runtime and skipped). The
+        same argument :meth:`resume_job_deliveries_to_turns` makes for settled
+        children, applied to the other harness-initiated arrival.
+
+        NO-CLOBBER: when the current hook is not the spool, some other path
+        owns the hook now (a resume catch-up, a test's sentinel) and this
+        returns False having touched nothing — undoing a drain that is not the
+        one in force would be a second, silent hook change on top of theirs.
+        Idempotent for the same reason: a second resume after a successful one
+        also finds a non-spool hook and returns False. Never raises — the
+        caller is releasing an exit latch and a failed undo must not block it.
+
+        The saved slot is CLEARED on the way out, so a later retire while
+        serving starts from the hook as it stands NOW rather than at whatever
+        it was before the previous drain.
+        """
+        try:
+            if self._wake_deliver_hook != self._spool_wake_to_inbox:
+                return False
+            restored = getattr(self, "_wake_hook_before_drain", None)
+            if restored is None:
+                # A host that never took the pre-drain hook (a fixture whose
+                # hook just isn't the session's own): the default delivery path
+                # is the only honest restore.
+                restored = self._deliver_wake
+            self._wake_deliver_hook = restored
+            self._wake_hook_before_drain = None
+            return True
+        except Exception:  # noqa: BLE001 — a failed undo must not block the abandon
+            logger.debug("could not restore wake delivery after an abandoned drain", exc_info=True)
+            return False
 
     async def _spool_wake_to_inbox(self, due: DueWake) -> None:
         """The draining hook: hand one fired wake to the successor. Never raises.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.265
+Version: 2.3.269
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -13,12 +13,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: aenum (>=3.1.11,<4.0.0)
 Requires-Dist: aiohttp (>=3.14.2,<4.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: requests (>=2,<3)
-Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
+Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
 Project-URL: Repository, https://github.com/finbourne/lusid-sdk-python
 Description-Content-Type: text/markdown
 
@@ -622,7 +623,7 @@ Class | Method | HTTP request | Description
 *RecsApi* | [**get_matching_ruleset**](docs/RecsApi.md#get_matching_ruleset) | **GET** /api/recs/matchingrulesets/{scope}/{code} | [EXPERIMENTAL] GetMatchingRuleset: GetMatchingRuleset
 *RecsApi* | [**get_rec_definition**](docs/RecsApi.md#get_rec_definition) | **GET** /api/recs/definitions/{scope}/{code} | [EXPERIMENTAL] GetRecDefinition: GetRecDefinition
 *RecsApi* | [**get_rec_instance**](docs/RecsApi.md#get_rec_instance) | **GET** /api/recs/instances/{instanceIdType}/{instanceIdValue} | [EXPERIMENTAL] GetRecInstance: GetRecInstance
-*RecsApi* | [**get_rec_result**](docs/RecsApi.md#get_rec_result) | **GET** /api/recs/results/{id} | [EXPERIMENTAL] GetRecResult: GetRecResult
+*RecsApi* | [**get_rec_result**](docs/RecsApi.md#get_rec_result) | **GET** /api/recs/results/{instanceIdType}/{instanceIdValue}/{recType}/{runNumber}/{id} | [EXPERIMENTAL] GetRecResult: GetRecResult
 *RecsApi* | [**get_rec_result_set**](docs/RecsApi.md#get_rec_result_set) | **GET** /api/recs/resultsets/{entityUniqueId} | [EXPERIMENTAL] GetRecResultSet: GetRecResultSet
 *RecsApi* | [**instantiate_rec**](docs/RecsApi.md#instantiate_rec) | **POST** /api/recs/instances | [EXPERIMENTAL] InstantiateRec: InstantiateRec
 *RecsApi* | [**list_matching_rulesets**](docs/RecsApi.md#list_matching_rulesets) | **GET** /api/recs/matchingrulesets | [EXPERIMENTAL] ListMatchingRulesets: ListMatchingRulesets
@@ -836,6 +837,7 @@ Class | Method | HTTP request | Description
 *TransfersApi* | [**create_transfer**](docs/TransfersApi.md#create_transfer) | **POST** /api/transfers | [EXPERIMENTAL] CreateTransfer: Create a transfer.
 *TransfersApi* | [**delete_transfer**](docs/TransfersApi.md#delete_transfer) | **DELETE** /api/transfers/{scope}/{code} | [EXPERIMENTAL] DeleteTransfer: Delete a transfer.
 *TransfersApi* | [**get_transfer**](docs/TransfersApi.md#get_transfer) | **POST** /api/transfers/$get | [EXPERIMENTAL] GetTransfer: Get a transfer
+*TransfersApi* | [**list_transfers**](docs/TransfersApi.md#list_transfers) | **GET** /api/transfers | [EXPERIMENTAL] ListTransfers: List transfers
 *TranslationApi* | [**translate_instrument_definitions**](docs/TranslationApi.md#translate_instrument_definitions) | **POST** /api/translation/instrumentdefinitions | [EXPERIMENTAL] TranslateInstrumentDefinitions: Translate instruments
 *TranslationApi* | [**translate_trade_tickets**](docs/TranslationApi.md#translate_trade_tickets) | **POST** /api/translation/tradetickets | [EXPERIMENTAL] TranslateTradeTickets: Translate trade ticket
 *WithholdingTaxApi* | [**create_withholding_tax_dataset_definitions**](docs/WithholdingTaxApi.md#create_withholding_tax_dataset_definitions) | **POST** /api/withholdingtax/datasetdefinitions | [EARLY ACCESS] CreateWithholdingTaxDatasetDefinitions: Create the Withholding Tax dataset definitions.
@@ -1512,7 +1514,6 @@ Class | Method | HTTP request | Description
  - [GetStructuredResultDataResponse](docs/GetStructuredResultDataResponse.md)
  - [GetSubscriptionResponse](docs/GetSubscriptionResponse.md)
  - [GetTransferRequest](docs/GetTransferRequest.md)
- - [GetTransferResponse](docs/GetTransferResponse.md)
  - [GetVirtualDocumentResponse](docs/GetVirtualDocumentResponse.md)
  - [GroupBySelectorComplianceParameter](docs/GroupBySelectorComplianceParameter.md)
  - [GroupByStep](docs/GroupByStep.md)
@@ -2218,6 +2219,7 @@ Class | Method | HTTP request | Description
  - [ResourceListOfTransactionFeeType](docs/ResourceListOfTransactionFeeType.md)
  - [ResourceListOfTransactionSettlementInstruction](docs/ResourceListOfTransactionSettlementInstruction.md)
  - [ResourceListOfTransactionType](docs/ResourceListOfTransactionType.md)
+ - [ResourceListOfTransfer](docs/ResourceListOfTransfer.md)
  - [ResourceListOfValueType](docs/ResourceListOfValueType.md)
  - [ResourceListOfVirtualTransactionOverrideRecord](docs/ResourceListOfVirtualTransactionOverrideRecord.md)
  - [ResourceListWithPostBodiesOfSettlementActivityToSettlementActivityQuery](docs/ResourceListWithPostBodiesOfSettlementActivityToSettlementActivityQuery.md)
@@ -2363,6 +2365,8 @@ Class | Method | HTTP request | Description
  - [SwapPrincipalEvent](docs/SwapPrincipalEvent.md)
  - [SweepBlocksRequest](docs/SweepBlocksRequest.md)
  - [SweepBlocksResponse](docs/SweepBlocksResponse.md)
+ - [SwingPricingDecision](docs/SwingPricingDecision.md)
+ - [SwingPricingRule](docs/SwingPricingRule.md)
  - [TargetTaxLot](docs/TargetTaxLot.md)
  - [TargetTaxLotRequest](docs/TargetTaxLotRequest.md)
  - [TaxRule](docs/TaxRule.md)
@@ -2431,6 +2435,7 @@ Class | Method | HTTP request | Description
  - [TransactionTypePropertyMapping](docs/TransactionTypePropertyMapping.md)
  - [TransactionTypeRequest](docs/TransactionTypeRequest.md)
  - [TransactionsReconciliationsResponse](docs/TransactionsReconciliationsResponse.md)
+ - [Transfer](docs/Transfer.md)
  - [TransferAgencyDates](docs/TransferAgencyDates.md)
  - [TransferAgencyExcludedOrder](docs/TransferAgencyExcludedOrder.md)
  - [TransferAgencyOrderEstimateResult](docs/TransferAgencyOrderEstimateResult.md)

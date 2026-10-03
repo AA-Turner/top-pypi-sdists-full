@@ -125,7 +125,7 @@ EVENT_WIZARD_UNINSTALL_COMPLETED = "wizard.uninstall_completed"
 #: daemon turned on, or back off. The only place the daemon is switched
 #: (Richard 2026-09-29), so this is the daemon's adoption funnel. `recorder`
 #: is where the switch went and `outcome` how far it got (`RecorderOutcome`);
-#: a team refused for its plan is reported too -- someone asked for the daemon.
+#: a team the server refuses is reported too -- someone asked for the daemon.
 EVENT_WIZARD_RECORDER_CHANGED = "wizard.recorder_changed"
 
 #: The past-sessions lane's verdict. Named for the lane rather than folded into
@@ -295,7 +295,8 @@ class RecorderOutcome(StrEnum):
     PARTIAL = "partial"
     #: None moved, past the gates below (a plugin install or config write).
     FAILED = "failed"
-    #: The server said the team's plan does not include the daemon.
+    #: The server said the daemon is not open to this team (the value predates
+    #: every plan getting the daemon; kept so the funnel's history still counts).
     REFUSED_PLAN = "refused_plan"
     #: The daemon's own key was not granted (the browser approval was
     #: declined or failed), so nothing moved.

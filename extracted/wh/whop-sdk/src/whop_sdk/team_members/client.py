@@ -106,7 +106,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -153,7 +153,7 @@ class TeamMembersClient:
             Account ID, prefixed `biz_`.
 
         role : CreateTeamMembersRequestRole
-            The system role to grant. Partners must pass all certification quizzes.
+            The system role to grant. The Partner role can only be granted to the account's attached, verified partner.
 
         email : typing.Optional[str]
             Email address to invite. Mutually exclusive with `user_id`. If the email already belongs to a Whop account it is treated the same as passing that account's `user_id`; otherwise a pending invite is created for the email.
@@ -174,7 +174,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -210,7 +210,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -243,7 +243,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -255,7 +255,11 @@ class TeamMembersClient:
         return _response.data
 
     def update(
-        self, id: str, *, role: UpdateTeamMembersRequestRole, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        role: typing.Optional[UpdateTeamMembersRequestRole] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> TeamMember:
         """
         Changes a team member's system role. Requires a user session — account API keys cannot change member roles. The account owner's role cannot be changed, and you cannot change your own role.
@@ -265,8 +269,8 @@ class TeamMembersClient:
         id : str
             Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
 
-        role : UpdateTeamMembersRequestRole
-            The system role to grant. Partners must pass all certification quizzes.
+        role : typing.Optional[UpdateTeamMembersRequestRole]
+            The system role to grant. The Partner role can only be granted to the account's attached, verified partner.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -281,13 +285,12 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.team_members.update(
             id="id",
-            role="owner",
         )
         """
         _response = self._raw_client.update(id, role=role, request_options=request_options)
@@ -382,7 +385,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -436,7 +439,7 @@ class AsyncTeamMembersClient:
             Account ID, prefixed `biz_`.
 
         role : CreateTeamMembersRequestRole
-            The system role to grant. Partners must pass all certification quizzes.
+            The system role to grant. The Partner role can only be granted to the account's attached, verified partner.
 
         email : typing.Optional[str]
             Email address to invite. Mutually exclusive with `user_id`. If the email already belongs to a Whop account it is treated the same as passing that account's `user_id`; otherwise a pending invite is created for the email.
@@ -459,7 +462,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -503,7 +506,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -546,7 +549,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -564,7 +567,11 @@ class AsyncTeamMembersClient:
         return _response.data
 
     async def update(
-        self, id: str, *, role: UpdateTeamMembersRequestRole, request_options: typing.Optional[RequestOptions] = None
+        self,
+        id: str,
+        *,
+        role: typing.Optional[UpdateTeamMembersRequestRole] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> TeamMember:
         """
         Changes a team member's system role. Requires a user session — account API keys cannot change member roles. The account owner's role cannot be changed, and you cannot change your own role.
@@ -574,8 +581,8 @@ class AsyncTeamMembersClient:
         id : str
             Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
 
-        role : UpdateTeamMembersRequestRole
-            The system role to grant. Partners must pass all certification quizzes.
+        role : typing.Optional[UpdateTeamMembersRequestRole]
+            The system role to grant. The Partner role can only be granted to the account's attached, verified partner.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -592,7 +599,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -601,7 +608,6 @@ class AsyncTeamMembersClient:
         async def main() -> None:
             await client.team_members.update(
                 id="id",
-                role="owner",
             )
 
 

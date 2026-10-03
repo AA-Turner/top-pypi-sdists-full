@@ -17,6 +17,7 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
@@ -36,8 +37,9 @@ class ExtractInput(BaseModel):
     model: str = Field(
         min_length=1,
         description="Model to use for extraction — pick one from the live catalog.",
-        json_schema_extra=field_extras(widget="model_picker"),
+        json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )
+    offering_id: str | None = offering_id_field()
     text: str = Field(
         min_length=1,
         description="The unstructured text to analyze/extract from (e.g., previous LLM output).",
@@ -125,6 +127,7 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
     # controls own which parameters travel; the node sends only what it needs.
     overrides = {
         "model": inputs.model,
+        "offering_id": inputs.offering_id,
         "messages": messages,
     }
 

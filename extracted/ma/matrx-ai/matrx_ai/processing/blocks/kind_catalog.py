@@ -35,7 +35,12 @@ THREE PROPERTIES THIS FILE IS RESPONSIBLE FOR:
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
+
+from matrx_graph.kind_control_keys import applies_to, with_control_keys
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +51,73 @@ _snapshot: dict[str, tuple[dict[str, Any] | None, int]] = {}
 # needs the schema. Splitting them keeps "registered but schemaless" expressible, which
 # is a real registration state and must not read as "not a kind".
 _known_versions: dict[str, int] = {}
+# slug -> declared disposition, from the same listing. A ``record`` kind's schema is served
+# with the four control keys declared (``matrx_graph.kind_control_keys``, stored mode), built
+# once per (slug, version) and held in ``_stored_schemas``.
+_dispositions: dict[str, str | None] = {}
+_stored_schemas: dict[str, dict[str, Any]] = {}
 _listing_seen = False
+
+# ``table:<uuid>`` kinds held for ONE request (KINDS-GLUE wave 3 §6.2 item 2). A Table's kind is
+# derived from its Fields as the person asking, so it is never put in the process-wide snapshot
+# above (a schema read as one person would type another person's stream) and never popped by
+# ``prime_registered_kinds`` (it is not a registry row). A ``ContextVar``, so it reaches the
+# replay's ``asyncio.to_thread`` worker (which copies the context) and nothing else.
+_table_kinds: ContextVar[Mapping[str, dict[str, Any]] | None] = ContextVar(
+    "matrx_ai_table_kinds", default=None
+)
+
+
+@contextmanager
+def holding_table_kinds(schemas: Mapping[str, dict[str, Any]]) -> Iterator[None]:
+    """Type ``table:<uuid>`` blocks with these stored schemas inside this block only.
+
+    ``schemas`` maps each slug to its stored-mode schema (``matrx_graph.table_kinds.stored_schema``,
+    control keys already declared). Nested holds see the union; leaving restores the outer set.
+    """
+    outer = _table_kinds.get() or {}
+    token = _table_kinds.set({**outer, **schemas})
+    try:
+        yield
+    finally:
+        _table_kinds.reset(token)
 
 
 def is_registered_kind(slug: str) -> bool:
     """Sync: does this slug name a live kind? False while the snapshot is cold.
 
-    False on a cold snapshot is a deliberate under-claim, not a bug — see property 1.
+    False on a cold snapshot is a deliberate under-claim, not a bug — see property 1. A
+    ``table:`` kind held for this request (``holding_table_kinds``) counts as known.
     """
+    held = _table_kinds.get()
+    if held and slug in held:
+        return True
     return slug in _known_versions
 
 
 def registered_kind_schema(slug: str) -> dict[str, Any] | None:
-    """Sync: the kind's ``emitted_json_schema``, or None (unknown, cold, or schemaless)."""
+    """Sync: the kind's schema as the envelope validates it, or None (unknown, cold, schemaless).
+
+    For a ``record`` kind that is its ``emitted_json_schema`` with the control keys declared
+    (``with_control_keys(..., mode="stored")``, KINDS-GLUE wave 2 §1.4): a value carrying
+    ``_replaces`` / ``_new`` / ``_record_id`` / ``_records`` keeps them through the envelope's
+    partition, and a patch or a batch is not refused for the root Fields it does not carry. No
+    registry row is edited; every other disposition gets the registered schema as it is.
+    """
+    held = _table_kinds.get()
+    if held and slug in held:
+        return held[slug]
     entry = _snapshot.get(slug)
-    return entry[0] if entry else None
+    if not entry:
+        return None
+    schema = entry[0]
+    if schema is None or not applies_to(_dispositions.get(slug)):
+        return schema
+    stored = _stored_schemas.get(slug)
+    if stored is None:
+        stored = with_control_keys(schema, mode="stored")
+        _stored_schemas[slug] = stored
+    return stored
 
 
 def snapshot_is_warm() -> bool:
@@ -82,10 +139,14 @@ def invalidate(slug: str | None = None) -> None:
     if slug is None:
         _snapshot.clear()
         _known_versions.clear()
+        _dispositions.clear()
+        _stored_schemas.clear()
         _listing_seen = False
         return
     _snapshot.pop(slug, None)
     _known_versions.pop(slug, None)
+    _dispositions.pop(slug, None)
+    _stored_schemas.pop(slug, None)
 
 
 async def prime_registered_kinds() -> None:
@@ -97,7 +158,7 @@ async def prime_registered_kinds() -> None:
     hit and a dict copy; measured on the live registry it is ~0.1 ms warm against ~1.4 s cold.
     """
     global _listing_seen
-    from matrx_graph.kinds import list_registered_kinds
+    from matrx_graph.kinds import list_registered_kinds, listed_kind_disposition
 
     listed = await list_registered_kinds()
     if listed is None:
@@ -114,8 +175,13 @@ async def prime_registered_kinds() -> None:
         _known_versions.pop(slug, None)
 
     for slug, version, schema in listed:
+        disposition = listed_kind_disposition(slug)
+        held = _snapshot.get(slug)
+        if held is None or held[0] is not schema or _dispositions.get(slug) != disposition:
+            _stored_schemas.pop(slug, None)
         _snapshot[slug] = (schema, version)
         _known_versions[slug] = version
+        _dispositions[slug] = disposition
 
     if not _listing_seen:
         logger.info(

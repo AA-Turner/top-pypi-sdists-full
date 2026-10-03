@@ -38,6 +38,9 @@ if typing.TYPE_CHECKING:
     from .account_company_formation_status import AccountCompanyFormationStatus
     from .account_covered_payout_fees import AccountCoveredPayoutFees
     from .account_dispute_alert_auto_refund_control import AccountDisputeAlertAutoRefundControl
+    from .account_economic_intelligence_offer import AccountEconomicIntelligenceOffer
+    from .account_economic_intelligence_offer_duration_unit import AccountEconomicIntelligenceOfferDurationUnit
+    from .account_economic_intelligence_offer_key import AccountEconomicIntelligenceOfferKey
     from .account_fee import AccountFee
     from .account_fee_category import AccountFeeCategory
     from .account_fee_markup import AccountFeeMarkup
@@ -51,6 +54,8 @@ if typing.TYPE_CHECKING:
     from .account_fee_source import AccountFeeSource
     from .account_fee_unadjustable_reason import AccountFeeUnadjustableReason
     from .account_fees import AccountFees
+    from .account_financing import AccountFinancing
+    from .account_financing_status import AccountFinancingStatus
     from .account_home_preferences_item import AccountHomePreferencesItem
     from .account_link import AccountLink
     from .account_link_use_cases import AccountLinkUseCases
@@ -68,6 +73,7 @@ if typing.TYPE_CHECKING:
     )
     from .account_payment_controls_undated_pending_reason import AccountPaymentControlsUndatedPendingReason
     from .account_preferences import AccountPreferences
+    from .account_preferences_subscription_failure_behavior import AccountPreferencesSubscriptionFailureBehavior
     from .account_recommended_action import AccountRecommendedAction
     from .account_recommended_action_action import AccountRecommendedActionAction
     from .account_recommended_action_status import AccountRecommendedActionStatus
@@ -79,6 +85,8 @@ if typing.TYPE_CHECKING:
     from .account_reserve_type import AccountReserveType
     from .account_reserve_type_type import AccountReserveTypeType
     from .account_reserve_unlock import AccountReserveUnlock
+    from .account_reserve_unlock_type import AccountReserveUnlockType
+    from .account_reserve_unlock_type_type import AccountReserveUnlockTypeType
     from .account_resolution_center_auto_refund_control import AccountResolutionCenterAutoRefundControl
     from .account_social_link import AccountSocialLink
     from .account_social_link_website import AccountSocialLinkWebsite
@@ -132,7 +140,9 @@ if typing.TYPE_CHECKING:
     from .ad_group_conversion_location import AdGroupConversionLocation
     from .ad_group_custom_location import AdGroupCustomLocation
     from .ad_group_custom_location_distance_unit import AdGroupCustomLocationDistanceUnit
+    from .ad_group_delivery_schedule import AdGroupDeliverySchedule
     from .ad_group_delivery_status import AdGroupDeliveryStatus
+    from .ad_group_delivery_window import AdGroupDeliveryWindow
     from .ad_group_demographic_category import AdGroupDemographicCategory
     from .ad_group_demographic_category_type import AdGroupDemographicCategoryType
     from .ad_group_demographics import AdGroupDemographics
@@ -198,6 +208,8 @@ if typing.TYPE_CHECKING:
     from .ad_post_source import AdPostSource
     from .ad_result_event import AdResultEvent
     from .ad_status import AdStatus
+    from .ad_text import AdText
+    from .ad_translations import AdTranslations
     from .affiliate import Affiliate
     from .affiliate_applies_to_payments import AffiliateAppliesToPayments
     from .affiliate_applies_to_products import AffiliateAppliesToProducts
@@ -332,6 +344,8 @@ if typing.TYPE_CHECKING:
     from .card_transaction_list_item import CardTransactionListItem
     from .card_transaction_status import CardTransactionStatus
     from .card_transaction_transaction_type import CardTransactionTransactionType
+    from .cashback_payout import CashbackPayout
+    from .cashback_payout_status import CashbackPayoutStatus
     from .cashback_rule import CashbackRule
     from .chat_channel import ChatChannel
     from .chat_channel_experience import ChatChannelExperience
@@ -491,8 +505,16 @@ if typing.TYPE_CHECKING:
     from .domain_dns_record_type import DomainDnsRecordType
     from .domain_dns_status import DomainDnsStatus
     from .domain_issue import DomainIssue
+    from .domain_list_item import DomainListItem
+    from .domain_list_item_dns_status import DomainListItemDnsStatus
+    from .domain_list_item_status import DomainListItemStatus
+    from .domain_public_record import DomainPublicRecord
+    from .domain_registrant import DomainRegistrant
+    from .domain_registrar import DomainRegistrar
+    from .domain_registration_quote import DomainRegistrationQuote
     from .domain_status import DomainStatus
     from .economic_intelligence import EconomicIntelligence
+    from .economic_intelligence_input import EconomicIntelligenceInput
     from .economic_intelligence_operation import EconomicIntelligenceOperation
     from .economic_intelligence_sentiment import EconomicIntelligenceSentiment
     from .economic_intelligence_status import EconomicIntelligenceStatus
@@ -545,6 +567,13 @@ if typing.TYPE_CHECKING:
     from .file_multipart_url import FileMultipartUrl
     from .file_upload_status import FileUploadStatus
     from .file_visibility import FileVisibility
+    from .financing_application import FinancingApplication
+    from .financing_application_status import FinancingApplicationStatus
+    from .financing_requirement import FinancingRequirement
+    from .financing_requirement_file_collection_type import FinancingRequirementFileCollectionType
+    from .financing_requirement_text_collection_type import FinancingRequirementTextCollectionType
+    from .financing_requirement_text_format import FinancingRequirementTextFormat
+    from .financing_terms import FinancingTerms
     from .forbidden_error_body import ForbiddenErrorBody
     from .forbidden_error_body_error import ForbiddenErrorBodyError
     from .forum import Forum
@@ -663,6 +692,7 @@ if typing.TYPE_CHECKING:
     from .ledger_activity_resource_two_object import LedgerActivityResourceTwoObject
     from .ledger_activity_source import LedgerActivitySource
     from .ledger_activity_source_fee_kind import LedgerActivitySourceFeeKind
+    from .ledger_activity_source_fee_type import LedgerActivitySourceFeeType
     from .ledger_activity_source_payout_destination import LedgerActivitySourcePayoutDestination
     from .ledger_types import LedgerTypes
     from .lesson_types import LessonTypes
@@ -773,6 +803,16 @@ if typing.TYPE_CHECKING:
     from .payment_fee_type import PaymentFeeType
     from .payment_hold import PaymentHold
     from .payment_hold_type import PaymentHoldType
+    from .payment_input import PaymentInput
+    from .payment_input_line_items_item import PaymentInputLineItemsItem
+    from .payment_input_plan import PaymentInputPlan
+    from .payment_input_plan_currency import PaymentInputPlanCurrency
+    from .payment_input_plan_override_tax_type import PaymentInputPlanOverrideTaxType
+    from .payment_input_plan_plan_type import PaymentInputPlanPlanType
+    from .payment_input_plan_product import PaymentInputPlanProduct
+    from .payment_input_plan_product_global_affiliate_status import PaymentInputPlanProductGlobalAffiliateStatus
+    from .payment_input_plan_product_visibility import PaymentInputPlanProductVisibility
+    from .payment_input_plan_visibility import PaymentInputPlanVisibility
     from .payment_instructions import (
         PaymentInstructions,
         PaymentInstructions_BankTransfer,
@@ -1078,12 +1118,15 @@ if typing.TYPE_CHECKING:
     from .payment_next_action import (
         PaymentNextAction,
         PaymentNextAction_AwaitConfirmation,
+        PaymentNextAction_CollectCardPresent,
         PaymentNextAction_DisplayInstructions,
         PaymentNextAction_Redirect,
     )
     from .payment_next_action_await_confirmation import PaymentNextActionAwaitConfirmation
     from .payment_next_action_await_confirmation_data import PaymentNextActionAwaitConfirmationData
     from .payment_next_action_await_confirmation_render_item import PaymentNextActionAwaitConfirmationRenderItem
+    from .payment_next_action_collect_card_present import PaymentNextActionCollectCardPresent
+    from .payment_next_action_collect_card_present_data import PaymentNextActionCollectCardPresentData
     from .payment_next_action_display_instructions import PaymentNextActionDisplayInstructions
     from .payment_next_action_display_instructions_render_item import PaymentNextActionDisplayInstructionsRenderItem
     from .payment_next_action_redirect import PaymentNextActionRedirect
@@ -1093,6 +1136,11 @@ if typing.TYPE_CHECKING:
     from .payment_providers import PaymentProviders
     from .payment_qr import PaymentQr
     from .payment_qr_instructions import PaymentQrInstructions
+    from .payment_quote import PaymentQuote
+    from .payment_quote_line_item import PaymentQuoteLineItem
+    from .payment_quote_located_by import PaymentQuoteLocatedBy
+    from .payment_quote_tax_behavior import PaymentQuoteTaxBehavior
+    from .payment_quote_tax_status import PaymentQuoteTaxStatus
     from .payment_required_error_body import PaymentRequiredErrorBody
     from .payment_required_error_body_error import PaymentRequiredErrorBodyError
     from .payment_required_error_body_error_type import PaymentRequiredErrorBodyErrorType
@@ -1152,6 +1200,9 @@ if typing.TYPE_CHECKING:
     from .plan_types import PlanTypes
     from .plan_visibility import PlanVisibility
     from .product import Product
+    from .product_affiliate import ProductAffiliate
+    from .product_affiliate_status import ProductAffiliateStatus
+    from .product_affiliate_user import ProductAffiliateUser
     from .product_custom_cta import ProductCustomCta
     from .product_gallery_image import ProductGalleryImage
     from .product_global_affiliate_status import ProductGlobalAffiliateStatus
@@ -1270,6 +1321,7 @@ if typing.TYPE_CHECKING:
     from .setup_intent_list_item_payment_method_mailing_address import SetupIntentListItemPaymentMethodMailingAddress
     from .setup_intent_status import SetupIntentStatus
     from .setup_intent_statuses import SetupIntentStatuses
+    from .setup_intent_three_ds_level import SetupIntentThreeDsLevel
     from .setup_last_setup_error import SetupLastSetupError
     from .setup_status import SetupStatus
     from .setup_status_status import SetupStatusStatus
@@ -1288,6 +1340,7 @@ if typing.TYPE_CHECKING:
     from .social_account_lead_form_form_type import SocialAccountLeadFormFormType
     from .social_account_parent import SocialAccountParent
     from .social_account_parent_platform import SocialAccountParentPlatform
+    from .social_account_partnership_status import SocialAccountPartnershipStatus
     from .social_account_platform import SocialAccountPlatform
     from .social_account_post import SocialAccountPost
     from .social_account_post_call_to_action import SocialAccountPostCallToAction
@@ -1316,6 +1369,8 @@ if typing.TYPE_CHECKING:
         TargetingOption_WorkEmployers,
         TargetingOption_WorkPositions,
     )
+    from .tax_id import TaxId
+    from .tax_id_type import TaxIdType
     from .tax_identifier_types import TaxIdentifierTypes
     from .tax_types import TaxTypes
     from .team_member import TeamMember
@@ -1325,6 +1380,26 @@ if typing.TYPE_CHECKING:
     from .too_many_requests_error_body import TooManyRequestsErrorBody
     from .too_many_requests_error_body_error import TooManyRequestsErrorBodyError
     from .topup import Topup
+    from .trade import Trade
+    from .trade_cancellation_result import TradeCancellationResult
+    from .trade_cancellation_result_status import TradeCancellationResultStatus
+    from .trade_failure_code import TradeFailureCode
+    from .trade_hyperliquid import TradeHyperliquid
+    from .trade_instrument_type import TradeInstrumentType
+    from .trade_leverage import TradeLeverage
+    from .trade_leverage_margin_mode import TradeLeverageMarginMode
+    from .trade_object import TradeObject
+    from .trade_operation_type import TradeOperationType
+    from .trade_order_result import TradeOrderResult
+    from .trade_order_result_object import TradeOrderResultObject
+    from .trade_order_result_order_type import TradeOrderResultOrderType
+    from .trade_order_result_side import TradeOrderResultSide
+    from .trade_order_result_status import TradeOrderResultStatus
+    from .trade_provider import TradeProvider
+    from .trade_requested_order import TradeRequestedOrder
+    from .trade_requested_order_order_type import TradeRequestedOrderOrderType
+    from .trade_requested_order_side import TradeRequestedOrderSide
+    from .trade_status import TradeStatus
     from .trading_account import TradingAccount
     from .trading_account_object import TradingAccountObject
     from .trading_account_provider import TradingAccountProvider
@@ -1373,6 +1448,17 @@ if typing.TYPE_CHECKING:
     from .user_summary import UserSummary
     from .v1error_response import V1ErrorResponse
     from .v1error_response_error import V1ErrorResponseError
+    from .variant import Variant
+    from .variant_list_item import VariantListItem
+    from .variant_list_item_plan_type import VariantListItemPlanType
+    from .variant_list_item_release_method import VariantListItemReleaseMethod
+    from .variant_list_item_three_ds_level import VariantListItemThreeDsLevel
+    from .variant_list_item_visibility import VariantListItemVisibility
+    from .variant_plan_type import VariantPlanType
+    from .variant_release_method import VariantReleaseMethod
+    from .variant_tax_type import VariantTaxType
+    from .variant_three_ds_level import VariantThreeDsLevel
+    from .variant_visibility import VariantVisibility
     from .verification import Verification
     from .verification_error_codes import VerificationErrorCodes
     from .verification_list_item import VerificationListItem
@@ -1431,6 +1517,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountCompanyFormationStatus": ".account_company_formation_status",
     "AccountCoveredPayoutFees": ".account_covered_payout_fees",
     "AccountDisputeAlertAutoRefundControl": ".account_dispute_alert_auto_refund_control",
+    "AccountEconomicIntelligenceOffer": ".account_economic_intelligence_offer",
+    "AccountEconomicIntelligenceOfferDurationUnit": ".account_economic_intelligence_offer_duration_unit",
+    "AccountEconomicIntelligenceOfferKey": ".account_economic_intelligence_offer_key",
     "AccountFee": ".account_fee",
     "AccountFeeCategory": ".account_fee_category",
     "AccountFeeMarkup": ".account_fee_markup",
@@ -1444,6 +1533,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountFeeSource": ".account_fee_source",
     "AccountFeeUnadjustableReason": ".account_fee_unadjustable_reason",
     "AccountFees": ".account_fees",
+    "AccountFinancing": ".account_financing",
+    "AccountFinancingStatus": ".account_financing_status",
     "AccountHomePreferencesItem": ".account_home_preferences_item",
     "AccountLink": ".account_link",
     "AccountLinkUseCases": ".account_link_use_cases",
@@ -1459,6 +1550,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountPaymentControlsRestrictedPaymentMethodsItem": ".account_payment_controls_restricted_payment_methods_item",
     "AccountPaymentControlsUndatedPendingReason": ".account_payment_controls_undated_pending_reason",
     "AccountPreferences": ".account_preferences",
+    "AccountPreferencesSubscriptionFailureBehavior": ".account_preferences_subscription_failure_behavior",
     "AccountRecommendedAction": ".account_recommended_action",
     "AccountRecommendedActionAction": ".account_recommended_action_action",
     "AccountRecommendedActionStatus": ".account_recommended_action_status",
@@ -1470,6 +1562,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountReserveType": ".account_reserve_type",
     "AccountReserveTypeType": ".account_reserve_type_type",
     "AccountReserveUnlock": ".account_reserve_unlock",
+    "AccountReserveUnlockType": ".account_reserve_unlock_type",
+    "AccountReserveUnlockTypeType": ".account_reserve_unlock_type_type",
     "AccountResolutionCenterAutoRefundControl": ".account_resolution_center_auto_refund_control",
     "AccountSocialLink": ".account_social_link",
     "AccountSocialLinkWebsite": ".account_social_link_website",
@@ -1523,7 +1617,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroupConversionLocation": ".ad_group_conversion_location",
     "AdGroupCustomLocation": ".ad_group_custom_location",
     "AdGroupCustomLocationDistanceUnit": ".ad_group_custom_location_distance_unit",
+    "AdGroupDeliverySchedule": ".ad_group_delivery_schedule",
     "AdGroupDeliveryStatus": ".ad_group_delivery_status",
+    "AdGroupDeliveryWindow": ".ad_group_delivery_window",
     "AdGroupDemographicCategory": ".ad_group_demographic_category",
     "AdGroupDemographicCategoryType": ".ad_group_demographic_category_type",
     "AdGroupDemographics": ".ad_group_demographics",
@@ -1583,6 +1679,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdPostSource": ".ad_post_source",
     "AdResultEvent": ".ad_result_event",
     "AdStatus": ".ad_status",
+    "AdText": ".ad_text",
+    "AdTranslations": ".ad_translations",
     "Affiliate": ".affiliate",
     "AffiliateAppliesToPayments": ".affiliate_applies_to_payments",
     "AffiliateAppliesToProducts": ".affiliate_applies_to_products",
@@ -1715,6 +1813,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CardTransactionListItem": ".card_transaction_list_item",
     "CardTransactionStatus": ".card_transaction_status",
     "CardTransactionTransactionType": ".card_transaction_transaction_type",
+    "CashbackPayout": ".cashback_payout",
+    "CashbackPayoutStatus": ".cashback_payout_status",
     "CashbackRule": ".cashback_rule",
     "ChatChannel": ".chat_channel",
     "ChatChannelExperience": ".chat_channel_experience",
@@ -1862,8 +1962,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DomainDnsRecordType": ".domain_dns_record_type",
     "DomainDnsStatus": ".domain_dns_status",
     "DomainIssue": ".domain_issue",
+    "DomainListItem": ".domain_list_item",
+    "DomainListItemDnsStatus": ".domain_list_item_dns_status",
+    "DomainListItemStatus": ".domain_list_item_status",
+    "DomainPublicRecord": ".domain_public_record",
+    "DomainRegistrant": ".domain_registrant",
+    "DomainRegistrar": ".domain_registrar",
+    "DomainRegistrationQuote": ".domain_registration_quote",
     "DomainStatus": ".domain_status",
     "EconomicIntelligence": ".economic_intelligence",
+    "EconomicIntelligenceInput": ".economic_intelligence_input",
     "EconomicIntelligenceOperation": ".economic_intelligence_operation",
     "EconomicIntelligenceSentiment": ".economic_intelligence_sentiment",
     "EconomicIntelligenceStatus": ".economic_intelligence_status",
@@ -1914,6 +2022,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileMultipartUrl": ".file_multipart_url",
     "FileUploadStatus": ".file_upload_status",
     "FileVisibility": ".file_visibility",
+    "FinancingApplication": ".financing_application",
+    "FinancingApplicationStatus": ".financing_application_status",
+    "FinancingRequirement": ".financing_requirement",
+    "FinancingRequirementFileCollectionType": ".financing_requirement_file_collection_type",
+    "FinancingRequirementTextCollectionType": ".financing_requirement_text_collection_type",
+    "FinancingRequirementTextFormat": ".financing_requirement_text_format",
+    "FinancingTerms": ".financing_terms",
     "ForbiddenErrorBody": ".forbidden_error_body",
     "ForbiddenErrorBodyError": ".forbidden_error_body_error",
     "Forum": ".forum",
@@ -2028,6 +2143,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LedgerActivityResourceTwoObject": ".ledger_activity_resource_two_object",
     "LedgerActivitySource": ".ledger_activity_source",
     "LedgerActivitySourceFeeKind": ".ledger_activity_source_fee_kind",
+    "LedgerActivitySourceFeeType": ".ledger_activity_source_fee_type",
     "LedgerActivitySourcePayoutDestination": ".ledger_activity_source_payout_destination",
     "LedgerTypes": ".ledger_types",
     "LessonTypes": ".lesson_types",
@@ -2138,6 +2254,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentFeeType": ".payment_fee_type",
     "PaymentHold": ".payment_hold",
     "PaymentHoldType": ".payment_hold_type",
+    "PaymentInput": ".payment_input",
+    "PaymentInputLineItemsItem": ".payment_input_line_items_item",
+    "PaymentInputPlan": ".payment_input_plan",
+    "PaymentInputPlanCurrency": ".payment_input_plan_currency",
+    "PaymentInputPlanOverrideTaxType": ".payment_input_plan_override_tax_type",
+    "PaymentInputPlanPlanType": ".payment_input_plan_plan_type",
+    "PaymentInputPlanProduct": ".payment_input_plan_product",
+    "PaymentInputPlanProductGlobalAffiliateStatus": ".payment_input_plan_product_global_affiliate_status",
+    "PaymentInputPlanProductVisibility": ".payment_input_plan_product_visibility",
+    "PaymentInputPlanVisibility": ".payment_input_plan_visibility",
     "PaymentInstructions": ".payment_instructions",
     "PaymentInstructions_BankTransfer": ".payment_instructions",
     "PaymentInstructions_Qr": ".payment_instructions",
@@ -2332,18 +2458,26 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentNextActionAwaitConfirmation": ".payment_next_action_await_confirmation",
     "PaymentNextActionAwaitConfirmationData": ".payment_next_action_await_confirmation_data",
     "PaymentNextActionAwaitConfirmationRenderItem": ".payment_next_action_await_confirmation_render_item",
+    "PaymentNextActionCollectCardPresent": ".payment_next_action_collect_card_present",
+    "PaymentNextActionCollectCardPresentData": ".payment_next_action_collect_card_present_data",
     "PaymentNextActionDisplayInstructions": ".payment_next_action_display_instructions",
     "PaymentNextActionDisplayInstructionsRenderItem": ".payment_next_action_display_instructions_render_item",
     "PaymentNextActionRedirect": ".payment_next_action_redirect",
     "PaymentNextActionRedirectData": ".payment_next_action_redirect_data",
     "PaymentNextActionRedirectRenderItem": ".payment_next_action_redirect_render_item",
     "PaymentNextAction_AwaitConfirmation": ".payment_next_action",
+    "PaymentNextAction_CollectCardPresent": ".payment_next_action",
     "PaymentNextAction_DisplayInstructions": ".payment_next_action",
     "PaymentNextAction_Redirect": ".payment_next_action",
     "PaymentProcessingDetails": ".payment_processing_details",
     "PaymentProviders": ".payment_providers",
     "PaymentQr": ".payment_qr",
     "PaymentQrInstructions": ".payment_qr_instructions",
+    "PaymentQuote": ".payment_quote",
+    "PaymentQuoteLineItem": ".payment_quote_line_item",
+    "PaymentQuoteLocatedBy": ".payment_quote_located_by",
+    "PaymentQuoteTaxBehavior": ".payment_quote_tax_behavior",
+    "PaymentQuoteTaxStatus": ".payment_quote_tax_status",
     "PaymentRequiredErrorBody": ".payment_required_error_body",
     "PaymentRequiredErrorBodyError": ".payment_required_error_body_error",
     "PaymentRequiredErrorBodyErrorType": ".payment_required_error_body_error_type",
@@ -2403,6 +2537,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PlanTypes": ".plan_types",
     "PlanVisibility": ".plan_visibility",
     "Product": ".product",
+    "ProductAffiliate": ".product_affiliate",
+    "ProductAffiliateStatus": ".product_affiliate_status",
+    "ProductAffiliateUser": ".product_affiliate_user",
     "ProductCustomCta": ".product_custom_cta",
     "ProductGalleryImage": ".product_gallery_image",
     "ProductGlobalAffiliateStatus": ".product_global_affiliate_status",
@@ -2521,6 +2658,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SetupIntentListItemPaymentMethodMailingAddress": ".setup_intent_list_item_payment_method_mailing_address",
     "SetupIntentStatus": ".setup_intent_status",
     "SetupIntentStatuses": ".setup_intent_statuses",
+    "SetupIntentThreeDsLevel": ".setup_intent_three_ds_level",
     "SetupLastSetupError": ".setup_last_setup_error",
     "SetupStatus": ".setup_status",
     "SetupStatusStatus": ".setup_status_status",
@@ -2539,6 +2677,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SocialAccountLeadFormFormType": ".social_account_lead_form_form_type",
     "SocialAccountParent": ".social_account_parent",
     "SocialAccountParentPlatform": ".social_account_parent_platform",
+    "SocialAccountPartnershipStatus": ".social_account_partnership_status",
     "SocialAccountPlatform": ".social_account_platform",
     "SocialAccountPost": ".social_account_post",
     "SocialAccountPostCallToAction": ".social_account_post_call_to_action",
@@ -2565,6 +2704,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TargetingOption_Locations": ".targeting_option",
     "TargetingOption_WorkEmployers": ".targeting_option",
     "TargetingOption_WorkPositions": ".targeting_option",
+    "TaxId": ".tax_id",
+    "TaxIdType": ".tax_id_type",
     "TaxIdentifierTypes": ".tax_identifier_types",
     "TaxTypes": ".tax_types",
     "TeamMember": ".team_member",
@@ -2574,6 +2715,26 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TooManyRequestsErrorBody": ".too_many_requests_error_body",
     "TooManyRequestsErrorBodyError": ".too_many_requests_error_body_error",
     "Topup": ".topup",
+    "Trade": ".trade",
+    "TradeCancellationResult": ".trade_cancellation_result",
+    "TradeCancellationResultStatus": ".trade_cancellation_result_status",
+    "TradeFailureCode": ".trade_failure_code",
+    "TradeHyperliquid": ".trade_hyperliquid",
+    "TradeInstrumentType": ".trade_instrument_type",
+    "TradeLeverage": ".trade_leverage",
+    "TradeLeverageMarginMode": ".trade_leverage_margin_mode",
+    "TradeObject": ".trade_object",
+    "TradeOperationType": ".trade_operation_type",
+    "TradeOrderResult": ".trade_order_result",
+    "TradeOrderResultObject": ".trade_order_result_object",
+    "TradeOrderResultOrderType": ".trade_order_result_order_type",
+    "TradeOrderResultSide": ".trade_order_result_side",
+    "TradeOrderResultStatus": ".trade_order_result_status",
+    "TradeProvider": ".trade_provider",
+    "TradeRequestedOrder": ".trade_requested_order",
+    "TradeRequestedOrderOrderType": ".trade_requested_order_order_type",
+    "TradeRequestedOrderSide": ".trade_requested_order_side",
+    "TradeStatus": ".trade_status",
     "TradingAccount": ".trading_account",
     "TradingAccountObject": ".trading_account_object",
     "TradingAccountProvider": ".trading_account_provider",
@@ -2622,6 +2783,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserSummary": ".user_summary",
     "V1ErrorResponse": ".v1error_response",
     "V1ErrorResponseError": ".v1error_response_error",
+    "Variant": ".variant",
+    "VariantListItem": ".variant_list_item",
+    "VariantListItemPlanType": ".variant_list_item_plan_type",
+    "VariantListItemReleaseMethod": ".variant_list_item_release_method",
+    "VariantListItemThreeDsLevel": ".variant_list_item_three_ds_level",
+    "VariantListItemVisibility": ".variant_list_item_visibility",
+    "VariantPlanType": ".variant_plan_type",
+    "VariantReleaseMethod": ".variant_release_method",
+    "VariantTaxType": ".variant_tax_type",
+    "VariantThreeDsLevel": ".variant_three_ds_level",
+    "VariantVisibility": ".variant_visibility",
     "Verification": ".verification",
     "VerificationErrorCodes": ".verification_error_codes",
     "VerificationListItem": ".verification_list_item",
@@ -2704,6 +2876,9 @@ __all__ = [
     "AccountCompanyFormationStatus",
     "AccountCoveredPayoutFees",
     "AccountDisputeAlertAutoRefundControl",
+    "AccountEconomicIntelligenceOffer",
+    "AccountEconomicIntelligenceOfferDurationUnit",
+    "AccountEconomicIntelligenceOfferKey",
     "AccountFee",
     "AccountFeeCategory",
     "AccountFeeMarkup",
@@ -2717,6 +2892,8 @@ __all__ = [
     "AccountFeeSource",
     "AccountFeeUnadjustableReason",
     "AccountFees",
+    "AccountFinancing",
+    "AccountFinancingStatus",
     "AccountHomePreferencesItem",
     "AccountLink",
     "AccountLinkUseCases",
@@ -2732,6 +2909,7 @@ __all__ = [
     "AccountPaymentControlsRestrictedPaymentMethodsItem",
     "AccountPaymentControlsUndatedPendingReason",
     "AccountPreferences",
+    "AccountPreferencesSubscriptionFailureBehavior",
     "AccountRecommendedAction",
     "AccountRecommendedActionAction",
     "AccountRecommendedActionStatus",
@@ -2743,6 +2921,8 @@ __all__ = [
     "AccountReserveType",
     "AccountReserveTypeType",
     "AccountReserveUnlock",
+    "AccountReserveUnlockType",
+    "AccountReserveUnlockTypeType",
     "AccountResolutionCenterAutoRefundControl",
     "AccountSocialLink",
     "AccountSocialLinkWebsite",
@@ -2796,7 +2976,9 @@ __all__ = [
     "AdGroupConversionLocation",
     "AdGroupCustomLocation",
     "AdGroupCustomLocationDistanceUnit",
+    "AdGroupDeliverySchedule",
     "AdGroupDeliveryStatus",
+    "AdGroupDeliveryWindow",
     "AdGroupDemographicCategory",
     "AdGroupDemographicCategoryType",
     "AdGroupDemographics",
@@ -2856,6 +3038,8 @@ __all__ = [
     "AdPostSource",
     "AdResultEvent",
     "AdStatus",
+    "AdText",
+    "AdTranslations",
     "Affiliate",
     "AffiliateAppliesToPayments",
     "AffiliateAppliesToProducts",
@@ -2988,6 +3172,8 @@ __all__ = [
     "CardTransactionListItem",
     "CardTransactionStatus",
     "CardTransactionTransactionType",
+    "CashbackPayout",
+    "CashbackPayoutStatus",
     "CashbackRule",
     "ChatChannel",
     "ChatChannelExperience",
@@ -3135,8 +3321,16 @@ __all__ = [
     "DomainDnsRecordType",
     "DomainDnsStatus",
     "DomainIssue",
+    "DomainListItem",
+    "DomainListItemDnsStatus",
+    "DomainListItemStatus",
+    "DomainPublicRecord",
+    "DomainRegistrant",
+    "DomainRegistrar",
+    "DomainRegistrationQuote",
     "DomainStatus",
     "EconomicIntelligence",
+    "EconomicIntelligenceInput",
     "EconomicIntelligenceOperation",
     "EconomicIntelligenceSentiment",
     "EconomicIntelligenceStatus",
@@ -3187,6 +3381,13 @@ __all__ = [
     "FileMultipartUrl",
     "FileUploadStatus",
     "FileVisibility",
+    "FinancingApplication",
+    "FinancingApplicationStatus",
+    "FinancingRequirement",
+    "FinancingRequirementFileCollectionType",
+    "FinancingRequirementTextCollectionType",
+    "FinancingRequirementTextFormat",
+    "FinancingTerms",
     "ForbiddenErrorBody",
     "ForbiddenErrorBodyError",
     "Forum",
@@ -3301,6 +3502,7 @@ __all__ = [
     "LedgerActivityResourceTwoObject",
     "LedgerActivitySource",
     "LedgerActivitySourceFeeKind",
+    "LedgerActivitySourceFeeType",
     "LedgerActivitySourcePayoutDestination",
     "LedgerTypes",
     "LessonTypes",
@@ -3411,6 +3613,16 @@ __all__ = [
     "PaymentFeeType",
     "PaymentHold",
     "PaymentHoldType",
+    "PaymentInput",
+    "PaymentInputLineItemsItem",
+    "PaymentInputPlan",
+    "PaymentInputPlanCurrency",
+    "PaymentInputPlanOverrideTaxType",
+    "PaymentInputPlanPlanType",
+    "PaymentInputPlanProduct",
+    "PaymentInputPlanProductGlobalAffiliateStatus",
+    "PaymentInputPlanProductVisibility",
+    "PaymentInputPlanVisibility",
     "PaymentInstructions",
     "PaymentInstructions_BankTransfer",
     "PaymentInstructions_Qr",
@@ -3605,18 +3817,26 @@ __all__ = [
     "PaymentNextActionAwaitConfirmation",
     "PaymentNextActionAwaitConfirmationData",
     "PaymentNextActionAwaitConfirmationRenderItem",
+    "PaymentNextActionCollectCardPresent",
+    "PaymentNextActionCollectCardPresentData",
     "PaymentNextActionDisplayInstructions",
     "PaymentNextActionDisplayInstructionsRenderItem",
     "PaymentNextActionRedirect",
     "PaymentNextActionRedirectData",
     "PaymentNextActionRedirectRenderItem",
     "PaymentNextAction_AwaitConfirmation",
+    "PaymentNextAction_CollectCardPresent",
     "PaymentNextAction_DisplayInstructions",
     "PaymentNextAction_Redirect",
     "PaymentProcessingDetails",
     "PaymentProviders",
     "PaymentQr",
     "PaymentQrInstructions",
+    "PaymentQuote",
+    "PaymentQuoteLineItem",
+    "PaymentQuoteLocatedBy",
+    "PaymentQuoteTaxBehavior",
+    "PaymentQuoteTaxStatus",
     "PaymentRequiredErrorBody",
     "PaymentRequiredErrorBodyError",
     "PaymentRequiredErrorBodyErrorType",
@@ -3676,6 +3896,9 @@ __all__ = [
     "PlanTypes",
     "PlanVisibility",
     "Product",
+    "ProductAffiliate",
+    "ProductAffiliateStatus",
+    "ProductAffiliateUser",
     "ProductCustomCta",
     "ProductGalleryImage",
     "ProductGlobalAffiliateStatus",
@@ -3794,6 +4017,7 @@ __all__ = [
     "SetupIntentListItemPaymentMethodMailingAddress",
     "SetupIntentStatus",
     "SetupIntentStatuses",
+    "SetupIntentThreeDsLevel",
     "SetupLastSetupError",
     "SetupStatus",
     "SetupStatusStatus",
@@ -3812,6 +4036,7 @@ __all__ = [
     "SocialAccountLeadFormFormType",
     "SocialAccountParent",
     "SocialAccountParentPlatform",
+    "SocialAccountPartnershipStatus",
     "SocialAccountPlatform",
     "SocialAccountPost",
     "SocialAccountPostCallToAction",
@@ -3838,6 +4063,8 @@ __all__ = [
     "TargetingOption_Locations",
     "TargetingOption_WorkEmployers",
     "TargetingOption_WorkPositions",
+    "TaxId",
+    "TaxIdType",
     "TaxIdentifierTypes",
     "TaxTypes",
     "TeamMember",
@@ -3847,6 +4074,26 @@ __all__ = [
     "TooManyRequestsErrorBody",
     "TooManyRequestsErrorBodyError",
     "Topup",
+    "Trade",
+    "TradeCancellationResult",
+    "TradeCancellationResultStatus",
+    "TradeFailureCode",
+    "TradeHyperliquid",
+    "TradeInstrumentType",
+    "TradeLeverage",
+    "TradeLeverageMarginMode",
+    "TradeObject",
+    "TradeOperationType",
+    "TradeOrderResult",
+    "TradeOrderResultObject",
+    "TradeOrderResultOrderType",
+    "TradeOrderResultSide",
+    "TradeOrderResultStatus",
+    "TradeProvider",
+    "TradeRequestedOrder",
+    "TradeRequestedOrderOrderType",
+    "TradeRequestedOrderSide",
+    "TradeStatus",
     "TradingAccount",
     "TradingAccountObject",
     "TradingAccountProvider",
@@ -3895,6 +4142,17 @@ __all__ = [
     "UserSummary",
     "V1ErrorResponse",
     "V1ErrorResponseError",
+    "Variant",
+    "VariantListItem",
+    "VariantListItemPlanType",
+    "VariantListItemReleaseMethod",
+    "VariantListItemThreeDsLevel",
+    "VariantListItemVisibility",
+    "VariantPlanType",
+    "VariantReleaseMethod",
+    "VariantTaxType",
+    "VariantThreeDsLevel",
+    "VariantVisibility",
     "Verification",
     "VerificationErrorCodes",
     "VerificationListItem",

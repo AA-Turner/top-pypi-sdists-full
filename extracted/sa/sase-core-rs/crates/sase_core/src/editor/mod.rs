@@ -13,19 +13,18 @@ mod frontmatter;
 pub mod fuzzy;
 pub mod hover;
 pub mod jinja;
+mod macro_args;
 pub mod model_alias_shortcut;
 pub mod placeholder;
 pub mod token;
 pub mod wire;
-mod xprompt_args;
 
 pub use alternation::{
     scan_alternations, AlternationFormWire, AlternationScanWire,
 };
 pub use argument_spans::{
-    extract_xprompt_argument_spans,
-    extract_xprompt_argument_spans_with_catalog,
-    extract_xprompt_call_name_spans,
+    extract_macro_argument_spans, extract_macro_argument_spans_with_catalog,
+    extract_macro_call_name_spans,
 };
 pub use argument_syntax_edit::{
     plan_argument_colon_to_parentheses_edit,
@@ -46,13 +45,12 @@ pub use completion::{
     build_artifact_ref_kind_completion_candidates,
     build_artifact_ref_payload_completion_candidates,
     build_artifact_ref_payload_inventory, build_directive_clause_candidates,
-    build_identity_target_candidates, build_snippet_completion_candidates,
+    build_identity_target_candidates, build_macro_arg_name_candidates,
+    build_macro_completion_candidates, build_snippet_completion_candidates,
     build_vcs_project_completion_candidates_with_targets,
     build_vcs_ref_completion_candidates, build_vcs_repo_completion_candidates,
     build_wait_completion_candidates,
-    build_wait_completion_candidates_for_form,
-    build_xprompt_arg_name_candidates, build_xprompt_completion_candidates,
-    classify_completion_context,
+    build_wait_completion_candidates_for_form, classify_completion_context,
     classify_completion_context_with_artifacts_and_workflows,
     classify_completion_context_with_workflows, colon_args_skeleton,
     detect_artifact_ref_context_at_position,
@@ -90,6 +88,9 @@ pub use frontmatter::{
 };
 pub use fuzzy::{compare_fuzzy, fuzzy_match, FuzzyMatch};
 pub use hover::{hover_at_position, hover_at_position_with_flags};
+pub(crate) use macro_args::{
+    find_matching_bracket_for_args, parse_macro_reference_body,
+};
 pub use model_alias_shortcut::{
     detect_model_alias_shortcut_context,
     filter_explicit_model_shortcut_entries,
@@ -109,10 +110,10 @@ pub use placeholder::{
     PlaceholderSpan, RawPlaceholderField, PLACEHOLDER_MAX_INNER_CHARS,
 };
 pub use token::{
-    extract_token_at_position, is_path_like_token, is_slash_skill_like_token,
-    is_snippet_trigger_token, is_vcs_project_trigger_token,
-    is_xprompt_like_token, slash_skill_reference_name,
-    vcs_project_trigger_token, xprompt_reference_name, DocumentSnapshot,
+    extract_token_at_position, is_macro_like_token, is_path_like_token,
+    is_slash_skill_like_token, is_snippet_trigger_token,
+    is_vcs_project_trigger_token, macro_reference_name,
+    slash_skill_reference_name, vcs_project_trigger_token, DocumentSnapshot,
 };
 pub use wire::{
     directive_body_kind, directive_examples, directive_feature_flag,
@@ -130,15 +131,13 @@ pub use wire::{
     DirectiveSuggestedValueWire, DirectiveSyntaxForm, DirectiveValueRole,
     EditorDiagnostic, EditorPosition, EditorRange, EditorTextEdit,
     FinalizerCatalogRequest, FinalizerCatalogResponse, FrontmatterFieldKind,
-    FrontmatterFieldSchema, FrontmatterInputType, HoverPayload, TokenInfo,
-    VcsNamespaceEntry, VcsProjectCatalogWire, VcsProjectEntry, VcsRefTrigger,
-    VcsRepoCatalogRequest, VcsRepoCatalogResponse, VcsRepoEntry,
-    VcsRepoTrigger, XpromptArgumentSource, XpromptArgumentSpan,
-    XpromptArgumentSpanRole, XpromptArgumentSpanValidity, XpromptAssistEntry,
-    XpromptCallNameSpan, XpromptInputHint, AGENT_CATALOG_SCHEMA_VERSION,
-    EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
-    VCS_PROJECT_CATALOG_SCHEMA_VERSION, VCS_REPO_CATALOG_SCHEMA_VERSION,
-};
-pub(crate) use xprompt_args::{
-    find_matching_bracket_for_args, parse_xprompt_reference_body,
+    FrontmatterFieldSchema, FrontmatterInputType, HoverPayload,
+    MacroArgumentSource, MacroArgumentSpan, MacroArgumentSpanRole,
+    MacroArgumentSpanValidity, MacroAssistEntry, MacroCallNameSpan,
+    MacroInputHint, TokenInfo, VcsNamespaceEntry, VcsProjectCatalogWire,
+    VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
+    VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
+    AGENT_CATALOG_SCHEMA_VERSION, EDITOR_WIRE_SCHEMA_VERSION,
+    FINALIZER_CATALOG_SCHEMA_VERSION, VCS_PROJECT_CATALOG_SCHEMA_VERSION,
+    VCS_REPO_CATALOG_SCHEMA_VERSION,
 };

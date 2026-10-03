@@ -6,6 +6,8 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .create_setup_intents_request_purpose import CreateSetupIntentsRequestPurpose
+    from .create_setup_intents_request_three_ds_level import CreateSetupIntentsRequestThreeDsLevel
     from .list_setup_intents_request_direction import ListSetupIntentsRequestDirection
     from .list_setup_intents_request_order import ListSetupIntentsRequestOrder
     from .list_setup_intents_request_status import ListSetupIntentsRequestStatus
@@ -21,6 +23,8 @@ if typing.TYPE_CHECKING:
     from .post_setup_intent_succeeded_payload_api_version import PostSetupIntentSucceededPayloadApiVersion
     from .post_setup_intent_succeeded_payload_type import PostSetupIntentSucceededPayloadType
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateSetupIntentsRequestPurpose": ".create_setup_intents_request_purpose",
+    "CreateSetupIntentsRequestThreeDsLevel": ".create_setup_intents_request_three_ds_level",
     "ListSetupIntentsRequestDirection": ".list_setup_intents_request_direction",
     "ListSetupIntentsRequestOrder": ".list_setup_intents_request_order",
     "ListSetupIntentsRequestStatus": ".list_setup_intents_request_status",
@@ -60,6 +64,8 @@ def __dir__():
 
 
 __all__ = [
+    "CreateSetupIntentsRequestPurpose",
+    "CreateSetupIntentsRequestThreeDsLevel",
     "ListSetupIntentsRequestDirection",
     "ListSetupIntentsRequestOrder",
     "ListSetupIntentsRequestStatus",

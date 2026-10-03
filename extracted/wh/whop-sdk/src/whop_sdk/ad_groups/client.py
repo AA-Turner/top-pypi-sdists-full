@@ -17,6 +17,7 @@ from .raw_client import AsyncRawAdGroupsClient, RawAdGroupsClient
 from .types.create_ad_groups_request_bid_type import CreateAdGroupsRequestBidType
 from .types.create_ad_groups_request_budget_type import CreateAdGroupsRequestBudgetType
 from .types.create_ad_groups_request_conversion_location import CreateAdGroupsRequestConversionLocation
+from .types.create_ad_groups_request_delivery_schedule import CreateAdGroupsRequestDeliverySchedule
 from .types.create_ad_groups_request_frequency_cap import CreateAdGroupsRequestFrequencyCap
 from .types.create_ad_groups_request_message_apps_item import CreateAdGroupsRequestMessageAppsItem
 from .types.create_ad_groups_request_optimization_goal import CreateAdGroupsRequestOptimizationGoal
@@ -43,6 +44,7 @@ from .types.search_targeting_options_ad_groups_response import SearchTargetingOp
 from .types.update_ad_groups_request_bid_type import UpdateAdGroupsRequestBidType
 from .types.update_ad_groups_request_budget_type import UpdateAdGroupsRequestBudgetType
 from .types.update_ad_groups_request_conversion_location import UpdateAdGroupsRequestConversionLocation
+from .types.update_ad_groups_request_delivery_schedule import UpdateAdGroupsRequestDeliverySchedule
 from .types.update_ad_groups_request_frequency_cap import UpdateAdGroupsRequestFrequencyCap
 from .types.update_ad_groups_request_message_apps_item import UpdateAdGroupsRequestMessageAppsItem
 from .types.update_ad_groups_request_optimization_goal import UpdateAdGroupsRequestOptimizationGoal
@@ -159,7 +161,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -204,6 +206,7 @@ class AdGroupsClient:
         budget_type: typing.Optional[CreateAdGroupsRequestBudgetType] = OMIT,
         conversion_event: typing.Optional[ConversionEvent] = OMIT,
         conversion_location: typing.Optional[CreateAdGroupsRequestConversionLocation] = OMIT,
+        delivery_schedule: typing.Optional[CreateAdGroupsRequestDeliverySchedule] = OMIT,
         demographics: typing.Optional[AdGroupDemographicsBody] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         detailed_targeting: typing.Optional[AdGroupDetailedTargetingBody] = OMIT,
@@ -250,6 +253,9 @@ class AdGroupsClient:
         conversion_location : typing.Optional[CreateAdGroupsRequestConversionLocation]
             Where the outcome being optimized for occurs, such as a website visit, social-profile visit, messaging conversation, ad interaction, or lead-form submission. The lead form itself is set on the ad.
 
+        delivery_schedule : typing.Optional[CreateAdGroupsRequestDeliverySchedule]
+            Hours the ad group delivers in each week, keyed by day. Each window runs from `start` to `end` on the hour, with `24:00` for midnight, and a day's windows can't overlap or touch. A day that's empty or left out doesn't deliver. Replaces the whole schedule; `null` delivers at every hour. Some platforms need a lifetime `budget_type` for a schedule, on the ad group or on its campaign when the campaign holds the budget.
+
         demographics : typing.Optional[AdGroupDemographicsBody]
             Age, gender, and automatic-audience targeting.
 
@@ -269,7 +275,7 @@ class AdGroupsClient:
             When the ad group stops delivering, as an ISO 8601 timestamp. Omit to run until paused.
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
-            Cap on how often one person sees ads from this ad group. Only available on campaigns with the `awareness` objective.
+            Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -320,7 +326,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -337,6 +343,7 @@ class AdGroupsClient:
             budget_type=budget_type,
             conversion_event=conversion_event,
             conversion_location=conversion_location,
+            delivery_schedule=delivery_schedule,
             demographics=demographics,
             desired_cost_per_result=desired_cost_per_result,
             detailed_targeting=detailed_targeting,
@@ -412,7 +419,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -503,7 +510,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -567,7 +574,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -607,7 +614,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -629,6 +636,7 @@ class AdGroupsClient:
         budget_type: typing.Optional[UpdateAdGroupsRequestBudgetType] = OMIT,
         conversion_event: typing.Optional[ConversionEvent] = OMIT,
         conversion_location: typing.Optional[UpdateAdGroupsRequestConversionLocation] = OMIT,
+        delivery_schedule: typing.Optional[UpdateAdGroupsRequestDeliverySchedule] = OMIT,
         demographics: typing.Optional[AdGroupDemographicsBody] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         detailed_targeting: typing.Optional[AdGroupDetailedTargetingBody] = OMIT,
@@ -674,6 +682,9 @@ class AdGroupsClient:
         conversion_location : typing.Optional[UpdateAdGroupsRequestConversionLocation]
             Where the outcome being optimized for occurs, such as a website visit, social-profile visit, messaging conversation, ad interaction, or lead-form submission. The lead form itself is set on the ad.
 
+        delivery_schedule : typing.Optional[UpdateAdGroupsRequestDeliverySchedule]
+            Hours the ad group delivers in each week, keyed by day. Each window runs from `start` to `end` on the hour, with `24:00` for midnight, and a day's windows can't overlap or touch. A day that's empty or left out doesn't deliver. Replaces the whole schedule; `null` delivers at every hour. Some platforms need a lifetime `budget_type` for a schedule, on the ad group or on its campaign when the campaign holds the budget.
+
         demographics : typing.Optional[AdGroupDemographicsBody]
             Age, gender, and automatic-audience targeting.
 
@@ -690,7 +701,7 @@ class AdGroupsClient:
             When the ad group stops delivering, as an ISO 8601 timestamp. Omit to run until paused.
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
-            Cap on how often one person sees ads from this ad group. Only available on campaigns with the `awareness` objective.
+            Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -741,7 +752,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -758,6 +769,7 @@ class AdGroupsClient:
             budget_type=budget_type,
             conversion_event=conversion_event,
             conversion_location=conversion_location,
+            delivery_schedule=delivery_schedule,
             demographics=demographics,
             desired_cost_per_result=desired_cost_per_result,
             detailed_targeting=detailed_targeting,
@@ -816,7 +828,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -855,7 +867,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -888,7 +900,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1008,7 +1020,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1060,6 +1072,7 @@ class AsyncAdGroupsClient:
         budget_type: typing.Optional[CreateAdGroupsRequestBudgetType] = OMIT,
         conversion_event: typing.Optional[ConversionEvent] = OMIT,
         conversion_location: typing.Optional[CreateAdGroupsRequestConversionLocation] = OMIT,
+        delivery_schedule: typing.Optional[CreateAdGroupsRequestDeliverySchedule] = OMIT,
         demographics: typing.Optional[AdGroupDemographicsBody] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         detailed_targeting: typing.Optional[AdGroupDetailedTargetingBody] = OMIT,
@@ -1106,6 +1119,9 @@ class AsyncAdGroupsClient:
         conversion_location : typing.Optional[CreateAdGroupsRequestConversionLocation]
             Where the outcome being optimized for occurs, such as a website visit, social-profile visit, messaging conversation, ad interaction, or lead-form submission. The lead form itself is set on the ad.
 
+        delivery_schedule : typing.Optional[CreateAdGroupsRequestDeliverySchedule]
+            Hours the ad group delivers in each week, keyed by day. Each window runs from `start` to `end` on the hour, with `24:00` for midnight, and a day's windows can't overlap or touch. A day that's empty or left out doesn't deliver. Replaces the whole schedule; `null` delivers at every hour. Some platforms need a lifetime `budget_type` for a schedule, on the ad group or on its campaign when the campaign holds the budget.
+
         demographics : typing.Optional[AdGroupDemographicsBody]
             Age, gender, and automatic-audience targeting.
 
@@ -1125,7 +1141,7 @@ class AsyncAdGroupsClient:
             When the ad group stops delivering, as an ISO 8601 timestamp. Omit to run until paused.
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
-            Cap on how often one person sees ads from this ad group. Only available on campaigns with the `awareness` objective.
+            Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1178,7 +1194,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1201,6 +1217,7 @@ class AsyncAdGroupsClient:
             budget_type=budget_type,
             conversion_event=conversion_event,
             conversion_location=conversion_location,
+            delivery_schedule=delivery_schedule,
             demographics=demographics,
             desired_cost_per_result=desired_cost_per_result,
             detailed_targeting=detailed_targeting,
@@ -1278,7 +1295,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1377,7 +1394,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1449,7 +1466,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1499,7 +1516,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1527,6 +1544,7 @@ class AsyncAdGroupsClient:
         budget_type: typing.Optional[UpdateAdGroupsRequestBudgetType] = OMIT,
         conversion_event: typing.Optional[ConversionEvent] = OMIT,
         conversion_location: typing.Optional[UpdateAdGroupsRequestConversionLocation] = OMIT,
+        delivery_schedule: typing.Optional[UpdateAdGroupsRequestDeliverySchedule] = OMIT,
         demographics: typing.Optional[AdGroupDemographicsBody] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         detailed_targeting: typing.Optional[AdGroupDetailedTargetingBody] = OMIT,
@@ -1572,6 +1590,9 @@ class AsyncAdGroupsClient:
         conversion_location : typing.Optional[UpdateAdGroupsRequestConversionLocation]
             Where the outcome being optimized for occurs, such as a website visit, social-profile visit, messaging conversation, ad interaction, or lead-form submission. The lead form itself is set on the ad.
 
+        delivery_schedule : typing.Optional[UpdateAdGroupsRequestDeliverySchedule]
+            Hours the ad group delivers in each week, keyed by day. Each window runs from `start` to `end` on the hour, with `24:00` for midnight, and a day's windows can't overlap or touch. A day that's empty or left out doesn't deliver. Replaces the whole schedule; `null` delivers at every hour. Some platforms need a lifetime `budget_type` for a schedule, on the ad group or on its campaign when the campaign holds the budget.
+
         demographics : typing.Optional[AdGroupDemographicsBody]
             Age, gender, and automatic-audience targeting.
 
@@ -1588,7 +1609,7 @@ class AsyncAdGroupsClient:
             When the ad group stops delivering, as an ISO 8601 timestamp. Omit to run until paused.
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
-            Cap on how often one person sees ads from this ad group. Only available on campaigns with the `awareness` objective.
+            Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1641,7 +1662,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1664,6 +1685,7 @@ class AsyncAdGroupsClient:
             budget_type=budget_type,
             conversion_event=conversion_event,
             conversion_location=conversion_location,
+            delivery_schedule=delivery_schedule,
             demographics=demographics,
             desired_cost_per_result=desired_cost_per_result,
             detailed_targeting=detailed_targeting,
@@ -1724,7 +1746,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1771,7 +1793,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1812,7 +1834,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

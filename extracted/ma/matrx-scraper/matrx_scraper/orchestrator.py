@@ -216,7 +216,7 @@ class ScrapeResult:
     #: WHERE this page was fetched FROM — `datacenter` (our proxy pool),
     #: `direct` (this server's own address) or `residential` (the person's own
     #: computer, after a site blocked our servers). Never silent about it:
-    #: contract `common-docs/systems/platform/residential-egress/FEATURE.md`.
+    #: contract `common-docs/systems/architecture/residential-egress/FEATURE.md`.
     egress: str = EGRESS_DATACENTER
     #: The computer the page came through, in the person's own words
     #: ("Arman's MacBook Pro"). Set only when `egress == "residential"`.
@@ -661,6 +661,42 @@ def _usable(result: ScrapeResult) -> bool:
     return bool(result.success) and result.content_warning in (None, "")
 
 
+async def _address_refused_result(url: str) -> ScrapeResult | None:
+    from matrx_utils.outbound_guard import (
+        OutboundHostUnresolved,
+        OutboundUrlRefused,
+        assert_public_url_async,
+    )
+
+    try:
+        # allow_http=True: crawling http sites is this package's job.
+        await assert_public_url_async(url, allow_http=True)
+    except OutboundHostUnresolved:
+        return None  # a proxy may resolve it; every direct path re-checks
+    except OutboundUrlRefused as exc:
+        logger.warning("scrape REFUSED %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
+        refused = ScrapeResult(
+            url=url,
+            response_url=url,
+            success=False,
+            content_type="unknown",
+            failure_reason=FailureReason.ADDRESS_REFUSED.value,
+        )
+        refused.rung_trail = [
+            ladder_trail_entry(
+                rung="http", ok=False, reason=FailureReason.ADDRESS_REFUSED.value, note=str(exc)
+            )
+        ]
+        refused.next_rung_reason = FailureReason.ADDRESS_REFUSED.value
+        refused.stopped_because = STOP_NOT_ESCALATABLE
+        refused.next_rung_note = (
+            "We did not try this page at all: its address is inside a private "
+            "network, and no other route changes that."
+        )
+        return refused
+    return None
+
+
 def _ladder_reason(result: ScrapeResult) -> str | None:
     """The one class name the ladder reasons about, from what we observed."""
     if classify_login_wall(
@@ -674,7 +710,7 @@ def _ladder_reason(result: ScrapeResult) -> str | None:
 
 # ── Residential egress: the person's own computer as the exit ───────────────
 #
-# THE RULE (contract: `common-docs/systems/platform/residential-egress/FEATURE.md`):
+# THE RULE (contract: `common-docs/systems/architecture/residential-egress/FEATURE.md`):
 # never by default, only that user's own computer, only after a site blocked our
 # servers, only for the retry of that same page — and the result always SAYS so,
 # including when the retry could not happen and why.
@@ -1097,7 +1133,7 @@ async def scrape(
     block, this page gets exactly one retry through a computer THAT PERSON
     registered, and never through anyone else's. A run with no acting user (a
     schedule, a service token) gets no retry and the trail says so. Contract:
-    `common-docs/systems/platform/residential-egress/FEATURE.md`.
+    `common-docs/systems/architecture/residential-egress/FEATURE.md`.
     """
     ladder_policy = ladder_policy or LadderPolicy()
     user_agent = normalize_user_agent(user_agent)
@@ -1127,6 +1163,14 @@ async def scrape(
                 "do-not-scrape list, and no browser changes that."
             )
             return blocked
+
+    # THE ADDRESS GATE — before the cache (which could hold a page fetched
+    # from an address we would now refuse) and before every rung. WE refused
+    # this, not the site: no proxy, direct fallback, browser or home computer
+    # changes it. fetch() and every engine re-check on their own as well.
+    refused = await _address_refused_result(url)
+    if refused is not None:
+        return refused
 
     # A UA override changes WHAT the server returns, but the scrape cache is
     # keyed on the URL alone. Serving a Chrome-fetched body for a Googlebot

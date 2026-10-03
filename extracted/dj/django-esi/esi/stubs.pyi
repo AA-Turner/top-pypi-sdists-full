@@ -3,15 +3,14 @@
 # Auto Generated do not edit
 from datetime import date, datetime
 from enum import Enum
-from httpx import Response
 from typing import Annotated, Any, Literal, overload
 from uuid import UUID
 
+from httpx2 import Response
 from pydantic import BaseModel, Field
 
 from esi.models import Token
 from esi.openapi_clients import EsiOperation
-
 
 class GetCharactersAccessListsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""

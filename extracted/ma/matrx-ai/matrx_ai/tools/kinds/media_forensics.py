@@ -62,6 +62,7 @@ class ReverseImageMatchItem(BaseModel):
 
 @kind(
     "reverse_image_search_results",
+    disposition="record",
     label="Reverse Image Search Results",
     family="media_forensics",
     example={
@@ -170,6 +171,7 @@ class ImageMetadataContainers(BaseModel):
 
 @kind(
     "image_metadata_report",
+    disposition="record",
     label="Image Metadata Report",
     family="media_forensics",
     example={

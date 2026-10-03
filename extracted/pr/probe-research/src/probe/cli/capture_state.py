@@ -45,8 +45,15 @@ class CaptureState:
 
 
 def watcher_prefix(source: str) -> str:
-    """Mirrors `tap.config.watcher_prefix`. Pinned by the parity test in Task 12."""
-    return "prbe-codex-tap" if source == "codex" else "probe-research-tap"
+    """The `/tmp` prefix this agent's watcher files share: the registry row's
+    `capture.watcher_prefix`, which `tap.config.watcher_prefix` reads from the
+    tap's own copy of the registry."""
+    from probe.harness import get_registry
+
+    capture = get_registry().get(source).capture
+    if capture is None:
+        raise ValueError(f"{source!r} has no capture tap")
+    return capture.watcher_prefix
 
 
 def pid_file(session_id: str, source: str) -> Path:
@@ -68,7 +75,7 @@ def _looks_like_the_uploader(pid: int) -> bool:
       * `tap/start.py::daemon_state` -- the SPAWNER. A live pid whose `/bin/ps
         -ww -p <pid> -o command=` output does not contain the substring `tap` is
         classified `stale`, not `running`, and the spawner then starts one.
-      * `probe-research-pi/src/daemon.ts::isDaemonAlive` -- matches that exact
+      * `probe-research-pi/src/core/daemon.ts::isDaemonAlive` -- matches that exact
         substring form, and says in its own comment why matching matters more
         than being strict.
       * this function.

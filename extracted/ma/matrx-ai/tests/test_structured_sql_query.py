@@ -164,7 +164,7 @@ def test_real_database_failure_remains_operational() -> None:
 async def test_reads_outside_an_application_schema_are_refused(monkeypatch) -> None:
     """Reads no longer need a registered model, so the schema guard covers them.
 
-    Without this, the live-catalog read path would make auth/vault/graveyard
+    Without this, the live-catalog read path would make auth/vault/deprecated
     relations selectable through the `sql` tool.
     """
 
@@ -173,7 +173,7 @@ async def test_reads_outside_an_application_schema_are_refused(monkeypatch) -> N
 
     monkeypatch.setattr(_ext, "get_scoped_query_runner", lambda: runner)
 
-    for table in ("auth.users", "vault.secrets", "graveyard.old_thing"):
+    for table in ("auth.users", "vault.secrets", "deprecated.old_thing"):
         result = await database._sql_query_scoped(
             {"table": table},
             ToolContext(call_id="call-guard"),

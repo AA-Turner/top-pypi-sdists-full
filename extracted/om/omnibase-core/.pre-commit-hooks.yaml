@@ -19,6 +19,18 @@
   require_serial: true
   stages: [pre-commit]
 
+- id: no-untracked-todos
+  name: No untracked TODO/FIXME/HACK comments
+  description: >
+    Require all TODO/FIXME/HACK comments to reference a Linear ticket (OMN-XXXX). Ported from onex_change_control
+    (OMN-20068, S8).
+  language: python
+  entry: python -m omnibase_core.handlers.handler_todo_format
+  types: [python]
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
 - id: check-local-paths
   name: Check for local path references
   description: >
@@ -823,8 +835,54 @@
     which is the primary remedy; this hook prevents reintroduction. Precedent: OMN-14744 (per-file fix
     that did not hold).
   language: system
-  entry: python -m omnibase_core.validators.no_unguarded_git_subprocess tests
+  entry: uv run python -m omnibase_core.validators.no_unguarded_git_subprocess tests
   types: [python]
   files: ^tests/.*\.py$
   pass_filenames: false
+  stages: [pre-commit]
+
+- id: canonical-file-shape
+  name: Canonical-file-shape ratchet (OMN-20304)
+  description: >
+    Operator ruling 2026-10-01 (OMN-20297): no new scripts, plugins or exceptions in any repository. Refuses
+    a new code file outside src/<pkg>/{nodes,handlers,models,protocols,contracts,enums}/, tests/ and docs/
+    (new scripts/, plugins/, tools/, bin/ and skill-directory code included), new imperative lines in
+    a SKILL.md (the omniclaude OMN-12237 thin-shim patterns), and any new baseline, allowlist, waiver,
+    exemption or suppression entry. Existing files live in the shrink-only baseline .onex_ratchets/canonical_file_shape_baseline.txt
+    (create it once with --write-baseline). There is no allowlist and no suppression comment. Checks the
+    whole index against HEAD. CI runs the same hook after `git reset --soft <merge-base>`, so the index
+    holds the pull request's change.
+  language: python
+  entry: python -m omnibase_core.validators.canonical_file_shape
+  pass_filenames: false
+  always_run: true
+- id: check-shape-gate-independence
+  name: Shape-gate detectors never depend on the OCC preflight (OMN-20298)
+  description: >
+    Refuse a workflow whose shape-gate detector job is skipped behind the change-control preflight (needs
+    on a preflight job without always()) or branches on the preflight result in a step. A detector must
+    run on every PR. No baseline, no allowlist, no suppression comment.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_shape_gate_independence
+  files: ^\.github/workflows/.*\.ya?ml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-direct-model-call
+  name: Direct-model-call gate (OMN-20295)
+  description: >
+    BLOCKING. A model call must sit inside a sanctioned delegation node package (nodes/node_direct_model_call_check_compute/policy.yaml
+    in omnibase_core, the only place a package is sanctioned). Reads the AST and the repository's import
+    and call graph, not literals: an HTTP request whose URL, body or base_url resolves to a model endpoint
+    or provider host, the exec of a model CLI (crush, codex, claude -p, llama-cli and others) from Python
+    or shell, a model SDK import, and a caller of any of those in another file. Pre-existing sites live
+    in the consumer's shrink-only .onex_ratchets/direct_model_call_baseline.yaml (crush sites name OMN-20290);
+    a new site, a new entry, a later expiry or a stale entry fails. No suppression marker. Server-side
+    backstop: OMN-20299.
+  language: python
+  entry: python -m omnibase_core.nodes.node_direct_model_call_check_effect.runtime_direct_model_call
+  pass_filenames: false
+  always_run: true
+  require_serial: true
   stages: [pre-commit]

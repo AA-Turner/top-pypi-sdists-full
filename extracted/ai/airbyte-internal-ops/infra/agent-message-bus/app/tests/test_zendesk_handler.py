@@ -42,6 +42,23 @@ def _trigger_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def _event_payload(**detail_overrides: Any) -> dict[str, Any]:
+    detail: dict[str, Any] = {
+        "id": "19499",
+        "subject": "Cannot connect source",
+        "description": "Source fails on check",
+        "status": "new",
+    }
+    detail.update(detail_overrides)
+    return {
+        "type": "zen:event-type:ticket.created",
+        "id": "01JABCDEF",
+        "subject": "zen:ticket:19499",
+        "detail": detail,
+        "event": {},
+    }
+
+
 def _run_webhook(payload: dict[str, Any]) -> tuple[Any, MagicMock]:
     with (
         patch(
@@ -61,20 +78,7 @@ def _run_webhook(payload: dict[str, Any]) -> tuple[Any, MagicMock]:
 
 
 def test_event_subscription_payload_extracts_ticket() -> None:
-    payload = {
-        "type": "zen:event-type:ticket.created",
-        "id": "01JABCDEF",
-        "subject": "zen:ticket:19499",
-        "detail": {
-            "id": "19499",
-            "subject": "Cannot connect source",
-            "description": "Source fails on check",
-            "status": "new",
-        },
-        "event": {},
-    }
-
-    ticket = extract_ticket_data(payload)
+    ticket = extract_ticket_data(_event_payload())
 
     assert ticket is not None
     assert ticket.ticket_id == "19499"
@@ -82,6 +86,55 @@ def test_event_subscription_payload_extracts_ticket() -> None:
     assert ticket.status == "new"
     assert ticket.action == ZendeskAction.triage
     assert ticket.comments == ["Source fails on check"]
+
+
+def test_event_subscription_outreach_tags_skip_triage() -> None:
+    result, post = _run_webhook(_event_payload(tags=["outreach", "outreach-snowflake-userpass"]))
+
+    assert result.status == "skipped"
+    assert result.reason == "triage_skip_tag"
+    post.assert_not_called()
+
+
+def test_event_subscription_triaged_tag_skips_triage() -> None:
+    result, post = _run_webhook(_event_payload(tags=["triaged"]))
+
+    assert result.status == "skipped"
+    assert result.reason == "triage_skip_tag"
+    post.assert_not_called()
+
+
+def test_event_subscription_other_tags_still_triage() -> None:
+    result, post = _run_webhook(_event_payload(tags=["cloud_hosted"]))
+
+    assert result.status == "ok"
+    post.assert_called_once()
+    assert post.call_args.kwargs["json"]["playbook_id"] == ZENDESK_TRIAGE_PLAYBOOK_ID
+
+
+def test_resolution_with_triage_skip_tags_still_routes_to_resolution() -> None:
+    result, post = _run_webhook(_trigger_payload(action="resolution", tags="triaged outreach"))
+
+    assert result.status == "ok"
+    assert result.action == "resolution"
+    post.assert_called_once()
+    assert post.call_args.kwargs["json"]["playbook_id"] == ZENDESK_RESOLUTION_PLAYBOOK_ID
+
+
+def test_extract_ticket_data_normalizes_string_tags() -> None:
+    ticket = extract_ticket_data(_trigger_payload(tags="  Triaged \n OUTREACH  "))
+
+    assert ticket is not None
+    assert ticket.tags == ["triaged", "outreach"]
+
+
+def test_extract_ticket_data_uses_nested_ticket_tags_when_top_level_missing() -> None:
+    ticket = extract_ticket_data(
+        _trigger_payload(ticket={"id": "19403", "tags": [" Outreach ", " triaged "]})
+    )
+
+    assert ticket is not None
+    assert ticket.tags == ["outreach", "triaged"]
 
 
 def test_trigger_subject_with_zen_ticket_prefix_still_uses_ticket_id() -> None:

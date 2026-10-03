@@ -27,7 +27,7 @@ import tabpfn.regressor as regressor_module
 from tabpfn import TabPFNRegressor
 from tabpfn.architectures import tabpfn_v2_5
 from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
-from tabpfn.base import RegressorModelSpecs, initialize_tabpfn_model
+from tabpfn.base import ModelSpecs, initialize_tabpfn_model
 from tabpfn.constants import ModelVersion
 from tabpfn.inference import InferenceEngineBatchedNoPreprocessing
 from tabpfn.inference_config import InferenceConfig
@@ -45,6 +45,7 @@ from tabpfn.validation import ensure_compatible_predict_input_sklearn
 
 from .utils import (
     get_pytest_devices,
+    get_pytest_devices_with_mps_marked_slow,
     is_cpu_float16_supported,
     mark_mps_configs_as_slow,
     patch_layernorm_no_affine,
@@ -832,6 +833,51 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     )
 
 
+@pytest.mark.parametrize("offset", [1e8, 1e10, -1e10])
+def test_predictions_shift_with_a_target_offset_far_above_its_spread(
+    X_y: tuple[np.ndarray, np.ndarray], offset: float
+) -> None:
+    X, y = X_y
+    reference = TabPFNRegressor(n_estimators=2, random_state=42).fit(X, y)
+    shifted = TabPFNRegressor(n_estimators=2, random_state=42).fit(X, y + offset)
+
+    expected = reference.predict(X, output_type="main")
+    actual = shifted.predict(X, output_type="main")
+    atol = 1e-3 * np.std(y)
+    for key in ("mean", "median", "mode"):
+        np.testing.assert_allclose(actual[key] - offset, expected[key], atol=atol)
+    for got, want in zip(actual["quantiles"], expected["quantiles"], strict=True):
+        np.testing.assert_allclose(got - offset, want, atol=atol)
+
+
+@pytest.mark.parametrize("offset", [0.0, 1e10])
+def test_full_output_criterion_mean_matches_the_predicted_mean(
+    X_y: tuple[np.ndarray, np.ndarray], offset: float
+) -> None:
+    X, y = X_y
+    model = TabPFNRegressor(n_estimators=2, random_state=42, device="cpu")
+    full = model.fit(X, y + offset).predict(X, output_type="full")
+
+    criterion_mean = full["criterion"].mean(full["logits"]).cpu().numpy()
+    np.testing.assert_allclose(criterion_mean, full["mean"], atol=1e-3 * np.std(y))
+
+
+@pytest.mark.parametrize("via_device", get_pytest_devices_with_mps_marked_slow())
+def test_raw_space_bardist_is_float64_after_a_round_trip_through_a_device(
+    X_y: tuple[np.ndarray, np.ndarray], via_device: str
+) -> None:
+    X, y = X_y
+    model = TabPFNRegressor(n_estimators=2, random_state=42, device="cpu")
+    model.fit(X, y + 1e10)
+    model.to(via_device)
+    model.to("cpu")
+
+    assert model.raw_space_bardist_.borders.dtype == torch.float64
+    full = model.predict(X, output_type="full")
+    criterion_mean = full["criterion"].mean(full["logits"]).cpu().numpy()
+    np.testing.assert_allclose(criterion_mean, full["mean"], atol=1e-3 * np.std(y))
+
+
 @pytest.mark.parametrize("constant_value", [0.0, 1.0, -1.0, 1e-5, -1e-5, 1e5, -1e5])
 def test_constant_target(
     X_y: tuple[np.ndarray, np.ndarray], constant_value: float
@@ -895,7 +941,6 @@ def test_initialize_model_variables_regressor_sets_required_attributes() -> None
         initialize_tabpfn_model(
             model_path="auto",
             which="regressor",
-            fit_mode="low_memory",
         )
     )
     assert model is not None, "model should be initialized for regressor"
@@ -920,8 +965,8 @@ def test_initialize_model_variables_regressor_sets_required_attributes() -> None
     assert hasattr(regressor, "znorm_space_bardist_")
     assert regressor.znorm_space_bardist_ is not None
 
-    # 3) Reuse via RegressorModelSpecs
-    spec = RegressorModelSpecs(
+    # 3) Reuse via ModelSpecs
+    spec = ModelSpecs(
         model=regressor.models_[0],
         architecture_config=regressor.configs_[0],
         norm_criterion=regressor.znorm_space_bardist_,
@@ -1727,23 +1772,21 @@ def test__predict_batched__does_not_mutate_estimator() -> None:
     np.testing.assert_array_equal(before, after)
 
 
-def _create_dummy_regressor_model_specs() -> RegressorModelSpecs:
+def _create_dummy_regressor_model_specs() -> ModelSpecs:
     """A tiny in-memory model, so tuning tests need no checkpoint download."""
-    # The regression head is sized by `max_num_classes`, so it has to match
-    # `num_buckets` or the bucket logits do not fit.
+    # Zero classes selects the regression head, sized by num_buckets.
     num_buckets = 100
     minimal_config = tabpfn_v2_5.TabPFNV2p5Config(
         emsize=8,
         features_per_group=1,
-        max_num_classes=num_buckets,
+        max_num_classes=0,
         nhead=2,
         nlayers=2,
         num_buckets=num_buckets,
     )
-    return RegressorModelSpecs(
+    return ModelSpecs(
         model=tabpfn_v2_5.get_architecture(
             config=minimal_config,
-            cache_trainset_representation=False,
         ),
         architecture_config=minimal_config,
         inference_config=InferenceConfig.get_default(
@@ -1778,7 +1821,8 @@ def test__compute_holdout_validation_data__returns_self_consistent_triples() -> 
     )
 
     assert len(folds) == 2
-    for logits, raw_space_bardist, y_holdout in folds:
+    for logits, raw_space_bardist, y_holdout, log_weights in folds:
+        assert log_weights is None
         n_holdout = len(X) // 2
         assert logits.shape == (n_holdout, raw_space_bardist.num_bars)
         assert y_holdout.shape == (n_holdout,)

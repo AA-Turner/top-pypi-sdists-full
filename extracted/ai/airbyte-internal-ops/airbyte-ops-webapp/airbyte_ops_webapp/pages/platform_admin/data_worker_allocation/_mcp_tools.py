@@ -13,7 +13,7 @@ from airbyte_ops_mcp.cloud_admin.data_worker_allocation import (
     list_dataplane_groups,
     remove_data_worker_capacity,
 )
-from airbyte_ops_mcp.cloud_admin.models import DataWorkerAllocationList
+from airbyte_ops_mcp.cloud_admin.models import DataplaneGroup, DataWorkerAllocationList
 from airbyte_ops_mcp.cloud_admin.payment_config import (
     PaymentConfigAPIError,
     get_organization_info,
@@ -41,33 +41,37 @@ logger = logging.getLogger(__name__)
 data_worker_allocation_app = FastMCPApp("Data Worker Allocation")
 
 
+def _list_regions(organization_id: str, bearer: str | None) -> list[DataplaneGroup]:
+    """List the regions the organization can use, or none if the call fails."""
+    try:
+        return list_dataplane_groups(
+            organization_id=organization_id,
+            config_api_root=resolved_config_api_root(),
+            bearer_token=bearer,
+        ).dataplane_groups
+    except DataWorkerAllocationAPIError:
+        logger.warning(
+            "Could not list regions for org %s",
+            organization_id,
+            exc_info=True,
+        )
+        return []
+
+
 def _named_allocation_rows(
     allocation_list: DataWorkerAllocationList,
     organization_id: str,
     bearer: str | None,
+    regions: list[DataplaneGroup] | None = None,
 ) -> list[dict[str, object]]:
     """Add a region name to each allocation row, falling back to its UUID.
 
     The allocation endpoints only return region UUIDs, so the names come from a
     second call. Deleted regions aren't listed, and a failed call names nothing.
     """
-    names: dict[str, str] = {}
-    try:
-        group_list = list_dataplane_groups(
-            organization_id=organization_id,
-            config_api_root=resolved_config_api_root(),
-            bearer_token=bearer,
-        )
-        names = {
-            group.dataplane_group_id: group.name
-            for group in group_list.dataplane_groups
-        }
-    except DataWorkerAllocationAPIError:
-        logger.warning(
-            "Could not get region names for org %s; showing UUIDs",
-            organization_id,
-            exc_info=True,
-        )
+    if regions is None:
+        regions = _list_regions(organization_id, bearer)
+    names = {group.dataplane_group_id: group.name for group in regions}
 
     rows: list[dict[str, object]] = []
     for allocation in allocation_list.allocations:
@@ -159,15 +163,18 @@ def lookup_allocations(
     except (PaymentConfigAPIError, DataWorkerAllocationAPIError) as error:
         return LookupAllocationsResult(lookup_error=str(error))
 
+    regions = _list_regions(organization_id, bearer)
     allocations = allocation_list.model_dump(mode="json")
     allocations["allocations"] = _named_allocation_rows(
         allocation_list,
         organization_id,
         bearer,
+        regions,
     )
     return LookupAllocationsResult(
         org_info=org_info.model_dump(mode="json"),
         allocations=allocations,
+        dataplane_groups=[region.model_dump(mode="json") for region in regions],
         resolved_org_label=resolved_label or "",
         org_loaded=True,
     )
@@ -250,12 +257,20 @@ def add_capacity(
     amount: str,
     organization_name: str = "",
     auth_bearer_token: str = "",
+    dataplane_group_id: str = "",
+    region_name: str = "",
 ) -> CapacityChangeResult:
-    """Add Data Worker capacity to an organization's default region."""
+    """Add Data Worker capacity to a region, or the organization's default region if none is given."""
     amount_value, amount_error = _parse_amount(amount, organization_id)
     if amount_error is not None:
         return amount_error
     assert amount_value is not None
+    target = (
+        (region_name or dataplane_group_id)
+        if dataplane_group_id
+        else "the default region"
+    )
+    message = f"Added {amount_value:g} capacity to {target}."
     if not auth_available(auth_bearer_token or None):
         return CapacityChangeResult(
             message="Sign in with Airbyte to add Data Worker capacity.",
@@ -264,7 +279,7 @@ def add_capacity(
     if mock_only_enabled():
         return _readable_capacity_result(
             organization_id,
-            f"[MOCK] Added {amount_value:g} capacity for "
+            f"[MOCK] Added {amount_value:g} capacity to {target} for "
             f"{organization_name or organization_id}.",
             12.5 + amount_value,
             [],
@@ -277,22 +292,16 @@ def add_capacity(
             amount=amount_value,
             config_api_root=resolved_config_api_root(),
             bearer_token=bearer,
+            dataplane_group_id=dataplane_group_id or None,
         )
     except DataWorkerAllocationResponseError:
-        return _committed_but_unreadable(
-            organization_id, f"Added {amount_value:g} capacity."
-        )
+        return _committed_but_unreadable(organization_id, message)
     except DataWorkerAllocationAPIError as error:
         return CapacityChangeResult(
             message=str(error),
             organization_id=organization_id,
         )
-    return _changed_capacity_result(
-        allocation_list,
-        organization_id,
-        bearer,
-        f"Added {amount_value:g} capacity.",
-    )
+    return _changed_capacity_result(allocation_list, organization_id, bearer, message)
 
 
 @data_worker_allocation_app.tool()

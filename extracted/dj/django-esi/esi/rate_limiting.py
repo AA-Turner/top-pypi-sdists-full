@@ -1,10 +1,11 @@
 import logging
 import time
 
+from redis.exceptions import LockNotOwnedError
+
 from django.core.cache import cache
 
 from esi.exceptions import ESIBucketLimitException, TaskBucketLimitException
-from redis.exceptions import LockNotOwnedError
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def limit_to_rate(rate_limit):
     """convert things like 100/15m or 10/s to a delay in seconds"""
     lim = rate_limit.split("/")
     secs = interval_to_seconds(lim[1])
-    return secs/int(lim[0])
+    return secs / int(lim[0])
 
 
 class ESIRateLimitBucket:
@@ -155,7 +156,7 @@ class TaskRateLimitBucket:
         self.slug = slug
         self.limit = limit
         self.window = window
-        self.ttl = window/limit
+        self.ttl = window / limit
 
     @classmethod
     def from_rate(cls, slug, rate_string):

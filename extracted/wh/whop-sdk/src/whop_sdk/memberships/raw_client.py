@@ -72,7 +72,7 @@ class RawMembershipsClient:
             Filter to memberships of this product (`prod_` tag). Repeat as product_ids[] for several.
 
         plan_id : typing.Optional[str]
-            Filter to memberships of this plan (`plan_` tag). Repeat as plan_ids[] for several.
+            Filter to memberships of this variant (`plan_` tag). Repeat as plan_ids[] for several.
 
         created_after : typing.Optional[str]
             Only memberships created after this ISO 8601 timestamp.
@@ -216,7 +216,7 @@ class RawMembershipsClient:
         self, *, request: InviteMembershipsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[InviteMembershipsResponse]:
         """
-        Sends an email inviting one recipient to join the account through a free plan. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
+        Sends an email inviting one recipient to join the account through a free variant. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
 
         Parameters
         ----------
@@ -382,23 +382,31 @@ class RawMembershipsClient:
         self,
         id: str,
         *,
+        billing_period_days: typing.Optional[int] = OMIT,
         cancel_at_period_end: typing.Optional[bool] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Membership]:
         """
-        Updates a membership: merge metadata key-value pairs, or toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one.
+        Updates a membership: merge metadata key-value pairs, toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one — or move future renewals to another of the customer's saved payment methods with `payment_method_id`, or set `billing_period_days` to change renewal cadence for an active, trialing, or past-due membership billed automatically by Whop. The current period end moves to the current period start plus the requested number of days, and future renewals use the same cadence. Invoice, externally billed, and canceling memberships are not supported.
 
         Parameters
         ----------
         id : str
             Membership ID (`mem_` tag), or a software license key.
 
+        billing_period_days : typing.Optional[int]
+            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant. The new period end must remain in the future. Existing non-daily memberships cannot be changed to daily billing.
+
         cancel_at_period_end : typing.Optional[bool]
             `true` cancels at the end of the current billing period (the customer keeps access until then); `false` reverses a pending cancellation.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Key-value pairs to merge into the membership's metadata. Pass an empty object to clear it.
+
+        payment_method_id : typing.Optional[str]
+            The ID of a payment method the customer has saved with your account. Future renewals charge it, and an open past-due payment is retried on it right away. Requires the `member:payment_methods:manage` permission.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -413,8 +421,10 @@ class RawMembershipsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "billing_period_days": billing_period_days,
                 "cancel_at_period_end": cancel_at_period_end,
                 "metadata": metadata,
+                "payment_method_id": payment_method_id,
             },
             headers={
                 "content-type": "application/json",
@@ -450,6 +460,104 @@ class RawMembershipsClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def apply_promo_code(
+        self, id: str, *, promo_code: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[Membership]:
+        """
+        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`). Works for Stripe-billed memberships and memberships billed by Whop's billing engine, including payment-element and multi-PSP renewals. Stock, plan eligibility, and expiry are still checked. Memberships with multiple recurring items are rejected.
+
+        Parameters
+        ----------
+        id : str
+            Membership ID (`mem_` tag).
+
+        promo_code : str
+            The promo code to apply, as customers enter it at checkout (for example `SAVE20`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Membership]
+            promo code applied
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"memberships/{encode_path_param(id)}/apply_promo_code",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "promo_code": promo_code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Membership,
+                    parse_obj_as(
+                        type_=Membership,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -704,6 +812,115 @@ class RawMembershipsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def reactivate(
+        self, id: str, *, days: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[Membership]:
+        """
+        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access. For memberships with an expiration, `days` sets `current_period_end` that many days from now; without it the original `current_period_end` is kept, so `days` is required once that has passed. Active and recurring memberships cannot be reactivated.
+
+        Parameters
+        ----------
+        id : str
+            Membership ID (`mem_` tag).
+
+        days : typing.Optional[int]
+            Days of access from now (1-1095), which sets `current_period_end`. Omit to keep the original `current_period_end`; required once it has passed. Ignored for lifetime memberships.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Membership]
+            membership reactivated
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"memberships/{encode_path_param(id)}/reactivate",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "days": days,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Membership,
+                    parse_obj_as(
+                        type_=Membership,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -1014,7 +1231,7 @@ class AsyncRawMembershipsClient:
             Filter to memberships of this product (`prod_` tag). Repeat as product_ids[] for several.
 
         plan_id : typing.Optional[str]
-            Filter to memberships of this plan (`plan_` tag). Repeat as plan_ids[] for several.
+            Filter to memberships of this variant (`plan_` tag). Repeat as plan_ids[] for several.
 
         created_after : typing.Optional[str]
             Only memberships created after this ISO 8601 timestamp.
@@ -1161,7 +1378,7 @@ class AsyncRawMembershipsClient:
         self, *, request: InviteMembershipsRequestBody, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[InviteMembershipsResponse]:
         """
-        Sends an email inviting one recipient to join the account through a free plan. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
+        Sends an email inviting one recipient to join the account through a free variant. Identify the recipient by exactly one of `user_id` or `email`. The invitation is bound to that recipient; after signing in, accepting it immediately grants the membership without checkout. This Experimental endpoint is available only to accounts enabled for membership invitations.
 
         Parameters
         ----------
@@ -1329,23 +1546,31 @@ class AsyncRawMembershipsClient:
         self,
         id: str,
         *,
+        billing_period_days: typing.Optional[int] = OMIT,
         cancel_at_period_end: typing.Optional[bool] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Membership]:
         """
-        Updates a membership: merge metadata key-value pairs, or toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one.
+        Updates a membership: merge metadata key-value pairs, toggle `cancel_at_period_end` — `true` schedules the cancellation for the end of the current billing period, `false` reverses a pending one — or move future renewals to another of the customer's saved payment methods with `payment_method_id`, or set `billing_period_days` to change renewal cadence for an active, trialing, or past-due membership billed automatically by Whop. The current period end moves to the current period start plus the requested number of days, and future renewals use the same cadence. Invoice, externally billed, and canceling memberships are not supported.
 
         Parameters
         ----------
         id : str
             Membership ID (`mem_` tag), or a software license key.
 
+        billing_period_days : typing.Optional[int]
+            Number of days between recurring charges. Sets the current period end to the current period start plus this value and applies to every recurring variant. The new period end must remain in the future. Existing non-daily memberships cannot be changed to daily billing.
+
         cancel_at_period_end : typing.Optional[bool]
             `true` cancels at the end of the current billing period (the customer keeps access until then); `false` reverses a pending cancellation.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Key-value pairs to merge into the membership's metadata. Pass an empty object to clear it.
+
+        payment_method_id : typing.Optional[str]
+            The ID of a payment method the customer has saved with your account. Future renewals charge it, and an open past-due payment is retried on it right away. Requires the `member:payment_methods:manage` permission.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1360,8 +1585,10 @@ class AsyncRawMembershipsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "billing_period_days": billing_period_days,
                 "cancel_at_period_end": cancel_at_period_end,
                 "metadata": metadata,
+                "payment_method_id": payment_method_id,
             },
             headers={
                 "content-type": "application/json",
@@ -1397,6 +1624,104 @@ class AsyncRawMembershipsClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def apply_promo_code(
+        self, id: str, *, promo_code: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Membership]:
+        """
+        Applies a promo code to an `active` or `trialing` membership that does not already have one and has exactly one recurring item. The discount lands on the next invoice and follows the code's duration (`once`, `repeating`, or `forever`). Works for Stripe-billed memberships and memberships billed by Whop's billing engine, including payment-element and multi-PSP renewals. Stock, plan eligibility, and expiry are still checked. Memberships with multiple recurring items are rejected.
+
+        Parameters
+        ----------
+        id : str
+            Membership ID (`mem_` tag).
+
+        promo_code : str
+            The promo code to apply, as customers enter it at checkout (for example `SAVE20`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Membership]
+            promo code applied
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"memberships/{encode_path_param(id)}/apply_promo_code",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "promo_code": promo_code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Membership,
+                    parse_obj_as(
+                        type_=Membership,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1651,6 +1976,115 @@ class AsyncRawMembershipsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def reactivate(
+        self, id: str, *, days: typing.Optional[int] = OMIT, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Membership]:
+        """
+        Restores access to a `canceled` or `expired` membership that contains only one-time purchases and sets its `status` to `completed`. Lifetime memberships regain lifetime access. For memberships with an expiration, `days` sets `current_period_end` that many days from now; without it the original `current_period_end` is kept, so `days` is required once that has passed. Active and recurring memberships cannot be reactivated.
+
+        Parameters
+        ----------
+        id : str
+            Membership ID (`mem_` tag).
+
+        days : typing.Optional[int]
+            Days of access from now (1-1095), which sets `current_period_end`. Omit to keep the original `current_period_end`; required once it has passed. Ignored for lifetime memberships.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Membership]
+            membership reactivated
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"memberships/{encode_path_param(id)}/reactivate",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "days": days,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Membership,
+                    parse_obj_as(
+                        type_=Membership,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

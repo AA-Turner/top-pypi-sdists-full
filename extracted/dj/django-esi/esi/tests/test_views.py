@@ -2,18 +2,12 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.http import (
-    HttpResponse,
-    HttpResponseRedirect,
-    Http404,
-    HttpResponseBadRequest
-)
-from django.test import TestCase, RequestFactory
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.test import RequestFactory, TestCase
 
-from . import _generate_token, _store_as_Token
 from ..models import CallbackRedirect
-from ..views import sso_redirect, receive_callback, select_token
-
+from ..views import receive_callback, select_token, sso_redirect
+from . import _generate_token, _store_as_Token
 
 ESI_SSO_CLIENT_ID = 'abc'
 ESI_SSO_CALLBACK_URL = 'https://www.example.com/callback/'
@@ -42,14 +36,13 @@ class TestSsoCallbackView(TestCase):
         self.factory = RequestFactory()
         CallbackRedirect.objects.all().delete()
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
-    @patch('esi.views.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
-    @patch('esi.views.OAuth2Session', autospec=True)
-    def test_redirect_to_url_no_scopes(self, mock_OAuth2Session):
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
+    @patch('esi.views.sso.authorization_url')
+    def test_redirect_to_url_no_scopes(self, mock_authorization_url):
         state = 'my_awesome_state'
-        mock_OAuth2Session.return_value.authorization_url.return_value = \
-            (redirect_url, state)
+        mock_authorization_url.return_value = (redirect_url, state)
 
         request = self.factory.get(redirect_url)
         request.user = self.user
@@ -59,9 +52,7 @@ class TestSsoCallbackView(TestCase):
 
         http_response = sso_redirect(request)
 
-        self.assertTrue(mock_OAuth2Session.called)
-        args, kwargs = mock_OAuth2Session.call_args
-        self.assertEqual(kwargs['scope'], [])
+        mock_authorization_url.assert_called_once_with([])
 
         self.assertEqual(http_response.url, redirect_url)
 
@@ -74,14 +65,13 @@ class TestSsoCallbackView(TestCase):
         self.assertEqual(callback_redirect.session_key, request.session.session_key)
         self.assertEqual(callback_redirect.state, state)
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
-    @patch('esi.views.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
-    @patch('esi.views.OAuth2Session', autospec=True)
-    def test_redirect_to_url_w_single_scope(self, mock_OAuth2Session):
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
+    @patch('esi.views.sso.authorization_url')
+    def test_redirect_to_url_w_single_scope(self, mock_authorization_url):
         state = 'my_awesome_state'
-        mock_OAuth2Session.return_value.authorization_url.return_value = \
-            (redirect_url, state)
+        mock_authorization_url.return_value = (redirect_url, state)
 
         request = self.factory.get(redirect_url)
         request.user = self.user
@@ -90,9 +80,7 @@ class TestSsoCallbackView(TestCase):
         request.session.save()
 
         http_response = sso_redirect(request, scopes='abc')
-        self.assertTrue(mock_OAuth2Session.called)
-        args, kwargs = mock_OAuth2Session.call_args
-        self.assertEqual(kwargs['scope'], ['abc'])
+        mock_authorization_url.assert_called_once_with(['abc'])
 
         self.assertEqual(http_response.url, redirect_url)
 
@@ -105,14 +93,13 @@ class TestSsoCallbackView(TestCase):
         self.assertEqual(callback_redirect.session_key, request.session.session_key)
         self.assertEqual(callback_redirect.state, state)
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
-    @patch('esi.views.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
-    @patch('esi.views.OAuth2Session', autospec=True)
-    def test_redirect_to_url_w_multiple_scopes(self, mock_OAuth2Session):
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
+    @patch('esi.views.sso.authorization_url')
+    def test_redirect_to_url_w_multiple_scopes(self, mock_authorization_url):
         state = 'my_awesome_state'
-        mock_OAuth2Session.return_value.authorization_url.return_value = \
-            (redirect_url, state)
+        mock_authorization_url.return_value = (redirect_url, state)
 
         request = self.factory.get(redirect_url)
         request.user = self.user
@@ -121,9 +108,7 @@ class TestSsoCallbackView(TestCase):
         request.session.save()
 
         http_response = sso_redirect(request, scopes=['abc', 'def'])
-        self.assertTrue(mock_OAuth2Session.called)
-        args, kwargs = mock_OAuth2Session.call_args
-        self.assertEqual(kwargs['scope'], ['abc', 'def'])
+        mock_authorization_url.assert_called_once_with(['abc', 'def'])
 
         self.assertEqual(http_response.url, redirect_url)
 
@@ -135,15 +120,14 @@ class TestSsoCallbackView(TestCase):
         self.assertEqual(callback_redirect.session_key, request.session.session_key)
         self.assertEqual(callback_redirect.state, state)
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
-    @patch('esi.views.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_OAUTH_LOGIN_URL', ESI_OAUTH_LOGIN_URL)
     @patch('esi.views.reverse', autospec=True)
-    @patch('esi.views.OAuth2Session', autospec=True)
-    def test_redirect_to_view_no_scopes(self, mock_OAuth2Session, mock_reverse):
+    @patch('esi.views.sso.authorization_url')
+    def test_redirect_to_view_no_scopes(self, mock_authorization_url, mock_reverse):
         state = 'my_awesome_state'
-        mock_OAuth2Session.return_value.authorization_url.return_value = \
-            (redirect_url, state)
+        mock_authorization_url.return_value = (redirect_url, state)
         my_view_url = '/my_view/'
         mock_reverse.return_value = my_view_url
 
@@ -155,9 +139,7 @@ class TestSsoCallbackView(TestCase):
 
         http_response = sso_redirect(request, return_to='my_view')
 
-        self.assertTrue(mock_OAuth2Session.called)
-        args, kwargs = mock_OAuth2Session.call_args
-        self.assertEqual(kwargs['scope'], [])
+        mock_authorization_url.assert_called_once_with([])
 
         self.assertEqual(http_response.url, redirect_url)
 
@@ -170,8 +152,8 @@ class TestSsoCallbackView(TestCase):
         self.assertEqual(callback_redirect.session_key, request.session.session_key)
         self.assertEqual(callback_redirect.state, state)
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
     @patch('esi.views.reverse')
     def test_sso_redirect_return_to(self, mock_reverse):
         mock_reverse.return_value = '/callback3/'
@@ -192,8 +174,8 @@ class TestSsoCallbackView(TestCase):
         self.assertEqual(callback_redirect.url, '/callback3/')
         self.assertEqual(callback_redirect.session_key, request.session.session_key)
 
-    @patch('esi.views.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
-    @patch('esi.views.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
+    @patch('esi.app_settings.ESI_SSO_CLIENT_ID', ESI_SSO_CLIENT_ID)
+    @patch('esi.app_settings.ESI_SSO_CALLBACK_URL', ESI_SSO_CALLBACK_URL)
     def test_sso_redirect_start_session(self):
         request = self.factory.get('https://www.example.com/callback2/')
         request.user = self.user

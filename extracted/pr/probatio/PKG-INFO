@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probatio
-Version: 0.12.5
+Version: 0.13.0
 Summary: A modern Python data validation library
 Project-URL: Homepage, https://github.com/frenck/probatio
 Project-URL: Documentation, https://probatio.frenck.dev

@@ -214,8 +214,8 @@ class TinybirdDialect(ClickHouse):
             ],
         }
 
-        for section in override_rules:
-            for rule in override_rules[section]:
+        for section, rules in override_rules.items():
+            for rule in rules:
                 for rr in self.RULES[section]:
                     if rr.name == rule.name:
                         self.RULES[section].remove(rr)

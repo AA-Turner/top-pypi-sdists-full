@@ -17,42 +17,69 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.debug("minimum date setting: %s", MIN_DATE)
 
 
-@lru_cache(maxsize=CACHE_SIZE)
+def _is_in_range(dateobject: datetime, earliest: datetime, latest: datetime) -> bool:
+    """Check whether a datetime falls within the configured time window."""
+    if not earliest.year <= dateobject.year <= latest.year:
+        return False
+    try:
+        return earliest.timestamp() <= dateobject.timestamp() <= latest.timestamp()
+    # Windows: no timestamps for naive dates before 1970
+    except OSError:
+        return (
+            earliest.replace(tzinfo=None)
+            <= dateobject.replace(tzinfo=None)
+            <= latest.replace(tzinfo=None)
+        )
+
+
 def is_valid_date(
     date_input: datetime | str | None,
     outputformat: str,
     earliest: datetime,
     latest: datetime,
 ) -> bool:
-    """Validate a string w.r.t. the chosen outputformat and basic heuristics"""
-    # safety check
+    """Validate a date w.r.t. the chosen outputformat and time boundaries."""
     if date_input is None:
         return False
 
-    # try if date can be parsed using chosen outputformat
+    # datetime: no parsing needed, so no cache
     if isinstance(date_input, datetime):
-        dateobject = date_input
-    else:
-        # speed-up
-        try:
-            if outputformat == "%Y-%m-%d":
+        result = _is_in_range(date_input, earliest, latest)
+        if not result:
+            LOGGER.debug("date not valid: %s", date_input)
+        return result
+
+    # string: parse then validate (cached)
+    return _parse_and_validate(date_input, outputformat, earliest, latest)
+
+
+@lru_cache(maxsize=CACHE_SIZE)
+def _parse_and_validate(
+    date_input: str,
+    outputformat: str,
+    earliest: datetime,
+    latest: datetime,
+) -> bool:
+    """Parse a date string and validate it against time boundaries."""
+    try:
+        if outputformat == "%Y-%m-%d":
+            try:
+                # positional YYYY-MM-DD read: faster than strptime, separator-agnostic
                 dateobject = datetime(
                     int(date_input[:4]), int(date_input[5:7]), int(date_input[8:10])
                 )
-            # default
-            else:
+            except ValueError:
+                # unpadded parts ("2020-1-15")
                 dateobject = datetime.strptime(date_input, outputformat)
-        except ValueError:
-            return False
+        else:
+            dateobject = datetime.strptime(date_input, outputformat)
+    except ValueError:
+        return False
 
-    # year first, then full validation: not newer than today or stored variable
-    if (
-        earliest.year <= dateobject.year <= latest.year
-        and earliest.timestamp() <= dateobject.timestamp() <= latest.timestamp()
-    ):
-        return True
-    LOGGER.debug("date not valid: %s", date_input)
-    return False
+    result = _is_in_range(dateobject, earliest, latest)
+    if not result:
+        LOGGER.debug("date not valid: %s", date_input)
+    return result
 
 
 def validate_and_convert(
@@ -66,7 +93,7 @@ def validate_and_convert(
         date_input, outputformat, earliest, latest
     ):
         try:
-            LOGGER.debug("custom parse result: %s", date_input)
+            LOGGER.debug("valid date: %s", date_input)
             return date_input.strftime(outputformat)
         except ValueError as err:  # pragma: no cover
             LOGGER.error("value error during conversion: %s %s", date_input, err)
@@ -104,7 +131,6 @@ def plausible_year_filter(
     yearpat: re.Pattern[str],
     earliest: datetime,
     latest: datetime,
-    incomplete: bool = False,
 ) -> Counter[str]:
     """Filter the date patterns to find plausible years only"""
     occurrences = Counter(pattern.findall(htmlstring))  # slow!
@@ -117,11 +143,8 @@ def plausible_year_filter(
             del occurrences[item]
             continue
 
-        lastdigits = year_match[1]
-        if not incomplete:
-            potential_year = int(lastdigits)
-        else:
-            potential_year = correct_year(int(lastdigits))
+        # correct_year() is a no-op on 4-digit years, so this covers both cases
+        potential_year = correct_year(int(year_match[1]))
 
         if not min_year <= potential_year <= max_year:
             LOGGER.debug("no potential year: %s", item)
@@ -130,24 +153,41 @@ def plausible_year_filter(
     return occurrences
 
 
-def compare_values(reference: int, attempt: str, options: Extractor) -> int:
-    """Compare the date expression to a reference"""
+# lossless whatever the output format
+REFERENCE_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
+
+
+def update_reference(
+    reference: datetime | None, candidate: datetime, original: bool
+) -> datetime:
+    "Fold a date into the running reference: oldest if original, else newest."
+    if reference is None:
+        return candidate
+    # wall-clock, as written on the page
+    pick = min if original else max
+    return pick(reference, candidate, key=lambda d: d.replace(tzinfo=None))
+
+
+def compare_values(
+    reference: datetime | None, attempt: str, options: Extractor
+) -> datetime | None:
+    """Compare the date expression (in REFERENCE_FORMAT) to a reference"""
     try:
-        timestamp = int(datetime.strptime(attempt, options.format).timestamp())
-    except Exception as err:
-        LOGGER.debug("datetime.strptime exception: %s for string %s", err, attempt)
-        return reference
-    if options.original:
-        reference = min(reference, timestamp) if reference else timestamp
-    else:
-        reference = max(reference, timestamp)
-    return reference
+        # naive (empty %z), or any on Python 3.11+
+        candidate = datetime.fromisoformat(attempt)
+    except ValueError:
+        try:
+            candidate = datetime.strptime(attempt, REFERENCE_FORMAT)
+        # glibc does not pad years below 1000
+        except ValueError:
+            LOGGER.debug("unreadable reference: %s", attempt)
+            return reference
+    return update_reference(reference, candidate, options.original)
 
 
 @lru_cache(maxsize=CACHE_SIZE)
 def filter_ymd_candidate(
-    bestmatch: re.Match[str],
-    pattern: re.Pattern[str],
+    bestmatch: tuple[str, ...] | None,
     copyear: int,
     outputformat: str,
     min_date: datetime,
@@ -155,37 +195,40 @@ def filter_ymd_candidate(
 ) -> str | None:
     """Filter free text candidates in the YMD format"""
     if bestmatch is not None:
-        pagedate = "-".join([bestmatch[1], bestmatch[2], bestmatch[3]])
+        pagedate = "-".join(bestmatch[:3])
         if is_valid_date(pagedate, "%Y-%m-%d", earliest=min_date, latest=max_date) and (
-            copyear == 0 or int(bestmatch[1]) >= copyear
+            copyear == 0 or int(bestmatch[0]) >= copyear
         ):
-            LOGGER.debug('date found for pattern "%s": %s', pattern, pagedate)
+            LOGGER.debug("date found: %s", pagedate)
             return convert_date(pagedate, "%Y-%m-%d", outputformat)
     return None
 
 
+def reset_validator_caches() -> None:
+    "Clear this module's lru caches."
+    _parse_and_validate.cache_clear()
+    filter_ymd_candidate.cache_clear()
+    is_valid_format.cache_clear()
+
+
 def convert_date(datestring: str, inputformat: str, outputformat: str) -> str:
-    """Parse date and return string in desired format"""
-    # speed-up (%Y-%m-%d)
-    if inputformat == outputformat:
-        return datestring
-    # date object (speedup)
+    """Parse a date string and render it in the output format.
+    No same-format shortcut: unpadded matches like "2016-11-1" must be normalized."""
+    # some callers pass a datetime despite the str annotation
     if isinstance(datestring, datetime):
         return datestring.strftime(outputformat)
-    # normal
     dateobject = datetime.strptime(datestring, inputformat)
     return dateobject.strftime(outputformat)
 
 
-def check_extracted_reference(reference: int, options: Extractor) -> str | None:
+def check_extracted_reference(
+    reference: datetime | None, options: Extractor
+) -> str | None:
     """Test if the extracted reference date can be returned"""
-    if reference > 0:
-        dateobject = datetime.fromtimestamp(reference)
-        converted = dateobject.strftime(options.format)
-        if is_valid_date(
-            converted, options.format, earliest=options.min, latest=options.max
-        ):
-            return converted
+    if reference is not None and is_valid_date(
+        reference, options.format, earliest=options.min, latest=options.max
+    ):
+        return reference.strftime(options.format)
     return None
 
 

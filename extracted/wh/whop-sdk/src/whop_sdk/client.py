@@ -69,6 +69,7 @@ if typing.TYPE_CHECKING:
     from .partners.client import AsyncPartnersClient, PartnersClient
     from .payment_method_domains.client import AsyncPaymentMethodDomainsClient, PaymentMethodDomainsClient
     from .payment_methods.client import AsyncPaymentMethodsClient, PaymentMethodsClient
+    from .payment_quotes.client import AsyncPaymentQuotesClient, PaymentQuotesClient
     from .payment_rules.client import AsyncPaymentRulesClient, PaymentRulesClient
     from .payments.client import AsyncPaymentsClient, PaymentsClient
     from .payout_accounts.client import AsyncPayoutAccountsClient, PayoutAccountsClient
@@ -77,6 +78,7 @@ if typing.TYPE_CHECKING:
     from .people.client import AsyncPeopleClient, PeopleClient
     from .permissions.client import AsyncPermissionsClient, PermissionsClient
     from .plans.client import AsyncPlansClient, PlansClient
+    from .product_affiliates.client import AsyncProductAffiliatesClient, ProductAffiliatesClient
     from .products.client import AsyncProductsClient, ProductsClient
     from .promo_codes.client import AsyncPromoCodesClient, PromoCodesClient
     from .reactions.client import AsyncReactionsClient, ReactionsClient
@@ -91,8 +93,10 @@ if typing.TYPE_CHECKING:
     from .swaps.client import AsyncSwapsClient, SwapsClient
     from .team_members.client import AsyncTeamMembersClient, TeamMembersClient
     from .topups.client import AsyncTopupsClient, TopupsClient
+    from .trades.client import AsyncTradesClient, TradesClient
     from .transfers.client import AsyncTransfersClient, TransfersClient
     from .users.client import AsyncUsersClient, UsersClient
+    from .variants.client import AsyncVariantsClient, VariantsClient
     from .verifications.client import AsyncVerificationsClient, VerificationsClient
     from .waitlist_entries.client import AsyncWaitlistEntriesClient, WaitlistEntriesClient
     from .webhooks.client import AsyncWebhooksClient, WebhooksClient
@@ -145,7 +149,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-09-23",
+        "2026-09-29",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -155,7 +159,7 @@ class Whop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-09-23",
+        api_version_date: typing.Optional[str] = "2026-09-29",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -245,6 +249,7 @@ class Whop:
         self._partners: typing.Optional[PartnersClient] = None
         self._payment_method_domains: typing.Optional[PaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[PaymentMethodsClient] = None
+        self._payment_quotes: typing.Optional[PaymentQuotesClient] = None
         self._payment_rules: typing.Optional[PaymentRulesClient] = None
         self._payments: typing.Optional[PaymentsClient] = None
         self._payout_accounts: typing.Optional[PayoutAccountsClient] = None
@@ -253,6 +258,7 @@ class Whop:
         self._people: typing.Optional[PeopleClient] = None
         self._permissions: typing.Optional[PermissionsClient] = None
         self._plans: typing.Optional[PlansClient] = None
+        self._product_affiliates: typing.Optional[ProductAffiliatesClient] = None
         self._products: typing.Optional[ProductsClient] = None
         self._promo_codes: typing.Optional[PromoCodesClient] = None
         self._reactions: typing.Optional[ReactionsClient] = None
@@ -267,8 +273,10 @@ class Whop:
         self._swaps: typing.Optional[SwapsClient] = None
         self._team_members: typing.Optional[TeamMembersClient] = None
         self._topups: typing.Optional[TopupsClient] = None
+        self._trades: typing.Optional[TradesClient] = None
         self._transfers: typing.Optional[TransfersClient] = None
         self._users: typing.Optional[UsersClient] = None
+        self._variants: typing.Optional[VariantsClient] = None
         self._verifications: typing.Optional[VerificationsClient] = None
         self._waitlist_entries: typing.Optional[WaitlistEntriesClient] = None
         self._webhooks: typing.Optional[WebhooksClient] = None
@@ -746,6 +754,14 @@ class Whop:
         return self._payment_methods
 
     @property
+    def payment_quotes(self):
+        if self._payment_quotes is None:
+            from .payment_quotes.client import PaymentQuotesClient  # noqa: E402
+
+            self._payment_quotes = PaymentQuotesClient(client_wrapper=self._client_wrapper)
+        return self._payment_quotes
+
+    @property
     def payment_rules(self):
         if self._payment_rules is None:
             from .payment_rules.client import PaymentRulesClient  # noqa: E402
@@ -808,6 +824,14 @@ class Whop:
 
             self._plans = PlansClient(client_wrapper=self._client_wrapper)
         return self._plans
+
+    @property
+    def product_affiliates(self):
+        if self._product_affiliates is None:
+            from .product_affiliates.client import ProductAffiliatesClient  # noqa: E402
+
+            self._product_affiliates = ProductAffiliatesClient(client_wrapper=self._client_wrapper)
+        return self._product_affiliates
 
     @property
     def products(self):
@@ -922,6 +946,14 @@ class Whop:
         return self._topups
 
     @property
+    def trades(self):
+        if self._trades is None:
+            from .trades.client import TradesClient  # noqa: E402
+
+            self._trades = TradesClient(client_wrapper=self._client_wrapper)
+        return self._trades
+
+    @property
     def transfers(self):
         if self._transfers is None:
             from .transfers.client import TransfersClient  # noqa: E402
@@ -936,6 +968,14 @@ class Whop:
 
             self._users = UsersClient(client_wrapper=self._client_wrapper)
         return self._users
+
+    @property
+    def variants(self):
+        if self._variants is None:
+            from .variants.client import VariantsClient  # noqa: E402
+
+            self._variants = VariantsClient(client_wrapper=self._client_wrapper)
+        return self._variants
 
     @property
     def verifications(self):
@@ -1030,7 +1070,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-09-23",
+        "2026-09-29",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1040,7 +1080,7 @@ class AsyncWhop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-09-23",
+        api_version_date: typing.Optional[str] = "2026-09-29",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1130,6 +1170,7 @@ class AsyncWhop:
         self._partners: typing.Optional[AsyncPartnersClient] = None
         self._payment_method_domains: typing.Optional[AsyncPaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[AsyncPaymentMethodsClient] = None
+        self._payment_quotes: typing.Optional[AsyncPaymentQuotesClient] = None
         self._payment_rules: typing.Optional[AsyncPaymentRulesClient] = None
         self._payments: typing.Optional[AsyncPaymentsClient] = None
         self._payout_accounts: typing.Optional[AsyncPayoutAccountsClient] = None
@@ -1138,6 +1179,7 @@ class AsyncWhop:
         self._people: typing.Optional[AsyncPeopleClient] = None
         self._permissions: typing.Optional[AsyncPermissionsClient] = None
         self._plans: typing.Optional[AsyncPlansClient] = None
+        self._product_affiliates: typing.Optional[AsyncProductAffiliatesClient] = None
         self._products: typing.Optional[AsyncProductsClient] = None
         self._promo_codes: typing.Optional[AsyncPromoCodesClient] = None
         self._reactions: typing.Optional[AsyncReactionsClient] = None
@@ -1152,8 +1194,10 @@ class AsyncWhop:
         self._swaps: typing.Optional[AsyncSwapsClient] = None
         self._team_members: typing.Optional[AsyncTeamMembersClient] = None
         self._topups: typing.Optional[AsyncTopupsClient] = None
+        self._trades: typing.Optional[AsyncTradesClient] = None
         self._transfers: typing.Optional[AsyncTransfersClient] = None
         self._users: typing.Optional[AsyncUsersClient] = None
+        self._variants: typing.Optional[AsyncVariantsClient] = None
         self._verifications: typing.Optional[AsyncVerificationsClient] = None
         self._waitlist_entries: typing.Optional[AsyncWaitlistEntriesClient] = None
         self._webhooks: typing.Optional[AsyncWebhooksClient] = None
@@ -1631,6 +1675,14 @@ class AsyncWhop:
         return self._payment_methods
 
     @property
+    def payment_quotes(self):
+        if self._payment_quotes is None:
+            from .payment_quotes.client import AsyncPaymentQuotesClient  # noqa: E402
+
+            self._payment_quotes = AsyncPaymentQuotesClient(client_wrapper=self._client_wrapper)
+        return self._payment_quotes
+
+    @property
     def payment_rules(self):
         if self._payment_rules is None:
             from .payment_rules.client import AsyncPaymentRulesClient  # noqa: E402
@@ -1693,6 +1745,14 @@ class AsyncWhop:
 
             self._plans = AsyncPlansClient(client_wrapper=self._client_wrapper)
         return self._plans
+
+    @property
+    def product_affiliates(self):
+        if self._product_affiliates is None:
+            from .product_affiliates.client import AsyncProductAffiliatesClient  # noqa: E402
+
+            self._product_affiliates = AsyncProductAffiliatesClient(client_wrapper=self._client_wrapper)
+        return self._product_affiliates
 
     @property
     def products(self):
@@ -1807,6 +1867,14 @@ class AsyncWhop:
         return self._topups
 
     @property
+    def trades(self):
+        if self._trades is None:
+            from .trades.client import AsyncTradesClient  # noqa: E402
+
+            self._trades = AsyncTradesClient(client_wrapper=self._client_wrapper)
+        return self._trades
+
+    @property
     def transfers(self):
         if self._transfers is None:
             from .transfers.client import AsyncTransfersClient  # noqa: E402
@@ -1821,6 +1889,14 @@ class AsyncWhop:
 
             self._users = AsyncUsersClient(client_wrapper=self._client_wrapper)
         return self._users
+
+    @property
+    def variants(self):
+        if self._variants is None:
+            from .variants.client import AsyncVariantsClient  # noqa: E402
+
+            self._variants = AsyncVariantsClient(client_wrapper=self._client_wrapper)
+        return self._variants
 
     @property
     def verifications(self):

@@ -578,7 +578,7 @@ def _call_llm(
     heartbeat while queued, so a dead connection is indistinguishable from
     a live-but-waiting one):
 
-    - ``LLM_READ_TIMEOUT`` (180s): per-read idle-gap. Bounded above by MP's
+    - ``LLM_READ_TIMEOUT`` (600s): per-read idle-gap. Bounded above by MP's
       1-min keepalive cadence during active streaming, below by "how long
       before we call a silent socket dead."
     - ``LLM_CALL_TIMEOUT`` (3600s): total wall-clock across ALL retries.
@@ -594,7 +594,7 @@ def _call_llm(
     _TELEMETRY(calling_llm=True)
     total_start = time.perf_counter()
     total_deadline = int(os.environ.get("LLM_CALL_TIMEOUT", "3600"))
-    read_timeout = int(os.environ.get("LLM_READ_TIMEOUT", "180"))
+    read_timeout = int(os.environ.get("LLM_READ_TIMEOUT", "600"))
     max_transport_retries = int(
         os.environ.get("LLM_CALL_MAX_TRANSPORT_RETRIES", "4")
     )
@@ -811,6 +811,11 @@ def _setup_model() -> tuple[str, dict[str, Any]]:
             "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
             "api_key": os.environ["MODEL_PROXY_KEY"],
             "reasoning_effort": "high",
+            # litellm (>=1.61, with drop_params=True) silently strips
+            # reasoning_effort for any openai/ model it doesn't recognize as
+            # a reasoning model (Gemini, Claude, Grok, GPT-6, ...). The proxy
+            # translates it per provider, so force it through unconditionally.
+            "allowed_openai_params": ["reasoning_effort"],
         }
     elif "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"

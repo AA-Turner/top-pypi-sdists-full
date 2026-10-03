@@ -1,3 +1,5 @@
+pub(crate) mod random;
+
 #[cfg(target_env = "gnu")]
 use crate::log_d;
 

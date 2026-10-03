@@ -1,4 +1,4 @@
-// Type shapes mirror xlsx@0.18.5's own types/index.d.ts (CellAddress, Range, Origin/AOA/
+// Type shapes mirror the covered subset of xlsx@0.20.3's own types/index.d.ts (CellAddress, Range, Origin/AOA/
 // JSON/CSV option interfaces) so existing `xlsx`-typed consumer code keeps compiling
 // unchanged. Phase 1B-1 added worksheet mutation (sheet_add_aoa/sheet_add_json) and a
 // number-format subset (format_cell/cell_set_number_format, now full — Phase 1B-2B).
@@ -76,7 +76,9 @@ export interface ColumnInfo {
   wch?: number;
 }
 export type WorkSheet = { [address: string]: CellObject | unknown } & {
+  '!data'?: CellObject[][];
   '!ref'?: string;
+  '!merges'?: Range[];
   '!rows'?: Array<RowInfo | undefined>;
   '!cols'?: Array<ColumnInfo | undefined>;
   '!dataValidations'?: DataValidationProjection[];
@@ -158,7 +160,7 @@ export interface Sheet2CSVOpts {
 }
 
 export interface Sheet2TXTOpts extends Sheet2CSVOpts {
-  /** If 'string', return a plain string instead of BOM + UTF-16LE encoding */
+  /** Retained for SheetJS call compatibility; text output is a plain string */
   type?: 'string';
 }
 
@@ -309,7 +311,7 @@ export function sheet_add_dom(ws: WorkSheet, data: any, opts?: Table2SheetOpts):
 export function table_to_sheet(data: any, opts?: Table2SheetOpts): WorkSheet;
 export function table_to_book(data: any, opts?: Table2SheetOpts): WorkBook;
 
-// Not present in xlsx@0.18.5's own types/index.d.ts at all (confirmed: no `get_cell`
+// Not present in xlsx@0.20.3's own types/index.d.ts at all (confirmed: no `get_cell`
 // entry there) even though it's a real runtime export (`sheet_get_cell: ws_get_cell_stub`
 // in the oracle's own source) — this is pure addition, not a narrowing of any existing
 // oracle declaration. Mirrors the runtime's 3 call shapes exactly.
@@ -319,8 +321,9 @@ export function sheet_get_cell(ws: WorkSheet, row: number, col?: number): CellOb
 
 export function format_cell(cell: CellObject, v?: unknown, opts?: { dateNF?: string | number }): string;
 export function cell_set_number_format(cell: CellObject, fmt: string | number): CellObject;
+export function sheet_new(opts?: { dense?: boolean }): WorkSheet;
 
-// Mirrors xlsx@0.18.5's own overload set verbatim (types/index.d.ts) — including the two
+// Mirrors xlsx@0.20.3's own overload set for the covered call shapes, including the
 // non-generic overloads below the generic one, even though normal TS overload resolution
 // makes them largely unreachable in practice, so any call site pattern the real oracle's
 // types accept is still accepted here.
@@ -328,7 +331,7 @@ export function sheet_to_json<T>(worksheet: WorkSheet, opts?: Sheet2JSONOpts): T
 export function sheet_to_json(worksheet: WorkSheet, opts?: Sheet2JSONOpts): any[][];
 export function sheet_to_json(worksheet: WorkSheet, opts?: Sheet2JSONOpts): any[];
 
-// Not present in xlsx@0.18.5's own types/index.d.ts at all (confirmed absent, the same
+// Not present in xlsx@0.20.3's own types/index.d.ts at all (confirmed absent, the same
 // gap class as sheet_get_cell) despite being a real runtime export — a literal alias for
 // sheet_to_json (confirmed live: same function object, same .name). Typed identically to
 // sheet_to_json's own overload set for that reason.
@@ -353,3 +356,52 @@ export function sheet_set_array_formula(
 ): WorkSheet;
 
 export const consts: XLSXConsts;
+
+export interface SSFModule {
+  format(fmt: string | number, value: unknown, opts?: { date1904?: boolean; dateNF?: string; table?: Record<number, string> }): string;
+  is_date(fmt: string): boolean;
+  get_table(): Record<number, string>;
+  load(fmt: string, idx?: number): number;
+  load_table(table: Record<number, string>): void;
+  parse_date_code(value: number, opts?: { date1904?: boolean }, b2?: boolean): unknown;
+  version?: string;
+}
+
+export const SSF: SSFModule;
+
+export const utils: {
+  encode_col: typeof encode_col;
+  encode_row: typeof encode_row;
+  encode_cell: typeof encode_cell;
+  encode_range: typeof encode_range;
+  decode_col: typeof decode_col;
+  decode_row: typeof decode_row;
+  split_cell: typeof split_cell;
+  decode_cell: typeof decode_cell;
+  decode_range: typeof decode_range;
+  format_cell: typeof format_cell;
+  sheet_new: typeof sheet_new;
+  sheet_add_aoa: typeof sheet_add_aoa;
+  sheet_add_json: typeof sheet_add_json;
+  sheet_add_dom: typeof sheet_add_dom;
+  aoa_to_sheet: typeof aoa_to_sheet;
+  json_to_sheet: typeof json_to_sheet;
+  table_to_sheet: typeof table_to_sheet;
+  table_to_book: typeof table_to_book;
+  sheet_to_csv: typeof sheet_to_csv;
+  sheet_to_txt: typeof sheet_to_txt;
+  sheet_to_json: typeof sheet_to_json;
+  sheet_to_html: typeof sheet_to_html;
+  sheet_to_formulae: typeof sheet_to_formulae;
+  sheet_to_row_object_array: typeof sheet_to_row_object_array;
+  sheet_get_cell: typeof sheet_get_cell;
+  book_new: typeof book_new;
+  book_append_sheet: typeof book_append_sheet;
+  book_set_sheet_visibility: typeof book_set_sheet_visibility;
+  cell_set_number_format: typeof cell_set_number_format;
+  cell_set_hyperlink: typeof cell_set_hyperlink;
+  cell_set_internal_link: typeof cell_set_internal_link;
+  cell_add_comment: typeof cell_add_comment;
+  sheet_set_array_formula: typeof sheet_set_array_formula;
+  consts: typeof consts;
+};

@@ -67,7 +67,7 @@ class RagSearchArgs(BaseModel):
     origin: list[str] | None = None
     date: KnowledgeDateArg | None = None
     state: list[Literal["inbox", "kept", "archived"]] | None = None
-    # The ORGANIZATION FILTER (policies/active-org-is-never-a-list-filter.md): organization ids to
+    # The ORGANIZATION FILTER (policies/access-ladder.md): organization ids to
     # search, null = every organization the caller belongs to. Never derived from the active
     # organization, which only attributes the call.
     organizations: list[str] | None = Field(

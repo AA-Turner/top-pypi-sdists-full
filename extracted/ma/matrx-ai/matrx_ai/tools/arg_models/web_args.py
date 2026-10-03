@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -77,7 +77,7 @@ class WebBatchReadWire(ToolArgs):
 class WebArgs(
     RootModel[
         Annotated[
-            Union[WebSearchWire, WebReadWire, WebBatchReadWire],
+            WebSearchWire | WebReadWire | WebBatchReadWire,
             Field(discriminator="action"),
         ]
     ]

@@ -7,6 +7,8 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        CreateSetupIntentsRequestPurpose,
+        CreateSetupIntentsRequestThreeDsLevel,
         ListSetupIntentsRequestDirection,
         ListSetupIntentsRequestOrder,
         ListSetupIntentsRequestStatus,
@@ -38,6 +40,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateDirectRequestPaymentMethodCard": ".direct",
     "CreateDirectRequestPaymentMethodCardDetails": ".direct",
     "CreateDirectRequestPaymentMethodType": ".direct",
+    "CreateSetupIntentsRequestPurpose": ".types",
+    "CreateSetupIntentsRequestThreeDsLevel": ".types",
     "ListSetupIntentsRequestDirection": ".types",
     "ListSetupIntentsRequestOrder": ".types",
     "ListSetupIntentsRequestStatus": ".types",
@@ -84,6 +88,8 @@ __all__ = [
     "CreateDirectRequestPaymentMethodCard",
     "CreateDirectRequestPaymentMethodCardDetails",
     "CreateDirectRequestPaymentMethodType",
+    "CreateSetupIntentsRequestPurpose",
+    "CreateSetupIntentsRequestThreeDsLevel",
     "ListSetupIntentsRequestDirection",
     "ListSetupIntentsRequestOrder",
     "ListSetupIntentsRequestStatus",

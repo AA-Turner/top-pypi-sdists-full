@@ -7,10 +7,12 @@ import io
 import os
 import socket
 import struct
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
+import tensorfs
 import torch
 from tensorfs.derived import Config as NativeConfig
 from tensorfs.derived import Derivation, Part, Target, Tensor
@@ -18,12 +20,16 @@ from transformers.modeling_outputs import BaseModelOutputWithPast
 
 from cozy_runtime.author import Model, placeable, uses_components
 from cozy_runtime.author._attention_scope import _ACTIVE_LAYOUT, AttentionLayout, attention_scope
-from cozy_runtime.internal import attention
-from cozy_runtime.internal.encoding import DeviceFacts
-from cozy_runtime.internal.executor import Executor, _capture_seal
+from cozy_runtime.author._loader import census
+from cozy_runtime.internal import attention, plane
+from cozy_runtime.internal.encoding import SPEC_PLAIN, DeviceFacts
+from cozy_runtime.internal.executor import Executor, _capture_seal, answer
 from cozy_runtime.internal.executor_commands import decode
+from cozy_runtime.internal.fill import Checkpoint
 from cozy_runtime.internal.parallel.cp import in_gated_call
 from cozy_runtime.internal.seam import Channel
+from cozy_runtime.internal.weight_policy import Layout
+from cozy_runtime.internal.weights import PlaneBackend, WeightResidency, Weights
 from cozy_runtime.internal.weights_sink import weights_transaction_id
 from cozy_runtime.models.minimax_h3.vae_tiles import TileBatchedVideoVAE
 
@@ -39,7 +45,7 @@ class Collective(torch.nn.Module):  # type: ignore[misc]  # torch is optional in
         *,
         check: bool = False,
         fail: bool = False,
-        expected_stages: int = 0,
+        fail_leader: bool = False,
         step: int | None = None,
     ) -> Any:
         assert in_gated_call()
@@ -52,6 +58,8 @@ class Collective(torch.nn.Module):  # type: ignore[misc]  # torch is optional in
             return value
         if fail and torch.distributed.get_rank() > 0:
             raise ValueError("follower failed before joining the collective")
+        if fail_leader and torch.distributed.get_rank() == 0:
+            raise RuntimeError("GPU 0 ran out of memory")
         result = value.detach().cpu().clone() + torch.distributed.get_rank()
         torch.distributed.all_reduce(result)
         return result
@@ -66,13 +74,11 @@ class ModelCalls(Model[object]):
     def sample(self, state: Any, *, on_step: Any, cancel: Any) -> Any:
         # Rich mutable state and callbacks are deliberately not rank-wire values.
         with torch.no_grad():
-            self.block(state.value, check=True, expected_stages=state.expected_stages)
+            self.block(state.value, check=True)
             for step in range(2):
                 assert not cancel()
                 with attention_scope(AttentionLayout(29, 9, step, 1, ("blocks.0",))):
-                    result = self.block(
-                        state.value, expected_stages=state.expected_stages, step=step
-                    )
+                    result = self.block(state.value, step=step)
                 assert _ACTIVE_LAYOUT.get() is None
                 degree = torch.distributed.get_world_size()
                 torch.testing.assert_close(
@@ -87,42 +93,41 @@ class ModelCalls(Model[object]):
         with torch.no_grad():
             self.block(torch.ones(1), fail=True)
 
+    @uses_components("block", "overlay")
+    def fail_on_leader(self) -> None:
+        with torch.no_grad():
+            self.block(torch.ones(1), fail_leader=True)
 
-def collective_model(root: Path | None = None) -> ModelCalls:
+
+def collective_model() -> ModelCalls:
     overlay, spare = torch.nn.Module(), torch.nn.Module()
     overlay.weight = torch.nn.Parameter(torch.ones(1))
     spare.weight = torch.nn.Parameter(torch.full((1,), 5.0))
     model = ModelCalls.for_test(block=Collective(), overlay=overlay, spare=spare)
-    if root is not None:
-        fill_residency(root, model)
 
     def check_scope(module: Any, args: Any, kwargs: Any) -> Any:
         assert model._cozy_active is not None
         assert model._cozy_active[1] == ("block", "overlay")
         residency: Any = model._cozy_residency
         if residency is not None:
-            assert residency.placement == "component_staged"
-            assert residency.headroom == 37
-            assert residency.scope_headrooms == {"sample": 11, "fail_before_collective": 13}
-            assert set(residency.backend.components) == {"block", "overlay"}
-            # Multiple DiT forwards retain their weights; a per-call open_attempt would
-            # erase the first call's two stages and this accumulated observation.
-            assert residency.attempt_stages == kwargs.get("expected_stages", 0)
+            # This rank's own stage is admitted and its weights are bound (on the card, or in
+            # the host tier without one).
+            assert residency.active is not None and residency.active[1] == ("block", "overlay")
+            assert (
+                model.block.weight.is_cuda
+                == model.overlay.weight.is_cuda
+                == torch.cuda.is_available()
+            )
+            assert float(model.block.weight) == 2.0 and float(model.overlay.weight) == 1.0
         return (args[0].to(model.overlay.weight.device) + model.overlay.weight, *args[1:]), kwargs
 
     model.block.register_forward_pre_hook(check_scope, with_kwargs=True)
     return model
 
 
-def fill_residency(root: Path, model: ModelCalls) -> None:
-    """Materialize three real native TensorFS components, then park the two used by DiT."""
-    import tensorfs
-
-    from cozy_runtime.author._loader import census
-    from cozy_runtime.internal.encoding import SPEC_PLAIN
-    from cozy_runtime.internal.fill import Checkpoint, StreamingFillBackend, _Holder
-    from cozy_runtime.internal.residency import ComponentResidency
-
+def plane_residency(root: Path, model: ModelCalls) -> PlaneBackend:
+    """Register the model's three components, from a real TensorFS store, with this process's
+    weight plane: construction moves to meta, and each stage binds its weights on the card."""
     root.mkdir(parents=True, exist_ok=True)
     store = tensorfs.Store.ensure(str(root / "store"))
     values = {"block": 2.0, "overlay": 1.0, "spare": 5.0}
@@ -141,51 +146,50 @@ def fill_residency(root: Path, model: ModelCalls) -> None:
     for name, value in values.items():
         writer.add_part(name, "weight", "value", io.BytesIO(struct.pack("<f", value)))
     writer.add_config("model", io.BytesIO(b"{}"))
-    receipt = writer.commit()
-    manifest = "sha256:" + receipt["manifest"]["sha256"]
-    checkpoint = Checkpoint(root / "store", manifest)
-    backend = StreamingFillBackend.for_script(
-        checkpoint,
+    checkpoint = Checkpoint(root / "store", "sha256:" + writer.commit()["manifest"]["sha256"])
+    # Every rank's plane on the one card; without one, each rank computes in its host tier.
+    on_card = torch.cuda.is_available()
+    device = torch.device("cuda", 0) if on_card else torch.device("cpu")
+    weights = Weights(torch, device, device.type)
+    backend = PlaneBackend.for_script(
+        dict.fromkeys(values, checkpoint),
         [row for name in values for row in checkpoint.rows(name)],
+        weights=weights,
+        construction="parallel-test",
         release="parallel-test/1",
-        store="fixture",
-        snapshot=manifest,
-        device="cuda",
         encoded_leaves="refuse",
-        window_bytes=1 << 20,
-        slots=2,
-        readers=1,
-        inflight=1,
     )
-    holder = _Holder({name: getattr(model, name) for name in values})
+    holder = SimpleNamespace(components={name: getattr(model, name).to("meta") for name in values})
     walked = census(holder)
     backend.expect(
         {name: [d.key for d in walked.destinations if d.component == name] for name in values}
     )
-    backend.resident_budget = 12
-    backend.hold_lease = True
     live = backend.materialize(holder, walked)
     for destination in walked.destinations:
         backend.fill(destination.key, destination.spec, live[destination.key])
     backend.commit()
-    backend.evict("block")
-    backend.evict("overlay")
-    residency = ComponentResidency(backend, torch)
-    object.__setattr__(model, "_cozy_residency", residency)
+    scopes = {"sample": ("block", "overlay"), "fail_before_collective": ("block", "overlay")}
+    object.__setattr__(
+        model, "_cozy_residency", WeightResidency(weights, backend.components, scopes)
+    )
+    return backend
+
+
+def prepared(roots: dict[str, Any], sizes: Mapping[str, int] | None = None) -> SimpleNamespace:
+    """A prepared construction as `Executor._install_group` reads it: its roots, and each
+    weight set's layout (only totals reach the hosting plan)."""
+    return SimpleNamespace(
+        roots=roots,
+        components={
+            name: SimpleNamespace(layout=Layout(common=size))
+            for name, size in (sizes or {}).items()
+        },
+    )
 
 
 class H3Calls(Model[object]):
     dit: Any
     text_encoder: Any
-
-    def warm(self, ctx: Any) -> None:
-        ctx.raise_if_cancelled()
-        self.warm_dit()
-
-    @uses_components("dit")
-    def warm_dit(self) -> None:
-        with torch.no_grad():
-            self.dit(**h3_batch())
 
     @uses_components("dit")
     def compute(self, batch: dict[str, Any], expected: tuple[Any, Any]) -> Any:
@@ -197,11 +201,6 @@ class H3Calls(Model[object]):
 
 class H3LoRACalls(H3Calls):
     turbo_overlay: torch.nn.Module
-
-    @uses_components("dit", "turbo_overlay")
-    def warm_dit(self) -> None:
-        with torch.no_grad():
-            self.dit(**h3_turbo_inputs(h3_batch(), self.turbo_overlay))
 
     @uses_components("dit", "turbo_overlay")
     def compute(
@@ -449,6 +448,7 @@ def main() -> None:
     parser.add_argument("--staged", action="store_true")
     parser.add_argument("--hosted", action="store_true")
     parser.add_argument("--spread", action="store_true")
+    parser.add_argument("--before-plane", action="store_true")
     args = parser.parse_args()
     args.h3 = args.h3 or args.h3_lora or args.hosted or args.spread
     torch.set_num_threads(1)
@@ -463,8 +463,10 @@ def main() -> None:
         if args.spread
         else h3_model(adapters=args.h3_lora)
         if args.h3
-        else collective_model(args.root / f"rank-{args.rank}" if args.staged else None)
+        else collective_model()
     )
+    if args.staged:
+        plane_residency(args.root / f"rank-{args.rank}", model)
     executor.residency = model._cozy_residency
     executor._group_model_key = "fixture"
     roots = (
@@ -476,9 +478,7 @@ def main() -> None:
     )
     if args.h3_lora:
         roots["turbo_overlay"] = model.turbo_overlay
-    executor.backend = SimpleNamespace(
-        components=roots, parked={}, component_bytes=HOSTED_SIZES if args.hosted else {}
-    )
+    executor.backend = prepared(roots, HOSTED_SIZES if args.hosted else None)
     executor.torch = torch
     executor.ready = True
     if not args.h3:
@@ -495,8 +495,19 @@ def main() -> None:
                 assert refused is None, refused
         elif name == "run":
             reply = executor.run(command)
+        elif name == "attention":
+            # Holding rank 0's pin (`hosts`) or restoring the prepared selection.
+            reply = {"ok": True, "rank": args.rank, **({"hosts": {}} if "pin" in command else {})}
+        elif name == "hello":
+            reply = executor.hello()
+            if args.before_plane:  # a Runtime from before the weight plane says no such thing
+                reply["memory"] = [m for m in reply["memory"] if m != plane.CAPABILITY]
+        elif name == "budget" and args.before_plane:
+            reply = {"ok": False, "code": "follower_command_unsupported", "detail": "budget"}
         else:
-            raise AssertionError(name)
+            answered = answer(executor, command)
+            assert answered is not None, name
+            reply = answered
         channel.send({**reply, "reply": name})
 
 

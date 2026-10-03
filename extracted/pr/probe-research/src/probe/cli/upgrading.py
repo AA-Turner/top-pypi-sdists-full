@@ -14,7 +14,9 @@ machine whose plugin has not been refreshed yet.
 from __future__ import annotations
 
 import os
+import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from probe import __version__
@@ -108,6 +110,13 @@ def perform_update(
     tap_target = updater.tap_latest(manifest)
     cli_target = updater.cli_latest(manifest)
 
+    if include_plugin:
+        # The pi step runs AFTER the CLI upgrade below has replaced the files
+        # it would lazily import, so import them now, from this version.
+        from probe.cli import pi_config  # noqa: F401
+        from probe.harness import get_registry  # noqa: F401
+        from probe.sdk import session_marker  # noqa: F401
+
     install = updater.detect_install()
     lines.append(f"Probe Research CLI {__version__}  (installed via: {install.method})")
 
@@ -133,21 +142,21 @@ def perform_update(
 
     restart_needed = False
     pres: updater.PluginResult | None = None
+    pi_update: _PiUpdate | None = None
     tap_behind = ""
     if include_plugin:
         source = agent_source()
-        if source == "pi":
-            # pi's extension is its own npm package, updated through `pi
-            # install`/a `git pull`, not a marketplace this CLI can shell
-            # out to (see wizard.INSTALLABLE_AGENT_SOURCES). The old
-            # two-way ternary's silent `else` ran `claude plugin update`
-            # against a pi-selected run whenever `claude` happened to be
-            # on the same machine too -- updating a different agent's
-            # plugins as a side effect of updating pi's. `pres` stays
-            # None, same bucket as `include_plugin=False`: no plugin work
-            # was attempted, not "attempted and nothing to update."
-            lines.append("pi: not managed by this CLI — see `pi install` / a `git pull`")
-        else:
+        # pi's Probe package is updated whatever agent runs this: an Update from
+        # a plain terminal (claude_code by default) or Claude Code's auto-update
+        # used to skip it, so pi stayed on whatever package it was installed
+        # with (2026-10-02: a 0.2.x package under a 0.206 CLI, so pi never
+        # switched to the daemon). Its own `pi update <source>`, never a
+        # marketplace.
+        pi_update = _update_pi_package()
+        lines.extend(pi_update.lines)
+        # pi has no marketplace plugin: for it `pres` stays None, same bucket as
+        # `include_plugin=False`.
+        if source != "pi":
             codex = source == "codex"
             lines.append("Codex plugins:" if codex else "Claude Code plugins:")
             pres = updater.update_codex_plugins() if codex else updater.update_plugin(plugin_target)
@@ -185,6 +194,11 @@ def perform_update(
         plugin_detail = pres.message
     else:
         plugin_detail = tap_behind
+    # pi's package is the plugin half for pi: an attempted update that failed
+    # fails it, or a detached run (pi's session start) would report success.
+    if pi_update is not None and not pi_update.ok:
+        plugin_ok = False
+        plugin_detail = "; ".join(part for part in (plugin_detail, pi_update.detail) if part)
     plugin_version = pres.after if pres is not None else None
 
     # The ONLY way a detached auto-update can report failure: it runs with no
@@ -220,6 +234,166 @@ def perform_update(
     )
 
 
+@dataclass(frozen=True)
+class _PiUpdate:
+    """What the pi step did: its lines, and whether an ATTEMPTED update failed
+    (skipped -- not installed, pi running, another update holding the lock --
+    is not a failure)."""
+
+    lines: list[str]
+    ok: bool = True
+    detail: str = ""
+    #: `pi update` actually ran (a skip did not).
+    ran: bool = False
+
+
+def _pi_running() -> bool:
+    """A pi process is running. `pi update` resets the package folder (git reset
+    and clean, then npm install) that a running pi loaded its extension and
+    capture from. This user's processes only (someone else's pi on a shared
+    machine runs from their own folder). False when neither `ps` nor `/proc`
+    can be asked."""
+    from probe.harness import FAMILY_EXTENSION, get_registry
+
+    names: set[str] = set()
+    for harness in get_registry().installable():
+        if harness.family == FAMILY_EXTENSION and harness.binary:
+            # pi titles its process with its binary's name, `--mode rpc` with `<name>-rpc`.
+            names |= {harness.binary, f"{harness.binary}-rpc"}
+    if not hasattr(os, "getuid"):
+        return False
+    commands = _own_process_commands(os.getuid())
+    return any(os.path.basename(command.split(" ", 1)[0]) in names for command in commands)
+
+
+def _own_process_commands(uid: int) -> list[str]:
+    """Every command line `uid` runs: `ps`, else Linux's `/proc` (a slim
+    container has no `ps`, and busybox's refuses `-U`)."""
+    try:
+        listing = subprocess.run(  # noqa: S603 - fixed binary, no shell
+            ["ps", "-U", str(uid), "-o", "command="],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        if listing.returncode == 0:
+            return [line.strip() for line in listing.stdout.splitlines() if line.strip()]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    commands = []
+    try:
+        entries = [entry for entry in os.scandir("/proc") if entry.name.isdigit()]
+    except OSError:
+        return []
+    for entry in entries:
+        try:
+            if entry.stat().st_uid != uid:
+                continue
+            with open(os.path.join(entry.path, "cmdline"), "rb") as handle:
+                argv0 = handle.read().split(b"\0", 1)[0].decode(errors="replace").strip()
+        except OSError:
+            continue  # exited between the listing and the read
+        if argv0:
+            commands.append(argv0)
+    return commands
+
+
+@contextmanager
+def _pi_update_lock():
+    """One `pi update` at a time on this machine: two runs on one clone (two
+    Claude Code windows' auto-updates and a pi start) race git and npm. Yields
+    whether this run holds it; without `fcntl` (Windows) it always does."""
+    try:
+        import fcntl
+    except ImportError:
+        yield True
+        return
+    from probe.sdk import session_marker
+
+    try:
+        path = session_marker.state_dir() / "pi-update.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = open(path, "a+")  # noqa: SIM115 - held across the yield
+    except OSError:
+        # A lock that cannot be opened is never worth failing the update over.
+        yield True
+        return
+    with handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _update_pi_package() -> _PiUpdate:
+    """`pi update` for Probe's pi package when pi has it installed; nothing
+    otherwise. Says the versions it moved between, or how to do it by hand."""
+    from probe.cli import pi_config
+
+    directory = pi_config.installed_package_dir()
+    if directory is None or not directory.is_dir():
+        autoupdate.mark_pi_update_pending(False)
+        return _PiUpdate([])
+    if _pi_running():
+        # Owed, not dropped: pi's next session start retries it after pi exits.
+        autoupdate.mark_pi_update_pending(True)
+        return _PiUpdate([
+            "pi package:",
+            "  not updated while pi is running (the update rewrites the folder pi loads it from); "
+            "it updates after pi exits",
+        ])
+    with _pi_update_lock() as held:
+        if not held:
+            return _PiUpdate(["pi package:", "  another update is updating it now"])
+        before = pi_config.installed_package_version()
+        result = pi_config.update_package()
+        after = pi_config.installed_package_version()
+
+    def shown(version) -> str:
+        return ".".join(str(part) for part in version) if version else "unknown"
+
+    if not result.ok and not getattr(result, "reachable", True):
+        # pi itself is gone (uninstalled, its settings still naming us): nothing
+        # to update with, which is not an update that failed.
+        autoupdate.mark_pi_update_pending(False)
+        return _PiUpdate(["pi package:", f"  not updated: {result.detail}"])
+    # A failure stays owed too, so pi's next session start tries again.
+    autoupdate.mark_pi_update_pending(not result.ok)
+    if not result.ok:
+        return _PiUpdate(
+            ["pi package:", f"  ! not updated ({result.detail}); run `pi update {pi_config.MIRROR_GIT_SOURCE}`"],
+            ok=False,
+            detail=f"pi package not updated: {result.detail}",
+            ran=True,
+        )
+    if before != after:
+        return _PiUpdate(["pi package:", f"  updated {shown(before)} → {shown(after)}"], ran=True)
+    return _PiUpdate(["pi package:", f"  already {shown(after)}"], ran=True)
+
+
+def update_owed_pi_package() -> None:
+    """Run ONLY the pi step, for a pi update a running pi deferred
+    (`autoupdate.PI_UPDATE_PENDING_FILENAME`) while the CLI itself is current.
+    The caller holds the update lock. Records the attempt only when `pi update`
+    ran: a second deferral is not news, and overwriting `last_attempt` with it
+    would hide the real one."""
+    step = _update_pi_package()
+    if not step.ran:
+        return
+    autoupdate.record_attempt(
+        autoupdate.Attempt(
+            at=int(time.time()),
+            ok=True,
+            from_version=__version__,
+            plugin_ok=step.ok,
+            plugin_detail=step.detail or f"pi package {step.lines[-1].strip()}",
+        )
+    )
+
+
 def _update_persistent_copy(cli_target: str | None, lines: list[str]) -> updater.CliResult | None:
     """Bring the persistent install up to date from a temporary (npx/uvx) run.
 
@@ -233,7 +407,7 @@ def _update_persistent_copy(cli_target: str | None, lines: list[str]) -> updater
     """
     from probe.cli import bootstrap
 
-    boot = bootstrap.ensure_persistent_install()
+    boot = bootstrap.ensure_persistent_install(target=cli_target)
     if boot.already_persistent:
         # Bootstrap proves only that the installed copy is at least THIS one, and
         # a uvx/pipx cache can serve a stale copy: compare with the latest too.

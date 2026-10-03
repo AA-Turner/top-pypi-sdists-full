@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omnimarket
-Version: 0.4.277
+Version: 0.4.282
 Summary: OmniMarket - Portable ONEX workflow package registry
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnimarket
 Project-URL: Repository, https://github.com/OmniNode-ai/omnimarket
@@ -28,8 +28,8 @@ Requires-Dist: fastapi>=0.115.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: jsonschema>=4.18.0
 Requires-Dist: omnibase-compat==0.5.7
-Requires-Dist: omnibase-core<0.48.0,>=0.47.28
-Requires-Dist: omnibase-infra<0.39.0,>=0.38.36
+Requires-Dist: omnibase-core<0.48.0,>=0.47.31
+Requires-Dist: omnibase-infra<0.39.0,>=0.38.61
 Requires-Dist: omnibase-spi<0.24.0,>=0.23.3
 Requires-Dist: omninode-memory==0.18.0
 Requires-Dist: packaging>=24.0

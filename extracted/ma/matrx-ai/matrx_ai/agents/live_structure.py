@@ -66,6 +66,7 @@ RESPONDER_MANDATE_KEY = "responder_mandate_key"
 #: cannot reach the Holder at all still has something to dispatch with.
 HOLDER_OWNED_CONFIG_KEYS = (
     "system_prompt_frozen",
+    "system_prompt_spans",
     "tool_authority_filtered",
     "tool_authority_exclusions",
     "tools",

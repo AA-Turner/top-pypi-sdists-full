@@ -1,6 +1,10 @@
+__lazy_modules__ = ["collections.abc"]  # py3,15
+
 import logging
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # py3.14
+    from collections.abc import Generator
 
 from aiopenapi3.plugin import Document, Init
 
@@ -45,7 +49,7 @@ class Trim204ContentType(Document):
         return ctx
 
 
-def find_refs_recursively(data: Any, parent: Any = None) -> Generator[Any, None, None]:
+def find_refs_recursively(data: Any, parent: Any = None) -> "Generator[Any]":
     """
     Recursively searches for all instances of "#ref" in a dict+children and returns schemas.
     """
@@ -68,7 +72,7 @@ class MinifySpec(Document):
     Removes operations and schemas from spec to limit memory spam
     """
 
-    def __init__(self, tags: list[str], operations: list[str]):
+    def __init__(self, tags: list[str], operations: list[str]) -> None:
         super().__init__()
         self.keep_tags = set(tags)
         self.keep_ops = operations
@@ -157,7 +161,7 @@ class RemoveSecurityParameter(Document):
     def parsed(self, ctx: Document.Context) -> Document.Context:
         print("RemoveSecurityParameterPlugin: Removing OAuth2 securityScheme")
         spec = ctx.document
-        oauth2 = spec.get("components", {}).get("securitySchemes", {}).pop("OAuth2", None)
+        spec.get("components", {}).get("securitySchemes", {}).pop("OAuth2", None)
         # Patch all paths
         for path_item in spec.get("paths", {}).values():
             for method_name in ("get", "post", "put", "delete", "patch", "options", "head"):
@@ -222,7 +226,7 @@ class PatchCompatibilityDatePlugin(Document):
                     patch_param(param)
 
         # Patch global parameters in components
-        for param_name, param in spec.get("components", {}).get("parameters", {}).items():
+        for _param_name, param in spec.get("components", {}).get("parameters", {}).items():
             if param.get("name") == "X-Compatibility-Date" and param.get("in") == "header":
                 param["required"] = False
 

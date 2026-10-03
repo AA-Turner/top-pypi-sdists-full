@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+from matrx_utils.outbound_guard import OutboundUrlRefused
 
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolError, ToolResult, ToolType
 
@@ -276,6 +277,21 @@ class ExternalMCPClient:
                 tool_name=tool_def.name,
                 call_id=ctx.call_id,
             )
+        except OutboundUrlRefused as exc:
+            return ToolResult(
+                success=False,
+                error=ToolError.from_exception(
+                    exc,
+                    error_type="not_allowed",
+                    message=f"MCP server address refused: {exc}",
+                    is_retryable=False,
+                    suggested_action="Point the MCP server at its public https address.",
+                ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
         except Exception as exc:
             return ToolResult(
                 success=False,
@@ -478,7 +494,12 @@ class ExternalMCPClient:
         if is_ucp:
             headers["User-Agent"] = UCP_USER_AGENT
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        from matrx_utils.outbound_guard import public_only_client
+
+        # The endpoint is a person's (tool.mcp_server row or a tool definition):
+        # never an address inside our network, pinned to the IP that was checked.
+        # Applies on every host: no environment value switches it off.
+        async with public_only_client(timeout=self._timeout) as client:
             if is_ucp:
                 data, _, _ = await self._post_rpc(client, server_url, payload, headers)
                 return data

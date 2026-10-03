@@ -3,18 +3,13 @@
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
-from oauthlib.oauth2.rfc6749.errors import (
-    InvalidClientError, InvalidClientIdError, InvalidGrantError,
-    InvalidTokenError, MissingTokenError,
-)
-
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
 from django.utils import timezone
 
 from esi.errors import (
-    IncompleteResponseError, NotRefreshableTokenError, TokenError,
+    IncompleteResponseError, NotRefreshableTokenError, SSOOAuthError, SSOUnavailableError, TokenError,
     TokenExpiredError, TokenInvalidError,
 )
 from esi.models import Token
@@ -169,15 +164,16 @@ class TestToken(TestCase):
         self.token.created -= timedelta(121)
         self.assertTrue(self.token.expired)
 
-    def test_refresh_normal_1(self):
-        mock_auth = Mock()
-        mock_session = Mock()
-        mock_session.refresh_token.return_value = {
+    @patch(MODULE_PATH + '.TokenManager.validate_access_token', return_value=None)
+    @patch(MODULE_PATH + '.sso.refresh_token')
+    def test_refresh_normal(self, mock_refresh_token, mock_validate):
+        mock_refresh_token.return_value = {
             'access_token': 'access_token_2',
             'refresh_token': 'refresh_token_2'
         }
 
-        self.token.refresh(mock_session, mock_auth)
+        self.token.refresh()
+        mock_refresh_token.assert_called_once_with('refresh_token')
         self.assertEqual(
             self.token.refresh_token, 'refresh_token_2'
         )
@@ -188,95 +184,100 @@ class TestToken(TestCase):
             self.token.created, timezone.now() - timedelta(seconds=60)
         )
 
-    @patch(MODULE_PATH + '.HTTPBasicAuth', autospec=True)
-    @patch(MODULE_PATH + '.OAuth2Session', autospec=True)
-    def test_refresh_normal_2(self, mock_OAuth2Session, mock_HTTPBasicAuth):
-        mock_session = Mock()
-        mock_session.refresh_token.return_value = {
+    @patch(MODULE_PATH + '.TokenManager.validate_access_token', return_value=None)
+    @patch(MODULE_PATH + '.sso.refresh_token')
+    def test_refresh_session_and_auth_deprecated(self, mock_refresh_token, mock_validate):
+        mock_refresh_token.return_value = {
             'access_token': 'access_token_2',
             'refresh_token': 'refresh_token_2'
         }
-        mock_OAuth2Session.return_value = mock_session
 
-        self.token.refresh()
-        self.assertEqual(
-            self.token.refresh_token,
-            'refresh_token_2'
-        )
+        with self.assertWarns(DeprecationWarning):
+            self.token.refresh(Mock(), Mock())
         self.assertEqual(
             self.token.access_token,
             'access_token_2'
         )
-        self.assertGreaterEqual(
-            self.token.created,
-            timezone.now() - timedelta(seconds=60))
+
+    @patch(MODULE_PATH + '.TokenManager.validate_access_token')
+    @patch(MODULE_PATH + '.sso.refresh_token')
+    def test_refresh_ownership_changed(self, mock_refresh_token, mock_validate):
+        mock_refresh_token.return_value = {
+            'access_token': 'access_token_2',
+            'refresh_token': 'refresh_token_2'
+        }
+        mock_validate.return_value = {'owner': 'someone_else'}
+
+        with self.assertRaises(TokenInvalidError):
+            self.token.refresh()
+        self.token.refresh_from_db()
+        self.assertEqual(self.token.access_token, 'access_token')
 
     def test_valid_access_token(self):
         self.assertFalse(self.token.expired)
         self.assertEqual(self.token.valid_access_token(), 'access_token')
 
-    @patch(MODULE_PATH + '.HTTPBasicAuth', autospec=True)
-    @patch(MODULE_PATH + '.OAuth2Session', autospec=True)
+    @patch(MODULE_PATH + '.TokenManager.validate_access_token', return_value=None)
+    @patch(MODULE_PATH + '.sso.refresh_token')
     @patch(MODULE_PATH + '.app_settings.ESI_TOKEN_VALID_DURATION', 120)
-    def test_valid_access_token_refresh(self, mock_OAuth2Session, mock_HTTPBasicAuth):
-        mock_session = Mock()
-        mock_session.refresh_token.return_value = {
+    def test_valid_access_token_refresh(self, mock_refresh_token, mock_validate):
+        mock_refresh_token.return_value = {
             'access_token': 'access_token_new',
             'refresh_token': 'refresh_token_2'
         }
-        mock_OAuth2Session.return_value = mock_session
 
         self.token.created -= timedelta(121)
         self.assertTrue(self.token.expired)
         self.assertEqual(
             self.token.valid_access_token(), 'access_token_new')
 
-    @patch(MODULE_PATH + '.HTTPBasicAuth', autospec=True)
-    @patch(MODULE_PATH + '.OAuth2Session', autospec=True)
+    @patch(MODULE_PATH + '.sso.refresh_token')
     @patch(MODULE_PATH + '.app_settings.ESI_TOKEN_VALID_DURATION', 120)
-    def test_valid_access_token_cant_refresh(
-        self, mock_OAuth2Session, mock_HTTPBasicAuth
-    ):
+    def test_valid_access_token_cant_refresh(self, mock_refresh_token):
         self.token.refresh_token = None
         self.token.created -= timedelta(121)
         self.assertTrue(self.token.expired)
         with self.assertRaises(TokenExpiredError):
             self.token.valid_access_token()
+        mock_refresh_token.assert_not_called()
 
-    def test_refresh_errors_1(self):
-        mock_auth = Mock()
-        mock_session = Mock()
-        mock_session.refresh_token.return_value = {
-            'access_token': 'access_token_2',
-            'refresh_token': 'refresh_token_2'
-        }
+    @patch(MODULE_PATH + '.sso.refresh_token')
+    def test_refresh_errors_1(self, mock_refresh_token):
         self.token.refresh_token = None
         with self.assertRaises(NotRefreshableTokenError):
-            self.token.refresh(mock_session, mock_auth)
+            self.token.refresh()
+        mock_refresh_token.assert_not_called()
 
-    def test_refresh_errors_2(self):
-        mock_auth = Mock()
-        mock_session = Mock()
-
-        mock_session.refresh_token.side_effect = InvalidGrantError
+    @patch(MODULE_PATH + '.sso.refresh_token')
+    def test_refresh_errors_2(self, mock_refresh_token):
+        mock_refresh_token.side_effect = SSOOAuthError('invalid_grant')
         with self.assertRaises(TokenInvalidError):
-            self.token.refresh(mock_session, mock_auth)
+            self.token.refresh()
 
-        mock_session.refresh_token.side_effect = InvalidTokenError
+        mock_refresh_token.side_effect = SSOOAuthError('invalid_token')
         with self.assertRaises(TokenInvalidError):
-            self.token.refresh(mock_session, mock_auth)
+            self.token.refresh()
 
-        mock_session.refresh_token.side_effect = InvalidClientIdError
-        with self.assertRaises(TokenInvalidError):
-            self.token.refresh(mock_session, mock_auth)
+        mock_refresh_token.side_effect = SSOOAuthError('invalid_request')
+        with self.assertRaises(IncompleteResponseError) as cm:
+            self.token.refresh()
+        self.assertNotIsInstance(cm.exception, TokenError)
 
-        mock_session.refresh_token.side_effect = MissingTokenError
+        mock_refresh_token.side_effect = IncompleteResponseError
         with self.assertRaises(IncompleteResponseError):
-            self.token.refresh(mock_session, mock_auth)
+            self.token.refresh()
 
-        mock_session.refresh_token.side_effect = InvalidClientError
+        mock_refresh_token.side_effect = SSOUnavailableError
+        with self.assertRaises(SSOUnavailableError):
+            self.token.refresh()
+
+        mock_refresh_token.side_effect = SSOOAuthError('invalid_client')
         with self.assertRaises(ImproperlyConfigured):
-            self.token.refresh(mock_session, mock_auth)
+            self.token.refresh()
+
+        mock_refresh_token.side_effect = SSOOAuthError('unauthorized_client')
+        with self.assertRaises(ImproperlyConfigured):
+            self.token.refresh()
 
     """
     @patch('esi.managers.TokenManager')
@@ -315,21 +316,19 @@ class TestToken(TestCase):
             'character'
         )
 
-    @patch(MODULE_PATH + '.HTTPBasicAuth', autospec=True)
-    @patch(MODULE_PATH + '.OAuth2Session', autospec=True)
+    @patch(MODULE_PATH + '.TokenManager.validate_access_token', return_value=None)
+    @patch(MODULE_PATH + '.sso.refresh_token')
     @patch(MODULE_PATH + '.Token.get_token_data')
     def test_update_token_data_normal_2(
         self,
         mock_get_token_data,
-        mock_OAuth2Session,
-        mock_HTTPBasicAuth
+        mock_refresh_token,
+        mock_validate
     ):
-        mock_session = Mock()
-        mock_session.refresh_token.return_value = {
+        mock_refresh_token.return_value = {
             'access_token': 'access_token_2',
             'refresh_token': 'refresh_token_2'
         }
-        mock_OAuth2Session.return_value = mock_session
 
         mock_get_token_data.return_value = {
             'character_id': 99,

@@ -8,8 +8,9 @@ WHAT THESE PROVE, in the order they matter:
     request can already have committed;
   * a conflict lands IN THE FILE where the agent can resolve it, and does not
     poison the base copy;
-  * the old write verbs are gone from the client surface, and cannot come back
-    by accident.
+  * the old fail-open write verbs are gone from the client surface; the two
+    argument-only writes that replaced them use the server-computed routes and
+    never queue.
 """
 
 from __future__ import annotations
@@ -680,11 +681,30 @@ class TestLegacyMigration:
 
 
 class TestTheRemovedVerbs:
-    def test_the_client_has_no_append_or_edit_for_the_team_note(self, client):
-        """The team note is written by syncing a file. If these ever come back,
-        something has re-created the write model this replaced."""
-        for gone in ("append_team_note", "edit_team_note"):
-            assert not hasattr(client, gone), f"{gone} is back on the client"
+    """The OLD append/edit are gone: client routes `/v1/team-note/append|edit`
+    (404 now), sent fail-open, so a refusal was journaled and the CLI printed
+    success. `append_team_note` / `edit_team_note` are back for a caller with no
+    file (`probe notes append|edit --team`), on the SERVER-computed routes, and
+    may never be the fail-open kind again."""
+
+    def test_the_old_routes_are_never_called(self, client, app):
+        app.team_note["body"] = "GPUs are oversubscribed.\n"
+        client.append_team_note("Cap vitest at 2 threads.")
+        client.edit_team_note("oversubscribed", "free after 6pm")
+        paths = [r.url.path for r in app.requests if r.method == "POST"]
+        assert paths == ["/v1/team-note/apply/paragraph", "/v1/team-note/apply/span"]
+
+    def test_a_refusal_raises_and_is_never_queued(self, app, tmp_path):
+        from tests.conftest import make_client
+
+        queued = make_client(app, tmp_spool=tmp_path / "spool", async_writes=True)
+        app.team_note["body"] = "a\na\n"
+        with pytest.raises(errors.ConflictError) as refused:
+            queued.edit_team_note("a", "b")
+        assert refused.value.detail["match_count"] == 2
+        # Sent at once even under async writes, so the version comes back.
+        assert queued.append_team_note("c")["version"] == 1
+        assert not queued.journal.pending()
 
 
 class TestTheBrief:

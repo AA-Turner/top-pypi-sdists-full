@@ -233,6 +233,37 @@ class MatrxPatternParser:
 # Quick-check compiled regex: avoids importing MatrxFetcher when no patterns exist.
 _MATRX_QUICK_CHECK = re.compile(r'<<MATRX>>')
 
+def expand_matrx_patterns(
+    text: str, cache: dict[str, str] | None = None
+) -> tuple[str, list[tuple[str, str]]]:
+    """``resolve_matrx_patterns`` that also says what it expanded: ``(resolved text, [(raw
+    pattern, the text that replaced it), …])`` in text order.
+
+    Every server expansion is model input a person can ask to see (owner law 2026-10-01,
+    common-docs ``policies/server-shaped-values-are-viewable.md``): the host's context viewer
+    keeps these pairs. ``cache`` (raw → replacement) makes repeated renders of one object reuse
+    the first fetch, so every render of one turn — the receipt's and the wire's — holds the same
+    bytes."""
+    if not _MATRX_QUICK_CHECK.search(text):
+        return text, []
+
+    from matrx_ai.instructions.matrx_fetcher import MatrxFetcher
+
+    patterns = MatrxPatternParser.parse(text)
+    if not patterns:
+        return text, []
+    memo = cache if cache is not None else {}
+    pairs: list[tuple[str, str]] = []
+    for pattern in patterns:
+        if pattern.raw not in memo:
+            memo[pattern.raw] = MatrxFetcher.fetch_one(pattern)
+        pairs.append((pattern.raw, memo[pattern.raw]))
+    result = text
+    for pattern, (_raw, fetched) in zip(reversed(patterns), reversed(pairs), strict=True):
+        result = result[: pattern.start_pos] + fetched + result[pattern.end_pos :]
+    return result, pairs
+
+
 def resolve_matrx_patterns(text: str) -> str:
     """
     Single entry point: parse all <<MATRX>> patterns in *text* and replace
@@ -240,13 +271,4 @@ def resolve_matrx_patterns(text: str) -> str:
 
     Returns the original string unchanged if no patterns are found (fast path).
     """
-    if not _MATRX_QUICK_CHECK.search(text):
-        return text
-
-    from matrx_ai.instructions.matrx_fetcher import MatrxFetcher
-
-    patterns = MatrxPatternParser.parse(text)
-    if not patterns:
-        return text
-
-    return MatrxFetcher.process_text_with_patterns(text, patterns)
+    return expand_matrx_patterns(text)[0]

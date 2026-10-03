@@ -5,14 +5,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const DEFAULT_KILL_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
-const KILL_DRAIN_TIMEOUT_ENV: &str = "RUNNING_PROCESS_KILL_DRAIN_TIMEOUT_MS";
 
 fn kill_drain_deadline() -> Instant {
-    let timeout = std::env::var(KILL_DRAIN_TIMEOUT_ENV)
-        .ok()
-        .and_then(|raw| raw.trim().parse::<u64>().ok())
-        .map(Duration::from_millis)
-        .unwrap_or(DEFAULT_KILL_DRAIN_TIMEOUT);
+    let timeout = crate::env_vars::KILL_DRAIN_TIMEOUT_MS.millis_or(DEFAULT_KILL_DRAIN_TIMEOUT);
     Instant::now() + timeout
 }
 
@@ -259,7 +254,7 @@ fn spawn_sync_daemon_inner(
         None => crate::platform::process::configure_sync_daemon_command(command)?,
     }
 
-    let child = command.spawn()?;
+    let child = crate::platform::ape::spawn_std(command, |command| command.spawn())?;
     let pid = child.id();
     Ok(crate::platform::process::DaemonChild {
         pid,
@@ -289,7 +284,7 @@ fn spawn_sync_inner(command: &mut Command, stdio: crate::platform::process::Spaw
     if detached { crate::platform::process::configure_sync_daemon_command(command)?; }
     else { crate::platform::process::configure_sync_contained_command(command)?; }
 
-    let mut child = command.spawn()?;
+    let mut child = crate::platform::ape::spawn_std(command, |command| command.spawn())?;
     let pid = child.id();
     let pgid = pid as i32;
 
@@ -514,7 +509,15 @@ mod tests {
         while waits.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
             thread::yield_now();
         }
-        assert_eq!(waits.load(Ordering::SeqCst), 1, "fake wait never started");
+        // `waits` counts every try_wait poll as well as the final blocking
+        // wait: shutdown polls every 10ms until its 50ms deadline, then hands
+        // the child to a background reaper. A test thread descheduled for a
+        // poll interval or two observes more than one call, so the property
+        // is "reaping has started", not "exactly one call so far".
+        assert!(
+            waits.load(Ordering::SeqCst) >= 1,
+            "fake wait never started"
+        );
 
         let child_mutex_available = child.try_lock().is_ok();
         release_wait(&wait_gate);

@@ -286,6 +286,11 @@ def _workspace_dir(ctx: ToolContext, working_dir: str = ".") -> str:
     return str(resolved)
 
 
+def _is_windows_absolute(path: str) -> bool:
+    """``C:/x`` or ``C:\\x``: absolute on a Windows desktop (wire paths use forward slashes)."""
+    return len(path) >= 3 and path[0].isalpha() and path[1] == ":" and path[2] in "/\\"
+
+
 async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = ShellExecuteArgs(**args)
@@ -357,12 +362,15 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # the image already has installed.
     if (binding := get_active_sandbox()) is not None:
         try:
+            # The shell is a session, as a terminal is: with no working_dir the command runs where
+            # the previous one ended (``cd`` sticks), on a cloud box (per sandbox) and on a
+            # desktop (per conversation, X-Matrx-Shell-Session). A named folder still wins.
             cwd_path = (
-                parsed.working_dir
-                if parsed.working_dir.startswith("/")
+                None
+                if parsed.working_dir in ("", ".", "./")
+                else parsed.working_dir
+                if parsed.working_dir.startswith("/") or _is_windows_absolute(parsed.working_dir)
                 else f"{binding.root_path.rstrip('/')}/{parsed.working_dir.lstrip('./')}"
-                if parsed.working_dir not in ("", ".", "./")
-                else binding.root_path
             )
             result = await _proxy_exec(
                 binding,
@@ -421,7 +429,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     stdout_truncated=stdout_truncated,
                     stderr_truncated=stderr_truncated,
                     exit_code=exit_code,
-                    cwd=str(result.get("cwd", cwd_path)),
+                    cwd=str(result.get("cwd") or cwd_path or binding.root_path),
                     log_path=log_path,
                     backend="sandbox",
                 ).model_dump(mode="json"),
@@ -601,7 +609,9 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             result = await _proxy_exec(
                 binding,
                 "python3 -",
-                cwd=binding.root_path,
+                # The session's folder (where the last shell command left it), as a script run
+                # from a terminal; sending the root here reset the shell's sticky folder.
+                cwd=None,
                 stdin=parsed.code,
                 timeout=parsed.timeout_seconds,
             )

@@ -314,7 +314,10 @@ class LayersList(List[Type['scapy.packet.Packet']]):
         except ImportError:
             import __builtin__  # noqa: F401
         for lay in self.ldict:
-            doc = eval(lay).__doc__
+            try:
+                doc = eval(lay).__doc__
+            except AttributeError:
+                continue
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
         return result
 
@@ -649,7 +652,10 @@ class ExtsManager(importlib.abc.MetaPathFinder):
             return
 
         # Check the classifiers
-        if distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES:
+        if (
+            distr.metadata.get('License-Expression', None) not in self.GPLV2_LICENCES
+            and distr.metadata.get('License', None) not in self.GPLV2_LICENCES
+        ):
             log_loading.warning(
                 "'%s' has no GPLv2 classifier therefore cannot be loaded." % extension
             )
@@ -882,18 +888,37 @@ def _set_conf_sockets():
 
 def _socket_changer(attr, val, old):
     # type: (str, bool, bool) -> Any
+    """
+    This function is called when use_bpf or use_pcap change
+    """
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
+
+    # Set the value.
     Interceptor.set_from_hook(conf, attr, val)
-    dependencies = {  # Things that will be turned off
-        "use_pcap": ["use_bpf"],
-        "use_bpf": ["use_pcap"],
+
+    # Save a dict to be able to revert
+    restore = {
+        k: getattr(conf, k)
+        for k in ["use_bpf", "use_pcap"]
+        if k != attr  # This is handled directly by _set_conf_sockets
     }
-    restore = {k: getattr(conf, k) for k in dependencies}
-    del restore[attr]  # This is handled directly by _set_conf_sockets
-    if val:  # Only if True
-        for param in dependencies[attr]:
-            Interceptor.set_from_hook(conf, param, False)
+
+    # We have some special actions
+    if val:
+        # Setting to True: use_bpf and use_pcap are incompatible
+        if attr == "use_pcap":
+            Interceptor.set_from_hook(conf, "use_bpf", False)
+        elif attr == "use_bpf":
+            Interceptor.set_from_hook(conf, "use_pcap", False)
+    elif BSD:
+        # Setting to False on BSD: there must be at least one on
+        if attr == "use_pcap":
+            Interceptor.set_from_hook(conf, "use_bpf", True)
+        elif attr == "use_bpf":
+            Interceptor.set_from_hook(conf, "use_pcap", True)
+
+    # Now set sockets accordingly, revert if it fails.
     try:
         _set_conf_sockets()
     except (ScapyInvalidPlatformException, ImportError) as e:
@@ -1093,6 +1118,7 @@ class Conf(ConfClass):
         'gprs',
         'gssapi',
         'hsrp',
+        'igmp',
         'inet',
         'inet6',
         'ipsec',

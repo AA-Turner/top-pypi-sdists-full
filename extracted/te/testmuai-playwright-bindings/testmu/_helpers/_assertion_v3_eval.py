@@ -375,6 +375,7 @@ class Assertion:
         composite_operator: str = "",
         verification: str = "",
         claim: str = "",
+        json_path: str = "",
     ):
         # Handle backward compatibility with 'operator' parameter
         if operator is not None and assertion_operator is None:
@@ -404,6 +405,7 @@ class Assertion:
         self.composite_operator: str = composite_operator or ""
         self.verification: str = verification or ""
         self.claim: str = claim or ""
+        self.json_path: str = json_path or ""
 
     # ---------- helpers ----------
 
@@ -577,6 +579,17 @@ class Assertion:
         used_variables.update(left_variables)
         used_variables.update(right_variables)
 
+        if self.json_path:
+            from testmu_helper.evaluation._evaluate import _apply_rfc_json_path
+            matches = _apply_rfc_json_path(left, self.json_path)
+            if not matches:
+                return False, used_variables
+            for cond in self.assertion_operator:
+                for match_value in matches:
+                    if not self._eval_leaf_condition(cond, match_value, right):
+                        return False, used_variables
+            return True, used_variables
+
         for cond in self.assertion_operator:
             if not self._eval_leaf_condition(cond, left, right):
                 return False, used_variables
@@ -627,5 +640,6 @@ class Assertion:
             assertion_operator=conditions,
             left_operand=json_data.get("left_operand"),
             right_operand=json_data.get("right_operand"),
+            json_path=json_data.get("json_path", ""),
             **v16_kwargs,
         )

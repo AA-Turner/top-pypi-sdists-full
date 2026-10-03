@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.8.10
+Version: 0.8.11
 Summary: Generated Trajectory API client and high-level workflows
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown

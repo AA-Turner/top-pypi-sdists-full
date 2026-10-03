@@ -4,7 +4,6 @@ import urllib.parse
 import requests
 import agilicus
 import operator
-import dateparser
 import datetime
 from . import get_many_entries
 
@@ -401,6 +400,8 @@ def add_user(ctx, first_name, last_name, email, org_id, **kwargs):
 def update_user_with_user(ctx, user, disabled_at_time=None, **kwargs):
     if disabled_at_time is not None:
         if disabled_at_time:
+            import dateparser  # deferred: only needed for human-readable CLI dates
+
             user["disabled_at_time"] = (
                 dateparser.parse(disabled_at_time)
                 .replace(tzinfo=datetime.timezone.utc)

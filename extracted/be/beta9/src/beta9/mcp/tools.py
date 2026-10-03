@@ -8,6 +8,8 @@ import base64
 import fcntl
 import hashlib
 import http.client
+import importlib
+import importlib.util
 import json
 import os
 import shlex
@@ -20,18 +22,33 @@ import threading
 import time
 import uuid
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 from .. import auth
-from ..config import DEFAULT_CONTEXT_NAME, cli_path, context_defaults, get_settings
+from ..config import (
+    DEFAULT_CONTEXT_NAME,
+    ConfigContext,
+    SDKSettings,
+    cli_path,
+    context_defaults,
+    get_settings,
+    set_settings,
+)
 
 WAIT_DEFAULT = 20
 WAIT_MAX = 55
+# Seconds. A job runner records its pid as it starts; one that has not by then never will.
+RUNNER_START_LIMIT = 600
 LOG_TAIL = 40
 GENERIC_FAILURE = "Deployment failed"
+# The context a job's helper process calls the gateway with. The helper is a
+# fresh interpreter without the serving CLI's settings (a `beam` install reads
+# ~/.beam/config.ini, bare beta9 ~/.beta9/config.ini), so resolving the context
+# name again there can land in a different workspace.
+JOB_CONTEXT_ENV = "BETA9_MCP_JOB_CONTEXT"
 
 Handler = Callable[[Dict[str, Any]], Dict[str, Any]]
 Tool = Tuple[Dict[str, Any], Handler]  # definition, handler
@@ -40,6 +57,9 @@ Tool = Tuple[Dict[str, Any], Handler]  # definition, handler
 def text_result(text: str, **structured: Any) -> Dict[str, Any]:
     result: Dict[str, Any] = {"content": [{"type": "text", "text": text}]}
     if structured:
+        # Clients that show the model only text content still need the fields,
+        # such as a stack plan's plan_id.
+        result["content"].append({"type": "text", "text": json.dumps(structured, default=str)})
         result["structuredContent"] = structured
     return result
 
@@ -66,18 +86,20 @@ def _clamp(value: Any, default: int) -> int:
 STRING = {"type": "string"}
 INTEGER = {"type": "integer"}
 STRINGS = {"type": "array", "items": STRING}
+DATABASE_KINDS = ["postgres", "redis", "mysql", "mongo"]
 
 DATABASE_JOB_DEFINITION: Dict[str, Any] = {
     "name": "create_database_job",
     "description": (
         "Create a managed database in a recoverable local job. Poll deploy_status, then verify "
-        "database readiness. Reuse request_key after an interruption to resume the same operation."
+        "database readiness. Reuse request_key to resume the same operation after an "
+        "interruption, or to retry it after a failure."
     ),
     "inputSchema": {
         "type": "object",
         "required": ["kind", "name", "request_key"],
         "properties": {
-            "kind": {"type": "string", "enum": ["postgres", "redis", "mysql", "mongo"]},
+            "kind": {"type": "string", "enum": DATABASE_KINDS},
             "name": STRING,
             "request_key": {**STRING, "description": "Stable idempotency key for this creation."},
             "always_on": {"type": "boolean"},
@@ -86,16 +108,14 @@ DATABASE_JOB_DEFINITION: Dict[str, Any] = {
             "memory": {**INTEGER, "description": "Memory MiB; default 512."},
             "pool": STRING,
             "snapshot_id": {**STRING, "description": "Restore into a new disk from this snapshot."},
-            "restore_from": {
+            "username": {
                 **STRING,
-                "description": "Postgres source with retained native backups.",
+                "description": "Original Postgres role when restoring a snapshot.",
             },
-            "restore_time": {
+            "database": {
                 **STRING,
-                "description": "RFC3339 target within its verified recovery window.",
+                "description": "Original Postgres database when restoring a snapshot.",
             },
-            "username": {**STRING, "description": "Original Postgres role when restoring."},
-            "database": {**STRING, "description": "Original Postgres database when restoring."},
         },
         "additionalProperties": False,
     },
@@ -173,7 +193,7 @@ def deploy_definition(cli: str, cwd: str) -> Dict[str, Any]:
                 },
                 "idempotency_key": {
                     **STRING,
-                    "description": "Reuse to recover the same deploy after interruption.",
+                    "description": "Reuse to recover the same deploy after interruption, or retry a failed one.",
                 },
                 "disks": {**STRINGS, "description": "Durable disks NAME:/mount[:SIZE]."},
                 "keep_warm_seconds": {**INTEGER, "description": "-1 always on; 0 scale to zero."},
@@ -300,6 +320,8 @@ class DeployJob:
     state_path: Optional[Path] = None
     pid: int = 0
     context_name: str = DEFAULT_CONTEXT_NAME
+    env: Dict[str, str] = field(default_factory=dict)  # for the helper; never saved
+    supervisor: Optional[subprocess.Popen] = field(default=None, repr=False)  # never saved
 
     @property
     def log_path(self) -> Optional[Path]:
@@ -341,6 +363,12 @@ class DeployJob:
         if self.state_path is None or not self.state_path.exists():
             return
 
+        # Polled before reading the record: a supervisor saves its result before it exits.
+        # A job loaded from its record (a retried key, a restarted server) has no handle.
+        if self.supervisor is not None:
+            exited = self.supervisor.poll() is not None
+        else:
+            exited = time.time() - self.started_at > RUNNER_START_LIMIT
         payload = json.loads(self.state_path.read_text())
         for key, value in payload.items():
             setattr(self, key, value)
@@ -348,6 +376,12 @@ class DeployJob:
             # Ignore an append still in progress; the next poll sees that line.
             content = self.log_path.read_text()
             self.lines = content[: content.rfind("\n") + 1].splitlines()
+        if self.status == "running" and not self.pid and exited:
+            self.status = "failed"
+            self.error = "Job runner exited before starting" + (
+                f": {self.lines[-1]}" if self.lines else ""
+            )
+            self.save()
         if self.status == "running" and self.pid:
             try:
                 os.kill(self.pid, 0)
@@ -373,17 +407,19 @@ class DeployJob:
         self.save()
         # The supervisor owns the CLI pipe and terminal record independently of
         # the MCP client's lifetime. Job files are private to this context.
-        subprocess.Popen(
-            [sys.executable, "-m", "beta9.mcp.tools", str(self.state_path)],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        with open(self.log_path, "a", opener=_private_file) as log:
+            self.supervisor = subprocess.Popen(
+                [sys.executable, "-m", "beta9.mcp", str(self.state_path)],
+                env={**os.environ, **self.env},
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=log,
+                start_new_session=True,
+            )
 
     def _run(self) -> None:
         # Machine mode: errors are JSON objects and prompts fail instead of blocking.
-        env = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "BETA9_JSON": "1"}
+        env = {**os.environ, **self.env, "NO_COLOR": "1", "TERM": "dumb", "BETA9_JSON": "1"}
         self.pid = os.getpid()
         self.save()
 
@@ -472,7 +508,8 @@ class DeployJob:
         """The cause. The CLI prints it before a generic "Deployment failed"."""
         reason = next((e for e in errors if e["error"] != GENERIC_FAILURE), None)
         reason = reason or (errors[-1] if errors else {})
-        text = (reason.get("error") or (self.logs() or [f"exit code {code}"])[-1]).rstrip(":")
+        last = self.logs(max(0, len(self.lines) - LOG_TAIL)) or [f"exit code {code}"]
+        text = (reason.get("error") or last[-1]).rstrip(":")
         details = str(reason.get("details", "")).strip().splitlines()
         if details:  # a build log ends with the failing step
             text += f": {details[-1].strip()}"
@@ -502,21 +539,39 @@ class DeployJob:
             "log_file": str(self.log_path) if self.log_path else None,
             **self.deployed,
         }
+        if self.status == "accepted" and not self.deployed.get("deployment_id"):
+            if self.deployed.get("task_id"):
+                text = (
+                    f"Task {self.deployed['task_id']} submitted for {self.name}. "
+                    "Use get_task for its status and result, and logs with task_id for its output."
+                )
+            else:
+                text = (
+                    f"Container {self.deployed.get('container_id')} submitted for {self.name} "
+                    "without a task. Use logs with container_id for its output."
+                )
+            return text_result(text, **view)
         if self.status == "accepted":
             where = f" at {self.deployed['url']}" if self.deployed.get("url") else ""
+            check = "wait_deployment with an application health path"
+            kind = self.deployed["deployment"].get("kind")
+            if kind in ("postgres", "redis"):
+                check = "database_readiness"
+            elif kind in DATABASE_KINDS:
+                check = "database_credentials and a client connection"
             text = (
                 f"Deployment accepted for {self.name}{where} (deployment {self.deployed['deployment_id']}). "
-                "Readiness is not yet verified; use wait_deployment with an application health path."
+                f"Readiness is not yet verified; use {check}."
             )
             return text_result(text, **view)
 
         if self.status in ("failed", "cancelled", "interrupted"):
             view["error"] = self.error
             text = f"Deploy of {self.name} failed: {self.error}"
+            if self.deployed:
+                text += " It was accepted first; reconcile what it created before deploying again."
         else:
             text = f"Deploying {self.name} (job {self.id}, {view['elapsed_seconds']}s). Poll deploy_status with log_cursor={view['log_cursor']}."
-        if view["logs"]:
-            text += "\n\n" + "\n".join(view["logs"])
         result = text_result(text, **view)
         if self.status in ("failed", "cancelled", "interrupted"):
             result["isError"] = True
@@ -525,6 +580,39 @@ class DeployJob:
 
 def _private_file(path: str, flags: int) -> int:
     return os.open(path, flags, 0o600)
+
+
+class RemoteToolError(RuntimeError):
+    """A gateway tool's error. `payload` carries its `error` and `code`; `result`
+    is the error result the gateway sent, if it sent one."""
+
+    def __init__(self, payload: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
+        super().__init__(json.dumps(payload))
+        self.payload: Dict[str, Any] = payload
+        self.result: Optional[Dict[str, Any]] = result
+
+
+def call_remote(context: ConfigContext, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    from .server import RemoteMCP
+
+    _, body = RemoteMCP(context).call(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments},
+        }
+    )
+    body = body if isinstance(body, dict) else {}
+    result = body.get("result", {})
+    if "error" in body or result.get("isError") or not result:
+        error = body.get("error") or {}
+        raise RemoteToolError(
+            result.get("structuredContent")
+            or {"error": error.get("message") or "no response from the gateway"},
+            result if result.get("isError") else None,
+        )
+    return result.get("structuredContent", {})
 
 
 def _json_objects(lines: List[str]) -> Tuple[List[Dict[str, Any]], Set[int]]:
@@ -570,16 +658,20 @@ class LocalTools:
         )
         self.jobs: Dict[str, DeployJob] = {}
         self.request = threading.local()
-
-        context = context_defaults(context_name)
-        identity = hashlib.sha256(
-            f"{context_name}:{context.gateway_host}:{context.token}".encode()
-        ).hexdigest()[:24]
-        self.job_dir = get_settings().config_path.parent / "mcp-jobs" / identity
-        self.job_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(self.job_dir, 0o700)
         self.login_flow: Optional[auth.DeviceLogin] = None
         self.login_available: bool = auth.login_configured(context_name)
+
+    @property
+    def job_dir(self) -> Path:
+        """Records of the context's current sign-in; a later sign-in to another account gets its own."""
+        context = context_defaults(self.context_name)
+        identity = hashlib.sha256(
+            f"{self.context_name}:{context.gateway_host}:{context.token}".encode()
+        ).hexdigest()[:24]
+        path = get_settings().config_path.parent / "mcp-jobs" / identity
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(path, 0o700)
+        return path
 
     def available(self) -> List[Tool]:
         """(definition, handler) for every tool offered right now."""
@@ -677,19 +769,24 @@ class LocalTools:
         command: List[str],
         key: Optional[str] = None,
         wait_seconds: Optional[int] = 0,
+        env: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         key = str(key or uuid.uuid4().hex)
         job_id = hashlib.sha256(key.encode()).hexdigest()[:24]
         state_path = self.job_dir / f"{job_id}.json"
         with open(state_path.with_suffix(".lock"), "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            if state_path.exists():
-                job = DeployJob.load(state_path)
-                if job.command != command or job.directory != directory:
-                    return error_result(
-                        "idempotency_key already belongs to a different deployment request"
-                    )
-            else:
+            job = DeployJob.load(state_path) if state_path.exists() else None
+            if job and (job.command != command or job.directory != directory):
+                return error_result(
+                    "idempotency_key already belongs to a different deployment request"
+                )
+            # Rerun only a job that definitely deployed nothing: an interrupted job
+            # may have deployed, and a failed or cancelled one can still hold an
+            # accepted deployment.
+            if job is None or (job.status in ("failed", "cancelled") and not job.deployed):
+                for leftover in (".log", ".cancel"):
+                    state_path.with_suffix(leftover).unlink(missing_ok=True)
                 job = DeployJob(
                     id=job_id,
                     name=name,
@@ -697,6 +794,7 @@ class LocalTools:
                     command=command,
                     state_path=state_path,
                     context_name=self.context_name,
+                    env=env or {},
                 )
                 job.start()
 
@@ -729,34 +827,27 @@ class LocalTools:
 
         return job.result(cursor)
 
+    def signed_in_context(self) -> ConfigContext:
+        return _signed_in(self.context_name)
+
     def remote(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        from .server import RemoteMCP, context_or_none
-
-        remote = RemoteMCP(context_or_none(self.context_name))
-        _, body = remote.call(
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": name, "arguments": arguments},
-            }
-        )
-        result = body.get("result", {})
-        if "error" in body or result.get("isError"):
-            raise RuntimeError(json.dumps(result.get("structuredContent") or body.get("error")))
-
-        return result.get("structuredContent", {})
+        return call_remote(self.signed_in_context(), name, arguments)
 
     def database_job(self, arguments: Dict[str, Any], key: str) -> Dict[str, Any]:
+        try:
+            context = self.signed_in_context()
+        except RemoteToolError as exc:
+            return error_result(exc.payload["error"])
         command = [
             sys.executable,
             "-m",
-            "beta9.mcp.tools",
+            "beta9.mcp",
             "create-database",
             self.context_name,
             json.dumps(arguments),
         ]
-        return self.start_command(arguments["name"], self.cwd, command, key)
+        env = {JOB_CONTEXT_ENV: json.dumps(asdict(context))}
+        return self.start_command(arguments["name"], self.cwd, command, key, env=env)
 
     def create_database_job(self, args: Dict[str, Any]) -> Dict[str, Any]:
         arguments = dict(args)
@@ -770,7 +861,9 @@ class LocalTools:
         items = []
         for path in paths[:100]:
             job = DeployJob.load(path)
-            items.append({"job_id": job.id, "name": job.name, "status": job.status, **job.deployed})
+            # deploy_status carries the build log; a listing of 100 jobs must stay small.
+            deployed = {k: v for k, v in job.deployed.items() if k != "deployment"}
+            items.append({"job_id": job.id, "name": job.name, "status": job.status, **deployed})
 
         return text_result("Local deployment jobs", items=items)
 
@@ -790,29 +883,16 @@ class LocalTools:
         )
 
     def http_artifact(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        from .server import RemoteMCP, context_or_none
+        try:
+            context = self.signed_in_context()
+            deployment = call_remote(
+                context,
+                "get_deployment",
+                {k: args[k] for k in ("name", "deployment_id") if k in args},
+            )
+        except RemoteToolError as exc:
+            return exc.result or error_result(exc.payload.get("error") or str(exc))
 
-        context = context_or_none(self.context_name)
-        if context is None:
-            return error_result("Not signed in")
-
-        remote = RemoteMCP(context)
-        _, message = remote.call(
-            {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {
-                    "name": "get_deployment",
-                    "arguments": {k: args[k] for k in ("name", "deployment_id") if k in args},
-                },
-            }
-        )
-        result = message.get("result", {})
-        if result.get("isError"):
-            return result
-
-        deployment = result.get("structuredContent", {})
         if deployment.get("config", {}).get("tcp"):
             return error_result("Use a native TCP client for this deployment")
         address = deployment.get("url")
@@ -915,13 +995,14 @@ class LocalTools:
                 value["isError"] = response.status >= 400
                 return value
         except Exception as exc:
-            result = error_result(str(exc))
-            result["structuredContent"] = {
-                "path": str(destination),
-                "complete": False,
-                "bytes_received": count,
-                "cancelled": cancelled.is_set(),
-            }
+            result = text_result(
+                str(exc),
+                path=str(destination),
+                complete=False,
+                bytes_received=count,
+                cancelled=cancelled.is_set(),
+            )
+            result["isError"] = True
             return result
         finally:
             finished.set()
@@ -984,20 +1065,48 @@ class LocalTools:
             return error_result(str(exc))
 
 
+def _signed_in(name: str) -> ConfigContext:
+    from .server import context_or_none
+
+    context = context_or_none(name)
+    if context is None:
+        raise RemoteToolError({"error": "Not signed in", "code": "UNAUTHENTICATED"})
+    return context
+
+
+def _helper_context(name: str) -> ConfigContext:
+    if JOB_CONTEXT_ENV in os.environ:
+        return ConfigContext(**json.loads(os.environ[JOB_CONTEXT_ENV]))
+
+    # Servers from before JOB_CONTEXT_ENV pass only the context's name. They
+    # served the CLI installed alongside, and SDKSettings picks Beam's config
+    # file once the beam package is loaded. `python -m` put the job's directory,
+    # the user's project, first on the path; a beam module there is not the CLI.
+    sys.path[:] = [p for p in sys.path if p not in ("", os.getcwd())]
+    if importlib.util.find_spec("beam") is not None:
+        importlib.import_module("beam")
+        set_settings(SDKSettings())
+    return _signed_in(name)
+
+
 def main() -> None:
     if sys.argv[1] == "create-database":
-        tools = LocalTools(
-            cwd=None,
-            on_login=lambda: None,
-            signed_in=lambda: True,
-            context_name=sys.argv[2],
-        )
-        result = tools.remote("create_database", json.loads(sys.argv[3]))
-        print(json.dumps(result))
+        # The job supervisor parses the JSON objects printed here; one with an
+        # `error` key fails the job with that message.
+        try:
+            context = _helper_context(sys.argv[2])
+            print(json.dumps(call_remote(context, "create_database", json.loads(sys.argv[3]))))
+        except RemoteToolError as exc:
+            print(json.dumps(exc.payload if exc.payload.get("error") else {"error": str(exc)}))
+            sys.exit(1)
+        except Exception as exc:
+            print(json.dumps({"error": f"create_database failed: {exc}"}))
+            sys.exit(1)
         return
 
     DeployJob.load(Path(sys.argv[1]))._run()
 
 
+# MCP servers started before an upgrade still launch jobs as `python -m beta9.mcp.tools`.
 if __name__ == "__main__":
     main()

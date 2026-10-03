@@ -180,22 +180,19 @@ def test_every_declared_tier_is_structurally_routable_for_all_fifteen_classes(
     # the task-class contract's own ``routing_availability`` declaration, so a
     # class can only be excused by a machine-readable statement the dashboard
     # and gateway read too — not by an edit to this dict. The admissibility of
-    # such a declaration (genuinely unserveable capability, cited follow-on) is
+    # such a declaration (pending capability or withheld with a ruling) is
     # enforced in ``test_tier_endpoint_completeness_omn16811``.
-    known_unroutable_pending_agent_wiring = {
+    declared_unroutable = {
         task_type: [tier.name for tier in routing._tier_order_from_contract(config, e)]
         for task_type, e in (
             (task_type, routing._task_class_entry(contract, task_type))
             for task_type in _allowed_task_types()
         )
-        if isinstance(e, dict)
-        and isinstance(e.get("routing_availability"), dict)
-        and e["routing_availability"].get("status") == "pending_capability"  # type: ignore[union-attr]
+        if isinstance(e, dict) and isinstance(e.get("routing_availability"), dict)
     }
-    assert known_unroutable_pending_agent_wiring, (
-        "the contract must still declare the pending agent_orchestration gap"
-    )
-    assert unroutable == known_unroutable_pending_agent_wiring, (
+    # OMN-17427: all unavailable declarations participate in both drift directions.
+    assert "agent_delegation" in declared_unroutable
+    assert unroutable == declared_unroutable, (
         f"declared tiers without task capacity: {unroutable}"
     )
 
@@ -309,7 +306,7 @@ def test_distinct_backend_refs_do_not_fake_distinct_failure_domains(
 def test_next_tier_skips_a_repeated_exhausted_backend_ref(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The claude tier is not new quota when it repeats cloud-gemini-pro."""
+    """The claude tier is not new quota when it repeats cloud-gemini-2-5-flash."""
     config = _routing_config()
     contract = _yaml_mapping(_TASK_CONTRACT_PATH)
     backends = _synthetic_available_backends(config)
@@ -323,7 +320,7 @@ def test_next_tier_skips_a_repeated_exhausted_backend_ref(
             "cheap_cloud",
             frozenset(),
             task_type="research",
-            excluded_backend_refs=frozenset({"cloud-gemini-pro"}),
+            excluded_backend_refs=frozenset({"cloud-gemini-2-5-flash"}),
         )
         is None
     )

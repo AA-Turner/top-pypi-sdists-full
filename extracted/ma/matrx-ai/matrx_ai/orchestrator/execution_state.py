@@ -26,6 +26,7 @@ copied at task-creation time.
 
 from __future__ import annotations
 
+import time
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -61,6 +62,12 @@ class ExecutionState:
     # Iteration counter — incremented at the top of each main-loop pass.
     iteration: int = 0
 
+    # ``time.perf_counter()`` when this execution began. Time-to-first-token is
+    # attributed to this execution's user_request only when the stream's first
+    # model output happened AFTER this point — output an earlier execution on
+    # the same stream already emitted is never claimed by a later one.
+    started_perf: float = field(default_factory=time.perf_counter)
+
     # Reserved cx_message.id keyed by message position.  Populated by the
     # executor before the user/assistant rows are touched so the frontend
     # has stable anchors and persistence can do UPDATE-by-id later.
@@ -86,6 +93,13 @@ class ExecutionState:
     # opt-in (2 rows/day), a corrupt `provider` column on every row once
     # capture went always-on (D-33). Popped with the payload.
     snapshot_provider: str | None = None
+
+    # The id the provider-call-failure snapshot WILL be written under, allocated
+    # before each provider call of a persisted run. A settings-rejection record
+    # (failure_report, filed from inside the call) links it as
+    # ``request_snapshot_id`` before the snapshot row exists; the failure writer
+    # then uses exactly this id. None on ephemeral runs (no snapshot is written).
+    failure_snapshot_id: str | None = None
 
     # Best-effort label of the last model the executor talked to — used by
     # the snapshot writer when the response object doesn't carry it.

@@ -7,11 +7,10 @@ from lxml import html
 
 from trafilatura import extract
 from trafilatura.metadata import Document
-from trafilatura.settings import DEFAULT_CONFIG, Extractor, use_config
+from trafilatura.settings import Extractor, use_config
 from trafilatura.utils import LANGID_FLAG, check_html_lang, language_filter
 
-
-ZERO_CONFIG = DEFAULT_CONFIG
+ZERO_CONFIG = use_config()
 ZERO_CONFIG["DEFAULT"]["MIN_OUTPUT_SIZE"] = "0"
 ZERO_CONFIG["DEFAULT"]["MIN_EXTRACTED_SIZE"] = "0"
 
@@ -74,7 +73,7 @@ def test_filters():
         assert (
             extract(
                 html.fromstring('<html lang="en-US"><body>' + my_p * 50 + "</body></html>"),
-                no_fallback=True,
+                fast=True,
                 target_language="en",
             )
             is not None
@@ -82,7 +81,7 @@ def test_filters():
         assert (
             extract(
                 html.fromstring('<html lang="en-US"><body>' + my_p * 50 + "</body></html>"),
-                no_fallback=True,
+                fast=True,
                 target_language="de",
             )
             is None
@@ -91,7 +90,7 @@ def test_filters():
         assert (
             extract(
                 html.fromstring('<html lang="de-DE"><body>' + my_p * 50 + "</body></html>"),
-                no_fallback=False,
+                fast=False,
                 target_language="de",
             )
             is None
@@ -101,7 +100,7 @@ def test_filters():
         assert (
             extract(
                 html.fromstring('<html lang="de-DE"><body>' + my_p * 50 + "</body></html>"),
-                no_fallback=False,
+                fast=False,
                 target_language="de",
             )
             is not None
@@ -204,13 +203,13 @@ def test_prune_xpath():
         return html.fromstring("<html><body>" + my_p + "</body></html><!-- comment -->")
 
     # test xpath pruning
-    assert extract(doc(), prune_xpath="//p") == ""
-    assert extract(doc2(), prune_xpath="//p") == "ABC"
-    assert extract(doc2(), prune_xpath=["//p", "//h1"]) == ""
-    assert extract(doc3(), prune_xpath=["//p", "//h1"]) == "42"
+    assert extract(doc(), prune_xpath="//p", config=ZERO_CONFIG) == ""
+    assert extract(doc2(), prune_xpath="//p", config=ZERO_CONFIG) == "ABC"
+    assert extract(doc2(), prune_xpath=["//p", "//h1"], config=ZERO_CONFIG) == ""
+    assert extract(doc3(), prune_xpath=["//p", "//h1"], config=ZERO_CONFIG) == "42"
     assert extract(doc4(), prune_xpath=["//comment()"]) == "abc"
     # sanity check
-    assert extract(doc()) != ""
-    assert extract(doc2()) != ""
-    assert extract(doc3()) != ""
-    assert extract(doc4()) != ""
+    assert extract(doc(), config=ZERO_CONFIG) != ""
+    assert extract(doc2(), config=ZERO_CONFIG) != ""
+    assert extract(doc3(), config=ZERO_CONFIG) != ""
+    assert extract(doc4(), config=ZERO_CONFIG) != ""

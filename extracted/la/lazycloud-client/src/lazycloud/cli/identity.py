@@ -2,26 +2,18 @@ from __future__ import annotations
 
 import socket
 import time
-import urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Annotated
 
 import typer
-from pydantic import JsonValue
-from shared.http.device_auth import (
-    DeviceCodeCreateResponse,
-    DeviceCodeTokenResponse,
-)
-from shared.http_transport import HttpChannel
-from shared.identity import DeviceAuthorizationStatus
 
 from lazycloud._terminal.cards import notice_card, result_card
 from lazycloud._terminal.streams import console, error_console
 from lazycloud.cli.components.errors import ClientError
 from lazycloud.cli.components.output import emit, json_output_enabled, print_payload, table
-from lazycloud.clients.workspace import WorkspaceControlClient
+from lazycloud.clients.api import ApiClient, ApiConnectionError, ApiError
 from lazycloud.config import (
     DEFAULT_PROFILE,
     ClientProfile,
@@ -34,6 +26,14 @@ from lazycloud.config import (
     set_profile,
     settings,
 )
+from lazycloud.contracts.api import (
+    DeviceLogin,
+    DeviceTokenStatus,
+    Me,
+    WorkspaceRole,
+    WorkspaceState,
+)
+from lazycloud.control import endpoint_url
 
 profile_app = typer.Typer(help="Manage client profiles.")
 token_app = typer.Typer(help="Manage access tokens.")
@@ -50,17 +50,6 @@ class DeviceLoginResult:
     # The minted token is excluded from the repr so a traceback or a logged
     # result never carries the credential the device flow just issued.
     token: str = field(repr=False)
-
-
-def endpoint_url(endpoint: str, *, tls: bool) -> str:
-    selected = endpoint.strip()
-    if not selected:
-        msg = "Control plane endpoint cannot be empty."
-        raise ConfigError(msg)
-    if "://" in selected:
-        return selected.rstrip("/")
-    scheme = "https" if tls else "http"
-    return f"{scheme}://{selected}".rstrip("/")
 
 
 def resolve_login_endpoint(endpoint: str | None, existing: ClientProfile) -> str:
@@ -80,9 +69,7 @@ def resolve_login_endpoint(endpoint: str | None, existing: ClientProfile) -> str
     return existing.resolved_endpoint()
 
 
-def resolve_login_token(
-    token: str | None,
-) -> tuple[str, str]:
+def resolve_login_token(token: str | None) -> tuple[str, str]:
     """Resolve the login credential without requiring a secret command argument.
 
     An explicit ``--token`` remains authoritative, including an empty value that
@@ -92,7 +79,7 @@ def resolve_login_token(
     untouched until the new credential works.
     """
     if token is not None:
-        return token, "provided"
+        return token.strip(), "provided"
     environment_token = settings().token.strip()
     if environment_token:
         return environment_token, "environment"
@@ -108,66 +95,47 @@ def device_login(
     endpoint: str,
     *,
     client_name: str,
-    announce: Callable[[DeviceCodeCreateResponse], None],
-    sleep: Callable[[float], None] = time.sleep,
+    announce: Callable[[DeviceLogin], None],
+    sleep: Callable[[float], None] | None = None,
     timeout_seconds: float = DEVICE_LOGIN_TIMEOUT_SECONDS,
 ) -> DeviceLoginResult:
     """Run the device-code login flow against a control plane.
 
     Requests a device code, hands the verification details to ``announce``,
     then polls until the user approves in the web app, denies, or the code
-    expires. Returns the minted account token and who it belongs to; the token
-    reaches every workspace that person is a member of, so the profile keeps
-    choosing which one is active.
+    expires. A ``slow_down`` answer lengthens the wait between polls. Returns
+    the minted account token; it reaches every workspace that person is a
+    member of, so the profile keeps choosing which one is active.
     """
-    channel = HttpChannel(endpoint=endpoint)
-    started = DeviceCodeCreateResponse.model_validate(
-        _device_request(
-            channel,
-            "/auth/device",
-            {"client_name": client_name},
-        )
-    )
-    announce(started)
-    deadline = monotonic() + min(timeout_seconds, float(started.expires_in_seconds))
-    interval = float(max(started.poll_interval_seconds, 1))
-    while monotonic() < deadline:
-        sleep(interval)
-        claim = DeviceCodeTokenResponse.model_validate(
-            _device_request(
-                channel,
-                "/auth/device/token",
-                {"device_code": started.device_code},
-            )
-        )
-        if claim.status is DeviceAuthorizationStatus.Pending:
-            continue
-        if claim.status is DeviceAuthorizationStatus.Approved:
-            return DeviceLoginResult(token=claim.token)
-        msg = (
-            "The sign-in request was denied."
-            if claim.status is DeviceAuthorizationStatus.Denied
-            else "The sign-in code expired."
-        )
-        raise DeviceLoginError(msg)
+    with ApiClient(endpoint=endpoint, token="") as client:
+        try:
+            started = client.start_device_login(client_name)
+            announce(started)
+            deadline = monotonic() + min(timeout_seconds, float(started.expires_in_seconds))
+            interval = float(max(started.poll_interval_seconds, 1))
+            while monotonic() < deadline:
+                (sleep or time.sleep)(interval)
+                claim = client.poll_device_login(started.device_code)
+                interval = float(max(claim.poll_interval_seconds, 1))
+                if claim.status in (DeviceTokenStatus.pending, DeviceTokenStatus.slow_down):
+                    continue
+                if claim.status is DeviceTokenStatus.approved and claim.token:
+                    return DeviceLoginResult(token=claim.token)
+                msg = (
+                    "The sign-in request was denied."
+                    if claim.status is DeviceTokenStatus.denied
+                    else "The sign-in code expired."
+                )
+                raise DeviceLoginError(msg)
+        except ApiConnectionError as exc:
+            msg = f"Could not reach {endpoint}: {exc.reason}"
+            raise DeviceLoginError(msg) from exc
     msg = "The sign-in code expired."
     raise DeviceLoginError(msg)
 
 
-def _device_request(
-    channel: HttpChannel,
-    path: str,
-    payload: dict[str, JsonValue],
-) -> JsonValue:
-    try:
-        return channel.post(path, payload)
-    except urllib.error.URLError as exc:
-        msg = f"Could not reach {channel.endpoint}: {exc.reason}"
-        raise DeviceLoginError(msg) from exc
-
-
 def announce_device_login(
-    started: DeviceCodeCreateResponse,
+    started: DeviceLogin,
     *,
     profile: str,
     endpoint: str,
@@ -185,6 +153,46 @@ def announce_device_login(
                 "Wrong control plane? Pass --endpoint or activate another profile."
             ),
         )
+    )
+
+
+def select_workspace(client: ApiClient, me: Me, requested: str) -> str:
+    """The workspace the profile will use.
+
+    A named workspace must be one the token reaches; administrators reach
+    workspaces they are not members of. Otherwise the account's own
+    workspace, the one it owns and made first, or its only one.
+    """
+    active = [ws for ws in me.workspaces if ws.state is WorkspaceState.active]
+    names = [ws.name for ws in active]
+    if requested:
+        if requested in names:
+            return requested
+        try:
+            client.get_workspace(requested)
+        except ApiError as exc:
+            if exc.status_code not in (403, 404):
+                raise
+            reachable = ", ".join(names) or "none"
+            raise ClientError(
+                f"The token does not reach workspace {requested}.",
+                type="login_failed",
+                title="Login failed",
+                hint=f"Workspaces this token reaches: {reachable}.",
+            ) from exc
+        return requested
+    owned = sorted(
+        (ws for ws in active if ws.role is WorkspaceRole.owner), key=lambda ws: ws.created_at
+    )
+    if owned:
+        return owned[0].name
+    if len(names) == 1:
+        return names[0]
+    raise ClientError(
+        "Choose a workspace for this profile.",
+        type="login_failed",
+        title="Login failed",
+        hint=f"Pass --workspace with one of: {', '.join(names) or 'none'}.",
     )
 
 
@@ -209,7 +217,6 @@ def login(
     profile_name = _target_profile_name(profile)
     existing = _stored_profile_or_default(profile_name)
     selected_endpoint = resolve_login_endpoint(endpoint, existing)
-    selected_workspace = workspace or existing.workspace
     selected_tls = tls if tls is not None else existing.tls
     selected_token, token_source = resolve_login_token(token)
     selected_endpoint_url = endpoint_url(selected_endpoint, tls=selected_tls)
@@ -233,11 +240,9 @@ def login(
         selected_token = result.token
         token_source = "device"
 
-    WorkspaceControlClient.from_endpoint(
-        selected_endpoint_url,
-        token=selected_token,
-        workspace=selected_workspace,
-    ).current()
+    with ApiClient(endpoint=selected_endpoint_url, token=selected_token) as client:
+        me = client.me()
+        selected_workspace = select_workspace(client, me, workspace or existing.workspace)
     saved = set_profile(
         ClientProfile(
             name=profile_name,
@@ -474,11 +479,11 @@ __all__ = [
     "announce_device_login",
     "device_login",
     "device_login_client_name",
-    "endpoint_url",
     "login",
     "profile_app",
     "profile_payload",
     "resolve_login_endpoint",
     "resolve_login_token",
+    "select_workspace",
     "token_app",
 ]

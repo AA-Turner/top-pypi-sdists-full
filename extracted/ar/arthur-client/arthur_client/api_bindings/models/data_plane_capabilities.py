@@ -27,7 +27,8 @@ class DataPlaneCapabilities(BaseModel):
     DataPlaneCapabilities
     """ # noqa: E501
     gen_ai_enabled: Optional[StrictBool] = Field(default=False, description="Field that records if the engine was installed with GenAI capabilities.")
-    __properties: ClassVar[List[str]] = ["gen_ai_enabled"]
+    discovery_source_test: Optional[StrictBool] = Field(default=False, description="Whether the engine can run TEST_DISCOVERY_SOURCE jobs; reported by the engine when it asks for work.")
+    __properties: ClassVar[List[str]] = ["gen_ai_enabled", "discovery_source_test"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,7 +81,8 @@ class DataPlaneCapabilities(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "gen_ai_enabled": obj.get("gen_ai_enabled") if obj.get("gen_ai_enabled") is not None else False
+            "gen_ai_enabled": obj.get("gen_ai_enabled") if obj.get("gen_ai_enabled") is not None else False,
+            "discovery_source_test": obj.get("discovery_source_test") if obj.get("discovery_source_test") is not None else False
         })
         return _obj
 

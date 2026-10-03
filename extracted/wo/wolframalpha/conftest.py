@@ -1,6 +1,15 @@
+import contextlib
+import importlib.util
+
 import pytest
 
 import wolframalpha
+
+collect_ignore = (
+    []
+    if importlib.util.find_spec('pmxbot')
+    else ['wolframalpha/pmxbot.py', 'tests/test_pmxbot.py']
+)
 
 
 @pytest.fixture(scope='session')
@@ -10,7 +19,7 @@ def API_key(client):
 
 @pytest.fixture(scope='session')
 def client():
-    try:
+    with contextlib.suppress(Exception):
         return wolframalpha.Client.from_env()
-    except Exception:  # pragma: nocover
-        pytest.skip("Need WOLFRAMALPHA_API_KEY in environment")
+
+    pytest.skip("Need WOLFRAMALPHA_API_KEY in environment")  # pragma: nocover

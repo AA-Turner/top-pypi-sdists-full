@@ -22,6 +22,7 @@ from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.account import Account
 from ..types.v1error_response import V1ErrorResponse
+from .types.delete_accounts_response import DeleteAccountsResponse
 from .types.form_company_accounts_request_business_address import FormCompanyAccountsRequestBusinessAddress
 from .types.form_company_accounts_request_entity_suffix import FormCompanyAccountsRequestEntitySuffix
 from .types.form_company_accounts_request_entity_type import FormCompanyAccountsRequestEntityType
@@ -237,8 +238,10 @@ class RawAccountsClient:
         affiliate_code: typing.Optional[str] = OMIT,
         blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
@@ -258,11 +261,17 @@ class RawAccountsClient:
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         email : typing.Optional[str]
             The email address of the account owner. Required when creating a connected account.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         send_customer_emails : typing.Optional[bool]
             Whether Whop sends transactional emails to customers on behalf of the connected account.
@@ -289,8 +298,10 @@ class RawAccountsClient:
                 "affiliate_code": affiliate_code,
                 "blueprint_id": blueprint_id,
                 "country": country,
+                "dispute_fighter_enabled": dispute_fighter_enabled,
                 "email": email,
                 "metadata": metadata,
+                "orchestration_enabled": orchestration_enabled,
                 "send_customer_emails": send_customer_emails,
                 "title": title,
                 "website": website,
@@ -542,6 +553,94 @@ class RawAccountsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DeleteAccountsResponse]:
+        """
+        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DeleteAccountsResponse]
+            Connected account deleted.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"accounts/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteAccountsResponse,
+                    parse_obj_as(
+                        type_=DeleteAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def update(
         self,
         id: str,
@@ -556,6 +655,7 @@ class RawAccountsClient:
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
@@ -567,6 +667,7 @@ class RawAccountsClient:
         onboarding_type: typing.Optional[UpdateAccountsRequestOnboardingType] = OMIT,
         opengraph_image: typing.Optional[UpdateAccountsRequestOpengraphImage] = OMIT,
         opengraph_image_variant: typing.Optional[UpdateAccountsRequestOpengraphImageVariant] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         other_business_description: typing.Optional[str] = OMIT,
         other_industry_description: typing.Optional[str] = OMIT,
         privacy_policy: typing.Optional[UpdateAccountsRequestPrivacyPolicy] = OMIT,
@@ -633,6 +734,9 @@ class RawAccountsClient:
         description : typing.Optional[str]
             Account promotional description. When creating a Whop-managed Facebook page, it is truncated to 155 characters and used as the About text.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
 
@@ -665,6 +769,9 @@ class RawAccountsClient:
 
         opengraph_image_variant : typing.Optional[UpdateAccountsRequestOpengraphImageVariant]
             The account Open Graph image variant.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         other_business_description : typing.Optional[str]
             The description of the business type when business_type is other.
@@ -771,6 +878,7 @@ class RawAccountsClient:
                 "collect_vat_id": collect_vat_id,
                 "country": country,
                 "description": description,
+                "dispute_fighter_enabled": dispute_fighter_enabled,
                 "eula": convert_and_respect_annotation_metadata(
                     object_=eula, annotation=typing.Optional[UpdateAccountsRequestEula], direction="write"
                 ),
@@ -790,6 +898,7 @@ class RawAccountsClient:
                     direction="write",
                 ),
                 "opengraph_image_variant": opengraph_image_variant,
+                "orchestration_enabled": orchestration_enabled,
                 "other_business_description": other_business_description,
                 "other_industry_description": other_industry_description,
                 "privacy_policy": convert_and_respect_annotation_metadata(
@@ -1548,8 +1657,10 @@ class AsyncRawAccountsClient:
         affiliate_code: typing.Optional[str] = OMIT,
         blueprint_id: typing.Optional[str] = OMIT,
         country: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         website: typing.Optional[str] = OMIT,
@@ -1569,11 +1680,17 @@ class AsyncRawAccountsClient:
         country : typing.Optional[str]
             The ISO 3166-1 alpha-2 country code where the account's business is located (e.g. `US`). Defaults to the parent account's country for connected accounts.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         email : typing.Optional[str]
             The email address of the account owner. Required when creating a connected account.
 
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         send_customer_emails : typing.Optional[bool]
             Whether Whop sends transactional emails to customers on behalf of the connected account.
@@ -1600,8 +1717,10 @@ class AsyncRawAccountsClient:
                 "affiliate_code": affiliate_code,
                 "blueprint_id": blueprint_id,
                 "country": country,
+                "dispute_fighter_enabled": dispute_fighter_enabled,
                 "email": email,
                 "metadata": metadata,
+                "orchestration_enabled": orchestration_enabled,
                 "send_customer_emails": send_customer_emails,
                 "title": title,
                 "website": website,
@@ -1853,6 +1972,94 @@ class AsyncRawAccountsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[DeleteAccountsResponse]:
+        """
+        Deletes a connected account directly owned by the authenticated platform account. The account must have no settled, pending, or reserved balance in any currency and no active, trialing, or past-due memberships. The account stops resolving immediately, and its products, plans, and team access are removed in the background; payment history is retained. Deletion cannot be undone through the API. This cannot delete the platform account itself or an account owned by another platform.
+
+        Parameters
+        ----------
+        id : str
+            Connected account ID, prefixed `biz_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DeleteAccountsResponse]
+            Connected account deleted.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"accounts/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteAccountsResponse,
+                    parse_obj_as(
+                        type_=DeleteAccountsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def update(
         self,
         id: str,
@@ -1867,6 +2074,7 @@ class AsyncRawAccountsClient:
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         eula: typing.Optional[UpdateAccountsRequestEula] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
@@ -1878,6 +2086,7 @@ class AsyncRawAccountsClient:
         onboarding_type: typing.Optional[UpdateAccountsRequestOnboardingType] = OMIT,
         opengraph_image: typing.Optional[UpdateAccountsRequestOpengraphImage] = OMIT,
         opengraph_image_variant: typing.Optional[UpdateAccountsRequestOpengraphImageVariant] = OMIT,
+        orchestration_enabled: typing.Optional[bool] = OMIT,
         other_business_description: typing.Optional[str] = OMIT,
         other_industry_description: typing.Optional[str] = OMIT,
         privacy_policy: typing.Optional[UpdateAccountsRequestPrivacyPolicy] = OMIT,
@@ -1944,6 +2153,9 @@ class AsyncRawAccountsClient:
         description : typing.Optional[str]
             Account promotional description. When creating a Whop-managed Facebook page, it is truncated to 155 characters and used as the About text.
 
+        dispute_fighter_enabled : typing.Optional[bool]
+            Whether Whop assembles and files dispute evidence for this account. Enabling it opts into the success fee charged on disputes it wins. Requires payment:dispute. Omit to preserve the existing setting or creation default.
+
         eula : typing.Optional[UpdateAccountsRequestEula]
             The account's end-user license agreement document. PDF only. Pass a JSON object containing an `id` from [Create File](/api-reference/files/create-file), or `null` to remove it.
 
@@ -1976,6 +2188,9 @@ class AsyncRawAccountsClient:
 
         opengraph_image_variant : typing.Optional[UpdateAccountsRequestOpengraphImageVariant]
             The account Open Graph image variant.
+
+        orchestration_enabled : typing.Optional[bool]
+            Whether payment orchestration is enabled for this account. Requires payout:account:update. Omit to preserve the existing setting or creation default.
 
         other_business_description : typing.Optional[str]
             The description of the business type when business_type is other.
@@ -2082,6 +2297,7 @@ class AsyncRawAccountsClient:
                 "collect_vat_id": collect_vat_id,
                 "country": country,
                 "description": description,
+                "dispute_fighter_enabled": dispute_fighter_enabled,
                 "eula": convert_and_respect_annotation_metadata(
                     object_=eula, annotation=typing.Optional[UpdateAccountsRequestEula], direction="write"
                 ),
@@ -2101,6 +2317,7 @@ class AsyncRawAccountsClient:
                     direction="write",
                 ),
                 "opengraph_image_variant": opengraph_image_variant,
+                "orchestration_enabled": orchestration_enabled,
                 "other_business_description": other_business_description,
                 "other_industry_description": other_industry_description,
                 "privacy_policy": convert_and_respect_annotation_metadata(

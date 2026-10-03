@@ -118,10 +118,12 @@ impl Fixture {
             .unwrap_or(0)
     }
 
-    /// Evict our own blob files from the page cache so a fill has to go to disk.
+    /// Evict our own blob files from the page cache so a fill has to go to disk. Written back
+    /// first: a dirty page stays whatever the advice.
     pub fn drop_cache(&self) {
         for o in &self.objects {
             let f = std::fs::File::open(self.store.blob_path(&o.sha256)).unwrap();
+            f.sync_all().unwrap();
             // SAFETY: advice on our own descriptor.
             unsafe { libc::posix_fadvise(f.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED) };
         }

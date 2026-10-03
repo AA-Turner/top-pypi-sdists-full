@@ -10,9 +10,9 @@ right for one day and a lie on every day after. The thread's own history said
 the 26th. Two stale dates against one live one, and the model picked a stale one.
 
 Guards:
-1. When the pinned date is not today, the resolve stage puts TODAY in the
-   per-turn context channel and names the pinned line as the day the
-   conversation began. The cached prefix is untouched.
+1. On every turn the resolve stage puts the live instant in the per-turn
+   context channel; when the pinned date is not today it also names the pinned
+   line as the day the conversation began. The cached prefix is untouched.
 2. The per-turn context channel survives the loop step, so the live date (and
    every other per-turn block) reaches every provider call of the turn, not
    only the first.
@@ -79,10 +79,19 @@ def test_a_thread_that_began_days_ago_is_told_today() -> None:
     assert "Today is Monday, September 28, 2026" in (config.messages.render_turn_context() or "")
 
 
-def test_a_thread_that_began_today_gets_no_extra_block() -> None:
-    config = _staff_config("2026-09-28")
-    _announce_live_date(config, now=MONDAY_28)
-    assert _live_date_block(config) == ""
+def test_a_thread_pinned_to_today_in_utc_is_still_told_the_live_instant() -> None:
+    """Lane BC: at 02:00Z on Oct 3 the pin says 10-03 but Los Angeles is on Oct 2.
+
+    Skipping the block when the pin equals the UTC date left the person's local
+    date to chance for part of every day. The live instant travels every turn.
+    """
+    config = _staff_config("2026-10-03")
+    _announce_live_date(config, now=datetime(2026, 10, 3, 2, 0, tzinfo=UTC))
+    block = _live_date_block(config)
+    assert "Today is Saturday, October 3, 2026 — 2026-10-03T02:00Z in UTC" in block, block
+    assert "BEGAN" not in block
+    assert "person's own local time" in block
+    assert "remembered from earlier" in block
 
 
 def test_the_resolve_stage_announces_the_live_date() -> None:

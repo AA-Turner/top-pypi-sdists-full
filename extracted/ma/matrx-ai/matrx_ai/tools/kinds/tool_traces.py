@@ -42,6 +42,7 @@ from matrx_graph.content_ir.sdk import kind
 
 @kind(
     "tool_trace_event",
+    disposition="envelope",
     label="Tool Trace Event",
     family="tool_traces",
     example={
@@ -90,6 +91,7 @@ class ToolTraceEvent(KindModel):
 
 @kind(
     "tool_trace_event_page",
+    disposition="envelope",
     label="Tool Trace Events",
     family="tool_traces",
     example={
@@ -138,6 +140,7 @@ class ToolTraceEventPage(KindModel):
 
 @kind(
     "tool_trace_file",
+    disposition="envelope",
     label="Tool Trace File",
     family="tool_traces",
     example={
@@ -160,6 +163,7 @@ class ToolTraceFile(KindModel):
 
 @kind(
     "tool_trace_file_listing",
+    disposition="envelope",
     label="Tool Trace File Listing",
     family="tool_traces",
     example={
@@ -187,6 +191,7 @@ class ToolTraceFileListing(KindModel):
 
 @kind(
     "tool_trace_file_window",
+    disposition="envelope",
     label="Tool Trace File Window",
     family="tool_traces",
     example={
@@ -224,6 +229,9 @@ class ToolTraceFileWindow(KindModel):
 
 @kind(
     "tool_trace_incident_report",
+    # A write happened: the incident was filed (or merged into an open one) and this names the
+    # feedback row it wrote -> receipt (KINDS-GLUE ruling M4; kindsglue_g corrects M3's prefix sweep).
+    disposition="receipt",
     label="Tool Trace Incident Report",
     family="tool_traces",
     example={
@@ -254,6 +262,7 @@ class ToolTraceIncidentReport(KindModel):
 
 @kind(
     "tool_trace_incident",
+    disposition="envelope",
     label="Tool Trace Incident",
     family="tool_traces",
     example={
@@ -289,6 +298,7 @@ class ToolTraceIncident(KindModel):
 
 @kind(
     "tool_trace_incident_filter",
+    disposition="envelope",
     label="Tool Trace Incident Filter",
     family="tool_traces",
     example={"severity": None, "tool_name_substring": "fs_", "limit": 20},
@@ -305,6 +315,7 @@ class ToolTraceIncidentFilter(KindModel):
 
 @kind(
     "tool_trace_incident_list",
+    disposition="envelope",
     label="Tool Trace Incidents",
     family="tool_traces",
     example={
@@ -339,6 +350,7 @@ class ToolTraceIncidentList(KindModel):
 
 @kind(
     "tool_call_record",
+    disposition="envelope",
     label="Tool Call Record",
     family="tool_traces",
     example={
@@ -395,6 +407,7 @@ class ToolCallRecord(KindModel):
 
 @kind(
     "tool_trace_call_detail",
+    disposition="envelope",
     label="Tool Call Forensics",
     family="tool_traces",
     example={

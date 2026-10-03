@@ -19,6 +19,7 @@ from matrx_utils import vcprint
 
 from matrx_ai.config.unified_config import UnifiedMessage
 from matrx_ai.db._registry import get_model
+from matrx_ai.db.tool_result_text import _model_notices, tool_result_text_as_received
 from matrx_ai.db.edited_answers import (
     edited_answer_visible_to_model,
     original_model_content,
@@ -140,12 +141,11 @@ def _rebuild_tool_result_content(
             content = _stub_tool_result_text(tc)
         elif tc.is_error and not content:
             content = _synthesise_error_content(tc)
-        if getattr(tc, "model_stub_at", None) is None:
-            # The notices the live turn appended (ignored / decoded / inferred
-            # arguments) ride execution_events; replay them the same way.
             notices = _model_notices(tc)
             if notices:
-                content = f"{content}\n\n" + "\n".join(notices) if content else "\n".join(notices)
+                content = f"{content}\n\n" + "\n".join(notices)
+        else:
+            content = tool_result_text_as_received(tc)
 
         content_blocks.append(
             {
@@ -161,23 +161,6 @@ def _rebuild_tool_result_content(
         )
 
     return content_blocks
-
-
-def _model_notices(tc: CxToolCall) -> list[str]:
-    from matrx_ai.tools.executor import MODEL_NOTICE_STEP
-
-    events = getattr(tc, "execution_events", None)
-    if not isinstance(events, list):
-        return []
-    return [
-        str(e.get("message"))
-        for e in events
-        if isinstance(e, dict)
-        and e.get("event") == "tool_step"
-        and isinstance(e.get("data"), dict)
-        and e["data"].get("step") == MODEL_NOTICE_STEP
-        and e.get("message")
-    ]
 
 
 def _stub_tool_result_text(tc: CxToolCall) -> str:

@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -88,8 +88,7 @@ class MemoryForgetWire(ToolArgs):
 
 
 class MemoryArgs(RootModel[Annotated[
-    Union[MemoryRecallWire, MemorySearchWire, MemoryStoreWire,
-          MemoryUpdateWire, MemoryForgetWire],
+    MemoryRecallWire | MemorySearchWire | MemoryStoreWire | MemoryUpdateWire | MemoryForgetWire,
     Field(discriminator="action"),
 ]]):
     pass

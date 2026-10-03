@@ -1,4 +1,4 @@
-"""The `task` tool — list/get/create/update/delete on workspace.tasks.
+"""The `task` tool — list/get/create/update/delete on projects.tasks.
 
 EVERY ACTION RUNS AS THE PERSON. Each action opens the caller's RLS session
 (``matrx_ai.tools.person_session.as_the_person``) around its ORM work, so

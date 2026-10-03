@@ -379,6 +379,37 @@ def test_run_lane_includes_pi_by_default_when_it_is_paired(tmp_path, monkeypatch
     assert bt.CODEX not in seen["agents"], "codex was never paired in this test"
 
 
+def test_run_lane_reports_pi_unpaired_on_a_claude_paired_machine(tmp_path, monkeypatch) -> None:
+    """D3: a machine paired only for Claude Code holds Claude's `ingest_token`
+    in the CLI config. pi used to resolve THAT token, land in `posters`, and
+    then 403 on every `/ingest/v1/sessions/pi` upload, failing the whole pi
+    import. pi must resolve nothing and be reported unpaired instead."""
+    from probe.cli import backfill_transcripts as transcripts_mod
+
+    config = tmp_path / "probe" / "config.json"
+    config.parent.mkdir(parents=True)
+    config.write_text(json.dumps({"base_url": "http://x", "ingest_token": "ros_ing_claude"}))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("PROBE_RESEARCH_TAP_PLUGIN_DIR", str(tmp_path / "tap-cc"))
+    monkeypatch.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(tmp_path / "tap-codex"))
+    monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(tmp_path / "tap-pi"))
+    for name in ("PROBE_INGEST_TOKEN", "PRBE_CODEX_TAP_TOKEN", "PROBE_PI_TAP_TOKEN", "PROBE_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    seen: dict = {}
+
+    def fake_discover(*, agents, **kwargs):
+        seen["agents"] = list(agents)
+        return bt.Census()
+
+    monkeypatch.setattr(transcripts_mod, "discover", fake_discover)
+
+    transcripts_mod.run_lane(client=object(), interactive=False)
+
+    assert seen["agents"] == [bt.CLAUDE]
+
+
 def test_gate_states_the_scope_and_the_counts(roots) -> None:
     """The only screen between a person and a surprise."""
     claude, _ = roots

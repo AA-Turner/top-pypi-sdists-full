@@ -158,6 +158,9 @@ def build_model_setup(
             "api_base": f"{api_base.rstrip('/')}/openapi",
             "api_key": api_key,
             "reasoning_effort": "high",
+            # See core_harness._setup_model: without this, litellm silently
+            # drops reasoning_effort for models it doesn't recognize.
+            "allowed_openai_params": ["reasoning_effort"],
         }
     if "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         return f"gemini/{model_name}", {}
@@ -1268,7 +1271,7 @@ def _build_parser() -> argparse.ArgumentParser:
                          "prompt, across all transport retries. Exported as "
                          "LLM_CALL_TIMEOUT, which core_harness._call_llm "
                          "reads. Per-read idle-gap timeout (LLM_READ_TIMEOUT, "
-                         "default 180s) and transport-retry count "
+                         "default 600s) and transport-retry count "
                          "(LLM_CALL_MAX_TRANSPORT_RETRIES, default 4) are "
                          "separate. Default 900s = 15 min.")
     pr.add_argument("--game-timeout", type=int, default=0,

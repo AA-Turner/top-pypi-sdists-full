@@ -1000,6 +1000,7 @@ def _run_isotope_then_exit(
         cutoff_frequency=settings.cutoff_frequency,
         lapack_zheev_uplo=settings.lapack_zheev_uplo,
         symmetrize_tetrahedra=settings.symmetrize_tetrahedra,
+        average_degenerate_weights=settings.average_degenerate_weights,
         exclude_gamma_acoustic=settings.exclude_gamma_acoustic,
         lang=phono3py.lang,
     )
@@ -1054,6 +1055,8 @@ def _init_phph_interaction(
             print("Tetrahedron weights averaged over point group: True")
         if settings.exclude_gamma_acoustic:
             print("Acoustic frequencies at Gamma set to zero: True")
+        if settings.average_degenerate_weights:
+            print("Tetrahedron weights averaged over degenerate bands: True")
         if settings.is_fc3_r0_average:
             print("fc3-r2q-transformation over three atoms: True")
         else:
@@ -1075,6 +1078,7 @@ def _init_phph_interaction(
         lapack_zheev_uplo=settings.lapack_zheev_uplo,
         symmetrize_tetrahedra=settings.symmetrize_tetrahedra,
         exclude_gamma_acoustic=settings.exclude_gamma_acoustic,
+        average_degenerate_weights=settings.average_degenerate_weights,
     )
 
     if log_level:

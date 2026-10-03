@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -54,20 +55,26 @@ def supervise() -> None:
 
 thread = threading.Thread(target=supervise, daemon=True)
 thread.start()
-worker = Worker(
-    RuntimeConfig(
-        cozy_home=root / "home",
-        credentials=Credentials(),
-        child_base_env=tuple(sorted(os.environ.items())),
-    ),
-    WorkerOptions(
-        root=root / "worker",
-        tensorfs_root=root / "store",
-        install_root=root / "installs",
-        artifact_cache=root / "artifacts",
-    ),
-    InMemoryControlHost(),
-)
+
+
+def boot() -> Worker:
+    return Worker(
+        RuntimeConfig(
+            cozy_home=root / "home",
+            credentials=Credentials(),
+            child_base_env=tuple(sorted(os.environ.items())),
+        ),
+        WorkerOptions(
+            root=root / "worker",
+            tensorfs_root=root / "store",
+            install_root=root / "installs",
+            artifact_cache=root / "artifacts",
+        ),
+        InMemoryControlHost(),
+    )
+
+
+worker = boot()
 try:
     assert storage.enabled() and worker.machine_calls is not None
     builtins = worker.machine_calls.builtins
@@ -85,12 +92,35 @@ try:
             str(installed.python),
             "-I",
             "-c",
-            "import json; from cozy_runtime.internal.builtin_environment import sdk_identity; "
-            "print(json.dumps(sdk_identity()))",
+            "import importlib.metadata; print(importlib.metadata.version('cozy-runtime'))",
         ],
         text=True,
     )
-    assert json.loads(actual) == {"runtime_version": captured.runtime_version}
+    assert actual.strip() == captured.runtime_version
+    # A restarted Runtime reopens its own operations and their interface: no describe.
+    worker.shutdown()
+    worker = boot()
+    descriptions = 0
+
+    def counted[**P, R](function: Callable[P, R]) -> Callable[P, R]:
+        def observe(*args: P.args, **kwargs: P.kwargs) -> R:
+            global descriptions
+            descriptions += 1
+            return function(*args, **kwargs)
+
+        return observe
+
+    worker._describe_in_slot = counted(worker._describe_in_slot)  # type: ignore[method-assign]
+    assert worker.machine_calls is not None
+    again = worker.machine_calls.builtins.capture()
+    assert (again.installation_id, again.placement) == (captured.installation_id, placement)
+    assert descriptions == 0, descriptions
+    held = [
+        path.name
+        for path in (root / "installs" / "installations").iterdir()
+        if json.loads((path / "installation.json").read_bytes())["package"] == "runtime/operations"
+    ]
+    assert held == [captured.installation_id], held
     print("RENTED BUILTIN PASS", captured.runtime_version, "leases", len(leases))
 finally:
     worker.shutdown()

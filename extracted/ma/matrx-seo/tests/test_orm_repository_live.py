@@ -522,7 +522,7 @@ async def test_link_keyword_to_project_round_trip_live(live_user: str) -> None:
     projects = await WorkspaceProject.filter(organization_id=org_id).limit(1).all()
     if not projects:
         pytest.skip(
-            "no workspace.projects row exists for the agent org and the package "
+            "no projects.projects row exists for the agent org and the package "
             "project model is read-only — cannot create one from the vertical"
         )
     project_id = str(projects[0].id)

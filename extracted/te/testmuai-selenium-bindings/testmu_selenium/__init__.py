@@ -91,6 +91,7 @@ from testmu_selenium._helpers.dialog import handle_alert
 from testmu_selenium._helpers.url import get_url, get_title
 from testmu_selenium._helpers.math import evaluate_math
 from testmu_selenium._helpers.network import evaluate_network_assertion, network_query
+from testmu_selenium._helpers.schema_assertion import verify_schema_assertion
 from testmu_selenium._helpers.execute_api import execute_api
 from testmu_selenium._helpers.execute_db import execute_db
 from testmu_selenium._helpers.cookies import get_cookies
@@ -123,6 +124,7 @@ __all__ = [
     "get_url", "get_title",
     # Driver-agnostic helpers
     "evaluate_math", "evaluate_network_assertion", "network_query",
+    "verify_schema_assertion",
     "execute_api", "execute_db",
     # Heal
     "_heal_cascade", "HealResult",

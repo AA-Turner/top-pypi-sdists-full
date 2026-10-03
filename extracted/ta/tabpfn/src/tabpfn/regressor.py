@@ -41,7 +41,7 @@ from tqdm.auto import tqdm
 
 from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
 from tabpfn.base import (
-    RegressorModelSpecs,
+    ModelSpecs,
     create_inference_engine,
     determine_precision,
     estimator_to_device,
@@ -56,6 +56,10 @@ from tabpfn.base import (
 from tabpfn.constants import (
     REGRESSION_CONSTANT_TARGET_BORDER_EPSILON,
     ModelVersion,
+)
+from tabpfn.downsample_correction import (
+    downsample_bucket_log_weights,
+    temper_and_correct_logits,
 )
 from tabpfn.errors import TabPFNValidationError, handle_oom_errors
 from tabpfn.inference import (
@@ -289,8 +293,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         | list[str]
         | list[Path]
         | Literal["auto"]
-        | RegressorModelSpecs
-        | list[RegressorModelSpecs] = "auto",
+        | ModelSpecs
+        | list[ModelSpecs] = "auto",
         device: DevicesSpecification = "auto",
         ignore_pretraining_limits: bool = False,
         inference_precision: _dtype | Literal["autocast", "auto"] = "auto",
@@ -302,7 +306,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         ] = "fit_preprocessors",
         memory_saving_mode: MemorySavingMode = "auto",
         keep_cache_on_device: bool = True,
-        kv_cache_precision: Literal["auto", "int8", "fp8"] | None = None,
+        kv_cache_precision: Literal["auto", "int8", "fp8", "adaptive"] | None = None,
         random_state: int | np.random.RandomState | np.random.Generator | None = 0,
         n_jobs: Annotated[int | None, deprecated("Use n_preprocessing_jobs")] = None,
         n_preprocessing_jobs: int = 1,
@@ -400,6 +404,16 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                   the user-specified location if available, otherwise it will be
                   downloaded to this location. Details on available checkpoints are
                   available in the repository README.
+
+                - If a ``ModelSpecs`` object or list of them, use the in-memory
+                  models without loading checkpoints. The same specs can be used
+                  with either estimator when the model supports both tasks.
+                  Models are used by reference, not copied.
+                  Regression distributions are constructed from
+                  ``model.regression_borders`` unless ``norm_criterion`` is
+                  supplied. Older models without embedded borders require that
+                  explicit normalized-space distribution (including legacy
+                  finetuning; use ``znorm_space_bardist_``).
 
             device:
                 The device(s) to use for inference.
@@ -510,7 +524,10 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 else `"auto"`); `"int8"` quantizes the key-value cache to save
                 memory; `"fp8"` stores it as 8-bit floats instead (same size,
                 float rounding semantics; not supported on MPS);
-                `"auto"` keeps the computed dtype. Requesting a
+                `"auto"` keeps the computed dtype; `"adaptive"` stores the cache
+                on the grid an attention backend already rounded the keys and
+                values to (one that declares `kv_grid_dtype` and took the call),
+                and as `"int8"` otherwise. Requesting a
                 quantized precision on an architecture that cannot quantize
                 warns and falls back to `"auto"`.
 
@@ -537,15 +554,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 This parameter never had any effect.
 
             n_preprocessing_jobs:
-                The number of worker processes to use for the preprocessing.
+                The number of worker threads to use for the preprocessing.
 
-                If `1`, the preprocessing will be performed in the current process,
-                parallelised across multiple CPU cores. If `>1` and `n_estimators > 1`,
-                then different estimators will be dispatched to different processes.
-
-                We strongly recommend setting this to 1, which has the lowest overhead
-                and can often fully utilise the CPU. Values >1 can help if you have lots
-                of CPU cores available, but can also be slower.
+                If `1`, the preprocessing runs in the calling thread. If `>1` and
+                `n_estimators > 1`, the estimators are preprocessed on that many
+                threads, which speeds up the fit on large tables. Threads beyond
+                `n_estimators` are unused.
 
             inference_config:
                 For advanced users, additional advanced arguments that adjust the
@@ -698,6 +712,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             )
         return self.models_[0]
 
+    downsample_correction_log_weights_: torch.Tensor | None
+    """Per-bar log weights that undo the prior shift of
+    `SAMPLE_SUBSAMPLING_METHOD="majority_downsample"`, added to the aggregated
+    log-probabilities. `None` when that sampler is not in effect."""
+
     @property
     def norm_bardist_(self) -> FullSupportBarDistribution:
         """WARNING: DEPRECATED. Please use `raw_space_bardist_` instead.
@@ -787,9 +806,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         ``y_train_std_`` must already be set as Python floats.
         """
         borders = self.znorm_space_bardist_.borders.detach()
-        self.raw_space_bardist_ = FullSupportBarDistribution(
-            borders * self.y_train_std_ + self.y_train_mean_,
-        ).float()
+        self.raw_space_bardist_ = _place_raw_space_bardist(
+            FullSupportBarDistribution(
+                borders.cpu().double() * self.y_train_std_ + self.y_train_mean_,
+            ),
+            borders.device,
+        )
 
     def _build_ensemble_preprocessor_and_executor(
         self,
@@ -807,9 +829,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         Shared between the standard fit path and the differentiable-input
         path. The two paths differ only in ``n_preprocessing_jobs``
         (forced to 1 in the differentiable path so the autograd graph on
-        ``X`` survives joblib's process-boundary pickling) and
-        ``inference_mode`` (False under differentiable input so backprop
-        works through the executor).
+        ``X`` is built in the calling thread) and ``inference_mode``
+        (False under differentiable input so backprop works through the
+        executor).
         """
         self.ensemble_preprocessor_ = TabPFNEnsemblePreprocessor(
             configs=ensemble_configs,
@@ -1021,6 +1043,33 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         return ensemble_configs, X, y, self.znorm_space_bardist_
 
+    def _compute_downsample_correction(self, *, y_raw: np.ndarray) -> None:
+        """Set `downsample_correction_log_weights_` from the fitted row sampler.
+
+        Requires `ensemble_preprocessor_` and `raw_space_bardist_`; `y_raw` is
+        the target in its original units.
+        """
+        distribution = self.ensemble_preprocessor_.row_sampling_distribution_
+        if distribution is None:
+            self.downsample_correction_log_weights_ = None
+            return
+        probabilities, unobserved_probability = distribution
+        self.downsample_correction_log_weights_ = downsample_bucket_log_weights(
+            self.raw_space_bardist_,
+            y_raw=y_raw,
+            row_inclusion_probabilities=probabilities,
+            unobserved_target_probability=unobserved_probability,
+        )
+
+    def _uses_majority_downsample(self) -> bool:
+        """Whether the configured row sampler is majority downsampling."""
+        config = self.get_inference_config()
+        return (
+            config.SUBSAMPLE_SAMPLES is not None
+            and SampleSubsamplingMethod(config.SAMPLE_SUBSAMPLING_METHOD)
+            == SampleSubsamplingMethod.MAJORITY_DOWNSAMPLE
+        )
+
     def _get_tuning_regressor(self, **overwrite_kwargs: Any) -> TabPFNRegressor:
         """Return a fresh regressor configured for holdout tuning."""
         params = self.get_params(deep=False)
@@ -1084,6 +1133,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 "Automatically switching to 'batched' mode for finetuning."
             )
             self.fit_mode = "batched"
+
+        # Finetuning batches are built without row subsampling, so no context
+        # prior shift exists here. Clear any correction left over from an earlier
+        # fit(); otherwise the logit reduction would reweight every batch.
+        self.downsample_correction_log_weights_ = None
 
         # If there is a model, and we are lazy, we skip reinitialization
         if not hasattr(self, "models_") or not no_refit:
@@ -1200,11 +1254,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         self.y_train_mean_ = y_mean.detach().item()
         self.y_train_std_ = y_std.detach().item()
         y = (y_float - y_mean) / y_std
+        self.downsample_correction_log_weights_ = None
         self._rebuild_raw_space_bardist()
 
         # Force sequential preprocessing: with differentiable input X carries
-        # an autograd graph that does not survive joblib's process-boundary
-        # pickling. Sequential execution preserves the graph in-process.
+        # an autograd graph, which is built in the calling thread.
         self._build_ensemble_preprocessor_and_executor(
             X=X,
             y=y,
@@ -1213,6 +1267,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             byte_size=byte_size,
             n_preprocessing_jobs=1,
             inference_mode=False,
+        )
+        # `y` is z-normalized by now; histogramming on the raw-space borders
+        # needs the original target values.
+        self._compute_downsample_correction(
+            y_raw=y_float.detach().cpu().float().numpy()
         )
 
         return self
@@ -1234,6 +1293,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # that the constant-target fit, which returns before calibration, still
         # exposes the attribute.
         self.ensemble_softmax_temperature_ = 1.0
+        self.downsample_correction_log_weights_ = None
 
         if self.differentiable_input:
             raise ValueError(
@@ -1284,6 +1344,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # tuning regressor derives its own mean/std from its own training split.
         self._maybe_calibrate_ensemble_temperature(X=X, y=y)
 
+        y_raw = np.asarray(y, dtype=np.float64)
         mean, std = np.mean(y), np.std(y)
         # TODO: y_train_std_ and y_train_mean_ don't seem to be used anywhere else.
         self.y_train_std_ = std.item() + 1e-20
@@ -1301,6 +1362,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # TODO: Standard fit usually uses inference_mode=True, before it was enabled
             inference_mode=True,
         )
+        self._compute_downsample_correction(y_raw=y_raw)
 
         return self
 
@@ -1406,7 +1468,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         logit_to_output = partial(
             _logits_to_output,
             logits=logits,
-            criterion=self.raw_space_bardist_,
+            znorm_space_bardist=self.znorm_space_bardist_,
+            y_mean=self.y_train_mean_,
+            y_std=self.y_train_std_,
             quantiles=quantiles,
         )
         if output_type in ["full", "main"]:
@@ -1498,7 +1562,14 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         y: YType,
         holdout_frac: float,
         n_folds: int,
-    ) -> list[tuple[torch.Tensor, FullSupportBarDistribution, torch.Tensor]]:
+    ) -> list[
+        tuple[
+            torch.Tensor,
+            FullSupportBarDistribution,
+            torch.Tensor,
+            torch.Tensor | None,
+        ]
+    ]:
         """Compute holdout validation data, one entry per cross-validation fold.
 
         Folds are kept separate rather than concatenated: every
@@ -1507,12 +1578,15 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         fold's own logits correctly.
 
         Returns:
-            One `(logits, raw_space_bardist, y_holdout)` triple per usable fold.
-            `logits` has shape `[n_holdout_samples, n_buckets]`, and `y_holdout`
-            shape `[n_holdout_samples]` in the *original* units of the target, to
-            match the borders of the fold's `raw_space_bardist`. Folds whose
-            training target turned out to be constant are omitted, so the list may
-            be shorter than `n_folds` and may be empty.
+            One `(logits, raw_space_bardist, y_holdout, log_weights)` tuple per
+            usable fold. `logits` has shape `[n_holdout_samples, n_buckets]` and
+            carries no temperature and no downsampling correction; `log_weights`
+            is the fold's own per-bar correction (or `None`), kept separate so the
+            temperature sweep can compose the two exactly as prediction does.
+            `y_holdout` has shape `[n_holdout_samples]` in the *original* units
+            of the target, to match the borders of the fold's `raw_space_bardist`.
+            Folds whose training target turned out to be constant are omitted,
+            so the list may be shorter than `n_folds` and may be empty.
         """
         splits = get_tuning_splits(
             X=copy.deepcopy(X),
@@ -1524,7 +1598,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         )
 
         holdout_folds: list[
-            tuple[torch.Tensor, FullSupportBarDistribution, torch.Tensor]
+            tuple[
+                torch.Tensor,
+                FullSupportBarDistribution,
+                torch.Tensor,
+                torch.Tensor | None,
+            ]
         ] = []
         # suffixes: Nt=num_train_samples, F=num_features, Nh=num_holdout_samples,
         # B=num buckets
@@ -1558,7 +1637,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             X_holdout_NhF = ensure_compatible_predict_input_sklearn(  # noqa: PLW2901
                 X_holdout_NhF, tuning_regressor
             )
-            logits_NhB = tuning_regressor._compute_aggregated_logits(X_holdout_NhF)
+            logits_NhB = tuning_regressor._compute_aggregated_logits(
+                X_holdout_NhF, apply_downsample_correction=False
+            )
 
             # `raw_space_bardist_` undoes this fold's normalisation, so the targets
             # are scored in their original units and need no transformation --
@@ -1569,11 +1650,20 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 dtype=raw_space_bardist.borders.dtype,
                 device=logits_NhB.device,
             )
-            holdout_folds.append((logits_NhB, raw_space_bardist, y_holdout_Nh_tensor))
+            holdout_folds.append(
+                (
+                    logits_NhB,
+                    raw_space_bardist,
+                    y_holdout_Nh_tensor,
+                    tuning_regressor.downsample_correction_log_weights_,
+                )
+            )
 
         return holdout_folds
 
-    def _compute_aggregated_logits(self, X: XType) -> torch.Tensor:
+    def _compute_aggregated_logits(
+        self, X: XType, *, apply_downsample_correction: bool = True
+    ) -> torch.Tensor:
         """Run the ensemble and aggregate it into one log-probability tensor.
 
         Each estimator's bucket probabilities are translated onto the
@@ -1590,6 +1680,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         Args:
             X: The validated input data.
+            apply_downsample_correction: Whether to add the majority-downsampling
+                correction. Temperature tuning passes `False` so it can compose
+                the fold's own correction with each candidate temperature.
 
         Returns:
             A `[n_samples, n_buckets]` tensor of log-probabilities over the
@@ -1643,12 +1736,18 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 "Cannot make predictions, possibly due to `n_estimators=0`."
             )
 
-        return self._reduce_accumulated_logits(accumulated_logits, n_estimators)
+        return self._reduce_accumulated_logits(
+            accumulated_logits,
+            n_estimators,
+            apply_downsample_correction=apply_downsample_correction,
+        )
 
     def _reduce_accumulated_logits(
         self,
         accumulated_logits: torch.Tensor,
         n_estimators: int,
+        *,
+        apply_downsample_correction: bool = True,
     ) -> torch.Tensor:
         """Average the ensemble's accumulated output and apply the temperature.
 
@@ -1657,6 +1756,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 Summed per-estimator output for one dataset. Already in log space
                 if `average_before_softmax` is True.
             n_estimators: How many estimators contributed to the sum.
+            apply_downsample_correction: Whether to add the majority-downsampling
+                correction after the temperature.
 
         Returns:
             A `[n_samples, n_buckets]` tensor of log-probabilities with
@@ -1678,11 +1779,18 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # `log_softmax` to whatever it receives. `getattr` keeps models pickled
         # before this attribute existed loadable; the guard keeps the
         # uncalibrated path allocation-free and bit-identical.
-        temperature = getattr(self, "ensemble_softmax_temperature_", 1.0)
-        if temperature != 1.0:
-            logits = logits / temperature
-
-        return logits
+        # Temperature first, then the per-bar downsampling correction; the bar
+        # distribution's log_softmax renormalizes afterwards. Tuning composes the
+        # same way through `temper_and_correct_logits`.
+        return temper_and_correct_logits(
+            logits,
+            temperature=getattr(self, "ensemble_softmax_temperature_", 1.0),
+            log_weights=(
+                getattr(self, "downsample_correction_log_weights_", None)
+                if apply_downsample_correction
+                else None
+            ),
+        )
 
     def predict_batched(  # noqa: C901, PLR0912
         self,
@@ -1753,6 +1861,13 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # dataset's own holdout, so there is no single temperature to apply to a
         # shared batch. Mirrors the same guard in
         # `TabPFNClassifier.predict_proba_batched`.
+        if self._uses_majority_downsample():
+            raise NotImplementedError(
+                "predict_batched does not support "
+                "SAMPLE_SUBSAMPLING_METHOD='majority_downsample'; its prior "
+                "correction is fitted per dataset. Score datasets individually "
+                "with predict."
+            )
         if self.tuning_config is not None:
             raise NotImplementedError(
                 "predict_batched does not support tuning_config (ensemble "
@@ -1800,6 +1915,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         results: list[RegressionResultType | None] = [None] * len(X_train_list)
         items: list[RegressorBatch] = []
         item_indices: list[int] = []
+        item_y_scales: list[tuple[float, float]] = []
         znorm_borders: torch.Tensor | None = None
 
         for idx, (X, y, X_test) in enumerate(
@@ -1866,10 +1982,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     y_context=y_context,
                     y_query=torch.zeros(n_test),
                     cat_indices=cat_indices,
-                    # Must come from the members, not ``worker.ensemble_configs_``:
-                    # with n_preprocessing_jobs > 1 ``target_transform`` is fitted in
-                    # a worker process, so only the member's copy carries the fitted
-                    # transform the border mapping needs.
+                    # From the members, not ``worker.ensemble_configs_``: the members
+                    # hold the ``target_transform`` that preprocessing fitted, which
+                    # the border mapping needs.
                     configs=[m.config for m in members],
                     raw_space_bardist=worker.raw_space_bardist_,
                     znorm_space_bardist=worker.znorm_space_bardist_,
@@ -1878,6 +1993,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 )
             )
             item_indices.append(idx)
+            item_y_scales.append((worker.y_train_mean_, worker.y_train_std_))
 
         if items:
             worker.fit_mode = "batched"
@@ -1933,10 +2049,14 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     # retaining every dataset's tensor through the whole decode loop.
                     accumulated[lane] = None
                     item = items[position]
+                    y_mean, y_std = item_y_scales[position]
                     results[item_indices[position]] = worker._decode_batched_dataset(
                         accumulated_logits=logits,
                         n_estimators=n_estimators,
                         raw_space_bardist=item.raw_space_bardist,
+                        znorm_space_bardist=item.znorm_space_bardist,
+                        y_mean=y_mean,
+                        y_std=y_std,
                         output_type=output_type,
                         quantiles=quantiles,
                     )
@@ -1989,6 +2109,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         accumulated_logits: torch.Tensor,
         n_estimators: int,
         raw_space_bardist: FullSupportBarDistribution,
+        znorm_space_bardist: FullSupportBarDistribution,
+        y_mean: float,
+        y_std: float,
         output_type: OutputType,
         quantiles: list[float],
     ) -> RegressionResultType:
@@ -1996,7 +2119,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         Shares :meth:`_reduce_accumulated_logits` with :meth:`predict`, so the
         two paths average identically, and decodes with this dataset's own
-        raw-space bar distribution as the criterion.
+        target mean and std; `raw_space_bardist` is the returned criterion.
         """
         assert n_estimators > 0
         # `predict_batched` rejects `tuning_config`, so the temperature applied
@@ -2007,7 +2130,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         logit_to_output = partial(
             _logits_to_output,
             logits=logits,
-            criterion=raw_space_bardist,
+            znorm_space_bardist=znorm_space_bardist,
+            y_mean=y_mean,
+            y_std=y_std,
             quantiles=quantiles,
         )
         if output_type in _OUTPUT_TYPES_COMPOSITE:
@@ -2261,19 +2386,46 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         if hasattr(self, "znorm_space_bardist_"):
             self.znorm_space_bardist_.to(self.devices_[0])
         if hasattr(self, "raw_space_bardist_"):
-            self.raw_space_bardist_.to(self.devices_[0])
+            # Rebuilt rather than moved: a float32 copy left behind by MPS must
+            # not carry over to a device that supports float64.
+            if hasattr(self, "y_train_mean_"):
+                self._rebuild_raw_space_bardist()
+            else:
+                self.raw_space_bardist_ = _place_raw_space_bardist(
+                    self.raw_space_bardist_, self.devices_[0]
+                )
+
+
+def _place_raw_space_bardist(
+    bardist: FullSupportBarDistribution, device: torch.device | str
+) -> FullSupportBarDistribution:
+    """Keep the raw-space criterion in float64, except on MPS, which lacks it."""
+    if torch.device(device).type == "mps":
+        return bardist.float().to(device)
+    return bardist.to(device)
 
 
 def _logits_to_output(
     *,
     output_type: str,
     logits: torch.Tensor,
-    criterion: FullSupportBarDistribution,
+    znorm_space_bardist: FullSupportBarDistribution,
+    y_mean: float,
+    y_std: float,
     quantiles: list[float],
 ) -> np.ndarray | list[np.ndarray]:
-    """Converts raw model logits to the desired prediction format."""
+    """Converts raw model logits to the desired prediction format.
+
+    Decodes in z-normalised space and undoes the normalisation in float64, so
+    the decode never has to resolve the target's magnitude.
+    """
+    criterion = znorm_space_bardist
+
+    def to_raw(output: torch.Tensor) -> np.ndarray:
+        return output.cpu().detach().numpy().astype(np.float64) * y_std + y_mean
+
     if output_type == "quantiles":
-        return [criterion.icdf(logits, q).cpu().detach().numpy() for q in quantiles]
+        return [to_raw(criterion.icdf(logits, q)) for q in quantiles]
 
     # TODO: support
     #   "pi": criterion.pi(logits, np.max(self.y)),
@@ -2287,7 +2439,7 @@ def _logits_to_output(
     else:
         raise ValueError(f"Invalid output type: {output_type}")
 
-    return output.cpu().detach().numpy()
+    return to_raw(output)
 
 
 def _validate_eval_metric(

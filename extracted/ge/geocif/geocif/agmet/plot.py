@@ -244,24 +244,21 @@ class AgmetPlotter:
         except Exception:
             cur_ax.plot(index, vals[:len(index)], **kwargs)
 
-    @staticmethod
-    def _build_gefs_dataframe(date1, date2, gefs_values):
-        """Build a GEFS forecast DataFrame from date range and values, or return None."""
-        date_range = [
-            date1 + datetime.timedelta(days=i)
-            for i in range((date2 - date1).days + 1)
-        ]
-        date_range = [x for x in date_range if x.month != 2 or x.day != 29]
-        df_tmp = pd.DataFrame(date_range, columns=["date"])
-        try:
-            df_tmp.loc[:, "val"] = gefs_values
-        except (ValueError, KeyError):
+    def _gefs_series(self, date1, date2):
+        """CHIRPS-GEFS forecast for the current-season days in [date1, date2], or None.
+
+        Uses the dates the forecast actually covers, trimmed to its first and
+        last valid day, with interior gaps as 0 mm and Feb 29 dropped. The old
+        builder assumed a full 16-day window and returned None whenever the
+        season ended inside it (Indiana soybean, harvest Oct 14) or the
+        forecast started after date1, so the forecast vanished (2026-10-02).
+        """
+        gefs = self.df_current.loc[date1:date2, "chirps_gefs"]
+        gefs = gefs[~((gefs.index.month == 2) & (gefs.index.day == 29))]
+        if gefs.isnull().all():
             return None
-        df_tmp = df_tmp.set_index("date")
-        df_tmp.index = pd.to_datetime(df_tmp.index)
-        df_tmp = df_tmp[~((df_tmp.index.month == 2) & (df_tmp.index.day == 29))]
-        df_tmp = df_tmp.fillna(0)
-        return df_tmp
+        gefs = gefs.loc[gefs.first_valid_index():gefs.last_valid_index()]
+        return gefs.fillna(0.0)
 
     def _draw_yearly_vi(self, cur_ax, vi_var):
         """Plot yearly VI comparison for either NDVI or GCVI."""
@@ -356,11 +353,10 @@ class AgmetPlotter:
             self.use_forecast = True
             date1 = ar.utcnow().date()
             date2 = ar.utcnow().shift(days=+15).date()
-            val_gefs = self.df_current.loc[date1:date2]["chirps_gefs"].values
-            df_tmp = self._build_gefs_dataframe(date1, date2, val_gefs)
-            if df_tmp is not None:
+            gefs = self._gefs_series(date1, date2)
+            if gefs is not None:
                 cur_ax.bar(
-                    df_tmp.index, df_tmp.val.values,
+                    gefs.index, gefs.values,
                     color="tab:cyan", width=1.0, alpha=0.5,
                 )
 
@@ -386,38 +382,37 @@ class AgmetPlotter:
 
             date1 = ar.utcnow().to("America/New_York").date()
             date2 = ar.utcnow().to("America/New_York").shift(days=+15).date()
-            val_gefs = self.df_current.loc[date1:date2]["chirps_gefs"].values
-            df_tmp = self._build_gefs_dataframe(date1, date2, val_gefs)
+            gefs = self._gefs_series(date1, date2)
 
-            if df_tmp is not None:
+            if gefs is not None:
                 cur_ax.plot(
                     np.nan, np.nan, "--",
                     color="tab:cyan", alpha=0.5, label="Forecast (16 day)",
                 )
 
                 try:
-                    y2_gefs = df_m.loc[df_tmp.index.dayofyear]
+                    y2_gefs = df_m.loc[gefs.index.dayofyear]
                 except (KeyError, IndexError):
                     y2_gefs = None
 
-                val_gefs_cum = val_gefs.cumsum() + np.nanmax(df_c.values)
+                val_gefs_cum = gefs.cumsum().values + np.nanmax(df_c.values)
 
                 if y2_gefs is not None:
                     try:
                         cur_ax.plot(
-                            df_tmp.index, val_gefs_cum,
+                            gefs.index, val_gefs_cum,
                             color="tab:cyan", linestyle="--", alpha=0.5,
                         )
                     except (ValueError, IndexError):
                         pass
                     try:
                         cur_ax.fill_between(
-                            df_tmp.index, val_gefs_cum, y2_gefs,
+                            gefs.index, val_gefs_cum, y2_gefs,
                             where=y2_gefs >= val_gefs_cum,
                             lw=1.0, facecolor="red", alpha=0.2,
                         )
                         cur_ax.fill_between(
-                            df_tmp.index, val_gefs_cum, y2_gefs,
+                            gefs.index, val_gefs_cum, y2_gefs,
                             where=y2_gefs <= val_gefs_cum,
                             lw=1.0, facecolor="green", alpha=0.2,
                         )

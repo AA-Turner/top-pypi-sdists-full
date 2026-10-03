@@ -88,7 +88,7 @@ def _get_next_value(
             cursor.execute(
                 POSTGRESQL_UPSERT.format(db_table=db_table),
                 [sequence_name, initial_value, increment],
-            ),
+            )
             result = cursor.fetchone()
 
         return result[0]

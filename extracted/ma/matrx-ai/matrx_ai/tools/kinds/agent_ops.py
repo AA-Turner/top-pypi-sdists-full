@@ -29,6 +29,7 @@ from pydantic import JsonValue
 
 @kind(
     "self_prompt_result",
+    disposition="record",
     label="Self-Prompt Result",
     family="agent_self_prompt",
     example={"action": "read", "agent_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "key": "voice", "found": True, "content": "Keep it plain.", "available_keys": ["voice"]},
@@ -55,6 +56,7 @@ class SelfPromptResult(KindModel):
 
 @kind(
     "rulebook_tool_result",
+    disposition="record",
     label="Rulebook Tool Result",
     family="distillation",
     example={
@@ -135,6 +137,7 @@ class RulebookToolResult(KindModel):
 
 @kind(
     "research_run_state",
+    disposition="record",
     label="Research Run State",
     family="research",
     example={"topic_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "name": "Competitor pricing", "status": "idle", "is_running": False, "cost_bounds": {"total_llm_calls": 40}},
@@ -180,6 +183,7 @@ class ResearchRunState(KindModel):
 
 @kind(
     "office_tool_result",
+    disposition="record",
     label="Office Tool Result",
     family="office",
     example={"action": "generate", "file_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "office_kind": "docx", "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "byte_size": 20480},
@@ -213,6 +217,7 @@ __all__ = ["SelfPromptResult", "RulebookToolResult", "ResearchRunState", "Office
 
 @kind(
     "tool_result_page",
+    disposition="record",
     label="Tool Result Page",
     family="tooling",
     example={"call_id": "call-1", "tool_name": "fs_read", "total_chars": 120000, "retained_chars": 100000, "offset": 0, "returned_chars": 8000, "next_offset": 8000, "has_more": True, "content": "…"},
@@ -237,6 +242,7 @@ class ToolResultPage(KindModel):
 
 @kind(
     "file_extraction_result",
+    disposition="record",
     label="File Extraction Result",
     family="files",
     example={"file_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "file_name": "report.pdf", "has_extraction": True, "mode": "clean", "content": "…", "char_count": 1200, "truncated": False},
@@ -264,6 +270,7 @@ class FileExtractionResult(KindModel):
 
 @kind(
     "content_plan_tool_result",
+    disposition="record",
     label="Content Plan Tool Result",
     family="content_plan",
     example={"node": {"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "title": "Pricing"}},
@@ -304,7 +311,6 @@ class ContentPlanToolResult(KindModel):
 
 
 __all__ += [
-    "GoogleWorkspaceResult",
     "ToolResultPage",
     "FileExtractionResult",
     "ContentPlanToolResult",
@@ -313,6 +319,7 @@ __all__ += [
 
 @kind(
     "sealed_case_tool_result",
+    disposition="record",
     label="Sealed Case Tool Result",
     family="masterwork",
     example={
@@ -358,6 +365,7 @@ __all__ += ["SealedCaseToolResult"]
 
 @kind(
     "rulebook_read_result",
+    disposition="record",
     label="Rulebook Read Result",
     family="masterwork",
     example={

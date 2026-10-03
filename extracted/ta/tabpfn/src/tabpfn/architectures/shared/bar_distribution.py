@@ -15,6 +15,25 @@ if TYPE_CHECKING:
     import matplotlib.pyplot as plt
 
 
+def _common_dtype(*tensors: torch.Tensor) -> torch.dtype:
+    """The widest dtype among `tensors`, so float64 borders keep float64 results."""
+    dtype = tensors[0].dtype
+    for tensor in tensors[1:]:
+        dtype = torch.promote_types(dtype, tensor.dtype)
+    return dtype
+
+
+def _expected_value(logits: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
+    """Softmax-weighted sum of `values`, in the wider of the two dtypes.
+
+    The softmax runs in that dtype too, so the weights sum to 1 to that dtype's
+    precision however far `values` lie from zero.
+    """
+    dtype = _common_dtype(logits, values)
+    p = torch.softmax(logits.to(dtype), -1)
+    return p @ values.to(device=logits.device, dtype=dtype)
+
+
 # TODO: Merge functionality from BarDistribution and FullSupportBarDistribution
 class BarDistribution(nn.Module):
     """Distribution over buckets."""
@@ -52,8 +71,8 @@ class BarDistribution(nn.Module):
         self.to(borders.device)
 
     def has_equal_borders(self, other: BarDistribution) -> bool:
-        """Check if two BarDistributions have equal borders."""
-        return torch.equal(self.borders, other.borders)  # pyright: ignore[reportArgumentType]
+        """Check if two BarDistributions have equal borders, on any devices."""
+        return torch.equal(self.borders.cpu(), other.borders.cpu())  # pyright: ignore[reportArgumentType]
 
     @property
     def bucket_widths(self) -> torch.Tensor:
@@ -167,6 +186,7 @@ class BarDistribution(nn.Module):
         """Map each target value to the index of the bucket it falls into."""
         # assert the borders are actually sorted
         assert (self.borders[1:] - self.borders[:-1] >= 0.0).all()
+        y = y.to(self.borders.dtype)
         target_sample = torch.searchsorted(self.borders, y) - 1
         target_sample[y == self.borders[0]] = 0
         target_sample[y == self.borders[-1]] = self.num_bars - 1
@@ -255,8 +275,7 @@ class BarDistribution(nn.Module):
     def mean(self, logits: torch.Tensor) -> torch.Tensor:
         """Expected value of the distribution."""
         bucket_means = self.borders[:-1] + self.bucket_widths / 2
-        p = torch.softmax(logits, -1)
-        return p @ bucket_means
+        return _expected_value(logits, bucket_means)
 
     def median(self, logits: torch.Tensor) -> torch.Tensor:
         """Median of the distribution."""
@@ -363,6 +382,7 @@ class BarDistribution(nn.Module):
         assert maximize
         if not torch.is_tensor(best_f) or not len(best_f.shape):  # type: ignore
             best_f = torch.full(logits[..., 0].shape, best_f, device=logits.device)  # type: ignore
+        best_f = best_f.to(_common_dtype(best_f, self.borders))  # type: ignore
 
         best_f = best_f[..., None].repeat(*[1] * len(best_f.shape), logits.shape[-1])  # type: ignore
         clamped_best_f = best_f.clamp(self.borders[:-1], self.borders[1:])
@@ -375,8 +395,9 @@ class BarDistribution(nn.Module):
             - best_f * (self.borders[1:] - clamped_best_f)
         ) / bucket_diffs
 
-        p = torch.softmax(logits, -1)
-        return torch.einsum("...b,...b->...", p, bucket_contributions)
+        dtype = _common_dtype(logits, bucket_contributions)
+        p = torch.softmax(logits.to(dtype), -1)
+        return torch.einsum("...b,...b->...", p, bucket_contributions.to(dtype))
 
     def pi(
         self,
@@ -422,8 +443,7 @@ class BarDistribution(nn.Module):
             + right_borders.square()
             + left_borders * right_borders
         ) / 3.0
-        p = torch.softmax(logits, -1)
-        return p @ bucket_mean_of_square
+        return _expected_value(logits, bucket_mean_of_square)
 
     def variance(self, logits: torch.Tensor) -> torch.Tensor:
         """Variance of the distribution."""
@@ -501,14 +521,106 @@ class FullSupportBarDistribution(BarDistribution):
 
     @staticmethod
     def halfnormal_with_p_weight_before(
-        range_max: float,
+        range_max: float | torch.Tensor,
         p: float = 0.5,
     ) -> torch.distributions.HalfNormal:
-        """Build a half-normal placing ``p`` of its mass below ``range_max``."""
-        s = range_max / torch.distributions.HalfNormal(torch.tensor(1.0)).icdf(
-            torch.tensor(p),
+        """Build a half-normal placing ``p`` of its mass below ``range_max``.
+
+        The scale is computed in ``range_max``'s floating dtype, or in the
+        default dtype when ``range_max`` is not a floating tensor.
+        """
+        as_tensor = torch.as_tensor(range_max)
+        dtype = (
+            as_tensor.dtype
+            if as_tensor.dtype.is_floating_point
+            else torch.get_default_dtype()
         )
+        # The reference stays on the CPU: it is a scalar, and moving it would
+        # expose the tiny CPU/CUDA `erfinv` differences to the caller's device.
+        s = range_max / torch.distributions.HalfNormal(
+            torch.tensor(1.0, dtype=dtype),
+        ).icdf(torch.tensor(p, dtype=dtype))
         return torch.distributions.HalfNormal(s)
+
+    @override
+    def cdf(self, logits: torch.Tensor, ys: torch.Tensor) -> torch.Tensor:
+        """Calculate the CDF, including the two half-normal tails."""
+        if len(ys.shape) < len(logits.shape) and len(ys.shape) == 1:
+            ys = ys.repeat((*logits.shape[:-1], 1))
+        else:
+            assert ys.shape[:-1] == logits.shape[:-1], (
+                f"ys.shape: {ys.shape} logits.shape: {logits.shape}"
+            )
+
+        prob_left_of_ys = super().cdf(logits, ys)
+        probs = torch.softmax(logits, dim=-1)
+        side_normals = (
+            self.halfnormal_with_p_weight_before(self.bucket_widths[0]),
+            self.halfnormal_with_p_weight_before(self.bucket_widths[-1]),
+        )
+
+        left_tail_cdf = probs[..., 0, None] * (
+            1.0 - side_normals[0].cdf((self.borders[1] - ys).clamp_min(0.0))
+        )
+        right_tail_cdf = 1.0 - probs[..., -1, None] * (
+            1.0 - side_normals[1].cdf((ys - self.borders[-2]).clamp_min(0.0))
+        )
+
+        prob_left_of_ys = torch.where(
+            ys < self.borders[1],
+            left_tail_cdf,
+            prob_left_of_ys,
+        )
+        prob_left_of_ys = torch.where(
+            ys >= self.borders[-2],
+            right_tail_cdf,
+            prob_left_of_ys,
+        )
+        return prob_left_of_ys.clip(0.0, 1.0)
+
+    @override
+    def icdf(self, logits: torch.Tensor, left_prob: float) -> torch.Tensor:
+        """Calculate quantiles using half-normal tails in the outer buckets."""
+        # Do not let cumulative-probability roundoff make the endpoints finite.
+        if left_prob == 0.0:
+            return logits.new_full(logits.shape[:-1], float("-inf"))
+        if left_prob == 1.0:
+            return logits.new_full(logits.shape[:-1], float("inf"))
+
+        probs = logits.softmax(-1)
+        cumprobs = torch.cumsum(probs, -1)
+        left_prob_tensor = torch.full(
+            (*cumprobs.shape[:-1], 1),
+            left_prob,
+            dtype=logits.dtype,
+            device=logits.device,
+        )
+        idx = torch.searchsorted(cumprobs, left_prob_tensor).squeeze(-1)
+        idx = idx.clamp(0, self.num_bars - 1)
+
+        cumprobs_before = torch.cat(
+            (torch.zeros_like(cumprobs[..., :1]), cumprobs[..., :-1]),
+            dim=-1,
+        )
+        selected_probs = probs.gather(-1, idx[..., None]).squeeze(-1)
+        conditional_prob = (
+            left_prob - cumprobs_before.gather(-1, idx[..., None]).squeeze(-1)
+        ) / selected_probs
+        conditional_prob = conditional_prob.clamp(0.0, 1.0)
+
+        values = self.borders[idx] + self.bucket_widths[idx] * conditional_prob
+        side_normals = (
+            self.halfnormal_with_p_weight_before(self.bucket_widths[0]),
+            self.halfnormal_with_p_weight_before(self.bucket_widths[-1]),
+        )
+        left_tail_values = self.borders[1] - side_normals[0].icdf(
+            1.0 - conditional_prob,
+        )
+        right_tail_values = self.borders[-2] + side_normals[1].icdf(
+            conditional_prob,
+        )
+        values = torch.where(idx == 0, left_tail_values, values)
+        return torch.where(idx == self.num_bars - 1, right_tail_values, values)
 
     @override
     def forward(
@@ -606,22 +718,44 @@ class FullSupportBarDistribution(BarDistribution):
 
         Temperature t.
         """
-        p_cdf = torch.rand(*logits.shape[:-1])
-        return torch.tensor(
-            [self.icdf(logits[i, :] / t, p) for i, p in enumerate(p_cdf.tolist())],
+        bucket_indices = torch.distributions.Categorical(logits=logits / t).sample()
+        uniform_samples = torch.rand(
+            bucket_indices.shape,
+            dtype=logits.dtype,
+            device=logits.device,
+        )
+        samples = (
+            self.borders[bucket_indices]
+            + self.bucket_widths[bucket_indices] * uniform_samples
+        )
+
+        side_normals = (
+            self.halfnormal_with_p_weight_before(self.bucket_widths[0]),
+            self.halfnormal_with_p_weight_before(self.bucket_widths[-1]),
+        )
+        left_tail_samples = self.borders[1] - side_normals[0].sample(
+            bucket_indices.shape,
+        )
+        right_tail_samples = self.borders[-2] + side_normals[1].sample(
+            bucket_indices.shape,
+        )
+        samples = torch.where(bucket_indices == 0, left_tail_samples, samples)
+        return torch.where(
+            bucket_indices == self.num_bars - 1,
+            right_tail_samples,
+            samples,
         )
 
     @override
     def mean(self, logits: torch.Tensor) -> torch.Tensor:
         bucket_means = self.borders[:-1] + self.bucket_widths / 2
-        p = torch.softmax(logits, -1)
         side_normals = (
             self.halfnormal_with_p_weight_before(self.bucket_widths[0]),
             self.halfnormal_with_p_weight_before(self.bucket_widths[-1]),
         )
         bucket_means[0] = -side_normals[0].mean + self.borders[1]
         bucket_means[-1] = side_normals[1].mean + self.borders[-2]
-        return p @ bucket_means.to(logits.device).type(logits.dtype)
+        return _expected_value(logits, bucket_means)
 
     @override
     def mean_of_square(self, logits: torch.Tensor) -> torch.Tensor:
@@ -649,8 +783,7 @@ class FullSupportBarDistribution(BarDistribution):
             side_normals[1].variance
             + (side_normals[1].mean + self.borders[-2]).square()
         )
-        p = torch.softmax(logits, -1)
-        return p @ bucket_mean_of_square
+        return _expected_value(logits, bucket_mean_of_square)
 
     @override
     def pi(
@@ -744,6 +877,7 @@ class FullSupportBarDistribution(BarDistribution):
         assert maximize
         if not torch.is_tensor(best_f) or not len(best_f.shape):  # type: ignore
             best_f = torch.full(logits[..., 0].shape, best_f, device=logits.device)  # type: ignore
+        best_f = best_f.to(_common_dtype(best_f, self.borders))  # type: ignore
 
         assert best_f.shape == logits[..., 0].shape, (  # type: ignore
             f"best_f.shape: {best_f.shape}, logits.shape: {logits.shape}"  # type: ignore
@@ -781,8 +915,9 @@ class FullSupportBarDistribution(BarDistribution):
             torch.zeros_like(position_in_side_normals[0]),
         ) - self.ei_for_halfnormal(side_normals[0].scale, position_in_side_normals[0])
 
-        p = torch.softmax(logits, -1)
-        return torch.einsum("...b,...b->...", p, bucket_contributions)
+        dtype = _common_dtype(logits, bucket_contributions)
+        p = torch.softmax(logits.to(dtype), -1)
+        return torch.einsum("...b,...b->...", p, bucket_contributions.to(dtype))
 
 
 def get_bucket_limits(

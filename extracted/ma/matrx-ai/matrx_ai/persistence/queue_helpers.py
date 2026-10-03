@@ -839,8 +839,8 @@ def queue_user_request_update(id: str, **fields: Any) -> str:
 # A row whose role we don't recognise (system/tool rows) declares NOTHING, and
 # the DB resolver applies its documented default exactly as before.
 _ROLE_ACTORS: dict[str, tuple[str, str]] = {
-    "user": ("human", "chat_user_turn"),
-    "assistant": ("ai", "chat_assistant_turn"),
+    "user": ("user", "chat_user_turn"),
+    "assistant": ("agent", "chat_assistant_turn"),
 }
 
 

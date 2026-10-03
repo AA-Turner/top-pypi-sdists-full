@@ -15,7 +15,7 @@
 # endpoint + model + api_key_ref per-tier from this contract deep-merged with the
 # overlay, and executes through the canonical HTTP inference path (Bifrost
 # complete-URL-from-contract) identical to the lower tiers. The ceiling tier model
-# maps to an HTTP frontier backend (default backend_id ``cloud-gemini-pro`` since
+# maps to an HTTP frontier backend (default backend_id ``cloud-gemini-2-5-flash`` since
 # OMN-14625 — repointed off direct z.ai GLM (``cloud-glm``) on a "route is DEAD"
 # finding that OMN-6790 has since disproved: the GLM route authenticates and
 # serves 200s on the Coding Plan endpoint. The ceiling stays on Gemini for
@@ -39,7 +39,7 @@
 #   - OMN-10717: Default contract + endpoint overlay merge semantics
 #   - OMN-13215: Canonical, provider-swappable ceiling tier; remove shelled CLI
 #   - OMN-14625: GLM z.ai route believed dead from .201 — cheap_cloud/ceiling/
-#     judge repointed to Gemini (cloud-gemini-pro). Premise DISPROVED by
+#     judge repointed to Gemini (cloud-gemini-2-5-flash). Premise DISPROVED by
 #     OMN-6790; the ceiling/judge stay on Gemini by choice, not by necessity.
 #   - OMN-6790: GLM endpoint pinned to the Coding Plan surface
 #     (https://api.z.ai/api/coding/paas/v4) in the contract, with a test. The
@@ -74,7 +74,7 @@ tiers:
         # by that deletion, so it is restored here rather than demoted to the
         # metered cheap_cloud tier. This is not a reversal of OMN-13599's
         # reasoning: bifrost_delegation.yaml's `test` routing_rule ALREADY
-        # declares backend_ids [local-coder, cloud-gemini-pro], so the two
+        # declares backend_ids [local-coder, cloud-gemini-2-5-flash], so the two
         # surfaces now agree instead of contradicting each other. `research`
         # is deliberately NOT restored here — it keeps two live local rungs
         # (local-heavy-reasoning, local-ds-v4-flash) without local-coder.
@@ -88,7 +88,8 @@ tiers:
         # a routing-completeness gap, not a deliberate cloud-only class).
         use_for:
           - code_generation
-          - code_review
+          # OMN-17427: code_review REMOVED -- withheld from delegation, see
+          # task_class_contracts.v1.yaml code_review.routing_availability
           - refactor
           - validator_generation
           # OMN-16442: restored — see the block comment above.
@@ -135,7 +136,7 @@ tiers:
           - review
           - document
           # OMN-16811: escalation added. Before this the escalation class's
-          # ENTIRE ladder was one rung — claude/cloud-gemini-pro — the only
+          # ENTIRE ladder was one rung — claude/cloud-gemini-2-5-flash — the only
           # admitted class with no credential-free fallback, so a
           # quota-exhausted or unreachable Gemini stranded it while every
           # other class kept routing on the owned GPUs (dev-lane matrix: 11 of
@@ -267,15 +268,12 @@ tiers:
       # every one of these task classes falls through to when GLM's quota
       # domain trips.
       - id: gemini-2.5-flash
-        backend_id: cloud-gemini-pro
+        backend_id: cloud-gemini-2-5-flash
         max_context_tokens: 1000000
         use_for:
           - code_generation
-          # OMN-13541: code_review added so the cheap_cloud tier is a real
-          # escalation fallback for code_review (its escalation_policy.tier_order
-          # is [local, cheap_cloud]). Without it code_review could only route to
-          # the single local-coder backend — a single point of failure.
-          - code_review
+          # OMN-17427: code_review REMOVED -- withheld from delegation, see
+          # task_class_contracts.v1.yaml code_review.routing_availability
           - reasoning
           - research
           - test
@@ -362,7 +360,7 @@ tiers:
   # tier (OMN-14225 free-before-paid). Under this ticket the remaining code
   # classes (code_review, validator_generation, test) were given the same
   # placement code_generation and refactor already had, so the free coder rung
-  # carries the whole family rather than two members of it.
+  # historically carried the whole family. OMN-17427 now withholds code_review.
   #
   # Free-only is ABSOLUTE (OMN-14225 / operator ruling R9-amended): only models
   # OpenRouter serves at genuinely zero cost may sit here — never a paid model
@@ -380,18 +378,12 @@ tiers:
       cost_type: free_local
     models:
       # Qwen3 Coder 480B via OpenRouter free tier — cheap frontier direct (OMN-12492)
-      - id: openrouter-qwen3-coder-480b
-        backend_id: openrouter-qwen3-coder-480b
+      - id: openrouter-nemotron-ultra
+        backend_id: openrouter-nemotron-ultra
         max_context_tokens: 262144
-        # OMN-16891: code_review and validator_generation ADDED, completing the
-        # code-class family (code_generation, code_review, refactor,
-        # validator_generation, test) on the free coder rung. Both were already
-        # served by this backend's declared `code_generation` capability in
-        # bifrost_delegation.yaml and share code_generation's DoD family
-        # (OMN-15630 established validator_generation as an exact DoD match;
-        # OMN-13541 established code_review's cheap-tier need), so this
-        # inherits existing placements rather than making a new capability
-        # claim.
+        # OMN-16891 added code_review and validator_generation to this free
+        # coder rung alongside code_generation/refactor/test. OMN-17427 now
+        # withholds code_review; the remaining code classes keep their placements.
         #
         # Placement constraint, stated rather than discovered in production:
         # this rung is a POOR fit for terse or tightly-budgeted structured
@@ -403,7 +395,8 @@ tiers:
         # exactly this reason; do not narrow it for this rung.
         use_for:
           - code_generation
-          - code_review
+          # OMN-17427: code_review REMOVED -- withheld from delegation, see
+          # task_class_contracts.v1.yaml code_review.routing_availability
           - reasoning
           # OMN-19432: `review` added beside `reasoning`; see the class contract.
           - review
@@ -447,7 +440,8 @@ tiers:
         max_context_tokens: 262144
         use_for:
           - code_generation
-          - code_review
+          # OMN-17427: code_review REMOVED -- withheld from delegation, see
+          # task_class_contracts.v1.yaml code_review.routing_availability
           - review
           - reasoning
           - research
@@ -488,7 +482,7 @@ tiers:
   # OMN-13351: the ceiling backend was repointed from the dead Anthropic
   # ``cloud-sonnet`` (secret_ref llm.anthropic.api_key, which resolves to None in
   # every lane — this org has NO Anthropic key, Claude Code is OAuth) to the
-  # resolvable Gemini frontier backend ``cloud-gemini-pro`` (secret_ref
+  # resolvable Gemini frontier backend ``cloud-gemini-2-5-flash`` (secret_ref
   # llm.gemini.api_key, model gemini-2.5-flash). The 2026-06-19 stability-test
   # escalation reprove proved the Anthropic key resolves to None and the ceiling
   # terminated ``no_routable_backend_for_task`` on every escalation; a live
@@ -497,19 +491,19 @@ tiers:
   # 429 on the only resolvable Gemini key, OMN-12890-class free-tier exhaustion).
   #
   # OMN-13667: ceiling repointed a second time — from free-tier AI Studio Gemini
-  # (cloud-gemini-pro, gemini-2.5-flash) which 503s on every escalation to
+  # (cloud-gemini-2-5-flash, gemini-2.5-flash) which 503s on every escalation to
   # GLM-5.2 z.ai direct (cloud-glm, secret_ref llm.glm.api_key) — the proven
   # backend already used by the judge lane and the cheap_cloud tier. Cost model
   # updated to metered (0.002 / 1k tokens) to match the billed z.ai direct key.
   # max_retries raised 0 → 2 for resilience against transient z.ai errors.
-  # A fallback model entry (openrouter-qwen3-coder-480b, separate provider,
+  # A fallback model entry (openrouter-nemotron-ultra, separate provider,
   # genuinely free tier) is added so the ceiling is not a single point of failure.
   #
   # OMN-14625: ceiling repointed a THIRD time — from GLM-5.2 z.ai direct
-  # (cloud-glm) back to Gemini (cloud-gemini-pro, gemini-2.5-flash). The z.ai
+  # (cloud-glm) back to Gemini (cloud-gemini-2-5-flash, gemini-2.5-flash). The z.ai
   # GLM route is DEAD from the .201 runtime: resolve_api_key succeeds but every
   # completion call 401s / loops FAILED-only (forensics this ticket; see memory
-  # reference_glm_zai_wiring_and_consumers). The openrouter-qwen3-coder-480b
+  # reference_glm_zai_wiring_and_consumers). The openrouter-nemotron-ultra
   # fallback entry added under OMN-13667 is REMOVED — with the primary ceiling
   # back on a proven-resolvable backend, the free-aggregator fallback is not
   # worth its markup-avoidance tradeoff on the ceiling slot specifically
@@ -523,17 +517,17 @@ tiers:
   - name: claude
     cost_per_1k_tokens: 0.002
     # OMN-14625: ceiling repointed off GLM-5.2 z.ai direct (cloud-glm) to Gemini
-    # (cloud-gemini-pro) — same billed/metered rate class as cheap_cloud above.
+    # (cloud-gemini-2-5-flash) — same billed/metered rate class as cheap_cloud above.
     cost:
       cost_type: metered
       rate_per_1k_usd: 0.002
     models:
       # OMN-14625: primary ceiling model repointed from GLM-5.2 z.ai direct
-      # (cloud-glm) to Gemini (cloud-gemini-pro, model gemini-2.5-flash). The
+      # (cloud-glm) to Gemini (cloud-gemini-2-5-flash, model gemini-2.5-flash). The
       # z.ai GLM route is DEAD from the .201 runtime — resolve_api_key succeeds
       # but every completion call 401s / loops FAILED-only (OMN-14625
       # forensics; see reference_glm_zai_wiring_and_consumers). Gemini's
-      # cloud-gemini-pro backend is proven resolvable on this lane (live 200s,
+      # cloud-gemini-2-5-flash backend is proven resolvable on this lane (live 200s,
       # secret_ref llm.gemini.api_key). The OpenRouter Qwen3-Coder-480B
       # fallback entry that previously sat below GLM is REMOVED from this
       # ceiling: it is not a routine escalation backend (OpenRouter is
@@ -542,7 +536,7 @@ tiers:
       # backend a paid-tier single point of failure is preferable to a free
       # aggregator markup as the ceiling's own fallback.
       - id: gemini-2.5-flash
-        backend_id: cloud-gemini-pro
+        backend_id: cloud-gemini-2-5-flash
         max_context_tokens: 1000000
         use_for:
           - escalation

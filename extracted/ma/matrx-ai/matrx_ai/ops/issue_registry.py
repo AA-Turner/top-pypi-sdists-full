@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from matrx_utils import vcprint
+from matrx_utils.text_case import humanize_identifier
 
 from matrx_ai.db._registry import get_model
 
@@ -74,7 +75,7 @@ async def auto_register_class(
         inst = await OpsIssueClass.create(
             id=str(uuid4()),
             key=key,
-            name=name or key.replace(".", " ").replace("_", " ").title(),
+            name=name or humanize_identifier(key),
             category=category,
             provider=provider,
             severity=severity,

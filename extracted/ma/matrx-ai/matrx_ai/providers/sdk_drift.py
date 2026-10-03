@@ -133,6 +133,7 @@ def plan_sdk_kwargs(fn: Callable[..., Any], request: dict[str, Any]) -> SdkKwarg
                     canonical_value=value,
                     sent_value=value,
                     expected=True,
+                    provenance="computed",
                     reason=(
                         f"installed SDK no longer declares '{key}' on {method}; "
                         "sent via extra_body (same wire bytes)"
@@ -148,6 +149,7 @@ def plan_sdk_kwargs(fn: Callable[..., Any], request: dict[str, Any]) -> SdkKwarg
                     canonical_value=value,
                     sent_value=None,
                     expected=False,
+                    provenance="computed",
                     reason=(
                         f"installed SDK no longer declares '{key}' on {method} and has "
                         "no extra_body escape hatch — dropped; the catalog rule that "

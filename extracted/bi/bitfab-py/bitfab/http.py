@@ -37,6 +37,7 @@ from bitfab.replay_invocation import ReplayInvocation
 from bitfab.serialize import encode_json, to_json_safe_report
 from bitfab.simulation_plan import (
     DECLARED_IN_CODE_FIELD,
+    NO_API_KEY_FOR_SIM_PLAN,
     ROOT_TRACE_FUNCTION_KEY_FIELD,
     plan_wait_slice,
 )
@@ -927,6 +928,9 @@ class HttpClient:
         return self.request("/api/sdk/functions/lookup", {"name": name})
 
     def get_simulation_plan(self) -> dict[str, Any]:
+        # Without a key the server answers 401, so skip the request entirely.
+        if not (self._resolve_api_key() or "").strip():
+            raise ValueError(NO_API_KEY_FOR_SIM_PLAN)
         return self.get(
             "/api/sdk/sim-plan",
             timeout=SIM_PLAN_READ_TIMEOUT_SECONDS,
@@ -1456,5 +1460,13 @@ class HttpClient:
             f"/api/sdk/traces/{encoded_id}/span?{urlencode(query)}",
             timeout=30,
         )
+        span = result.get("span")
+        return span if isinstance(span, dict) else None
+
+    def get_span(self, span_id: str) -> dict[str, Any] | None:
+        from urllib.parse import quote
+
+        encoded_id = quote(span_id, safe="")
+        result = self.get(f"/api/sdk/spans/{encoded_id}", timeout=30)
         span = result.get("span")
         return span if isinstance(span, dict) else None

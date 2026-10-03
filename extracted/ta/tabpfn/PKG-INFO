@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 9.0.0
+Version: 9.1.0
 Summary: TabPFN: Foundation model for tabular data
 Author-email: Prior Labs <opensource@priorlabs.ai>
 License-Expression: Apache-2.0
@@ -58,7 +58,7 @@ Dynamic: license-file
 
 <img src="docs/assets/tabpfn_architecture.svg" width="100%" alt="TabPFN trains on synthetic datasets and predicts on unseen real-world datasets in a single forward pass">
 
-<img src="docs/assets/tabpfn_attention.svg" width="100%" alt="TabPFN-3 architecture: a distribution embedder, then row-wise and cross-row attention, read out as per-row tokens">
+<img src="docs/assets/tabpfn_attention.svg" width="100%" alt="TabPFN-3.5 architecture: a distribution embedder, then row-wise and cross-row attention, read out as per-row tokens">
 
 ## Quick Start
 
@@ -77,7 +77,7 @@ TabPFN supports Python 3.10+.
 
 > ⚡ **GPU Recommended**:
 > For optimal performance, use a GPU (even older ones with ~8GB VRAM work well; 16GB needed for some large datasets).
-> On CPU, only moderate datasets are feasible (TabPFN-3 and TabPFN-3.5 allow up to 5000 samples; older versions up to 1000).
+> On CPU, only moderate datasets are feasible (TabPFN-3, TabPFN-3.5 and TabPFN-3.5-Fast allow up to 5000 samples; older versions up to 1000).
 > No GPU? Use our free hosted inference via [TabPFN Client](https://github.com/PriorLabs/tabpfn-client).
 
 **On macOS:** GPU support is automatically included for Apple Silicon Macs. For best performance, ensure you are using PyTorch 2.13 or newer (see [#949](https://github.com/PriorLabs/TabPFN/pull/949)).
@@ -204,12 +204,22 @@ We're building the future of tabular machine learning and would love your involv
 
 ## Citation
 
-You can read our paper explaining TabPFNv2 [here](https://doi.org/10.1038/s41586-024-08328-6), and model reports for [TabPFN-2.5](https://arxiv.org/abs/2511.08667) and [TabPFN-3](https://arxiv.org/abs/2605.13986).
+You can read our paper explaining TabPFNv2 [here](https://doi.org/10.1038/s41586-024-08328-6), and model reports for [TabPFN-2.5](https://arxiv.org/abs/2511.08667), [TabPFN-3](https://arxiv.org/abs/2605.13986) and [TabPFN-3.5](https://arxiv.org/abs/2609.17895).
 
 <details>
 <summary><b>BibTeX</b></summary>
 
 ```bibtex
+@misc{jaeger2026tabpfn35technicalreport,
+      title={TabPFN-3.5: Technical Report},
+      author={Benjamin Jäger and Nick Erickson and Léo Grinsztajn and Felix Birkel and Klemens Flöge and Oscar Key and Kürşat Kaya and Jonas Kübler and Adèle Frankel and Tobias Schröder and Anurag Garg and Jan Hendrik Metzen and David Salinas and Simon Bing and Kristina Collins and Tuana Çelik and Vahid Balazadeh and Lydia Sidhoum and Tomás Pereda and Brendan Roof and Andrej Tschalzev and Siyuan Guo and Philipp Singer and Lennart Purucker and Jake Robertson and Marie Salmon and Philipp Jund and Jerry Chen and Diana Kriuchkova and Arthur Cahu and Eliott Kalfon and Adrian Hayler and Georg Grab and Vitor Monteiro and Lilly Wehrhahn and Dominik Safaric and Clara Cornu and Alan Arazi and Rylee Grace and Simone Alessi and Mihir Manium and Bernhard Schölkopf and Yann LeCun and Madelon Hulsebos and Sauraj Gambhir and Noah Hollmann and Frank Hutter},
+      year={2026},
+      eprint={2609.17895},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2609.17895},
+}
+
 @misc{grinsztajn2026tabpfn3technicalreport,
       title={TabPFN-3: Technical Report}, 
       author={Léo Grinsztajn and Klemens Flöge and Oscar Key and Felix Birkel and Philipp Jund and Brendan Roof and Mihir Manium and Shi Bin Hoo and Magnus Bühler and Anurag Garg and Dominik Safaric and Jake Robertson and Benjamin Jäger and Simone Alessi and Adrian Hayler and Vladyslav Moroshan and Lennart Purucker and Philipp Singer and Alan Arazi and Julien Siems and Jan Hendrik Metzen and Georg Grab and Nick Erickson and Siyuan Guo and Eliott Kalfon and Simon Bing and David Salinas and Clara Cornu and Lilly Charlotte Wehrhahn and Diana Kriuchkova and Kursat Kaya and Lydia Sidhoum and Marie Salmon and Jerry Chen and Madelon Hulsebos and Yann LeCun and Samuel Müller and Bernhard Schölkopf and Sauraj Gambhir and Noah Hollmann and Frank Hutter},
@@ -349,7 +359,7 @@ TabPFN uses Pydantic settings for configuration, supporting environment variable
 
 **Model Configuration:**
 - `TABPFN_MODEL_CACHE_DIR`: Custom directory for caching downloaded TabPFN models (default: platform-specific user cache directory)
-- `TABPFN_ALLOW_CPU_LARGE_DATASET`: Allow running TabPFN on CPU above the per-model sample limit (5000 for TabPFN-3 and TabPFN-3.5, 1000 for older versions). Set to `true` to override the CPU limitation. Note: large datasets can still be slow on CPU!
+- `TABPFN_ALLOW_CPU_LARGE_DATASET`: Allow running TabPFN on CPU above the per-model sample limit (5000 for TabPFN-3, TabPFN-3.5 and TabPFN-3.5-Fast, 1000 for older versions). Set to `true` to override the CPU limitation. Note: large datasets can still be slow on CPU!
 - `TABPFN_MPS_MEMORY_FRACTION`: Fraction of recommended max MPS memory to allow on Apple Silicon (default: `0.7`). Used to prevent macOS system crashes; set before importing TabPFN. Values above `1.0` are not recommended.
 - `TABPFN_MAX_BATCHED_TEST_ROWS`: Maximum number of test rows fed through the model in a single forward pass during cached (`fit_mode="fit_with_cache"`) inference (default: `32768`). Larger test sets are split into independent chunks of at most this size and concatenated, bounding peak memory. Test rows are conditionally independent given the KV cache, so chunking is mathematically equivalent — results may still differ slightly due to floating-point non-associativity (see [#800](https://github.com/PriorLabs/TabPFN/issues/800#issuecomment-4903444425)). Performance should be close to optimal at the default of `32768`: the hardware is already saturated at that chunk size and, since the computations are independent, larger chunks bring no speedup. Set to `0` to disable chunking.
 

@@ -1,1 +1,0 @@
-import{r as e}from"./splatFileLoader-DA39E7M0.js";export{e as gaussianSplattingVertexShader};

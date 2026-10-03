@@ -23,10 +23,14 @@ def lookup_success_actions() -> list[SetState]:
         *finish_tool_call(),
         SetState("org_info", RESULT.org_info),
         SetState("allocations", RESULT.allocations),
+        SetState("dataplane_groups", RESULT.dataplane_groups),
         SetState("resolved_org_label", RESULT.resolved_org_label),
         SetState("org_loaded", RESULT.org_loaded),
         SetState("lookup_error", RESULT.lookup_error),
         SetState("allocations_stale", False),
+        # The last org's region may not exist in this one.
+        SetState("add_dataplane_group_id", ""),
+        SetState("add_dataplane_group_name", "Default region"),
     ]
 
 

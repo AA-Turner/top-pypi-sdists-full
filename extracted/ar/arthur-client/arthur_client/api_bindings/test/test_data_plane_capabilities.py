@@ -35,7 +35,8 @@ class TestDataPlaneCapabilities(unittest.TestCase):
         model = DataPlaneCapabilities()
         if include_optional:
             return DataPlaneCapabilities(
-                gen_ai_enabled = True
+                gen_ai_enabled = True,
+                discovery_source_test = True
             )
         else:
             return DataPlaneCapabilities(

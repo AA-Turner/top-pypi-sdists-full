@@ -19,7 +19,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.9.4"
+VERSION: Final = "2026.10.2"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -371,7 +371,7 @@ class Backend(StrEnum):
 
     CCU = "CCU"
     HOMEGEAR = "Homegear"
-    PYDEVCCU = "PyDevCCU"
+    GODEVCCU = "GoDevCCU"
 
 
 @unique

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rds-proxy-password-rotation
-Version: 0.6.600
+Version: 0.6.606
 Summary: A program to rotate the password of an RDS database accessed via a RDS proxy
 Home-page: https://github.com/Hapag-Lloyd/rds-proxy-password-rotation
 Author: Hapag-Lloyd AG
@@ -12,8 +12,8 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: aws-lambda-powertools==3.35.0
-Requires-Dist: boto3==1.43.107
-Requires-Dist: boto3-stubs[secretsmanager]==1.43.107
+Requires-Dist: boto3==1.43.108
+Requires-Dist: boto3-stubs[secretsmanager]==1.43.108
 Requires-Dist: cachetools==6.2.6
 Requires-Dist: dependency-injector==4.49.1
 Requires-Dist: psycopg[binary]==3.3.6

@@ -32,113 +32,72 @@ free_segment_sources (wfm_segment_t *seg)
   if (seg->sources)
     for (size_t k = 0; k < seg->n_sources; k++)
       {
-        free ((void *)seg->sources[k].payload.bits);
         free (seg->sources[k].symbols);
         free ((void *)seg->sources[k].acq_code.bits);
         free ((void *)seg->sources[k].data_code.bits);
         free ((void *)seg->sources[k].sync.bits);
+        free ((void *)seg->sources[k].data.bits);
+        free ((void *)seg->sources[k].fill.bits);
+        free ((void *)seg->sources[k].data_from_file);
         /* The carried description, on the same terms as the arrays above:
            the composer took its OWN copy so the caller's need not outlive
            it, so the copy is the composer's to release. Its fields' literal
            bits go first -- they hang off the description. */
-        if (seg->sources[k].frame)
-          {
-            wfm_frame_desc_t *d = (wfm_frame_desc_t *)seg->sources[k].frame;
-            for (unsigned f = 0; f < d->n_fields; f++)
-              free ((void *)d->field[f].seq.bits);
-            free (d);
-            seg->sources[k].frame = NULL;
-          }
+        dp_wfm_frame_free ((wfm_frame_desc_t *)seg->sources[k].frame);
+        seg->sources[k].frame = NULL;
       }
   free (seg->sources);
   seg->sources = NULL;
 }
 
-/* malloc+memcpy an owned byte array (NULL for an empty one). */
+/* An owned copy of a byte array whose size the caller already validated
+ * (a source's own `len`), so it can fail only on genuine OOM and aborts
+ * there (dp_xmalloc, clib_common.h): there is no unwind path a test could
+ * never reach. NULL for an empty one. */
 static uint8_t *
 dup_u8 (const uint8_t *src, size_t n)
 {
   if (!src || !n)
     return NULL;
-  uint8_t *copy = malloc (n);
-  if (copy)
-    memcpy (copy, src, n);
+  uint8_t *copy = dp_xmalloc (n);
+  memcpy (copy, src, n);
   return copy;
 }
 
 /* Replace dst's array pointers (struct-assigned from the caller's source)
- * with owned copies. On failure every pointer is already owned-or-NULL, so
- * free_segment_sources() on the partially-built list stays safe (it never
- * frees a caller's buffer). Returns 0, or -1 on allocation failure. */
-static int
+ * with owned copies. Every copy is of a size the source already states, so
+ * this cannot fail: OOM aborts in dup_u8/dp_xmalloc rather than unwinding
+ * a half-copied list. */
+static void
 copy_source_arrays (wfm_source_t *dst, const wfm_source_t *src)
 {
-  dst->payload.bits   = NULL;
-  dst->symbols        = NULL;
-  dst->acq_code.bits  = NULL;
-  dst->data_code.bits = NULL;
-  dst->sync.bits      = NULL;
-  dst->frame          = NULL;
   /* A CARRIED description is borrowed by a source -- the caller's own must
      outlive it -- but the composer deliberately outlives its caller's
      buffers, which is what every dup_u8 below is for. So it takes its own
      copy of the description AND of each field's literal bits, and owns
-     both. Without this a `--from-file` scene would be reading a description
-     its parser had already freed. */
-  if (src->frame)
-    {
-      wfm_frame_desc_t *d = dp_xmalloc (sizeof *d);
-      *d                  = *src->frame;
-      dst->frame          = d;
-      /* Null every borrowed pointer FIRST, so a failure part-way leaves a
-         description free_segment_sources() can walk without touching a
-         buffer that belongs to the caller. */
-      for (unsigned f = 0; f < d->n_fields; f++)
-        d->field[f].seq.bits = NULL;
-      for (unsigned f = 0; f < d->n_fields; f++)
-        {
-          const wfm_seq_t *q = &src->frame->field[f].seq;
-          if (q->bits && q->len)
-            {
-              d->field[f].seq.bits = dup_u8 (q->bits, q->len);
-              if (!d->field[f].seq.bits)
-                return -1;
-            }
-        }
-    }
-  if (src->payload.bits && src->payload.len)
-    {
-      dst->payload.bits = dup_u8 (src->payload.bits, src->payload.len);
-      if (!dst->payload.bits)
-        return -1;
-    }
+     both (dp_wfm_frame_copy). Without this a `--from-file` scene would be
+     reading a description its parser had already freed. */
+  dst->frame          = dp_wfm_frame_copy (src->frame);
+  dst->acq_code.bits  = dup_u8 (src->acq_code.bits, src->acq_code.len);
+  dst->data_code.bits = dup_u8 (src->data_code.bits, src->data_code.len);
+  dst->sync.bits      = dup_u8 (src->sync.bits, src->sync.len);
+  dst->symbols        = NULL;
   if (src->symbols && src->n_symbols)
     {
       size_t nbytes = src->n_symbols * sizeof *src->symbols;
-      dst->symbols  = malloc (nbytes);
-      if (!dst->symbols)
-        return -1;
+      dst->symbols  = dp_xmalloc (nbytes);
       memcpy (dst->symbols, src->symbols, nbytes);
     }
-  if (src->acq_code.bits && src->acq_code.len)
-    {
-      dst->acq_code.bits = dup_u8 (src->acq_code.bits, src->acq_code.len);
-      if (!dst->acq_code.bits)
-        return -1;
-    }
-  if (src->data_code.bits && src->data_code.len)
-    {
-      dst->data_code.bits = dup_u8 (src->data_code.bits, src->data_code.len);
-      if (!dst->data_code.bits)
-        return -1;
-    }
-  if (src->sync.bits && src->sync.len)
-    {
-      dst->sync.bits = dup_u8 (src->sync.bits, src->sync.len);
-      if (!dst->sync.bits)
-        return -1;
-    }
-  return 0;
+  /* The data source's members (#1619). A path is borrowed by a source like
+     everything above, so the composer owns a copy of it too: the data
+     source opens it at each build. */
+  dst->data.bits = dup_u8 (src->data.bits, src->data.len);
+  dst->fill.bits = dup_u8 (src->fill.bits, src->fill.len);
+  dst->data_from_file
+      = src->data_from_file
+            ? (const char *)dup_u8 ((const uint8_t *)src->data_from_file,
+                                    strlen (src->data_from_file) + 1u)
+            : NULL;
 }
 
 enum
@@ -190,6 +149,12 @@ struct wfm_compose_state
   dp_doppler_channel_state_t **pch;
   size_t                      *pch_off; /* first slot of segment i */
   size_t                       pch_n;   /* total slots */
+  /* Data sources (#1619): how a paced run pulls (WFM_DATA_PACED under
+     --realtime: nothing yet is an idle frame), and per live source whether
+     it is a STREAM -- the sources the early end at a frame boundary is
+     measured on. Parallel to rend/gain. */
+  wfm_data_pacing_t pacing;
+  unsigned char    *stream;
 };
 
 /* Destroy the active segment's renderers (the rend[] array stays allocated).
@@ -514,7 +479,11 @@ start_segment (dp_wfm_compose_state_t *s)
       if (!s->rend[k])
         ok = 0;
       else
-        s->n_syn = k + 1; /* track for stop_synths on partial failure */
+        {
+          s->n_syn = k + 1; /* track for stop_synths on partial failure */
+          dp_wfm_synth_set_data_pacing (s->rend[k]->syn, s->pacing);
+          s->stream[k] = (unsigned char)dp_wfm_source_data_is_stream (src);
+        }
     }
   if (ok)
     {
@@ -570,9 +539,65 @@ advance (dp_wfm_compose_state_t *s)
   start_segment (s);
 }
 
+const char dp_wfm_why_dsss_cont_rate[]
+    = "a continuous dsss stream sends at least one chip per data symbol, "
+      "and its chip rate fs / sps is below symbol_rate: give fs in Hz (a "
+      "segment's default 1.0 is a normalised rate), lower sps, or lower "
+      "symbol_rate";
+
+const char *
+dp_wfm_scene_error (const wfm_segment_t *segs, size_t n_segs, int repeat,
+                    int continuous)
+{
+  size_t n_stream = 0;
+  for (size_t i = 0; i < n_segs; i++)
+    for (size_t k = 0; k < segs[i].n_sources; k++)
+      {
+        const wfm_source_t *src = &segs[i].sources[k];
+        const char         *why = dp_wfm_source_error (src);
+        if (why)
+          return why;
+        /* A rate needs the segment's fs, which a source does not carry. The
+           synth refuses `!(chips_per_symbol >= 1)` with a bare NULL; this is
+           the same comparison on the same number the builder hands it, so
+           a NaN is refused too (doppler#1706). */
+        if (src->type == WFM_SYNTH_DSSS && src->symbol_rate > 0.0
+            && !(dp_wfm_source_dsss_cps (src, segs[i].fs) >= 1.0))
+          return dp_wfm_why_dsss_cont_rate;
+        if (!dp_wfm_source_data_is_stream (src))
+          continue;
+        /* A stream has no end to repeat and its bytes are gone once read,
+           so nothing may play it twice (payload-data-source.md 4.7). */
+        if (repeat || continuous)
+          return "a stream (--data-from-file -) has no end to repeat: drop "
+                 "--repeat and --continuous";
+        if (segs[i].repeats > 1)
+          return "a stream (--data-from-file -) cannot be played twice: drop "
+                 "--repeats";
+        if (++n_stream > 1)
+          return "stdin can feed one data source in a scene, not two";
+      }
+  return NULL;
+}
+
+void
+dp_wfm_compose_set_data_pacing (dp_wfm_compose_state_t *state,
+                                wfm_data_pacing_t       pacing)
+{
+  if (state)
+    state->pacing = pacing;
+}
+
 dp_wfm_compose_state_t *
 dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
                        int continuous)
+{
+  return dp_wfm_compose_create_why (segs, n_segs, repeat, continuous, NULL);
+}
+
+dp_wfm_compose_state_t *
+dp_wfm_compose_create_why (const wfm_segment_t *segs, size_t n_segs,
+                           int repeat, int continuous, const char **why)
 {
   if (!segs || n_segs == 0)
     return NULL;
@@ -581,10 +606,13 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
      whose NULL the streaming path turns into a silent gap — and a silent gap
      is how the frame fields came to be accepted and dropped in the first
      place. */
-  for (size_t i = 0; i < n_segs; i++)
-    for (size_t k = 0; k < segs[i].n_sources; k++)
-      if (dp_wfm_source_error (&segs[i].sources[k]) != NULL)
-        return NULL;
+  const char *bad = dp_wfm_scene_error (segs, n_segs, repeat, continuous);
+  if (bad)
+    {
+      if (why)
+        *why = bad;
+      return NULL;
+    }
   /* The frame is not the only thing a source can get wrong: anything the
      synth itself refuses (a PN length with no m-sequence, doppler#1590) took
      the same silent-gap path. So build each source once, here, through the
@@ -630,15 +658,7 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
       for (size_t k = 0; k < ns; k++)
         {
           s->segs[i].sources[k] = segs[i].sources[k]; /* scalar fields */
-          if (copy_source_arrays (&s->segs[i].sources[k], &segs[i].sources[k])
-              != 0)
-            {
-              for (size_t j = 0; j <= i; j++)
-                free_segment_sources (&s->segs[j]);
-              free (s->segs);
-              free (s);
-              return NULL;
-            }
+          copy_source_arrays (&s->segs[i].sources[k], &segs[i].sources[k]);
         }
       /* A lone dsss BURST's on-time is intrinsic — exactly one burst
        * (n_chips * sps samples) — so num_samples is derived here, on the
@@ -654,9 +674,14 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
        * (n_bits payload * data_code.len + a spurious CRC), which would pass
        * the `if (nchips)` guard and silently overwrite the user's num_samples.
        */
+      /* A burst over a DATA SOURCE is one burst per frame of it, and the
+         rule below sets that run -- a stream's included, whose length is
+         where its input ends, not one burst. */
       if (s->segs[i].n_sources == 1
           && s->segs[i].sources[0].type == WFM_SYNTH_DSSS
-          && s->segs[i].sources[0].symbol_rate <= 0.0)
+          && s->segs[i].sources[0].symbol_rate <= 0.0
+          && !s->segs[i].sources[0].data.len
+          && !s->segs[i].sources[0].data_from_file)
         {
           const wfm_source_t *d = &s->segs[i].sources[0];
           /* Through the source's own description, so a coding stage that
@@ -671,6 +696,34 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
               s->segs[i].ranged &= ~(unsigned)WFM_RANGE_NUM_SAMPLES;
             }
         }
+      /* A data source sets its own length (payload-data-source.md 4.6). A
+         FINITE one is ceil(bits / LEN) frames, so the on-time is derived
+         here, on the private copy, as the dsss burst's is: the longest of
+         the segment's finite sources, the others falling silent at their
+         end. A STREAM with no count runs until it ends (the early end in
+         execute); with one, the count bounds it. The CLI and a scene refuse
+         a count given beside a finite source by name; this is where every
+         face lands. */
+      size_t finite = 0;
+      int    stream = 0;
+      for (size_t k = 0; k < ns; k++)
+        {
+          const wfm_source_t *d = &s->segs[i].sources[k];
+          if (dp_wfm_source_data_is_stream (d))
+            stream = 1;
+          const size_t n = (size_t)dp_wfm_source_data_samples (
+              d, s->segs[i].fs, dp_wfm_source_data_frames (d));
+          if (n > finite)
+            finite = n;
+        }
+      if (finite)
+        {
+          s->segs[i].num_samples    = finite;
+          s->segs[i].num_samples_hi = 0;
+          s->segs[i].ranged &= ~(unsigned)WFM_RANGE_NUM_SAMPLES;
+        }
+      else if (stream && s->segs[i].num_samples == 0)
+        s->segs[i].num_samples = SIZE_MAX; /* until the stream ends */
     }
   /* Resolve the per-segment noise model on the copy (may append a noise
    * source) — runs here so every face resolves identically. No-op at 1 src. */
@@ -689,6 +742,7 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
       max_src = s->segs[i].n_sources;
   s->rend    = calloc (max_src, sizeof (*s->rend));
   s->gain    = malloc (max_src * sizeof (*s->gain));
+  s->stream  = dp_xcalloc (max_src, sizeof (*s->stream));
   s->scratch = malloc (SCRATCH_CAP * sizeof (*s->scratch));
   /* PERSIST slots, allocated only when a source actually asks for one: a
      scene with no persisting Doppler carries no extra state at all. The
@@ -716,6 +770,7 @@ dp_wfm_compose_create (const wfm_segment_t *segs, size_t n_segs, int repeat,
       free (s->segs);
       free (s->rend);
       free (s->gain);
+      free (s->stream);
       free (s->scratch);
       free (s->pch);
       free (s->pch_off);
@@ -767,11 +822,53 @@ render_gap (dp_wfm_compose_state_t *s, float _Complex *out, size_t k)
     }
 }
 
-size_t
-dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
-                        size_t max)
+/* How many of the @p k samples just rendered precede the end of the
+ * segment's data STREAMS: k while any stream is still running (or there is
+ * none), else the frame boundary every stream has reached, counted from the
+ * start of ON. A stream ends where its last frame does -- frames started,
+ * idle ones included, times its samples per frame -- so the run stops on a
+ * frame boundary rather than running on in silence (payload-data-source.md
+ * 4.6). The synth latches the end lazily, at the first bit of the frame it
+ * could not draw, which is always inside or before this chunk. */
+static size_t
+stream_keep (const dp_wfm_compose_state_t *s, size_t k)
 {
-  size_t i = 0;
+  uint64_t end = 0;
+  int      any = 0;
+  for (size_t sx = 0; sx < s->n_syn; sx++)
+    {
+      if (!s->stream[sx])
+        continue;
+      const dp_wfm_synth_state_t *syn = s->rend[sx]->syn;
+      if (!dp_wfm_synth_data_ended (syn))
+        return k;
+      wfm_data_stats_t st;
+      dp_wfm_data_stats (dp_wfm_synth_data_source (syn), &st);
+      const wfm_segment_t *g = &s->segs[s->cur];
+      const uint64_t       b = dp_wfm_source_data_samples (
+          &g->sources[sx], g->fs, st.frames + st.idle_frames);
+      if (b > end)
+        end = b;
+      any = 1;
+    }
+  if (!any)
+    return k;
+  const uint64_t before = s->cur_num - s->left;
+  if (end >= before + k)
+    return k;
+  return end > before ? (size_t)(end - before) : 0u;
+}
+
+/* The one emit loop. With @p fs non-NULL it also stops where the rate
+   changes -- at the advance into a segment whose fs differs from the
+   samples already written -- and reports the rate of what it wrote. With
+   NULL it is dp_wfm_compose_execute(), unchanged. */
+static size_t
+execute (dp_wfm_compose_state_t *state, float _Complex *out, size_t max,
+         double *fs)
+{
+  size_t i    = 0;
+  double rate = 0.0; /* the rate of the samples written so far */
   while (i < max)
     {
       if (state->phase == PHASE_DONE)
@@ -789,6 +886,7 @@ dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
           size_t k = max - i;
           if (k > state->left)
             k = state->left;
+          rate = state->segs[state->cur].fs;
 
           if (state->n_syn == 1)
             {
@@ -827,6 +925,15 @@ dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
                     out[i + j] += gs * state->scratch[j];
                 }
             }
+          /* A data stream that ended inside this chunk ends the ON phase on
+             its frame boundary; what was rendered past it is dropped. */
+          const size_t keep = stream_keep (state, k);
+          if (keep < k)
+            {
+              i += keep;
+              state->left = 0;
+              continue;
+            }
           i += k;
           state->left -= k;
         }
@@ -841,7 +948,12 @@ dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
                   state->left  = state->cur_num;
                 }
               else
-                advance (state);
+                {
+                  advance (state);
+                  if (fs && i > 0 && state->phase != PHASE_DONE
+                      && state->segs[state->cur].fs != rate)
+                    break; /* the next sample is at another rate */
+                }
               continue;
             }
           size_t k = max - i;
@@ -849,12 +961,31 @@ dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
             k = state->left;
           if (k > (size_t)SCRATCH_CAP && state->n_syn > 1)
             k = SCRATCH_CAP; /* N-source gap accumulates via scratch */
+          rate = state->segs[state->cur].fs;
           render_gap (state, out + i, k);
           i += k;
           state->left -= k;
         }
     }
+  /* Every sample written is at `rate`: a rate change breaks out above
+     before the first sample at the next one. */
+  if (fs && i > 0)
+    *fs = rate;
   return i;
+}
+
+size_t
+dp_wfm_compose_execute (dp_wfm_compose_state_t *state, float _Complex *out,
+                        size_t max)
+{
+  return execute (state, out, max, NULL);
+}
+
+size_t
+dp_wfm_compose_execute_rate (dp_wfm_compose_state_t *state,
+                             float _Complex *out, size_t max, double *fs)
+{
+  return execute (state, out, max, fs);
 }
 
 const wfm_segment_t *
@@ -899,6 +1030,7 @@ dp_wfm_compose_destroy (dp_wfm_compose_state_t *state)
       free (state->segs);
       free (state->rend);
       free (state->gain);
+      free (state->stream);
       free (state->scratch);
       free (state->pch);
       free (state->pch_off);

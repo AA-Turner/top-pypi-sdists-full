@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.205.3
+Version: 0.206.4
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -634,10 +634,10 @@ Run the stdio server with `probe-research-mcp`. It exposes **six** tools:
 
 | Tool | Answers |
 |---|---|
-| `browse` | "What exists here?" — the structured project → experiment → run tree |
+| `browse` | "What exists here?" — the project → experiment → run tree, or one flat listing by `mode` |
 | `search_knowledge` | "Find things about X" — one-index exact+semantic search with per-result provenance |
 | `entity` | "Show me this thing" — one entity through a purpose-shaped `view` |
-| `metrics` | "What are the numbers?" — one run's metrics at the `mode` you ask for |
+| `metrics` | "What are the numbers?" — one run's metrics at the `mode` you ask for, or several runs' series compared |
 | `find_papers` | "What does the literature report?" — 40M+ abstracts, and reading the papers |
 | `query_sql` | "Exactly how many?" — one read-only SQL SELECT over the research tables, for counts, joins and checking a number |
 
@@ -699,6 +699,11 @@ grain is now an argument:
 | `grouped` | one key reduced over coordinate axes and step buckets | `key` (required), `kind`, `agg`, `by`, `where`, `step_bucket`, `step_from`, `step_to`, `max_rows` |
 | `coordinates` | the run's coordinate catalog — which axes it logged on | nothing beyond `run_id` |
 | `points` | raw points, losslessly, one bounded page | `key`, `kind`, `step_from`, `step_to`, `after_id`, `limit` |
+| `series` | several runs × keys in one read (`POST /v1/series/query`), one row per series, downsampled to `max_points` (default 100) | `run_ids`, `keys` (both required), `step_from`, `step_to`, `smoothing`, `max_points` |
+
+`series` sends whole series only: one too big for the budget is refused with the
+`min_token_budget` that carries it (or the `fits_max_points` that would), and a read
+whose list of series changes between pages refuses to continue rather than skip one.
 
 **Each mode is validated against its own column, not against the union.** An argument
 the chosen mode does not read is REFUSED, never dropped — `mode="points"` with
@@ -718,6 +723,21 @@ closed, and calls to them now fail as unknown tools.
 `research_resolve` have been REMOVED. They answered as deprecated aliases for one
 release; that window has closed. Calls to them now fail as unknown tools.
 
+`browse(mode=...)` picks the listing. `tree` (the default) is the hierarchy above;
+the flat modes each read one route and refuse arguments they do not read:
+
+| `mode` | Lists | Takes |
+|---|---|---|
+| `runs` | every run filed under a project, newest first (unfiled runs are on the tree's root) | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
+| `workspaces` | the team's filing locations, by name | — |
+| `notes` | the notes catalog, sub-notes included; each row is an address `entity` opens | `query` (literal) |
+| `files` | the Shared folder, or one workspace's files | `workspace_id`, `prefix` (a folder) |
+
+A flat listing resumes after the last row it sent, in the route's own order (the runs
+and notes lists' keysets, a workspace's `lower(name), id`, a file's name), never by
+skipping a count, so a row that ends, is renamed or is deleted between pages moves
+nothing else.
+
 **Thin harness, fat skills.** Coverage grows through `entity`'s `view` and `filters`
 parameters, never through more tools. `browse` is the one addition that cleared
 that bar: it answers a question the others structurally cannot, because search ranks by
@@ -729,14 +749,18 @@ or UUID returned by browse/search; `team-note` addresses the shared team documen
 
 | Kind | Views |
 |---|---|
-| run | `card` · `record` · `notes` · `summary` · `trajectory` · `trials` · `metrics` · `artifacts` · `reproduce` · `handoff` · `lineage` · `events` · `code` |
+| run | `card` · `record` · `notes` · `summary` · `trajectory` · `trials` · `metrics` · `artifacts` · `reproduce` · `handoff` · `lineage` · `events` · `code` · `views` · `diff` · `sessions` |
 | experiment | `card` · `record` · `notes` · `summary` · `artifacts` · `lineage` · `groups` · `versions` · `reproduce` · `code` |
-| artifact | `card` · `record` · `versions` |
-| project | `card` · `record` · `artifacts` · `notes` · `summary` · `code` · `papers` |
+| artifact | `card` · `record` · `versions` · `sessions` |
+| project | `card` · `record` · `artifacts` · `notes` · `summary` · `code` · `papers` · `readme` |
 | group | `card` · `record` · `notes` |
 | trial | `card` · `record` · `trajectory` |
 | session | `card` · `record` · `transcript` |
 | team note | `card` · `record` |
+| sub-note (`sub_note:<uuid>`) | `card` — the whole document |
+
+A run's `diff` is one trial's sandbox filesystem diff (`view_options.trial`, optionally
+`path_prefix`); `sessions` names the captured coding sessions behind a run or file.
 
 `card` (the default) returns `available_views` for that entity, so one call tells you what
 else you can ask for — the matrix above is documentation, not something to memorise.

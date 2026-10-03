@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-client
-Version: 0.11.1
+Version: 0.11.2
 Summary: Pythonically build SCIM requests and parse SCIM responses
 Keywords: scim,scim2,provisioning,rfc7643,rfc7644,httpx2,api
 Author: Yaal Coop

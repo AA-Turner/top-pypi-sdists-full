@@ -77,13 +77,13 @@ class ProductsClient:
             Only return marketplace products assigned to this category route, such as `trading`.
 
         plan_types : typing.Optional[typing.Union[ListProductsRequestPlanTypesItem, typing.Sequence[ListProductsRequestPlanTypesItem]]]
-            Filter to products with a buyable plan of these billing models, such as `one_time` or `renewal`.
+            Filter to products with a buyable variant of these billing models, such as `one_time` or `renewal`.
 
         price_minimum : typing.Optional[float]
-            Only return products whose advertised buyable plan has a displayed price of at least this amount. Recurring plans use renewal price.
+            Only return products whose advertised buyable variant has a displayed price of at least this amount. Recurring variants use renewal price.
 
         price_maximum : typing.Optional[float]
-            Only return products whose advertised buyable plan has a displayed price of at most this amount. Recurring plans use renewal price.
+            Only return products whose advertised buyable variant has a displayed price of at most this amount. Recurring variants use renewal price.
 
         visibilities : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter to only products matching these visibility states. Ignored on the public marketplace list, which only returns visible products.
@@ -131,7 +131,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -269,7 +269,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -324,7 +324,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -357,7 +357,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -435,7 +435,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -481,7 +481,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -514,7 +514,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -580,13 +580,13 @@ class AsyncProductsClient:
             Only return marketplace products assigned to this category route, such as `trading`.
 
         plan_types : typing.Optional[typing.Union[ListProductsRequestPlanTypesItem, typing.Sequence[ListProductsRequestPlanTypesItem]]]
-            Filter to products with a buyable plan of these billing models, such as `one_time` or `renewal`.
+            Filter to products with a buyable variant of these billing models, such as `one_time` or `renewal`.
 
         price_minimum : typing.Optional[float]
-            Only return products whose advertised buyable plan has a displayed price of at least this amount. Recurring plans use renewal price.
+            Only return products whose advertised buyable variant has a displayed price of at least this amount. Recurring variants use renewal price.
 
         price_maximum : typing.Optional[float]
-            Only return products whose advertised buyable plan has a displayed price of at most this amount. Recurring plans use renewal price.
+            Only return products whose advertised buyable variant has a displayed price of at most this amount. Recurring variants use renewal price.
 
         visibilities : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Filter to only products matching these visibility states. Ignored on the public marketplace list, which only returns visible products.
@@ -636,7 +636,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -783,7 +783,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -846,7 +846,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -889,7 +889,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -975,7 +975,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1029,7 +1029,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1070,7 +1070,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-23",
+            "2026-09-29",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

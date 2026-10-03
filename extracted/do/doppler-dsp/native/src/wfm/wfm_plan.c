@@ -26,6 +26,7 @@
 #include "doppler/wfm/wfm_plan.h"
 
 #include "doppler/awgn/awgn_core.h"
+#include "doppler/clib_common.h"
 #include "doppler/wfm/wfm_compose.h"
 #include "doppler/wfm/wfm_plan_dsp_hash.h" /* WFM_PLAN_DSP_HASH_U64 (configure-time) */
 #include "doppler/wfm_synth/wfm_synth_core.h"
@@ -96,7 +97,6 @@ struct wfm_plan
 static void
 free_source_arrays (wfm_source_t *s)
 {
-  free ((void *)s->payload.bits);
   free (s->symbols);
   free ((void *)s->acq_code.bits);
   free ((void *)s->data_code.bits);
@@ -121,14 +121,10 @@ dup_u8 (const uint8_t *src, size_t n)
 static int
 copy_source_arrays (wfm_source_t *dst, const wfm_source_t *src)
 {
-  dst->payload.bits   = NULL;
   dst->symbols        = NULL;
   dst->acq_code.bits  = NULL;
   dst->data_code.bits = NULL;
   dst->sync.bits      = NULL;
-  if (src->payload.bits && src->payload.len)
-    if (!(dst->payload.bits = dup_u8 (src->payload.bits, src->payload.len)))
-      return -1;
   if (src->symbols && src->n_symbols)
     {
       size_t nbytes = src->n_symbols * sizeof *src->symbols;
@@ -404,6 +400,20 @@ segment_slots (const wfm_segment_t *g, size_t *n_sig, size_t *n_bg)
  * SNR. Nothing is lost by dropping it: this copy exists only to draw AWGN
  * through dp_wfm_synth_noise_steps(), and the framed signal is what cache_sig
  * already holds. */
+/* What a noise copy must NOT keep: the members it borrows rather than owns
+ * and that copy_source_arrays() does not deep-copy -- the frame, and the data
+ * source (#1619: `data`, `fill`, `data_from_file`). Each points into the
+ * composer plan_build() destroys, and the noise copy only draws AWGN: the
+ * signal its frames carry is what cache_sig already holds. */
+static void
+drop_borrowed (wfm_source_t *s)
+{
+  s->frame          = NULL;
+  s->data           = (wfm_seq_t){ 0 };
+  s->fill           = (wfm_seq_t){ 0 };
+  s->data_from_file = NULL;
+}
+
 static int
 resolve_segment_noise (wfm_plan_segment_t *ps, const wfm_segment_t *g)
 {
@@ -427,7 +437,7 @@ resolve_segment_noise (wfm_plan_segment_t *ps, const wfm_segment_t *g)
       const wfm_source_t *nsrc = &g->sources[noise_idx];
       ps->noise_src            = *nsrc;
       /* Borrowed, and not ours to keep — see the note above. */
-      ps->noise_src.frame = NULL;
+      drop_borrowed (&ps->noise_src);
       if (copy_source_arrays (&ps->noise_src, nsrc) != 0)
         return -1;
       ps->explicit_floor = 1;
@@ -454,7 +464,7 @@ resolve_segment_noise (wfm_plan_segment_t *ps, const wfm_segment_t *g)
     {
       ps->noise_src = g->sources[0];
       /* Borrowed, and not ours to keep — see the note above. */
-      ps->noise_src.frame = NULL;
+      drop_borrowed (&ps->noise_src);
       if (copy_source_arrays (&ps->noise_src, &g->sources[0]) != 0)
         return -1;
     }
@@ -965,6 +975,16 @@ read_dbl_array (const cJSON *root, const char *key, double *dst, size_t n)
   return 1;
 }
 
+int
+dp_wfm_plan_check_snr (const wfm_plan_t *p)
+{
+  if (p)
+    for (size_t i = 0; i < p->n_segs; i++)
+      if (p->segs[i].has_noise)
+        return DP_OK;
+  return DP_ERR_INVALID;
+}
+
 size_t
 dp_wfm_plan_render (const wfm_plan_t *p, const char *overrides_json,
                     float _Complex *out)
@@ -985,6 +1005,11 @@ dp_wfm_plan_render (const wfm_plan_t *p, const char *overrides_json,
       const cJSON *s = cJSON_GetObjectItemCaseSensitive (root, "snr");
       if (cJSON_IsNumber (s))
         {
+          if (dp_wfm_plan_check_snr (p) != DP_OK)
+            {
+              cJSON_Delete (root);
+              return 0; /* nothing for the snr to move: refused */
+            }
           snr       = s->valuedouble;
           snr_given = 1;
         }
@@ -1035,8 +1060,8 @@ size_t
 dp_wfm_plan_at (const wfm_plan_t *p, double snr, uint64_t seed,
                 float _Complex *out)
 {
-  if (!p)
-    return 0;
+  if (dp_wfm_plan_check_snr (p) != DP_OK)
+    return 0; /* nothing for the snr to move: refused */
   return materialize (p, NULL, NULL, NULL, snr, 1, seed, 1, out);
 }
 

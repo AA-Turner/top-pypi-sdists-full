@@ -66,7 +66,7 @@ def _props(records: list[dict], event: str) -> dict:
 def wizard_stubs(monkeypatch):
     """The minimum reality a flag-driven wizard run touches."""
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=None)
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
     )
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
 
@@ -117,7 +117,7 @@ def test_action_flag_is_clamped_never_verbatim(captured, monkeypatch):
     """A mis-pasted --action value (path, secret) must never ride to the
     vendor: unknown values are clamped to the literal 'invalid'."""
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=None)
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
     )
     rc = main_mod.main(["wizard", "--action", "hunter2-oops-a-secret", "--agent", "claude"])
     assert rc == 2  # still the usage error it always was
@@ -559,7 +559,7 @@ def test_standalone_backfill_command_threads_a_command_context(monkeypatch, capt
     """The `probe backfill` wiring: a dropped telemetry= pass-through would
     silently null the whole standalone funnel with every other test green."""
     monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda: SimpleNamespace(message=None)
+        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
     )
     seen: dict = {}
 
@@ -638,3 +638,73 @@ def test_backfill_empty_after_delivery_updates_current_presence(captured, folder
     assert h.report()["vanished"] == ["a.py"] and not h.report()["delivered"]
     assert len(h.remote.calls) == 1
     assert _props(captured, tm.EVENT_BACKFILL_SUMMARY)["outcome"] == "empty_folder"
+
+
+def test_a_default_saved_on_the_menu_row_is_still_counted_as_the_defaults_action(
+    captured, wizard_stubs, monkeypatch
+):
+    """The Defaults row saves on each press inside the menu (2026-10-02), so
+    the pass never answers DEFAULTS: the loop counts it when the saved default
+    changed while the menu was open."""
+    from probe.sdk import session_marker
+
+    wizard_stubs.append(Capabilities())
+    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
+    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
+
+    def signed_in(**kwargs):
+        from probe.sdk.config import save_context
+
+        save_context({"token": "probe_pat_menu_test"})
+        return setup.SignInResult(ok=True, lines=[])
+
+    def menu(_caps):
+        session_marker.write_default_state(session_marker.STATE_OFF)  # the row, pressed
+        return None  # then the researcher quits
+
+    monkeypatch.setattr(setup, "sign_in", signed_in)
+    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(setup, "run_action_menu", menu)
+    with pytest.raises(SystemExit):
+        main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
+    assert session_marker.default_session_state() == session_marker.STATE_OFF
+    assert _props(captured, tm.EVENT_WIZARD_ACTION_CHOSEN)["action"] == "defaults"
+
+
+def test_switching_the_default_then_pressing_enter_on_it_counts_once(
+    captured, wizard_stubs, monkeypatch
+):
+    """`→` saves the row, then Enter on the same row answers DEFAULTS: one
+    `defaults` action, not one for the save and one for the Enter."""
+    from probe.cli.actions import Action
+    from probe.sdk import session_marker
+
+    wizard_stubs.append(Capabilities())
+    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
+    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
+
+    def signed_in(**kwargs):
+        from probe.sdk.config import save_context
+
+        save_context({"token": "probe_pat_menu_test"})
+        return setup.SignInResult(ok=True, lines=[])
+
+    answers = iter([Action.DEFAULTS, None])
+
+    def menu(_caps):
+        answer = next(answers)
+        if answer is Action.DEFAULTS:
+            session_marker.write_default_state(session_marker.STATE_OFF)  # `→`, then Enter
+        return answer
+
+    monkeypatch.setattr(setup, "sign_in", signed_in)
+    monkeypatch.setattr(tui, "clear", lambda: None)
+    monkeypatch.setattr(tui, "page", lambda lines, prompt=None, **kwargs: "")
+    monkeypatch.setattr(setup, "run_defaults_menu", lambda *a, **k: tui.BACK)
+    monkeypatch.setattr(setup, "run_action_menu", menu)
+    with pytest.raises(SystemExit):
+        main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
+    chosen = [r["properties"]["action"] for r in captured if r["event"] == tm.EVENT_WIZARD_ACTION_CHOSEN]
+    assert chosen == ["defaults"]

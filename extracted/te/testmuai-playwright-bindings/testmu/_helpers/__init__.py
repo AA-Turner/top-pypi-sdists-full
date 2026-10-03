@@ -50,6 +50,7 @@ from testmu._helpers.drag import click_drag, drag_drop, element_drag
 from testmu._helpers.gesture import multi_click, long_press
 from testmu._helpers.loop import LoopExhausted
 from testmu._helpers.assertion import verify_assertion, evaluate_branch
+from testmu._helpers.schema_assertion import verify_schema_assertion
 
 # Smart-gated — require LT sidecar/AI infrastructure
 from testmu._helpers.vision import (

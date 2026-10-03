@@ -11,6 +11,7 @@ from hashlib import blake2s
 from html import unescape
 from html.parser import HTMLParser
 from math import log2
+from pathlib import PurePosixPath
 
 try:
     import yaml
@@ -234,6 +235,28 @@ GENERIC_KEYED_VALUE = re.compile(
 BARE_GENERIC_VALUE = re.compile(
     r"(?P<bare>(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-]))"
 )
+_TIMESTAMPED_DIRECTORY_ID = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_-]*[-_]\d{8}T\d{6}Z[-_][0-9a-f]{12,}$"
+)
+_JSON_DIRECTORY_ID_LINE = re.compile(
+    r'^\s*"(?P<key>[A-Za-z_][A-Za-z0-9_]*)"\s*:\s*"(?P<value>[^"\\]+)"\s*,?\s*$'
+)
+_IDENTIFIER_FIELD_NAME = re.compile(r"(?:id|ID|[A-Za-z0-9]*Id|[A-Za-z0-9_]+_id)")
+_SENSITIVE_ID_FIELD_STEMS = (
+    "secret",
+    "token",
+    "credential",
+    "password",
+    "passwd",
+    "privatekey",
+    "apikey",
+    "session",
+    "auth",
+    "access",
+    "refresh",
+    "oauth",
+    "bearer",
+)
 
 # Public compatibility pattern used by MCP diff validation. Keep this linear:
 # charset requirements for bare tokens are checked in Python by scan_ctx.
@@ -274,7 +297,19 @@ _PLACEHOLDER_MARKER_RE = re.compile(
 )
 
 
+# Credentials published in vendor documentation. They have the real shape and
+# no marker at a token boundary ("...7EXAMPLE"), so the regex cannot tell.
+_DOCUMENTED_EXAMPLE_CREDENTIALS = frozenset(
+    {
+        "AKIA" + "IOSFODNN7EXAMPLE",
+        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    }
+)
+
+
 def _is_obvious_placeholder(token: str) -> bool:
+    if token.strip("'\"") in _DOCUMENTED_EXAMPLE_CREDENTIALS:
+        return True
     return bool(_PLACEHOLDER_MARKER_RE.search(token))
 
 
@@ -725,6 +760,25 @@ def _bare_generic_candidates(
             continue
         candidates.append((start, 3, token, True, match.end("bare")))
     return candidates
+
+
+def _is_generated_directory_identifier(
+    line_content: str, token: str, rel_path: str
+) -> bool:
+    """A generated, noncredential ID repeated in its directory is not a key."""
+    if not _TIMESTAMPED_DIRECTORY_ID.fullmatch(token):
+        return False
+    if PurePosixPath(rel_path.replace("\\", "/")).parent.name != token:
+        return False
+    match = _JSON_DIRECTORY_ID_LINE.fullmatch(line_content.rstrip("\r\n"))
+    if match is None or match.group("value") != token:
+        return False
+    key = match.group("key")
+    return bool(
+        _IDENTIFIER_FIELD_NAME.fullmatch(key)
+        and not re.fullmatch(_SECRET_KEY_NAME_RE, key)
+        and not any(stem in key.lower() for stem in _SENSITIVE_ID_FIELD_STEMS)
+    )
 
 
 def _find_generic_values(
@@ -3935,7 +3989,7 @@ def scan_ctx(
             aws_secret_pattern = r"['\"]?([A-Za-z0-9/+=]{40})['\"]?"
             aws_match = re.search(aws_secret_pattern, line_content)
 
-            if aws_match:
+            if aws_match and aws_match.group(1) not in _DOCUMENTED_EXAMPLE_CREDENTIALS:
                 aws_token = aws_match.group(1)
                 tok_entropy = _entropy(aws_token)
                 if tok_entropy >= min_entropy:
@@ -3984,6 +4038,11 @@ def scan_ctx(
             if not clean_token:
                 continue
             if is_bare and _looks_like_identifier(clean_token):
+                continue
+
+            if is_bare and _is_generated_directory_identifier(
+                line_content, clean_token, rel_path
+            ):
                 continue
 
             if _is_obvious_placeholder(clean_token):

@@ -244,13 +244,34 @@ def _token_cache_key(binding: SandboxBinding) -> tuple[str, ...] | None:
     )
 
 
+def _shell_session() -> str | None:
+    """The key a shell's working folder sticks to: the conversation (a terminal session, as Claude
+    Code's Bash keeps one), else the run. ``cd`` in one call carries into the next."""
+    from matrx_connect import try_get_app_context
+
+    ctx = try_get_app_context()
+    if ctx is None:
+        return None
+    return ctx.conversation_id or ctx.request_id or ctx.execution_id or None
+
+
+#: Carries the shell session key to aidream's local-proxy, which sends it as exec.run ``cwd_key``.
+SHELL_SESSION_HEADER = "X-Matrx-Shell-Session"
+
+
 def _headers(binding: SandboxBinding) -> dict[str, str]:
     key = _token_cache_key(binding)
     cached = (_TOKEN_OVERRIDES.get() or {}).get(key) if key is not None else None
-    return {
+    headers = {
         "X-Sandbox-Access-Token": cached or binding.access_token,
         "Content-Type": "application/json",
     }
+    # A desktop keeps its sticky shell folder per session (exec.run ``cwd_key``); the cloud
+    # orchestrator keeps it per sandbox and ignores this header.
+    session = _shell_session()
+    if session:
+        headers[SHELL_SESSION_HEADER] = str(session)
+    return headers
 
 
 async def _remint_token(binding: SandboxBinding) -> str | None:
@@ -341,6 +362,23 @@ def _retry_after_seconds(resp: httpx.Response, *, default: float) -> float:
     return default
 
 
+def _is_device_offline(resp: httpx.Response) -> bool:
+    """True when a desktop target answered 503 ``DEVICE_OFFLINE`` (asleep, or Matrx 2 closed)."""
+    if resp.status_code != 503:
+        return False
+    try:
+        body = resp.json()
+    except Exception:
+        return False
+    detail = body.get("detail") if isinstance(body, dict) else None
+    return isinstance(detail, dict) and detail.get("code") == "DEVICE_OFFLINE"
+
+
+_DEVICE_OFFLINE_ACTION = (
+    "Ask the user to wake the computer and open Matrx 2, then retry this exact call once."
+)
+
+
 def _is_transient_outage(resp: httpx.Response, *, method: str) -> bool:
     """True when this response is the sandbox ROUTE being down, not the box.
 
@@ -398,7 +436,11 @@ async def _request(
     params: dict[str, Any] | None = None,
     json: Any = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    extra_headers: dict[str, str] | None = None,
+    answer_errors: bool = False,
 ) -> httpx.Response:
+    """``answer_errors``: hand a 4xx/5xx answer back to the caller (``device_op`` reads its typed
+    error body) instead of flattening it into a generic SandboxProxyError."""
     url = f"{binding.base_url}{path}"
     attempt = 0
     reminted = False
@@ -440,7 +482,11 @@ async def _request(
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.request(
-                    method, url, params=params, json=json, headers=_headers(binding)
+                    method,
+                    url,
+                    params=params,
+                    json=json,
+                    headers={**_headers(binding), **(extra_headers or {})},
                 )
         except httpx.RequestError as exc:
             if _is_transient_connection_error(exc, method=method):
@@ -473,6 +519,19 @@ async def _request(
             )
             await _sleep(delay)
             continue
+
+        # A desktop that is not connected to the relay is not a route outage: waiting out
+        # the budget would hold the tool call for a laptop that may sleep for hours. One
+        # honest, retryable error now, with the one action that brings it back.
+        if _is_device_offline(resp):
+            raise SandboxProxyError(
+                f"The computer {binding.sandbox_id} is offline (asleep, or Matrx 2 is not "
+                "running). Its files are intact.",
+                status=503,
+                error_type="device_offline",
+                is_retryable=True,
+                suggested_action=_DEVICE_OFFLINE_ACTION,
+            )
 
         # Transparent retry while the ROUTE to the box is down (orchestrator
         # restart/deploy). The box is alive; only the edge proxy has no backend.
@@ -512,6 +571,8 @@ async def _request(
             path,
         )
 
+    if answer_errors and resp.status_code >= 400 and resp.status_code not in (401, 403):
+        return resp
     if resp.status_code == 404:
         raise SandboxProxyError(
             f"Not found: {path}",
@@ -531,6 +592,67 @@ async def _request(
             error_type="upstream_error",
         )
     return resp
+
+
+# ── Desktop-only capabilities (Matrx 2) ─────────────────────────────────────
+
+#: The longest a desktop op may take: a first use installs the speech runtime and a model.
+DEVICE_OP_MAX_SECONDS = 1800.0
+
+
+async def device_op(
+    binding: SandboxBinding,
+    op: str,
+    params: dict[str, Any],
+    *,
+    timeout_s: float = DEFAULT_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """Run one desktop-only op (``"models.transcribe"``…) on the user's computer.
+
+    aidream's local_proxy serves it at ``POST /op/{cap.op}``: params and result are exactly the
+    op's schema in ``@ai-matrx/desktop-protocol`` (validated on both sides by the generated
+    contract). Only a ``local_machine`` binding has such ops; a cloud sandbox refuses by name.
+    A device error keeps its protocol code and reason in the message the model reads.
+    """
+    if binding.target_kind != "local_machine":
+        raise SandboxProxyError(
+            f"{op} runs on a computer running Matrx 2; this conversation is bound to a cloud sandbox",
+            error_type="invalid_input",
+        )
+    budget = max(1.0, min(timeout_s, DEVICE_OP_MAX_SECONDS))
+    resp = await _request(
+        binding,
+        "POST",
+        f"/op/{op}",
+        json=params,
+        timeout=budget + 15,
+        extra_headers={"X-Matrx-Op-Timeout-S": str(int(budget))},
+        answer_errors=True,
+    )
+    if resp.status_code < 400:
+        body = resp.json()
+        if not isinstance(body, dict):
+            raise SandboxProxyError(f"{op} answered a non-object", error_type="protocol_error")
+        return body
+    try:
+        detail = resp.json().get("detail")
+    except ValueError:
+        detail = None
+    if not isinstance(detail, dict):
+        raise SandboxProxyError(
+            f"{op} failed ({resp.status_code}): {resp.text[:300]}",
+            status=resp.status_code,
+            error_type="upstream_error",
+        )
+    code = str(detail.get("code") or "INTERNAL")
+    reason = detail.get("reason")
+    message = str(detail.get("message") or code)
+    raise SandboxProxyError(
+        f"{code}{f' ({reason})' if reason else ''}: {message}"[:400],
+        status=resp.status_code,
+        error_type=code.lower(),
+        is_retryable=bool(detail.get("retryable")),
+    )
 
 
 # ── Filesystem operations ──────────────────────────────────────────────────

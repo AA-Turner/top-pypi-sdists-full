@@ -89,10 +89,20 @@ def build_observational_memory(ctx: Any, conversation_id: str) -> ObservationalM
 
     # An explicitly requested model is run scope; otherwise the Holder decides.
     override = str(getattr(ctx, "memory_model", None) or "").strip() or None
+    # Its chosen class rides only with it (dropped loudly otherwise).
+    from matrx_ai.graph_nodes.class_pin import node_class_pin
+
+    override_class = node_class_pin(
+        override, getattr(ctx, "memory_offering_id", None), where="observational memory"
+    )
     scope = _resolve_scope(getattr(ctx, "memory_scope", "thread"))
 
-    observer_model = ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE, model=override)
-    reflector_model = ModelConfig(mandate_key=MEMORY_REFLECTOR_MANDATE, model=override)
+    observer_model = ModelConfig(
+        mandate_key=MEMORY_OBSERVER_MANDATE, model=override, offering_id=override_class
+    )
+    reflector_model = ModelConfig(
+        mandate_key=MEMORY_REFLECTOR_MANDATE, model=override, offering_id=override_class
+    )
     config = ObservationalMemoryConfig(
         scope=scope,
         organization_id=str(getattr(ctx, "organization_id", "") or "") or None,

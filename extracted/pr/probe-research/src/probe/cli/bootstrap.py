@@ -180,7 +180,7 @@ def installed_version() -> str | None:
     return _version_of(binary) if binary else None
 
 
-def ensure_persistent_install(*, dry_run: bool = False) -> BootstrapResult:
+def ensure_persistent_install(*, dry_run: bool = False, target: str | None = None) -> BootstrapResult:
     """Install the CLI for real if this process is an ephemeral one.
 
     Prefers uv, falls back to pipx. Deliberately never falls back to a bare
@@ -201,7 +201,41 @@ def ensure_persistent_install(*, dry_run: bool = False) -> BootstrapResult:
             already_persistent=False,
             message=f"would install {DIST} persistently",
         )
-    return install_persistent()
+    from probe import __version__
+
+    behind = installed_version()
+    if behind is None:
+        return install_persistent()
+    # `target`: the newest version the caller knows of (`probe update` passes
+    # the manifest's), so a stale throwaway copy never pins the install to
+    # itself when a newer one exists.
+    want = target if target and _at_least(target, __version__) else __version__
+    # An installed copy THIS run is newer than: `npx probe-research` runs the
+    # latest CLI in a throwaway environment exactly when the installed one is
+    # behind. Bring it to this version, read from a fresh index. Unpinned, uv
+    # satisfied the reinstall from its cache with the very version it replaced:
+    # a 0.206.0 wizard left 0.205.4 installed (2026-10-02), so every agent kept
+    # calling the old CLI -- pi never saw the daemon its wizard had just set.
+    result = install_persistent(f"{INSTALL_SPEC}=={want}")
+    after = installed_version()
+    if result.installed and not (after and _at_least(after, want)):
+        installer = "uv tool install" if shutil.which("uv") else "pipx install"
+        return BootstrapResult(
+            installed=False,
+            already_persistent=False,
+            message=(
+                f"! the installed `probe` is still {after or behind} after installing {want}, "
+                "so your coding agents keep calling the old one. "
+                f"Run: {installer} --force '{INSTALL_SPEC}=={want}'"
+            ),
+        )
+    if result.installed:
+        return BootstrapResult(
+            installed=True,
+            already_persistent=False,
+            message=f"Updated the installed `probe` {behind} → {after}.",
+        )
+    return result
 
 
 def _persistent_tool_env(command: list[str], name: str) -> str | None:
@@ -223,10 +257,14 @@ def _persistent_tool_env(command: list[str], name: str) -> str | None:
 def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
     """Install `spec` as the persistent CLI, replacing whatever is there.
 
-    `spec` is `probe-research[all]@latest` when an existing install is known to be
-    behind: a launcher that served a stale cached copy would otherwise resolve
-    the same stale version here too.
+    `spec` is `probe-research[all]@latest` (or `==<version>`) when an existing
+    install is known to be behind: a launcher that served a stale cached copy
+    would otherwise resolve the same stale version here too. Either suffix also
+    re-reads the index for probe-research.
     """
+    version = "@latest" if spec.endswith("@latest") else (
+        "==" + spec.split("==", 1)[1] if "==" in spec else ""
+    )
     injected: list[str] = []
     dropped = ""
     if shutil.which("uv"):
@@ -255,9 +293,13 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
                 "editable or local `--with` package, constraints); they were NOT carried over. "
                 "Re-add them with `uv tool install --force 'probe-research[all]' --with ...`."
             )
-        version = "@latest" if spec.endswith("@latest") else ""
+        # A pinned or @latest reinstall re-reads the index (uv's cached copy can
+        # predate the release) -- unless uv is offline, which refuses a refresh.
         command = updater.uv_tool_install_command(
-            kept or updater.KeptInstall(), force=True, version=version
+            kept or updater.KeptInstall(),
+            force=True,
+            version=version,
+            refresh=bool(version) and not os.environ.get("UV_OFFLINE"),
         )
     elif shutil.which("pipx"):
         # pipx has no `@latest`; a plain install already resolves the newest.
@@ -268,7 +310,8 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
         existing = _persistent_tool_env(["pipx", "environment", "--value", "PIPX_LOCAL_VENVS"], DIST)
         extras = updater.pipx_extras(existing) if existing else ()
         injected = updater.pipx_injected(existing) if existing else []
-        command = ["pipx", "install", "--force", updater._dist(extras)]
+        pinned = version if version.startswith("==") else ""
+        command = ["pipx", "install", "--force", updater._dist(extras) + pinned]
     else:
         return BootstrapResult(
             installed=False,

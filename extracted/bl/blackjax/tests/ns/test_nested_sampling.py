@@ -23,6 +23,72 @@ def gaussian_loglikelihood(x):
     return stats.norm.logpdf(x - 1.0).sum()
 
 
+class TestReplacementBirthContour(parameterized.TestCase):
+    @parameterized.parameters((False, 2, 1), (True, 2, 1), (False, 6, 3))
+    def test_replacement_birth_contour(self, accepted, num_live, num_delete):
+        """A replacement is born at the contour even if every move rejects."""
+        particles = base.StateWithLogLikelihood(
+            position=jnp.arange(num_live, dtype=float)[:, None],
+            logdensity=jnp.zeros(num_live),
+            loglikelihood=jnp.arange(num_live, dtype=float),
+            loglikelihood_birth=jnp.full(num_live, -jnp.inf),
+        )
+
+        def constrained_step(key, particle, loglikelihood_0):
+            del key
+            if accepted:
+                particle = particle._replace(loglikelihood_birth=loglikelihood_0)
+            return particle, jnp.asarray(accepted)
+
+        update = from_mcmc.update_with_mcmc_take_last(constrained_step, 2, num_delete)
+        kernel = base.build_kernel(
+            functools.partial(base.delete_fn, num_delete=num_delete), update
+        )
+        state, dead = jax.jit(kernel)(jax.random.key(0), base.NSState(particles))
+        expected_births = jnp.concatenate(
+            (
+                jnp.full(num_delete, float(num_delete - 1)),
+                jnp.full(num_live - num_delete, -jnp.inf),
+            )
+        )
+        chex.assert_trees_all_equal(
+            state.particles.loglikelihood_birth, expected_births
+        )
+        final = utils.finalise(state, [dead], update_info=False)
+        expected_counts = [2, 2, 1] if num_delete == 1 else [6, 5, 4, 6, 5, 4, 3, 2, 1]
+        chex.assert_trees_all_equal(
+            utils.compute_num_live(final), jnp.array(expected_counts, dtype=float)
+        )
+
+    def test_slice_replacement_birth_contour(self):
+        """The real slice path stamps births when shrinkage is exhausted."""
+        algorithm = nss.as_top_level_api(
+            lambda x: -(x**2).sum(),
+            lambda x: x.sum(),
+            num_inner_steps=2,
+            num_delete=3,
+            max_steps=0,
+            max_shrinkage=0,
+            update_strategy=from_mcmc.update_with_mcmc_take_last,
+        )
+        state = algorithm.init(jnp.arange(6, dtype=float)[:, None], jax.random.key(0))
+        state = state._replace(
+            particles=state.particles._replace(
+                loglikelihood_birth=jnp.full(6, -jnp.inf)
+            )
+        )
+        state, info = jax.jit(algorithm.step)(jax.random.key(1), state)
+        chex.assert_trees_all_equal(
+            state.particles.loglikelihood_birth,
+            jnp.array([2.0, 2.0, 2.0, -jnp.inf, -jnp.inf, -jnp.inf]),
+        )
+        final = utils.finalise(state, [info], update_info=False)
+        chex.assert_trees_all_equal(
+            utils.compute_num_live(final),
+            jnp.array([6.0, 5.0, 4.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0]),
+        )
+
+
 def make_init_state_fn(logprior_fn, loglikelihood_fn):
     """Helper to create init_state_fn from logprior and loglikelihood functions."""
     return functools.partial(
@@ -392,6 +458,50 @@ class NestedSliceSamplingTest(chex.TestCase):
         # and a full SwiG sweep step runs end-to-end with the custom seams
         new_state, _ = jax.jit(algo.step)(self.key, state)
         chex.assert_shape(new_state.particles.position, (20, 2))
+
+    @parameterized.parameters(nss.as_top_level_api, nss.swig_as_top_level_api)
+    def test_update_strategy_seam(self, api):
+        """update_strategy reaches the engine on both top-level APIs, built once
+        with the caller's num_inner_steps / num_delete, and the updater it
+        returns is the one the kernel actually runs."""
+        calls = []
+        sentinel = 1234.0
+
+        def recording_strategy(step_fn, num_inner_steps, num_delete):
+            calls.append((num_inner_steps, num_delete))
+            inner_update_fn = from_mcmc.update_with_mcmc_take_last(
+                step_fn, num_inner_steps, num_delete
+            )
+
+            def update_fn(rng_key, state, loglikelihood_0, **step_parameters):
+                particles, update_info = inner_update_fn(
+                    rng_key, state, loglikelihood_0, **step_parameters
+                )
+                # tagging the info distinguishes "this updater ran" from
+                # "the factory was called and its result discarded"
+                return particles, {
+                    "sentinel": jnp.full((num_delete,), sentinel),
+                    "inner": update_info,
+                }
+
+            return update_fn
+
+        algo = api(
+            gaussian_logprior,
+            gaussian_loglikelihood,
+            num_inner_steps=4,
+            num_delete=2,
+            update_strategy=recording_strategy,
+        )
+        # the strategy is a build-time seam: consulted once, with what we passed
+        self.assertEqual(calls, [(4, 2)])
+        state = algo.init(jnp.zeros((20, 2)))
+        new_state, info = jax.jit(algo.step)(self.key, state)
+        chex.assert_shape(new_state.particles.position, (20, 2))
+        # the returned updater is installed, not merely constructed
+        chex.assert_trees_all_close(
+            info.update_info["sentinel"], jnp.full((2,), sentinel)
+        )
 
 
 class NestedSamplingStatisticalTest(chex.TestCase):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-preflight
-Version: 0.0.188
+Version: 0.0.189
 Summary: Catch deploy-time CloudFormation failures at synth time: a Rego rule pack for constraints that resource schemas miss, injected into the AWS CDK built-in validator
 Home-page: https://github.com/badmintoncryer/cdk-preflight.git
 Author: Kazuho CryerShinozuka<malaysia.cryer@gmail.com>

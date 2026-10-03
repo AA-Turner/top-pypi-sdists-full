@@ -72,6 +72,7 @@ async def _resolve_sub_checks(sub_checks):
             # (evaluation/_core.py gates on it) — dropping the key here turned
             # every json_path derivation into a whole-value compare at replay.
             "json_path": sc.get("json_path"),
+            **({"rfc_json_path": sc["rfc_json_path"]} if sc.get("rfc_json_path") else {}),
         })
     return result
 
